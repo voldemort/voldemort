@@ -394,6 +394,7 @@ public class RebalanceController {
                                                  rebalancePartitionPlanList,
                                                  false,
                                                  true,
+                                                 true,
                                                  true);
             } else if(hasReadOnlyStores && !finishedReadOnlyStores) {
                 // Case 1 / 3 - rebalance state change
@@ -403,6 +404,7 @@ public class RebalanceController {
                                                  rebalancePartitionPlanList,
                                                  false,
                                                  false,
+                                                 true,
                                                  true);
             } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 2 - swap + cluster change
@@ -414,7 +416,8 @@ public class RebalanceController {
                                                  rebalancePartitionPlanList,
                                                  true,
                                                  true,
-                                                 false);
+                                                 false,
+                                                 true);
             } else {
                 // Case 0 - swap + cluster change + rebalance state change
                 RebalanceUtils.printLog(globalStealerNodeId,
@@ -423,6 +426,7 @@ public class RebalanceController {
                 adminClient.rebalanceStateChange(currentCluster,
                                                  transitionCluster,
                                                  rebalancePartitionPlanList,
+                                                 true,
                                                  true,
                                                  true,
                                                  true);
@@ -448,14 +452,14 @@ public class RebalanceController {
      * 
      * <pre>
      * | Case | hasRO | hasRW | finishedRO | Action |
-     * | 0 | t | t | t | rollback cluster change + swap + rebalance state change |
-     * | 1 | t | t | f | rollback rebalance state change |
+     * | 0 | t | t | t | rollback cluster change + swap |
+     * | 1 | t | t | f | nothing to do since "rebalance state change" should have removed everything |
      * | 2 | t | f | t | won't be triggered since hasRW is false |
-     * | 3 | t | f | f | rollback rebalance state change |
-     * | 4 | f | t | t | rollback cluster change + rebalance state change |
+     * | 3 | t | f | f | nothing to do since "rebalance state change" should have removed everything |
+     * | 4 | f | t | t | rollback cluster change |
      * | 5 | f | t | f | won't be triggered |
-     * | 6 | f | f | t | not possible | 
-     * | 7 | f | f | f | not possible |
+     * | 6 | f | f | t | won't be triggered | 
+     * | 7 | f | f | f | won't be triggered |
      * </pre>
      * 
      * @param globalStealerNodeId The stealer node id in picture
@@ -511,32 +515,24 @@ public class RebalanceController {
             logger.error("Failure while migrating partitions for stealer node "
                          + globalStealerNodeId);
 
-            // Rollback state for all successful tasks
-            for(RebalanceTask task: successfulTasks) {
-                try {
-                    adminClient.individualStateChange(task.getRebalancePartitionsInfo()
-                                                          .getStealerId(),
-                                                      currentCluster,
-                                                      Lists.newArrayList(task.getRebalancePartitionsInfo()),
-                                                      hasReadWriteStores && hasReadOnlyStores
-                                                              && finishedReadOnlyStores,
-                                                      hasReadWriteStores && finishedReadOnlyStores,
-                                                      (hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores)
-                                                              || (hasReadOnlyStores
-                                                                  && hasReadWriteStores && !finishedReadOnlyStores)
-                                                              || (hasReadOnlyStores
-                                                                  && !hasReadWriteStores && !finishedReadOnlyStores)
-                                                              || (!hasReadOnlyStores
-                                                                  && hasReadWriteStores && finishedReadOnlyStores),
-                                                      true,
-                                                      true);
-                } catch(Exception exception) {
-                    RebalanceUtils.printErrorLog(globalStealerNodeId,
-                                                 logger,
-                                                 "Problem while reverting back successful tasks "
-                                                         + task.getRebalancePartitionsInfo(),
-                                                 exception);
-                }
+            if(hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
+                // Case 0
+                adminClient.rebalanceStateChange(null,
+                                                 currentCluster,
+                                                 null,
+                                                 true,
+                                                 true,
+                                                 false,
+                                                 false);
+            } else if(hasReadWriteStores && finishedReadOnlyStores) {
+                // Case 4
+                adminClient.rebalanceStateChange(null,
+                                                 currentCluster,
+                                                 null,
+                                                 false,
+                                                 true,
+                                                 false,
+                                                 false);
             }
 
             throw e;

@@ -806,7 +806,13 @@ public class AdminRebalanceTest extends TestCase {
                                                                           .build()));
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, false);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 true,
+                                                 true,
+                                                 false,
+                                                 true);
                 fail("Should have thrown an exception since one node doesn't have the store");
             } catch(VoldemortException e) {}
 
@@ -818,7 +824,7 @@ public class AdminRebalanceTest extends TestCase {
             checkRO(cluster);
 
             // Test 2) All passes scenario
-            adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, false);
+            adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, false, true);
 
             checkRO(targetCluster);
 
@@ -904,7 +910,13 @@ public class AdminRebalanceTest extends TestCase {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 true,
+                                                 true,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -945,7 +957,13 @@ public class AdminRebalanceTest extends TestCase {
                                                                           .build()));
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 true,
+                                                 true,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -969,7 +987,7 @@ public class AdminRebalanceTest extends TestCase {
                                                                  storeDef4));
 
             // Test 3) Everything should work
-            adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, true);
+            adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, true, true);
 
             List<Integer> nodesChecked = Lists.newArrayList();
             for(RebalancePartitionsInfo plan: plans) {
@@ -1034,7 +1052,13 @@ public class AdminRebalanceTest extends TestCase {
             startFourNodeRW();
 
             // Test 1) Normal case where-in all are up
-            adminClient.rebalanceStateChange(cluster, targetCluster, plans, false, false, true);
+            adminClient.rebalanceStateChange(cluster,
+                                             targetCluster,
+                                             plans,
+                                             false,
+                                             false,
+                                             true,
+                                             true);
 
             List<Integer> nodesChecked = Lists.newArrayList();
             for(RebalancePartitionsInfo plan: plans) {
@@ -1068,7 +1092,13 @@ public class AdminRebalanceTest extends TestCase {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, false, false, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 false,
+                                                 false,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1089,7 +1119,13 @@ public class AdminRebalanceTest extends TestCase {
             servers[3] = null;
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, false, false, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 false,
+                                                 false,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1150,7 +1186,13 @@ public class AdminRebalanceTest extends TestCase {
                                                           0));
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, false, true, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 false,
+                                                 true,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 
@@ -1172,7 +1214,13 @@ public class AdminRebalanceTest extends TestCase {
             servers[3] = null;
 
             try {
-                adminClient.rebalanceStateChange(cluster, targetCluster, plans, false, true, true);
+                adminClient.rebalanceStateChange(cluster,
+                                                 targetCluster,
+                                                 plans,
+                                                 false,
+                                                 true,
+                                                 true,
+                                                 true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
 

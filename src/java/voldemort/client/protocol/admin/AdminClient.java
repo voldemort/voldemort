@@ -1958,7 +1958,8 @@ public class AdminClient {
                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                      boolean swapRO,
                                      boolean changeClusterMetadata,
-                                     boolean changeRebalanceState) {
+                                     boolean changeRebalanceState,
+                                     boolean rollback) {
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
         Set<Integer> completedNodeIds = Sets.newHashSet();
 
@@ -1972,34 +1973,35 @@ public class AdminClient {
                                       swapRO,
                                       changeClusterMetadata,
                                       changeRebalanceState,
-                                      stealerNodeToPlan.containsKey(nodeId),
                                       false);
                 completedNodeIds.add(nodeId);
                 nodeId++;
+
             }
         } catch(Exception e) {
 
-            // Fail early
-            logger.error("Got exceptions from node " + nodeId
-                         + " while changing state. Rolling back state on " + completedNodeIds, e);
+            if(rollback) {
+                logger.error("Got exceptions from node " + nodeId
+                             + " while changing state. Rolling back state on " + completedNodeIds);
 
-            // Rollback changes on completed nodes
-            for(int completedNodeId: completedNodeIds) {
-                try {
-                    individualStateChange(completedNodeId,
-                                          existingCluster,
-                                          stealerNodeToPlan.get(completedNodeId),
-                                          swapRO,
-                                          changeClusterMetadata,
-                                          changeRebalanceState,
-                                          stealerNodeToPlan.containsKey(completedNodeId),
-                                          true);
-                } catch(Exception exception) {
-                    logger.error("Error while reverting back state change for completed node "
-                                 + completedNodeIds, exception);
+                // Rollback changes on completed nodes
+                for(int completedNodeId: completedNodeIds) {
+                    try {
+                        individualStateChange(completedNodeId,
+                                              existingCluster,
+                                              stealerNodeToPlan.get(completedNodeId),
+                                              swapRO,
+                                              changeClusterMetadata,
+                                              changeRebalanceState,
+                                              true);
+                    } catch(Exception exception) {
+                        logger.error("Error while reverting back state change for completed node "
+                                     + completedNodeIds, exception);
+                    }
                 }
+            } else {
+                logger.error("Got exceptions from node " + nodeId + " while changing state");
             }
-
             throw new VoldemortRebalancingException("Got exceptions from node " + nodeId
                                                             + " while changing state",
                                                     Lists.newArrayList(e));
@@ -2019,7 +2021,6 @@ public class AdminClient {
      *        cluster metadata
      * @param changeRebalanceState Boolean indicating if we need to change
      *        rebalancing state
-     * @param isStealerNode Is this node a stealer node?
      * @param rollback Are we doing a rollback or a normal state?
      */
     public void individualStateChange(int nodeId,
@@ -2028,12 +2029,11 @@ public class AdminClient {
                                       boolean swapRO,
                                       boolean changeClusterMetadata,
                                       boolean changeRebalanceState,
-                                      boolean isStealerNode,
                                       boolean rollback) {
 
         // If we do not want to change the metadata and are not one of the
         // stealer nodes, nothing to do
-        if(!changeClusterMetadata && !isStealerNode) {
+        if(!changeClusterMetadata && rebalancePartitionPlanList == null) {
             return;
         }
 
@@ -2085,13 +2085,15 @@ public class AdminClient {
      */
     private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
-        for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
-            List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
-            if(partitionInfos == null) {
-                partitionInfos = Lists.newArrayList();
-                stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
+        if(rebalancePartitionPlanList != null) {
+            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
+                if(partitionInfos == null) {
+                    partitionInfos = Lists.newArrayList();
+                    stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
+                }
+                partitionInfos.add(partitionInfo);
             }
-            partitionInfos.add(partitionInfo);
         }
         return stealerNodeToPlan;
     }

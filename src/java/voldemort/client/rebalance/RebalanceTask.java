@@ -96,7 +96,7 @@ class RebalanceTask implements Runnable {
                                           TimeUnit.SECONDS);
             RebalanceUtils.printLog(stealInfo.getStealerId(),
                                     logger,
-                                    "Succesfully finished rebalance for async operation id: "
+                                    "Succesfully finished rebalance for async operation id "
                                             + rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
