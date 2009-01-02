@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="cluster">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name" type="xs:string" />
+        <xs:element name="server" type="server" maxOccurs="unbounded" />
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="node-id-key">
+      <xs:selector xpath="partition/server" />
+      <xs:field xpath="id" />
+    </xs:key>
+  </xs:element>
+
+  <!--  A server definition -->
+  <xs:complexType name="server">
+    <xs:sequence>
+      <xs:element name="id" type="xs:nonNegativeInteger" />
+      <xs:element name="host" type="xs:string" />
+      <xs:element name="http-port" type="xs:nonNegativeInteger" />
+      <xs:element name="socket-port" type="xs:nonNegativeInteger" />
+      <xs:element name="partitions" type="xs:string" />
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

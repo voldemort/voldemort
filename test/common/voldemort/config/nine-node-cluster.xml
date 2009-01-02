@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<cluster>
+  <name>mycluster</name>
+  <server>
+    <id>0</id>
+    <host>localhost</host>
+    <http-port>8080</http-port>
+    <socket-port>6666</socket-port>
+    <partitions>16, 3, 21</partitions>
+  </server>
+  <server>
+    <id>1</id>
+    <host>localhost</host>
+    <http-port>8081</http-port>
+    <socket-port>6667</socket-port>
+    <partitions>23, 18, 13</partitions>
+  </server>
+  <server>
+    <id>2</id>
+    <host>localhost</host>
+    <http-port>8082</http-port>
+    <socket-port>6668</socket-port>
+    <partitions>22, 16, 12</partitions>
+  </server>
+  <server>
+    <id>3</id>
+    <host>localhost</host>
+    <http-port>8083</http-port>
+    <socket-port>6669</socket-port>
+    <partitions>2, 17, 24</partitions>
+  </server>
+  <server>
+    <id>4</id>
+    <host>localhost</host>
+    <http-port>8084</http-port>
+    <socket-port>6670</socket-port>
+    <partitions>11, 25, 10</partitions>
+  </server>
+  <server>
+    <id>5</id>
+    <host>localhost</host>
+    <http-port>8085</http-port>
+    <socket-port>6671</socket-port>
+    <partitions>
+      4, 19, 5
+    </partitions>
+  </server>
+  <server>
+    <id>6</id>
+    <host>localhost</host>
+    <http-port>8086</http-port>
+    <socket-port>6672</socket-port>
+    <partitions>20, 0, 14</partitions>
+  </server>
+  <server>
+    <id>7</id>
+    <host>localhost</host>
+    <http-port>8087</http-port>
+    <socket-port>6673</socket-port>
+    <partitions>1, 9, 6</partitions>
+  </server>
+  <server>
+    <id>8</id>
+    <host>localhost</host>
+    <http-port>8088</http-port>
+    <socket-port>6674</socket-port>
+    <partitions>8, 7, 15</partitions>
+  </server>
+</cluster>

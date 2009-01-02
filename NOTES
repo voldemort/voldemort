@@ -1,0 +1,56 @@
+Getting Started
+
+## checkout and build
+jkreps@jkreps-md:/tmp > svn co svn+ssh://cm01.corp/lirepo/voldemort/trunk voldemort
+jkreps@jkreps-md:/tmp > cd voldemort
+jkreps@jkreps-md:/tmp/voldemort > ant
+
+## start single node cluster and connect to table named ÒtestÓ
+jkreps@jkreps-md:/tmp/voldemort > ./bin/voldemort-server.sh config/single_node_cluster &
+jkreps@jkreps-md:/tmp/voldemort> ./bin/voldemort-shell.sh test tcp://localhost:6666
+
+## run some random commands to put and get strings
+> help
+Commands:
+put key value -- Associate the given value with the key.
+get key -- Retrieve the value associated with the key.
+delete key -- Remove all values associated with the key.
+locate key -- Determine which servers host the give key.
+help -- Print this message.
+exit -- Exit from this shell.
+> put "hello" "there"
+> get "hello"
+version(0:1): "there"
+> locate "hello"
+Node 0
+host:  localhost
+port: 6666
+available: yes
+last checked: 4614 ms ago
+
+Example usage in example/java/voldemort/example/VoldemortExample.java.
+Example configurations in config/
+
+
+Code layout
+
+annotations - Helper annotations
+client - Code specific to the client
+cluster - domain model for a voldemort cluster
+routing - Code specific to routing requests
+serialization - Code for turning bytes into objects and vice versa
+server - Code for handling client requests
+store - All the store implementations used by both client and server
+utils - Helpers!
+versioning - Vector clock stuff
+xml - Code for serializing the configuration data...should probably be move to serialization
+
+
+Background Resources
+
+- Amazon Dynamo Paper -- http://s3.amazonaws.com/AllThingsDistributed/sosp/amazon-dynamo-sosp2007.pdf
+- http://www.allthingsdistributed.com/2007/12/eventually_consistent.html
+- OpenDHT and Bamboo papers
+- BDB Performance: http://www.oracle.com/technology/products/berkeley-db/pdf/berkeley-db-perf.pdf
+- Origin of vector clocks: http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf
+- Brewer's conjecture: http://citeseer.ist.psu.edu/544596.html

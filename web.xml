@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+  <listener>
+    <listener-class>voldemort.server.http.VoldemortServletContextListener</listener-class>
+  </listener>
+
+  <servlet>
+    <servlet-name>store-servlet</servlet-name>
+    <servlet-class>voldemort.server.http.StoreServlet</servlet-class>
+  </servlet>
+  
+  <servlet>
+    <servlet-name>admin-servlet</servlet-name>
+    <servlet-class>voldemort.server.http.gui.AdminServlet</servlet-class>
+  </servlet>
+  
+  <servlet>
+    <servlet-name>query-servlet</servlet-name>
+    <servlet-class>voldemort.server.http.gui.QueryServlet</servlet-class>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>admin-servlet</servlet-name>
+    <url-pattern>/admin</url-pattern>
+  </servlet-mapping>
+  
+  <servlet-mapping>
+    <servlet-name>query-servlet</servlet-name>
+    <url-pattern>/query</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>store-servlet</servlet-name>
+    <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+
+</web-app>

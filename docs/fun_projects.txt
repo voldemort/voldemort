@@ -1,0 +1,19 @@
+Here are a few technically interesting projects that are stand-alone enough 
+that someone can do them without having to learn the rest of the code
+
+1. Merkle tree log
+We want to be able to quickly compare the contents of two key-value stores so we can replicate values when (1) a new server comes online or (2) a server is down
+for an extended period of time or (3) we batch compute values offline. A merkle tree is an n-way tree of values where the 
+value stored at the leaf is the checksum of a value in the datastore, and parent nodes contain the checksum of all checksums.
+This makes it possible to determine that two stores are identical (and computing the differing keys) in only a logarithmic number of comparisons.
+
+2. Future-based client
+Create a storeclient or store implementation that returns Versioned<?> objects that behave as a java.util.concurrent.Future.  That is, the methods return immediately
+but the returned Versioned<?> may block when getObject() or getVersion() is called until the computation is complete.  This makes it
+easy to do many parallel fetches without the client needing to do any of the threadpooling.  Can this be done using the existing threadpool?
+
+3. Non-blocking server & RoutingStore
+Investigate the possibility of using java.nio for the SocketServer to potentially reduce the number of threads needed.  This probably requires doing both
+the router and the server at the same time.  Probably a threadsafe state machine needs to be created for each request and incremented as responses come back
+in. This probably won't make the network operations faster but will reduce the overhead of the threading involved in routing and bound the number of threads needed. 
+Apache Mina may be helpful in doing this.

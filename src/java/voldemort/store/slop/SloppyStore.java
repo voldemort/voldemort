@@ -1,0 +1,134 @@
+package voldemort.store.slop;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+
+import voldemort.VoldemortException;
+import voldemort.store.DelegatingStore;
+import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.Store;
+import voldemort.store.StoreUtils;
+import voldemort.store.UnreachableStoreException;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
+
+/**
+ * A Sloppy store is a store wrapper that delegates to an inner store, and if
+ * that store fails, instead stores some slop in the first of a list of backup
+ * stores. This is a simple consistency mechanism that ensures a transient
+ * failure can be recovered from.
+ * 
+ * This is intended to live on the client side and redeliver messages when a
+ * given server fails.
+ * 
+ * This makes for a somewhat awkward situation when a failure occurs, though:
+ * Either we return successfully, in which case the user may believe their data
+ * is available when it is not OR we throw an exception, in which case the user
+ * may think the update will not occur though eventually it will.
+ * 
+ * Our choice is to throw a special exception that the user can choose to ignore
+ * if they like In the common case, this Store will be used as one of many
+ * routed stores, so a single failure will not propagate to the user.
+ * 
+ * @see voldemort.server.scheduler.SlopPusherJob
+ * 
+ * @author jay
+ * 
+ */
+public class SloppyStore extends DelegatingStore<byte[], byte[]> {
+
+    private final int node;
+    private final List<Store<byte[], Slop>> backupStores;
+
+    /**
+     * Create a store which delegates its operations to it inner store and
+     * records write failures in the first available backup store.
+     * 
+     * @param node The id of the destination node
+     * @param innerStore The store which we delegate write operations to
+     * @param backupStores A collection of stores which will be used to record
+     *        failures, the iterator determines preference.
+     */
+    public SloppyStore(int node,
+                       Store<byte[], byte[]> innerStore,
+                       Collection<? extends Store<byte[], Slop>> backupStores) {
+        super(innerStore);
+        this.node = node;
+        this.backupStores = new ArrayList<Store<byte[], Slop>>(backupStores);
+    }
+
+    /**
+     * Attempt to delete from the inner store, if this fails store the operation
+     * in the first available SlopStore for eventual consistency.
+     */
+    @Override
+    public boolean delete(byte[] key, Version version) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        try {
+            return getInnerStore().delete(key, version);
+        } catch (UnreachableStoreException e) {
+            List<Exception> failures = new ArrayList<Exception>();
+            failures.add(e);
+            Slop slop = new Slop(getName(), Slop.Operation.DELETE, key, null, node, new Date());
+            for (Store<byte[], Slop> slopStore : backupStores) {
+                try {
+                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version));
+                    return false;
+                } catch (UnreachableStoreException u) {
+                    failures.add(u);
+                }
+            }
+            // if we get here that means all backup stores have failed
+            throw new InsufficientOperationalNodesException("All slop servers are unavailable from node "
+                                                                    + node + ".",
+                                                            failures);
+        }
+    }
+
+    /**
+     * Attempt to put to the inner store, if this fails store the operation in
+     * the first available SlopStore for eventual consistency.
+     */
+    @Override
+    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        try {
+            getInnerStore().put(key, value);
+        } catch (UnreachableStoreException e) {
+            List<Exception> failures = new ArrayList<Exception>();
+            failures.add(e);
+            boolean persisted = false;
+            Slop slop = new Slop(getName(),
+                                 Slop.Operation.PUT,
+                                 key,
+                                 value.getValue(),
+                                 node,
+                                 new Date());
+            for (Store<byte[], Slop> slopStore : backupStores) {
+                try {
+                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()));
+                    persisted = true;
+                    break;
+                } catch (UnreachableStoreException u) {
+                    failures.add(u);
+                }
+            }
+            if (persisted)
+                throw new UnreachableStoreException("Put operation failed on node "
+                                                            + node
+                                                            + ", but has been persisted to slop storage for eventual replication.",
+                                                    e);
+            else
+                throw new InsufficientOperationalNodesException("All slop servers are unavailable from node "
+                                                                        + node + ".",
+                                                                failures);
+        }
+    }
+
+    public List<Store<byte[], Slop>> getBackupStores() {
+        return new ArrayList<Store<byte[], Slop>>(backupStores);
+    }
+
+}

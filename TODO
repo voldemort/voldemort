@@ -1,0 +1,143 @@
+TODO HIGH
+-- push readonly data to voldemort
+-- mr task to build stores
+-- mechanism to swap table on the fly (HTTP in war, method in vold. server)
+-- initial implementation is in the read-only store using read/write lock
+-- rebalancing JMX control
+
+MEDIUM
+-- reenable slop
+-- Protocolbuffers serialization
+-- Add setters to StoreClientFactories to allow propery-based configuration
+-- Expand socketpool test
+-- Slop detecting store test
+-- Add to remote store comparison (bdb, in memory, routed w/wo read repair)
+-- Add reading from piped input to client shell
+-- support non-null values: make SimpleType a class and add isNullable() for string add encoding
+-- use variable number of bytes for sizes to efficiently support small lists/bytes/strings (e.g. n-1 1 bits, then 7*n bits of number)
+-- Memory-mapped store
+-- RandomAccessFileStore vs. MmapFileStore benchmark
+
+TODO LOW
+-- Rewrite socket pool to not use commons-pool because it sucks 
+-- Support date type formatting
+-- Add type enforcement to jsonreader?
+-- support non-blocking writes (i.e. preferred-writes = 0)
+-- XML mappers should be subpackage of serialization and implement Serializer<Cluster>, Serializer<List<StoreDefinitions>>
+-- Add histograms to StatTrackingStore (http://www.ibm.com/developerworks/xml/library/x-svggrph/)
+-- Switch to JSP and dump velocity
+-- Convert iterators to use Google collections iterator
+-- There are three operation serialization mechanisms: Slop and two VoldemortOperations...this can probably be reduced
+-- Define HTTP protocol more formally
+-- Show running tasks
+-- Add disk usage to dashboards
+-- GUI
+  -- Show running services
+  -- Show running tasks
+
+Slop stores key, table, node
+
+Testing
+1. Does failover work
+2. Concurrency super-smack
+3. Socket timeouts, and routed store timeout
+4. Extended usage test.
+
+Unit testing area
+3. SocketServer - think through state diagram and make sure it is correct
+
+Not Doing
+xxx Varlength ints
+xxx Delete SimpleTypeDefinition
+xxx Move metadata into BDB (soon)
+xxx Lazy bootstrapping in store client (works correctly now)
+xxx Support load factors in partitions not nodes, add this into tagging logic somehow (probably they just get more tags.
+xxx Schema versioning should be called "schema id" to avoid confusion with value versioning
+xxx convert jetty to run off web.xml (http://jetty.mortbay.org/jetty5/tut/Server.html)
+xxx Validate vector clock usage
+xxx *Support for null vector clock to implement clobber semantics*
+xxx Remove obsolete version exception (no!)
+xxx Share threadpool between everyone (socket server, jetty if possible, mina, and client factory)
+xxx Why is metadata store duplicated in voldemortserver and storageservice
+
+Done
+xxx soft-reference "cache" storage type
+xxx Search result tracking test
+xxx Change tags to partitions in configuration
+xxx Routed store *must* timeout
+xxx Archival strategy
+xxx Re-think slop, replication
+xxx Add node liveness check back in
+xxx Adapt serialization layer to hadoop
+xxx Integration with network
+xxx change simple schema to be called JSON
+xxx Move threadpool configuration into storeclient to handle overload better
+xxx Move to li svn
+xxx Add schema for cluster and store xml, and validate against it
+xxx Move config off of VoldemortServer itself
+xxx Add package html for javadoc
+xxx Implement improved partitioning strategy
+xxx Remove partitions from xml
+xxx Delete mina
+xxx Add MockStoreClient
+xxx Incremental JSON parser for table builder
+xxx Remove stringtree dependency
+xxx Test routingstrategy
+xxx Client configured conflict resolution
+xxx Desired vs Required number for get/put/delete
+xxx Think through client node id situation
+xxx Support user defined serializers 
+xxx Prune on write
+xxx Get unit tests back in shape
+xxx Query tool - (add numeric coercion)
+xxx Show running services in gui
+xxx Add package html for javadoc
+xxx Type coercion in simple serializer
+xxx Query tool - needs to use the client -- we need to first serialize the json input
+xxx Schema versioning
+xxx JMX stats
+xxx JSON serialization
+xxx Add store-meta table attribute
+xxx Convert key to bytes
+xxx Clean up client instantiation
+xxx Move java code under java subdir
+xxx Add generated subdirectory for antlr output
+xxx Read repair
+xxx Get ant script building everything
+xxx Split build into voldemort-client.jar and voldemort-server.jar
+xxx Better performance investigation--why is http so slow?
+xxx Metadata persistence using seperate single-partition metadata cluster. N writes required.
+xxx Move storage initialization to seperate service
+xxx Store add/delete--update metadata, physically delete store
+xxx fix abstractservice to check if it is already started/stopped, throw correct exception
+xxx Fix up and test MinaTcpStore
+xxx Test of AsyncWeb vs. Mina vs. Jetty
+xxx Mark nodes as "down"
+xxx Handle version incrementing
+xxx Test with configuration file
+xxx Mark nodes as "down" -- where does this happen?
+xxx Simple integration test
+xxx Detect which instance in the cluster you are
+xxx Client should initialize its own server definition
+xxx Client shell for testing
+xxx Parse configuration for cluster and stores from xml files
+xxx Move server out of testharness
+xxx Unit test consistent hashing scheme
+xxx Simple replication test with a single two node partition
+xxx Handle allow_create properly--slaves must open for reading only and must re-open on election to master
+xxx Fix packaging
+xxx Load test with replication
+xxx Start using httpclient
+xxx Remove abstraction around BDB, we aren't going to support two storage engines anytime soon
+xxx add ant file
+xxx Unify Store and StoreClient interfaces, get rid of client sub dir
+xxx Get performance tests working again
+xxx extend BasicStoreTest for all tests
+xxx get client/server http test working
+xxx Local load test
+xxx Http test
+xxx JMX
+xxx Deploy as
+  xxx Standalone
+  xxx WAR
+  xxx Embedded

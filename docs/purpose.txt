@@ -1,0 +1,116 @@
+Why it is time for a new database
+
+Management of shared mutable state is the crux of scalability.  An application without shared state can be scaled trivially
+by buying a load balancer and more servers.
+
+[why we need to share state]
+
+Shared state is what makes the application interesting.  Modern web applications are getting more shared state--all
+the personalization and user data that is associated with web 2.0 is a whole lot of state.
+
+Relational databases are the gold standard of state management and have been for the last 30 years. The relational
+data model is one of the better contributions of computer science.  Relational databases are here to stay, but they are not 
+appropriate for every storage situation (we still have files and hashmaps, after all).  In particular relational databases,
+and in particular the current SQL products available, present problems for large scale software.
+
+But first lets review what is good about the relational model:
+1. It seperates data from look-up strategy, queries are declarative
+2. It is increadibly flexible--most desirable data operations can be expressed in relations
+
+The problems with current RDBMSes are the following:
+1. Building a website on a centralized database combines the two worst enemies, disk io and network io, for every
+server in the system, and centralizes them onto a single machine.  This is clearly not feasible.
+2. The relational model does not parallelize well, due to the difficulties of sharing state.  Most databases favor
+consistency over performance (2PC).  You can't have both.
+3. SQL sucks for application developement.  Most web apps are programs that construct little sql statement mini-programs
+by concatenating together strings.  This completely ungainly.  SQL is vender specific so you are tied to the vendors
+database.  This means development suffers emensely. Unit testing any piece of code that involves database access is quite
+problematic becuase the unit test will be slow and will depend on a server running on another maching which can't be 
+bootstraped as part of the test code.  This could easily be solved if vendors provided a light-weight drop in
+replacement that could be used for testing.  Approximately 10000 products attempt to work around this problem
+by automatically mapping your application to sql.  This has been called the vietnam of computer science (refering to the 
+American war, not the country...and of course computer scientists are not particularly interested in this problem as
+it is too pratical).  
+
+To begin to understand the problems with relational databases, let's first review some basic facts
+
+For context let's review some basic facts about a modern computer:
+                  roundtrip   throughput
+  Java HashMap
+  BDB Btree
+  MySQL local
+  MySQL remote
+  
+  1000 iterations of a trivial loop
+  allocating and initializing 1000 10 byte objects
+  1000 200 byte local http requests
+  1000 200 byte remote http requests (100 mbit ethernet)
+  
+1. Disk IO is stagnant
+2. Moore's law is going gangbusters for parallel applications (e.g. any application that has shared state)
+  
+So from this you can get some feel for the cost of various operations.  It is clear that the disk operations are
+our greatest enemy followed by the network.  We can iterate over XXX items of an array in the time required to
+look-up a single item via a log(n) b-tree index.  We can iterate over YYY items in the time required to complete 
+a mysql request.
+
+The relational model is great, when accessed programmatically, but it is best for little applications (of which ther are many).
+
+In a high scalbility scenario with a shared db, the advantages of the relational model disappear.  No longer do you have
+flexibility, what you have is a system in which most operations will bring the database to its knees along with
+everyone depending on it.  Think about the average table, of the set of possible queries, only a few can be issued without
+difficulty. With this being the case, the abstraction of the lookup structure becomes a major problem--it is impossible to
+tell by looking at code whether it will run quickly or bring down the system, that is totally dependent on data sizes and 
+indexing structure.
+
+There are two basic strategies for scaling up databases
+1. Partitioning and replication
+2. Caching
+
+Caching is the most popular because it is the simplest to implement.  Basically you replace all your fancy queries with
+simple puts and gets, and each operation goes first to the cache and then to the db.  The cache may not actually be much
+faster than the db, but it can be distributed whereas the db cannot.
+
+There are two basic caching strategies
+1. Local read/write with background repication
+2. Remote access
+
+In the first strategy we try to keep each object on each server.  We read and write to the local cache, and in the background
+the cache replicates our changes out to the other servers.  This is the ehcache strategy.
+
+The problem with this is that we must store the whole cache local which means either our entire dataset must fit in memory
+or we have to use the local disk.  Of course the local disk may well be slower than the network, so our cache may become slower
+then the database itself (though, importantly, it is distributed).  In addition each write now must be written to the db as well
+as every application server.
+
+How it works?
+
+Most storage systems look up your data in a table.  This is difficult in a distributed system because the lookup table is large and 
+always changing. Keeping this in sync and uncorrupted is a scalability problem--metadata updates are a big bottleneck.
+
+A simpler approach is much faster--use the key to calculate the location.  This means coming up with a function
+f(key)->(n1,n2,n3)
+where n1, n2, n3 are the nodes containing the data.
+
+In this model only the key and the cluster topology (which servers are where) are needed to locate and retrieve data.
+
+
+- Relational data model is excellent
+- SQL is a pain
+- relational very hard to distribute
+- SQL breaks testability (without great pain)
+- Don't care about POSIX filesystem type stuff
+
+Needs For A High-Scalability Distributed Storage System
+- Commodity hardware -- cheap hardware, commodity network, shared nothing
+- Incremental scalability to hundreds of nodes
+- High throughput
+- Low latency
+- No single point of failure
+- Easy enough for OPS team or software engineer to manage (No DBA)
+
+References
+- Google BigTable
+- Amazon Dynamo
+- One-size fits all
+

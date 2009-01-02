@@ -1,0 +1,77 @@
+<html>
+  <head>
+    <title>Voldemort Administration</title>
+    <style>
+    	h1 {font-weight: bold; 
+    		font-size: 30pt; 
+    		text-align: center}
+    	h2 {font-weight: bold; 
+    		font-size: 20pt; 
+    		text-align: center}
+    	body {background-color: darkred}
+    	.vTable {margin: auto}
+    	.content {background-color: white; 
+    			  border: 3px solid black; 
+    			  margin: 20px; 
+    			  margin-left: 100px; 
+    			  margin-right: 100px; 
+    			  padding: 10px;
+    			  min-height: 800px}
+    </style>
+  </head>
+  <body>
+  
+  	<div class="content">
+  	 	<h1>Voldemort Administration</h1>
+  	 	
+	  	<h2>Open Stores</h2>
+	    <table class="vTable">
+	      <tr>
+	        <th>Store Name</th>
+	        <th>Type</th>
+	      </tr>
+	    #foreach($store in $stores.values())
+	   	  <tr>
+	   	    <td>$store.getName()</td>
+	   	    <td>$store.getClass().getName()</td>
+	   	  </tr>
+	    #end
+		</table>
+		
+		<h2>${cluster.name} Nodes</h2>
+		<table class="vTable" >
+		  <tr>
+		    <th>ID</th>
+	        <th>Host</th>
+	        <th>HTTP Port</th>
+	        <th>Mina Port</th>
+	        <th>Available</th>
+	        <th>Last Check (ms)</th>
+	      </tr>
+	    #foreach($node in $cluster.nodes)
+	   	  <tr>
+	   	    <td>$node.id</td>
+	   	    <td>$node.host</td>
+	   	    <td>$node.httpPort</td>
+	   	    <td>$node.status.isAvailable()</td>
+	   	    <td>$node.status.msSinceLastCheck</td>
+	   	  </tr>
+	    #end
+		</table>
+		
+		<h2>Services</h2>
+        <table class="vTable">
+          <tr>
+            <th>Service Name</th>
+            <th>Started</th>
+          </tr>
+        #foreach($service in $services)
+          <tr>
+            <td>$service.name</td>
+            <td>$service.isStarted()</td>
+          </tr>
+        #end
+        </table>
+	</div>
+  </body>
+</html>
