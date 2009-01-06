@@ -131,6 +131,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
                         break;
                     case BOOLEAN:
                         writeBoolean(output, (Boolean) object);
+                        break;
                     default:
                         throw new SerializationException("Unknown type: " + type);
                 }
@@ -478,7 +479,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             if(object.size() != type.size())
                 throw new SerializationException("Invalid map for serialization, expected: " + type
                                                  + " but got " + object);
-            for(Map.Entry<String, Object> entry : type.entrySet()) {
+            for(Map.Entry<String, Object> entry: type.entrySet()) {
                 if(!object.containsKey(entry.getKey()))
                     throw new SerializationException("Missing property: " + entry.getKey() + " in "
                                                      + type);
@@ -491,7 +492,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
         if(stream.readByte() == -1)
             return null;
         Map<String, Object> m = new HashMap<String, Object>(type.size());
-        for(String property : type.keySet())
+        for(String property: type.keySet())
             m.put(property, read(stream, type.get(property)));
         return m;
     }
@@ -506,7 +507,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             output.writeShort(-1);
         } else if(objects.size() < Short.MAX_VALUE) {
             output.writeShort(objects.size());
-            for(Object o : objects)
+            for(Object o: objects)
                 write(output, o, entryType);
         } else {
             throw new SerializationException("List has length " + objects.size()
