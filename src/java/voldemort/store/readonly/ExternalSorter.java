@@ -67,11 +67,9 @@ public class ExternalSorter<V> {
      * Use natural ordering, system temp dir, and reasonable buffer size
      * 
      * @param serializer The serializer used to write data to disk
-     * @param internalSortSize The number of objects in the internal sort buffer
      * @param comparator The comparator used to order the objects
      * @param internalSortSize The number of objects to keep in the internal
      *        memory
-     * @param bufferSize The IO buffer size
      */
     public ExternalSorter(Serializer<V> serializer, Comparator<V> comparator, int internalSortSize) {
         this(serializer,
@@ -88,7 +86,6 @@ public class ExternalSorter<V> {
      * Use natural ordering, system temp dir, and reasonable buffer size
      * 
      * @param serializer The serializer used to write data to disk
-     * @param internalSortSize The number of objects in the internal sort buffer
      * @param comparator The comparator used to order the objects
      * @param internalSortSize The number of objects to keep in the internal
      *        memory

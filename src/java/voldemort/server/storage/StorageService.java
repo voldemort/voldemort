@@ -61,7 +61,7 @@ public class StorageService extends AbstractService {
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
 
     private final VoldemortConfig voldemortConfig;
-    private final ConcurrentMap<String, Store<byte[], byte[]>> storeMap;
+    private final ConcurrentMap<String, Store<byte[], byte[]>> localStoreMap;
     private final Map<String, StorageEngine<byte[], byte[]>> rawEngines;
     private final ConcurrentMap<StorageEngineType, StorageConfiguration> storageConfigurations;
     private final StoreDefinitionsMapper storeMapper;
@@ -76,7 +76,7 @@ public class StorageService extends AbstractService {
         super(name);
         this.voldemortConfig = config;
         this.storeMapper = new StoreDefinitionsMapper();
-        this.storeMap = storeMap;
+        this.localStoreMap = storeMap;
         this.rawEngines = new ConcurrentHashMap<String, StorageEngine<byte[], byte[]>>();
         this.scheduler = scheduler;
         this.storageConfigurations = initStorageConfigurations(config);
@@ -104,8 +104,8 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        this.storeMap.clear();
-        this.storeMap.put(MetadataStore.METADATA_STORE_NAME, metadataStore);
+        this.localStoreMap.clear();
+        this.localStoreMap.put(MetadataStore.METADATA_STORE_NAME, metadataStore);
         Store<byte[], byte[]> slopStorage = getStore("slop", voldemortConfig.getSlopStoreType());
         this.slopStore = new SerializingStore<byte[], Slop>(slopStorage,
                                                             new IdentitySerializer(),
@@ -134,7 +134,7 @@ public class StorageService extends AbstractService {
                     store = new LoggingStore<byte[], byte[]>(store);
                 if(voldemortConfig.isStatTrackingEnabled())
                     store = new StatTrackingStore<byte[], byte[]>(store);
-                this.storeMap.put(def.getName(), store);
+                this.localStoreMap.put(def.getName(), store);
             }
         }
         logger.info("All stores initialized.");
@@ -194,7 +194,7 @@ public class StorageService extends AbstractService {
         }
         VoldemortException exception = null;
         logger.info("Closing stores:");
-        for(Store<byte[], byte[]> s: this.storeMap.values()) {
+        for(Store<byte[], byte[]> s: this.localStoreMap.values()) {
             try {
                 logger.info("Closing " + s.getName() + ".");
                 s.close();
@@ -204,7 +204,7 @@ public class StorageService extends AbstractService {
                 exception = e;
             }
         }
-        this.storeMap.clear();
+        this.localStoreMap.clear();
 
         logger.info("Closing storage configurations:");
         for(StorageConfiguration config: storageConfigurations.values()) {
@@ -222,13 +222,13 @@ public class StorageService extends AbstractService {
         logger.info("All stores closed.");
     }
 
-    public ConcurrentMap<String, Store<byte[], byte[]>> getStoreMap() {
-        return storeMap;
+    public ConcurrentMap<String, Store<byte[], byte[]>> getLocalStoreMap() {
+        return localStoreMap;
     }
 
     @JmxGetter(name = "storeNames", description = "Get the names of all open stores.")
     public Set<String> getStoreNames() {
-        return new HashSet<String>(storeMap.keySet());
+        return new HashSet<String>(localStoreMap.keySet());
     }
 
     @JmxOperation(impact = MBeanOperationInfo.ACTION, description = "Push all keys that do not belong to this store out to the correct store.")
