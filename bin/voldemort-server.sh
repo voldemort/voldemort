@@ -18,4 +18,5 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
+echo classpath=$CLASSPATH
 java -Xmx2G -server -cp $CLASSPATH -Dcom.sun.management.jmxremote voldemort.server.VoldemortServer ${1}

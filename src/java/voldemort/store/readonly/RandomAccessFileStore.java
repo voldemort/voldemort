@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Collections;
 import java.util.List;
+import java.util.RandomAccess;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -76,11 +77,9 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     public void open() {
         fileModificationLock.writeLock().lock();
         try {
-            this.indexFileSize = getFileSize(indexFiles);
-            this.dataFileSize = getFileSize(dataFiles);
             this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
             this.dataFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
-            for(int i = 0; i < numFileHandles; i++) {
+            for(int i = 0 ; i < numFileHandles; i++) {
                 indexFiles.add(new RandomAccessFile(indexFile, "r"));
                 dataFiles.add(new RandomAccessFile(dataFile, "r"));
             }
@@ -89,6 +88,8 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         } finally {
             fileModificationLock.writeLock().unlock();
         }
+        this.indexFileSize = getFileSize(indexFiles);
+        this.dataFileSize = getFileSize(dataFiles);
     }
 
     public void swapFiles(String newIndexFile, String newDataFile) {
@@ -161,33 +162,37 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     }
 
     public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
-        RandomAccessFile index = null;
-        RandomAccessFile data = null;
-        try {
-            fileModificationLock.readLock().lock();
-            index = indexFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
-            long valueLocation = getValueLocation(index, key);
-            if(valueLocation < 0) {
-                return Collections.emptyList();
-            } else {
-                data = dataFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
-                data.seek(valueLocation);
-                int size = data.readInt();
-                byte[] value = new byte[size];
-                data.readFully(value);
-                return Collections.singletonList(new Versioned<byte[]>(value, new VectorClock()));
-            }
-        } catch(InterruptedException e) {
-            throw new VoldemortException("Thread was interrupted.", e);
-        } catch(IOException e) {
-            throw new PersistenceFailureException(e);
-        } finally {
-            fileModificationLock.readLock().unlock();
-            if(index != null)
-                indexFiles.add(index);
-            if(data != null)
-                dataFiles.add(data);
-        }
+      logger.info("Original key: size:" + key.length   + " val:" + ByteUtils.toHexString(key));
+      logger.info("MD5 val: size:" + ByteUtils.md5(key).length + " val:"  + ByteUtils.toHexString(ByteUtils.md5(key)));
+      
+      return Collections.EMPTY_LIST;
+//        RandomAccessFile index = null;
+//        RandomAccessFile data = null;
+//        try {
+//            fileModificationLock.readLock().lock();
+//            index = indexFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
+//            long valueLocation = getValueLocation(index, key);
+//            if(valueLocation < 0) {
+//                return Collections.emptyList();
+//            } else {
+//                data = dataFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
+//                data.seek(valueLocation);
+//                int size = data.readInt();
+//                byte[] value = new byte[size];
+//                data.readFully(value);
+//                return Collections.singletonList(new Versioned<byte[]>(value, new VectorClock()));
+//            }
+//        } catch(InterruptedException e) {
+//            throw new VoldemortException("Thread was interrupted.", e);
+//        } catch(IOException e) {
+//            throw new PersistenceFailureException(e);
+//        } finally {
+//            fileModificationLock.readLock().unlock();
+//            if(index != null)
+//                indexFiles.add(index);
+//            if(data != null)
+//                dataFiles.add(data);
+//        }
     }
 
     private long getValueLocation(RandomAccessFile index, byte[] key) throws IOException,
@@ -236,18 +241,27 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     }
 
     public void close() throws VoldemortException {
+      logger.info("Close called for read-only store.");
         this.fileModificationLock.writeLock().lock();
         try {
             while(this.indexFiles.size() > 0) {
+              logger.info("close file channel Index");
                 RandomAccessFile f = this.indexFiles.poll();
+                f.close();
+            }
+            
+            while(this.dataFiles.size() > 0) {
+              logger.info("close file channel Data");
+                RandomAccessFile f = this.dataFiles.poll();
                 f.close();
             }
         } catch(IOException e) {
             throw new VoldemortException("Error while closing store.", e);
         } finally {
+          logger.info("Trying to unlock lock");
             this.fileModificationLock.writeLock().unlock();
         }
-
+        logger.info("read-only store closed.");
     }
 
 }

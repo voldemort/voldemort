@@ -1,18 +1,83 @@
 <stores>
 	<store>
-		<name>test</name>
-		<persistence>cache</persistence>
-    <routing>client</routing>
-    <replication-factor>1</replication-factor>
+		<name>company</name>
+		<persistence>read-only</persistence>
+        <routing>client</routing>
+        <replication-factor>1</replication-factor>
 		<required-reads>1</required-reads>
         <required-writes>1</required-writes>
         <key-serializer>
             <type>json</type>
-            <schema-info>"string"</schema-info>
+            <schema-info>"int32"</schema-info>
         </key-serializer>
         <value-serializer>
             <type>json</type>
-            <schema-info>"string"</schema-info>
+            <schema-info>
+	            {
+				  "company_id":"int32",
+				  "universal_name": "string",
+				  "company_size": "string",
+				  "company_type": "string",
+				  "industry": "int32",
+				  "symbol": "string", 
+				  "company_url": "string", 
+				  "hq_country_code": "string", 
+				  "exchange_symbol": "string", 
+				  "exact_size": "int32", 
+				  "status_code": "string", 
+				  "founded_year": "int32", 
+				  "end_year": "int32", 
+				  "tags": "string", 
+				  "blog_url": "string", 
+				  "blog_rss_url":"string", 
+				  "hq_street1":"string", 
+				  "hq_street2":"string", 
+				  "hq_city":"string", 
+				  "hq_state":"string", 
+				  "hq_postal_code":"string", 
+				  "region_code_1":"int32", 
+				  "region_code_2":"int32", 
+				  "hq_phone1":"string", 
+				  "hq_phone2":"string", 
+				  "hq_fax":"string", 
+				  "changeset_id":"int32", 
+				  "active":"boolean", 
+				  "logo_media_id":"string", 
+				  "txn":"int64" 
+				}
+			</schema-info>
+        </value-serializer>
+	</store>
+		<store>
+		<name>members</name>
+		<persistence>read-only</persistence>
+        <routing>client</routing>
+        <replication-factor>1</replication-factor>
+		<required-reads>1</required-reads>
+        <required-writes>1</required-writes>
+        <key-serializer>
+            <type>json</type>
+            <schema-info>"int32"</schema-info>
+        </key-serializer>
+        <value-serializer>
+            <type>json</type>
+            <schema-info>
+	            {
+				  	"session_id": "int64",
+					"member_id": "int32",
+					"tracking_time": "int64",
+					"page_seq": "int32",
+					"page_key": "string",
+					"tracking_info": "string",
+					"bl_time": "int32",
+					"total_time": "int32",
+					"tracking_code": "string",
+					"error_key": "string",
+					"error_id": "int32",
+					"browser_id": "string",
+					"locale": "string" 
+				}
+			</schema-info>
         </value-serializer>
 	</store>
 </stores>

@@ -114,7 +114,7 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyFileHandles = props.getInt("readonly.file.handles", 5);
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
-                                                                             + "readonly");
+                                                                             + "read-only");
 
         this.slopStoreType = StorageEngineType.fromDisplay(props.getString("slop.store.engine",
                                                                            StorageEngineType.BDB.toDisplay()));
@@ -553,7 +553,7 @@ public class VoldemortConfig implements Serializable {
     public boolean isCacheEngineEnabled() {
         return enableCacheEngine;
     }
-
+    
     public void setEnableCacheEngine(boolean enableCacheEngine) {
         this.enableCacheEngine = enableCacheEngine;
     }

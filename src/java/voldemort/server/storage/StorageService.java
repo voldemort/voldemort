@@ -40,6 +40,7 @@ import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopDetectingStore;
@@ -95,7 +96,9 @@ public class StorageService extends AbstractService {
             configs.put(StorageEngineType.MEMORY, new InMemoryStorageConfiguration());
         if(config.isCacheEngineEnabled())
             configs.put(StorageEngineType.CACHE, new CacheStorageConfiguration());
-
+        if(config.isReadOnlyEngineEnabled()) 
+          configs.put(StorageEngineType.READONLY, new RandomAccessFileStorageConfiguration(config));
+        
         if(configs.size() == 0)
             throw new ConfigurationException("No storage engine has been enabled!");
 

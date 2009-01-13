@@ -54,7 +54,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
     private final URI[] bootstrapUrls;
-    private final boolean enableVerboseLogging = false;
+    private final boolean enableVerboseLogging = true;
 
     public AbstractStoreClientFactory(ExecutorService threadPool,
                                       SerializerFactory serializerFactory,
@@ -94,6 +94,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         // construct mapping
         Map<Integer, Store<byte[], byte[]>> clientMapping = Maps.newHashMap();
         for(Node node : cluster.getNodes()) {
+            logger.info ("Adding node :" + node.getId() + " Store:" + storeDef.getName() + " host:" + node.getHost() + " port:" + getPort(node));
             Store<byte[], byte[]> store = getStore(storeDef.getName(),
                                                    node.getHost(),
                                                    getPort(node));

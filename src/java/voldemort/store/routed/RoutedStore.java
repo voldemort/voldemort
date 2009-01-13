@@ -120,9 +120,9 @@ public class RoutedStore implements Store<byte[], byte[]> {
                        long nodeBannageMs,
                        Time time) {
         if(requiredReads < 1)
-            throw new IllegalArgumentException("Cannot have a requiredReads number greater less than 1.");
+            throw new IllegalArgumentException("Cannot have a requiredReads number less than 1.");
         if(requiredWrites < 1)
-            throw new IllegalArgumentException("Cannot have a requiredWrites number greater less than 1.");
+            throw new IllegalArgumentException("Cannot have a requiredWrites number less than 1.");
         if(preferredReads < requiredReads)
             throw new IllegalArgumentException("preferredReads must be greater or equal to requiredReads.");
         if(preferredWrites < requiredWrites)
@@ -237,6 +237,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
     public List<Versioned<byte[]>> get(final byte[] key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = routingStrategy.routeRequest(key);
+        System.out.println("Get called: key:" + key);
 
         // quickly fail if there aren't enough nodes to meet the requirement
         if(nodes.size() < this.requiredReads)
@@ -258,11 +259,17 @@ public class RoutedStore implements Store<byte[], byte[]> {
         int nodeIndex = 0;
         for(; nodeIndex < this.preferredReads; nodeIndex++) {
             final Node node = nodes.get(nodeIndex);
+            System.out.println("Querying node:" + node.getId() + " key:" + key);
             if(isAvailable(node)) {
+              System.out.println("Available node:" + node.getId() + " key:" + key);
                 this.executor.execute(new Runnable() {
 
                     public void run() {
                         try {
+                           for (Store store: innerStores.values())
+                           {
+                            logger.info("storeID: " + store.getName() + " Class:" + store.getClass().toString());
+                           }
                             List<Versioned<byte[]>> fetched = innerStores.get(node.getId())
                                                                          .get(key);
                             retrieved.addAll(fetched);
