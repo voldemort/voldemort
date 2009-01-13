@@ -25,27 +25,27 @@ public class SerializerDefinition {
         this.schemaInfoByVersion = new HashMap<Integer, String>();
     }
 
-    public SerializerDefinition(String name, String metaInfo) {
+    public SerializerDefinition(String name, String schemaInfo) {
         super();
         this.name = Objects.nonNull(name);
         this.currentSchemaVersion = 0;
         this.schemaInfoByVersion = new HashMap<Integer, String>();
-        this.schemaInfoByVersion.put(0, metaInfo);
+        this.schemaInfoByVersion.put(0, schemaInfo);
     }
 
-    public SerializerDefinition(String name, Map<Integer, String> metaInfos) {
+    public SerializerDefinition(String name, Map<Integer, String> schemaInfos) {
         super();
         this.name = Objects.nonNull(name);
         this.schemaInfoByVersion = new HashMap<Integer, String>();
         int max = -1;
-        for (Integer key : metaInfos.keySet()) {
-            if (key < 0)
+        for(Integer key: schemaInfos.keySet()) {
+            if(key < 0)
                 throw new IllegalArgumentException("Version cannot be less than 0.");
-            else if (key > Byte.MAX_VALUE)
+            else if(key > Byte.MAX_VALUE)
                 throw new IllegalArgumentException("Version cannot be more than " + Byte.MAX_VALUE);
-            if (key > max)
+            if(key > max)
                 max = key;
-            this.schemaInfoByVersion.put(key, metaInfos.get(key));
+            this.schemaInfoByVersion.put(key, schemaInfos.get(key));
         }
         this.currentSchemaVersion = max;
     }
@@ -55,7 +55,7 @@ public class SerializerDefinition {
     }
 
     public int getCurrentSchemaVersion() {
-        if (currentSchemaVersion < 0)
+        if(currentSchemaVersion < 0)
             throw new IllegalStateException("There is no schema info associated with this serializer definition.");
         return currentSchemaVersion;
     }
@@ -69,24 +69,24 @@ public class SerializerDefinition {
     }
 
     public String getSchemaInfo(int version) {
-        if (!schemaInfoByVersion.containsKey(version))
+        if(!schemaInfoByVersion.containsKey(version))
             throw new IllegalArgumentException("Unknown schema version " + version + ".");
         return schemaInfoByVersion.get(version);
     }
 
     public String getCurrentSchemaInfo() {
-        if (currentSchemaVersion < 0)
+        if(currentSchemaVersion < 0)
             throw new IllegalStateException("There is no schema info associated with this serializer definition.");
         return schemaInfoByVersion.get(this.currentSchemaVersion);
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == this)
+        if(obj == this)
             return true;
-        if (obj == null)
+        if(obj == null)
             return false;
-        if (!(obj.getClass() == SerializerDefinition.class))
+        if(!(obj.getClass() == SerializerDefinition.class))
             return false;
         SerializerDefinition s = (SerializerDefinition) obj;
         return Objects.equal(getName(), s.getName())

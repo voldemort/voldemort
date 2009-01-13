@@ -35,18 +35,18 @@ public class VoldemortClientShell {
     private static final Logger logger = Logger.getLogger(VoldemortClientShell.class.getName());
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 2 || args.length > 3)
+        if(args.length < 2 || args.length > 3)
             Utils.croak("USAGE: java VoldemortClientShell store_name bootstrap_url [command_file]");
 
         String storeName = args[0];
         String bootstrapUrl = args[1];
         BufferedReader reader = null;
         try {
-            if (args.length == 3)
+            if(args.length == 3)
                 reader = new BufferedReader(new FileReader(args[2]));
             else
                 reader = new BufferedReader(new InputStreamReader(System.in));
-        } catch (IOException e) {
+        } catch(IOException e) {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
 
@@ -60,32 +60,31 @@ public class VoldemortClientShell {
         DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
-        } catch (Exception e) {
+        } catch(Exception e) {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }
 
         System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
         System.out.print(PROMPT);
-        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-            if (line.trim().equals(""))
+        for(String line = reader.readLine(); line != null; line = reader.readLine()) {
+            if(line.trim().equals(""))
                 continue;
             try {
-                if (line.toLowerCase().startsWith("put")) {
+                if(line.toLowerCase().startsWith("put")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
                     client.put(tightenNumericTypes(jsonReader.read()),
                                tightenNumericTypes(jsonReader.read()));
-                } else if (line.toLowerCase().startsWith("get")) {
-                    logger.info ("get called:");
+                } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
                     printVersioned(client.get(tightenNumericTypes(jsonReader.read())));
-                } else if (line.toLowerCase().startsWith("delete")) {
+                } else if(line.toLowerCase().startsWith("delete")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
                     client.delete(tightenNumericTypes(jsonReader.read()));
-                } else if (line.startsWith("locate")) {
+                } else if(line.startsWith("locate")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("locate".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
                     printNodeList(client.getResponsibleNodes(key));
-                } else if (line.startsWith("help")) {
+                } else if(line.startsWith("help")) {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");
                     System.out.println("get key -- Retrieve the value associated with the key.");
@@ -94,21 +93,21 @@ public class VoldemortClientShell {
                     System.out.println("help -- Print this message.");
                     System.out.println("exit -- Exit from this shell.");
                     System.out.println();
-                } else if (line.startsWith("quit") || line.startsWith("exit")) {
+                } else if(line.startsWith("quit") || line.startsWith("exit")) {
                     System.out.println("k k thx bye.");
                     System.exit(0);
                 } else {
                     System.err.println("Invalid command.");
                 }
-            } catch (SerializationException e) {
+            } catch(SerializationException e) {
                 System.err.print("Error serializing values: ");
                 System.err.println(e.getMessage());
-            } catch (VoldemortException e) {
+            } catch(VoldemortException e) {
                 System.err.println("Exception thrown during operation.");
                 e.printStackTrace(System.err);
-            } catch (ArrayIndexOutOfBoundsException e) {
+            } catch(ArrayIndexOutOfBoundsException e) {
                 System.err.println("Invalid command.");
-            } catch (Exception e) {
+            } catch(Exception e) {
                 System.err.println("Unexpected error:");
                 e.printStackTrace(System.err);
             }
@@ -117,8 +116,8 @@ public class VoldemortClientShell {
     }
 
     private static void printNodeList(List<Node> nodes) {
-        if (nodes.size() > 0) {
-            for (int i = 0; i < nodes.size(); i++) {
+        if(nodes.size() > 0) {
+            for(int i = 0; i < nodes.size(); i++) {
                 Node node = nodes.get(i);
                 System.out.println("Node " + node.getId());
                 System.out.println("host:  " + node.getHost());
@@ -132,7 +131,7 @@ public class VoldemortClientShell {
     }
 
     private static void printVersioned(Versioned<Object> v) {
-        if (v == null) {
+        if(v == null) {
             System.out.println("null");
         } else {
             System.out.print(v.getVersion());
@@ -144,27 +143,27 @@ public class VoldemortClientShell {
 
     @SuppressWarnings("unchecked")
     private static void printObject(Object o) {
-        if (o == null) {
+        if(o == null) {
             System.out.print("null");
-        } else if (o instanceof String) {
+        } else if(o instanceof String) {
             System.out.print('"');
             System.out.print(o);
             System.out.print('"');
-        } else if (o instanceof Date) {
+        } else if(o instanceof Date) {
             DateFormat df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
             System.out.print("'");
             System.out.print(df.format((Date) o));
             System.out.print("'");
-        } else if (o instanceof List) {
+        } else if(o instanceof List) {
             List<Object> l = (List<Object>) o;
             System.out.print("[");
-            for (Object obj : l)
+            for(Object obj: l)
                 printObject(obj);
             System.out.print("]");
-        } else if (o instanceof Map) {
+        } else if(o instanceof Map) {
             Map<String, Object> m = (Map<String, Object>) o;
             System.out.print('{');
-            for (String s : m.keySet()) {
+            for(String s: m.keySet()) {
                 printObject(s);
                 System.out.print(':');
                 printObject(m.get(s));
@@ -182,29 +181,29 @@ public class VoldemortClientShell {
      */
     @SuppressWarnings("unchecked")
     private static Object tightenNumericTypes(Object o) {
-        if (o == null) {
+        if(o == null) {
             return null;
-        } else if (o instanceof List) {
+        } else if(o instanceof List) {
             List l = (List) o;
-            for (int i = 0; i < l.size(); i++)
+            for(int i = 0; i < l.size(); i++)
                 l.set(i, tightenNumericTypes(l.get(i)));
             return l;
-        } else if (o instanceof Map) {
+        } else if(o instanceof Map) {
             Map m = (Map) o;
-            for (Map.Entry entry : (Set<Map.Entry>) m.entrySet())
+            for(Map.Entry entry: (Set<Map.Entry>) m.entrySet())
                 m.put(entry.getKey(), tightenNumericTypes(entry.getValue()));
             return m;
-        } else if (o instanceof Number) {
+        } else if(o instanceof Number) {
             Number n = (Number) o;
-            if (o instanceof Integer) {
-                if (n.intValue() < Byte.MAX_VALUE)
+            if(o instanceof Integer) {
+                if(n.intValue() < Byte.MAX_VALUE)
                     return n.byteValue();
-                else if (n.intValue() < Short.MAX_VALUE)
+                else if(n.intValue() < Short.MAX_VALUE)
                     return n.shortValue();
                 else
                     return n;
-            } else if (o instanceof Double) {
-                if (n.doubleValue() < Float.MAX_VALUE)
+            } else if(o instanceof Double) {
+                if(n.doubleValue() < Float.MAX_VALUE)
                     return n.floatValue();
                 else
                     return n;

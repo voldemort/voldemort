@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Collections;
 import java.util.List;
-import java.util.RandomAccess;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -79,10 +78,12 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         try {
             this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
             this.dataFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
-            for(int i = 0 ; i < numFileHandles; i++) {
+            for(int i = 0; i < numFileHandles; i++) {
                 indexFiles.add(new RandomAccessFile(indexFile, "r"));
                 dataFiles.add(new RandomAccessFile(dataFile, "r"));
             }
+            this.indexFileSize = getFileSize(indexFiles);
+            this.dataFileSize = getFileSize(dataFiles);
         } catch(FileNotFoundException e) {
             throw new VoldemortException("Could not open store.", e);
         } finally {
@@ -145,7 +146,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     private long getFileSize(BlockingQueue<RandomAccessFile> files) {
         RandomAccessFile f = null;
         try {
-            f = files.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
+            f = getFile(files);
             return f.length();
         } catch(IOException e) {
             throw new VoldemortException(e);
@@ -162,37 +163,33 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     }
 
     public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
-      logger.info("Original key: size:" + key.length   + " val:" + ByteUtils.toHexString(key));
-      logger.info("MD5 val: size:" + ByteUtils.md5(key).length + " val:"  + ByteUtils.toHexString(ByteUtils.md5(key)));
-      
-      return Collections.EMPTY_LIST;
-//        RandomAccessFile index = null;
-//        RandomAccessFile data = null;
-//        try {
-//            fileModificationLock.readLock().lock();
-//            index = indexFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
-//            long valueLocation = getValueLocation(index, key);
-//            if(valueLocation < 0) {
-//                return Collections.emptyList();
-//            } else {
-//                data = dataFiles.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
-//                data.seek(valueLocation);
-//                int size = data.readInt();
-//                byte[] value = new byte[size];
-//                data.readFully(value);
-//                return Collections.singletonList(new Versioned<byte[]>(value, new VectorClock()));
-//            }
-//        } catch(InterruptedException e) {
-//            throw new VoldemortException("Thread was interrupted.", e);
-//        } catch(IOException e) {
-//            throw new PersistenceFailureException(e);
-//        } finally {
-//            fileModificationLock.readLock().unlock();
-//            if(index != null)
-//                indexFiles.add(index);
-//            if(data != null)
-//                dataFiles.add(data);
-//        }
+        RandomAccessFile index = null;
+        RandomAccessFile data = null;
+        try {
+            fileModificationLock.readLock().lock();
+            index = getFile(indexFiles);
+            long valueLocation = getValueLocation(index, key);
+            if(valueLocation < 0) {
+                return Collections.emptyList();
+            } else {
+                data = getFile(dataFiles);
+                data.seek(valueLocation);
+                int size = data.readInt();
+                byte[] value = new byte[size];
+                data.readFully(value);
+                return Collections.singletonList(new Versioned<byte[]>(value, new VectorClock()));
+            }
+        } catch(InterruptedException e) {
+            throw new VoldemortException("Thread was interrupted.", e);
+        } catch(IOException e) {
+            throw new PersistenceFailureException(e);
+        } finally {
+            fileModificationLock.readLock().unlock();
+            if(index != null)
+                indexFiles.add(index);
+            if(data != null)
+                dataFiles.add(data);
+        }
     }
 
     private long getValueLocation(RandomAccessFile index, byte[] key) throws IOException,
@@ -241,27 +238,35 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     }
 
     public void close() throws VoldemortException {
-      logger.info("Close called for read-only store.");
+        logger.debug("Close called for read-only store.");
         this.fileModificationLock.writeLock().lock();
         try {
             while(this.indexFiles.size() > 0) {
-              logger.info("close file channel Index");
-                RandomAccessFile f = this.indexFiles.poll();
+                RandomAccessFile f = this.indexFiles.take();
                 f.close();
             }
-            
+
             while(this.dataFiles.size() > 0) {
-              logger.info("close file channel Data");
                 RandomAccessFile f = this.dataFiles.poll();
                 f.close();
             }
         } catch(IOException e) {
             throw new VoldemortException("Error while closing store.", e);
+        } catch(InterruptedException e) {
+            throw new VoldemortException("Interrupted while waiting for file descriptor.");
         } finally {
-          logger.info("Trying to unlock lock");
             this.fileModificationLock.writeLock().unlock();
         }
-        logger.info("read-only store closed.");
+    }
+
+    private RandomAccessFile getFile(BlockingQueue<RandomAccessFile> files)
+            throws InterruptedException {
+        RandomAccessFile file = files.poll(waitTimeoutMs, TimeUnit.MILLISECONDS);
+        if(file == null)
+            throw new VoldemortException("Timeout after waiting for " + waitTimeoutMs
+                                         + " ms to acquire file descriptor");
+        else
+            return file;
     }
 
 }

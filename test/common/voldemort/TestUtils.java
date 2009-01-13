@@ -17,7 +17,7 @@ public class TestUtils {
     public static final String DIGITS = "0123456789";
     public static final String LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
-    private static final Random random = new Random();
+    private static final Random random = new Random(19873482374L);
 
     /**
      * Get a vector clock with events on the sequence of nodes given
@@ -38,7 +38,7 @@ public class TestUtils {
      * @param nodes The sequences of node events
      */
     public static void increment(VectorClock clock, int... nodes) {
-        for(int n : nodes)
+        for(int n: nodes)
             clock.incrementVersion((short) n, System.currentTimeMillis());
     }
 

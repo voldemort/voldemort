@@ -24,8 +24,8 @@ import voldemort.utils.DefaultIterable;
 import com.google.common.collect.AbstractIterator;
 
 /**
- * Sort data coming from an input iterator and produce a new iterator over the
- * values in sorted order
+ * Do an external sort on data coming from an input iterator and produce a new
+ * iterator over the values in sorted order
  * 
  * @author jay
  * 

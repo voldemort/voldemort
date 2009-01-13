@@ -10,6 +10,12 @@ import org.apache.commons.io.LineIterator;
 import voldemort.serialization.StringSerializer;
 import voldemort.utils.Utils;
 
+/**
+ * Perform an external sort on the lines of the file
+ * 
+ * @author jay
+ * 
+ */
 public class StringSorter {
 
     public static void main(String[] args) throws Exception {

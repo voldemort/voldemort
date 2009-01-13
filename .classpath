@@ -22,7 +22,6 @@
 	<classpathentry kind="lib" path="lib/jetty-util-6.1.6rc0.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.1.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.13.jar"/>
-	<classpathentry kind="lib" path="lib/mysql-connector-java-5.1.5-bin.jar"/>
 	<classpathentry kind="lib" path="lib/servlet-api.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.4.3.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.4.3.jar"/>

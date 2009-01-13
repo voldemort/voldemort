@@ -81,7 +81,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         String storesXml = bootstrapMetadata(MetadataStore.STORES_KEY, bootstrapUrls);
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml));
         StoreDefinition storeDef = null;
-        for(StoreDefinition d : storeDefs)
+        for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
                 storeDef = d;
         if(storeDef == null)
@@ -93,8 +93,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         // construct mapping
         Map<Integer, Store<byte[], byte[]>> clientMapping = Maps.newHashMap();
-        for(Node node : cluster.getNodes()) {
-            logger.info ("Adding node :" + node.getId() + " Store:" + storeDef.getName() + " host:" + node.getHost() + " port:" + getPort(node));
+        for(Node node: cluster.getNodes()) {
             Store<byte[], byte[]> store = getStore(storeDef.getName(),
                                                    node.getHost(),
                                                    getPort(node));
@@ -139,7 +138,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {
-        for(URI url : urls) {
+        for(URI url: urls) {
             try {
                 Store<byte[], byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
                                                              url.getHost(),
