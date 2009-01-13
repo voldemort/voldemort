@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,7 +55,7 @@ public abstract class AbstractService implements VoldemortService {
     @JmxOperation(description = "Start the service.", impact = MBeanOperationInfo.ACTION)
     public void start() {
         boolean isntStarted = isStarted.compareAndSet(false, true);
-        if (!isntStarted)
+        if(!isntStarted)
             throw new IllegalStateException("Server is already started!");
 
         logger.info("Starting " + getName());
@@ -49,8 +65,8 @@ public abstract class AbstractService implements VoldemortService {
     @JmxOperation(description = "Stop the service.", impact = MBeanOperationInfo.ACTION)
     public void stop() {
         logger.info("Stopping " + getName());
-        synchronized (this) {
-            if (!isStarted()) {
+        synchronized(this) {
+            if(!isStarted()) {
                 logger.info("The service is already stopped, ignoring duplicate attempt.");
             }
 

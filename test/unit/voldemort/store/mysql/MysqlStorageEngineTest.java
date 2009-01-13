@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.mysql;
 
 import java.sql.Connection;
@@ -12,9 +28,9 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineTest;
 
 public class MysqlStorageEngineTest extends StorageEngineTest {
-    
+
     private MysqlStorageEngine engine;
-    
+
     public void setUp() throws Exception {
         this.engine = (MysqlStorageEngine) getStorageEngine();
         engine.destroy();
@@ -23,14 +39,14 @@ public class MysqlStorageEngineTest extends StorageEngineTest {
     }
 
     @Override
-    public StorageEngine<byte[],byte[]> getStorageEngine() {
+    public StorageEngine<byte[], byte[]> getStorageEngine() {
         return new MysqlStorageEngine("test_store", getDataSource());
     }
-    
+
     public void tearDown() {
         engine.destroy();
     }
-    
+
     private DataSource getDataSource() {
         BasicDataSource ds = new BasicDataSource();
         ds.setUrl("jdbc:mysql://localhost:3306/test");
@@ -39,7 +55,7 @@ public class MysqlStorageEngineTest extends StorageEngineTest {
         ds.setDriverClassName("com.mysql.jdbc.Driver");
         return ds;
     }
-    
+
     public void executeQuery(DataSource datasource, String query) throws SQLException {
         Connection c = datasource.getConnection();
         PreparedStatement s = c.prepareStatement(query);

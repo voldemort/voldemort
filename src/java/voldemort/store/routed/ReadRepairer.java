@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.routed;
 
 import java.util.ArrayList;
@@ -33,7 +49,7 @@ public class ReadRepairer<K, V> {
      */
     public List<NodeValue<K, V>> getRepairs(List<NodeValue<K, V>> nodeValues) {
         int size = nodeValues.size();
-        if (size <= 1)
+        if(size <= 1)
             return Collections.emptyList();
 
         // A list of obsolete nodes that need to be repaired
@@ -46,31 +62,31 @@ public class ReadRepairer<K, V> {
         concurrents.put(nodeValues.get(0).getVersion(), nodeValues.get(0));
 
         // check each value against the current set of most current versions
-        for (int i = 1; i < nodeValues.size(); i++) {
+        for(int i = 1; i < nodeValues.size(); i++) {
             NodeValue<K, V> curr = nodeValues.get(i);
             boolean concurrentToAll = true;
             Set<Version> versions = new HashSet<Version>(concurrents.keySet());
-            for (Version concurrentVersion : versions) {
+            for(Version concurrentVersion: versions) {
 
                 // if we already have the version, just add the nodevalue for
                 // future updating and move on
-                if (curr.getVersion().equals(concurrentVersion)) {
+                if(curr.getVersion().equals(concurrentVersion)) {
                     concurrents.put(curr.getVersion(), curr);
                     break;
                 }
 
                 // Check the ordering of the current value
                 Occured occured = curr.getVersion().compare(concurrentVersion);
-                if (occured == Occured.BEFORE) {
+                if(occured == Occured.BEFORE) {
                     // This value is obsolete! Stop checking against other
                     // values...
                     obsolete.add(curr.getNodeId());
                     concurrentToAll = false;
                     break;
-                } else if (occured == Occured.AFTER) {
+                } else if(occured == Occured.AFTER) {
                     // This concurrent value is obsolete and the current value
                     // should replace it
-                    for (NodeValue<K, V> v : concurrents.get(concurrentVersion))
+                    for(NodeValue<K, V> v: concurrents.get(concurrentVersion))
                         obsolete.add(v.getNodeId());
                     concurrents.removeAll(concurrentVersion);
                     concurrentToAll = false;
@@ -79,15 +95,15 @@ public class ReadRepairer<K, V> {
             }
             // if the value is concurrent to all existing versions then add it
             // to the concurrent set
-            if (concurrentToAll)
+            if(concurrentToAll)
                 concurrents.put(curr.getVersion(), curr);
         }
 
         // Construct the list of repairs
         List<NodeValue<K, V>> repairs = new ArrayList<NodeValue<K, V>>(3);
-        for (Integer id : obsolete) {
+        for(Integer id: obsolete) {
             // repair all obsolete nodes
-            for (Version v : concurrents.keys()) {
+            for(Version v: concurrents.keys()) {
                 Iterator<NodeValue<K, V>> it = concurrents.get(v).iterator();
                 NodeValue<K, V> concurrent = it.next();
                 NodeValue<K, V> repair = new NodeValue<K, V>(id,
@@ -97,20 +113,20 @@ public class ReadRepairer<K, V> {
             }
         }
 
-        if (concurrents.size() > 1) {
+        if(concurrents.size() > 1) {
             // if there are more then one concurrent versions on different
             // nodes,
             // we should repair so all have the same set of values
             HashSet<NodeValue<K, V>> existing = new HashSet<NodeValue<K, V>>();
-            for (NodeValue<K, V> value : repairs)
+            for(NodeValue<K, V> value: repairs)
                 existing.add(value);
-            for (NodeValue<K, V> entry1 : concurrents.values()) {
-                for (NodeValue<K, V> entry2 : concurrents.values()) {
-                    if (!entry1.getVersion().equals(entry2.getVersion())) {
+            for(NodeValue<K, V> entry1: concurrents.values()) {
+                for(NodeValue<K, V> entry2: concurrents.values()) {
+                    if(!entry1.getVersion().equals(entry2.getVersion())) {
                         NodeValue<K, V> repair = new NodeValue<K, V>(entry1.getNodeId(),
                                                                      entry2.getKey(),
                                                                      entry2.getVersioned());
-                        if (!existing.contains(repair))
+                        if(!existing.contains(repair))
                             repairs.add(repair);
                     }
                 }

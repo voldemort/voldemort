@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.File;
@@ -75,8 +91,8 @@ public class Utils {
      * @param files A collection of files to delete
      */
     public static void rm(Collection<File> files) {
-        for (File f : files) {
-            if (f.isDirectory()) {
+        for(File f: files) {
+            if(f.isDirectory()) {
                 rm(Arrays.asList(f.listFiles()));
                 f.delete();
             } else {
@@ -105,14 +121,14 @@ public class Utils {
      * @return True iff they are equal
      */
     public static boolean areNEquals(Object o1, Object o2) {
-        if (o1 == o2)
+        if(o1 == o2)
             return true;
         // t1 != t2
-        else if (o1 == null || o2 == null)
+        else if(o1 == null || o2 == null)
             // only null equals null
             return false;
         // are they of the same class?
-        else if (!o1.getClass().equals(o2.getClass()))
+        else if(!o1.getClass().equals(o2.getClass()))
             return false;
         // t1 != null
         else
@@ -135,8 +151,8 @@ public class Utils {
      * @param objects The objects to test
      */
     public static void assertNotNull(String s, Object... objects) {
-        for (Object o : objects)
-            if (o == null)
+        for(Object o: objects)
+            if(o == null)
                 throw new IllegalArgumentException(s);
     }
 

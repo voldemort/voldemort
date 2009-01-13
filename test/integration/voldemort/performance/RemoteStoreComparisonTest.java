@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.performance;
 
 import java.util.List;
@@ -24,17 +40,19 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
 public class RemoteStoreComparisonTest {
-    
+
     public static void main(String[] args) throws Exception {
         if(args.length != 2)
-            Utils.croak("USAGE: java " + RemoteStoreComparisonTest.class.getName() + " numRequests numThreads");
-        
+            Utils.croak("USAGE: java " + RemoteStoreComparisonTest.class.getName()
+                        + " numRequests numThreads");
+
         int numRequests = Integer.parseInt(args[0]);
         int numThreads = Integer.parseInt(args[1]);
-        
+
         /*** In memory test ***/
-        final Store<byte[],byte[]> memStore = new InMemoryStorageEngine<byte[],byte[]>("test");
+        final Store<byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[]>("test");
         PerformanceTest memWriteTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
                 memStore.put(key, new Versioned<byte[]>(key));
@@ -45,8 +63,9 @@ public class RemoteStoreComparisonTest {
         memWriteTest.run(numRequests, numThreads);
         memWriteTest.printStats();
         System.out.println();
-        
+
         PerformanceTest memReadTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 try {
                     List<Versioned<byte[]>> s = memStore.get(String.valueOf(i).getBytes());
@@ -61,18 +80,19 @@ public class RemoteStoreComparisonTest {
         memReadTest.printStats();
         System.out.println();
         System.out.println();
-        
+
         /*** Do Socket tests ***/
         String storeName = "test";
-        ConcurrentMap<String, Store<byte[],byte[]>> stores = new ConcurrentHashMap<String,Store<byte[],byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<byte[],byte[]>(storeName)); 
+        ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
+        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
         SocketPool socketPool = new SocketPool(10, 10, 1000);
         final SocketStore socketStore = new SocketStore(storeName, "localhost", 6666, socketPool);
         SocketServer socketServer = new SocketServer(stores, 6666, 50, 50);
         socketServer.start();
         socketServer.awaitStartupCompletion();
-        
+
         PerformanceTest socketWriteTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
                 socketStore.put(key, new Versioned<byte[]>(key));
@@ -83,8 +103,9 @@ public class RemoteStoreComparisonTest {
         socketWriteTest.run(numRequests, numThreads);
         socketWriteTest.printStats();
         System.out.println();
-        
+
         PerformanceTest socketReadTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 try {
                     List<Versioned<byte[]>> s = socketStore.get(String.valueOf(i).getBytes());
@@ -99,32 +120,35 @@ public class RemoteStoreComparisonTest {
         socketReadTest.printStats();
         System.out.println();
         System.out.println();
-        
+
         socketStore.close();
         socketPool.close();
         socketServer.shutdown();
-        
+
         /*** Do HTTP tests ***/
-        stores.put(storeName, new InMemoryStorageEngine<byte[],byte[]>(storeName)); 
+        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
         HttpService httpService = new HttpService(storeName, null, numThreads, 8080);
         httpService.start();
         HttpClient httpClient = new HttpClient(new MultiThreadedHttpConnectionManager());
         HttpClientParams clientParams = httpClient.getParams();
-        clientParams.setParameter(HttpClientParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(0, false));
+        clientParams.setParameter(HttpClientParams.RETRY_HANDLER,
+                                  new DefaultHttpMethodRetryHandler(0, false));
         clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
         clientParams.setParameter("http.useragent", "test-agent");
         HostConfiguration hostConfig = new HostConfiguration();
         hostConfig.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
         httpClient.setHostConfiguration(hostConfig);
-        HttpConnectionManagerParams managerParams = httpClient.getHttpConnectionManager().getParams();
+        HttpConnectionManagerParams managerParams = httpClient.getHttpConnectionManager()
+                                                              .getParams();
         managerParams.setConnectionTimeout(10000);
         managerParams.setMaxTotalConnections(numThreads);
         managerParams.setStaleCheckingEnabled(false);
         managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(), numThreads);
         final HttpStore httpStore = new HttpStore("test", "localhost", 8080, httpClient);
         Thread.sleep(400);
-        
+
         PerformanceTest httpWriteTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
                 httpStore.put(key, new Versioned<byte[]>(key));
@@ -135,8 +159,9 @@ public class RemoteStoreComparisonTest {
         httpWriteTest.run(numRequests, numThreads);
         httpWriteTest.printStats();
         System.out.println();
-        
+
         PerformanceTest httpReadTest = new PerformanceTest() {
+
             public void doOperation(int i) {
                 List<Versioned<byte[]>> s = httpStore.get(String.valueOf(i).getBytes());
             }
@@ -144,7 +169,7 @@ public class RemoteStoreComparisonTest {
         System.out.println("Performing HTTP read test.");
         httpReadTest.run(numRequests, numThreads);
         httpReadTest.printStats();
-        
+
         httpService.stop();
     }
 

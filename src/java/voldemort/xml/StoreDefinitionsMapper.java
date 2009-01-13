@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.xml;
 
 import java.io.IOException;
@@ -78,7 +94,7 @@ public class StoreDefinitionsMapper {
                 throw new MappingException("Invalid root element: "
                                            + doc.getRootElement().getName());
             List<StoreDefinition> stores = new ArrayList<StoreDefinition>();
-            for(Element store : (List<Element>) root.getChildren(STORE_ELMT))
+            for(Element store: (List<Element>) root.getChildren(STORE_ELMT))
                 stores.add(readStore(store));
             return stores;
         } catch(JDOMException e) {
@@ -141,7 +157,7 @@ public class StoreDefinitionsMapper {
     private SerializerDefinition readSerializer(Element elmt) {
         String name = elmt.getChild(STORE_SERIALIZATION_TYPE_ELMT).getText();
         Map<Integer, String> schemaInfosByVersion = new HashMap<Integer, String>();
-        for(Object schemaInfo : elmt.getChildren(STORE_SERIALIZATION_META_ELMT)) {
+        for(Object schemaInfo: elmt.getChildren(STORE_SERIALIZATION_META_ELMT)) {
             Element schemaInfoElmt = (Element) schemaInfo;
             String versionStr = schemaInfoElmt.getAttributeValue(STORE_VERSION_ATTR);
             int version = 0;
@@ -158,7 +174,7 @@ public class StoreDefinitionsMapper {
 
     public String writeStoreList(List<StoreDefinition> stores) {
         Element root = new Element(STORES_ELMT);
-        for(StoreDefinition def : stores)
+        for(StoreDefinition def: stores)
             root.addContent(toElement(def));
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
         return serializer.outputString(root);
@@ -201,7 +217,7 @@ public class StoreDefinitionsMapper {
     private void addSerializer(Element parent, SerializerDefinition def) {
         parent.addContent(new Element(STORE_SERIALIZATION_TYPE_ELMT).setText(def.getName()));
         if(def.hasSchemaInfo()) {
-            for(Map.Entry<Integer, String> entry : def.getAllSchemaInfoVersions().entrySet()) {
+            for(Map.Entry<Integer, String> entry: def.getAllSchemaInfoVersions().entrySet()) {
                 Element schemaElmt = new Element(STORE_SERIALIZATION_META_ELMT);
                 schemaElmt.setAttribute(STORE_VERSION_ATTR, Integer.toString(entry.getKey()));
                 schemaElmt.setText(entry.getValue());

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.gzip;
 
 import java.io.ByteArrayInputStream;
@@ -30,10 +46,10 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
         List<Versioned<byte[]>> found = getInnerStore().get(key);
         List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(found.size());
         try {
-            for (Versioned<byte[]> item : found)
+            for(Versioned<byte[]> item: found)
                 results.add(new Versioned<byte[]>(IOUtils.toByteArray(new GZIPInputStream(new ByteArrayInputStream(item.getValue()))),
                                                   (VectorClock) item.getVersion()));
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new VoldemortException(e);
         }
 
@@ -45,7 +61,7 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
             getInnerStore().put(key,
                                 new Versioned<byte[]>(IOUtils.toByteArray(new GZIPInputStream(new ByteArrayInputStream(value.getValue()))),
                                                       (VectorClock) value.getVersion()));
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new VoldemortException(e);
         }
     }

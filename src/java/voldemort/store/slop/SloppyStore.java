@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.slop;
 
 import java.util.ArrayList;
@@ -13,6 +29,8 @@ import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
+;
 
 /**
  * A Sloppy store is a store wrapper that delegates to an inner store, and if
@@ -68,15 +86,15 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
         StoreUtils.assertValidKey(key);
         try {
             return getInnerStore().delete(key, version);
-        } catch (UnreachableStoreException e) {
+        } catch(UnreachableStoreException e) {
             List<Exception> failures = new ArrayList<Exception>();
             failures.add(e);
             Slop slop = new Slop(getName(), Slop.Operation.DELETE, key, null, node, new Date());
-            for (Store<byte[], Slop> slopStore : backupStores) {
+            for(Store<byte[], Slop> slopStore: backupStores) {
                 try {
                     slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version));
                     return false;
-                } catch (UnreachableStoreException u) {
+                } catch(UnreachableStoreException u) {
                     failures.add(u);
                 }
             }
@@ -96,7 +114,7 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
         StoreUtils.assertValidKey(key);
         try {
             getInnerStore().put(key, value);
-        } catch (UnreachableStoreException e) {
+        } catch(UnreachableStoreException e) {
             List<Exception> failures = new ArrayList<Exception>();
             failures.add(e);
             boolean persisted = false;
@@ -106,16 +124,16 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
                                  value.getValue(),
                                  node,
                                  new Date());
-            for (Store<byte[], Slop> slopStore : backupStores) {
+            for(Store<byte[], Slop> slopStore: backupStores) {
                 try {
                     slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()));
                     persisted = true;
                     break;
-                } catch (UnreachableStoreException u) {
+                } catch(UnreachableStoreException u) {
                     failures.add(u);
                 }
             }
-            if (persisted)
+            if(persisted)
                 throw new UnreachableStoreException("Put operation failed on node "
                                                             + node
                                                             + ", but has been persisted to slop storage for eventual replication.",

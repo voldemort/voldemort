@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.performance;
 
 import voldemort.client.HttpStoreClientFactory;
@@ -8,22 +24,34 @@ import voldemort.utils.Props;
 
 public class RemoteHttpStoreLoadTest extends AbstractLoadTestHarness {
 
-	@Override
-	public StoreClient<String,String> getStore(Props propsA, Props propsB) throws java.lang.Exception {
-		System.out.println("Initializing master server.");
-		VoldemortServer serverA = new VoldemortServer(new VoldemortConfig(propsA));
-		System.out.println("Initializing slave server.");
-		VoldemortServer serverB = new VoldemortServer(new VoldemortConfig(propsB));
-	    
-		serverA.start();
-	    serverB.start();
-	    
-	    HttpStoreClientFactory factory = new HttpStoreClientFactory(5, 2000, 2000, 0, 2000, 2000, 10000, 10, 5, serverA.getIdentityNode().getHttpUrl().toString());
-		return factory.getStoreClient("users");
-	}
-	
-	public static void main(String[] args) throws Exception {
-		new RemoteHttpStoreLoadTest().run(args);
-	}
+    @Override
+    public StoreClient<String, String> getStore(Props propsA, Props propsB)
+            throws java.lang.Exception {
+        System.out.println("Initializing master server.");
+        VoldemortServer serverA = new VoldemortServer(new VoldemortConfig(propsA));
+        System.out.println("Initializing slave server.");
+        VoldemortServer serverB = new VoldemortServer(new VoldemortConfig(propsB));
+
+        serverA.start();
+        serverB.start();
+
+        HttpStoreClientFactory factory = new HttpStoreClientFactory(5,
+                                                                    2000,
+                                                                    2000,
+                                                                    0,
+                                                                    2000,
+                                                                    2000,
+                                                                    10000,
+                                                                    10,
+                                                                    5,
+                                                                    serverA.getIdentityNode()
+                                                                           .getHttpUrl()
+                                                                           .toString());
+        return factory.getStoreClient("users");
+    }
+
+    public static void main(String[] args) throws Exception {
+        new RemoteHttpStoreLoadTest().run(args);
+    }
 
 }

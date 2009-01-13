@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.DataInputStream;
@@ -45,7 +61,7 @@ public class ByteUtils {
         try {
             MD5_PROTOTYPE = MessageDigest.getInstance("MD5");
             SHA1_PROTOTYPE = MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException e) {
+        } catch(NoSuchAlgorithmException e) {
             throw new IllegalStateException("Could not initialize digest prototypes.", e);
         }
     }
@@ -58,8 +74,8 @@ public class ByteUtils {
      */
     public static String toHexString(byte[] bytes) {
         StringBuffer buffer = new StringBuffer();
-        for (byte b : bytes) {
-            if (Math.abs(b) < 16)
+        for(byte b: bytes) {
+            if(Math.abs(b) < 16)
                 buffer.append('0');
             String hex = Integer.toHexString(b);
             buffer.append(hex.substring(Math.max(0, hex.length() - 2)));
@@ -75,9 +91,9 @@ public class ByteUtils {
      */
     public static String toBinaryString(byte[] bytes) {
         StringBuffer buffer = new StringBuffer();
-        for (byte b : bytes) {
+        for(byte b: bytes) {
             String bin = Integer.toBinaryString(b);
-            for (int i = 0; i < 8 - bin.length(); i++)
+            for(int i = 0; i < 8 - bin.length(); i++)
                 buffer.append('0');
             buffer.append(bin.substring(Math.max(0, bin.length() - 8)));
         }
@@ -93,13 +109,13 @@ public class ByteUtils {
      */
     public static byte[] cat(byte[]... arrays) {
         int size = 0;
-        for (byte[] a : arrays)
-            if (a != null)
+        for(byte[] a: arrays)
+            if(a != null)
                 size += a.length;
         byte[] cated = new byte[size];
         int pos = 0;
-        for (byte[] a : arrays) {
-            if (a != null) {
+        for(byte[] a: arrays) {
+            if(a != null) {
                 System.arraycopy(a, 0, cated, pos, a.length);
                 pos += a.length;
             }
@@ -117,7 +133,7 @@ public class ByteUtils {
      * @return A new byte[] containing the copied bytes
      */
     public static byte[] copy(byte[] array, int from, int to) {
-        if (to - from < 0) {
+        if(to - from < 0) {
             return new byte[0];
         } else {
             byte[] a = new byte[to - from];
@@ -177,7 +193,7 @@ public class ByteUtils {
     public static long readBytes(byte[] bytes, int offset, int numBytes) {
         int shift = 0;
         long value = 0;
-        for (int i = offset + numBytes - 1; i >= offset; i--) {
+        for(int i = offset + numBytes - 1; i >= offset; i--) {
             value |= (bytes[i] & 0xFFL) << shift;
             shift += 8;
         }
@@ -238,7 +254,7 @@ public class ByteUtils {
      */
     public static void writeBytes(byte[] bytes, long value, int offset, int numBytes) {
         int shift = 0;
-        for (int i = offset + numBytes - 1; i >= offset; i--) {
+        for(int i = offset + numBytes - 1; i >= offset; i--) {
             bytes[i] = (byte) (0xFF & (value >> shift));
             shift += 8;
         }
@@ -251,36 +267,36 @@ public class ByteUtils {
      * @return The required number of bytes (must be 8 or less)
      */
     public static byte numberOfBytesRequired(long number) {
-        if (number < 0)
+        if(number < 0)
             number = -number;
-        for (byte i = 1; i <= SIZE_OF_LONG; i++)
-            if (number < (1L << (8 * i)))
+        for(byte i = 1; i <= SIZE_OF_LONG; i++)
+            if(number < (1L << (8 * i)))
                 return i;
         throw new IllegalStateException("Should never happen.");
     }
 
     public static long readVarNumber(DataInputStream input) throws IOException {
         int b = 0xFF & input.readByte();
-        if ((b & MASK_10000000) == 0) {
+        if((b & MASK_10000000) == 0) {
             // one byte value, mask off the size bit and return
             return MASK_01111111 & b;
-        } else if ((b & MASK_11000000) == MASK_10000000) {
+        } else if((b & MASK_11000000) == MASK_10000000) {
             // two byte value, mask off first two bits
             long val = (b & MASK_00111111) << Byte.SIZE;
             val |= 0xFF & input.readByte();
             return val;
-        } else if ((b & MASK_11100000) == MASK_11000000) {
+        } else if((b & MASK_11100000) == MASK_11000000) {
             // four byte value, mask off three bits
             long val = (b & MASK_00011111);
-            for (int i = 0; i < 3; i++) {
+            for(int i = 0; i < 3; i++) {
                 val <<= Byte.SIZE;
                 val |= 0xFF & input.readByte();
             }
             return val;
-        } else if ((b & MASK_11100000) == MASK_11100000) {
+        } else if((b & MASK_11100000) == MASK_11100000) {
             // eight byte value, mask off three bits
             long val = (b & MASK_00011111);
-            for (int i = 0; i < 7; i++) {
+            for(int i = 0; i < 7; i++) {
                 val <<= Byte.SIZE;
                 val |= 0xFF & input.readByte();
             }
@@ -299,23 +315,23 @@ public class ByteUtils {
     public static void writeVarNumber(long value, DataOutputStream output) throws IOException {
         int size;
         int signMask = Long.signum(value) << 8;
-        if (value < 1 << 6) {
+        if(value < 1 << 6) {
             size = 1;
             output.write(signMask | (byte) value);
-        } else if (value < 1 << 13) {
+        } else if(value < 1 << 13) {
             size = 2;
             output.write(signMask | MASK_10000000 | readNthByte(value, 1));
-        } else if (value < 1 << 28) {
+        } else if(value < 1 << 28) {
             size = 4;
             output.write(signMask | MASK_11000000 | readNthByte(value, 3));
-        } else if (value < 1L << 60) {
+        } else if(value < 1L << 60) {
             size = 8;
             output.write(signMask | MASK_11100000 | readNthByte(value, 7));
         } else {
             throw new IllegalArgumentException(value + " is larger than maximum allowable");
         }
         // write all but first byte
-        for (int i = size - 2; i >= 0; i--)
+        for(int i = size - 2; i >= 0; i--)
             output.write(readNthByte(value, i));
     }
 
@@ -338,9 +354,9 @@ public class ByteUtils {
      */
     public static void read(InputStream stream, byte[] buffer) throws IOException {
         int read = 0;
-        while (read < buffer.length) {
+        while(read < buffer.length) {
             int newlyRead = stream.read(buffer, read, buffer.length - read);
-            if (newlyRead == -1)
+            if(newlyRead == -1)
                 throw new EOFException("Attempt to read " + buffer.length
                                        + " bytes failed due to EOF.");
             read += newlyRead;
@@ -357,7 +373,7 @@ public class ByteUtils {
     public static byte[] getBytes(String string, String encoding) {
         try {
             return string.getBytes(encoding);
-        } catch (UnsupportedEncodingException e) {
+        } catch(UnsupportedEncodingException e) {
             throw new IllegalArgumentException(encoding + " is not a known encoding name.");
         }
     }
@@ -372,7 +388,7 @@ public class ByteUtils {
     public static String getString(byte[] bytes, String encoding) {
         try {
             return new String(bytes, encoding);
-        } catch (UnsupportedEncodingException e) {
+        } catch(UnsupportedEncodingException e) {
             throw new IllegalArgumentException(encoding + " is not a known encoding name.");
         }
     }
@@ -388,7 +404,7 @@ public class ByteUtils {
         try {
             MessageDigest digest = (MessageDigest) MD5_PROTOTYPE.clone();
             return digest.digest(input);
-        } catch (CloneNotSupportedException e) {
+        } catch(CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
     }
@@ -404,7 +420,7 @@ public class ByteUtils {
         try {
             MessageDigest digest = (MessageDigest) SHA1_PROTOTYPE.clone();
             return digest.digest(input);
-        } catch (CloneNotSupportedException e) {
+        } catch(CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
     }
@@ -420,14 +436,14 @@ public class ByteUtils {
      */
     public static int compare(byte[] b1, byte[] b2) {
         int larger = Math.max(b1.length, b2.length);
-        for (int i = 0; i < larger; i++) {
-            if (i >= b1.length)
+        for(int i = 0; i < larger; i++) {
+            if(i >= b1.length)
                 return -1;
-            else if (i >= b2.length)
+            else if(i >= b2.length)
                 return 1;
-            else if (b1[i] < b2[i])
+            else if(b1[i] < b2[i])
                 return -1;
-            else if (b1[i] > b2[i])
+            else if(b1[i] > b2[i])
                 return 1;
         }
 

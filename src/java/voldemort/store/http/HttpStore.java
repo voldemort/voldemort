@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.http;
 
 import java.io.ByteArrayInputStream;
@@ -60,18 +76,18 @@ public class HttpStore implements Store<byte[], byte[]> {
             method.setRequestHeader(VERSION_EXTENSION,
                                     new String(Base64.encodeBase64(clock.toBytes())));
             int response = httpClient.executeMethod(method);
-            if (response == HttpURLConnection.HTTP_NOT_FOUND)
+            if(response == HttpURLConnection.HTTP_NOT_FOUND)
                 return false;
-            if (response != HttpURLConnection.HTTP_OK)
+            if(response != HttpURLConnection.HTTP_OK)
                 httpResponseCodeErrorMapper.throwError(response, method.getStatusText());
             return true;
-        } catch (HttpException e) {
+        } catch(HttpException e) {
             throw new VoldemortException(e);
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + url + " for " + storeName,
                                                 e);
         } finally {
-            if (method != null)
+            if(method != null)
                 method.releaseConnection();
         }
     }
@@ -83,12 +99,12 @@ public class HttpStore implements Store<byte[], byte[]> {
         try {
             method = new GetMethod(url);
             int response = httpClient.executeMethod(method);
-            if (response != HttpURLConnection.HTTP_OK)
+            if(response != HttpURLConnection.HTTP_OK)
                 httpResponseCodeErrorMapper.throwError(response, method.getStatusText());
             DataInputStream input = new DataInputStream(new ByteArrayInputStream(method.getResponseBody()));
             List<Versioned<byte[]>> items = new ArrayList<Versioned<byte[]>>();
             try {
-                while (true) {
+                while(true) {
                     int size = input.readInt();
                     byte[] bytes = new byte[size];
                     input.read(bytes);
@@ -96,17 +112,17 @@ public class HttpStore implements Store<byte[], byte[]> {
                     byte[] data = ByteUtils.copy(bytes, clock.sizeInBytes(), bytes.length);
                     items.add(new Versioned<byte[]>(data, clock));
                 }
-            } catch (EOFException e) {
+            } catch(EOFException e) {
                 input.close();
             }
             return items;
-        } catch (HttpException e) {
+        } catch(HttpException e) {
             throw new VoldemortException(e);
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + url + " for " + storeName,
                                                 e);
         } finally {
-            if (method != null)
+            if(method != null)
                 method.releaseConnection();
         }
     }
@@ -122,15 +138,15 @@ public class HttpStore implements Store<byte[], byte[]> {
                                     new String(Base64.encodeBase64(clock.toBytes()), "UTF-8"));
             method.setRequestEntity(new ByteArrayRequestEntity(versioned.getValue()));
             int response = httpClient.executeMethod(method);
-            if (response != HttpURLConnection.HTTP_OK)
+            if(response != HttpURLConnection.HTTP_OK)
                 httpResponseCodeErrorMapper.throwError(response, method.getStatusText());
-        } catch (HttpException e) {
+        } catch(HttpException e) {
             throw new VoldemortException(e);
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new UnreachableStoreException("Could not connect to " + url + " for " + storeName,
                                                 e);
         } finally {
-            if (method != null)
+            if(method != null)
                 method.releaseConnection();
         }
     }

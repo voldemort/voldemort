@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.mysql;
 
 import java.sql.Connection;
@@ -60,7 +76,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             conn = datasource.getConnection();
             stmt = conn.prepareStatement(query);
             stmt.executeUpdate();
-        } catch (SQLException e) {
+        } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
         } finally {
             tryClose(stmt);
@@ -78,7 +94,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             stmt = conn.prepareStatement(select);
             rs = stmt.executeQuery();
             return new MysqlClosableIterator(conn, stmt, rs);
-        } catch (SQLException e) {
+        } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
         }
     }
@@ -100,17 +116,17 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             selectStmt.setBytes(1, key);
             rs = selectStmt.executeQuery();
             boolean deletedSomething = false;
-            while (rs.next()) {
+            while(rs.next()) {
                 byte[] theKey = rs.getBytes("key_");
                 byte[] version = rs.getBytes("version_");
-                if (new VectorClock(version).compare(maxVersion) == Occured.BEFORE) {
+                if(new VectorClock(version).compare(maxVersion) == Occured.BEFORE) {
                     delete(conn, theKey, version);
                     deletedSomething = true;
                 }
             }
 
             return deletedSomething;
-        } catch (SQLException e) {
+        } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
         } finally {
             tryClose(rs);
@@ -145,14 +161,14 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             stmt.setBytes(1, key);
             rs = stmt.executeQuery();
             List<Versioned<byte[]>> found = Lists.newArrayList();
-            while (rs.next()) {
+            while(rs.next()) {
                 byte[] version = rs.getBytes("version_");
                 byte[] value = rs.getBytes("value_");
                 found.add(new Versioned<byte[]>(value, new VectorClock(version)));
             }
 
             return found;
-        } catch (SQLException e) {
+        } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
         } finally {
             tryClose(rs);
@@ -182,16 +198,16 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             select = conn.prepareStatement(selectSql);
             select.setBytes(1, key);
             results = select.executeQuery();
-            while (results.next()) {
+            while(results.next()) {
                 byte[] thisKey = results.getBytes("key_");
                 VectorClock version = new VectorClock(results.getBytes("version_"));
                 Occured occured = value.getVersion().compare(version);
-                if (occured == Occured.BEFORE)
+                if(occured == Occured.BEFORE)
                     throw new ObsoleteVersionException("Attempt to put version "
                                                        + value.getVersion()
                                                        + " which is superceeded by " + version
                                                        + ".");
-                else if (occured == Occured.AFTER)
+                else if(occured == Occured.AFTER)
                     delete(conn, thisKey, version.toBytes());
             }
 
@@ -202,21 +218,21 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             insert.setBytes(2, clock.toBytes());
             insert.setBytes(3, value.getValue());
             insert.executeUpdate();
-        } catch (SQLException e) {
-            if (e.getErrorCode() == MYSQL_ERR_DUP_KEY || e.getErrorCode() == MYSQL_ERR_DUP_ENTRY) {
+        } catch(SQLException e) {
+            if(e.getErrorCode() == MYSQL_ERR_DUP_KEY || e.getErrorCode() == MYSQL_ERR_DUP_ENTRY) {
                 e.printStackTrace();
                 throw new ObsoleteVersionException("Key or value already used.");
             } else {
                 throw new PersistenceFailureException("Fix me!", e);
             }
         } finally {
-            if (conn != null) {
+            if(conn != null) {
                 try {
-                    if (doCommit)
+                    if(doCommit)
                         conn.commit();
                     else
                         conn.rollback();
-                } catch (SQLException e) {}
+                } catch(SQLException e) {}
             }
             tryClose(results);
             tryClose(insert);
@@ -227,27 +243,27 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
 
     private void tryClose(ResultSet rs) {
         try {
-            if (rs != null)
+            if(rs != null)
                 rs.close();
-        } catch (Exception e) {
+        } catch(Exception e) {
             logger.error("Failed to close resultset.", e);
         }
     }
 
     private void tryClose(Connection c) {
         try {
-            if (c != null)
+            if(c != null)
                 c.close();
-        } catch (Exception e) {
+        } catch(Exception e) {
             logger.error("Failed to close connection.", e);
         }
     }
 
     private void tryClose(PreparedStatement s) {
         try {
-            if (s != null)
+            if(s != null)
                 s.close();
-        } catch (Exception e) {
+        } catch(Exception e) {
             logger.error("Failed to close prepared statement.", e);
         }
     }
@@ -266,7 +282,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             try {
                 // Move to the first item
                 this.hasMore = resultSet.next();
-            } catch (SQLException e) {
+            } catch(SQLException e) {
                 throw new PersistenceFailureException(e);
             }
             this.rs = resultSet;
@@ -286,7 +302,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
 
         public Entry<byte[], Versioned<byte[]>> next() {
             try {
-                if (!this.hasMore)
+                if(!this.hasMore)
                     throw new PersistenceFailureException("Next called on iterator, but no more items available!");
                 byte[] key = rs.getBytes("key_");
                 byte[] value = rs.getBytes("value_");
@@ -294,7 +310,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
                 this.hasMore = rs.next();
                 return new Entry<byte[], Versioned<byte[]>>(key,
                                                             new Versioned<byte[]>(value, clock));
-            } catch (SQLException e) {
+            } catch(SQLException e) {
                 throw new PersistenceFailureException(e);
             }
         }
@@ -302,7 +318,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         public void remove() {
             try {
                 rs.deleteRow();
-            } catch (SQLException e) {
+            } catch(SQLException e) {
                 throw new PersistenceFailureException(e);
             }
         }

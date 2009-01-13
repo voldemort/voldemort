@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.jmx;
 
 import java.lang.management.ManagementFactory;
@@ -55,11 +71,11 @@ public class JmxService extends AbstractService {
     protected void startInner() {
         registerBean(server, JmxUtils.createObjectName(VoldemortServer.class));
         registerBean(cluster, JmxUtils.createObjectName(Cluster.class));
-        for (VoldemortService service : services) {
+        for(VoldemortService service: services) {
             logger.debug("Registering mbean for service '" + service.getName() + "'.");
             registerBean(service, JmxUtils.createObjectName(service.getClass()));
         }
-        for (Store<byte[], byte[]> store : storeMap.values()) {
+        for(Store<byte[], byte[]> store: storeMap.values()) {
             logger.info("Registering mbean for store '" + store.getName() + "'.");
             registerBean(store,
                          JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
@@ -69,14 +85,14 @@ public class JmxService extends AbstractService {
 
     @Override
     protected void stopInner() {
-        for (ObjectName name : registeredBeans)
+        for(ObjectName name: registeredBeans)
             JmxUtils.unregisterMbean(mbeanServer, name);
         registeredBeans.clear();
     }
 
     private void registerBean(Object o, ObjectName name) {
-        synchronized (registeredBeans) {
-            if (mbeanServer.isRegistered(name)) {
+        synchronized(registeredBeans) {
+            if(mbeanServer.isRegistered(name)) {
                 logger.warn("Overwriting mbean " + name);
                 JmxUtils.unregisterMbean(mbeanServer, name);
             }

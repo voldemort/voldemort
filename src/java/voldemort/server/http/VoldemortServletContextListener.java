@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.http;
 
 import javax.servlet.ServletContextEvent;
@@ -30,7 +46,7 @@ public class VoldemortServletContextListener implements ServletContextListener {
         logger.info("Calling application shutdown...");
         VoldemortServer server = (VoldemortServer) event.getServletContext()
                                                         .getAttribute(SERVER_CONFIG_KEY);
-        if (server != null)
+        if(server != null)
             server.stop();
         logger.info("Destroying application...");
         event.getServletContext().removeAttribute(SERVER_KEY);
@@ -48,10 +64,10 @@ public class VoldemortServletContextListener implements ServletContextListener {
                                                    new VelocityEngine(VOLDEMORT_TEMPLATE_DIR));
             server.start();
             logger.info("Application created.");
-        } catch (ConfigurationException e) {
+        } catch(ConfigurationException e) {
             logger.info("Error loading voldemort server:", e);
             throw e;
-        } catch (Exception e) {
+        } catch(Exception e) {
             logger.error("Error loading voldemort server:", e);
             throw new ConfigurationException(e);
         }

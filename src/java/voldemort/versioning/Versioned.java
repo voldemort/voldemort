@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.versioning;
 
 import java.io.Serializable;
@@ -42,11 +58,11 @@ public final class Versioned<T> implements Serializable {
     @Override
     @SuppressWarnings("unchecked")
     public boolean equals(Object object) {
-        if (this == null)
+        if(this == null)
             return true;
-        else if (object == null)
+        else if(object == null)
             return false;
-        else if (!object.getClass().equals(Versioned.class))
+        else if(!object.getClass().equals(Versioned.class))
             return false;
 
         Versioned versioned = (Versioned) object;
@@ -76,9 +92,9 @@ public final class Versioned<T> implements Serializable {
 
         public int compare(Versioned<S> v1, Versioned<S> v2) {
             Occured occured = v1.getVersion().compare(v2.getVersion());
-            if (occured == Occured.BEFORE)
+            if(occured == Occured.BEFORE)
                 return -1;
-            else if (occured == Occured.AFTER)
+            else if(occured == Occured.AFTER)
                 return 1;
             else
                 return 0;

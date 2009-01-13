@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import java.util.List;
@@ -35,7 +51,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public boolean delete(K key) {
         Versioned<V> versioned = get(key);
-        if (versioned == null)
+        if(versioned == null)
             return false;
         return store.delete(key, versioned.getVersion());
     }
@@ -50,7 +66,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public V getValue(K key) {
         Versioned<V> returned = get(key, null);
-        if (returned == null)
+        if(returned == null)
             return null;
         else
             return returned.getValue();
@@ -58,13 +74,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public Versioned<V> get(K key, Versioned<V> defaultValue) {
         List<Versioned<V>> items = store.get(key);
-        if (items.size() == 0)
+        if(items.size() == 0)
             return defaultValue;
-        else if (items.size() == 1)
+        else if(items.size() == 1)
             return items.get(0);
         else
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
-                    + ") = " + items, items);
+                                                + ") = " + items, items);
     }
 
     public Versioned<V> get(K key) {
@@ -73,7 +89,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public void put(K key, V value) {
         Versioned<V> versioned = get(key, NOT_FOUND);
-        if (versioned == NOT_FOUND)
+        if(versioned == NOT_FOUND)
             versioned = new Versioned<V>(value, new VectorClock());
         versioned.setObject(value);
         store.put(key, versioned);
@@ -83,7 +99,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         try {
             store.put(key, versioned);
             return true;
-        } catch (ObsoleteVersionException e) {
+        } catch(ObsoleteVersionException e) {
             return false;
         }
     }
@@ -99,17 +115,17 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public boolean applyUpdate(UpdateAction<K, V> action, int maxTries) {
         boolean success = false;
         try {
-            for (int i = 0; i < maxTries; i++) {
+            for(int i = 0; i < maxTries; i++) {
                 try {
                     action.update(this);
                     success = true;
                     return success;
-                } catch (ObsoleteVersionException e) {
+                } catch(ObsoleteVersionException e) {
                     // ignore for now
                 }
             }
         } finally {
-            if (!success)
+            if(!success)
                 action.rollback();
         }
 
@@ -127,7 +143,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public List<Node> getResponsibleNodes(K key) {
-        if (this.routingStragy == null)
+        if(this.routingStragy == null)
             throw new UnsupportedOperationException("This store client has no routing strategy.");
         return this.routingStragy.routeRequest(keySerializer.toBytes(key));
     }

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,57 +38,60 @@ import voldemort.versioning.Versioned;
  * Helper functions for testing with real server implementations
  * 
  * @author jay
- *
+ * 
  */
 public class ServerTestUtils {
-    
-    public static ConcurrentMap<String, Store<byte[],byte[]>> getStores(String storeName, 
-                                                                        String clusterXml, 
-                                                                        String storesXml) {
-        ConcurrentMap<String, Store<byte[],byte[]>> stores = 
-            new ConcurrentHashMap<String,Store<byte[],byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<byte[],byte[]>(storeName));
-        Store<String,String> metadataInner = new InMemoryStorageEngine<String,String>("metadata");
+
+    public static ConcurrentMap<String, Store<byte[], byte[]>> getStores(String storeName,
+                                                                         String clusterXml,
+                                                                         String storesXml) {
+        ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
+        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
+        Store<String, String> metadataInner = new InMemoryStorageEngine<String, String>("metadata");
         metadataInner.put("cluster.xml", new Versioned<String>(clusterXml));
         metadataInner.put("stores.xml", new Versioned<String>(storesXml));
-        MetadataStore metadata = new MetadataStore(metadataInner, 
-                                                   stores);
+        MetadataStore metadata = new MetadataStore(metadataInner, stores);
         stores.put(MetadataStore.METADATA_STORE_NAME, metadata);
         return stores;
     }
 
-    public static SocketServer getSocketServer(String clusterXml, 
-                                               String storesXml, 
-                                               String storeName, 
+    public static SocketServer getSocketServer(String clusterXml,
+                                               String storesXml,
+                                               String storeName,
                                                int port) {
 
-        SocketServer socketServer = new SocketServer(getStores(storeName, clusterXml, storesXml), port, 5, 10);
+        SocketServer socketServer = new SocketServer(getStores(storeName, clusterXml, storesXml),
+                                                     port,
+                                                     5,
+                                                     10);
         socketServer.start();
         socketServer.awaitStartupCompletion();
         return socketServer;
     }
-    
+
     public static SocketStore getSocketStore(String storeName, int port) {
         SocketPool socketPool = new SocketPool(1, 2, 1000);
         return new SocketStore(storeName, "localhost", port, socketPool);
     }
-    
-    public static Context getJettyServer(String clusterXml, 
+
+    public static Context getJettyServer(String clusterXml,
                                          String storesXml,
-                                         String storeName, 
+                                         String storeName,
                                          int port) throws Exception {
-        ConcurrentMap<String, Store<byte[],byte[]>> stores = getStores(storeName, clusterXml, storesXml);
-        
+        ConcurrentMap<String, Store<byte[], byte[]>> stores = getStores(storeName,
+                                                                        clusterXml,
+                                                                        storesXml);
+
         // initialize servlet
         Server server = new Server(port);
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
-        
+
         context.addServlet(new ServletHolder(new StoreServlet(stores)), "/*");
         server.start();
         return context;
     }
-    
+
     public static HttpStore getHttpStore(String storeName, int port) {
         return new HttpStore(storeName, "localhost", port, new HttpClient());
     }

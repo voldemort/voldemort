@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.performance;
 
 import java.io.File;
@@ -30,35 +46,39 @@ import com.google.common.collect.Maps;
 
 public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
-	@Override
-	public StoreClient<String,String> getStore(Props propsA, Props propsB) throws Exception {
-		Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory") +
-				File.separator + "/cluster.xml"));
-		HashFunction hasher = new FnvHashFunction();
-		RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
-		Map<Integer,Store<byte[],byte[]>> clientMapping = Maps.newHashMap();
-		StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
-		for(Node node: cluster.getNodes())
-			clientMapping.put(node.getId(), conf.getStore("test" + node.getId()));
-		
-		InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
-		Store<byte[],byte[]> store = new RoutedStore("test", 
-        											  clientMapping,
-        											  routingStrategy,  
-        											  1,
-        											  1,
-        											  10,
+    @Override
+    public StoreClient<String, String> getStore(Props propsA, Props propsB) throws Exception {
+        Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory")
+                                                                         + File.separator
+                                                                         + "/cluster.xml"));
+        HashFunction hasher = new FnvHashFunction();
+        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
+        Map<Integer, Store<byte[], byte[]>> clientMapping = Maps.newHashMap();
+        StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
+        for(Node node: cluster.getNodes())
+            clientMapping.put(node.getId(), conf.getStore("test" + node.getId()));
+
+        InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
+        Store<byte[], byte[]> store = new RoutedStore("test",
+                                                      clientMapping,
+                                                      routingStrategy,
+                                                      1,
+                                                      1,
+                                                      10,
                                                       true,
                                                       10000L);
-		Store<String,String> serializingStore = new SerializingStore<String,String>(store, new StringSerializer(), new StringSerializer());
-		return new DefaultStoreClient<String, String>(new InconsistencyResolvingStore<String, String>(serializingStore, resolver),
-                                        		        new StringSerializer(),
-                                        		        new StringSerializer(),
-                                        		        null);
-	}
+        Store<String, String> serializingStore = new SerializingStore<String, String>(store,
+                                                                                      new StringSerializer(),
+                                                                                      new StringSerializer());
+        return new DefaultStoreClient<String, String>(new InconsistencyResolvingStore<String, String>(serializingStore,
+                                                                                                      resolver),
+                                                      new StringSerializer(),
+                                                      new StringSerializer(),
+                                                      null);
+    }
 
-	public static void main(String[] args) throws Exception {
-		new LocalRoutedStoreLoadTest().run(args);
-	}
-	
+    public static void main(String[] args) throws Exception {
+        new LocalRoutedStoreLoadTest().run(args);
+    }
+
 }

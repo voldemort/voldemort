@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.BufferedInputStream;
@@ -32,11 +48,11 @@ public class Props implements Map<String, String> {
 
     public Props(File... files) throws FileNotFoundException, IOException {
         this.props = new HashMap<String, String>();
-        for (int i = files.length - 1; i >= 0; i--) {
+        for(int i = files.length - 1; i >= 0; i--) {
             Properties properties = new Properties();
             InputStream input = new BufferedInputStream(new FileInputStream(files[i].getAbsolutePath()));
             properties.load(input);
-            for (Entry<Object, Object> e : properties.entrySet())
+            for(Entry<Object, Object> e: properties.entrySet())
                 this.props.put((String) e.getKey(), (String) e.getValue());
             input.close();
         }
@@ -44,14 +60,14 @@ public class Props implements Map<String, String> {
 
     public Props(Map<String, String>... props) {
         this.props = new HashMap<String, String>();
-        for (int i = props.length - 1; i >= 0; i--)
+        for(int i = props.length - 1; i >= 0; i--)
             this.props.putAll(props[i]);
     }
 
     public Props(Properties... properties) {
         this.props = new HashMap<String, String>();
-        for (int i = properties.length - 1; i >= 0; i--)
-            for (Entry<Object, Object> e : properties[i].entrySet())
+        for(int i = properties.length - 1; i >= 0; i--)
+            for(Entry<Object, Object> e: properties[i].entrySet())
                 this.props.put((String) e.getKey(), (String) e.getValue());
     }
 
@@ -116,77 +132,77 @@ public class Props implements Map<String, String> {
     }
 
     public String getString(String key, String defaultValue) {
-        if (containsKey(key))
+        if(containsKey(key))
             return get(key);
         else
             return defaultValue;
     }
 
     public String getString(String key) {
-        if (containsKey(key))
+        if(containsKey(key))
             return get(key);
         else
             throw new UndefinedPropertyException(key);
     }
 
     public boolean getBoolean(String key, boolean defaultValue) {
-        if (containsKey(key))
+        if(containsKey(key))
             return "true".equalsIgnoreCase(get(key));
         else
             return defaultValue;
     }
 
     public boolean getBoolean(String key) {
-        if (containsKey(key))
+        if(containsKey(key))
             return "true".equalsIgnoreCase(get(key));
         else
             throw new UndefinedPropertyException(key);
     }
 
     public long getLong(String name, long defaultValue) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Long.parseLong(get(name));
         else
             return defaultValue;
     }
 
     public long getLong(String name) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Long.parseLong(get(name));
         else
             throw new UndefinedPropertyException(name);
     }
 
     public int getInt(String name, int defaultValue) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Integer.parseInt(get(name));
         else
             return defaultValue;
     }
 
     public int getInt(String name) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Integer.parseInt(get(name));
         else
             throw new UndefinedPropertyException(name);
     }
 
     public double getDouble(String name, double defaultValue) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Double.parseDouble(get(name));
         else
             return defaultValue;
     }
 
     public double getDouble(String name) {
-        if (containsKey(name))
+        if(containsKey(name))
             return Double.parseDouble(get(name));
         else
             throw new UndefinedPropertyException(name);
     }
 
     public long getBytes(String name, long defaultValue) {
-        if (containsKey(name))
+        if(containsKey(name))
             return getBytes(name);
         else
             return defaultValue;
@@ -205,7 +221,7 @@ public class Props implements Map<String, String> {
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder("{");
-        for (Entry<String, String> entry : this.props.entrySet()) {
+        for(Entry<String, String> entry: this.props.entrySet()) {
             builder.append(entry.getKey());
             builder.append(": ");
             builder.append(entry.getValue());
@@ -216,22 +232,22 @@ public class Props implements Map<String, String> {
     }
 
     public long getBytes(String name) {
-        if (!containsKey(name))
+        if(!containsKey(name))
             throw new UndefinedPropertyException(name);
 
         String bytes = get(name);
         String bytesLc = bytes.toLowerCase().trim();
-        if (bytesLc.endsWith("kb"))
+        if(bytesLc.endsWith("kb"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 2)) * 1024;
-        else if (bytesLc.endsWith("k"))
+        else if(bytesLc.endsWith("k"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 1)) * 1024;
-        else if (bytesLc.endsWith("mb"))
+        else if(bytesLc.endsWith("mb"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 2)) * 1024 * 1024;
-        else if (bytesLc.endsWith("m"))
+        else if(bytesLc.endsWith("m"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 1)) * 1024 * 1024;
-        else if (bytesLc.endsWith("gb"))
+        else if(bytesLc.endsWith("gb"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 2)) * 1024 * 1024 * 1024;
-        else if (bytesLc.endsWith("g"))
+        else if(bytesLc.endsWith("g"))
             return Long.parseLong(bytes.substring(0, bytes.length() - 1)) * 1024 * 1024 * 1024;
         else
             return Long.parseLong(bytes);

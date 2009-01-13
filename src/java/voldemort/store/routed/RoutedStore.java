@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.routed;
 
 import java.util.ArrayList;
@@ -172,7 +188,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
         // semaphore.acquire(n) waits for n operations to complete
         final Semaphore semaphore = new Semaphore(0, false);
         // Add the operations to the pool
-        for(final Node node : nodes) {
+        for(final Node node: nodes) {
             this.executor.execute(new Runnable() {
 
                 public void run() {
@@ -261,20 +277,20 @@ public class RoutedStore implements Store<byte[], byte[]> {
             final Node node = nodes.get(nodeIndex);
             System.out.println("Querying node:" + node.getId() + " key:" + key);
             if(isAvailable(node)) {
-              System.out.println("Available node:" + node.getId() + " key:" + key);
+                System.out.println("Available node:" + node.getId() + " key:" + key);
                 this.executor.execute(new Runnable() {
 
                     public void run() {
                         try {
-                           for (Store store: innerStores.values())
-                           {
-                            logger.info("storeID: " + store.getName() + " Class:" + store.getClass().toString());
-                           }
+                            for(Store store: innerStores.values()) {
+                                logger.info("storeID: " + store.getName() + " Class:"
+                                            + store.getClass().toString());
+                            }
                             List<Versioned<byte[]>> fetched = innerStores.get(node.getId())
                                                                          .get(key);
                             retrieved.addAll(fetched);
                             if(repairReads) {
-                                for(Versioned<byte[]> f : fetched)
+                                for(Versioned<byte[]> f: fetched)
                                     nodeValues.add(new NodeValue<byte[], byte[]>(node.getId(),
                                                                                  key,
                                                                                  f));
@@ -328,7 +344,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
             this.executor.execute(new Runnable() {
 
                 public void run() {
-                    for(NodeValue<byte[], byte[]> v : readRepairer.getRepairs(nodeValues)) {
+                    for(NodeValue<byte[], byte[]> v: readRepairer.getRepairs(nodeValues)) {
                         try {
                             logger.debug("Doing read repair on node " + v.getNodeId()
                                          + " for key '" + v.getKey() + "' with version "
@@ -503,7 +519,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
             this.executor.shutdownNow();
         }
         VoldemortException exception = null;
-        for(Store<byte[], byte[]> client : innerStores.values()) {
+        for(Store<byte[], byte[]> client: innerStores.values()) {
             try {
                 client.close();
             } catch(VoldemortException v) {

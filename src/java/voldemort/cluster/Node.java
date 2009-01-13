@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.cluster;
 
 import java.io.Serializable;
@@ -77,7 +93,7 @@ public class Node implements Serializable {
     public URI getHttpUrl() {
         try {
             return new URI("http://" + getHost() + ":" + getHttpPort());
-        } catch (URISyntaxException e) {
+        } catch(URISyntaxException e) {
             throw new IllegalStateException("Invalid host format for node " + id + ".");
         }
     }
@@ -85,7 +101,7 @@ public class Node implements Serializable {
     public URI getSocketUrl() {
         try {
             return new URI("tcp://" + getHost() + ":" + getSocketPort());
-        } catch (URISyntaxException e) {
+        } catch(URISyntaxException e) {
             throw new IllegalStateException("Invalid host format for node " + id + ".");
         }
     }
@@ -97,9 +113,9 @@ public class Node implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if(this == o)
             return true;
-        if (!(o instanceof Node))
+        if(!(o instanceof Node))
             return false;
 
         Node n = (Node) o;

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.serialized;
 
 import java.util.ArrayList;
@@ -41,7 +57,7 @@ public class SerializingStore<K, V> implements Store<K, V> {
     public List<Versioned<V>> get(K key) throws VoldemortException {
         List<Versioned<byte[]>> found = store.get(keySerializer.toBytes(key));
         List<Versioned<V>> results = new ArrayList<Versioned<V>>(found.size());
-        for (Versioned<byte[]> versioned : found)
+        for(Versioned<byte[]> versioned: found)
             results.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),
                                          (VectorClock) versioned.getVersion()));
         return results;

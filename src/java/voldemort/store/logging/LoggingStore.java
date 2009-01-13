@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.logging;
 
 import java.util.List;
@@ -38,7 +54,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
 
     @Override
     public void close() throws VoldemortException {
-        if (logger.isDebugEnabled())
+        if(logger.isDebugEnabled())
             logger.debug("Closing " + getName() + ".");
         super.close();
     }
@@ -47,14 +63,14 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
     public boolean delete(K key, Version version) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if (logger.isDebugEnabled())
+        if(logger.isDebugEnabled())
             startTimeNs = time.getNanoseconds();
         try {
             boolean deletedSomething = getInnerStore().delete(key, version);
             succeeded = true;
             return deletedSomething;
         } finally {
-            if (logger.isDebugEnabled()) {
+            if(logger.isDebugEnabled()) {
                 double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
                 logger.debug("DELETE from store '" + getName() + "' completed "
                              + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs
@@ -67,14 +83,14 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
     public List<Versioned<V>> get(K key) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if (logger.isDebugEnabled())
+        if(logger.isDebugEnabled())
             startTimeNs = time.getNanoseconds();
         try {
             List<Versioned<V>> l = getInnerStore().get(key);
             succeeded = true;
             return l;
         } finally {
-            if (logger.isDebugEnabled()) {
+            if(logger.isDebugEnabled()) {
                 double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
                 logger.debug("GET from store '" + getName() + "' completed "
                              + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs
@@ -87,14 +103,14 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
     public void put(K key, Versioned<V> value) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if (logger.isDebugEnabled()) {
+        if(logger.isDebugEnabled()) {
             startTimeNs = time.getNanoseconds();
         }
         try {
             getInnerStore().put(key, value);
             succeeded = true;
         } finally {
-            if (logger.isDebugEnabled()) {
+            if(logger.isDebugEnabled()) {
                 double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
                 logger.debug("PUT from store '" + getName() + "' completed "
                              + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs

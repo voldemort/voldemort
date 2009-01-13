@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.bdb;
 
 import java.io.File;
@@ -52,20 +68,20 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
             databaseConfig.setTransactional(true);
             File bdbDir = new File(config.getBdbDataDirectory());
-            if (!bdbDir.exists())
+            if(!bdbDir.exists())
                 bdbDir.mkdir();
             environment = new Environment(bdbDir, environmentConfig);
             isInitialized = true;
-        } catch (DatabaseException e) {
+        } catch(DatabaseException e) {
             throw new StorageInitializationException(e);
         }
     }
 
     public synchronized StorageEngine<byte[], byte[]> getStore(String storeName) {
-        if (!isInitialized)
+        if(!isInitialized)
             throw new StorageInitializationException("Attempt to get store for uninitialized storage configuration!");
 
-        if (stores.containsKey(storeName)) {
+        if(stores.containsKey(storeName)) {
             return stores.get(storeName);
         } else {
             try {
@@ -73,7 +89,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 BdbStorageEngine engine = new BdbStorageEngine(storeName, environment, db);
                 stores.put(storeName, engine);
                 return engine;
-            } catch (DatabaseException d) {
+            } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
             }
         }
@@ -87,7 +103,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         try {
             this.environment.sync();
             this.environment.close();
-        } catch (DatabaseException e) {
+        } catch(DatabaseException e) {
             throw new VoldemortException(e);
         }
     }

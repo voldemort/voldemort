@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.xml;
 
 import java.io.IOException;
@@ -71,7 +87,7 @@ public class ClusterMapper {
                                            + doc.getRootElement().getName());
             String name = root.getChildText(CLUSTER_NAME_ELMT);
             List<Node> nodes = new ArrayList<Node>();
-            for(Element node : (List<Element>) root.getChildren(SERVER_ELMT))
+            for(Element node: (List<Element>) root.getChildren(SERVER_ELMT))
                 nodes.add(readServer(node));
             return new Cluster(name, nodes);
         } catch(JDOMException e) {
@@ -91,7 +107,7 @@ public class ClusterMapper {
         int socketPort = Integer.parseInt(server.getChildText(SOCKET_PORT_ELMT));
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
-        for(String aPartition : COMMA_SEP.split(partitionsText))
+        for(String aPartition: COMMA_SEP.split(partitionsText))
             partitions.add(Integer.parseInt(aPartition.trim()));
         return new Node(id, host, httpPort, socketPort, partitions);
     }
@@ -99,7 +115,7 @@ public class ClusterMapper {
     public String writeCluster(Cluster cluster) {
         Document doc = new Document(new Element(CLUSTER_ELMT));
         doc.getRootElement().addContent(new Element(CLUSTER_NAME_ELMT).setText(cluster.getName()));
-        for(Node n : cluster.getNodes())
+        for(Node n: cluster.getNodes())
             doc.getRootElement().addContent(mapServer(n));
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
         return serializer.outputString(doc.getRootElement());

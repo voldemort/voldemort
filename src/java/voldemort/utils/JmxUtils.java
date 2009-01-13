@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.lang.annotation.Annotation;
@@ -72,11 +88,11 @@ public class JmxUtils {
             mbean.setManagedResource(o, "ObjectReference");
 
             return mbean;
-        } catch (MBeanException e) {
+        } catch(MBeanException e) {
             throw new VoldemortException(e);
-        } catch (InvalidTargetObjectTypeException e) {
+        } catch(InvalidTargetObjectTypeException e) {
             throw new VoldemortException(e);
-        } catch (InstanceNotFoundException e) {
+        } catch(InstanceNotFoundException e) {
             throw new VoldemortException(e);
         }
     }
@@ -91,22 +107,22 @@ public class JmxUtils {
      */
     public static ModelMBeanOperationInfo[] extractOperationInfo(Object object) {
         ArrayList<ModelMBeanOperationInfo> infos = new ArrayList<ModelMBeanOperationInfo>();
-        for (Method m : object.getClass().getMethods()) {
+        for(Method m: object.getClass().getMethods()) {
             JmxOperation jmxOperation = m.getAnnotation(JmxOperation.class);
             JmxGetter jmxGetter = m.getAnnotation(JmxGetter.class);
             JmxSetter jmxSetter = m.getAnnotation(JmxSetter.class);
-            if (jmxOperation != null || jmxGetter != null || jmxSetter != null) {
+            if(jmxOperation != null || jmxGetter != null || jmxSetter != null) {
                 String description = "";
                 int visibility = 1;
                 int impact = ModelMBeanOperationInfo.UNKNOWN;
-                if (jmxOperation != null) {
+                if(jmxOperation != null) {
                     description = jmxOperation.description();
                     impact = jmxOperation.impact();
-                } else if (jmxGetter != null) {
+                } else if(jmxGetter != null) {
                     description = jmxGetter.description();
                     impact = ModelMBeanOperationInfo.INFO;
                     visibility = 4;
-                } else if (jmxSetter != null) {
+                } else if(jmxSetter != null) {
                     description = jmxSetter.description();
                     impact = ModelMBeanOperationInfo.ACTION;
                     visibility = 4;
@@ -138,14 +154,14 @@ public class JmxUtils {
         Map<String, Method> getters = new HashMap<String, Method>();
         Map<String, Method> setters = new HashMap<String, Method>();
         Map<String, String> descriptions = new HashMap<String, String>();
-        for (Method m : object.getClass().getMethods()) {
+        for(Method m: object.getClass().getMethods()) {
             JmxGetter getter = m.getAnnotation(JmxGetter.class);
-            if (getter != null) {
+            if(getter != null) {
                 getters.put(getter.name(), m);
                 descriptions.put(getter.name(), getter.description());
             }
             JmxSetter setter = m.getAnnotation(JmxSetter.class);
-            if (setter != null) {
+            if(setter != null) {
                 setters.put(setter.name(), m);
                 descriptions.put(setter.name(), setter.description());
             }
@@ -154,7 +170,7 @@ public class JmxUtils {
         Set<String> attributes = new HashSet<String>(getters.keySet());
         attributes.addAll(setters.keySet());
         List<ModelMBeanAttributeInfo> infos = new ArrayList<ModelMBeanAttributeInfo>();
-        for (String name : attributes) {
+        for(String name: attributes) {
             try {
                 Method getter = getters.get(name);
                 Method setter = setters.get(name);
@@ -163,13 +179,13 @@ public class JmxUtils {
                                                                            getter,
                                                                            setter);
                 Descriptor descriptor = info.getDescriptor();
-                if (getter != null)
+                if(getter != null)
                     descriptor.setField("getMethod", getter.getName());
-                if (setter != null)
+                if(setter != null)
                     descriptor.setField("setMethod", setter.getName());
                 info.setDescriptor(descriptor);
                 infos.add(info);
-            } catch (IntrospectionException e) {
+            } catch(IntrospectionException e) {
                 throw new VoldemortException(e);
             }
         }
@@ -188,10 +204,10 @@ public class JmxUtils {
         Class<?>[] types = m.getParameterTypes();
         Annotation[][] annotations = m.getParameterAnnotations();
         MBeanParameterInfo[] params = new MBeanParameterInfo[types.length];
-        for (int i = 0; i < params.length; i++) {
+        for(int i = 0; i < params.length; i++) {
             boolean hasAnnotation = false;
-            for (int j = 0; j < annotations[i].length; j++) {
-                if (annotations[i][j] instanceof JmxParam) {
+            for(int j = 0; j < annotations[i].length; j++) {
+                if(annotations[i][j] instanceof JmxParam) {
                     JmxParam param = (JmxParam) annotations[i][j];
                     params[i] = new MBeanParameterInfo(param.name(),
                                                        types[i].getName(),
@@ -200,7 +216,7 @@ public class JmxUtils {
                     break;
                 }
             }
-            if (!hasAnnotation) {
+            if(!hasAnnotation) {
                 params[i] = new MBeanParameterInfo("", types[i].getName(), "");
             }
         }
@@ -218,7 +234,7 @@ public class JmxUtils {
     public static ObjectName createObjectName(String domain, String type) {
         try {
             return new ObjectName(domain + ":type=" + type);
-        } catch (MalformedObjectNameException e) {
+        } catch(MalformedObjectNameException e) {
             throw new VoldemortException(e);
         }
     }
@@ -265,11 +281,11 @@ public class JmxUtils {
     public static void registerMbean(MBeanServer server, ModelMBean mbean, ObjectName name) {
         try {
             server.registerMBean(mbean, name);
-        } catch (InstanceAlreadyExistsException e) {
+        } catch(InstanceAlreadyExistsException e) {
             throw new VoldemortException(e);
-        } catch (MBeanRegistrationException e) {
+        } catch(MBeanRegistrationException e) {
             throw new VoldemortException(e);
-        } catch (NotCompliantMBeanException e) {
+        } catch(NotCompliantMBeanException e) {
             throw new VoldemortException(e);
         }
     }
@@ -283,9 +299,9 @@ public class JmxUtils {
     public static void unregisterMbean(MBeanServer server, ObjectName name) {
         try {
             server.unregisterMBean(name);
-        } catch (InstanceNotFoundException e) {
+        } catch(InstanceNotFoundException e) {
             throw new VoldemortException(e);
-        } catch (MBeanRegistrationException e) {
+        } catch(MBeanRegistrationException e) {
             throw new VoldemortException(e);
         }
     }

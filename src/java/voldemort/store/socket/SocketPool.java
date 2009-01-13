@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.socket;
 
 import org.apache.commons.pool.KeyedObjectPool;
@@ -38,7 +54,7 @@ public class SocketPool {
     public SocketAndStreams checkout(SocketDestination destination) {
         try {
             return (SocketAndStreams) pool.borrowObject(destination);
-        } catch (Exception e) {
+        } catch(Exception e) {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
         }
@@ -47,10 +63,10 @@ public class SocketPool {
     public void checkin(SocketDestination destination, SocketAndStreams socket) {
         try {
             pool.returnObject(destination, socket);
-        } catch (Exception e) {
+        } catch(Exception e) {
             try {
                 pool.invalidateObject(destination, socket);
-            } catch (Exception e2) {
+            } catch(Exception e2) {
                 logger.error("Error while destroying socket:", e2);
             }
             throw new UnreachableStoreException("Failure while checking out socket for "
@@ -62,7 +78,7 @@ public class SocketPool {
         try {
             pool.clear();
             pool.close();
-        } catch (Exception e) {
+        } catch(Exception e) {
             throw new VoldemortException(e);
         }
     }

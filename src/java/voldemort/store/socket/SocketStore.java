@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.socket;
 
 import java.io.DataInputStream;
@@ -63,7 +79,7 @@ public class SocketStore implements Store<byte[], byte[]> {
             DataInputStream inputStream = sands.getInputStream();
             checkException(inputStream);
             return inputStream.readBoolean();
-        } catch (IOException e) {
+        } catch(IOException e) {
             close(sands.getSocket());
             throw new VoldemortException(e);
         } finally {
@@ -85,7 +101,7 @@ public class SocketStore implements Store<byte[], byte[]> {
             checkException(inputStream);
             int resultSize = inputStream.readInt();
             List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(resultSize);
-            for (int i = 0; i < resultSize; i++) {
+            for(int i = 0; i < resultSize; i++) {
                 int valueSize = inputStream.readInt();
                 byte[] bytes = new byte[valueSize];
                 ByteUtils.read(inputStream, bytes);
@@ -95,7 +111,7 @@ public class SocketStore implements Store<byte[], byte[]> {
                                                                  bytes.length), clock));
             }
             return results;
-        } catch (IOException e) {
+        } catch(IOException e) {
             close(sands.getSocket());
             throw new VoldemortException(e);
         } finally {
@@ -119,7 +135,7 @@ public class SocketStore implements Store<byte[], byte[]> {
             outputStream.flush();
             DataInputStream inputStream = sands.getInputStream();
             checkException(inputStream);
-        } catch (IOException e) {
+        } catch(IOException e) {
             close(sands.getSocket());
             throw new VoldemortException(e);
         } finally {
@@ -133,7 +149,7 @@ public class SocketStore implements Store<byte[], byte[]> {
 
     private void checkException(DataInputStream inputStream) throws IOException {
         short retCode = inputStream.readShort();
-        if (retCode != 0) {
+        if(retCode != 0) {
             String error = inputStream.readUTF();
             throw errorCodeMapper.getError(retCode, error);
         }
@@ -142,7 +158,7 @@ public class SocketStore implements Store<byte[], byte[]> {
     private void close(Socket socket) {
         try {
             socket.close();
-        } catch (IOException e) {
+        } catch(IOException e) {
             logger.warn("Failed to close socket");
         }
     }

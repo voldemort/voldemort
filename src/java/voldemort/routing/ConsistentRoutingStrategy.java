@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.routing;
 
 import java.util.ArrayList;
@@ -40,9 +56,9 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         this.numResults = numReplicas;
         this.hash = hash;
         SortedMap<Integer, Node> m = new TreeMap<Integer, Node>();
-        for (Node n : nodes) {
-            for (Integer partition : n.getPartitionIds()) {
-                if (m.containsKey(partition))
+        for(Node n: nodes) {
+            for(Integer partition: n.getPartitionIds()) {
+                if(m.containsKey(partition))
                     throw new IllegalArgumentException("Duplicate partition id " + partition
                                                        + " in cluster configuration.");
                 m.put(partition, n);
@@ -50,8 +66,8 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         }
 
         this.partitionToNode = new Node[m.size()];
-        for (int i = 0; i < m.size(); i++) {
-            if (!m.containsKey(i))
+        for(int i = 0; i < m.size(); i++) {
+            if(!m.containsKey(i))
                 throw new IllegalArgumentException("Missing tag " + i);
             this.partitionToNode[i] = m.get(i);
         }
@@ -60,13 +76,13 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public List<Node> routeRequest(byte[] key) {
         List<Node> preferenceList = new ArrayList<Node>(numResults);
         int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
-        for (int i = 0; i < partitionToNode.length; i++) {
+        for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
-            if (!preferenceList.contains(partitionToNode[index]))
+            if(!preferenceList.contains(partitionToNode[index]))
                 preferenceList.add(partitionToNode[index]);
 
             // if we have enough, go home
-            if (preferenceList.size() >= numResults)
+            if(preferenceList.size() >= numResults)
                 return preferenceList;
             // move to next clockwise slot on the ring
             index = (index + 1) % partitionToNode.length;
@@ -78,7 +94,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
 
     public Set<Node> getNodes() {
         Set<Node> s = new HashSet<Node>();
-        for (Node n : this.partitionToNode)
+        for(Node n: this.partitionToNode)
             s.add(n);
         return s;
     }
@@ -89,8 +105,8 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
 
     Set<Integer> getPartitionsByNode(Node n) {
         Set<Integer> tags = new HashSet<Integer>();
-        for (int i = 0; i < partitionToNode.length; i++)
-            if (partitionToNode[i].equals(n))
+        for(int i = 0; i < partitionToNode.length; i++)
+            if(partitionToNode[i].equals(n))
                 tags.add(i);
         return tags;
     }
