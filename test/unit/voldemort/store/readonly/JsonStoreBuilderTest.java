@@ -47,12 +47,13 @@ import voldemort.versioning.Versioned;
 
 public class JsonStoreBuilderTest extends TestCase {
 
-    private static final int TEST_SIZE = 1000;
+    private static final int TEST_SIZE = 500;
 
     private Map<String, String> data;
     private File dataDir;
     private Store<Object, Object> store;
 
+    @Override
     public void setUp() throws Exception {
         // create test data
         this.data = new HashMap<String, String>(TEST_SIZE);
@@ -61,7 +62,7 @@ public class JsonStoreBuilderTest extends TestCase {
 
         // write data to file
         File dataFile = File.createTempFile("test", ".txt");
-        // dataFile.deleteOnExit();
+        dataFile.deleteOnExit();
         BufferedWriter writer = new BufferedWriter(new FileWriter(dataFile));
         for(Map.Entry<String, String> entry: this.data.entrySet())
             writer.write("\"" + entry.getKey() + "\"\t\"" + entry.getValue() + "\"\n");
@@ -92,6 +93,7 @@ public class JsonStoreBuilderTest extends TestCase {
                                                        1,
                                                        1);
         RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
+        Utils.rm(this.dataDir);
         this.dataDir = TestUtils.getTempDirectory();
 
         // build and open store
@@ -100,8 +102,14 @@ public class JsonStoreBuilderTest extends TestCase {
                                                              storeDef,
                                                              router,
                                                              dataDir,
-                                                             10);
+                                                             100);
         storeBuilder.build();
+
+        // rename files
+        new File(dataDir, "0.index").renameTo(new File(dataDir, "test.index"));
+        new File(dataDir, "0.data").renameTo(new File(dataDir, "test.data"));
+
+        // open store
         Serializer<Object> serializer = new JsonTypeSerializer("'string'");
         this.store = new SerializingStore<Object, Object>(new RandomAccessFileStore("test",
                                                                                     this.dataDir,
@@ -112,6 +120,7 @@ public class JsonStoreBuilderTest extends TestCase {
                                                           serializer);
     }
 
+    @Override
     public void tearDown() {
         Utils.rm(this.dataDir);
     }
@@ -120,7 +129,7 @@ public class JsonStoreBuilderTest extends TestCase {
      * For each key/value pair we built into the store, look it up and test that
      * the correct value is returned
      */
-    public void XXXtestCanGetGoodValues() {
+    public void testCanGetGoodValues() {
         for(Map.Entry<String, String> entry: this.data.entrySet()) {
             List<Versioned<Object>> found = this.store.get(entry.getKey());
             assertEquals(found.size(), 1);
@@ -132,11 +141,11 @@ public class JsonStoreBuilderTest extends TestCase {
     /**
      * Do lookups on keys not in the store and test that the keys are not found.
      */
-    public void XXXtestCantGetBadValues() {
+    public void testCantGetBadValues() {
         for(int i = 0; i < TEST_SIZE; i++) {
             String key = TestUtils.randomLetters(10);
             if(!this.data.containsKey(key))
-                assertEquals(null, this.store.get(key));
+                assertEquals(0, this.store.get(key).size());
         }
     }
 

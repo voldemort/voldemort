@@ -73,7 +73,8 @@ public class Utils {
      * @param file The file to delete
      */
     public static void rm(File file) {
-        rm(Collections.singletonList(file));
+        if(file != null)
+            rm(Collections.singletonList(file));
     }
 
     /**
@@ -82,7 +83,8 @@ public class Utils {
      * @param file The file to delete
      */
     public static void rm(String file) {
-        rm(Collections.singletonList(new File(file)));
+        if(file != null)
+            rm(Collections.singletonList(new File(file)));
     }
 
     /**
@@ -91,12 +93,14 @@ public class Utils {
      * @param files A collection of files to delete
      */
     public static void rm(Collection<File> files) {
-        for(File f: files) {
-            if(f.isDirectory()) {
-                rm(Arrays.asList(f.listFiles()));
-                f.delete();
-            } else {
-                f.delete();
+        if(files != null) {
+            for(File f: files) {
+                if(f.isDirectory()) {
+                    rm(Arrays.asList(f.listFiles()));
+                    f.delete();
+                } else {
+                    f.delete();
+                }
             }
         }
     }

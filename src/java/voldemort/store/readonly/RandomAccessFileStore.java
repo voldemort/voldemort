@@ -215,8 +215,8 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         int chunkSize = KEY_HASH_SIZE + POSITION_SIZE;
         long low = 0;
         long high = indexFileSize / chunkSize - 1;
-        while(low < high) {
-            long mid = low + (high - low) / 2;
+        while(low <= high) {
+            long mid = (low + high) / 2;
             index.seek(mid * chunkSize);
             index.readFully(foundKey);
             int cmp = ByteUtils.compare(foundKey, keyMd5);
@@ -225,10 +225,10 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                 return index.readLong();
             } else if(cmp > 0) {
                 // midVal is bigger
-                high = mid;
+                high = mid - 1;
             } else if(cmp < 0) {
                 // the keyMd5 is bigger
-                low = mid;
+                low = mid + 1;
             }
         }
 
