@@ -19,10 +19,9 @@ package voldemort.store;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A store that always throws an exception for every operation
@@ -40,7 +39,7 @@ public class FailingStore<K, V> implements Store<K, V> {
     }
 
     public FailingStore(String name, VoldemortException e) {
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.exception = e;
     }
 

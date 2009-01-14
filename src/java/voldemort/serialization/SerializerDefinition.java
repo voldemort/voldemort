@@ -20,6 +20,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import voldemort.utils.Utils;
+
 import com.google.common.base.Objects;
 
 /**
@@ -36,14 +38,14 @@ public class SerializerDefinition {
 
     public SerializerDefinition(String name) {
         super();
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.currentSchemaVersion = -1;
         this.schemaInfoByVersion = new HashMap<Integer, String>();
     }
 
     public SerializerDefinition(String name, String schemaInfo) {
         super();
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.currentSchemaVersion = 0;
         this.schemaInfoByVersion = new HashMap<Integer, String>();
         this.schemaInfoByVersion.put(0, schemaInfo);
@@ -51,7 +53,7 @@ public class SerializerDefinition {
 
     public SerializerDefinition(String name, Map<Integer, String> schemaInfos) {
         super();
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.schemaInfoByVersion = new HashMap<Integer, String>();
         int max = -1;
         for(Integer key: schemaInfos.keySet()) {

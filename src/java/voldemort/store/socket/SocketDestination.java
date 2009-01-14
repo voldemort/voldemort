@@ -16,6 +16,8 @@
 
 package voldemort.store.socket;
 
+import voldemort.utils.Utils;
+
 import com.google.common.base.Objects;
 
 /**
@@ -30,8 +32,8 @@ public class SocketDestination {
     private final int port;
 
     public SocketDestination(String host, int port) {
-        this.host = Objects.nonNull(host);
-        this.port = Objects.nonNull(port);
+        this.host = Utils.notNull(host);
+        this.port = Utils.notNull(port);
     }
 
     public String getHost() {

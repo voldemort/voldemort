@@ -21,8 +21,7 @@ import java.util.Date;
 
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-
-import com.google.common.base.Objects;
+import voldemort.utils.Utils;
 
 /**
  * Holds the status of a node--either available or unavailable as well as the
@@ -50,7 +49,7 @@ public class NodeStatus implements Serializable {
     }
 
     public NodeStatus(Time time, long lastChecked, boolean isAvailable) {
-        this.time = Objects.nonNull(time);
+        this.time = Utils.notNull(time);
         this.lastChecked = lastChecked;
         this.isAvailable = isAvailable;
     }

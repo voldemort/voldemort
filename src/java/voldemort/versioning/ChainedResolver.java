@@ -19,7 +19,7 @@ package voldemort.versioning;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.base.Objects;
+import voldemort.utils.Utils;
 
 /**
  * Apply the given inconsistency resolvers in order until there are 1 or fewer
@@ -35,7 +35,7 @@ public class ChainedResolver<T> implements InconsistencyResolver<T> {
     public ChainedResolver(InconsistencyResolver<T>... resolvers) {
         this.resolvers = new ArrayList<InconsistencyResolver<T>>(resolvers.length);
         for(InconsistencyResolver<T> resolver: resolvers)
-            this.resolvers.add(Objects.nonNull(resolver));
+            this.resolvers.add(Utils.notNull(resolver));
     }
 
     public List<T> resolveConflicts(List<T> items) {

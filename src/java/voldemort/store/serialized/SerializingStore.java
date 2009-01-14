@@ -22,11 +22,10 @@ import java.util.List;
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A store that transforms requests to a Store<byte[],byte[]> to a Store<K,V>
@@ -45,9 +44,9 @@ public class SerializingStore<K, V> implements Store<K, V> {
     public SerializingStore(Store<byte[], byte[]> store,
                             Serializer<K> keySerializer,
                             Serializer<V> valueSerializer) {
-        this.store = Objects.nonNull(store);
-        this.keySerializer = Objects.nonNull(keySerializer);
-        this.valueSerializer = Objects.nonNull(valueSerializer);
+        this.store = Utils.notNull(store);
+        this.keySerializer = Utils.notNull(keySerializer);
+        this.valueSerializer = Utils.notNull(valueSerializer);
     }
 
     public boolean delete(K key, Version version) throws VoldemortException {

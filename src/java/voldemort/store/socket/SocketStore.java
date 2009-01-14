@@ -31,11 +31,10 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * The client implementation of a socket store--tranlates each request into a
@@ -56,7 +55,7 @@ public class SocketStore implements Store<byte[], byte[]> {
     public SocketStore(String name, String host, int port, SocketPool socketPool) {
         this.name = name;
         this.pool = socketPool;
-        this.destination = new SocketDestination(Objects.nonNull(host), port);
+        this.destination = new SocketDestination(Utils.notNull(host), port);
     }
 
     public void close() throws VoldemortException {

@@ -31,12 +31,11 @@ import voldemort.store.ObsoleteVersionException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A simple non-persistent, in-memory store. Useful for unit testing.
@@ -50,13 +49,13 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     private final String name;
 
     public InMemoryStorageEngine(String name) {
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.map = new ConcurrentHashMap<KeyWrapper, List<Versioned<V>>>();
     }
 
     public InMemoryStorageEngine(String name, ConcurrentMap<KeyWrapper, List<Versioned<V>>> map) {
-        this.name = Objects.nonNull(name);
-        this.map = Objects.nonNull(map);
+        this.name = Utils.notNull(name);
+        this.map = Utils.notNull(map);
     }
 
     public void close() {}

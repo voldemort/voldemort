@@ -23,12 +23,11 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.store.ObsoleteVersionException;
 import voldemort.store.Store;
+import voldemort.utils.Utils;
 import voldemort.versioning.InconsistentDataException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
@@ -43,9 +42,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                               Serializer<K> keySerializer,
                               Serializer<V> valueSerializer,
                               RoutingStrategy routingStrategy) {
-        this.store = Objects.nonNull(store);
-        this.keySerializer = Objects.nonNull(keySerializer);
-        this.valueSerializer = Objects.nonNull(valueSerializer);
+        this.store = Utils.notNull(store);
+        this.keySerializer = Utils.notNull(keySerializer);
+        this.valueSerializer = Utils.notNull(valueSerializer);
         this.routingStragy = routingStrategy;
     }
 

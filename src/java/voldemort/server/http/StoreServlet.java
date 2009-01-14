@@ -38,11 +38,11 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.http.HttpResponseCodeErrorMapper;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.Join;
-import com.google.common.base.Objects;
 
 /**
  * Handles requests from HttpStores and multiplexes them to the appropriate
@@ -75,7 +75,7 @@ public class StoreServlet extends HttpServlet {
         // servlet context
         if(this.stores == null) {
             ServletContext context = this.getServletContext();
-            VoldemortServer server = (VoldemortServer) Objects.nonNull(context.getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
+            VoldemortServer server = (VoldemortServer) Utils.notNull(context.getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
             this.stores = server.getStoreMap();
         }
     }

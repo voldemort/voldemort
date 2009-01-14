@@ -29,8 +29,7 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
-
-import com.google.common.base.Objects;
+import voldemort.utils.Utils;
 
 /**
  * @author jay
@@ -129,7 +128,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     @Override
     protected Store<byte[], byte[]> getStore(String storeName, String host, int port) {
-        return new SocketStore(Objects.nonNull(storeName), Objects.nonNull(host), port, socketPool);
+        return new SocketStore(Utils.notNull(storeName), Utils.notNull(host), port, socketPool);
     }
 
     @Override

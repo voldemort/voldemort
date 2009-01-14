@@ -20,9 +20,8 @@ import voldemort.serialization.Serializer;
 import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A StorageEngine that handles serialization to bytes, transforming each
@@ -42,7 +41,7 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
                                     Serializer<K> keySerializer,
                                     Serializer<V> valueSerializer) {
         super(innerStorageEngine, keySerializer, valueSerializer);
-        this.storageEngine = Objects.nonNull(innerStorageEngine);
+        this.storageEngine = Utils.notNull(innerStorageEngine);
     }
 
     public ClosableIterator<Entry<K, Versioned<V>>> entries() {

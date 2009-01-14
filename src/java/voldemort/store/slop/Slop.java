@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Date;
 
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
 
@@ -62,12 +63,12 @@ public class Slop {
                 byte[] value,
                 int nodeId,
                 Date arrived) {
-        this.operation = Objects.nonNull(operation);
-        this.storeName = Objects.nonNull(storeName);
-        this.key = Objects.nonNull(key);
+        this.operation = Utils.notNull(operation);
+        this.storeName = Utils.notNull(storeName);
+        this.key = Utils.notNull(key);
         this.value = value;
         this.nodeId = nodeId;
-        this.arrived = Objects.nonNull(arrived);
+        this.arrived = Utils.notNull(arrived);
     }
 
     public byte[] getKey() {

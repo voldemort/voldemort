@@ -26,8 +26,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
+import voldemort.utils.Utils;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
 
 /**
@@ -47,14 +47,14 @@ public class AdminServlet extends HttpServlet {
     public AdminServlet() {}
 
     public AdminServlet(VoldemortServer server, VelocityEngine engine) {
-        this.server = Objects.nonNull(server);
-        this.velocityEngine = Objects.nonNull(engine);
+        this.server = Utils.notNull(server);
+        this.velocityEngine = Utils.notNull(engine);
     }
 
     @Override
     public void init() throws ServletException {
         super.init();
-        this.server = (VoldemortServer) Objects.nonNull(getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
+        this.server = (VoldemortServer) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
     }
 
     @Override

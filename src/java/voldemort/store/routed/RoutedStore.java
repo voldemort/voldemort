@@ -43,11 +43,10 @@ import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A Store which multiplexes requests to different internal StoreClients
@@ -160,7 +159,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
         this.readRepairer = new ReadRepairer<byte[], byte[]>();
         this.timeoutMs = timeoutMs;
         this.nodeBannageMs = nodeBannageMs;
-        this.time = Objects.nonNull(time);
+        this.time = Utils.notNull(time);
     }
 
     public boolean delete(final byte[] key, final Version version) throws VoldemortException {

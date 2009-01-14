@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
 
@@ -56,16 +57,16 @@ public class StoreDefinition implements Serializable {
                            Integer preferredWrites,
                            int requiredWrites,
                            Integer retentionDays) {
-        this.name = Objects.nonNull(name);
-        this.type = Objects.nonNull(type);
+        this.name = Utils.notNull(name);
+        this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
         this.preferredReads = preferredReads;
         this.requiredReads = requiredReads;
         this.preferredWrites = preferredWrites;
         this.requiredWrites = requiredWrites;
-        this.routingPolicy = Objects.nonNull(routingPolicy);
-        this.keySerializer = Objects.nonNull(keySerializer);
-        this.valueSerializer = Objects.nonNull(valueSerializer);
+        this.routingPolicy = Utils.notNull(routingPolicy);
+        this.keySerializer = Utils.notNull(keySerializer);
+        this.valueSerializer = Utils.notNull(valueSerializer);
         this.retentionPeriodDays = retentionDays;
         checkParameterLegality();
     }

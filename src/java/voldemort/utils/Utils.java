@@ -160,4 +160,19 @@ public class Utils {
                 throw new IllegalArgumentException(s);
     }
 
+    /**
+     * Throw an IllegalArgumentException if the argument is null, otherwise just
+     * return the argument.
+     * 
+     * Useful for assignment as in this.thing = Utils.notNull(thing);
+     * 
+     * @param <T> The type of the thing
+     * @param t The thing to check for nullness.
+     */
+    public static <T> T notNull(T t) {
+        if(t == null)
+            throw new IllegalArgumentException("This object MUST be non-null.");
+        return t;
+    }
+
 }

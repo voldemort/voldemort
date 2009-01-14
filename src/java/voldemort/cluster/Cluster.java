@@ -28,8 +28,7 @@ import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-
-import com.google.common.base.Objects;
+import voldemort.utils.Utils;
 
 /**
  * A representation of the voldemort cluster
@@ -48,7 +47,7 @@ public class Cluster implements Serializable {
     private final Map<Integer, Node> nodesById;
 
     public Cluster(String name, List<Node> nodes) {
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.nodesById = new LinkedHashMap<Integer, Node>(nodes.size());
         for(Node node: nodes) {
             if(nodesById.containsKey(node.getId()))

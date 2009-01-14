@@ -58,7 +58,6 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     private final String name;
     private final long waitTimeoutMs;
     private long indexFileSize;
-    private long dataFileSize;
     private final int numBackups;
     private final int numFileHandles;
     private final File storageDir;
@@ -99,14 +98,11 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                 dataFiles.add(new RandomAccessFile(dataFile, "r"));
             }
             this.indexFileSize = getFileSize(indexFiles);
-            this.dataFileSize = getFileSize(dataFiles);
         } catch(FileNotFoundException e) {
             throw new VoldemortException("Could not open store.", e);
         } finally {
             fileModificationLock.writeLock().unlock();
         }
-        this.indexFileSize = getFileSize(indexFiles);
-        this.dataFileSize = getFileSize(dataFiles);
     }
 
     public void swapFiles(String newIndexFile, String newDataFile) {

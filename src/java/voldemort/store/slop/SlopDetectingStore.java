@@ -24,10 +24,9 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A delegating store that calculates ownership and stores unowned objects in a
@@ -55,9 +54,9 @@ public class SlopDetectingStore extends DelegatingStore<byte[], byte[]> {
                               RoutingStrategy routingStrategy) {
         super(innerStore);
         this.replicationFactor = replicationFactor;
-        this.localNode = Objects.nonNull(localNode);
-        this.routingStrategy = Objects.nonNull(routingStrategy);
-        this.slopStore = Objects.nonNull(slopStore);
+        this.localNode = Utils.notNull(localNode);
+        this.routingStrategy = Utils.notNull(routingStrategy);
+        this.slopStore = Utils.notNull(slopStore);
     }
 
     private boolean isLocal(byte[] key) {

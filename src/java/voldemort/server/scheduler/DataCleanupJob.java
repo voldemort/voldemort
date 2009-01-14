@@ -24,10 +24,9 @@ import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * Expire old data
@@ -48,8 +47,8 @@ public class DataCleanupJob<K, V> implements Runnable {
                           Semaphore cleanupPermits,
                           long maxAgeMs,
                           Time time) {
-        this.store = Objects.nonNull(store);
-        this.cleanupPermits = Objects.nonNull(cleanupPermits);
+        this.store = Utils.notNull(store);
+        this.cleanupPermits = Utils.notNull(cleanupPermits);
         this.maxAgeMs = maxAgeMs;
         this.time = time;
     }

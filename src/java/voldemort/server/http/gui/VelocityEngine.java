@@ -26,8 +26,7 @@ import org.apache.velocity.runtime.log.Log4JLogChute;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
 import voldemort.VoldemortException;
-
-import com.google.common.base.Objects;
+import voldemort.utils.Utils;
 
 /**
  * Wrapper class that abstracts some of the configuration details and wraps some
@@ -42,7 +41,7 @@ public class VelocityEngine {
     private final org.apache.velocity.app.VelocityEngine engine;
 
     public VelocityEngine(String baseTemplateDir) {
-        this.baseTemplateDir = Objects.nonNull(baseTemplateDir);
+        this.baseTemplateDir = Utils.notNull(baseTemplateDir);
         this.engine = new org.apache.velocity.app.VelocityEngine();
         engine.setProperty("resource.loader", "classpath");
         engine.setProperty("classpath.resource.loader.class",

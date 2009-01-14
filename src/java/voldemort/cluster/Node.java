@@ -22,8 +22,8 @@ import java.net.URISyntaxException;
 import java.util.List;
 
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.utils.Utils;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -55,7 +55,7 @@ public class Node implements Serializable {
                 List<Integer> partitions,
                 NodeStatus status) {
         this.id = id;
-        this.host = Objects.nonNull(host);
+        this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
         this.status = status;

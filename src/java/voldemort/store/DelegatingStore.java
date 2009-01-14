@@ -19,10 +19,9 @@ package voldemort.store;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Objects;
 
 /**
  * A Store template that delegates all operations to an inner store.
@@ -38,7 +37,7 @@ public class DelegatingStore<K, V> implements Store<K, V> {
     private final Store<K, V> innerStore;
 
     public DelegatingStore(Store<K, V> innerStore) {
-        this.innerStore = Objects.nonNull(innerStore);
+        this.innerStore = Utils.notNull(innerStore);
     }
 
     public void close() throws VoldemortException {
