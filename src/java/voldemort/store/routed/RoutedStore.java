@@ -252,7 +252,6 @@ public class RoutedStore implements Store<byte[], byte[]> {
     public List<Versioned<byte[]>> get(final byte[] key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = routingStrategy.routeRequest(key);
-        System.out.println("Get called: key:" + key);
 
         // quickly fail if there aren't enough nodes to meet the requirement
         if(nodes.size() < this.requiredReads)
@@ -274,9 +273,7 @@ public class RoutedStore implements Store<byte[], byte[]> {
         int nodeIndex = 0;
         for(; nodeIndex < this.preferredReads; nodeIndex++) {
             final Node node = nodes.get(nodeIndex);
-            System.out.println("Querying node:" + node.getId() + " key:" + key);
             if(isAvailable(node)) {
-                System.out.println("Available node:" + node.getId() + " key:" + key);
                 this.executor.execute(new Runnable() {
 
                     public void run() {
