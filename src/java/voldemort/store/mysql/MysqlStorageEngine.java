@@ -57,6 +57,29 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
     public MysqlStorageEngine(String name, DataSource datasource) {
         this.name = name;
         this.datasource = datasource;
+
+        if(!tableExists()) {
+            create();
+        }
+    }
+
+    private boolean tableExists() {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        String select = "show tables like '" + getName() + "'";
+        try {
+            conn = this.datasource.getConnection();
+            stmt = conn.prepareStatement(select);
+            rs = stmt.executeQuery();
+            return rs.next();
+        } catch(SQLException e) {
+            throw new PersistenceFailureException("Fix me!", e);
+        } finally {
+            tryClose(rs);
+            tryClose(stmt);
+            tryClose(conn);
+        }
     }
 
     public void destroy() {

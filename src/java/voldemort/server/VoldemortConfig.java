@@ -139,6 +139,7 @@ public class VoldemortConfig implements Serializable {
         this.mysqlPassword = props.getString("mysql.password", "");
         this.mysqlHost = props.getString("mysql.host", "localhost");
         this.mysqlPort = props.getInt("mysql.port", 3306);
+        this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
 
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
