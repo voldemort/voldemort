@@ -34,10 +34,11 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
-import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
@@ -47,6 +48,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.AbstractIterator;
 
 /**
+ * Build a read-only store from given input.
+ * 
  * @author jay
  * 
  */
@@ -75,8 +78,14 @@ public class JsonStoreBuilder {
         this.internalSortSize = internalSortSize;
     }
 
+    /**
+     * Main method to run on a input text file
+     * 
+     * @param args see USAGE for details
+     * @throws IOException
+     */
     public static void main(String[] args) throws IOException {
-        if(args.length != 5)
+        if(args.length != 6)
             Utils.croak("USAGE: java "
                         + JsonStoreBuilder.class.getName()
                         + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir");
@@ -132,10 +141,9 @@ public class JsonStoreBuilder {
             current++;
         }
 
-        String keySchema = storeDefinition.getKeySerializer().getCurrentSchemaInfo();
-        String valueSchema = storeDefinition.getValueSerializer().getCurrentSchemaInfo();
-        Serializer<Object> keySerializer = new JsonTypeSerializer(keySchema);
-        Serializer<Object> valueSerializer = new JsonTypeSerializer(valueSchema);
+        SerializerFactory factory = new DefaultSerializerFactory();
+        Serializer keySerializer = factory.getSerializer(storeDefinition.getKeySerializer());
+        Serializer valueSerializer = factory.getSerializer(storeDefinition.getValueSerializer());
 
         logger.info("Reading items...");
         int count = 0;
