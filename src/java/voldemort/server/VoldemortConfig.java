@@ -49,7 +49,8 @@ public class VoldemortConfig implements Serializable {
     private StorageEngineType slopStoreType;
 
     private long bdbCacheSize;
-    private boolean bdbSyncTransactions;
+    private boolean bdbWriteTransactions;
+    private boolean bdbFlushTransactions;
     private String bdbDataDirectory;
     private long bdbMaxLogFileSize;
     private int bdbBtreeFanout;
@@ -116,7 +117,8 @@ public class VoldemortConfig implements Serializable {
         this.enableCacheEngine = props.getBoolean("enable.cache.engine", true);
 
         this.bdbCacheSize = props.getBytes("bdb.cache.size", 200 * 1024 * 1024);
-        this.bdbSyncTransactions = props.getBoolean("bdb.sync.transactions", false);
+        this.bdbWriteTransactions = props.getBoolean("bdb.write.transactions", false);
+        this.bdbFlushTransactions = props.getBoolean("bdb.flush.transactions", false);
         this.bdbDataDirectory = props.getString("bdb.data.directory", this.dataDirectory
                                                                       + File.separator + "bdb");
         this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 1024 * 1024 * 1024);
@@ -287,12 +289,12 @@ public class VoldemortConfig implements Serializable {
      * Given by "bdb.sync.transactions". If true then sync transactions to disk
      * immediately. default: false
      */
-    public boolean syncBdbTransactions() {
-        return bdbSyncTransactions;
+    public boolean isBdbFlushTransactionsEnabled() {
+        return bdbFlushTransactions;
     }
 
-    public void setBdbSyncTransactions(boolean bdbSyncTransactions) {
-        this.bdbSyncTransactions = bdbSyncTransactions;
+    public void setBdbFlushTransactions(boolean bdbSyncTransactions) {
+        this.bdbFlushTransactions = bdbSyncTransactions;
     }
 
     /**
@@ -575,4 +577,11 @@ public class VoldemortConfig implements Serializable {
         this.enableCacheEngine = enableCacheEngine;
     }
 
+    public boolean isBdbWriteTransactionsEnabled() {
+        return bdbWriteTransactions;
+    }
+
+    public void setBdbWriteTransactions(boolean bdbWriteTransactions) {
+        this.bdbWriteTransactions = bdbWriteTransactions;
+    }
 }

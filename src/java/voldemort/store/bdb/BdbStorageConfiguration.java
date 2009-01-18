@@ -52,10 +52,19 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     public BdbStorageConfiguration(VoldemortConfig config) {
         try {
             environmentConfig = new EnvironmentConfig();
-            environmentConfig.setCacheSize(config.getBdbCacheSize());
-            environmentConfig.setTxnNoSync(!config.syncBdbTransactions());
-            environmentConfig.setAllowCreate(true);
             environmentConfig.setTransactional(true);
+            environmentConfig.setCacheSize(config.getBdbCacheSize());
+            if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
+                environmentConfig.setTxnNoSync(false);
+                environmentConfig.setTxnWriteNoSync(false);
+            } else if(config.isBdbWriteTransactionsEnabled()
+                      && !config.isBdbFlushTransactionsEnabled()) {
+                environmentConfig.setTxnNoSync(false);
+                environmentConfig.setTxnWriteNoSync(true);
+            } else {
+                environmentConfig.setTxnNoSync(true);
+            }
+            environmentConfig.setAllowCreate(true);
             environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX,
                                              Long.toString(config.getBdbMaxLogFileSize()));
             environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_BYTES_INTERVAL,
