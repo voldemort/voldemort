@@ -40,25 +40,6 @@ public class ServiceTest extends TestCase {
         assertTrue(s.isStarted());
     }
 
-    public void testStartupFailureLeavesUnstarted() {
-        FakeService s = new FakeService(new RuntimeException("FAIL!"), null);
-        try {
-            s.start();
-        } catch(RuntimeException e) {
-            assertFalse(s.isStarted());
-        }
-    }
-
-    public void testShutdownFailureLeavesUnstarted() {
-        FakeService s = new FakeService(null, new RuntimeException("FAIL!"));
-        s.start();
-        try {
-            s.stop();
-        } catch(RuntimeException e) {
-            assertFalse(s.isStarted());
-        }
-    }
-
     private static class FakeService extends AbstractService {
 
         private RuntimeException startException = null;
