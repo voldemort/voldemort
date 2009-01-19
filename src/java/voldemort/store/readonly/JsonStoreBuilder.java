@@ -102,9 +102,9 @@ public class JsonStoreBuilder {
         int numThreads = Integer.parseInt(args[6]);
 
         try {
-            JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile)));
-            Cluster cluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(clusterFile),
-                                                                                 1000000));
+            JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile),
+                                                                  1000000));
+            Cluster cluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(clusterFile)));
             StoreDefinition storeDef = null;
             List<StoreDefinition> stores = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storeDefFile)));
             for(StoreDefinition def: stores) {
@@ -143,8 +143,10 @@ public class JsonStoreBuilder {
         for(Node node: cluster.getNodes()) {
             File indexFile = new File(outputDir, node.getId() + ".index");
             File dataFile = new File(outputDir, node.getId() + ".data");
-            indexes[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile)));
-            datas[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile)));
+            indexes[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                             1000000));
+            datas[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                           1000000));
             current++;
         }
 
@@ -163,7 +165,7 @@ public class JsonStoreBuilder {
         MessageDigest digest = ByteUtils.getDigest("MD5");
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
-            byte[] keyMd5 = pair.getKeyMd5(digest);
+            byte[] keyMd5 = pair.getKeyMd5();
             digest.reset();
             for(int i = 0; i < this.storeDefinition.getReplicationFactor(); i++) {
                 int nodeId = nodes.get(i).getId();
@@ -189,6 +191,8 @@ public class JsonStoreBuilder {
 
     private static class KeyValuePairSerializer implements Serializer<KeyValuePair> {
 
+        private final MessageDigest digest = ByteUtils.getDigest("MD5");
+
         public byte[] toBytes(KeyValuePair pair) {
             byte[] key = pair.getKey();
             byte[] value = pair.getValue();
@@ -207,8 +211,10 @@ public class JsonStoreBuilder {
             byte[] value = new byte[valueSize];
             System.arraycopy(bytes, 8, key, 0, keySize);
             System.arraycopy(bytes, 8 + keySize, value, 0, valueSize);
+            byte[] md5 = digest.digest(key);
+            digest.reset();
 
-            return new KeyValuePair(key, value);
+            return new KeyValuePair(key, md5, value);
         }
 
     }
@@ -218,6 +224,7 @@ public class JsonStoreBuilder {
         private final JsonReader reader;
         private final Serializer<Object> keySerializer;
         private final Serializer<Object> valueSerializer;
+        private final MessageDigest digest;
 
         public JsonObjectIterator(JsonReader reader,
                                   Serializer<Object> keySerializer,
@@ -225,6 +232,7 @@ public class JsonStoreBuilder {
             this.reader = reader;
             this.keySerializer = keySerializer;
             this.valueSerializer = valueSerializer;
+            this.digest = ByteUtils.getDigest("MD5");
         }
 
         @Override
@@ -238,9 +246,11 @@ public class JsonStoreBuilder {
                     throw new VoldemortException("Invalid file: reached end of file with key but no matching value.");
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
+                byte[] keyMd5 = digest.digest(keyBytes);
+                digest.reset();
                 byte[] valueBytes = valueSerializer.toBytes(value);
 
-                return new KeyValuePair(keyBytes, valueBytes);
+                return new KeyValuePair(keyBytes, keyMd5, valueBytes);
             } catch(EndOfFileException e) {
                 return endOfData();
             }
@@ -259,10 +269,12 @@ public class JsonStoreBuilder {
     private static class KeyValuePair {
 
         private final byte[] key;
+        private final byte[] keyMd5;
         private final byte[] value;
 
-        public KeyValuePair(byte[] key, byte[] value) {
+        public KeyValuePair(byte[] key, byte[] keyMd5, byte[] value) {
             this.key = key;
+            this.keyMd5 = keyMd5;
             this.value = value;
         }
 
@@ -271,11 +283,7 @@ public class JsonStoreBuilder {
         }
 
         public byte[] getKeyMd5() {
-            return ByteUtils.md5(key);
-        }
-
-        public byte[] getKeyMd5(MessageDigest digest) {
-            return digest.digest(key);
+            return this.keyMd5;
         }
 
         public byte[] getValue() {

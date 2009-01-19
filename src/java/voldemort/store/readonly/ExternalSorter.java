@@ -26,6 +26,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -36,6 +37,9 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
@@ -53,6 +57,8 @@ import com.google.common.collect.AbstractIterator;
  * @param <V> The type of value being sorted
  */
 public class ExternalSorter<V> {
+
+    public static final Logger logger = Logger.getLogger(ExternalSorter.class);
 
     private final Serializer<V> serializer;
     private final Comparator<V> comparator;
@@ -147,17 +153,28 @@ public class ExternalSorter<V> {
                                                           TimeUnit.MILLISECONDS,
                                                           new SynchronousQueue<Runnable>(),
                                                           new CallerRunsPolicy());
+        final AtomicInteger count = new AtomicInteger(0);
         final List<File> tempFiles = Collections.synchronizedList(new ArrayList<File>());
         while(input.hasNext()) {
-            final List<V> buffer = new ArrayList<V>(internalSortSize);
+            final int chunkId = count.getAndIncrement();
+            final long chunkStart = System.currentTimeMillis();
+            logger.info("Chunk " + chunkId + ": filling sort buffer for chunk...");
+            @SuppressWarnings("unchecked")
+            final V[] buffer = (V[]) new Object[internalSortSize];
             for(int i = 0; i < internalSortSize && input.hasNext(); i++)
-                buffer.add(input.next());
+                buffer[i] = input.next();
+            logger.info("Chunk " + chunkId + ": sort buffer filled...adding to sort queue.");
 
             // sort and write out asynchronously
             executor.execute(new Runnable() {
 
                 public void run() {
-                    Collections.sort(buffer, comparator);
+                    logger.info("Chunk " + chunkId + ": sorting buffer.");
+                    long start = System.currentTimeMillis();
+                    Arrays.sort(buffer, comparator);
+                    long ellapsed = System.currentTimeMillis() - start;
+                    logger.info("Chunk " + chunkId + ": sort completed in " + ellapsed
+                                + " ms, writing to temp file.");
 
                     // write out values to a temp file
                     try {
@@ -172,6 +189,9 @@ public class ExternalSorter<V> {
                     } catch(IOException e) {
                         throw new VoldemortException(e);
                     }
+                    long chunkEllapsed = System.currentTimeMillis() - chunkStart;
+                    logger.info("Chunk " + chunkId + ": completed processing of chunk in "
+                                + chunkEllapsed + " ms.");
                 }
             });
         }
