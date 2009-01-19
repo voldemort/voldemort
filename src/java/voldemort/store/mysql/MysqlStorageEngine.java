@@ -74,7 +74,8 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             rs = stmt.executeQuery();
             return rs.next();
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
+            throw new PersistenceFailureException("SQLException while checking for table existence!",
+                                                  e);
         } finally {
             tryClose(rs);
             tryClose(stmt);
@@ -100,7 +101,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             stmt = conn.prepareStatement(query);
             stmt.executeUpdate();
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
+            throw new PersistenceFailureException("SQLException while performing operation.", e);
         } finally {
             tryClose(stmt);
             tryClose(conn);
