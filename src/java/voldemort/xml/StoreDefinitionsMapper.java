@@ -156,20 +156,30 @@ public class StoreDefinitionsMapper {
 
     private SerializerDefinition readSerializer(Element elmt) {
         String name = elmt.getChild(STORE_SERIALIZATION_TYPE_ELMT).getText();
+        boolean hasVersion = true;
         Map<Integer, String> schemaInfosByVersion = new HashMap<Integer, String>();
         for(Object schemaInfo: elmt.getChildren(STORE_SERIALIZATION_META_ELMT)) {
             Element schemaInfoElmt = (Element) schemaInfo;
             String versionStr = schemaInfoElmt.getAttributeValue(STORE_VERSION_ATTR);
-            int version = 0;
-            if(versionStr != null)
+            int version;
+            if(versionStr == null) {
+                version = 0;
+            } else if(versionStr.equals("none")) {
+                version = 0;
+                hasVersion = false;
+            } else {
                 version = Integer.parseInt(versionStr);
+            }
             String info = schemaInfoElmt.getText();
             String previous = schemaInfosByVersion.put(version, info);
             if(previous != null)
                 throw new MappingException("Duplicate version " + version
                                            + " found in schema info.");
         }
-        return new SerializerDefinition(name, schemaInfosByVersion);
+        if(!hasVersion && schemaInfosByVersion.size() > 1)
+            throw new IllegalArgumentException("Specified multiple schemas AND version=none, which is not permitted.");
+
+        return new SerializerDefinition(name, schemaInfosByVersion, hasVersion);
     }
 
     public String writeStoreList(List<StoreDefinition> stores) {

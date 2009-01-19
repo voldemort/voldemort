@@ -47,6 +47,13 @@ public class StoreDefinitionMapperTest extends TestCase {
         assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
     }
 
+    public void testNoVersionStore() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getNoVersionStoreDefinitionsXml()));
+        String written = mapper.writeStoreList(storeDefs);
+        assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
+    }
+
     public void testRetentionStore() {
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
         List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getStoreDefinitionsWithRetentionXml()));

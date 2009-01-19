@@ -35,13 +35,15 @@ import voldemort.utils.Utils;
 public class StringSorter {
 
     public static void main(String[] args) throws Exception {
-        if(args.length != 2)
-            Utils.croak("USAGE: java StringSorter inputfile internal_sort_size");
+        if(args.length != 3)
+            Utils.croak("USAGE: java StringSorter inputfile internal_sort_size num_threads");
         String input = args[0];
         int internalSortSize = Integer.parseInt(args[1]);
+        int numThreads = Integer.parseInt(args[2]);
 
         ExternalSorter<String> sorter = new ExternalSorter<String>(new StringSerializer(),
-                                                                   internalSortSize);
+                                                                   internalSortSize,
+                                                                   numThreads);
         LineIterator it = new LineIterator(new BufferedReader(new FileReader(input),
                                                               10 * 1024 * 1024));
 

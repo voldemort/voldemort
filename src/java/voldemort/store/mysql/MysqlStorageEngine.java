@@ -27,11 +27,11 @@ import javax.sql.DataSource;
 import org.apache.log4j.Logger;
 
 import voldemort.store.Entry;
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;

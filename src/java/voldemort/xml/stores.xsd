@@ -44,9 +44,19 @@
   <xs:complexType name="schema-info">
     <xs:simpleContent>
       <xs:extension base="xs:string">
-        <xs:attribute name="version" use="optional" type="xs:nonNegativeInteger" />
+        <xs:attribute name="version" use="optional">
+          <xs:simpleType>
+            <xs:union memberTypes="xs:nonNegativeInteger no-version" />
+          </xs:simpleType>
+        </xs:attribute>
       </xs:extension>
     </xs:simpleContent>
   </xs:complexType>
+  
+  <xs:simpleType name="no-version">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none"/>
+    </xs:restriction>
+  </xs:simpleType>
 
 </xs:schema>

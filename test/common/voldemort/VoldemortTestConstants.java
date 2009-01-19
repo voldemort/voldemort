@@ -42,6 +42,10 @@ public class VoldemortTestConstants {
         return readString("config/single-store.xml");
     }
 
+    public static String getNoVersionStoreDefinitionsXml() {
+        return readString("config/no-version-store.xml");
+    }
+
     public static String getStoreDefinitionsWithRetentionXml() {
         return readString("config/store-with-retention.xml");
     }

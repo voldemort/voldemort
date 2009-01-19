@@ -18,10 +18,10 @@ package voldemort.performance;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.Store;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.utils.Utils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 public class CacheStorageEnginePerformanceTest {

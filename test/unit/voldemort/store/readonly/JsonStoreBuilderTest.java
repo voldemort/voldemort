@@ -102,7 +102,8 @@ public class JsonStoreBuilderTest extends TestCase {
                                                              storeDef,
                                                              router,
                                                              dataDir,
-                                                             100);
+                                                             100,
+                                                             1);
         storeBuilder.build();
 
         // rename files

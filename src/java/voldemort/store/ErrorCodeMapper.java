@@ -19,6 +19,7 @@ package voldemort.store;
 import voldemort.VoldemortException;
 import voldemort.utils.ReflectUtils;
 import voldemort.versioning.InconsistentDataException;
+import voldemort.versioning.ObsoleteVersionException;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;

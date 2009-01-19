@@ -51,7 +51,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.Maps;
 
 /**
- * A place to get conveniently pre-assembled StoreClients
+ * A base class for various {@link voldemort.client.StoreClientFactory
+ * StoreClientFactory} implementations
  * 
  * @author jay
  * 

@@ -16,13 +16,13 @@
 
 package voldemort.client;
 
-import voldemort.store.ObsoleteVersionException;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * The user-facing interface to a store. Gives basic put/get/delete plus helper
- * functions.
+ * The user-facing interface to a Voldemort store. Gives basic put/get/delete
+ * plus helper functions.
  * 
  * @author jay
  * 
@@ -105,11 +105,14 @@ public interface StoreClient<K, V> {
 
     /**
      * Apply the given action repeatedly until no ObsoleteVersionException is
-     * thrown. This is useful for implementing a read-modify-store loop.
+     * thrown. This is useful for implementing a read-modify-store loop that
+     * could be pre-empted by another concurrent update, and should be repeated
+     * until it succeeds.
      * 
-     * @param action The action to apply
-     * @return true if the action is successfully applied, false if the default
-     *         max number of attempts is exceeded
+     * @param action The action to apply. This is meant as a callback for the
+     *        user to extend to provide their own logic.
+     * @return true if the action is successfully applied, false if the 3
+     *         attempts all result in ObsoleteVersionException
      */
     public boolean applyUpdate(UpdateAction<K, V> action);
 

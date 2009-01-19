@@ -21,25 +21,32 @@ import java.util.Collections;
 import java.util.List;
 
 import junit.framework.TestCase;
+import voldemort.TestUtils;
 import voldemort.serialization.StringSerializer;
 
 import com.google.common.collect.Lists;
 
 public class ExternalSorterTest extends TestCase {
 
-    private List<String> abcs;
+    private List<String> strings;
 
     public void setUp() {
-        abcs = new ArrayList<String>();
-        String abcStr = "QERTYUIOLKJHGFDSAMNBVCXZqwertyuiopasghjklzxcvbnm";
-        for(int i = 0; i < abcStr.length(); i++)
-            abcs.add(abcStr.substring(i, i + 1));
+        strings = new ArrayList<String>();
+        for(int i = 0; i < 500; i++)
+            strings.add(TestUtils.randomLetters(10));
     }
 
     public void testSorting() {
-        ExternalSorter<String> sorter = new ExternalSorter<String>(new StringSerializer(), 10);
-        List<String> sorted = Lists.newArrayList(sorter.sorted(abcs.iterator()));
-        List<String> expected = new ArrayList<String>(abcs);
+        testSorting(1);
+        testSorting(3);
+    }
+
+    public void testSorting(int threads) {
+        ExternalSorter<String> sorter = new ExternalSorter<String>(new StringSerializer(),
+                                                                   10,
+                                                                   threads);
+        List<String> sorted = Lists.newArrayList(sorter.sorted(strings.iterator()));
+        List<String> expected = new ArrayList<String>(strings);
         Collections.sort(expected);
         assertEquals(expected, sorted);
     }

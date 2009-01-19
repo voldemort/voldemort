@@ -35,6 +35,9 @@ import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 
 /**
+ * A {@link voldemort.client.StoreClientFactory StoreClientFactory} that creates
+ * a remote client that connects and bootstraps itself via HTTP.
+ * 
  * @author jay
  * 
  */

@@ -22,8 +22,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.Store;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**

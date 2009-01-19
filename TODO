@@ -1,13 +1,14 @@
 TODO HIGH
 -- push readonly data to voldemort
--- mr task to build stores
--- mechanism to swap table on the fly (HTTP in war, method in vold. server)
+-- m/r task to build stores
+-- JMX mechanism to swap table on the fly (HTTP in war, method in vold. server)
 -- initial implementation is in the read-only store using read/write lock
 -- rebalancing JMX control
 
 MEDIUM
 -- reenable slop
--- Protocolbuffers serialization
+-- pbuffers serialization for network protocol
+-- pbuffers serialization for application level serialization
 -- Add setters to StoreClientFactories to allow propery-based configuration
 -- Expand socketpool test
 -- Slop detecting store test
@@ -19,6 +20,7 @@ MEDIUM
 -- RandomAccessFileStore vs. MmapFileStore benchmark
 
 TODO LOW
+-- Add release name to jar file
 -- Rewrite socket pool to not use commons-pool because it sucks 
 -- Support date type formatting
 -- Add type enforcement to jsonreader?
@@ -61,6 +63,7 @@ xxx Share threadpool between everyone (socket server, jetty if possible, mina, a
 xxx Why is metadata store duplicated in voldemortserver and storageservice
 
 Done
+xxx support bdb write no flush
 xxx soft-reference "cache" storage type
 xxx Search result tracking test
 xxx Change tags to partitions in configuration

@@ -21,14 +21,24 @@ import java.util.List;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.Store;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistentDataException;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+/**
+ * The default {@link voldemort.client.StoreClient StoreClient} implementation
+ * you get back from a {@link voldemort.client.StoreClientFactory
+ * StoreClientFactory}
+ * 
+ * @author jay
+ * 
+ * @param <K> The key type
+ * @param <V> The value type
+ */
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Versioned<V> NOT_FOUND = new Versioned<V>(null, null);

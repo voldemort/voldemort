@@ -17,7 +17,7 @@
 package voldemort;
 
 /**
- * Base exception
+ * Base exception that all other Voldemort exceptions extend.
  * 
  * @author jay
  * 

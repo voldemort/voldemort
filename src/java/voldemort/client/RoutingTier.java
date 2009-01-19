@@ -16,6 +16,12 @@
 
 package voldemort.client;
 
+/**
+ * Enumerates different routing strategies. Currently just server and client.
+ * 
+ * @author jay
+ * 
+ */
 public enum RoutingTier {
     CLIENT("client"),
     SERVER("server");

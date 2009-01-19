@@ -36,7 +36,7 @@ public class ReadOnlyStoreBuilder {
 
     public static void main(String[] args) throws Exception {
         if(args.length != 6)
-            Utils.croak("USAGE: java MmapStoreBuilder store_name input_file output_dir cluster.xml stores.xml sort_buffer_size");
+            Utils.croak("USAGE: java voldemort.ReadOnlyStoreBuilder store_name input_file output_dir cluster.xml stores.xml sort_buffer_size");
 
         String storeName = args[0];
         String inputFile = args[1];
@@ -60,13 +60,13 @@ public class ReadOnlyStoreBuilder {
         reader.close();
 
         DataOutputStream index = null;// new DataOutputStream(new
-                                      // BufferedOutputStream(new
-                                      // FileOutputStream(outputFileBase +
-                                      // ".index"), 1000000));
+        // BufferedOutputStream(new
+        // FileOutputStream(outputFileBase +
+        // ".index"), 1000000));
         DataOutputStream data = null;// new DataOutputStream(new
-                                     // BufferedOutputStream(new
-                                     // FileOutputStream(outputFileBase +
-                                     // ".data"), 1000000));
+        // BufferedOutputStream(new
+        // FileOutputStream(outputFileBase +
+        // ".data"), 1000000));
         long position = 0;
         for(ByteKey key: lines.keySet()) {
             String line = lines.get(key);

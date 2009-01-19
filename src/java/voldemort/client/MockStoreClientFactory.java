@@ -31,7 +31,8 @@ import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
 
 /**
- * A store client that produces fake, in-memory stores
+ * A store client that produces non-persistent, in-memory stores. This is useful
+ * for unit testing.
  * 
  * @author jay
  * 

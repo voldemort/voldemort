@@ -31,6 +31,11 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
@@ -54,6 +59,7 @@ public class ExternalSorter<V> {
     private final int internalSortSize;
     private final File tempDir;
     private final int bufferSize;
+    private final int numThreads;
 
     /**
      * Create an external sorter using the given serializer and internal sort
@@ -65,7 +71,7 @@ public class ExternalSorter<V> {
      * @param internalSortSize The number of objects in the internal sort buffer
      */
     @SuppressWarnings("unchecked")
-    public ExternalSorter(Serializer<V> serializer, int internalSortSize) {
+    public ExternalSorter(Serializer<V> serializer, int internalSortSize, int numThreads) {
         this(serializer, new Comparator<V>() {
 
             public int compare(V o1, V o2) {
@@ -73,7 +79,7 @@ public class ExternalSorter<V> {
                 Comparable c2 = (Comparable) o2;
                 return c1.compareTo(c2);
             }
-        }, internalSortSize, System.getProperty("java.io.tmpdir"), 50 * 1024 * 1024);
+        }, internalSortSize, System.getProperty("java.io.tmpdir"), 10 * 1024 * 1024, numThreads);
     }
 
     /**
@@ -87,12 +93,16 @@ public class ExternalSorter<V> {
      * @param internalSortSize The number of objects to keep in the internal
      *        memory
      */
-    public ExternalSorter(Serializer<V> serializer, Comparator<V> comparator, int internalSortSize) {
+    public ExternalSorter(Serializer<V> serializer,
+                          Comparator<V> comparator,
+                          int internalSortSize,
+                          int numThreads) {
         this(serializer,
              comparator,
              internalSortSize,
              System.getProperty("java.io.tmpdir"),
-             50 * 1024 * 1024);
+             10 * 1024 * 1024,
+             numThreads);
     }
 
     /**
@@ -112,12 +122,14 @@ public class ExternalSorter<V> {
                           Comparator<V> comparator,
                           int internalSortSize,
                           String tempDir,
-                          int bufferSize) {
+                          int bufferSize,
+                          int numThreads) {
         this.serializer = serializer;
         this.comparator = comparator;
         this.internalSortSize = internalSortSize;
         this.tempDir = new File(tempDir);
         this.bufferSize = bufferSize;
+        this.numThreads = numThreads;
     }
 
     /**
@@ -129,32 +141,51 @@ public class ExternalSorter<V> {
      * @return An iterator over the values
      */
     public Iterable<V> sorted(Iterator<V> input) {
-        List<File> tempFiles = new ArrayList<File>();
-        List<V> buffer = new ArrayList<V>(internalSortSize);
+        ExecutorService executor = new ThreadPoolExecutor(this.numThreads,
+                                                          this.numThreads,
+                                                          1000L,
+                                                          TimeUnit.MILLISECONDS,
+                                                          new SynchronousQueue<Runnable>(),
+                                                          new CallerRunsPolicy());
+        final List<File> tempFiles = Collections.synchronizedList(new ArrayList<File>());
         while(input.hasNext()) {
+            final List<V> buffer = new ArrayList<V>(internalSortSize);
             for(int i = 0; i < internalSortSize && input.hasNext(); i++)
                 buffer.add(input.next());
 
-            Collections.sort(buffer, comparator);
+            // sort and write out asynchronously
+            executor.execute(new Runnable() {
 
-            // write out values to a temp file
-            try {
-                File tempFile = File.createTempFile("chunk-", ".dat", tempDir);
-                tempFile.deleteOnExit();
-                tempFiles.add(tempFile);
-                DataOutputStream output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(tempFile),
-                                                                                        bufferSize));
-                for(V v: buffer)
-                    writeValue(output, v);
-                output.close();
-                buffer.clear();
-            } catch(IOException e) {
-                throw new VoldemortException(e);
-            }
+                public void run() {
+                    Collections.sort(buffer, comparator);
+
+                    // write out values to a temp file
+                    try {
+                        File tempFile = File.createTempFile("chunk-", ".dat", tempDir);
+                        tempFile.deleteOnExit();
+                        tempFiles.add(tempFile);
+                        DataOutputStream output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(tempFile),
+                                                                                                bufferSize));
+                        for(V v: buffer)
+                            writeValue(output, v);
+                        output.close();
+                    } catch(IOException e) {
+                        throw new VoldemortException(e);
+                    }
+                }
+            });
         }
 
-        return new DefaultIterable<V>(new ExternalSorterIterator(tempFiles, bufferSize
-                                                                            / tempFiles.size()));
+        // wait for all sorting to complete
+        executor.shutdown();
+        try {
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            // create iterator over sorted values
+            return new DefaultIterable<V>(new ExternalSorterIterator(tempFiles, bufferSize
+                                                                                / tempFiles.size()));
+        } catch(InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void writeValue(DataOutputStream stream, V value) {

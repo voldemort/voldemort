@@ -14,11 +14,15 @@
  * the License.
  */
 
-package voldemort.store;
+package voldemort.versioning;
+
+import voldemort.store.StoreOperationFailureException;
 
 /**
- * An exception that indicates an attempt by the user to overwrite a newer key
- * with an older key
+ * An exception that indicates an attempt by the user to overwrite a newer value
+ * for a given key with an older value for the same key. This is a
+ * application-level error, and indicates the application has attempted to write
+ * stale data.
  * 
  * @author jay
  * 
@@ -27,8 +31,8 @@ public class ObsoleteVersionException extends StoreOperationFailureException {
 
     private static final long serialVersionUID = 1L;
 
-    public ObsoleteVersionException(String arg0) {
-        super(arg0);
+    public ObsoleteVersionException(String message) {
+        super(message);
     }
 
     public short getId() {

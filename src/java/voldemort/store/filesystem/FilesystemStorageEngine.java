@@ -28,10 +28,10 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
 import voldemort.store.Entry;
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;

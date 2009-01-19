@@ -17,7 +17,11 @@
 package voldemort.client;
 
 /**
- * An update action such as a read-modify-store cycle
+ * An update action such as a read-modify-store cycle. This is meant to be used
+ * as a callback interface to perform a data modification that might involve
+ * obsolete data. The operation will be repeated until it succeeds.
+ * 
+ * The update action must be idempotent since it may be called multiple times.
  * 
  * @author jay
  * 
@@ -25,7 +29,7 @@ package voldemort.client;
 public abstract class UpdateAction<K, V> {
 
     /**
-     * Apply the update sequence
+     * Apply the update operation to the given store client.
      * 
      * @param storeClient The store client to use
      */

@@ -54,15 +54,11 @@ public class ByteUtils {
     public static final int MASK_00111111 = Integer.parseInt("00111111", 2);
     public static final int MASK_00011111 = Integer.parseInt("00011111", 2);
 
-    private static final MessageDigest MD5_PROTOTYPE;
-    private static final MessageDigest SHA1_PROTOTYPE;
-
-    static {
+    public static MessageDigest getDigest(String algorithm) {
         try {
-            MD5_PROTOTYPE = MessageDigest.getInstance("MD5");
-            SHA1_PROTOTYPE = MessageDigest.getInstance("SHA-1");
+            return MessageDigest.getInstance(algorithm);
         } catch(NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Could not initialize digest prototypes.", e);
+            throw new IllegalStateException("Unknown algorithm: " + algorithm, e);
         }
     }
 
@@ -401,12 +397,7 @@ public class ByteUtils {
      * @return The MD5 hash of the input bytes
      */
     public static byte[] md5(byte[] input) {
-        try {
-            MessageDigest digest = (MessageDigest) MD5_PROTOTYPE.clone();
-            return digest.digest(input);
-        } catch(CloneNotSupportedException e) {
-            throw new IllegalStateException(e);
-        }
+        return getDigest("MD5").digest(input);
     }
 
     /**
@@ -417,12 +408,7 @@ public class ByteUtils {
      * @return The sha1 hash of the input bytes
      */
     public static byte[] sha1(byte[] input) {
-        try {
-            MessageDigest digest = (MessageDigest) SHA1_PROTOTYPE.clone();
-            return digest.digest(input);
-        } catch(CloneNotSupportedException e) {
-            throw new IllegalStateException(e);
-        }
+        return getDigest("SHA-1").digest(input);
     }
 
     /**

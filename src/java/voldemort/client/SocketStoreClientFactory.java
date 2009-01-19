@@ -32,6 +32,11 @@ import voldemort.store.socket.SocketStore;
 import voldemort.utils.Utils;
 
 /**
+ * A StoreClientFactory abstracts away the connection pooling, threading, and
+ * bootstrapping mechanism. It can be used to create any number of
+ * {@link voldemort.client.StoreClient StoreClient} instances for different
+ * stores.
+ * 
  * @author jay
  * 
  */
@@ -46,7 +51,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     private SocketPool socketPool;
 
-    public SocketStoreClientFactory(String... bootstrapUrls) {
+    public SocketStoreClientFactory(String bootstrapUrls) {
         this(DEFAULT_NUM_THREADS,
              DEFAULT_NUM_THREADS,
              DEFAULT_MAX_QUEUED_REQUESTS,

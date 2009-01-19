@@ -16,10 +16,10 @@
 #  limitations under the License.
 #
 
-if [ $# -gt 2 ];
+if [ $# != 7 ];
 then
-  echo 'USAGE: bin/sort.sh file max_memory_lines num_threads'
-  exit 1
+	echo 'USAGE: bin/build-readonly-store.sh cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads'
+	exit 1
 fi
 
 base_dir=$(dirname $0)/..
@@ -34,4 +34,4 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
-java -agentlib:hprof=cpu=samples,depth=10 -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}
+java -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder ${1} ${2} ${3} ${4} ${5} ${6} ${7}

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<stores>
+  <store>
+    <name>test</name>
+    <persistence>bdb</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info version="none">UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>java-serialization</type>
+    </value-serializer>
+  </store>
+</stores>

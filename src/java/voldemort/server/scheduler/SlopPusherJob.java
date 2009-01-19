@@ -24,12 +24,12 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.store.Entry;
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ClosableIterator;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**

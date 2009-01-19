@@ -19,8 +19,8 @@ package voldemort.store.http;
 import java.net.HttpURLConnection;
 
 import voldemort.VoldemortException;
-import voldemort.store.ObsoleteVersionException;
 import voldemort.store.UnknownFailure;
+import voldemort.versioning.ObsoleteVersionException;
 
 /**
  * A Mapping of HTTP response codes to exceptions

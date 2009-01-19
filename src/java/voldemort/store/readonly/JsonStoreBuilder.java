@@ -24,6 +24,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.List;
 
@@ -63,19 +64,22 @@ public class JsonStoreBuilder {
     private final RoutingStrategy routingStrategy;
     private final File outputDir;
     private final int internalSortSize;
+    private final int numThreads;
 
     public JsonStoreBuilder(JsonReader reader,
                             Cluster cluster,
                             StoreDefinition storeDefinition,
                             RoutingStrategy routingStrategy,
                             File outputDir,
-                            int internalSortSize) {
+                            int internalSortSize,
+                            int numThreads) {
         this.reader = reader;
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
         this.outputDir = outputDir;
         this.routingStrategy = routingStrategy;
         this.internalSortSize = internalSortSize;
+        this.numThreads = numThreads;
     }
 
     /**
@@ -85,16 +89,17 @@ public class JsonStoreBuilder {
      * @throws IOException
      */
     public static void main(String[] args) throws IOException {
-        if(args.length != 6)
+        if(args.length != 7)
             Utils.croak("USAGE: java "
                         + JsonStoreBuilder.class.getName()
-                        + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir");
+                        + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads");
         String clusterFile = args[0];
         String storeDefFile = args[1];
         String storeName = args[2];
         int sortBufferSize = Integer.parseInt(args[3]);
         String inputFile = args[4];
         File outputDir = new File(args[5]);
+        int numThreads = Integer.parseInt(args[6]);
 
         try {
             JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile)));
@@ -121,12 +126,14 @@ public class JsonStoreBuilder {
                                  storeDef,
                                  routingStrategy,
                                  outputDir,
-                                 sortBufferSize).build();
+                                 sortBufferSize,
+                                 numThreads).build();
         } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void build() throws IOException {
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
@@ -149,12 +156,15 @@ public class JsonStoreBuilder {
         int count = 0;
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
                                                                                new KeyMd5Comparator(),
-                                                                               internalSortSize);
+                                                                               internalSortSize,
+                                                                               numThreads);
         JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
         long position = 0;
+        MessageDigest digest = ByteUtils.getDigest("MD5");
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
-            byte[] keyMd5 = pair.getKeyMd5();
+            byte[] keyMd5 = pair.getKeyMd5(digest);
+            digest.reset();
             for(int i = 0; i < this.storeDefinition.getReplicationFactor(); i++) {
                 int nodeId = nodes.get(i).getId();
                 int numBytes = pair.getValue().length;
@@ -262,6 +272,10 @@ public class JsonStoreBuilder {
 
         public byte[] getKeyMd5() {
             return ByteUtils.md5(key);
+        }
+
+        public byte[] getKeyMd5(MessageDigest digest) {
+            return digest.digest(key);
         }
 
         public byte[] getValue() {

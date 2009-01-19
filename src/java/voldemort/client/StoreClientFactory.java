@@ -21,15 +21,43 @@ import voldemort.versioning.Versioned;
 
 /**
  * An abstraction the represents a connection to a Voldemort cluster and can be
- * used to create StoreClients to interact with individual stores
+ * used to create {@link voldemort.client.StoreClient StoreClient} instances to
+ * interact with individual stores. The factory abstracts away any connection
+ * pools, thread pools, or other details that will be shared by all the
+ * individual
+ * 
+ * {@link voldemort.client.StoreClient StoreClient}
  * 
  * @author jay
  * 
  */
 public interface StoreClientFactory {
 
+    /**
+     * Get a {@link voldemort.client.StoreClient} for the given store.
+     * 
+     * @param <K> The type of the key of the
+     *        {@link voldemort.client.StoreClient}
+     * @param <V> The type of the value of the
+     *        {@link voldemort.client.StoreClient}
+     * @param storeName The name of the store
+     * @return A fully constructed {@link voldemort.client.StoreClient}
+     */
     public <K, V> StoreClient<K, V> getStoreClient(String storeName);
 
+    /**
+     * Get a {@link voldemort.client.StoreClient} for the given store.
+     * 
+     * @param <K> The type of the key of the
+     *        {@link voldemort.client.StoreClient}
+     * @param <V> The type of the value of the
+     *        {@link voldemort.client.StoreClient}
+     * @param storeName The name of the store
+     * @param inconsistencyResolver The
+     *        {@link voldemort.versioning.InconsistencyResolver} that should be
+     *        used to resolve inconsistencies.
+     * @return A fully constructed {@link voldemort.client.StoreClient}
+     */
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> inconsistencyResolver);
 

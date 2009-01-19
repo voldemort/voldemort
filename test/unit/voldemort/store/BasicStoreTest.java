@@ -25,6 +25,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
