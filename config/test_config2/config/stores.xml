@@ -1,4 +1,6 @@
 <stores>
+    <!-- Note that "test" store requires 2 reads and writes,
+         so to use this store you must have both nodes started and running -->
     <store>
         <name>test</name>
         <persistence>bdb</persistence>
