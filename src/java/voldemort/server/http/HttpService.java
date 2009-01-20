@@ -29,6 +29,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.gui.AdminServlet;
+import voldemort.server.http.gui.ReadOnlyStoreManagementServlet;
 import voldemort.server.http.gui.VelocityEngine;
 
 /**
@@ -71,9 +72,14 @@ public class HttpService extends AbstractService {
             httpServer.setSendDateHeader(false);
             Context context = new Context(httpServer, "/", Context.NO_SESSIONS);
             context.setAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY, server);
+            context.setAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY,
+                                 velocityEngine);
             context.addServlet(new ServletHolder(new AdminServlet(server, velocityEngine)),
                                "/admin");
             context.addServlet(new ServletHolder(new StoreServlet(server.getStoreMap())), "/*");
+            context.addServlet(new ServletHolder(new ReadOnlyStoreManagementServlet(server,
+                                                                                    velocityEngine)),
+                               "/read-only/mgmt");
             this.context = context;
             this.httpServer = httpServer;
             this.httpServer.start();

@@ -17,11 +17,19 @@
 package voldemort.store.readonly;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
+import voldemort.utils.JmxUtils;
 
 public class RandomAccessFileStorageConfiguration implements StorageConfiguration {
 
@@ -29,22 +37,36 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
     private final int numBackups;
     private final long fileAccessWaitTimeoutMs;
     private final File storageDir;
+    private final Set<ObjectName> registeredBeans;
 
     public RandomAccessFileStorageConfiguration(VoldemortConfig config) {
         this.numFileHandles = config.getReadOnlyStorageFileHandles();
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
         this.fileAccessWaitTimeoutMs = config.getReadOnlyFileWaitTimeoutMs();
         this.numBackups = config.getReadOnlyBackups();
+        this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
     }
 
-    public void close() {}
+    public void close() {
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+        for(ObjectName name: registeredBeans)
+            JmxUtils.unregisterMbean(server, name);
+    }
 
     public StorageEngine<byte[], byte[]> getStore(String name) {
-        return new RandomAccessFileStore(name,
-                                         storageDir,
-                                         numBackups,
-                                         numFileHandles,
-                                         fileAccessWaitTimeoutMs);
+        RandomAccessFileStore store = new RandomAccessFileStore(name,
+                                                                storageDir,
+                                                                numBackups,
+                                                                numFileHandles,
+                                                                fileAccessWaitTimeoutMs);
+        ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                       name);
+        JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),
+                               JmxUtils.createModelMBean(store),
+                               objName);
+        registeredBeans.add(objName);
+
+        return store;
     }
 
     public StorageEngineType getType() {

@@ -31,6 +31,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
@@ -105,12 +107,16 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         }
     }
 
+    @JmxOperation(description = "swapFiles(newIndexFile, newDataFile) changes this store "
+                                + " to use the given index and data file.")
     public void swapFiles(String newIndexFile, String newDataFile) {
+        logger.info("Swapping index and data files for store '" + getName() + "':");
+        logger.info("Locking all reads on '" + getName() + "':");
         fileModificationLock.writeLock().lock();
         try {
             close();
 
-            // backup index and data files
+            logger.info("Renaming data and index files for '" + getName() + "':");
             shiftBackups(".index");
             shiftBackups(".data");
             File firstIndexBackup = new File(storageDir, name + ".index.1");
@@ -121,6 +127,8 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                 throw new VoldemortException("Error while renaming backups.");
 
             // copy in new files
+            logger.info("Setting primary data and index files for store '" + getName() + "'to "
+                        + newDataFile + " and " + newIndexFile + " respectively.");
             success = new File(newIndexFile).renameTo(indexFile)
                       && new File(newDataFile).renameTo(dataFile);
             if(!success) {
@@ -138,6 +146,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
 
             open();
         } finally {
+            logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
             fileModificationLock.writeLock().unlock();
         }
     }
@@ -245,6 +254,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
     }
 
+    @JmxGetter(name = "name", description = "The name of the store.")
     public String getName() {
         return name;
     }
@@ -279,6 +289,16 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                                          + " ms to acquire file descriptor");
         else
             return file;
+    }
+
+    @JmxGetter(name = "dataFile", description = "The name of the file currently storing data for this store.")
+    public String getDataFileName() {
+        return this.dataFile.getAbsolutePath();
+    }
+
+    @JmxGetter(name = "indexFile", description = "The name of the file currently storing the index for this store.")
+    public String getIndexFileName() {
+        return this.indexFile.getAbsolutePath();
     }
 
 }

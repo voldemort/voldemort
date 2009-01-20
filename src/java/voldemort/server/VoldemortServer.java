@@ -186,6 +186,13 @@ public class VoldemortServer extends AbstractService {
         return services;
     }
 
+    public VoldemortService getService(String name) {
+        for(VoldemortService service: services)
+            if(service.getName().equals(name))
+                return service;
+        return null;
+    }
+
     public ConcurrentMap<String, Store<byte[], byte[]>> getStoreMap() {
         return storeMap;
     }

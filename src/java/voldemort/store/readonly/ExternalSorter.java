@@ -161,8 +161,10 @@ public class ExternalSorter<V> {
             logger.info("Chunk " + chunkId + ": filling sort buffer for chunk...");
             @SuppressWarnings("unchecked")
             final V[] buffer = (V[]) new Object[internalSortSize];
-            for(int i = 0; i < internalSortSize && input.hasNext(); i++)
-                buffer[i] = input.next();
+            int chunkSizeIter = 0;
+            for(; chunkSizeIter < internalSortSize && input.hasNext(); chunkSizeIter++)
+                buffer[chunkSizeIter] = input.next();
+            final int chunkSize = chunkSizeIter;
             logger.info("Chunk " + chunkId + ": sort buffer filled...adding to sort queue.");
 
             // sort and write out asynchronously
@@ -171,7 +173,7 @@ public class ExternalSorter<V> {
                 public void run() {
                     logger.info("Chunk " + chunkId + ": sorting buffer.");
                     long start = System.currentTimeMillis();
-                    Arrays.sort(buffer, comparator);
+                    Arrays.sort(buffer, 0, chunkSize, comparator);
                     long ellapsed = System.currentTimeMillis() - start;
                     logger.info("Chunk " + chunkId + ": sort completed in " + ellapsed
                                 + " ms, writing to temp file.");
@@ -183,8 +185,8 @@ public class ExternalSorter<V> {
                         tempFiles.add(tempFile);
                         DataOutputStream output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(tempFile),
                                                                                                 bufferSize));
-                        for(V v: buffer)
-                            writeValue(output, v);
+                        for(int i = 0; i < chunkSize; i++)
+                            writeValue(output, buffer[i]);
                         output.close();
                     } catch(IOException e) {
                         throw new VoldemortException(e);

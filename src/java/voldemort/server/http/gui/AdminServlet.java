@@ -55,6 +55,7 @@ public class AdminServlet extends HttpServlet {
     public void init() throws ServletException {
         super.init();
         this.server = (VoldemortServer) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
+        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
     @Override

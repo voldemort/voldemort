@@ -57,6 +57,7 @@ import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.store.readonly.RandomAccessFileStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopDetectingStore;
@@ -83,6 +84,7 @@ public class StorageService extends AbstractService {
     private final ConcurrentMap<StorageEngineType, StorageConfiguration> storageConfigurations;
     private final StoreDefinitionsMapper storeMapper;
     private final SchedulerService scheduler;
+    private final Map<String, RandomAccessFileStore> readOnlyStores;
     private MetadataStore metadataStore;
     private Store<byte[], Slop> slopStore;
 
@@ -100,6 +102,7 @@ public class StorageService extends AbstractService {
         this.metadataStore = new MetadataStore(new FilesystemStorageEngine(MetadataStore.METADATA_STORE_NAME,
                                                                            config.getMetadataDirectory()),
                                                storeMap);
+        this.readOnlyStores = new ConcurrentHashMap<String, RandomAccessFileStore>();
     }
 
     private ConcurrentMap<StorageEngineType, StorageConfiguration> initStorageConfigurations(VoldemortConfig config) {
@@ -138,6 +141,9 @@ public class StorageService extends AbstractService {
                 logger.info("Opening " + def.getName() + ".");
                 StorageEngine<byte[], byte[]> engine = getStore(def.getName(), def.getType());
                 rawEngines.put(engine.getName(), engine);
+
+                if(def.getType().equals(StorageEngineType.READONLY))
+                    this.readOnlyStores.put(engine.getName(), (RandomAccessFileStore) engine);
 
                 /* Now add any store wrappers that are enabled */
                 Store<byte[], byte[]> store = engine;
@@ -263,6 +269,10 @@ public class StorageService extends AbstractService {
 
     public MetadataStore getMetadataStore() {
         return this.metadataStore;
+    }
+
+    public Map<String, RandomAccessFileStore> getReadOnlyStores() {
+        return this.readOnlyStores;
     }
 
     public Store<byte[], Slop> getSlopStore() {

@@ -1,5 +1,7 @@
 Getting Started
 
+For the most up-to-date information see http://project-voldemort.com
+
 ## checkout and build
 jkreps@jkreps-md:/tmp > svn co svn+ssh://cm01.corp/lirepo/voldemort/trunk voldemort
 jkreps@jkreps-md:/tmp > cd voldemort
@@ -54,3 +56,5 @@ Background Resources
 - BDB Performance: http://www.oracle.com/technology/products/berkeley-db/pdf/berkeley-db-perf.pdf
 - Origin of vector clocks: http://research.microsoft.com/users/lamport/pubs/time-clocks.pdf
 - Brewer's conjecture: http://citeseer.ist.psu.edu/544596.html
+
+Current build is from r19 
