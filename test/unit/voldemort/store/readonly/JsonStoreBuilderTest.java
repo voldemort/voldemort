@@ -34,10 +34,10 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.StorageEngineType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -93,7 +93,6 @@ public class JsonStoreBuilderTest extends TestCase {
                                                        1,
                                                        1);
         RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
-        Utils.rm(this.dataDir);
         this.dataDir = TestUtils.getTempDirectory();
 
         // build and open store
@@ -111,7 +110,8 @@ public class JsonStoreBuilderTest extends TestCase {
         new File(dataDir, "0.data").renameTo(new File(dataDir, "test.data"));
 
         // open store
-        Serializer<Object> serializer = new JsonTypeSerializer("'string'");
+        @SuppressWarnings("unchecked")
+        Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         this.store = new SerializingStore<Object, Object>(new RandomAccessFileStore("test",
                                                                                     this.dataDir,
                                                                                     1,
@@ -133,7 +133,7 @@ public class JsonStoreBuilderTest extends TestCase {
     public void testCanGetGoodValues() {
         for(Map.Entry<String, String> entry: this.data.entrySet()) {
             List<Versioned<Object>> found = this.store.get(entry.getKey());
-            assertEquals(found.size(), 1);
+            assertEquals(1, found.size());
             Versioned<Object> obj = found.get(0);
             assertEquals(entry.getValue(), obj.getValue());
         }
