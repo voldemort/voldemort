@@ -117,7 +117,7 @@ public class VoldemortClientShell {
                 }
             } catch(SerializationException e) {
                 System.err.print("Error serializing values: ");
-                System.err.println(e.getMessage());
+                e.printStackTrace();
             } catch(VoldemortException e) {
                 System.err.println("Exception thrown during operation.");
                 e.printStackTrace(System.err);
