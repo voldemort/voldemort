@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
  * <p>
  * 
  * <pre>
- *  jsvc -pidfile ./voldemort.pid voldemort.server.VoldemortDaemon
+ *  jsvc -pidfile ./voldemort.pid voldemort.server.VoldemortJsvcDaemon
  * </pre>
  * <p>
  * The above assumes that JAVA_HOME, CLASSPATH, and VOLDEMORT_HOME have all been
@@ -28,7 +28,7 @@ import org.apache.log4j.Logger;
  *   -user voldemort \
  *   -Dcom.sun.management.jmxremote \
  *   -Dlog4j.configuration=file:///etc/voldemort/log4j.properties \
- *   voldemort.server.VoldemortDaemon /etc/voldemort
+ *   voldemort.server.VoldemortJsvcDaemon /etc/voldemort
  * </pre>
  * 
  * See <a href="http://commons.apache.org/daemon/jsvc.html">Commons Daemon</a>
