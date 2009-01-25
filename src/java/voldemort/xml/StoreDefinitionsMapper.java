@@ -134,6 +134,8 @@ public class StoreDefinitionsMapper {
         if(preferredWritesStr != null)
             preferredWrites = Integer.parseInt(preferredWritesStr);
         SerializerDefinition keySerializer = readSerializer(store.getChild(STORE_KEY_SERIALIZER_ELMT));
+        if(keySerializer.getAllSchemaInfoVersions().size() > 1)
+            throw new MappingException("Only a single schema is allowed for the store key.");
         SerializerDefinition valueSerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
         RoutingTier routingTier = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_TIER_ELMT));
         Element retention = store.getChild(STORE_RETENTION_POLICY_ELMT);
@@ -229,7 +231,10 @@ public class StoreDefinitionsMapper {
         if(def.hasSchemaInfo()) {
             for(Map.Entry<Integer, String> entry: def.getAllSchemaInfoVersions().entrySet()) {
                 Element schemaElmt = new Element(STORE_SERIALIZATION_META_ELMT);
-                schemaElmt.setAttribute(STORE_VERSION_ATTR, Integer.toString(entry.getKey()));
+                if(def.hasVersion())
+                    schemaElmt.setAttribute(STORE_VERSION_ATTR, Integer.toString(entry.getKey()));
+                else
+                    schemaElmt.setAttribute(STORE_VERSION_ATTR, "none");
                 schemaElmt.setText(entry.getValue());
                 parent.addContent(schemaElmt);
             }

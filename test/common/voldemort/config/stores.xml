@@ -29,6 +29,7 @@
     <value-serializer>
       <type>json</type>
       <schema-info version="1">"int32"</schema-info>
+      <schema-info version="2">"int32"</schema-info>
     </value-serializer>
   </store>
 </stores>

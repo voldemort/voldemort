@@ -17,7 +17,7 @@
 
   <!-- An individual store definition -->
   <xs:complexType name="store">
-    <xs:sequence>
+    <xs:all>
       <xs:element name="name" type="xs:token" />
       <xs:element name="persistence" type="xs:token" />
       <xs:element name="routing" type="xs:token" />
@@ -29,18 +29,18 @@
       <xs:element name="key-serializer" type="serializer" />
       <xs:element name="value-serializer" type="serializer" />
       <xs:element name="retention-days" type="xs:positiveInteger" minOccurs="0" maxOccurs="1" />
-    </xs:sequence>
+    </xs:all>
   </xs:complexType>
 
-  <!--  A serializer -->
+  <!-- A value serializer -->
   <xs:complexType name="serializer">
     <xs:sequence>
       <xs:element name="type" type="xs:token" />
-      <xs:element name="schema-info" type="schema-info" minOccurs="0" />
+      <xs:element name="schema-info" type="schema-info" minOccurs="0" maxOccurs="255"/>
     </xs:sequence>
   </xs:complexType>
-
-  <!-- schema info for a serializer -->
+  
+  <!-- Schema info for a value serializer. Values can be versioned. -->
   <xs:complexType name="schema-info">
     <xs:simpleContent>
       <xs:extension base="xs:string">

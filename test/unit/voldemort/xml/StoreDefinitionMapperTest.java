@@ -54,6 +54,16 @@ public class StoreDefinitionMapperTest extends TestCase {
         assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
     }
 
+    public void testTwoVersionsOnKeyFails() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        try {
+            mapper.readStoreList(new StringReader(VoldemortTestConstants.getStoreWithTwoKeyVersions()));
+            fail("There are multiple versions on the key serializer, which should not be allowed.");
+        } catch(MappingException e) {
+            // this is good
+        }
+    }
+
     public void testRetentionStore() {
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
         List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getStoreDefinitionsWithRetentionXml()));

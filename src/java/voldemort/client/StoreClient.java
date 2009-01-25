@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -29,6 +30,7 @@ import voldemort.versioning.Versioned;
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored
  */
+@Threadsafe
 public interface StoreClient<K, V> {
 
     /**

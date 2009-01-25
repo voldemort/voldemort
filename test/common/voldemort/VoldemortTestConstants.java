@@ -54,6 +54,10 @@ public class VoldemortTestConstants {
         return readString("config/two-node-cluster.xml");
     }
 
+    public static String getStoreWithTwoKeyVersions() {
+        return readString("config/store-with-two-key-versions.xml");
+    }
+
     public static Cluster getTwoNodeCluster() {
         return new ClusterMapper().readCluster(new StringReader(getTwoNodeClusterXml()));
     }

@@ -18,6 +18,7 @@ package voldemort.client;
 
 import java.util.List;
 
+import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
@@ -39,6 +40,7 @@ import voldemort.versioning.Versioned;
  * @param <K> The key type
  * @param <V> The value type
  */
+@Threadsafe
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Versioned<V> NOT_FOUND = new Versioned<V>(null, null);

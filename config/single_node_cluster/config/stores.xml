@@ -1,7 +1,7 @@
 <stores>
   <store>
     <name>test</name>
-    <persistence>cache</persistence>
+    <persistence>bdb</persistence>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>

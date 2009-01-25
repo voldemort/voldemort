@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 
@@ -177,7 +178,10 @@ public class UtilsTest extends TestCase {
     }
 
     public void testMd5() {
-        ByteUtils.md5("hello".getBytes());
+        String test = "alskdjflsajflksdjldfsdf";
+        MessageDigest digest = ByteUtils.getDigest("MD5");
+        assertEquals(0, ByteUtils.compare(ByteUtils.md5(test.getBytes()),
+                                          digest.digest(test.getBytes())));
     }
 
     public void testSha1() {

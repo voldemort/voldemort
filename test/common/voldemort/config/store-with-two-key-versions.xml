@@ -11,11 +11,11 @@
     <required-writes>1</required-writes>
     <key-serializer>
       <type>string</type>
-      <schema-info>UTF-8</schema-info>
+      <schema-info version="0">UTF-8</schema-info>
+      <schema-info version="1">UTF-8</schema-info>
     </key-serializer>
     <value-serializer>
-      <type>string</type>
-      <schema-info version="none">UTF-8</schema-info>
+      <type>java-serialization</type>
     </value-serializer>
   </store>
 </stores>

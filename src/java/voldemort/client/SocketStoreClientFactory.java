@@ -18,7 +18,6 @@ package voldemort.client;
 
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -51,13 +50,13 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     private SocketPool socketPool;
 
-    public SocketStoreClientFactory(String bootstrapUrls) {
+    public SocketStoreClientFactory(String bootstrapUrl) {
         this(DEFAULT_NUM_THREADS,
              DEFAULT_NUM_THREADS,
              DEFAULT_MAX_QUEUED_REQUESTS,
              DEFAULT_MAX_CONNECTIONS_PER_NODE,
              DEFAULT_MAX_CONNECTIONS,
-             bootstrapUrls);
+             bootstrapUrl);
     }
 
     public SocketStoreClientFactory(int coreThreads,
@@ -89,7 +88,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                     10000L,
                                     TimeUnit.MILLISECONDS,
                                     new LinkedBlockingQueue<Runnable>(maxQueuedRequests),
-                                    Executors.defaultThreadFactory(),
+                                    new DaemonThreadFactory("voldemort-client-thread-"),
                                     new ThreadPoolExecutor.CallerRunsPolicy()),
              maxConnectionsPerNode,
              maxTotalConnections,

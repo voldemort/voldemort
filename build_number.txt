@@ -1,6 +1,3 @@
 #Build Number for ANT. Do not edit!
-#Mon Jan 19 18:23:15 PST 2009
-build.number=173
->>>>>>>=1.8
-=\=\=\=\=\=\=
-<<<<<<<=build_number.txt
+#Sat Jan 24 21:40:14 PST 2009
+build.number=177
