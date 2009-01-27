@@ -19,6 +19,8 @@ package voldemort.store.bdb;
 import java.io.File;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
@@ -42,6 +44,8 @@ import com.sleepycat.je.EnvironmentConfig;
  * 
  */
 public class BdbStorageConfiguration implements StorageConfiguration {
+
+    private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
 
     private Environment environment;
     private EnvironmentConfig environmentConfig;
@@ -77,8 +81,10 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
             databaseConfig.setTransactional(true);
             File bdbDir = new File(config.getBdbDataDirectory());
-            if(!bdbDir.exists())
-                bdbDir.mkdir();
+            if(!bdbDir.exists()) {
+                logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath() + "'.");
+                bdbDir.mkdirs();
+            }
             environment = new Environment(bdbDir, environmentConfig);
             isInitialized = true;
         } catch(DatabaseException e) {
