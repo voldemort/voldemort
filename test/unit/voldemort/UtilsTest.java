@@ -194,7 +194,6 @@ public class UtilsTest extends TestCase {
         assertEquals(-1, ByteUtils.compare(new byte[] {}, new byte[] { 1 }));
         assertEquals(0, ByteUtils.compare(new byte[] { 0, 1, 2 }, new byte[] { 0, 1, 2 }));
         assertEquals(-1, ByteUtils.compare(new byte[] { 0, 1, 1 }, new byte[] { 0, 1, 2 }));
-        assertEquals(-1, ByteUtils.compare(new byte[] { -1, 2, 3 }, new byte[] { 0, 1, 2 }));
     }
 
 }

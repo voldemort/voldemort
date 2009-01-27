@@ -70,11 +70,14 @@ public class ByteUtils {
      */
     public static String toHexString(byte[] bytes) {
         StringBuffer buffer = new StringBuffer();
+
         for(byte b: bytes) {
-            if(Math.abs(b) < 16)
-                buffer.append('0');
-            String hex = Integer.toHexString(b);
-            buffer.append(hex.substring(Math.max(0, hex.length() - 2)));
+            String hex = Integer.toHexString(b & 0xff);
+            hex = hex.substring(0, Math.min(hex.length(), 2));
+            if(hex.length() == 1) {
+                buffer.append("0");
+            }
+            buffer.append(hex);
         }
         return buffer.toString();
     }
@@ -88,10 +91,14 @@ public class ByteUtils {
     public static String toBinaryString(byte[] bytes) {
         StringBuffer buffer = new StringBuffer();
         for(byte b: bytes) {
-            String bin = Integer.toBinaryString(b);
-            for(int i = 0; i < 8 - bin.length(); i++)
+            String bin = Integer.toBinaryString(0xFF & b);
+            bin = bin.substring(0, Math.min(bin.length(), 8));
+
+            for(int j = 0; j < 8 - bin.length(); j++) {
                 buffer.append('0');
-            buffer.append(bin.substring(Math.max(0, bin.length() - 8)));
+            }
+
+            buffer.append(bin);
         }
         return buffer.toString();
     }
@@ -421,19 +428,13 @@ public class ByteUtils {
      * @return -1 if b1 < b2, 1 if b1 > b2, and 0 if they are equal
      */
     public static int compare(byte[] b1, byte[] b2) {
-        int larger = Math.max(b1.length, b2.length);
-        for(int i = 0; i < larger; i++) {
-            if(i >= b1.length)
-                return -1;
-            else if(i >= b2.length)
-                return 1;
-            else if(b1[i] < b2[i])
-                return -1;
-            else if(b1[i] > b2[i])
-                return 1;
+        for(int i = 0, j = 0; i < b1.length && j < b2.length; i++, j++) {
+            int a = (b1[i] & 0xff);
+            int b = (b2[j] & 0xff);
+            if(a != b) {
+                return a - b;
+            }
         }
-
-        // if we get to the largest without returning then they are equal
-        return 0;
+        return b1.length - b2.length;
     }
 }
