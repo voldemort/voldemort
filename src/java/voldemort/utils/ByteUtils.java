@@ -69,7 +69,7 @@ public class ByteUtils {
      * @return The string
      */
     public static String toHexString(byte[] bytes) {
-        StringBuffer buffer = new StringBuffer();
+        StringBuilder buffer = new StringBuilder();
 
         for(byte b: bytes) {
             String hex = Integer.toHexString(b & 0xff);
@@ -89,7 +89,7 @@ public class ByteUtils {
      * @return The string
      */
     public static String toBinaryString(byte[] bytes) {
-        StringBuffer buffer = new StringBuffer();
+        StringBuilder buffer = new StringBuilder();
         for(byte b: bytes) {
             String bin = Integer.toBinaryString(0xFF & b);
             bin = bin.substring(0, Math.min(bin.length(), 8));
