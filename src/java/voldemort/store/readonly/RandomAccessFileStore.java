@@ -56,6 +56,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
 
     public static int KEY_HASH_SIZE = 16;
     public static int POSITION_SIZE = 8;
+    public static int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
     private final String name;
     private final long waitTimeoutMs;
@@ -84,9 +85,6 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
         this.numFileHandles = numFileHandles;
         this.fileModificationLock = new ReentrantReadWriteLock();
-        if(indexFileSize % (KEY_HASH_SIZE + POSITION_SIZE) != 0)
-            throw new IllegalArgumentException("Invalid index file, file length must be a multiple of "
-                                               + (KEY_HASH_SIZE + POSITION_SIZE) + ".");
         open();
     }
 
@@ -100,6 +98,17 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                 dataFiles.add(new RandomAccessFile(dataFile, "r"));
             }
             this.indexFileSize = getFileSize(indexFiles);
+            long dataFileSize = getFileSize(dataFiles);
+
+            if(indexFileSize % INDEX_ENTRY_SIZE != 0L)
+                throw new VoldemortException("Invalid index file, file length must be a multiple of "
+                                             + (KEY_HASH_SIZE + POSITION_SIZE)
+                                             + " but is only "
+                                             + indexFileSize + " bytes.");
+
+            if(dataFileSize < 4 * indexFileSize / INDEX_ENTRY_SIZE)
+                throw new VoldemortException("Invalid data file, file length must not be less than num_index_entries * 4 bytes, but data file is only "
+                                             + dataFileSize + " bytes.");
         } catch(FileNotFoundException e) {
             throw new VoldemortException("Could not open store.", e);
         } finally {

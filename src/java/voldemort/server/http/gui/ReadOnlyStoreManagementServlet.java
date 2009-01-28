@@ -91,8 +91,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private String getRequired(HttpServletRequest req, String name) throws ServletException {
         String val = req.getParameter(name);
-        if(name == null)
-            throw new ServletException("Missing required paramter '" + name + "'.");
+        if(val == null)
+            throw new ServletException("Missing required parameter '" + name + "'.");
         return val;
     }
 }
