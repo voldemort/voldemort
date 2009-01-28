@@ -126,7 +126,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                                           : storeDef.getPreferredReads(),
                                                       storeDef.getRequiredReads(),
                                                       storeDef.getPreferredWrites() == null ? storeDef.getRequiredWrites()
-                                                                                           : storeDef.getRequiredWrites(),
+                                                                                           : storeDef.getPreferredWrites(),
                                                       storeDef.getRequiredWrites(),
                                                       true,
                                                       threadPool,
