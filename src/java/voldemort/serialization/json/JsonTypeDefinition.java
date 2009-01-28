@@ -19,8 +19,8 @@ package voldemort.serialization.json;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +97,8 @@ public class JsonTypeDefinition implements Serializable {
     public JsonTypeDefinition projectionType(String... properties) {
         if(this.getType() instanceof Map) {
             Map<String, Object> type = (Map<String, Object>) getType();
-            Map<String, Object> newType = new HashMap<String, Object>();
+            Arrays.sort(properties);
+            Map<String, Object> newType = new LinkedHashMap<String, Object>();
             for(String prop: properties)
                 newType.put(prop, type.get(prop));
             return new JsonTypeDefinition(newType);

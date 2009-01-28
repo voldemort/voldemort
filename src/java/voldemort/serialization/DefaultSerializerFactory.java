@@ -21,6 +21,9 @@ import java.util.Map;
 
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
+import voldemort.serialization.protobuf.ProtoBufSerializer;
+
+import com.google.protobuf.Message;
 
 /**
  * Factory that maps serialization strings to serializers. Used to get a
@@ -35,6 +38,7 @@ public class DefaultSerializerFactory implements SerializerFactory {
     private static final String STRING_SERIALIZER_TYPE_NAME = "string";
     private static final String IDENTITY_SERIALIZER_TYPE_NAME = "identity";
     private static final String JSON_SERIALIZER_TYPE_NAME = "json";
+    private static final String PROTO_BUF_TYPE_NAME = "protobuf";
 
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
@@ -50,6 +54,8 @@ public class DefaultSerializerFactory implements SerializerFactory {
                                                                .entrySet())
                 versions.put(entry.getKey(), JsonTypeDefinition.fromJson(entry.getValue()));
             return new JsonTypeSerializer(versions);
+        } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
+            return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());

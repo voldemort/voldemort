@@ -28,5 +28,6 @@
 	<classpathentry kind="lib" path="lib/velocity-1.5.jar"/>
 	<classpathentry kind="lib" path="lib/xerces.jar"/>
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.0.3.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

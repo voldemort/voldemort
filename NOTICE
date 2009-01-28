@@ -18,7 +18,7 @@ This product includes the libraries
   xerces
   all of which are software developed by The Apache Software Foundation (http://www.apache.org/)
   
-This product includes google-collections, a library developed by Google (http://www.google.com and http://code.google.com/p/google-collections/).
+This product includes google-collections and protocol buffers, two libraries developed by Google (http://www.google.com, http://code.google.com/p/google-collections/ and http://code.google.com/apis/protocolbuffers/).
 
 This product includes jdom, a library developed by jdom.org.
 
