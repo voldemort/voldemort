@@ -24,7 +24,8 @@ import voldemort.versioning.Versioned;
 import com.google.common.base.Objects;
 
 /**
- * A wrapper around a node id, key and value
+ * A wrapper around a node id, key and value. This class represents one
+ * key/value as fetched from a single server.
  * 
  * @author jay
  * 
@@ -82,8 +83,6 @@ final class NodeValue<K, V> implements Serializable, Cloneable {
         if(o == this)
             return true;
         if(!(o instanceof NodeValue))
-            return false;
-        if(o == null)
             return false;
 
         NodeValue<?, ?> v = (NodeValue<?, ?>) o;
