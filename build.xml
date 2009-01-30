@@ -27,23 +27,7 @@
     </sequential>
   </macrodef>
 
-  <target name="all" depends="clean, jar, war, test" description="Build all artifacts." />
-
-  <target name="usage">
-    <echo message=""/>
-    <echo message="${name} build file"/>
-    <echo message="-----------------------------------"/>
-    <echo message=""/>
-    <echo message="Available targets are:"/>
-    <echo message=""/>
-    <echo message="build -- Build the application"/>
-    <echo message="client -- Build a jar file for clients to use"/>
-    <echo message="jar -- Build a jar file for the client."/>
-    <echo message="war -- Build a war file for deploying the server to a servlet container"/>
-    <echo message="docs -- Create html documentation"/>
-    <echo message="clean -- Delete generated files"/>
-    <echo message=""/>
-  </target>
+  <target name="all" depends="clean, srcjar, jar, war, test" description="Build all artifacts." />
 
   <target name="clean" description="Delete generated files.">
     <delete dir="${dist.dir}" />
@@ -80,6 +64,15 @@
       <!-- include xsds -->
       <fileset dir="${java.dir}">
         <include name="**/*.xsd"/>
+      </fileset>
+    </jar>
+  </target>
+    
+  <target name="srcjar" description="Build source jar file">
+    <mkdir dir="${dist.dir}"/>
+    <jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
+      <fileset dir="${java.dir}">
+        <include name="**/*.java"/>
       </fileset>
     </jar>
   </target>

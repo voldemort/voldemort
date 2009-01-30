@@ -23,7 +23,6 @@ import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
 import voldemort.utils.Utils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -58,7 +57,7 @@ public class SerializingStore<K, V> implements Store<K, V> {
         List<Versioned<V>> results = new ArrayList<Versioned<V>>(found.size());
         for(Versioned<byte[]> versioned: found)
             results.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),
-                                         (VectorClock) versioned.getVersion()));
+                                         versioned.getVersion()));
         return results;
     }
 
@@ -69,7 +68,7 @@ public class SerializingStore<K, V> implements Store<K, V> {
     public void put(K key, Versioned<V> value) throws VoldemortException {
         store.put(keySerializer.toBytes(key),
                   new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
-                                        (VectorClock) value.getVersion()));
+                                        value.getVersion()));
     }
 
     public void close() {

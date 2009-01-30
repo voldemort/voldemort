@@ -35,8 +35,8 @@ public class ClockEntryTest extends TestCase {
         v2 = new ClockEntry((short) 0, (short) 2);
         assertTrue(!v1.equals(v2));
 
-        v1 = new ClockEntry((short) Short.MAX_VALUE, (short) 256);
-        v2 = new ClockEntry((short) Short.MAX_VALUE, (short) 256);
+        v1 = new ClockEntry(Short.MAX_VALUE, (short) 256);
+        v2 = new ClockEntry(Short.MAX_VALUE, (short) 256);
         assertEquals(v1, v2);
     }
 

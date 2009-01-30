@@ -38,18 +38,39 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
 
     private final Logger logger;
     private final Time time;
-    private final String storeType;
+    private final String instanceName;
 
+    /**
+     * Create a logging store that wraps the given store
+     * 
+     * @param store The store to wrap
+     */
     public LoggingStore(Store<K, V> store) {
         this(store, new SystemTime());
     }
 
+    /**
+     * Create a logging store that wraps the given store
+     * 
+     * @param store The store to wrap
+     * @param time The time implementation to use for computing ellapsed time
+     */
     public LoggingStore(Store<K, V> store, Time time) {
+        this(store, null, time);
+    }
+
+    /**
+     * Create a logging store that wraps the given store
+     * 
+     * @param store The store to wrap
+     * @param instance The instance name to display in logging messages
+     * @param time The time implementation to use for computing ellapsed time
+     */
+    public LoggingStore(Store<K, V> store, String instance, Time time) {
         super(store);
         this.logger = Logger.getLogger(store.getClass());
         this.time = time;
-        String name = store.getClass().getName();
-        this.storeType = name.substring(Math.max(0, name.lastIndexOf('.')), name.length());
+        this.instanceName = instance == null ? ": " : instance + ": ";
     }
 
     @Override
@@ -70,12 +91,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
             succeeded = true;
             return deletedSomething;
         } finally {
-            if(logger.isDebugEnabled()) {
-                double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
-                logger.debug("DELETE from store '" + getName() + "' completed "
-                             + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs
-                             + " ms.");
-            }
+            printTimedMessage("DELETE", succeeded, startTimeNs);
         }
     }
 
@@ -90,12 +106,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
             succeeded = true;
             return l;
         } finally {
-            if(logger.isDebugEnabled()) {
-                double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
-                logger.debug("GET from store '" + getName() + "' completed "
-                             + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs
-                             + " ms.");
-            }
+            printTimedMessage("GET", succeeded, startTimeNs);
         }
     }
 
@@ -110,12 +121,16 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
             getInnerStore().put(key, value);
             succeeded = true;
         } finally {
-            if(logger.isDebugEnabled()) {
-                double elapsedMs = (time.getNanoseconds() - startTimeNs) / (double) Time.NS_PER_MS;
-                logger.debug("PUT from store '" + getName() + "' completed "
-                             + (succeeded ? "successfully" : "unsuccessfully") + " in " + elapsedMs
-                             + " ms.");
-            }
+            printTimedMessage("PUT", succeeded, startTimeNs);
+        }
+    }
+
+    private void printTimedMessage(String operation, boolean success, long startNs) {
+        if(logger.isDebugEnabled()) {
+            double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
+            logger.debug(instanceName + operation + " operation on store '" + getName()
+                         + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
+                         + elapsedMs + " ms.");
         }
     }
 

@@ -72,4 +72,4 @@ public enum StorageEngineType {
     public String toDisplay() {
         return text;
     }
-};
+}

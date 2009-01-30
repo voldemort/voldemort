@@ -422,6 +422,10 @@ public class ByteUtils {
      * Compare two byte arrays. Two arrays are equal if they are the same size
      * and have the same contents. Otherwise b1 is smaller iff it is a prefix of
      * b2 or for the first index i for which b1[i] != b2[i], b1[i] < b2[i].
+     * <p>
+     * <strong> bytes are considered unsigned. passing negative values into byte
+     * will cause them to be considered as unsigned two's complement value.
+     * </strong>
      * 
      * @param b1 The first array
      * @param b2 The second array
@@ -432,9 +436,9 @@ public class ByteUtils {
             int a = (b1[i] & 0xff);
             int b = (b2[j] & 0xff);
             if(a != b) {
-                return a - b;
+                return (a - b) / (Math.abs(a - b));
             }
         }
-        return b1.length - b2.length;
+        return (b1.length - b2.length) / (Math.max(1, Math.abs(b1.length - b2.length)));
     }
 }

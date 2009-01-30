@@ -136,6 +136,7 @@ public class StorageService extends AbstractService {
         Cluster cluster = this.metadataStore.getCluster();
         List<StoreDefinition> storeDefs = this.metadataStore.getStores();
         logger.info("Initializing stores:");
+        Time time = new SystemTime();
         for(StoreDefinition def: storeDefs) {
             if(!def.getName().equals(MetadataStore.METADATA_STORE_NAME)) {
                 logger.info("Opening " + def.getName() + ".");
@@ -157,7 +158,7 @@ public class StorageService extends AbstractService {
                                                    routingStrategy);
                 }
                 if(voldemortConfig.isVerboseLoggingEnabled())
-                    store = new LoggingStore<byte[], byte[]>(store);
+                    store = new LoggingStore<byte[], byte[]>(store, cluster.getName(), time);
                 if(voldemortConfig.isStatTrackingEnabled())
                     store = new StatTrackingStore<byte[], byte[]>(store);
                 this.localStoreMap.put(def.getName(), store);

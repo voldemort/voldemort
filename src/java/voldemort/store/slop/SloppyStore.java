@@ -30,8 +30,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-;
-
 /**
  * A Sloppy store is a store wrapper that delegates to an inner store, and if
  * that store fails, instead stores some slop in the first of a list of backup

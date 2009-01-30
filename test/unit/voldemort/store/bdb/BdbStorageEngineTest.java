@@ -101,4 +101,30 @@ public class BdbStorageEngineTest extends StorageEngineTest {
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
     }
 
+    public void testEquals() {
+        String name = "someName";
+        assertEquals(new BdbStorageEngine(name, environment, database),
+                     new BdbStorageEngine(name, environment, database));
+    }
+
+    public void testNullConstructorParameters() {
+        try {
+            new BdbStorageEngine(null, environment, database);
+        } catch(IllegalArgumentException e) {
+            return;
+        }
+        fail("No exception thrown for null name.");
+        try {
+            new BdbStorageEngine("name", null, database);
+        } catch(IllegalArgumentException e) {
+            return;
+        }
+        fail("No exception thrown for null environment.");
+        try {
+            new BdbStorageEngine("name", environment, null);
+        } catch(IllegalArgumentException e) {
+            return;
+        }
+        fail("No exception thrown for null database.");
+    }
 }

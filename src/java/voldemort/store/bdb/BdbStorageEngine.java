@@ -66,7 +66,8 @@ public class BdbStorageEngine implements StorageEngine<byte[], byte[]> {
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
         assertNotNull("The store name cannot be null.", name);
-        assertNotNull("The database cannot be null.", name);
+        assertNotNull("The database cannot be null.", database);
+        assertNotNull("The environment cannot be null.", environment);
         this.name = name;
         this.bdbDatabase = database;
         this.environment = environment;
@@ -246,12 +247,11 @@ public class BdbStorageEngine implements StorageEngine<byte[], byte[]> {
         return name.hashCode();
     }
 
-    @SuppressWarnings("unchecked")
     public boolean equals(Object o) {
-        if(o == null || !Store.class.equals(o.getClass()))
+        if(o == null || !Store.class.isAssignableFrom(o.getClass()))
             return false;
-        Store s = (Store) o;
-        return s.getName().equals(o);
+        Store<?, ?> s = (Store<?, ?>) o;
+        return s.getName().equals(s.getName());
     }
 
     public void close() throws PersistenceFailureException {
@@ -280,7 +280,8 @@ public class BdbStorageEngine implements StorageEngine<byte[], byte[]> {
         }
     }
 
-    private class BdbStoreIterator implements ClosableIterator<Entry<byte[], Versioned<byte[]>>> {
+    private static class BdbStoreIterator implements
+            ClosableIterator<Entry<byte[], Versioned<byte[]>>> {
 
         private volatile boolean isOpen;
         private final Cursor cursor;
@@ -350,7 +351,7 @@ public class BdbStorageEngine implements StorageEngine<byte[], byte[]> {
         }
 
         @Override
-        public void finalize() {
+        protected void finalize() {
             if(isOpen) {
                 logger.error("Failure to close cursor, will be forcably closed.");
                 close();
