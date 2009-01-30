@@ -48,7 +48,7 @@ public class Slop {
         public byte getOpCode() {
             return opCode;
         }
-    };
+    }
 
     final private byte[] key;
     final private byte[] value;

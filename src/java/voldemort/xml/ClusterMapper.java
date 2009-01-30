@@ -99,7 +99,6 @@ public class ClusterMapper {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public Node readServer(Element server) {
         int id = Integer.parseInt(server.getChildText(SERVER_ID_ELMT));
         String host = server.getChildText(HOST_ELMT);

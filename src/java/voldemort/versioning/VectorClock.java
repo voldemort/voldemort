@@ -116,7 +116,7 @@ public class VectorClock implements Version, Serializable {
         // write the number of versions
         ByteUtils.writeShort(serialized, (short) versions.size(), 0);
         // write the size of each version in bytes
-        byte versionSize = (byte) ByteUtils.numberOfBytesRequired(getMaxVersion());
+        byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
         serialized[2] = versionSize;
 
         int clockEntrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
@@ -134,7 +134,7 @@ public class VectorClock implements Version, Serializable {
     }
 
     public int sizeInBytes() {
-        byte versionSize = (byte) ByteUtils.numberOfBytesRequired(getMaxVersion());
+        byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
         return ByteUtils.SIZE_OF_SHORT + 1 + this.versions.size()
                * (ByteUtils.SIZE_OF_SHORT + versionSize) + ByteUtils.SIZE_OF_LONG;
     }
@@ -250,18 +250,18 @@ public class VectorClock implements Version, Serializable {
                 i++;
                 j++;
             } else if(v1.getNodeId() < v2.getNodeId()) {
-                newClock.versions.add((ClockEntry) v1.clone());
+                newClock.versions.add(v1.clone());
                 i++;
             } else {
-                newClock.versions.add((ClockEntry) v2.clone());
+                newClock.versions.add(v2.clone());
             }
         }
 
         // Okay now there may be leftovers on one or the other list remaining
         for(int k = i; k < this.versions.size(); k++)
-            newClock.versions.add((ClockEntry) this.versions.get(k).clone());
+            newClock.versions.add(this.versions.get(k).clone());
         for(int k = j; k < this.versions.size(); k++)
-            newClock.versions.add((ClockEntry) clock.versions.get(k).clone());
+            newClock.versions.add(clock.versions.get(k).clone());
 
         return newClock;
     }

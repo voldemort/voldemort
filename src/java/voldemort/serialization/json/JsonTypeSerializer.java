@@ -203,8 +203,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
         }
     }
 
-    private void writeBoolean(DataOutputStream output, Boolean o) throws IOException {
-        Boolean b = (Boolean) o;
+    private void writeBoolean(DataOutputStream output, Boolean b) throws IOException {
         if(b == null)
             output.writeByte(-1);
         else if(b.booleanValue())
@@ -329,8 +328,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return b;
     }
 
-    private void writeInt8(DataOutputStream output, Byte o) throws IOException {
-        Byte b = (Byte) o;
+    private void writeInt8(DataOutputStream output, Byte b) throws IOException {
         if(b == null)
             output.writeByte(Byte.MIN_VALUE);
         else if(b.byteValue() == Byte.MIN_VALUE)
@@ -349,8 +347,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return s;
     }
 
-    private void writeInt16(DataOutputStream output, Short o) throws IOException {
-        Short s = (Short) o;
+    private void writeInt16(DataOutputStream output, Short s) throws IOException {
         if(s == null)
             output.writeShort(Short.MIN_VALUE);
         else if(s.shortValue() == Short.MIN_VALUE)
@@ -369,8 +366,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return i;
     }
 
-    private void writeInt32(DataOutputStream output, Integer o) throws IOException {
-        Integer i = (Integer) o;
+    private void writeInt32(DataOutputStream output, Integer i) throws IOException {
         if(i == null)
             output.writeInt(Integer.MIN_VALUE);
         else if(i.intValue() == Integer.MIN_VALUE)
@@ -389,8 +385,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return l;
     }
 
-    private void writeInt64(DataOutputStream output, Long o) throws IOException {
-        Long l = (Long) o;
+    private void writeInt64(DataOutputStream output, Long l) throws IOException {
         if(l == null)
             output.writeLong(Long.MIN_VALUE);
         else if(l.longValue() == Long.MIN_VALUE)
@@ -409,8 +404,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return f;
     }
 
-    private void writeFloat32(DataOutputStream output, Float o) throws IOException {
-        Float f = (Float) o;
+    private void writeFloat32(DataOutputStream output, Float f) throws IOException {
         if(f == null)
             output.writeFloat(Float.MIN_VALUE);
         else if(f.floatValue() == Float.MIN_VALUE)
@@ -470,7 +464,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
     }
 
     private byte[] readBytes(DataInputStream stream) throws IOException {
-        int size = (int) stream.readShort();
+        int size = stream.readShort();
         if(size < 0)
             return null;
         byte[] bytes = new byte[size];

@@ -64,7 +64,7 @@ public class SocketStore implements Store<byte[], byte[]> {
 
     public boolean delete(byte[] key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = (SocketAndStreams) pool.checkout(destination);
+        SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.DELETE_OP_CODE);
@@ -88,7 +88,7 @@ public class SocketStore implements Store<byte[], byte[]> {
 
     public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = (SocketAndStreams) pool.checkout(destination);
+        SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.GET_OP_CODE);
@@ -120,7 +120,7 @@ public class SocketStore implements Store<byte[], byte[]> {
 
     public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = (SocketAndStreams) pool.checkout(destination);
+        SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.PUT_OP_CODE);

@@ -40,7 +40,6 @@ public class MultithreadedStressTest {
     private final int numberOfValues;
     private final int numberOfRequests;
 
-    @SuppressWarnings("unchecked")
     public MultithreadedStressTest(Store<byte[], byte[]> store,
                                    int numberOfValues,
                                    int numberOfRequests,

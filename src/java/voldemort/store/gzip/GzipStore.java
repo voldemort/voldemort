@@ -27,7 +27,6 @@ import org.apache.commons.io.IOUtils;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
@@ -48,7 +47,7 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
         try {
             for(Versioned<byte[]> item: found)
                 results.add(new Versioned<byte[]>(IOUtils.toByteArray(new GZIPInputStream(new ByteArrayInputStream(item.getValue()))),
-                                                  (VectorClock) item.getVersion()));
+                                                  item.getVersion()));
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
@@ -60,7 +59,7 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
         try {
             getInnerStore().put(key,
                                 new Versioned<byte[]>(IOUtils.toByteArray(new GZIPInputStream(new ByteArrayInputStream(value.getValue()))),
-                                                      (VectorClock) value.getVersion()));
+                                                      value.getVersion()));
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
