@@ -194,6 +194,14 @@ public class UtilsTest extends TestCase {
         assertEquals(-1, ByteUtils.compare(new byte[] {}, new byte[] { 1 }));
         assertEquals(0, ByteUtils.compare(new byte[] { 0, 1, 2 }, new byte[] { 0, 1, 2 }));
         assertEquals(-1, ByteUtils.compare(new byte[] { 0, 1, 1 }, new byte[] { 0, 1, 2 }));
+        assertEquals(-1, ByteUtils.compare(new byte[] { 0, 1, 1 }, new byte[] { 0, 1, 1, 2 }));
+        assertEquals(1, ByteUtils.compare(new byte[] { 0, 1, 2 }, new byte[] { 0, 1, 1, 1 }));
+        assertEquals(-1, ByteUtils.compare(new byte[] { 0, 1, 2 }, new byte[] { 4, 1, 1, 1 }));
+        assertEquals(1, ByteUtils.compare(new byte[] { 0, 1, 4 }, new byte[] { 0, 1, 1, 1 }));
+        assertEquals(-1, ByteUtils.compare(new byte[] { 1 }, new byte[] { -1 }));
+        assertEquals(0, ByteUtils.compare(new byte[] { -1 }, new byte[] { -1 }));
+        assertEquals(1, ByteUtils.compare(new byte[] { -1 }, new byte[] { -4 }));
+        assertEquals(-1, ByteUtils.compare(new byte[] { -4 }, new byte[] { -1 }));
     }
 
 }
