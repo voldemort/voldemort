@@ -16,6 +16,7 @@ This product includes the libraries
   servlet-api
   velocity
   xerces
+  libthrift
   all of which are software developed by The Apache Software Foundation (http://www.apache.org/)
   
 This product includes google-collections and protocol buffers, two libraries developed by Google (http://www.google.com, http://code.google.com/p/google-collections/ and http://code.google.com/apis/protocolbuffers/).
