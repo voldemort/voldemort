@@ -29,6 +29,6 @@
 	<classpathentry kind="lib" path="lib/xerces.jar"/>
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.0.3.jar"/>
-	<classpathentry kind="lib" path="lib/libthrift-2008-04-11.jar"/>
+	<classpathentry kind="lib" path="lib/libthrift.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
