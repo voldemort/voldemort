@@ -62,14 +62,13 @@ public class ClusterMapper {
     private static final String HTTP_PORT_ELMT = "http-port";
     private static final String SOCKET_PORT_ELMT = "socket-port";
 
-    private final Validator validator;
+    private final Schema schema;
 
     public ClusterMapper() {
         try {
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             Source source = new StreamSource(ClusterMapper.class.getResourceAsStream("cluster.xsd"));
-            Schema schema = factory.newSchema(source);
-            this.validator = schema.newValidator();
+            this.schema = factory.newSchema(source);
         } catch(SAXException e) {
             throw new MappingException(e);
         }
@@ -80,6 +79,7 @@ public class ClusterMapper {
         try {
             SAXBuilder builder = new SAXBuilder(false);
             Document doc = builder.build(input);
+            Validator validator = this.schema.newValidator();
             validator.validate(new JDOMSource(doc));
             Element root = doc.getRootElement();
             if(!root.getName().equals(CLUSTER_ELMT))

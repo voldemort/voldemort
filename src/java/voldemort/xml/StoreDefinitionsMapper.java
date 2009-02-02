@@ -69,14 +69,13 @@ public class StoreDefinitionsMapper {
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
     private final static String STORE_VERSION_ATTR = "version";
 
-    private final Validator validator;
+    private final Schema schema;
 
     public StoreDefinitionsMapper() {
         try {
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             Source source = new StreamSource(StoreDefinitionsMapper.class.getResourceAsStream("stores.xsd"));
-            Schema schema = factory.newSchema(source);
-            this.validator = schema.newValidator();
+            this.schema = factory.newSchema(source);
         } catch(SAXException e) {
             throw new MappingException(e);
         }
@@ -88,6 +87,7 @@ public class StoreDefinitionsMapper {
 
             SAXBuilder builder = new SAXBuilder();
             Document doc = builder.build(input);
+            Validator validator = schema.newValidator();
             validator.validate(new JDOMSource(doc));
             Element root = doc.getRootElement();
             if(!root.getName().equals(STORES_ELMT))
