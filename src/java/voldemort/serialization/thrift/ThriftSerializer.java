@@ -1,12 +1,10 @@
 package voldemort.serialization.thrift;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 
 import com.facebook.thrift.TBase;
+import com.facebook.thrift.TException;
 import com.facebook.thrift.protocol.TBinaryProtocol;
 import com.facebook.thrift.protocol.TJSONProtocol;
 import com.facebook.thrift.protocol.TProtocol;
@@ -34,7 +32,7 @@ import com.facebook.thrift.transport.TTransportException;
  */
 public class ThriftSerializer<T extends TBase> implements Serializer<T> {
 
-    private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
+    private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=com.xyz.Foo,protocol=binary</schema-info> where com.xyz.Foo is the fully qualified name of the message.";
 
     /**
      * Supported Thrift Protocols
@@ -47,8 +45,6 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
     }
 
     private Class<T> messageClass;
-    private Method serializeMethod;
-    private Method deserializeMethod;
     private ThriftProtocol protocol;
 
     @SuppressWarnings("unchecked")
@@ -68,13 +64,18 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
         }
         try {
             this.messageClass = (Class<T>) Class.forName(thriftInfo[0]);
-            this.serializeMethod = messageClass.getMethod("write", TProtocol.class);
-            this.deserializeMethod = messageClass.getMethod("read", TProtocol.class);
+            T msgObj = messageClass.newInstance();
+            if(!(msgObj instanceof TBase)) {
+                throw new IllegalArgumentException(thriftInfo[0]
+                                                   + " is not a subtype of com.facebook.thrift.TBase");
+            }
         } catch(ClassNotFoundException e) {
             throw new IllegalArgumentException(e);
         } catch(SecurityException e) {
             throw new IllegalArgumentException(e);
-        } catch(NoSuchMethodException e) {
+        } catch(InstantiationException e) {
+            throw new IllegalArgumentException(e);
+        } catch(IllegalAccessException e) {
             throw new IllegalArgumentException(e);
         }
     }
@@ -83,14 +84,8 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
         MemoryBuffer buffer = new MemoryBuffer();
         TProtocol protocol = createThriftProtocol(buffer);
         try {
-            serializeMethod.invoke(object, protocol);
-        } catch(SecurityException e) {
-            throw new SerializationException(e);
-        } catch(IllegalArgumentException e) {
-            throw new SerializationException(e);
-        } catch(IllegalAccessException e) {
-            throw new SerializationException(e);
-        } catch(InvocationTargetException e) {
+            object.write(protocol);
+        } catch(TException e) {
             throw new SerializationException(e);
         }
         return buffer.toByteArray();
@@ -108,16 +103,12 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
         T msg = null;
         try {
             msg = messageClass.newInstance();
-            deserializeMethod.invoke(msg, protocol);
-        } catch(SecurityException e) {
-            throw new SerializationException(e);
+            msg.read(protocol);
         } catch(InstantiationException e) {
             throw new SerializationException(e);
         } catch(IllegalAccessException e) {
             throw new SerializationException(e);
-        } catch(IllegalArgumentException e) {
-            throw new SerializationException(e);
-        } catch(InvocationTargetException e) {
+        } catch(TException e) {
             throw new SerializationException(e);
         }
 
@@ -166,14 +157,15 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
     }
 
     protected TProtocol createThriftProtocol(TTransport transport) {
-        if(this.protocol == ThriftProtocol.BINARY) {
-            return new TBinaryProtocol(transport);
-        } else if(this.protocol == ThriftProtocol.JSON) {
-            return new TJSONProtocol(transport);
-        } else if(this.protocol == ThriftProtocol.JSON) {
-            return new TSimpleJSONProtocol(transport);
-        } else {
-            throw new IllegalArgumentException("Unknown Thrift Protocol.");
+        switch(this.protocol) {
+            case BINARY:
+                return new TBinaryProtocol(transport);
+            case JSON:
+                return new TJSONProtocol(transport);
+            case SIMPLE_JSON:
+                return new TSimpleJSONProtocol(transport);
+            default:
+                throw new IllegalArgumentException("Unknown Thrift Protocol.");
         }
     }
 }
