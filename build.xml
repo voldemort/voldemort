@@ -1,185 +1,255 @@
 <?xml version="1.0"?>
 
 <project name="voldemort" basedir="." default="all">
-  <property file="build.properties"/>
+	<property file="build.properties"/>
 
-  <property name="name" value="voldemort"/>
-  <property name="display.name" value="Voldemort"/>
-  <property name="author" value="Jay Kreps"/>
+	<property name="name" value="voldemort"/>
+	<property name="display.name" value="Voldemort"/>
+	<property name="author" value="Jay Kreps"/>
 
-  <path id="main-classpath">
-    <fileset dir="${lib.dir}">
-      <include name="*.jar"/>
-    </fileset>
-    <pathelement path="${classes.dir}"/>
-  </path>
+	<path id="main-classpath">
+		<fileset dir="${lib.dir}">
+			<include name="*.jar"/>
+		</fileset>
+		<pathelement path="${classes.dir}"/>
+	</path>
 
-  <path id="test-classpath">
-    <path refid="main-classpath"/>
-    <pathelement path="${testclasses.dir}"/>
-  </path>
+	<path id="contrib-classpath">
+		<fileset dir="${dist.dir}">
+			<include name="${name}-${curr.release}.jar" />
+		</fileset>
+		<fileset dir="${contrib.src.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</path>
 
-  <macrodef name="replace-dir">
-    <attribute name="dir"/>
-    <sequential>
-      <delete dir="@{dir}"/>
-      <mkdir dir="@{dir}"/>
-    </sequential>
-  </macrodef>
+	<path id="test-classpath">
+		<path refid="main-classpath" />
+		<pathelement path="${testclasses.dir}"/>
+	</path>
 
-  <target name="all" depends="clean, srcjar, jar, war, test" description="Build all artifacts." />
+	<path id="contrib-test-classpath">
+		<path refid="main-classpath" />
+		<path refid="contrib-classpath" />
+		<fileset dir="${dist.dir}">
+			<include name="${name}-contrib-${curr.release}.jar" />
+		</fileset>
+	</path>
+			
+	<macrodef name="replace-dir">
+		<attribute name="dir"/>
+		<sequential>
+			<delete dir="@{dir}"/>
+			<mkdir dir="@{dir}"/>
+		</sequential>
+	</macrodef>
 
-  <target name="clean" description="Delete generated files.">
-    <delete dir="${dist.dir}" />
-    <replace-dir dir="${javadoc.dir}"/>
-  </target>
+	<target name="all" depends="clean, srcjar, jar, war, test, contrib-jar" description="Build all artifacts." />
 
-  <target name="build" description="Compile main source tree java files">
-    <replace-dir dir="${classes.dir}"/>
-    <!-- copy non-java files to classes dir to load from classpath -->
-    <copy todir="${classes.dir}">
-      <fileset dir="${java.dir}">
-        <exclude name="**/*.java"/>
-        <exclude name="**/*.html"/>
-      </fileset>
-    </copy>
-    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
-      <src path="${java.dir}"/>
-      <classpath refid="main-classpath"/>
-    </javac>
-    <buildnumber file="build_number.txt"/>
-  </target>
+	<target name="clean" description="Delete generated files.">
+		<delete dir="${dist.dir}" />
+		<replace-dir dir="${javadoc.dir}"/>
+	</target>
 
-  <target name="test" depends="build, buildtest" description="Build test jar file">
-    <jar destfile="${dist.dir}/${name}-test-${curr.release}.jar">
-      <fileset dir="${testclasses.dir}"/>
-    </jar>
-  </target>
+	<target name="build" description="Compile main source tree java files">
+		<replace-dir dir="${classes.dir}"/>
+		<!-- copy non-java files to classes dir to load from classpath -->
+		<copy todir="${classes.dir}">
+			<fileset dir="${java.dir}">
+				<exclude name="**/*.java"/>
+				<exclude name="**/*.html"/>
+			</fileset>
+		</copy>
+		<javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+			<src path="${java.dir}"/>
+			<classpath refid="main-classpath"/>
+		</javac>
+		<buildnumber file="build_number.txt"/>
+	</target>
 
-  <target name="jar" depends="build" description="Build server jar file">
-    <jar destfile="${dist.dir}/${name}-${curr.release}.jar">
-      <fileset dir="${classes.dir}">
-        <include name="**/*.*"/>
-      </fileset>
-      <!-- include xsds -->
-      <fileset dir="${java.dir}">
-        <include name="**/*.xsd"/>
-      </fileset>
-    </jar>
-  </target>
-    
-  <target name="srcjar" description="Build source jar file">
-    <mkdir dir="${dist.dir}"/>
-    <jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
-      <fileset dir="${java.dir}">
-        <include name="**/*.java"/>
-      </fileset>
-    </jar>
-  </target>
-  
-  <target name="utils" depends="build" description="Build a jar file with voldemort util classes.">
-    <tstamp>
-      <format property="TODAY" pattern="yyyy-MM-dd" locale="en,US"/>
-    </tstamp>
-    <jar destfile="${dist.dir}/${name}-utils-${TODAY}.jar">
-      <fileset dir="${classes.dir}">
-        <include name="voldemort/VoldemortException.class"/>
-        <include name="voldemort/Serializer.class"/>
-        <include name="voldemort/serialization/SerializationException.class"/>
-        <include name="voldemort/serialization/json/*"/>
-        <include name="voldemort/utils/*"/>
-      </fileset>
-    </jar>
-  </target>
+	<target name="test" depends="build, buildtest" description="Build test jar file">
+		<jar destfile="${dist.dir}/${name}-test-${curr.release}.jar">
+			<fileset dir="${testclasses.dir}"/>
+		</jar>
+	</target>
 
-  <target name="buildtest" description="Compile test classes">
-    <replace-dir dir="${testclasses.dir}"/>
-    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
-      <src path="${unittestsrc.dir}"/>
-      <src path="${inttestsrc.dir}"/>
-      <src path="${commontestsrc.dir}"/>
-      <classpath refid="main-classpath"/>
-    </javac>
-  </target>
+	<target name="jar" depends="build" description="Build server jar file">
+		<jar destfile="${dist.dir}/${name}-${curr.release}.jar">
+			<fileset dir="${classes.dir}">
+				<include name="**/*.*"/>
+			</fileset>
+			<!-- include xsds -->
+			<fileset dir="${java.dir}">
+				<include name="**/*.xsd"/>
+			</fileset>
+		</jar>
+	</target>
 
-  <target name="junit" depends="build, buildtest" description="Run junit tests.">
-    <replace-dir dir="${testreport.dir}"/>
-    <replace-dir dir="${testhtml.dir}"/>
-    <junit printsummary="yes" showoutput="true">
-      <classpath refid="test-classpath"/>
-      <formatter type="xml"/>
-      <batchtest fork="yes" todir="${testreport.dir}">
-        <fileset dir="${unittestsrc.dir}">
-          <include name="**/*Test.java"/>
-        </fileset>
-      </batchtest>
-    </junit>
-    <junitreport todir="${testhtml.dir}">
-      <fileset dir="${testreport.dir}">
-        <include name="TEST-*.xml"/>
-      </fileset>
-      <report todir="${testhtml.dir}" styledir="junitreport" format="frames" />
-    </junitreport>
-  </target>
+	<target name="srcjar" description="Build source jar file">
+		<mkdir dir="${dist.dir}"/>
+		<jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
+			<fileset dir="${java.dir}">
+				<include name="**/*.java"/>
+			</fileset>
+		</jar>
+	</target>
 
-  <target name="war" depends="build" description="Build server war file">
-    <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
-      <classes dir="${classes.dir}"/>
-      <lib dir="${lib.dir}">
-        <exclude name="${lib.dir}/servlet-api.jar"/>
-        <exclude name="${lib.dir}/src/**"/>
-      </lib>
-    </war>
-  </target>
+	<target name="contrib-build" depends="build" description="Compile contrib packages (java and test) ">
+		<replace-dir dir="${contrib.classes.dir}"/>
+		<!-- copy non-java files to classes dir to load from classpath -->
+		<copy todir="${contrib.classes.dir}">
+			<fileset dir="${contrib.java.dir}">
+				<exclude name="**/*.java"/>
+				<exclude name="**/*.html"/>
+			</fileset>
+		</copy>
+		<javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+			<src path="${contrib.java.dir}"/>
+			<classpath refid="main-classpath"/>
+			<classpath refid="contrib-classpath"/>
+		</javac>
+		<buildnumber file="build_number.txt"/>
+	</target>
 
-  <macrodef name="make-javadocs">
-    <attribute name="dir"/>
-    <attribute name="packagenames"/>
-    <sequential>
-      <replace-dir dir="@{dir}"/>
-      <javadoc sourcepath="${java.dir}" destdir="@{dir}" windowtitle="${display.name}"
+
+
+	<target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
+		<jar destfile="${dist.dir}/${name}-contrib-${curr.release}.jar">
+			<fileset dir="${contrib.classes.dir}">
+				<include name="**/*.*"/>
+			</fileset>
+			<!-- include xsds -->
+			<fileset dir="${contrib.java.dir}">
+				<include name="**/*.xsd"/>
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="contrib-srcjar" description="Build contrib source jar file">
+		<mkdir dir="${dist.dir}"/>
+		<jar destfile="${dist.dir}/${name}-contrib-${curr.release}-src.jar">
+			<fileset dir="${contrib.java.dir}">
+				<include name="**/*.java"/>
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="utils" depends="build" description="Build a jar file with voldemort util classes.">
+		<tstamp>
+			<format property="TODAY" pattern="yyyy-MM-dd" locale="en,US"/>
+		</tstamp>
+		<jar destfile="${dist.dir}/${name}-utils-${TODAY}.jar">
+			<fileset dir="${classes.dir}">
+				<include name="voldemort/VoldemortException.class"/>
+				<include name="voldemort/Serializer.class"/>
+				<include name="voldemort/serialization/SerializationException.class"/>
+				<include name="voldemort/serialization/json/*"/>
+				<include name="voldemort/utils/*"/>
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="buildtest" description="Compile test classes">
+		<replace-dir dir="${testclasses.dir}"/>
+		<javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+			<src path="${unittestsrc.dir}"/>
+			<src path="${inttestsrc.dir}"/>
+			<src path="${commontestsrc.dir}"/>
+			<classpath refid="main-classpath"/>
+		</javac>
+	</target>
+
+	<target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests.">
+		<junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
+			<classpath refid="contrib-test-classpath"/>
+			<formatter type="brief" usefile="false"/>
+			<batchtest fork="yes" todir="${testreport.dir}">
+				<fileset dir="${contrib.classes.dir}">
+					<include name="**/Test*.class"/>
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
+	<target name="junit" depends="build, buildtest" description="Run junit tests.">
+		<replace-dir dir="${testreport.dir}"/>
+		<replace-dir dir="${testhtml.dir}"/>
+		<junit printsummary="yes" showoutput="true">
+			<classpath refid="test-classpath"/>
+			<formatter type="xml"/>
+			<batchtest fork="yes" todir="${testreport.dir}">
+				<fileset dir="${unittestsrc.dir}">
+					<include name="**/*Test.java"/>
+				</fileset>
+			</batchtest>
+		</junit>
+		<junitreport todir="${testhtml.dir}">
+			<fileset dir="${testreport.dir}">
+				<include name="TEST-*.xml"/>
+			</fileset>
+			<report todir="${testhtml.dir}" styledir="junitreport" format="frames" />
+		</junitreport>
+	</target>
+
+	<target name="war" depends="build" description="Build server war file">
+		<war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
+			<classes dir="${classes.dir}"/>
+			<lib dir="${lib.dir}">
+				<exclude name="${lib.dir}/servlet-api.jar"/>
+				<exclude name="${lib.dir}/src/**"/>
+			</lib>
+		</war>
+	</target>
+
+	<macrodef name="make-javadocs">
+		<attribute name="dir"/>
+		<attribute name="packagenames"/>
+		<sequential>
+			<replace-dir dir="@{dir}"/>
+			<javadoc sourcepath="${java.dir}" destdir="@{dir}" windowtitle="${display.name}"
                    source="1.5" author="true" version="true" use="true" packagenames="@{packagenames}">
-        <doctitle>${display.name}</doctitle>
-        <bottom>${author}</bottom>
-        <classpath refid="main-classpath"/>
-      </javadoc>
-    </sequential>
-  </macrodef>
-  
-  <target name="docs" description="Create complete Javadoc documentation">
-    <make-javadocs dir="${javadoc.dir}/all" packagenames="*"/>
-    <make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*"/>
-  </target>
+				<doctitle>${display.name}</doctitle>
+				<bottom>${author}</bottom>
+				<classpath refid="main-classpath"/>
+			</javadoc>
+		</sequential>
+	</macrodef>
 
-  <target name="redeploy" depends="war, deploy">
-  </target>
+	<target name="docs" description="Create complete Javadoc documentation">
+		<make-javadocs dir="${javadoc.dir}/all" packagenames="*"/>
+		<make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*"/>
+		<make-javadocs dir="${javadoc.dir}/contrib" packagenames="voldemort.contrib.*"/>
+	</target>
 
-  <taskdef file="tomcat-tasks.properties">
-    <classpath>
-      <path location="${lib.dir}/catalina-ant.jar"/>
-    </classpath>
-  </taskdef>
+	<target name="redeploy" depends="war, deploy">
+	</target>
 
-  <target name="list" description="List Tomcat applications">
-    <list url="${tomcat.manager.url}"
+	<taskdef file="tomcat-tasks.properties">
+		<classpath>
+			<path location="${lib.dir}/catalina-ant.jar"/>
+		</classpath>
+	</taskdef>
+
+	<target name="list" description="List Tomcat applications">
+		<list url="${tomcat.manager.url}"
                  username="${tomcat.manager.username}"
                  password="${tomcat.manager.password}"/>
-  </target>
+	</target>
 
-  <target name="deploy" description="Deploy application" depends="war">
-    <deploy url="${tomcat.manager.url}"
+	<target name="deploy" description="Deploy application" depends="war">
+		<deploy url="${tomcat.manager.url}"
                  username="${tomcat.manager.username}"
                  password="${tomcat.manager.password}"
                  path="${tomcat.context}"
                  update="true"
                  war="file:${dist.dir}/${name}.war"/>
-  </target>
+	</target>
 
-  <target name="undeploy" description="Undeploy application">
-    <undeploy url="${tomcat.manager.url}"
+	<target name="undeploy" description="Undeploy application">
+		<undeploy url="${tomcat.manager.url}"
                  username="${tomcat.manager.username}"
                  password="${tomcat.manager.password}"
                  path="${tomcat.context}"/>
-  </target>
+	</target>
 
 </project>

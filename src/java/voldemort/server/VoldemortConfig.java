@@ -67,6 +67,7 @@ public class VoldemortConfig implements Serializable {
     private long readOnlyFileWaitTimeoutMs;
     private int readOnlyBackups;
     private String readOnlyStorageDir;
+    private long readOnlyCacheSize;
 
     private int coreThreads;
     private int maxThreads;
@@ -133,6 +134,7 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
+        this.readOnlyCacheSize = props.getInt("readonly.cache.size", 100 * 1000 * 1000);
 
         this.slopStoreType = StorageEngineType.fromDisplay(props.getString("slop.store.engine",
                                                                            StorageEngineType.BDB.toDisplay()));
@@ -555,6 +557,10 @@ public class VoldemortConfig implements Serializable {
 
     public int getReadOnlyBackups() {
         return readOnlyBackups;
+    }
+
+    public long getReadOnlyCacheSize() {
+        return readOnlyCacheSize;
     }
 
     public void setReadOnlyBackups(int readOnlyBackups) {

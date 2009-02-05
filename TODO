@@ -1,6 +1,4 @@
 TODO HIGH
--- push readonly data to voldemort
--- m/r task to build stores
 -- JMX mechanism to swap table on the fly (HTTP in war, method in vold. server)
 -- initial implementation is in the read-only store using read/write lock
 -- rebalancing JMX control

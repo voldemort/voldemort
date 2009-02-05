@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -67,6 +68,9 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     private final File dataFile;
     private final File indexFile;
     private final ReadWriteLock fileModificationLock;
+    private final ConcurrentHashMap<Long, byte[]> _cache;
+    private final int _maxDepth;
+
     private BlockingQueue<RandomAccessFile> indexFiles;
     private BlockingQueue<RandomAccessFile> dataFiles;
 
@@ -74,7 +78,8 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                                  File storageDir,
                                  int numBackups,
                                  int numFileHandles,
-                                 long waitTimeoutMs) {
+                                 long waitTimeoutMs,
+                                 long cacheSize) {
         this.storageDir = storageDir;
         this.numBackups = numBackups;
         this.indexFile = new File(storageDir, name + ".index");
@@ -85,6 +90,11 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
         this.numFileHandles = numFileHandles;
         this.fileModificationLock = new ReentrantReadWriteLock();
+
+        int cacheElements = (int) Math.floor(cacheSize / 30);
+        _maxDepth = (int) Math.floor(Math.log(cacheElements) / Math.log(2));
+        _cache = new ConcurrentHashMap<Long, byte[]>(cacheElements);
+        logger.info("Cache configuration entries:" + cacheElements + " nIters:" + _maxDepth);
         open();
     }
 
@@ -229,13 +239,28 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         int chunkSize = KEY_HASH_SIZE + POSITION_SIZE;
         long low = 0;
         long high = indexFileSize / chunkSize - 1;
+        int iteration = 0;
         while(low <= high) {
+            iteration++;
             long mid = (low + high) / 2;
-            index.seek(mid * chunkSize);
-            index.readFully(foundKey);
+            boolean cached = true;
+
+            if(iteration < _maxDepth) {
+                // do cached lookup
+                readCachedKey(index, mid * chunkSize, foundKey);
+            } else {
+                // do direct lookup
+                index.seek(mid * chunkSize);
+                index.readFully(foundKey);
+                cached = false;
+            }
             int cmp = ByteUtils.compare(foundKey, keyMd5);
             if(cmp == 0) {
                 // they are equal, return the location stored here
+                if(cached) {
+                    index.seek(mid * chunkSize);
+                    index.readFully(foundKey);
+                }
                 return index.readLong();
             } else if(cmp > 0) {
                 // midVal is bigger
@@ -247,6 +272,19 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         }
 
         return -1;
+    }
+
+    private void readCachedKey(RandomAccessFile index, long seekPoint, byte[] foundKey)
+            throws IOException {
+        Object keyValue = _cache.get(seekPoint);
+        if(keyValue != null) {
+            System.arraycopy((byte[]) keyValue, 0, foundKey, 0, foundKey.length);
+        } else {
+            index.seek(seekPoint);
+            index.readFully(foundKey);
+
+            _cache.put(seekPoint, ByteUtils.copy(foundKey, 0, foundKey.length));
+        }
     }
 
     /**

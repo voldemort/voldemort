@@ -116,7 +116,8 @@ public class JsonStoreBuilderTest extends TestCase {
                                                                                     this.dataDir,
                                                                                     1,
                                                                                     3,
-                                                                                    1000),
+                                                                                    1000,
+                                                                                    100 * 1000 * 1000),
                                                           serializer,
                                                           serializer);
     }

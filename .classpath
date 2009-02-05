@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src/java"/>
+	<classpathentry kind="src" path="contrib/utils/src/java"/>
+	<classpathentry kind="src" path="contrib/batch-indexer/src/java"/>
 	<classpathentry kind="src" path="test/unit"/>
 	<classpathentry kind="src" path="test/integration"/>
 	<classpathentry kind="src" path="test/common"/>
@@ -28,6 +30,8 @@
 	<classpathentry kind="lib" path="lib/velocity-1.5.jar"/>
 	<classpathentry kind="lib" path="lib/xerces.jar"/>
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
+	<classpathentry kind="lib" path="contrib/batch-indexer/lib/hadoop-0.18.1-core.jar" sourcepath="/Users/bbansal/work/linkedin/downloads/hadoop/hadoop-0.18.1/src"/>
+	<classpathentry kind="lib" path="contrib/batch-indexer/lib/commons-cli-2.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.0.3.jar"/>
 	<classpathentry kind="lib" path="lib/libthrift-20080411p1.jar"/>
 	<classpathentry kind="output" path="classes"/>

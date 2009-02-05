@@ -46,7 +46,12 @@ public class TestRandomAccessFileStore extends TestCase {
         indexOs.close();
 
         try {
-            RandomAccessFileStore store = new RandomAccessFileStore("test", testDir, 1, 1, 1000);
+            RandomAccessFileStore store = new RandomAccessFileStore("test",
+                                                                    testDir,
+                                                                    1,
+                                                                    1,
+                                                                    1000,
+                                                                    100 * 1000 * 1000);
             if(!shouldWork)
                 fail("Able to open corrupt read-only store (index size = " + indexBytes
                      + ", data bytes = " + dataBytes + ").");
