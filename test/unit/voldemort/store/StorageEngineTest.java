@@ -18,10 +18,15 @@ package voldemort.store;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import voldemort.TestUtils;
+import voldemort.serialization.StringSerializer;
+import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ClosableIterator;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.ImmutableMap;
 
 public abstract class StorageEngineTest extends ByteArrayStoreTest {
 
@@ -45,32 +50,24 @@ public abstract class StorageEngineTest extends ByteArrayStoreTest {
         }
     }
 
-    public void testIterateOverNullValue() {
-    // StorageEngine<byte[]> engine = getStorageEngine();
-    // engine.put("null", new Versioned<byte[]>(null));
-    // ClosableIterator<Entry<Versioned<byte[]>>> it = engine.entries();
-    // Versioned<byte[]> v = it.next().getValue();
-    // assertNull("Value should remain null.", v.getValue());
-    // assertTrue("Two values found?!?", it.hasNext());
-    // assertNull(it.next());
-    }
-
-    public void testGetEntries() {
-        StorageEngine<byte[], byte[]> engine = getStorageEngine();
-        int size = 20;
-        List<byte[]> values = getValues(size);
-        for(int i = 0; i < size; i++)
-            engine.put(Integer.toString(i).getBytes(), new Versioned<byte[]>(values.get(i)));
-
-        ClosableIterator<Entry<byte[], Versioned<byte[]>>> it = engine.entries();
-        for(int i = 0; i < size; i++) {
-            if(!it.hasNext())
-                fail("Expected " + size + " items but found only " + i);
-            Versioned<byte[]> versioned = it.next().getValue();
-            assertTrue("Found value that wasn't put!", remove(values, versioned.getValue()));
+    public void testIterationWithSerialization() {
+        StorageEngine<byte[], byte[]> store = getStorageEngine();
+        StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
+                                                                                                 new StringSerializer(),
+                                                                                                 new StringSerializer());
+        Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
+        for(Map.Entry<String, String> entry: vals.entrySet())
+            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));
+        ClosableIterator<Entry<String, Versioned<String>>> iter = stringStore.entries();
+        int count = 0;
+        while(iter.hasNext()) {
+            Entry<String, Versioned<String>> entry = iter.next();
+            assertTrue(vals.containsKey(entry.getKey()));
+            assertEquals(vals.get(entry.getKey()), entry.getValue().getValue());
+            count++;
         }
-        assertEquals("Failed to remove all values!", 0, values.size());
-        it.close();
+        assertEquals(count, vals.size());
+        iter.close();
     }
 
     public void testPruneOnWrite() {
