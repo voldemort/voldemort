@@ -23,6 +23,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 
+import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -56,10 +57,15 @@ public class TestReadOnlyBatchIndexer extends TestCase {
     @SuppressWarnings("unchecked")
     public void testCSVFileBatchIndexer() throws Exception {
 
+        // rename Files
+        File dataDir = new File("contrib/batch-indexer/temp-output/text");
+        if(dataDir.exists()) {
+            FileDeleteStrategy.FORCE.delete(dataDir);
+        }
+
         ToolRunner.run(new Configuration(), new TextBatchIndexer(), null);
 
         // rename Files
-        File dataDir = new File("contrib/batch-indexer/temp-output/text");
         new File(dataDir, "users.index_0").renameTo(new File(dataDir, "users.index"));
         new File(dataDir, "users.data_0").renameTo(new File(dataDir, "users.data"));
 
