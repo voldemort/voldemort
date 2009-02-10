@@ -17,6 +17,8 @@
 package voldemort.store.bdb;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
@@ -47,49 +49,48 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
 
-    private Environment environment;
     private EnvironmentConfig environmentConfig;
     private DatabaseConfig databaseConfig;
     private boolean isInitialized = false;
     private Map<String, BdbStorageEngine> stores = Maps.newHashMap();
+    private String bdbMasterDir;
+    private List<Environment> environmentList = new ArrayList<Environment>();
+    private boolean useFilePerStore;
 
     public BdbStorageConfiguration(VoldemortConfig config) {
-        try {
-            environmentConfig = new EnvironmentConfig();
-            environmentConfig.setTransactional(true);
-            environmentConfig.setCacheSize(config.getBdbCacheSize());
-            if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
-                environmentConfig.setTxnNoSync(false);
-                environmentConfig.setTxnWriteNoSync(false);
-            } else if(config.isBdbWriteTransactionsEnabled()
-                      && !config.isBdbFlushTransactionsEnabled()) {
-                environmentConfig.setTxnNoSync(false);
-                environmentConfig.setTxnWriteNoSync(true);
-            } else {
-                environmentConfig.setTxnNoSync(true);
-            }
-            environmentConfig.setAllowCreate(true);
-            environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX,
-                                             Long.toString(config.getBdbMaxLogFileSize()));
-            environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_BYTES_INTERVAL,
-                                             Long.toString(config.getBdbCheckpointBytes()));
-            environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_WAKEUP_INTERVAL,
-                                             Long.toString(config.getBdbCheckpointMs()
-                                                           * Time.US_PER_MS));
-            databaseConfig = new DatabaseConfig();
-            databaseConfig.setAllowCreate(true);
-            databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
-            databaseConfig.setTransactional(true);
-            File bdbDir = new File(config.getBdbDataDirectory());
-            if(!bdbDir.exists()) {
-                logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath() + "'.");
-                bdbDir.mkdirs();
-            }
-            environment = new Environment(bdbDir, environmentConfig);
-            isInitialized = true;
-        } catch(DatabaseException e) {
-            throw new StorageInitializationException(e);
+        environmentConfig = new EnvironmentConfig();
+        environmentConfig.setTransactional(true);
+        environmentConfig.setCacheSize(config.getBdbCacheSize());
+        if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
+            environmentConfig.setTxnNoSync(false);
+            environmentConfig.setTxnWriteNoSync(false);
+        } else if(config.isBdbWriteTransactionsEnabled() && !config.isBdbFlushTransactionsEnabled()) {
+            environmentConfig.setTxnNoSync(false);
+            environmentConfig.setTxnWriteNoSync(true);
+        } else {
+            environmentConfig.setTxnNoSync(true);
         }
+        environmentConfig.setAllowCreate(true);
+        environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX,
+                                         Long.toString(config.getBdbMaxLogFileSize()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_BYTES_INTERVAL,
+                                         Long.toString(config.getBdbCheckpointBytes()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_WAKEUP_INTERVAL,
+                                         Long.toString(config.getBdbCheckpointMs() * Time.US_PER_MS));
+        environmentConfig.setSharedCache(true);
+
+        // set database config.
+        databaseConfig = new DatabaseConfig();
+        databaseConfig.setAllowCreate(true);
+        databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
+        databaseConfig.setTransactional(true);
+
+        // set bdb Master Dir
+        bdbMasterDir = config.getBdbDataDirectory();
+
+        // set bdb file per store or Old common file setting
+        useFilePerStore = config.getBdbFilePerStore();
+        isInitialized = true;
     }
 
     public synchronized StorageEngine<byte[], byte[]> getStore(String storeName) {
@@ -100,6 +101,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             return stores.get(storeName);
         } else {
             try {
+
+                Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 BdbStorageEngine engine = new BdbStorageEngine(storeName, environment, db);
                 stores.put(storeName, engine);
@@ -114,10 +117,40 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         return StorageEngineType.BDB;
     }
 
+    private Environment getEnvironment(String storeName) throws DatabaseException {
+        if(useFilePerStore) {
+            File bdbDir = new File(bdbMasterDir + "/" + storeName);
+            if(!bdbDir.exists()) {
+                logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath()
+                            + "' for store'" + storeName + "'.");
+                bdbDir.mkdirs();
+            }
+            Environment environment = new Environment(bdbDir, environmentConfig);
+            environmentList.add(environment);
+            return environment;
+        } else {
+            // use common environment
+            if(environmentList.size() > 0) {
+                return environmentList.get(0);
+            } else {
+                File bdbDir = new File(bdbMasterDir);
+                if(!bdbDir.exists()) {
+                    logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath() + "'.");
+                    bdbDir.mkdirs();
+                }
+                Environment environment = new Environment(bdbDir, environmentConfig);
+                environmentList.add(environment);
+                return environment;
+            }
+        }
+    }
+
     public void close() {
         try {
-            this.environment.sync();
-            this.environment.close();
+            for(Environment env: environmentList) {
+                env.sync();
+                env.close();
+            }
         } catch(DatabaseException e) {
             throw new VoldemortException(e);
         }
