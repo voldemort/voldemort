@@ -55,7 +55,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private Map<String, BdbStorageEngine> stores = Maps.newHashMap();
     private String bdbMasterDir;
     private List<Environment> environmentList = new ArrayList<Environment>();
-    private boolean useFilePerStore;
+    private boolean useOneEnvPerStore;
 
     public BdbStorageConfiguration(VoldemortConfig config) {
         environmentConfig = new EnvironmentConfig();
@@ -77,7 +77,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Long.toString(config.getBdbCheckpointBytes()));
         environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_WAKEUP_INTERVAL,
                                          Long.toString(config.getBdbCheckpointMs() * Time.US_PER_MS));
-        environmentConfig.setSharedCache(true);
 
         // set database config.
         databaseConfig = new DatabaseConfig();
@@ -89,7 +88,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         bdbMasterDir = config.getBdbDataDirectory();
 
         // set bdb file per store or Old common file setting
-        useFilePerStore = config.getBdbFilePerStore();
+        useOneEnvPerStore = config.getBdbOneEnvPerStore();
         isInitialized = true;
     }
 
@@ -118,13 +117,14 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     }
 
     private Environment getEnvironment(String storeName) throws DatabaseException {
-        if(useFilePerStore) {
+        if(useOneEnvPerStore) {
             File bdbDir = new File(bdbMasterDir + "/" + storeName);
             if(!bdbDir.exists()) {
                 logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath()
                             + "' for store'" + storeName + "'.");
                 bdbDir.mkdirs();
             }
+            environmentConfig.setSharedCache(true);
             Environment environment = new Environment(bdbDir, environmentConfig);
             environmentList.add(environment);
             return environment;

@@ -56,7 +56,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbBtreeFanout;
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
-    private boolean bdbFilePerStore;
+    private boolean bdbOneEnvPerStore;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -127,7 +127,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
-        this.bdbFilePerStore = props.getBoolean("bdb.use.file.per.store", false);
+        this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", true);
 
         this.enableReadOnlyEngine = props.getBoolean("enable.readonly.engine", false);
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
@@ -340,12 +340,12 @@ public class VoldemortConfig implements Serializable {
      * The bdb Environment setting. use an environment(file) per store (if true)
      * or use a common environment (default: false)
      */
-    public boolean getBdbFilePerStore() {
-        return this.bdbFilePerStore;
+    public boolean getBdbOneEnvPerStore() {
+        return this.bdbOneEnvPerStore;
     }
 
-    public void setBdbFilePerStore(boolean bdbFilePerStore) {
-        this.bdbFilePerStore = bdbFilePerStore;
+    public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {
+        this.bdbOneEnvPerStore = bdbOneEnvPerStore;
     }
 
     /**
