@@ -153,6 +153,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
         long maxCacheSize = getMaxCacheUsage(environmentConfig, databaseConfig);
 
         assertEquals("MaxCacheSize > CACHE_SIZE", true, maxCacheSize > CACHE_SIZE);
+        assertEquals("MaxCacheSize < 2 * CACHE_SIZE", true, maxCacheSize < 2 * CACHE_SIZE);
+
     }
 
     public void testsharedCache() throws DatabaseException {
