@@ -86,4 +86,8 @@ public class MockStoreClientFactory<K, V> implements StoreClientFactory {
         return keySerializer != null && valueSerializer != null;
     }
 
+    public void close() {
+
+    }
+
 }

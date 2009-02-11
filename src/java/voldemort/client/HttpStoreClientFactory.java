@@ -150,4 +150,8 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                + url.getScheme() + "'.");
     }
 
+    public void close() {
+    // should timeout connections on its own
+    }
+
 }
