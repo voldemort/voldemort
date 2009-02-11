@@ -105,13 +105,31 @@ public class Utils {
         }
     }
 
+    /**
+     * @return true iff the argument is the name of a readable file
+     */
     public static boolean isReadableFile(String fileName) {
-        File f = new File(fileName);
+        return isReadableFile(new File(fileName));
+    }
+
+    /**
+     * @return true iff the argument is a readable file
+     */
+    public static boolean isReadableFile(File f) {
         return f.exists() && f.isFile() && f.canRead();
     }
 
+    /**
+     * @return true iff the argument is the name of a readable directory
+     */
     public static boolean isReadableDir(String dirName) {
-        File d = new File(dirName);
+        return isReadableDir(dirName);
+    }
+
+    /**
+     * @return true iff the argument is a readable directory
+     */
+    public static boolean isReadableDir(File d) {
         return d.exists() && d.isDirectory() && d.canRead();
     }
 
