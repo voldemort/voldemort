@@ -16,6 +16,7 @@
 
 package voldemort.store.socket;
 
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -56,12 +57,25 @@ public class SocketStoreTest extends ByteArrayStoreTest {
         socketStore.close();
     }
 
+    public void testVeryLargeValues() {
+        final Store<byte[], byte[]> store = getStore();
+        byte[] biggie = new byte[1 * 1024 * 1024];
+        Random rand = new Random();
+        for(int i = 0; i < 10; i++) {
+            rand.nextBytes(biggie);
+            Versioned<byte[]> versioned = new Versioned<byte[]>(biggie);
+            store.put(biggie, versioned);
+            assertNotNull(store.get(biggie));
+            assertTrue(store.delete(biggie, versioned.getVersion()));
+        }
+    }
+
     public void testThreadOverload() throws Exception {
         final Store<byte[], byte[]> store = getStore();
         final AtomicInteger val = new AtomicInteger(0);
         final CountDownLatch latch = new CountDownLatch(100);
         Executor exec = Executors.newCachedThreadPool();
-        for(int i = 0; i < 100; i++) {
+        for(int i = 0; i < 10; i++) {
             exec.execute(new Runnable() {
 
                 public void run() {
