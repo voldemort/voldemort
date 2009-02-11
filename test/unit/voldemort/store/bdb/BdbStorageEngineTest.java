@@ -56,7 +56,7 @@ public class BdbStorageEngineTest extends StorageEngineTest {
         this.databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setTransactional(true);
-        databaseConfig.setSortedDuplicates(false);
+        databaseConfig.setSortedDuplicates(true);
         this.database = environment.openDatabase(null, "test", databaseConfig);
         this.store = new BdbStorageEngine("test", this.environment, this.database);
     }

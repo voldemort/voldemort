@@ -42,7 +42,7 @@ public class Node implements Serializable {
     private final int httpPort;
     private final int socketPort;
     private final List<Integer> partitions;
-    private NodeStatus status;
+    private final NodeStatus status;
 
     public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
         this(id, host, httpPort, socketPort, partitions, new NodeStatus());

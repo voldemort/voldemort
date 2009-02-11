@@ -51,6 +51,7 @@ public class VoldemortConfig implements Serializable {
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
     private boolean bdbFlushTransactions;
+    private boolean bdbSortedDuplicates;
     private String bdbDataDirectory;
     private long bdbMaxLogFileSize;
     private int bdbBtreeFanout;
@@ -126,6 +127,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
+        this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
 
         this.enableReadOnlyEngine = props.getBoolean("enable.readonly.engine", false);
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
@@ -589,5 +591,13 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbWriteTransactions(boolean bdbWriteTransactions) {
         this.bdbWriteTransactions = bdbWriteTransactions;
+    }
+
+    public boolean isBdbSortedDuplicatesEnabled() {
+        return this.bdbSortedDuplicates;
+    }
+
+    public void setBdbSortedDuplicates(boolean enable) {
+        this.bdbSortedDuplicates = enable;
     }
 }

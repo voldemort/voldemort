@@ -78,6 +78,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                                            * Time.US_PER_MS));
             databaseConfig = new DatabaseConfig();
             databaseConfig.setAllowCreate(true);
+            databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
             databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
             databaseConfig.setTransactional(true);
             File bdbDir = new File(config.getBdbDataDirectory());
