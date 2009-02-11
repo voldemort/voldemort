@@ -16,6 +16,7 @@
 
 package voldemort.server.storage;
 
+import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -50,7 +51,6 @@ import voldemort.store.StorageEngineType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.filesystem.FilesystemStorageEngine;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -99,9 +99,7 @@ public class StorageService extends AbstractService {
         this.rawEngines = new ConcurrentHashMap<String, StorageEngine<byte[], byte[]>>();
         this.scheduler = scheduler;
         this.storageConfigurations = initStorageConfigurations(config);
-        this.metadataStore = new MetadataStore(new FilesystemStorageEngine(MetadataStore.METADATA_STORE_NAME,
-                                                                           config.getMetadataDirectory()),
-                                               storeMap);
+        this.metadataStore = new MetadataStore(new File(config.getMetadataDirectory()), storeMap);
         this.readOnlyStores = new ConcurrentHashMap<String, RandomAccessFileStore>();
     }
 

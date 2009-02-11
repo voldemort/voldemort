@@ -16,9 +16,15 @@
 
 package voldemort.store.metadata;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.StringReader;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -28,13 +34,13 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
-import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 public class MetadataStore implements StorageEngine<byte[], byte[]> {
@@ -42,18 +48,25 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
     public static final String METADATA_STORE_NAME = "metadata";
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
+    public static final Set<String> KNOWN_KEYS = ImmutableSet.of("cluster.xml", "stores.xml");
 
-    private final Store<String, String> innerStore;
+    private final File directory;
     private final ClusterMapper clusterMapper;
     private final StoreDefinitionsMapper storeMapper;
     private final Map<String, ? extends Store<byte[], byte[]>> stores;
 
-    public MetadataStore(Store<String, String> innerStore,
-                         Map<String, ? extends Store<byte[], byte[]>> stores) {
-        this.innerStore = innerStore;
+    public MetadataStore(File directory, Map<String, ? extends Store<byte[], byte[]>> stores) {
+        this.directory = directory;
         this.storeMapper = new StoreDefinitionsMapper();
         this.clusterMapper = new ClusterMapper();
         this.stores = stores;
+        if(this.directory.listFiles() == null)
+            throw new IllegalArgumentException("No configuration found in "
+                                               + this.directory.getAbsolutePath() + ".");
+        if(!this.directory.exists() && this.directory.canRead())
+            throw new IllegalArgumentException("Metadata directory "
+                                               + this.directory.getAbsolutePath()
+                                               + " does not exist or can not be read.");
     }
 
     public String getName() {
@@ -69,73 +82,27 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
      * stores
      */
     public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
-        synchronized(this) {
-            String keyStr = ByteUtils.getString(key, "UTF-8");
-            String valueStr = ByteUtils.getString(value.getValue(), "UTF-8");
-            Versioned<String> newVersioned = new Versioned<String>(valueStr, value.getVersion());
-            if(STORES_KEY.equals(key)) {
-                List<Versioned<String>> current = innerStore.get(keyStr);
-                if(current.size() == 0) {
-                    // There are no current stores, so whatever they put is fine
-                    innerStore.put(keyStr, newVersioned);
-                } else if(current.size() == 1) {
-                    // Okay there are current stores, so process the change
-                    // JK: this shouldn't be necessary, right? The inner store
-                    // should do this...
-                    Versioned<String> versioned = current.get(0);
-                    if(versioned.getVersion().compare(value.getVersion()) != Occured.BEFORE)
-                        throw new ObsoleteVersionException("Attempt to put out of date store metadata!");
-                    handleStoreChange(storeMapper.readStoreList(new StringReader(valueStr)));
-                    innerStore.put(keyStr, newVersioned);
-                } else {
-                    throw new VoldemortException("Inconsistent metadata: " + current);
-                }
-            } else if(CLUSTER_KEY.equals(key)) {
-                // TODO: handle cluster metadata updates
-                innerStore.put(keyStr, newVersioned);
-            }
-        }
+        throw new VoldemortException("No metadata modifications allowed (yet).");
     }
 
     public void close() throws VoldemortException {
-        innerStore.close();
+
     }
 
     public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
         List<Versioned<byte[]>> values = Lists.newArrayList();
-        for(Versioned<String> versioned: innerStore.get(ByteUtils.getString(key, "UTF-8")))
-            values.add(new Versioned<byte[]>(ByteUtils.getBytes(versioned.getValue(), "UTF-8"),
-                                             versioned.getVersion()));
-        return values;
-    }
-
-    /**
-     * Process a stores metadata change.
-     * 
-     * @param oldStores The list of old store definitions
-     * @param newStores The list of new store definitions
-     */
-    private void handleStoreChange(List<StoreDefinition> newStores) {
-        throw new VoldemortException("Not yet supported.");
-        // synchronized(this) {
-        // Set<String> deleted = new HashSet<String>(stores.keySet());
-        // for(StoreDefinition store: newStores) {
-        // if(stores.containsKey(store.getName()))
-        // deleted.remove(store.getName());
-        // //else
-        // //stores.put(store.getName(), (Store<byte[],byte[]>)
-        // storageConfiguration.getStore(store.getName()));
-        // }
-        //    
-        // // Okay, now everything remaining in the deleted set is in the stores
-        // map but not in the new XML
-        // // these need to be deleted.
-        // for(String name: deleted) {
-        // Store<byte[],byte[]> store = stores.get(name);
-        // stores.remove(name);
-        // store.close();
-        // }
-        // }
+        String keyStr = new String(key);
+        if(!KNOWN_KEYS.contains(keyStr))
+            throw new IllegalArgumentException("Unknown metadata key: " + keyStr);
+        File file = new File(this.directory, keyStr);
+        if(!Utils.isReadableFile(file.getAbsolutePath()))
+            throw new VoldemortException("Attempt to read metadata failed: "
+                                         + file.getAbsolutePath() + " is not a readable file!");
+        try {
+            return Collections.singletonList(new Versioned<byte[]>(FileUtils.readFileToByteArray(file)));
+        } catch(IOException e) {
+            throw new VoldemortException("Error reading metadata value '" + keyStr + "': ", e);
+        }
     }
 
     public Cluster getCluster() {

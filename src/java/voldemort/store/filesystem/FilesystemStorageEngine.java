@@ -45,9 +45,6 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
     public FilesystemStorageEngine(String name, String directory) {
         this.name = name;
         this.directory = new File(directory);
-        if(this.directory.listFiles() == null)
-            throw new IllegalArgumentException("No configuration found in "
-                                               + this.directory.getAbsolutePath() + ".");
         if(!this.directory.exists() && this.directory.canRead())
             throw new IllegalArgumentException("Directory " + this.directory.getAbsolutePath()
                                                + " does not exist or can not be read.");

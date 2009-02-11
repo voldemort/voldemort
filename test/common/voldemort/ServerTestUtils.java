@@ -16,10 +16,13 @@
 
 package voldemort;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.io.FileUtils;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -32,7 +35,6 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
-import voldemort.versioning.Versioned;
 
 /**
  * Helper functions for testing with real server implementations
@@ -47,12 +49,17 @@ public class ServerTestUtils {
                                                                          String storesXml) {
         ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
         stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
-        Store<String, String> metadataInner = new InMemoryStorageEngine<String, String>("metadata");
-        metadataInner.put("cluster.xml", new Versioned<String>(clusterXml));
-        metadataInner.put("stores.xml", new Versioned<String>(storesXml));
-        MetadataStore metadata = new MetadataStore(metadataInner, stores);
-        stores.put(MetadataStore.METADATA_STORE_NAME, metadata);
-        return stores;
+        // create metadata dir
+        File metadataDir = TestUtils.getTempDirectory();
+        try {
+            FileUtils.writeStringToFile(new File(metadataDir, "cluster.xml"), clusterXml);
+            FileUtils.writeStringToFile(new File(metadataDir, "stores.xml"), storesXml);
+            MetadataStore metadata = new MetadataStore(metadataDir, stores);
+            stores.put(MetadataStore.METADATA_STORE_NAME, metadata);
+            return stores;
+        } catch(IOException e) {
+            throw new VoldemortException("Error creating metadata directory:", e);
+        }
     }
 
     public static SocketServer getSocketServer(String clusterXml,

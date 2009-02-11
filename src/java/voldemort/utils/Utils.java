@@ -123,7 +123,7 @@ public class Utils {
      * @return true iff the argument is the name of a readable directory
      */
     public static boolean isReadableDir(String dirName) {
-        return isReadableDir(dirName);
+        return isReadableDir(new File(dirName));
     }
 
     /**
