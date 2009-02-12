@@ -68,7 +68,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         this.partitionToNode = new Node[m.size()];
         for(int i = 0; i < m.size(); i++) {
             if(!m.containsKey(i))
-                throw new IllegalArgumentException("Missing tag " + i);
+                throw new IllegalArgumentException("Invalid configuration, missing partition " + i);
             this.partitionToNode[i] = m.get(i);
         }
     }
