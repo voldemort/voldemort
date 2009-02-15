@@ -53,7 +53,8 @@ public class QueryServlet extends HttpServlet {
 
     public QueryServlet(VelocityEngine engine, URI bootstrap) {
         this.engine = engine;
-        this.clientFactory = new HttpStoreClientFactory(1, uri.toString());
+        this.uri = bootstrap;
+        this.clientFactory = new HttpStoreClientFactory(1, bootstrap.toString());
         this.serializerFactory = new DefaultSerializerFactory();
     }
 
