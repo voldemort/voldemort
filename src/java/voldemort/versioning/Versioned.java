@@ -58,11 +58,9 @@ public final class Versioned<T> implements Serializable {
     @Override
     @SuppressWarnings("unchecked")
     public boolean equals(Object object) {
-        if(this == null)
+        if(object == this)
             return true;
-        else if(object == null)
-            return false;
-        else if(!object.getClass().equals(Versioned.class))
+        else if(!(object instanceof Versioned))
             return false;
 
         Versioned versioned = (Versioned) object;
