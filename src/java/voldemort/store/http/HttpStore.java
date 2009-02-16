@@ -107,7 +107,7 @@ public class HttpStore implements Store<byte[], byte[]> {
                 while(true) {
                     int size = input.readInt();
                     byte[] bytes = new byte[size];
-                    input.read(bytes);
+                    ByteUtils.read(input, bytes);
                     VectorClock clock = new VectorClock(bytes);
                     byte[] data = ByteUtils.copy(bytes, clock.sizeInBytes(), bytes.length);
                     items.add(new Versioned<byte[]>(data, clock));

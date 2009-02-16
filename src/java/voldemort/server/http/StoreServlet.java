@@ -120,7 +120,7 @@ public class StoreServlet extends HttpServlet {
         Store<byte[], byte[]> store = getStore(storeName);
         int size = request.getContentLength();
         byte[] contents = new byte[size];
-        request.getInputStream().read(contents);
+        ByteUtils.read(request.getInputStream(), contents);
         try {
             VectorClock clock = new VectorClock(Base64.decodeBase64(request.getHeader(VERSION_EXTENSION)
                                                                            .getBytes()));

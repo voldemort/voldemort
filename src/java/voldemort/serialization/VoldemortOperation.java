@@ -22,6 +22,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -57,7 +58,7 @@ public final class VoldemortOperation {
                     this.key = inputStream.readUTF();
                     int valueSize = inputStream.readInt();
                     this.value = new byte[valueSize];
-                    inputStream.read(this.value);
+                    ByteUtils.read(inputStream, this.value);
                     break;
                 case VoldemortOpCode.DELETE_OP_CODE:
                     this.version = new VectorClock(bytes, 1);
