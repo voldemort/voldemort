@@ -175,10 +175,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     private URI[] validateUrls(String[] urls) {
-        URI[] uris = new URI[urls.length];
         if(urls == null || urls.length == 0)
             throw new IllegalArgumentException("Must provide at least one bootstrap URL!");
 
+        URI[] uris = new URI[urls.length];
         for(int i = 0; i < urls.length; i++) {
             if(urls[i] == null)
                 throw new IllegalArgumentException("Null URL not allowed for bootstrapping!");
