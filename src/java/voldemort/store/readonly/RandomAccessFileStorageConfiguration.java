@@ -38,7 +38,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
     private final long fileAccessWaitTimeoutMs;
     private final File storageDir;
     private final Set<ObjectName> registeredBeans;
-    private final int cacheSize;
+    private final long cacheSize;
 
     public RandomAccessFileStorageConfiguration(VoldemortConfig config) {
         this.numFileHandles = config.getReadOnlyStorageFileHandles();
@@ -46,7 +46,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
         this.fileAccessWaitTimeoutMs = config.getReadOnlyFileWaitTimeoutMs();
         this.numBackups = config.getReadOnlyBackups();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
-        this.cacheSize = config.getReadOnlyBackups();
+        this.cacheSize = config.getReadOnlyCacheSize();
     }
 
     public void close() {

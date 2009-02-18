@@ -94,7 +94,9 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         int cacheElements = (int) Math.floor(cacheSize / 30);
         _maxDepth = (int) Math.floor(Math.log(cacheElements) / Math.log(2));
         _cache = new ConcurrentHashMap<Long, byte[]>(cacheElements);
-        logger.info("Cache configuration entries:" + cacheElements + " nIters:" + _maxDepth);
+        logger.info("Cache configuration size:" + (double) cacheSize / Math.pow(10, 6)
+                    + "MB entries:" + (double) cacheElements / Math.pow(10, 6) + " M maxCacheDepth:"
+                    + _maxDepth);
         open();
     }
 
@@ -258,6 +260,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
             if(cmp == 0) {
                 // they are equal, return the location stored here
                 if(cached) {
+                    // read and throw first key bytes
                     index.seek(mid * chunkSize);
                     index.readFully(foundKey);
                 }
