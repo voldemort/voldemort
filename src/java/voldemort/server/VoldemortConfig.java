@@ -93,10 +93,6 @@ public class VoldemortConfig implements Serializable {
 
     private final long pusherPollMs;
 
-    public VoldemortConfig() {
-        this(new Props());
-    }
-
     public VoldemortConfig(Properties props) {
         this(new Props(props));
     }
