@@ -112,8 +112,8 @@ public class SocketServer extends Thread {
             isStarted.countDown();
             while(!isInterrupted() && !serverSocket.isClosed()) {
                 final Socket socket = serverSocket.accept();
-                socket.setReceiveBufferSize(10000);
-                socket.setSendBufferSize(10000);
+                socket.setReceiveBufferSize(30000);
+                socket.setSendBufferSize(30000);
                 socket.setTcpNoDelay(true);
                 this.threadPool.execute(new SocketServerSession(socket));
             }

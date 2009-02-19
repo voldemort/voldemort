@@ -64,8 +64,8 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
     public Object makeObject(Object key) throws Exception {
         SocketDestination dest = (SocketDestination) key;
         Socket s = new Socket();
-        s.setReceiveBufferSize(3000);
-        s.setSendBufferSize(3000);
+        s.setReceiveBufferSize(30000);
+        s.setSendBufferSize(30000);
         s.setTcpNoDelay(true);
         s.setSoTimeout(timeoutMs);
         s.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
