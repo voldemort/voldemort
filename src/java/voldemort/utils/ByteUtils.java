@@ -377,7 +377,7 @@ public class ByteUtils {
         try {
             return string.getBytes(encoding);
         } catch(UnsupportedEncodingException e) {
-            throw new IllegalArgumentException(encoding + " is not a known encoding name.");
+            throw new IllegalArgumentException(encoding + " is not a known encoding name.", e);
         }
     }
 
@@ -392,7 +392,7 @@ public class ByteUtils {
         try {
             return new String(bytes, encoding);
         } catch(UnsupportedEncodingException e) {
-            throw new IllegalArgumentException(encoding + " is not a known encoding name.");
+            throw new IllegalArgumentException(encoding + " is not a known encoding name.", e);
         }
     }
 

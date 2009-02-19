@@ -36,13 +36,17 @@ public class ReflectUtils {
             T t = cons.newInstance(args);
             return t;
         } catch(NoSuchMethodException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args);
+            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
+                                       e);
         } catch(InvocationTargetException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args);
+            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
+                                       e);
         } catch(InstantiationException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args);
+            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
+                                       e);
         } catch(IllegalAccessException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args);
+            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
+                                       e);
         }
     }
 

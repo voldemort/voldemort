@@ -24,6 +24,10 @@ public class ConfigurationException extends RuntimeException {
         super(message);
     }
 
+    public ConfigurationException(String message, Exception cause) {
+        super(message, cause);
+    }
+
     public ConfigurationException(Exception cause) {
         super(cause);
     }

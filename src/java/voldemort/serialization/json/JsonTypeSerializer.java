@@ -162,7 +162,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
             // simpler than doing every test
             throw new SerializationException("Expected type " + type
                                              + " but got object of incompatible type "
-                                             + object.getClass().getName() + ".");
+                                             + object.getClass().getName() + ".", e);
         }
     }
 

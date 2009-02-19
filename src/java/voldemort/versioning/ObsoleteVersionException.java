@@ -35,6 +35,11 @@ public class ObsoleteVersionException extends StoreOperationFailureException {
         super(message);
     }
 
+    public ObsoleteVersionException(String message, Exception cause) {
+        super(message, cause);
+    }
+
+    @Override
     public short getId() {
         return 4;
     }

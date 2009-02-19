@@ -96,7 +96,7 @@ public class DataCleanupJob<K, V> implements Runnable {
         try {
             this.cleanupPermits.acquire();
         } catch(InterruptedException e) {
-            throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.");
+            throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.", e);
         }
     }
 

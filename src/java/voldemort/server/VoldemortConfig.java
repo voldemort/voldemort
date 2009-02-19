@@ -194,7 +194,7 @@ public class VoldemortConfig implements Serializable {
             return Integer.parseInt(var);
         } catch(NumberFormatException e) {
             throw new ConfigurationException("Invalid format for environment variable " + name
-                                             + ", expecting an integer.");
+                                             + ", expecting an integer.", e);
         }
     }
 
