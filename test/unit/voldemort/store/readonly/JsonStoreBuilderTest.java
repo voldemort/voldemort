@@ -132,11 +132,16 @@ public class JsonStoreBuilderTest extends TestCase {
      * the correct value is returned
      */
     public void testCanGetGoodValues() {
-        for(Map.Entry<String, String> entry: this.data.entrySet()) {
-            List<Versioned<Object>> found = this.store.get(entry.getKey());
-            assertEquals(1, found.size());
-            Versioned<Object> obj = found.get(0);
-            assertEquals(entry.getValue(), obj.getValue());
+        // run test multiple times to check caching
+        for(int i = 0; i < 3; i++) {
+            for(Map.Entry<String, String> entry: this.data.entrySet()) {
+                List<Versioned<Object>> found = this.store.get(entry.getKey());
+                assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i,
+                             1,
+                             found.size());
+                Versioned<Object> obj = found.get(0);
+                assertEquals(entry.getValue(), obj.getValue());
+            }
         }
     }
 
@@ -144,10 +149,13 @@ public class JsonStoreBuilderTest extends TestCase {
      * Do lookups on keys not in the store and test that the keys are not found.
      */
     public void testCantGetBadValues() {
-        for(int i = 0; i < TEST_SIZE; i++) {
-            String key = TestUtils.randomLetters(10);
-            if(!this.data.containsKey(key))
-                assertEquals(0, this.store.get(key).size());
+        // run test multiple times to check caching
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < TEST_SIZE; j++) {
+                String key = TestUtils.randomLetters(10);
+                if(!this.data.containsKey(key))
+                    assertEquals(0, this.store.get(key).size());
+            }
         }
     }
 

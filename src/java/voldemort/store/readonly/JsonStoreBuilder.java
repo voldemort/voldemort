@@ -243,7 +243,7 @@ public class JsonStoreBuilder {
                 try {
                     value = reader.read();
                 } catch(EndOfFileException e) {
-                    throw new VoldemortException("Invalid file: reached end of file with key but no matching value.");
+                    throw new VoldemortException("Invalid file: reached end of file with key but no matching value.", e);
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
                 byte[] keyMd5 = digest.digest(keyBytes);
