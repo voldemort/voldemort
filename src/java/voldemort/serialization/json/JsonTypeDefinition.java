@@ -184,4 +184,21 @@ public class JsonTypeDefinition implements Serializable {
                                                + " of class " + type.getClass().getName());
         }
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(o == this)
+            return true;
+        if(o == null)
+            return false;
+        if(!o.getClass().equals(JsonTypeDefinition.class))
+            return false;
+        JsonTypeDefinition j = (JsonTypeDefinition) o;
+        return getType().equals(j.getType());
+    }
+
+    @Override
+    public int hashCode() {
+        return getType().hashCode();
+    }
 }
