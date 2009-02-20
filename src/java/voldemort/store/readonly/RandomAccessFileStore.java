@@ -17,6 +17,7 @@
 package voldemort.store.readonly;
 
 import static java.lang.Math.floor;
+import static java.lang.Math.log;
 import static java.lang.Math.pow;
 
 import java.io.File;
@@ -112,11 +113,20 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
          * operations
          */
         this.fileModificationLock = new ReentrantReadWriteLock();
-        int cacheElements = (int) floor(maxCacheSize / KEY_HASH_SIZE);
-        this.maxCacheDepth = (int) floor(Math.log(cacheElements) / Math.log(2));
+        /*
+         * The overhead for each cache element is the key size + 4 byte array
+         * length + 12 byte object overhead + 8 bytes for a 64-bit reference to
+         * the thing
+         * 
+         * TODO: just store a single array of bytes and copy out of that to
+         * avoid this overhead
+         */
+        int cacheElements = (int) floor(maxCacheSize / (KEY_HASH_SIZE + 24));
+        this.maxCacheDepth = (int) floor(log(cacheElements) / log(2));
         this.keyCache = new byte[(int) pow(2, maxCacheDepth)][];
         this.isOpen = new AtomicBoolean(false);
         open();
+        preloadCache();
     }
 
     /**
@@ -242,6 +252,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
      * @param suffix Either .data or .index depending on which you want to shift
      */
     private void shiftBackups(String suffix) {
+        // do the hokey pokey and turn the files around
         for(int i = numBackups - 1; i > 0; i--) {
             File theFile = new File(storageDir, name + suffix + "." + i);
             if(theFile.exists()) {
@@ -313,6 +324,60 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         }
     }
 
+    public void clearCache() {
+        try {
+            logger.info("Clearing cache.");
+            this.fileModificationLock.readLock().lock();
+            for(int i = 0; i < keyCache.length; i++)
+                this.keyCache[i] = null;
+        } finally {
+            this.fileModificationLock.readLock().unlock();
+        }
+    }
+
+    public void preloadCache() {
+        logger.info("Starting cache preloading...");
+        try {
+            this.fileModificationLock.readLock().lock();
+            RandomAccessFile index = this.getFile(this.indexFiles);
+            preloadCache(index,
+                         0,
+                         0L,
+                         this.indexFileSize / INDEX_ENTRY_SIZE - 1,
+                         1,
+                         this.maxCacheDepth);
+            logger.info("Cache loading complete.");
+        } catch(IOException e) {
+            throw new PersistenceFailureException(e);
+        } catch(InterruptedException e) {
+            throw new VoldemortException(e);
+        } finally {
+            this.fileModificationLock.readLock().unlock();
+        }
+    }
+
+    public void preloadCache(RandomAccessFile index,
+                             int cacheIndex,
+                             long low,
+                             long high,
+                             int currentDepth,
+                             int maxDepth) throws IOException {
+        long mid = (low + high) / 2;
+
+        // go left if we aren't too deep and we aren't at a leaf
+        if(currentDepth < maxDepth && low <= mid - 1)
+            preloadCache(index, 2 * cacheIndex + 1, low, mid - 1, currentDepth + 1, maxDepth);
+
+        // cache the current item
+        byte[] key = new byte[KEY_HASH_SIZE];
+        readFrom(index, mid * INDEX_ENTRY_SIZE, key);
+        this.keyCache[cacheIndex] = key;
+
+        // go right if we aren't too deep and we aren't at a leaf
+        if(currentDepth < maxDepth && mid + 1 <= high)
+            preloadCache(index, 2 * cacheIndex + 2, mid + 1, high, currentDepth + 1, maxDepth);
+    }
+
     /**
      * Get the byte offset in the data file at which the given key is stored
      * 
@@ -329,16 +394,12 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         long low = 0;
         long high = indexFileSize / INDEX_ENTRY_SIZE - 1;
         int cacheIndex = 0;
-        int iteration = 0;
+        int depth = 0;
         while(low <= high) {
-            iteration++;
+            depth++;
             long mid = (low + high) / 2;
 
-            byte[] foundKey = readKey(index,
-                                      mid * INDEX_ENTRY_SIZE,
-                                      keyBuffer,
-                                      iteration,
-                                      cacheIndex);
+            byte[] foundKey = readKey(index, mid * INDEX_ENTRY_SIZE, keyBuffer, depth, cacheIndex);
 
             int cmp = ByteUtils.compare(foundKey, keyMd5);
             if(cmp == 0) {
@@ -348,11 +409,11 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
             } else if(cmp > 0) {
                 // midVal is bigger
                 high = mid - 1;
-                cacheIndex = 2 * cacheIndex + 2;
+                cacheIndex = 2 * cacheIndex + 1;
             } else if(cmp < 0) {
                 // the keyMd5 is bigger
                 low = mid + 1;
-                cacheIndex = 2 * cacheIndex + 1;
+                cacheIndex = 2 * cacheIndex + 2;
             }
         }
 
@@ -365,12 +426,13 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     private byte[] readKey(RandomAccessFile index,
                            long indexByteOffset,
                            byte[] foundKey,
-                           int iteration,
+                           int depth,
                            int cacheIndex) throws IOException {
-        if(iteration < maxCacheDepth) {
+        if(depth < maxCacheDepth) {
             // do cached lookup
             if(keyCache[cacheIndex] == null) {
                 readFrom(index, indexByteOffset, foundKey);
+                // this is a race condition, but not a harmful one:
                 keyCache[cacheIndex] = ByteUtils.copy(foundKey, 0, foundKey.length);
             }
             return keyCache[cacheIndex];
