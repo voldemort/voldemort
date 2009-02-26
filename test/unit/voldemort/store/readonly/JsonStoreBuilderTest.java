@@ -21,8 +21,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,15 +71,11 @@ public class JsonStoreBuilderTest extends TestCase {
         JsonReader jsonReader = new JsonReader(reader);
 
         // set up definitions for cluster and store
-        Cluster cluster = new Cluster("test", Collections.singletonList(new Node(0,
-                                                                                 "localhost",
-                                                                                 8080,
-                                                                                 6666,
-                                                                                 Arrays.asList(0,
-                                                                                               1,
-                                                                                               2,
-                                                                                               3,
-                                                                                               4))));
+        List<Node> nodes = new ArrayList<Node>();
+        nodes.add(new Node(0, "localhost", 8080, 6666, Arrays.asList(0, 1, 2, 3, 4)));
+        nodes.add(new Node(1, "localhost", 8081, 6667, Arrays.asList(5, 6, 7, 8, 9)));
+
+        Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinition("test",
                                                        StorageEngineType.READONLY,
@@ -133,16 +129,24 @@ public class JsonStoreBuilderTest extends TestCase {
      */
     public void testCanGetGoodValues() {
         // run test multiple times to check caching
+        int matched = 0;
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: this.data.entrySet()) {
                 List<Versioned<Object>> found = this.store.get(entry.getKey());
-                assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i,
-                             1,
-                             found.size());
-                Versioned<Object> obj = found.get(0);
-                assertEquals(entry.getValue(), obj.getValue());
+                if(found.size() > 0) {
+                    assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i,
+                                 1,
+                                 found.size());
+                    Versioned<Object> obj = found.get(0);
+                    assertEquals(entry.getValue(), obj.getValue());
+                    matched++;
+                }
             }
         }
+
+        assertEquals("Approx half keys should be matched.",
+                     true,
+                     matched > (0.45) * (data.entrySet().size()));
     }
 
     /**
