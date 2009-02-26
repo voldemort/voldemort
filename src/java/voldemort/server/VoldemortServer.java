@@ -107,6 +107,9 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService("jmx-service", this, cluster, storeMap, services));
 
+        // we want services to stop in the opposite order they started
+        Collections.reverse(services);
+
         return services;
     }
 
@@ -137,17 +140,16 @@ public class VoldemortServer extends AbstractService {
      */
     protected void stopInner() throws VoldemortException {
         List<VoldemortException> exceptions = new ArrayList<VoldemortException>();
-        logger.info("Stoping services:");
+        logger.info("Stopping services:");
         for(VoldemortService service: services) {
             try {
-                logger.info("Stoping " + service.getName() + ".");
                 service.stop();
             } catch(VoldemortException e) {
                 exceptions.add(e);
                 logger.error(e);
             }
         }
-        logger.info("All services stoped.");
+        logger.info("All services stopped.");
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);
