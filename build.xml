@@ -21,6 +21,7 @@
 		<fileset dir="${contrib.src.dir}">
 			<include name="**/*.jar" />
 		</fileset>
+		<path refid="test-classpath" />
 	</path>
 
 	<path id="test-classpath">
@@ -44,7 +45,7 @@
 		</sequential>
 	</macrodef>
 
-	<target name="all" depends="clean, srcjar, jar, war, test, contrib-jar" description="Build all artifacts." />
+	<target name="all" depends="clean, srcjar, jar, test, contrib-jar" description="Build all artifacts." />
 
 	<target name="clean" description="Delete generated files.">
 		<delete dir="${dist.dir}" />
