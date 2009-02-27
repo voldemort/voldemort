@@ -98,7 +98,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                                  int numBackups,
                                  int numFileHandles,
                                  long fdWaitTimeoutMs,
-                                 long maxCacheSize) {
+                                 long maxCacheSizeBytes) {
         this.storageDir = storageDir;
         this.numBackups = numBackups;
         this.indexFile = new File(storageDir, name + ".index");
@@ -117,11 +117,8 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
          * The overhead for each cache element is the key size + 4 byte array
          * length + 12 byte object overhead + 8 bytes for a 64-bit reference to
          * the thing
-         * 
-         * TODO: just store a single array of bytes and copy out of that to
-         * avoid this overhead
          */
-        int cacheElements = (int) floor(maxCacheSize / (KEY_HASH_SIZE + 24));
+        int cacheElements = (int) floor(maxCacheSizeBytes / (KEY_HASH_SIZE + 24));
         this.maxCacheDepth = (int) floor(log(cacheElements) / log(2));
         this.keyCache = new byte[(int) pow(2, maxCacheDepth)][];
         this.isOpen = new AtomicBoolean(false);
@@ -175,6 +172,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
      */
     public void close() throws VoldemortException {
         logger.debug("Close called for read-only store.");
+        this.isOpen.compareAndSet(true, false);
         this.fileModificationLock.writeLock().lock();
         try {
             while(this.indexFiles.size() > 0) {
