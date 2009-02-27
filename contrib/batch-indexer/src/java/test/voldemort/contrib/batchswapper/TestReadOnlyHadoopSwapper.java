@@ -14,7 +14,7 @@
  * the License.
  */
 
-package test.voldemort.contrib.batchindexer;
+package test.voldemort.contrib.batchswapper;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -45,14 +45,11 @@ import voldemort.store.serialized.SerializingStore;
 import voldemort.versioning.Versioned;
 
 /**
- * Unit test to check Read-Only Batch Indexer <strong>in Local mode numReduce
- * will be only one hence we will see only one node files irrespective of
- * cluster details.</strong>
  * 
  * @author bbansal
  * 
  */
-public class TestReadOnlyBatchIndexer extends TestCase {
+public class TestReadOnlyHadoopSwapper extends TestCase {
 
     @SuppressWarnings("unchecked")
     public void testCSVFileBatchIndexer() throws Exception {
@@ -66,8 +63,8 @@ public class TestReadOnlyBatchIndexer extends TestCase {
         ToolRunner.run(new Configuration(), new TextBatchIndexer(), null);
 
         // rename Files
-        new File(dataDir, "0.index").renameTo(new File(dataDir, "users.index"));
-        new File(dataDir, "0.data").renameTo(new File(dataDir, "users.data"));
+        new File(dataDir, "users.index_0").renameTo(new File(dataDir, "users.index"));
+        new File(dataDir, "users.data_0").renameTo(new File(dataDir, "users.data"));
 
         // open Store
         SerializerDefinition serDef = new SerializerDefinition("string", "UTF-8");

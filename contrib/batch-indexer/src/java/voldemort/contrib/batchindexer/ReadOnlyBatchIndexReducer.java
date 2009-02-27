@@ -3,11 +3,10 @@ package voldemort.contrib.batchindexer;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
@@ -30,10 +29,8 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
     private String _taskId = null;
     private int _nodeId = -1;
 
-    String indexFileName;
-    String dataFileName;
-    String taskIndexFileName;
-    String taskValueFileName;
+    Path taskIndexFileName;
+    Path taskValueFileName;
 
     /**
      * Reduce should get sorted MD5 keys here with a single value (appended in
@@ -77,32 +74,30 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
 
             _taskId = job.get("mapred.task.id");
 
-            indexFileName = new Path(_conf.get("voldemort.index.filename")).getName();
-            taskIndexFileName = _conf.getLocalPath(indexFileName + "_" + _taskId).toUri().getPath();
+            taskIndexFileName = new Path(FileOutputFormat.getOutputPath(_conf),
+                                         _conf.get("voldemort.index.filename") + "_" + _taskId);
+            taskValueFileName = new Path(FileOutputFormat.getOutputPath(_conf),
+                                         _conf.get("voldemort.data.filename") + "_" + _taskId);
 
-            dataFileName = new Path(_conf.get("voldemort.data.filename")).getName();
-            taskValueFileName = _conf.getLocalPath(dataFileName + "_" + _taskId).toUri().getPath();
+            FileSystem fs = taskIndexFileName.getFileSystem(job);
 
-            _indexFileStream = new DataOutputStream(new java.io.BufferedOutputStream(new FileOutputStream(new File(taskIndexFileName))));
-            _valueFileStream = new DataOutputStream(new java.io.BufferedOutputStream(new FileOutputStream(new File(taskValueFileName))));
+            _indexFileStream = fs.create(taskIndexFileName, (short) 1);
+            _valueFileStream = fs.create(taskValueFileName, (short) 1);
         } catch(IOException e) {
             new RuntimeException("Failed to open Input/OutputStream", e);
         }
     }
 
     public void close() throws IOException {
-        // close the local file stream and copy it to HDFS
+
         _indexFileStream.close();
         _valueFileStream.close();
 
-        Path hdfsIndexFile = new Path(FileOutputFormat.getOutputPath(_conf), indexFileName + "_"
-                                                                             + _nodeId);
-        Path hdfsValueFile = new Path(FileOutputFormat.getOutputPath(_conf), dataFileName + "_"
-                                                                             + _nodeId);
+        Path hdfsIndexFile = new Path(FileOutputFormat.getOutputPath(_conf), _nodeId + ".index");
+        Path hdfsValueFile = new Path(FileOutputFormat.getOutputPath(_conf), _nodeId + ".data");
 
-        hdfsIndexFile.getFileSystem(_conf).copyFromLocalFile(new Path(taskIndexFileName),
-                                                             hdfsIndexFile);
-        hdfsValueFile.getFileSystem(_conf).copyFromLocalFile(new Path(taskValueFileName),
-                                                             hdfsValueFile);
+        FileSystem fs = hdfsIndexFile.getFileSystem(_conf);
+        fs.rename(taskIndexFileName, hdfsIndexFile);
+        fs.rename(taskValueFileName, hdfsValueFile);
     }
 }
