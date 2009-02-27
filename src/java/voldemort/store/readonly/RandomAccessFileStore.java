@@ -123,7 +123,6 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         this.keyCache = new byte[(int) pow(2, maxCacheDepth)][];
         this.isOpen = new AtomicBoolean(false);
         open();
-        preloadCache();
     }
 
     /**
@@ -160,6 +159,9 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
             if(dataFileSize < 4 * indexFileSize / INDEX_ENTRY_SIZE)
                 throw new VoldemortException("Invalid data file, file length must not be less than num_index_entries * 4 bytes, but data file is only "
                                              + dataFileSize + " bytes.");
+
+            // clear Cache now
+            clearCache();
         } catch(FileNotFoundException e) {
             throw new VoldemortException("Could not open store.", e);
         } finally {

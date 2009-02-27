@@ -39,6 +39,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
     private final File storageDir;
     private final Set<ObjectName> registeredBeans;
     private final long cacheSize;
+    private final int nodeId;
 
     public RandomAccessFileStorageConfiguration(VoldemortConfig config) {
         this.numFileHandles = config.getReadOnlyStorageFileHandles();
@@ -47,6 +48,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
         this.numBackups = config.getReadOnlyBackups();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
         this.cacheSize = config.getReadOnlyCacheSize();
+        this.nodeId = config.getNodeId();
     }
 
     public void close() {
@@ -63,7 +65,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
                                                                 fileAccessWaitTimeoutMs,
                                                                 cacheSize);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                       name);
+                                                       name + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),
                                JmxUtils.createModelMBean(store),
                                objName);

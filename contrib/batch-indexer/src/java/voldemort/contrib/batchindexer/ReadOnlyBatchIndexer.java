@@ -47,7 +47,7 @@ public abstract class ReadOnlyBatchIndexer extends Configured implements Tool, J
 
     public int run(String[] args) throws Exception {
 
-        JobConf conf = new JobConf(getConf(), ReadOnlyBatchIndexer.class);
+        JobConf conf = new JobConf(ReadOnlyBatchIndexer.class);
         configure(conf);
 
         try {

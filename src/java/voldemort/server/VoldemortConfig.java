@@ -125,7 +125,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
 
-        this.enableReadOnlyEngine = props.getBoolean("enable.readonly.engine", false);
+        this.enableReadOnlyEngine = props.getBoolean("enable.readonly.engine", true);
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlyFileHandles = props.getInt("readonly.file.handles", 5);

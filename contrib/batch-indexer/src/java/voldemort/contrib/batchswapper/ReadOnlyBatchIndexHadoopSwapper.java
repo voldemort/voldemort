@@ -9,6 +9,8 @@ import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
@@ -20,7 +22,6 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.contrib.batchindexer.ReadOnlyBatchIndexer;
 import voldemort.contrib.utils.ContribUtils;
 
 /**
@@ -52,38 +53,44 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
 
     private static Logger logger = Logger.getLogger(ReadOnlyBatchIndexHadoopSwapper.class);
 
-    public void run() throws Throwable {
-        JobConf conf = new JobConf(getConf(), ReadOnlyBatchIndexer.class);
+    public int run(String[] args) {
+        JobConf conf = new JobConf(ReadOnlyBatchIndexHadoopSwapper.class);
         configure(conf);
 
         Cluster cluster = null;
         try {
             // get the voldemort cluster definition
             cluster = ContribUtils.getVoldemortClusterDetails(conf.get("voldemort.cluster.local.filePath"));
+
+            // No Reducer needed for this Job
+            conf.setNumReduceTasks(0);
+
+            // set FileInputFormat
+            conf.setInputFormat(NonSplitableDummyFileInputFormat.class);
+            conf.setMapperClass(SwapperMapper.class);
+
+            // get the store information
+            String storeName = conf.get("voldemort.store.name");
+
+            // move files to Distributed Cache for mapper to use
+            moveMetaDatatoHDFS(conf, new Path(conf.get("voldemort.cluster.local.filePath")));
+
+            // set Input Output Path
+            FileInputFormat.setInputPaths(conf, new Path(conf.get("source.HDFS.path")));
+            FileOutputFormat.setOutputPath(conf, new Path(conf.get("destination.remote.path")));
+
+            // run(conf);
+            JobClient.runJob(conf);
+
+            // lets try to swap only the successful nodes
+            for(Node node: cluster.getNodes()) {
+                SwapperUtils.doSwap(storeName, node, conf.get("destination.remote.path"));
+            }
         } catch(Exception e) {
             logger.error("Failed to read Voldemort cluster details", e);
             throw new RuntimeException("", e);
         }
-
-        // No Reducer needed for this Job
-        conf.setNumReduceTasks(0);
-
-        // set FileInputFormat
-        conf.setInputFormat(NonSplitableDummyFileInputFormat.class);
-
-        // get the store information
-        String storeName = conf.get("voldemort.store.name");
-
-        // move files to Distributed Cache for mapper to use
-        moveMetaDatatoHDFS(conf, new Path(conf.get("voldemort.cluster.local.filePath")));
-
-        // run(conf);
-        JobClient.runJob(conf);
-
-        // lets try to swap only the successful nodes
-        for(Node node: cluster.getNodes()) {
-            SwapperUtils.doSwap(storeName, node, conf.get("destination.remote.path"));
-        }
+        return 0;
     }
 
     private void moveMetaDatatoHDFS(JobConf conf, Path clusterFile) throws IOException,
@@ -98,69 +105,6 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
             // Add local files to distributed cache
             DistributedCache.addCacheFile(new URI(clusterFile.toString() + "#cluster.xml"), conf);
         }
-    }
-
-    class SwapperMapper<K, V> implements Mapper<K, V, BytesWritable, BytesWritable> {
-
-        JobConf conf;
-        Node node;
-        String sourcefileName;
-        boolean isIndexFile;
-        boolean doNothing = false;
-
-        public void map(K key,
-                        V value,
-                        OutputCollector<BytesWritable, BytesWritable> output,
-                        Reporter reporter) throws IOException {
-
-            if(!doNothing) {
-                String targetFileName;
-                String destinationDir = conf.get("destination.remote.path");
-
-                if(isIndexFile) {
-                    targetFileName = SwapperUtils.getIndexDestinationFile(node.getId(),
-                                                                          destinationDir);
-                } else {
-                    targetFileName = SwapperUtils.getDataDestinationFile(node.getId(),
-                                                                         destinationDir);
-                }
-
-                // copy remote File
-                copyRemoteFile(node.getHost(), sourcefileName, targetFileName);
-            }
-        }
-
-        public void configure(JobConf job) {
-            conf = job;
-            String mapFileName = conf.get("mapred.input.file");
-
-            if(mapFileName.contains("index") || mapFileName.contains("data")) {
-                System.out.println("handling file:" + mapFileName);
-
-                isIndexFile = mapFileName.contains("index");
-                String storeName = conf.get("voldemort.store.name");
-
-                String[] tempSplits = mapFileName.split("_");
-                int fileNodeId = Integer.parseInt(tempSplits[tempSplits.length - 1]);
-
-                try {
-                    // get the voldemort cluster.xml
-                    String clusterFilePath = ContribUtils.getFileFromCache(conf, "cluster.xml");
-
-                    if(null == clusterFilePath) {
-                        throw new RuntimeException("Mapper expects cluster.xml / stores.xml passed through Distributed cache.");
-                    }
-                    // create cluster
-                    Cluster cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
-
-                    node = cluster.getNodeById(fileNodeId);
-                } catch(Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-
-        public void close() throws IOException {}
     }
 
     /**
@@ -187,4 +131,73 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
      * @return
      */
     public abstract boolean copyRemoteFile(String hostname, String source, String destination);
+
+    static class SwapperMapper<K, V> implements Mapper<K, V, BytesWritable, BytesWritable> {
+
+        JobConf conf;
+        Node node;
+        String sourcefileName;
+        boolean isIndexFile;
+        boolean doNothing = false;
+
+        public SwapperMapper() {
+
+        }
+
+        public void map(K key,
+                        V value,
+                        OutputCollector<BytesWritable, BytesWritable> output,
+                        Reporter reporter) throws IOException {
+
+            if(!doNothing) {
+                String targetFileName;
+                String destinationDir = conf.get("destination.remote.path");
+
+                if(isIndexFile) {
+                    targetFileName = SwapperUtils.getIndexDestinationFile(node.getId(),
+                                                                          destinationDir);
+                } else {
+                    targetFileName = SwapperUtils.getDataDestinationFile(node.getId(),
+                                                                         destinationDir);
+                }
+
+                // copy remote File
+                // copyRemoteFile(node.getHost(), sourcefileName,
+                // targetFileName);
+            }
+        }
+
+        public void configure(JobConf job) {
+            conf = job;
+            String mapFileName = conf.get("map.input.file");
+
+            if(mapFileName.contains("index") || mapFileName.contains("data")) {
+                System.out.println("handling file:" + mapFileName);
+
+                isIndexFile = mapFileName.contains("index");
+                String storeName = conf.get("voldemort.store.name");
+
+                // split on '.' character names expected are 0.index , 0.data
+                String[] tempSplits = new Path(mapFileName).getName().split("\\.");
+                int fileNodeId = Integer.parseInt(tempSplits[0]);
+
+                try {
+                    // get the voldemort cluster.xml
+                    String clusterFilePath = ContribUtils.getFileFromCache(conf, "cluster.xml");
+
+                    if(null == clusterFilePath) {
+                        throw new RuntimeException("Mapper expects cluster.xml / stores.xml passed through Distributed cache.");
+                    }
+                    // create cluster
+                    Cluster cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
+
+                    node = cluster.getNodeById(fileNodeId);
+                } catch(Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
+        public void close() throws IOException {}
+    }
 }

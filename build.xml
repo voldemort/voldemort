@@ -94,7 +94,7 @@
 		</jar>
 	</target>
 
-	<target name="contrib-build" depends="build" description="Compile contrib packages (java and test) ">
+	<target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
 		<replace-dir dir="${contrib.classes.dir}"/>
 		<!-- copy non-java files to classes dir to load from classpath -->
 		<copy todir="${contrib.classes.dir}">

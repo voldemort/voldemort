@@ -16,125 +16,160 @@
 
 package test.voldemort.contrib.batchswapper;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.List;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import junit.framework.TestCase;
 
 import org.apache.commons.io.FileDeleteStrategy;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.util.ToolRunner;
 
-import voldemort.contrib.batchindexer.ReadOnlyBatchIndexMapper;
-import voldemort.contrib.batchindexer.ReadOnlyBatchIndexer;
+import voldemort.TestUtils;
+import voldemort.cluster.Cluster;
+import voldemort.contrib.batchswapper.ReadOnlyBatchIndexHadoopSwapper;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
-import voldemort.store.readonly.RandomAccessFileStore;
-import voldemort.store.serialized.SerializingStore;
-import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
-/**
- * 
- * @author bbansal
- * 
- */
 public class TestReadOnlyHadoopSwapper extends TestCase {
 
-    @SuppressWarnings("unchecked")
-    public void testCSVFileBatchIndexer() throws Exception {
+    private static final int TEST_SIZE = 500;
+    private static final String baseDir = TestUtils.getTempDirectory().getAbsolutePath();
 
-        // rename Files
-        File dataDir = new File("contrib/batch-indexer/temp-output/text");
-        if(dataDir.exists()) {
-            FileDeleteStrategy.FORCE.delete(dataDir);
+    private static final String clusterFile = "contrib/test/common/config/two-node-cluster.xml";
+    private static final String storerFile = "contrib/test/common/config/testSwapStore.xml";
+    private static final String storeName = "swapTestStore";
+
+    VoldemortServer server1;
+    VoldemortServer server2;
+
+    @Override
+    public void setUp() throws Exception {
+        // clean baseDir to be sure
+        FileDeleteStrategy.FORCE.delete(new File(baseDir));
+
+        // First make the readOnlyIndex and copy the index to start Read-Only
+        // store cleanly
+        String indexDir = makeReadOnlyIndex(1, 1000);
+
+        VoldemortConfig config = TestUtils.createServerConfig(0, baseDir, clusterFile, storerFile);
+        server1 = new VoldemortServer(config);
+        // copy read-only index before starting
+        FileUtils.copyFile(new File(indexDir, "0.index"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
+        FileUtils.copyFile(new File(indexDir, "0.data"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
+        server1.start();
+
+        config = TestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
+        server2 = new VoldemortServer(config);
+        // copy read-only index before starting
+        FileUtils.copyFile(new File(indexDir, "1.index"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
+        FileUtils.copyFile(new File(indexDir, "1.data"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
+        server2.start();
+    }
+
+    @Override
+    public void tearDown() throws IOException, InterruptedException {
+        server1.stop();
+        server2.stop();
+        FileDeleteStrategy.FORCE.delete(new File(baseDir));
+    }
+
+    private String makeReadOnlyIndex(int minKey, int maxKey) throws Exception {
+
+        Map<String, String> entryMap = new HashMap<String, String>();
+        for(int i = minKey; i <= maxKey; i++) {
+            entryMap.put("key" + i, "value-" + i);
         }
 
-        ToolRunner.run(new Configuration(), new TextBatchIndexer(), null);
+        Cluster cluster = new ClusterMapper().readCluster(new FileReader(new File("contrib/test/common/config/two-node-cluster.xml")));
+        return TestUtils.createReadOnlyIndex(cluster, entryMap, baseDir);
+    }
 
-        // rename Files
-        new File(dataDir, "users.index_0").renameTo(new File(dataDir, "users.index"));
-        new File(dataDir, "users.data_0").renameTo(new File(dataDir, "users.data"));
+    public void testswap() throws Throwable {
+        // assert that read-only store is working
+        Store<byte[], byte[]> store1 = server1.getStoreMap().get(storeName);
+        Store<byte[], byte[]> store2 = server2.getStoreMap().get(storeName);
 
-        // open Store
-        SerializerDefinition serDef = new SerializerDefinition("string", "UTF-8");
-        Serializer<Object> Keyserializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Serializer<Object> Valueserializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(new SerializerDefinition("java-serialization"));
+        SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
+        Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
 
-        Store<Object, Object> store = new SerializingStore<Object, Object>(new RandomAccessFileStore("users",
-                                                                                                     dataDir,
-                                                                                                     1,
-                                                                                                     3,
-                                                                                                     1000,
-                                                                                                     100 * 1000 * 1000),
-                                                                           Keyserializer,
-                                                                           Valueserializer);
+        // initial keys are from 1 to 1000
+        for(int i = 1; i < 1000; i++) {
 
-        // query all keys and check for value
-        BufferedReader reader = new BufferedReader(new FileReader(new File("contrib/test/common/test-data/usersCSV.txt")));
-        String line;
-        while(null != (line = reader.readLine())) {
+            byte[] key = serializer.toBytes("key" + i);
+            byte[] value = serializer.toBytes("value" + i);
 
-            // correct Query
-            String[] tokens = line.split("\\|");
-            List<Versioned<Object>> found = store.get(tokens[0]);
-            String result = (String) found.get(0).getValue();
-            assertEquals("Value for key should match for set value", tokens[1], result);
+            System.out.println("checking key:" + i);
+            assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
+                         true,
+                         store1.get(key).size() > 0 || store2.get(key).size() > 0);
+        }
 
-            // wrong query
-            int changeIndex = (int) (Math.random() * tokens[0].length());
-            found = store.get(tokens[0].replace(tokens[0].charAt(changeIndex), '|'));
-            // found size should be 0 or not match the original value.
-            if(found.size() > 0) {
-                result = (String) found.get(0).getValue();
-                assertNotSame("Value for key should not match for set value", tokens[1], result);
+        // lets create new index files
+        final String newIndexDir = makeReadOnlyIndex(2000, 3000);
+
+        ReadOnlyBatchIndexHadoopSwapper indexSwapper = new ReadOnlyBatchIndexHadoopSwapper() {
+
+            @Override
+            public void configure(JobConf conf) {
+                conf.set("voldemort.cluster.local.filePath", clusterFile);
+                conf.set("voldemort.store.name", storeName);
+                conf.set("source.HDFS.path", newIndexDir);
+                conf.set("destination.remote.path", baseDir + File.separatorChar
+                                                    + (int) (Math.random() * 1000));
             }
+
+            @Override
+            public boolean copyRemoteFile(String hostname, String source, String destination) {
+                // for test both files are local just
+                System.out.println("copy Remote Files called host:" + hostname + " source:"
+                                   + source + " destination:" + destination);
+                int i = 0;
+                while(i++ < 5)
+                    try {
+                        FileUtils.copyFile(new File(source), new File(destination));
+                        if(new File(destination).exists()) {
+                            return true;
+                        }
+
+                    } catch(IOException e) {
+                        // ignore
+                    }
+
+                return false;
+            }
+        };
+
+        // do Index Swap
+        indexSwapper.run(null);
+
+        // check that only new keys can be seen
+        for(int i = 1; i < 1000; i++) {
+            byte[] key = serializer.toBytes("key" + i);
+            byte[] value = serializer.toBytes("value" + i);
+            assertEquals("store 1 get for key:" + i + " should be empty", 0, store1.get(key).size());
+            assertEquals("store 2 get for key:" + i + " should be empty", 0, store2.get(key).size());
         }
 
-    }
-}
+        for(int i = 2000; i < 3000; i++) {
+            byte[] key = serializer.toBytes("key" + i);
+            byte[] value = serializer.toBytes("value" + i);
+            assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
+                         true,
+                         store1.get(key).size() > 0 || store2.get(key).size() > 0);
+        }
 
-class TextBatchMapper extends ReadOnlyBatchIndexMapper<LongWritable, Text> {
-
-    @Override
-    public Object getKeyBytes(LongWritable key, Text value) {
-        String[] tokens = value.toString().split("\\|");
-        return tokens[0];
-    }
-
-    @Override
-    public Object getValueBytes(LongWritable key, Text value) {
-        String[] tokens = value.toString().split("\\|");
-        return tokens[1];
-    }
-
-}
-
-class TextBatchIndexer extends ReadOnlyBatchIndexer {
-
-    public void configure(JobConf conf) {
-
-        conf.set("job.name", "testCSVBatchIndexer");
-        conf.set("voldemort.cluster.local.filePath",
-                 "contrib/test/common/config/nine-node-cluster.xml");
-        conf.set("voldemort.store.local.filePath", "contrib/test/common/config/stores.xml");
-        conf.set("voldemort.store.name", "users");
-
-        // set inset/outset path
-        FileInputFormat.addInputPaths(conf, "contrib/test/common/test-data/usersCSV.txt");
-        FileOutputFormat.setOutputPath(conf, new Path("contrib/batch-indexer/temp-output/text"));
-
-        conf.setMapperClass(TextBatchMapper.class);
-        conf.setInputFormat(TextInputFormat.class);
     }
 }

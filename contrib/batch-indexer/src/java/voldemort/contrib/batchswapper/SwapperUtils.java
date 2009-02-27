@@ -57,7 +57,7 @@ public class SwapperUtils {
             response.append(line);
             response.append('\r');
         }
-        System.out.println("Response:" + response.toString());
+        System.out.println("doSwap Completed for " + node + "  Response:" + response.toString());
         rd.close();
     }
 

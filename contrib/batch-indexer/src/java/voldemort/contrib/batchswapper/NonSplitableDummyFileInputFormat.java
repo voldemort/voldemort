@@ -7,17 +7,16 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.SequenceFileRecordReader;
+import org.apache.hadoop.mapred.LineRecordReader;
+import org.apache.hadoop.mapred.TextInputFormat;
 
-public class NonSplitableDummyFileInputFormat extends
-        SequenceFileInputFormat<BytesWritable, BytesWritable> {
+public class NonSplitableDummyFileInputFormat extends TextInputFormat {
 
     protected boolean isSplitable(FileSystem fs, Path filename) {
         return false;
     }
 
-    class DummyRecordReader extends SequenceFileRecordReader<BytesWritable, BytesWritable> {
+    class DummyRecordReader extends LineRecordReader {
 
         private int counter = 0;
 
