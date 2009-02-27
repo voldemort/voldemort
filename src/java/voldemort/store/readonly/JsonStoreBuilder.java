@@ -139,10 +139,16 @@ public class JsonStoreBuilder {
         int numNodes = cluster.getNumberOfNodes();
         DataOutputStream[] indexes = new DataOutputStream[numNodes];
         DataOutputStream[] datas = new DataOutputStream[numNodes];
+        long[] positions = new long[numNodes];
+
         int current = 0;
         for(Node node: cluster.getNodes()) {
             File indexFile = new File(outputDir, node.getId() + ".index");
             File dataFile = new File(outputDir, node.getId() + ".data");
+            positions[current] = 0;
+            // create outputDir if not exist
+            outputDir.mkdirs();
+
             indexes[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
                                                                              1000000));
             datas[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
@@ -161,7 +167,6 @@ public class JsonStoreBuilder {
                                                                                internalSortSize,
                                                                                numThreads);
         JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
-        long position = 0;
         MessageDigest digest = ByteUtils.getDigest("MD5");
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
@@ -173,8 +178,8 @@ public class JsonStoreBuilder {
                 datas[nodeId].writeInt(numBytes);
                 datas[nodeId].write(pair.getValue());
                 indexes[nodeId].write(keyMd5);
-                indexes[nodeId].writeLong(position);
-                position += numBytes + 4;
+                indexes[nodeId].writeLong(positions[nodeId]);
+                positions[nodeId] += numBytes + 4;
             }
             count++;
         }
@@ -243,7 +248,8 @@ public class JsonStoreBuilder {
                 try {
                     value = reader.read();
                 } catch(EndOfFileException e) {
-                    throw new VoldemortException("Invalid file: reached end of file with key but no matching value.", e);
+                    throw new VoldemortException("Invalid file: reached end of file with key but no matching value.",
+                                                 e);
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
                 byte[] keyMd5 = digest.digest(keyBytes);
