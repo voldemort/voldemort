@@ -26,10 +26,14 @@ import junit.framework.TestCase;
 
 import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Mapper;
 
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
+import voldemort.contrib.batchswapper.AbstractSwapperMapper;
 import voldemort.contrib.batchswapper.ReadOnlyBatchIndexHadoopSwapper;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -111,7 +115,6 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
             byte[] key = serializer.toBytes("key" + i);
             byte[] value = serializer.toBytes("value" + i);
 
-            System.out.println("checking key:" + i);
             assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
                          true,
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
@@ -126,29 +129,14 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
             public void configure(JobConf conf) {
                 conf.set("voldemort.cluster.local.filePath", clusterFile);
                 conf.set("voldemort.store.name", storeName);
-                conf.set("source.HDFS.path", newIndexDir);
-                conf.set("destination.remote.path", baseDir + File.separatorChar
-                                                    + (int) (Math.random() * 1000));
+                conf.set("source.path", newIndexDir);
+                conf.set("destination.path", baseDir + File.separatorChar
+                                             + (int) (Math.random() * 1000));
             }
 
             @Override
-            public boolean copyRemoteFile(String hostname, String source, String destination) {
-                // for test both files are local just
-                System.out.println("copy Remote Files called host:" + hostname + " source:"
-                                   + source + " destination:" + destination);
-                int i = 0;
-                while(i++ < 5)
-                    try {
-                        FileUtils.copyFile(new File(source), new File(destination));
-                        if(new File(destination).exists()) {
-                            return true;
-                        }
-
-                    } catch(IOException e) {
-                        // ignore
-                    }
-
-                return false;
+            public Class<? extends Mapper<LongWritable, Text, Text, Text>> getSwapperMapperClass() {
+                return SwapperMapper.class;
             }
         };
 
@@ -171,5 +159,24 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
         }
 
+    }
+
+    static class SwapperMapper extends AbstractSwapperMapper {
+
+        @Override
+        public boolean copyRemoteFile(String hostname, String source, String destination) {
+            // for test both files are local just
+            System.out.println("copy Remote Files called host:" + hostname + " source:" + source
+                               + " destination:" + destination);
+            assertEquals("source file should be present", true, new File(source).exists());
+            try {
+                FileUtils.copyFile(new File(source), new File(destination));
+            } catch(IOException e) {
+                System.out.println("copy call Failed");
+                e.printStackTrace();
+            }
+
+            return new File(destination).exists();
+        }
     }
 }

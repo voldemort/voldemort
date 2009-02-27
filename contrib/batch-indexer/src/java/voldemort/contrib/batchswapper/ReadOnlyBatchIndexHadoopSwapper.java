@@ -1,5 +1,6 @@
 package voldemort.contrib.batchswapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -8,15 +9,14 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.Tool;
 import org.apache.log4j.Logger;
 
@@ -44,8 +44,8 @@ import voldemort.contrib.utils.ContribUtils;
  *         <li>voldemort.cluster.local.filePath: String</li>
  *         <li>voldemort.store.local.filePath: String</li>
  *         <li>voldemort.store.name: String</li>
- *         <li>source.HDFS.path: String</li>
- *         <li>destination.remote.path: String</li>
+ *         <li>source.path: String HDFS Path</li>
+ *         <li>destination.path: String Remote machine temp directory</li>
  *         </ul>
  */
 public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured implements Tool,
@@ -66,8 +66,8 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
             conf.setNumReduceTasks(0);
 
             // set FileInputFormat
+            conf.setMapperClass(getSwapperMapperClass());
             conf.setInputFormat(NonSplitableDummyFileInputFormat.class);
-            conf.setMapperClass(SwapperMapper.class);
 
             // get the store information
             String storeName = conf.get("voldemort.store.name");
@@ -76,19 +76,25 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
             moveMetaDatatoHDFS(conf, new Path(conf.get("voldemort.cluster.local.filePath")));
 
             // set Input Output Path
-            FileInputFormat.setInputPaths(conf, new Path(conf.get("source.HDFS.path")));
-            FileOutputFormat.setOutputPath(conf, new Path(conf.get("destination.remote.path")));
+            FileInputFormat.setInputPaths(conf, new Path(conf.get("source.path")));
+
+            // Set Output File to a dummy temp dir
+            String tempHadoopDir = conf.get("hadoop.tmp.dir") + File.separatorChar
+                                   + (int) (Math.random() * 1000000);
+            FileOutputFormat.setOutputPath(conf, new Path(tempHadoopDir));
 
             // run(conf);
             JobClient.runJob(conf);
 
+            // delete tempHdoopDir
+            new Path(tempHadoopDir).getFileSystem(conf).delete(new Path(tempHadoopDir), true);
+
             // lets try to swap only the successful nodes
             for(Node node: cluster.getNodes()) {
-                SwapperUtils.doSwap(storeName, node, conf.get("destination.remote.path"));
+                SwapperUtils.doSwap(storeName, node, conf.get("destination.path"));
             }
         } catch(Exception e) {
-            logger.error("Failed to read Voldemort cluster details", e);
-            throw new RuntimeException("", e);
+            throw new RuntimeException("Swap Job Failed", e);
         }
         return 0;
     }
@@ -113,8 +119,8 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
      * <li>voldemort.cluster.local.filePath: String</li>
      * <li>voldemort.store.local.filePath: String</li>
      * <li>voldemort.store.name: String</li>
-     * <li>source.HDFS.path: String</li>
-     * <li>destination.remote.path: String</li>
+     * <li>source.path: String HDFS Path</li>
+     * <li>destination.path: String Remote machine temp directory</li>
      * </ul>
      * 
      * 
@@ -122,82 +128,5 @@ public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured impleme
      */
     public abstract void configure(JobConf conf);
 
-    /**
-     * copy local source file to remote destination
-     * 
-     * @param hostname
-     * @param source
-     * @param destination
-     * @return
-     */
-    public abstract boolean copyRemoteFile(String hostname, String source, String destination);
-
-    static class SwapperMapper<K, V> implements Mapper<K, V, BytesWritable, BytesWritable> {
-
-        JobConf conf;
-        Node node;
-        String sourcefileName;
-        boolean isIndexFile;
-        boolean doNothing = false;
-
-        public SwapperMapper() {
-
-        }
-
-        public void map(K key,
-                        V value,
-                        OutputCollector<BytesWritable, BytesWritable> output,
-                        Reporter reporter) throws IOException {
-
-            if(!doNothing) {
-                String targetFileName;
-                String destinationDir = conf.get("destination.remote.path");
-
-                if(isIndexFile) {
-                    targetFileName = SwapperUtils.getIndexDestinationFile(node.getId(),
-                                                                          destinationDir);
-                } else {
-                    targetFileName = SwapperUtils.getDataDestinationFile(node.getId(),
-                                                                         destinationDir);
-                }
-
-                // copy remote File
-                // copyRemoteFile(node.getHost(), sourcefileName,
-                // targetFileName);
-            }
-        }
-
-        public void configure(JobConf job) {
-            conf = job;
-            String mapFileName = conf.get("map.input.file");
-
-            if(mapFileName.contains("index") || mapFileName.contains("data")) {
-                System.out.println("handling file:" + mapFileName);
-
-                isIndexFile = mapFileName.contains("index");
-                String storeName = conf.get("voldemort.store.name");
-
-                // split on '.' character names expected are 0.index , 0.data
-                String[] tempSplits = new Path(mapFileName).getName().split("\\.");
-                int fileNodeId = Integer.parseInt(tempSplits[0]);
-
-                try {
-                    // get the voldemort cluster.xml
-                    String clusterFilePath = ContribUtils.getFileFromCache(conf, "cluster.xml");
-
-                    if(null == clusterFilePath) {
-                        throw new RuntimeException("Mapper expects cluster.xml / stores.xml passed through Distributed cache.");
-                    }
-                    // create cluster
-                    Cluster cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
-
-                    node = cluster.getNodeById(fileNodeId);
-                } catch(Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-
-        public void close() throws IOException {}
-    }
+    public abstract Class<? extends Mapper<LongWritable, Text, Text, Text>> getSwapperMapperClass();
 }
