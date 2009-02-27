@@ -137,7 +137,7 @@ public class StorageService extends AbstractService {
         Time time = new SystemTime();
         for(StoreDefinition def: storeDefs) {
             if(!def.getName().equals(MetadataStore.METADATA_STORE_NAME)) {
-                logger.info("Opening " + def.getName() + ".");
+                logger.info("Opening store '" + def.getName() + "'.");
                 StorageEngine<byte[], byte[]> engine = getStore(def.getName(), def.getType());
                 rawEngines.put(engine.getName(), engine);
 
@@ -221,7 +221,7 @@ public class StorageService extends AbstractService {
         logger.info("Closing stores:");
         for(Store<byte[], byte[]> s: this.localStoreMap.values()) {
             try {
-                logger.info("Closing " + s.getName() + ".");
+                logger.info("Closing store '" + s.getName() + "'.");
                 s.close();
             } catch(VoldemortException e) {
                 // in the event of a failure still attempt to close other stores

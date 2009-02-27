@@ -77,8 +77,7 @@ public class SocketServer extends Thread {
             logger.error("Too many open connections, " + executor.getActiveCount() + " of "
                          + executor.getLargestPoolSize()
                          + " threads in use, denying connection from "
-                         + session.getSocket().getRemoteSocketAddress() + ":"
-                         + session.getSocket().getPort());
+                         + session.getSocket().getRemoteSocketAddress());
             try {
                 session.getSocket().close();
             } catch(IOException e) {
@@ -92,7 +91,7 @@ public class SocketServer extends Thread {
                         int defaultThreads,
                         int maxThreads) {
         this.port = port;
-        this.threadGroup = new ThreadGroup("VoldemortRawSocketHandler");
+        this.threadGroup = new ThreadGroup("voldemort-socket-server");
         this.storeMap = storeMap;
         this.threadPool = new ThreadPoolExecutor(defaultThreads,
                                                  maxThreads,
