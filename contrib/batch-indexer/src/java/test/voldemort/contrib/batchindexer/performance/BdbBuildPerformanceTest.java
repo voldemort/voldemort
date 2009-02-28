@@ -38,11 +38,11 @@ import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
-public class BDBBuildPerformanceTest {
+public class BdbBuildPerformanceTest {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
         if(args.length != 3)
-            Utils.croak("USAGE: java " + BDBBuildPerformanceTest.class.getName()
+            Utils.croak("USAGE: java " + BdbBuildPerformanceTest.class.getName()
                         + "serverPropsFile storeName jsonSequenceDataFile");
 
         String serverPropsFile = args[0];

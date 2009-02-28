@@ -38,11 +38,11 @@ import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
-public class MySQLBuildPerformanceTest {
+public class MysqlBuildPerformanceTest {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
         if(args.length != 3)
-            Utils.croak("USAGE: java " + MySQLBuildPerformanceTest.class.getName()
+            Utils.croak("USAGE: java " + MysqlBuildPerformanceTest.class.getName()
                         + "serverPropsFile storeName jsonSequenceDataFile");
 
         String serverPropsFile = args[0];
