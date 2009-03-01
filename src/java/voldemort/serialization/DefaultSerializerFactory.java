@@ -48,7 +48,8 @@ public class DefaultSerializerFactory implements SerializerFactory {
         if(name.equals(JAVA_SERIALIZER_TYPE_NAME)) {
             return new ObjectSerializer<Object>();
         } else if(name.equals(STRING_SERIALIZER_TYPE_NAME)) {
-            return new StringSerializer(serializerDef.getCurrentSchemaInfo());
+            return new StringSerializer(serializerDef.hasSchemaInfo() ? serializerDef.getCurrentSchemaInfo()
+                                                                     : "UTF8");
         } else if(name.equals(IDENTITY_SERIALIZER_TYPE_NAME)) {
             return new IdentitySerializer();
         } else if(name.equals(JSON_SERIALIZER_TYPE_NAME)) {
