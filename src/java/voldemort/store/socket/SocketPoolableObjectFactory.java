@@ -34,13 +34,15 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
     public static final Logger logger = Logger.getLogger(SocketPoolableObjectFactory.class);
 
     private final int timeoutMs;
+    private final int socketBufferSize;
     public final AtomicInteger created;
     public final AtomicInteger destroyed;
 
-    public SocketPoolableObjectFactory(int timeoutMs) {
+    public SocketPoolableObjectFactory(int timeoutMs, int socketBufferSize) {
         this.timeoutMs = timeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
+        this.socketBufferSize = socketBufferSize;
     }
 
     public void activateObject(Object key, Object value) throws Exception {
@@ -63,23 +65,36 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
 
     public Object makeObject(Object key) throws Exception {
         SocketDestination dest = (SocketDestination) key;
-        Socket s = new Socket();
-        s.setReceiveBufferSize(30000);
-        s.setSendBufferSize(30000);
-        s.setTcpNoDelay(true);
-        s.setSoTimeout(timeoutMs);
-        s.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
+        Socket socket = new Socket();
+        socket.setReceiveBufferSize(this.socketBufferSize);
+        socket.setSendBufferSize(this.socketBufferSize);
+        socket.setTcpNoDelay(true);
+        socket.setSoTimeout(timeoutMs);
+        socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
+
+        // check buffer sizes
+        if(socket.getReceiveBufferSize() != this.socketBufferSize)
+            logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+                         + " bytes but actual size is " + socket.getReceiveBufferSize() + " bytes.");
+        if(socket.getSendBufferSize() != this.socketBufferSize)
+            logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                         + " bytes but actual size is " + socket.getSendBufferSize() + " bytes.");
+
         int numCreated = created.incrementAndGet();
         if(logger.isDebugEnabled())
             logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
                          + dest.getPort());
-        return new SocketAndStreams(s);
+
+        return new SocketAndStreams(socket);
     }
 
     public boolean validateObject(Object key, Object value) {
         SocketAndStreams sands = (SocketAndStreams) value;
         Socket s = sands.getSocket();
-        return !s.isClosed() && s.isBound() && s.isConnected();
+        boolean isValid = !s.isClosed() && s.isBound() && s.isConnected();
+        if(!isValid)
+            logger.debug("Socket connection " + sands + " is no longer valid, closing.");
+        return isValid;
     }
 
     public int getTimeout() {

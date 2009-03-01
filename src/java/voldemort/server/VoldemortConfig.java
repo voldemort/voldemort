@@ -74,6 +74,8 @@ public class VoldemortConfig implements Serializable {
     private int maxThreads;
 
     private int socketTimeoutMs;
+    private int socketBufferSize;
+
     private int routingTimeoutMs;
 
     private int schedulerThreads;
@@ -147,6 +149,8 @@ public class VoldemortConfig implements Serializable {
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
+        this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
+
         this.routingTimeoutMs = props.getInt("routing.timeout.ms", 5000);
 
         this.enableHttpServer = props.getBoolean("http.enable", true);
@@ -596,4 +600,13 @@ public class VoldemortConfig implements Serializable {
     public void setBdbSortedDuplicates(boolean enable) {
         this.bdbSortedDuplicates = enable;
     }
+
+    public int getSocketBufferSize() {
+        return socketBufferSize;
+    }
+
+    public void setSocketBufferSize(int socketBufferSize) {
+        this.socketBufferSize = socketBufferSize;
+    }
+
 }

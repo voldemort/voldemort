@@ -39,9 +39,14 @@ public class SocketService extends AbstractService implements VoldemortService {
                          ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap,
                          int port,
                          int coreConnections,
-                         int maxConnections) {
+                         int maxConnections,
+                         int socketBufferSize) {
         super(name);
-        this.server = new SocketServer(storeMap, port, coreConnections, maxConnections);
+        this.server = new SocketServer(storeMap,
+                                       port,
+                                       coreConnections,
+                                       maxConnections,
+                                       socketBufferSize);
     }
 
     @Override

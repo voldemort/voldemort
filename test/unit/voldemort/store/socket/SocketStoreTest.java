@@ -16,11 +16,15 @@
 
 package voldemort.store.socket;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.log4j.Logger;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -32,6 +36,10 @@ import voldemort.versioning.Versioned;
 
 public class SocketStoreTest extends ByteArrayStoreTest {
 
+    private static final Logger logger = Logger.getLogger(SocketStoreTest.class);
+
+    private static final int SOCKET_PORT = 6667;
+
     private SocketServer socketServer;
     private SocketStore socketStore;
 
@@ -41,8 +49,8 @@ public class SocketStoreTest extends ByteArrayStoreTest {
         socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
                                                        VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                        "test",
-                                                       6667);
-        socketStore = ServerTestUtils.getSocketStore("test", 6667);
+                                                       SOCKET_PORT);
+        socketStore = ServerTestUtils.getSocketStore("test", SOCKET_PORT);
     }
 
     @Override
@@ -87,6 +95,22 @@ public class SocketStoreTest extends ByteArrayStoreTest {
             });
         }
         latch.await();
+    }
+
+    public void testRepeatedClosedConnections() throws Exception {
+        for(int i = 0; i < 100; i++) {
+            Socket s = new Socket();
+            s.setTcpNoDelay(true);
+            s.setSoTimeout(1000);
+            s.connect(new InetSocketAddress("localhost", SOCKET_PORT));
+            logger.info("Client opened" + i);
+            // Thread.sleep(1);
+            assertTrue(s.isConnected());
+            assertTrue(s.isBound());
+            assertTrue(!s.isClosed());
+            s.close();
+            logger.info("Client closed" + i);
+        }
     }
 
 }

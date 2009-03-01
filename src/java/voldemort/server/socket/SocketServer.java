@@ -58,6 +58,7 @@ public class SocketServer extends Thread {
     private final ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap;
     private final ThreadGroup threadGroup;
     private final CountDownLatch isStarted = new CountDownLatch(1);
+    private final int socketBufferSize;
     private ServerSocket serverSocket = null;
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
@@ -89,8 +90,10 @@ public class SocketServer extends Thread {
     public SocketServer(ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap,
                         int port,
                         int defaultThreads,
-                        int maxThreads) {
+                        int maxThreads,
+                        int socketBufferSize) {
         this.port = port;
+        this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
         this.storeMap = storeMap;
         this.threadPool = new ThreadPoolExecutor(defaultThreads,
@@ -108,12 +111,11 @@ public class SocketServer extends Thread {
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
+            serverSocket.setReceiveBufferSize(this.socketBufferSize);
             isStarted.countDown();
             while(!isInterrupted() && !serverSocket.isClosed()) {
                 final Socket socket = serverSocket.accept();
-                socket.setReceiveBufferSize(30000);
-                socket.setSendBufferSize(30000);
-                socket.setTcpNoDelay(true);
+                configureSocket(socket);
                 this.threadPool.execute(new SocketServerSession(socket));
             }
         } catch(BindException e) {
@@ -135,6 +137,17 @@ public class SocketServer extends Thread {
             }
 
         }
+    }
+
+    private void configureSocket(Socket socket) throws SocketException {
+        socket.setTcpNoDelay(true);
+        socket.setSendBufferSize(this.socketBufferSize);
+        if(socket.getReceiveBufferSize() != this.socketBufferSize)
+            logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
+                         + " bytes but actual size is " + socket.getReceiveBufferSize() + " bytes.");
+        if(socket.getSendBufferSize() != this.socketBufferSize)
+            logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                         + " bytes but actual size is " + socket.getSendBufferSize() + " bytes.");
     }
 
     public void shutdown() {

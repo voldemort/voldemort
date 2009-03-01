@@ -37,7 +37,10 @@ public class SocketPool {
     private final KeyedObjectPool pool;
     private final SocketPoolableObjectFactory objFactory;
 
-    public SocketPool(int maxConnectionsPerNode, int maxTotalConnections, int timeoutMs) {
+    public SocketPool(int maxConnectionsPerNode,
+                      int maxTotalConnections,
+                      int timeoutMs,
+                      int socketBufferSize) {
         GenericKeyedObjectPool.Config config = new GenericKeyedObjectPool.Config();
         config.maxActive = maxConnectionsPerNode;
         config.maxTotal = maxTotalConnections;
@@ -47,7 +50,7 @@ public class SocketPool {
         config.testOnReturn = true;
         config.minEvictableIdleTimeMillis = 200 * 1000;
         config.whenExhaustedAction = GenericKeyedObjectPool.WHEN_EXHAUSTED_BLOCK;
-        this.objFactory = new SocketPoolableObjectFactory(timeoutMs);
+        this.objFactory = new SocketPoolableObjectFactory(timeoutMs, socketBufferSize);
         this.pool = new GenericKeyedObjectPool(objFactory, config);
     }
 

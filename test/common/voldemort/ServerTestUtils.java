@@ -70,14 +70,15 @@ public class ServerTestUtils {
         SocketServer socketServer = new SocketServer(getStores(storeName, clusterXml, storesXml),
                                                      port,
                                                      5,
-                                                     10);
+                                                     10,
+                                                     10000);
         socketServer.start();
         socketServer.awaitStartupCompletion();
         return socketServer;
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
-        SocketPool socketPool = new SocketPool(1, 2, 1000);
+        SocketPool socketPool = new SocketPool(1, 2, 1000, 32 * 1024);
         return new SocketStore(storeName, "localhost", port, socketPool);
     }
 

@@ -103,7 +103,8 @@ public class VoldemortServer extends AbstractService {
                                            storeMap,
                                            identityNode.getSocketPort(),
                                            voldemortConfig.getCoreThreads(),
-                                           voldemortConfig.getMaxThreads()));
+                                           voldemortConfig.getMaxThreads(),
+                                           voldemortConfig.getSocketBufferSize()));
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService("jmx-service", this, cluster, storeMap, services));
 

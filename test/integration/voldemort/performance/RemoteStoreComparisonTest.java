@@ -85,9 +85,9 @@ public class RemoteStoreComparisonTest {
         String storeName = "test";
         ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
         stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
-        SocketPool socketPool = new SocketPool(10, 10, 1000);
+        SocketPool socketPool = new SocketPool(10, 10, 1000, 32 * 1024);
         final SocketStore socketStore = new SocketStore(storeName, "localhost", 6666, socketPool);
-        SocketServer socketServer = new SocketServer(stores, 6666, 50, 50);
+        SocketServer socketServer = new SocketServer(stores, 6666, 50, 50, 1000);
         socketServer.start();
         socketServer.awaitStartupCompletion();
 

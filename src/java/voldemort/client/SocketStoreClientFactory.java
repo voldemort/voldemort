@@ -47,6 +47,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     public static final int DEFAULT_MAX_QUEUED_REQUESTS = 1000;
     public static final int DEFAULT_MAX_CONNECTIONS_PER_NODE = 10;
     public static final int DEFAULT_MAX_CONNECTIONS = 50;
+    public static final int DEFAULT_SOCKET_BUFFER_SIZE = 32 * 1024;
 
     private SocketPool socketPool;
 
@@ -127,7 +128,24 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super(service, serializerFactory, routingTimeoutMs, defaultNodeBannageMs, boostrapUrls);
         this.socketPool = new SocketPool(maxConnectionsPerNode,
                                          maxTotalConnections,
-                                         socketTimeoutMs);
+                                         socketTimeoutMs,
+                                         DEFAULT_SOCKET_BUFFER_SIZE);
+    }
+
+    public SocketStoreClientFactory(ExecutorService service,
+                                    int maxConnectionsPerNode,
+                                    int maxTotalConnections,
+                                    int socketTimeoutMs,
+                                    int routingTimeoutMs,
+                                    int defaultNodeBannageMs,
+                                    int socketBufferSize,
+                                    SerializerFactory serializerFactory,
+                                    String... boostrapUrls) {
+        super(service, serializerFactory, routingTimeoutMs, defaultNodeBannageMs, boostrapUrls);
+        this.socketPool = new SocketPool(maxConnectionsPerNode,
+                                         maxTotalConnections,
+                                         socketTimeoutMs,
+                                         socketBufferSize);
     }
 
     @Override

@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
 import voldemort.store.socket.SocketAndStreams;
@@ -35,13 +36,19 @@ public class SocketPoolTest extends TestCase {
     private int port = 8567;
     private int maxConnections = 3;
     private SocketPool pool;
-    private SocketDestination dest;
+    private SocketDestination dest1;
+    private SocketDestination dest2;
     private SocketServer server;
 
     public void setUp() {
-        this.pool = new SocketPool(maxConnections, maxConnections, 2000);
-        this.dest = new SocketDestination("localhost", port);
-        this.server = new SocketServer(new ConcurrentHashMap(), port, 10, 10);
+        this.pool = new SocketPool(maxConnections, maxConnections, 1000, 32 * 1024);
+        this.dest1 = new SocketDestination("localhost", port);
+        this.dest2 = new SocketDestination("localhost", port);
+        this.server = new SocketServer(new ConcurrentHashMap(),
+                                       port,
+                                       maxConnections,
+                                       maxConnections,
+                                       10000);
         this.server.start();
         this.server.awaitStartupCompletion();
     }
@@ -52,38 +59,40 @@ public class SocketPoolTest extends TestCase {
     }
 
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest);
-        pool.checkin(dest, sas1);
-        SocketAndStreams sas2 = pool.checkout(dest);
+        SocketAndStreams sas1 = pool.checkout(dest1);
+        pool.checkin(dest1, sas1);
+        SocketAndStreams sas2 = pool.checkout(dest1);
         assertTrue(sas1 == sas2);
     }
 
     public void testClosingSocketDeactivates() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest);
+        SocketAndStreams sas1 = pool.checkout(dest1);
         sas1.getSocket().close();
-        pool.checkin(dest, sas1);
-        SocketAndStreams sas2 = pool.checkout(dest);
+        pool.checkin(dest1, sas1);
+        SocketAndStreams sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
     }
 
     public void testClosingStreamDeactivates() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest);
+        SocketAndStreams sas1 = pool.checkout(dest1);
         sas1.getOutputStream().close();
-        pool.checkin(dest, sas1);
-        SocketAndStreams sas2 = pool.checkout(dest);
+        pool.checkin(dest1, sas1);
+        SocketAndStreams sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
     }
 
     public void testNoChurn() throws Exception {
         ExecutorService service = Executors.newFixedThreadPool(10);
         int numRequests = 1000;
+        final AtomicInteger curr = new AtomicInteger(0);
         final CountDownLatch latch = new CountDownLatch(numRequests);
         for(int i = 0; i < numRequests; i++) {
             service.execute(new Runnable() {
 
                 public void run() {
+                    SocketDestination dest = curr.getAndIncrement() % 2 == 0 ? dest1 : dest2;
                     SocketAndStreams sas = pool.checkout(dest);
-                    pool.checkin(dest, sas);
+                    pool.checkin(dest1, sas);
                     latch.countDown();
                 }
             });

@@ -66,12 +66,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
+    private final URI[] bootstrapUrls;
     private final long routingTimeoutMs;
     private final long nodeBannageMs;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
-    private final URI[] bootstrapUrls;
-    private final boolean enableVerboseLogging = true;
+    private final boolean enableVerboseLogging;
 
     public AbstractStoreClientFactory(ExecutorService threadPool,
                                       SerializerFactory serializerFactory,
@@ -83,6 +83,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.bootstrapUrls = validateUrls(bootstrapUrls);
         this.routingTimeoutMs = routingTimeoutMs;
         this.nodeBannageMs = nodeBannageMs;
+        this.enableVerboseLogging = true;
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -210,6 +211,22 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected ExecutorService getThreadPool() {
         return this.threadPool;
+    }
+
+    public long getRoutingTimeoutMs() {
+        return routingTimeoutMs;
+    }
+
+    public long getNodeBannageMs() {
+        return nodeBannageMs;
+    }
+
+    public SerializerFactory getSerializerFactory() {
+        return serializerFactory;
+    }
+
+    public boolean isEnableVerboseLogging() {
+        return enableVerboseLogging;
     }
 
 }
