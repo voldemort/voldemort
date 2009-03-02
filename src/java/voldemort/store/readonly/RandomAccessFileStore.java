@@ -48,11 +48,11 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 
 /**
@@ -116,7 +116,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         this.numBackups = numBackups;
         this.indexFile = new File(storageDir, name + ".index");
         this.dataFile = new File(storageDir, name + ".data");
-        this.name = Objects.nonNull(name);
+        this.name = Utils.notNull(name);
         this.fdWaitTimeoutMs = fdWaitTimeoutMs;
         this.dataFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
         this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);

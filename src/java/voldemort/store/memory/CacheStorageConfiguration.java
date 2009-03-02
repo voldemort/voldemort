@@ -17,6 +17,7 @@
 package voldemort.store.memory;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -24,8 +25,7 @@ import voldemort.store.StorageEngineType;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.ReferenceType;
-import com.google.common.collect.ReferenceMap;
+import com.google.common.collect.MapMaker;
 
 /**
  * Identical to the InMemoryStorageConfiguration except that it creates google
@@ -40,8 +40,8 @@ public class CacheStorageConfiguration implements StorageConfiguration {
     public void close() {}
 
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        ReferenceMap<ByteArray, List<Versioned<byte[]>>> backingMap = new ReferenceMap<ByteArray, List<Versioned<byte[]>>>(ReferenceType.STRONG,
-                                                                                                                           ReferenceType.SOFT);
+        ConcurrentMap<ByteArray, List<Versioned<byte[]>>> backingMap = new MapMaker().softValues()
+                                                                                     .makeMap();
         return new InMemoryStorageEngine<ByteArray, byte[]>(name, backingMap);
     }
 

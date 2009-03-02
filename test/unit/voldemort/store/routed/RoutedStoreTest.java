@@ -36,12 +36,12 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
 
 /**
@@ -119,7 +119,7 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
         int count = 0;
         for(Store<ByteArray, byte[]> store: routedStore.getInnerStores().values())
             try {
-                if(store.get(key).size() > 0 && Objects.deepEquals(store.get(key).get(0), value))
+                if(store.get(key).size() > 0 && Utils.deepEquals(store.get(key).get(0), value))
                     count += 1;
             } catch(VoldemortException e) {
                 // This is normal for the failing store...

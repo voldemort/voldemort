@@ -121,7 +121,7 @@ public class Slop {
         Slop slop = (Slop) obj;
 
         return operation == slop.getOperation() && Objects.equal(storeName, getStoreName())
-               && key.equals(slop.getKey()) && Objects.deepEquals(value, slop.getValue())
+               && key.equals(slop.getKey()) && Utils.deepEquals(value, slop.getValue())
                && nodeId == slop.getNodeId() && Objects.equal(arrived, slop.getArrived());
     }
 

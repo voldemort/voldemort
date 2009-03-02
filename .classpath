@@ -17,7 +17,6 @@
 	<classpathentry kind="lib" path="lib/commons-lang-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/commons-logging.jar"/>
 	<classpathentry kind="lib" path="lib/commons-pool-1.4.jar"/>
-	<classpathentry kind="lib" path="lib/google-collect-snapshot-20080530.jar" sourcepath="lib/src/google-collections-src-snapshot-20080530.zip"/>
 	<classpathentry kind="lib" path="lib/jdom.jar"/>
 	<classpathentry kind="lib" path="lib/je-3.3.62.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-6.1.6rc0.jar"/>
@@ -34,5 +33,6 @@
 	<classpathentry kind="lib" path="contrib/batch-indexer/lib/commons-cli-2.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.0.3.jar"/>
 	<classpathentry kind="lib" path="lib/libthrift-20080411p1.jar"/>
+	<classpathentry kind="lib" path="lib/google-collect-snapshot-20090211.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

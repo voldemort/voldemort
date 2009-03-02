@@ -18,7 +18,7 @@ package voldemort.utils;
 
 import java.util.Iterator;
 
-import com.google.common.collect.AbstractIterable;
+import com.google.common.collect.Iterables;
 
 /**
  * An iterable that always produces the given iterator
@@ -26,7 +26,7 @@ import com.google.common.collect.AbstractIterable;
  * @author jay
  * 
  */
-public class DefaultIterable<V> extends AbstractIterable<V> {
+public class DefaultIterable<V> implements Iterable<V> {
 
     private final Iterator<V> iterator;
 
@@ -38,4 +38,8 @@ public class DefaultIterable<V> extends AbstractIterable<V> {
         return this.iterator;
     }
 
+    @Override
+    public String toString() {
+        return Iterables.toString(this);
+    }
 }

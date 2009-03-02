@@ -19,6 +19,8 @@ package voldemort.versioning;
 import java.io.Serializable;
 import java.util.Comparator;
 
+import voldemort.utils.Utils;
+
 import com.google.common.base.Objects;
 
 /**
@@ -65,7 +67,7 @@ public final class Versioned<T> implements Serializable {
 
         Versioned versioned = (Versioned) object;
         return Objects.equal(getVersion(), versioned.getVersion())
-               && Objects.deepEquals(getValue(), versioned.getValue());
+               && Utils.deepEquals(getValue(), versioned.getValue());
     }
 
     @Override
