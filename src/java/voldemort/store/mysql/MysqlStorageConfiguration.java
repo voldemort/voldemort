@@ -16,10 +16,11 @@
 
 package voldemort.store.mysql;
 
-import javax.sql.DataSource;
+import java.sql.SQLException;
 
 import org.apache.commons.dbcp.BasicDataSource;
 
+import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -28,7 +29,7 @@ import voldemort.utils.ByteArray;
 
 public class MysqlStorageConfiguration implements StorageConfiguration {
 
-    private DataSource dataSource;
+    private BasicDataSource dataSource;
 
     public MysqlStorageConfiguration(VoldemortConfig config) {
         BasicDataSource ds = new BasicDataSource();
@@ -48,6 +49,12 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         return StorageEngineType.MYSQL;
     }
 
-    public void close() {}
+    public void close() {
+        try {
+            this.dataSource.close();
+        } catch(SQLException e) {
+            throw new VoldemortException("Exception while closing connection pool.", e);
+        }
+    }
 
 }
