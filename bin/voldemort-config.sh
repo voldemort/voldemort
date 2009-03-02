@@ -1,7 +1,6 @@
-#!/bin/bash
 
 #
-#   Copyright 2008-2009 LinkedIn, Inc
+#   Copyright 2008-2009 bebo, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -16,10 +15,27 @@
 #  limitations under the License.
 #
 
-if [ $# -ne 4 ];
-then
-  echo 'USAGE: bin/voldemort-remote-test.sh bootstrap-url num-requests value-size start-number'
-  exit 1
-fi
+# Standard include defining ways to determine VOLDEMORT_HOME, etc.
 
-bin/run-wrapper.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4}
+#export VOL_SSH_OPTS=""
+
+this="$0"
+while [ -h "$this" ]; do
+  ls=`ls -ld "$this"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '.*/.*' > /dev/null; then
+    this="$link"
+  else
+    this=`dirname "$this"`/"$link"
+  fi
+done
+
+# convert relative path to absolute path
+bin=`dirname "$this"`
+script=`basename "$this"`
+bin=`cd "$bin"; pwd`
+this="$bin/$script"
+
+export VOL_HOME=`dirname "$this"`/..
+export VOL_CONF_DIR="$VOL_HOME"
+

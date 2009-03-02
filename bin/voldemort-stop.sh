@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-#   Copyright 2008-2009 LinkedIn, Inc
+#   Copyright 2008-2009 bebo, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -16,10 +16,27 @@
 #  limitations under the License.
 #
 
-if [ $# -ne 4 ];
+usage="Usage: voldemort-stop.sh"
+
+bin=`dirname "$0"`
+bin=`cd "$bin"; pwd`
+
+.  "$bin/voldemort-config.sh"
+
+if [ "$#" != "0" ]
 then
-  echo 'USAGE: bin/voldemort-remote-test.sh bootstrap-url num-requests value-size start-number'
-  exit 1
+	echo $usage
+	exit 1
 fi
 
-bin/run-wrapper.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4}
+pids=`ps xwww | grep voldemort.server.VoldemortServe[r] | awk '{print $1}'`
+
+if [ "$pids" != "" ]
+then
+	echo $(hostname)': Stopping Voldemort...'
+	kill $pids
+	exit 0
+fi 
+
+echo $(hostname)': Voldemort Server not running!'
+exit 1
