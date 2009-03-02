@@ -18,6 +18,7 @@ package voldemort.store.bdb;
 
 import java.io.File;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 
@@ -30,7 +31,6 @@ import voldemort.store.StorageInitializationException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
-import com.google.common.collect.Maps;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
@@ -48,11 +48,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
 
-    private Environment environment;
-    private EnvironmentConfig environmentConfig;
-    private DatabaseConfig databaseConfig;
-    private boolean isInitialized = false;
-    private Map<String, BdbStorageEngine> stores = Maps.newHashMap();
+    private final Object lock = new Object();
+    private final Environment environment;
+    private final EnvironmentConfig environmentConfig;
+    private final DatabaseConfig databaseConfig;
+    private final Map<String, BdbStorageEngine> stores = new ConcurrentHashMap<String, BdbStorageEngine>();
 
     public BdbStorageConfiguration(VoldemortConfig config) {
         try {
@@ -88,26 +88,24 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 bdbDir.mkdirs();
             }
             environment = new Environment(bdbDir, environmentConfig);
-            isInitialized = true;
         } catch(DatabaseException e) {
             throw new StorageInitializationException(e);
         }
     }
 
-    public synchronized StorageEngine<ByteArray, byte[]> getStore(String storeName) {
-        if(!isInitialized)
-            throw new StorageInitializationException("Attempt to get store for uninitialized storage configuration!");
-
-        if(stores.containsKey(storeName)) {
-            return stores.get(storeName);
-        } else {
-            try {
-                Database db = environment.openDatabase(null, storeName, databaseConfig);
-                BdbStorageEngine engine = new BdbStorageEngine(storeName, environment, db);
-                stores.put(storeName, engine);
-                return engine;
-            } catch(DatabaseException d) {
-                throw new StorageInitializationException(d);
+    public StorageEngine<ByteArray, byte[]> getStore(String storeName) {
+        synchronized(lock) {
+            if(stores.containsKey(storeName)) {
+                return stores.get(storeName);
+            } else {
+                try {
+                    Database db = environment.openDatabase(null, storeName, databaseConfig);
+                    BdbStorageEngine engine = new BdbStorageEngine(storeName, environment, db);
+                    stores.put(storeName, engine);
+                    return engine;
+                } catch(DatabaseException d) {
+                    throw new StorageInitializationException(d);
+                }
             }
         }
     }
@@ -117,11 +115,13 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     }
 
     public void close() {
-        try {
-            this.environment.sync();
-            this.environment.close();
-        } catch(DatabaseException e) {
-            throw new VoldemortException(e);
+        synchronized(lock) {
+            try {
+                this.environment.sync();
+                this.environment.close();
+            } catch(DatabaseException e) {
+                throw new VoldemortException(e);
+            }
         }
     }
 
