@@ -25,7 +25,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -41,13 +43,17 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 
 /**
  * A read-only store that fronts a big file
@@ -55,9 +61,16 @@ import com.google.common.base.Objects;
  * @author jay
  * 
  */
-public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
+public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
     private static Logger logger = Logger.getLogger(RandomAccessFileStore.class);
+
+    private static final Comparator<Pair<ByteArray, Long>> KEYS_AND_VALUES_COMPARATOR = new Comparator<Pair<ByteArray, Long>>() {
+
+        public int compare(Pair<ByteArray, Long> o1, Pair<ByteArray, Long> o2) {
+            return o1.getSecond().compareTo(o2.getSecond());
+        }
+    };
 
     public static int KEY_HASH_SIZE = 16;
     public static int POSITION_SIZE = 8;
@@ -286,7 +299,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
         }
     }
 
-    public ClosableIterator<Entry<byte[], Versioned<byte[]>>> entries() {
+    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
         throw new UnsupportedOperationException("Iteration is not supported for "
                                                 + getClass().getName());
     }
@@ -294,23 +307,40 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     /**
      * The get method provided by this store
      */
-    public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        return StoreUtils.get(this, key);
+    }
+
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
         RandomAccessFile index = null;
         RandomAccessFile data = null;
         try {
             fileModificationLock.readLock().lock();
             index = getFile(indexFiles);
-            long valueLocation = getValueLocation(index, key);
-            if(valueLocation < 0) {
-                return Collections.emptyList();
-            } else {
+            List<Pair<ByteArray, Long>> keysAndValueLocations = Lists.newArrayList();
+            for(ByteArray key: keys) {
+                long valueLocation = getValueLocation(index, key.get());
+                if(valueLocation < 0)
+                    result.put(key, Collections.<Versioned<byte[]>> emptyList());
+                else
+                    keysAndValueLocations.add(Pair.create(key, valueLocation));
+            }
+            Collections.sort(keysAndValueLocations, KEYS_AND_VALUES_COMPARATOR);
+
+            for(Pair<ByteArray, Long> keyAndValueLocation: keysAndValueLocations) {
                 data = getFile(dataFiles);
-                data.seek(valueLocation);
+                data.seek(keyAndValueLocation.getSecond());
                 int size = data.readInt();
                 byte[] value = new byte[size];
                 data.readFully(value);
-                return Collections.singletonList(new Versioned<byte[]>(value, new VectorClock()));
+                result.put(keyAndValueLocation.getFirst(),
+                           Collections.singletonList(new Versioned<byte[]>(value, new VectorClock())));
             }
+            return result;
         } catch(InterruptedException e) {
             throw new VoldemortException("Thread was interrupted.", e);
         } catch(IOException e) {
@@ -337,22 +367,24 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
 
     public void preloadCache() {
         logger.info("Starting cache preloading...");
-        try {
-            this.fileModificationLock.readLock().lock();
-            RandomAccessFile index = this.getFile(this.indexFiles);
-            preloadCache(index,
-                         0,
-                         0L,
-                         this.indexFileSize / INDEX_ENTRY_SIZE - 1,
-                         1,
-                         this.maxCacheDepth);
-            logger.info("Cache loading complete.");
-        } catch(IOException e) {
-            throw new PersistenceFailureException(e);
-        } catch(InterruptedException e) {
-            throw new VoldemortException(e);
-        } finally {
-            this.fileModificationLock.readLock().unlock();
+        if(this.indexFileSize > 0) {
+            try {
+                this.fileModificationLock.readLock().lock();
+                RandomAccessFile index = this.getFile(this.indexFiles);
+                preloadCache(index,
+                             0,
+                             0L,
+                             Math.max(0, this.indexFileSize / INDEX_ENTRY_SIZE - 1),
+                             1,
+                             this.maxCacheDepth);
+                logger.info("Cache loading complete.");
+            } catch(IOException e) {
+                throw new PersistenceFailureException(e);
+            } catch(InterruptedException e) {
+                throw new VoldemortException(e);
+            } finally {
+                this.fileModificationLock.readLock().unlock();
+            }
         }
     }
 
@@ -362,6 +394,7 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
                              long high,
                              int currentDepth,
                              int maxDepth) throws IOException {
+
         long mid = (low + high) / 2;
 
         // go left if we aren't too deep and we aren't at a leaf
@@ -456,14 +489,14 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     /**
      * Not supported, throws UnsupportedOperationException if called
      */
-    public boolean delete(byte[] key, Version version) throws VoldemortException {
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
     }
 
     /**
      * Not supported, throws UnsupportedOperationException if called
      */
-    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
     }
 
@@ -491,5 +524,4 @@ public class RandomAccessFileStore implements StorageEngine<byte[], byte[]> {
     public String getIndexFileName() {
         return this.indexFile.getAbsolutePath();
     }
-
 }

@@ -39,7 +39,7 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Cluster;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
-import voldemort.serialization.IdentitySerializer;
+import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
 import voldemort.server.VoldemortConfig;
@@ -62,6 +62,7 @@ import voldemort.store.serialized.SerializingStore;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopDetectingStore;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -79,24 +80,24 @@ public class StorageService extends AbstractService {
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
 
     private final VoldemortConfig voldemortConfig;
-    private final ConcurrentMap<String, Store<byte[], byte[]>> localStoreMap;
-    private final Map<String, StorageEngine<byte[], byte[]>> rawEngines;
+    private final ConcurrentMap<String, Store<ByteArray, byte[]>> localStoreMap;
+    private final Map<String, StorageEngine<ByteArray, byte[]>> rawEngines;
     private final ConcurrentMap<StorageEngineType, StorageConfiguration> storageConfigurations;
     private final StoreDefinitionsMapper storeMapper;
     private final SchedulerService scheduler;
     private final Map<String, RandomAccessFileStore> readOnlyStores;
     private MetadataStore metadataStore;
-    private Store<byte[], Slop> slopStore;
+    private Store<ByteArray, Slop> slopStore;
 
     public StorageService(String name,
-                          ConcurrentMap<String, Store<byte[], byte[]>> storeMap,
+                          ConcurrentMap<String, Store<ByteArray, byte[]>> storeMap,
                           SchedulerService scheduler,
                           VoldemortConfig config) {
         super(name);
         this.voldemortConfig = config;
         this.storeMapper = new StoreDefinitionsMapper();
         this.localStoreMap = storeMap;
-        this.rawEngines = new ConcurrentHashMap<String, StorageEngine<byte[], byte[]>>();
+        this.rawEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
         this.scheduler = scheduler;
         this.storageConfigurations = initStorageConfigurations(config);
         this.metadataStore = new MetadataStore(new File(config.getMetadataDirectory()), storeMap);
@@ -127,10 +128,10 @@ public class StorageService extends AbstractService {
     protected void startInner() {
         this.localStoreMap.clear();
         this.localStoreMap.put(MetadataStore.METADATA_STORE_NAME, metadataStore);
-        Store<byte[], byte[]> slopStorage = getStore("slop", voldemortConfig.getSlopStoreType());
-        this.slopStore = new SerializingStore<byte[], Slop>(slopStorage,
-                                                            new IdentitySerializer(),
-                                                            new SlopSerializer());
+        Store<ByteArray, byte[]> slopStorage = getStore("slop", voldemortConfig.getSlopStoreType());
+        this.slopStore = new SerializingStore<ByteArray, Slop>(slopStorage,
+                                                               new ByteArraySerializer(),
+                                                               new SlopSerializer());
         Cluster cluster = this.metadataStore.getCluster();
         List<StoreDefinition> storeDefs = this.metadataStore.getStores();
         logger.info("Initializing stores:");
@@ -138,14 +139,14 @@ public class StorageService extends AbstractService {
         for(StoreDefinition def: storeDefs) {
             if(!def.getName().equals(MetadataStore.METADATA_STORE_NAME)) {
                 logger.info("Opening store '" + def.getName() + "'.");
-                StorageEngine<byte[], byte[]> engine = getStore(def.getName(), def.getType());
+                StorageEngine<ByteArray, byte[]> engine = getStore(def.getName(), def.getType());
                 rawEngines.put(engine.getName(), engine);
 
                 if(def.getType().equals(StorageEngineType.READONLY))
                     this.readOnlyStores.put(engine.getName(), (RandomAccessFileStore) engine);
 
                 /* Now add any store wrappers that are enabled */
-                Store<byte[], byte[]> store = engine;
+                Store<ByteArray, byte[]> store = engine;
                 if(voldemortConfig.isSlopDetectionEnabled()) {
                     RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
                                                                                     def.getReplicationFactor());
@@ -156,9 +157,9 @@ public class StorageService extends AbstractService {
                                                    routingStrategy);
                 }
                 if(voldemortConfig.isVerboseLoggingEnabled())
-                    store = new LoggingStore<byte[], byte[]>(store, cluster.getName(), time);
+                    store = new LoggingStore<ByteArray, byte[]>(store, cluster.getName(), time);
                 if(voldemortConfig.isStatTrackingEnabled())
-                    store = new StatTrackingStore<byte[], byte[]>(store);
+                    store = new StatTrackingStore<ByteArray, byte[]>(store);
                 this.localStoreMap.put(def.getName(), store);
             }
         }
@@ -168,7 +169,7 @@ public class StorageService extends AbstractService {
     }
 
     private void scheduleCleanupJobs(List<StoreDefinition> storeDefs,
-                                     Map<String, StorageEngine<byte[], byte[]>> engines) {
+                                     Map<String, StorageEngine<ByteArray, byte[]>> engines) {
         // Schedule data retention cleanup jobs
         GregorianCalendar cal = new GregorianCalendar();
         cal.add(Calendar.DAY_OF_YEAR, 1);
@@ -184,18 +185,18 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod()) {
                 logger.info("Scheduling data retention cleanup job for store '"
                             + storeDef.getName() + "' at " + startTime + ".");
-                StorageEngine<byte[], byte[]> engine = engines.get(storeDef.getName());
-                Runnable cleanupJob = new DataCleanupJob<byte[], byte[]>(engine,
-                                                                         cleanupPermits,
-                                                                         storeDef.getRetentionDays()
-                                                                                 * Time.MS_PER_DAY,
-                                                                         SystemTime.INSTANCE);
+                StorageEngine<ByteArray, byte[]> engine = engines.get(storeDef.getName());
+                Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
+                                                                            cleanupPermits,
+                                                                            storeDef.getRetentionDays()
+                                                                                    * Time.MS_PER_DAY,
+                                                                            SystemTime.INSTANCE);
                 this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
             }
         }
     }
 
-    private StorageEngine<byte[], byte[]> getStore(String name, StorageEngineType type) {
+    private StorageEngine<ByteArray, byte[]> getStore(String name, StorageEngineType type) {
         StorageConfiguration config = storageConfigurations.get(type);
         if(config == null)
             throw new ConfigurationException("Attempt to open store " + name + " but " + type
@@ -219,7 +220,7 @@ public class StorageService extends AbstractService {
         }
         VoldemortException exception = null;
         logger.info("Closing stores:");
-        for(Store<byte[], byte[]> s: this.localStoreMap.values()) {
+        for(Store<ByteArray, byte[]> s: this.localStoreMap.values()) {
             try {
                 logger.info("Closing store '" + s.getName() + "'.");
                 s.close();
@@ -247,7 +248,7 @@ public class StorageService extends AbstractService {
         logger.info("All stores closed.");
     }
 
-    public ConcurrentMap<String, Store<byte[], byte[]>> getLocalStoreMap() {
+    public ConcurrentMap<String, Store<ByteArray, byte[]>> getLocalStoreMap() {
         return localStoreMap;
     }
 
@@ -274,7 +275,7 @@ public class StorageService extends AbstractService {
         return this.readOnlyStores;
     }
 
-    public Store<byte[], Slop> getSlopStore() {
+    public Store<ByteArray, Slop> getSlopStore() {
         return this.slopStore;
     }
 

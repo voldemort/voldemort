@@ -20,6 +20,7 @@ import java.util.List;
 
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 /**
@@ -38,24 +39,25 @@ public class CacheStorageEngineTest extends InMemoryStorageEngineTest {
         System.gc();
     }
 
-    public StorageEngine<byte[], byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
         return new CacheStorageConfiguration().getStore("test");
     }
 
     public void testNoPressureBehavior() {
-        StorageEngine<byte[], byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
         byte[] bytes = "abc".getBytes();
-        engine.put(bytes, new Versioned<byte[]>(bytes));
-        List<Versioned<byte[]>> found = engine.get(bytes);
+        ByteArray key = new ByteArray(bytes);
+        engine.put(key, new Versioned<byte[]>(bytes));
+        List<Versioned<byte[]>> found = engine.get(key);
         assertEquals(1, found.size());
     }
 
     public void testHighMemoryCollection() {
         long maxMemory = Runtime.getRuntime().maxMemory();
         int objectSize = Math.max((int) maxMemory / NUM_OBJECTS, 1);
-        StorageEngine<byte[], byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
         for(int i = 0; i < NUM_OBJECTS; i++)
-            engine.put(Integer.toString(i).getBytes(),
+            engine.put(ByteArray.valueOf(Integer.toString(i)),
                        new Versioned<byte[]>(TestUtils.randomBytes(objectSize)));
     }
 

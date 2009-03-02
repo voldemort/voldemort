@@ -34,6 +34,7 @@ import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
 import voldemort.utils.Props;
@@ -53,20 +54,20 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                          + "/cluster.xml"));
         HashFunction hasher = new FnvHashFunction();
         RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
-        Map<Integer, Store<byte[], byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
         for(Node node: cluster.getNodes())
             clientMapping.put(node.getId(), conf.getStore("test" + node.getId()));
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
-        Store<byte[], byte[]> store = new RoutedStore("test",
-                                                      clientMapping,
-                                                      routingStrategy,
-                                                      1,
-                                                      1,
-                                                      10,
-                                                      true,
-                                                      10000L);
+        Store<ByteArray, byte[]> store = new RoutedStore("test",
+                                                         clientMapping,
+                                                         routingStrategy,
+                                                         1,
+                                                         1,
+                                                         10,
+                                                         true,
+                                                         10000L);
         Store<String, String> serializingStore = new SerializingStore<String, String>(store,
                                                                                       new StringSerializer(),
                                                                                       new StringSerializer());

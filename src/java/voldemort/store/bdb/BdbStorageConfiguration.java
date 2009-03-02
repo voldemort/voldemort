@@ -27,6 +27,7 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
 import voldemort.store.StorageInitializationException;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Maps;
@@ -93,7 +94,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    public synchronized StorageEngine<byte[], byte[]> getStore(String storeName) {
+    public synchronized StorageEngine<ByteArray, byte[]> getStore(String storeName) {
         if(!isInitialized)
             throw new StorageInitializationException("Attempt to get store for uninitialized storage configuration!");
 

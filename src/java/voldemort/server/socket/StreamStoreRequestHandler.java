@@ -26,6 +26,7 @@ import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -40,11 +41,11 @@ public class StreamStoreRequestHandler {
 
     private final DataInputStream inputStream;
     private final DataOutputStream outputStream;
-    private final ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap;
+    private final ConcurrentMap<String, ? extends Store<ByteArray, byte[]>> storeMap;
 
     private ErrorCodeMapper errorMapper = new ErrorCodeMapper();
 
-    public StreamStoreRequestHandler(ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap,
+    public StreamStoreRequestHandler(ConcurrentMap<String, ? extends Store<ByteArray, byte[]>> storeMap,
                                      DataInputStream inputStream,
                                      DataOutputStream outputStream) {
         this.inputStream = inputStream;
@@ -56,9 +57,9 @@ public class StreamStoreRequestHandler {
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
         int keySize = inputStream.readInt();
-        byte[] key = new byte[keySize];
-        ByteUtils.read(inputStream, key);
-        Store<byte[], byte[]> store = storeMap.get(storeName);
+        ByteArray key = new ByteArray(new byte[keySize]);
+        ByteUtils.read(inputStream, key.get());
+        Store<ByteArray, byte[]> store = storeMap.get(storeName);
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName
                                                                 + "'."));
@@ -80,7 +81,7 @@ public class StreamStoreRequestHandler {
         outputStream.flush();
     }
 
-    private void handleGet(Store<byte[], byte[]> store, byte[] key) throws IOException {
+    private void handleGet(Store<ByteArray, byte[]> store, ByteArray key) throws IOException {
         List<Versioned<byte[]>> results = null;
         try {
             results = store.get(key);
@@ -100,7 +101,7 @@ public class StreamStoreRequestHandler {
         }
     }
 
-    private void handlePut(Store<byte[], byte[]> store, byte[] key) throws IOException {
+    private void handlePut(Store<ByteArray, byte[]> store, ByteArray key) throws IOException {
         int valueSize = inputStream.readInt();
         byte[] bytes = new byte[valueSize];
         ByteUtils.read(inputStream, bytes);
@@ -114,7 +115,7 @@ public class StreamStoreRequestHandler {
         }
     }
 
-    private void handleDelete(Store<byte[], byte[]> store, byte[] key) throws IOException {
+    private void handleDelete(Store<ByteArray, byte[]> store, ByteArray key) throws IOException {
         int versionSize = inputStream.readShort();
         byte[] versionBytes = new byte[versionSize];
         ByteUtils.read(inputStream, versionBytes);

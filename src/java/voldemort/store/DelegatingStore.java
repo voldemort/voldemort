@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.utils.Utils;
@@ -47,6 +48,11 @@ public class DelegatingStore<K, V> implements Store<K, V> {
     public boolean delete(K key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return innerStore.delete(key, version);
+    }
+
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        return innerStore.getAll(keys);
     }
 
     public List<Versioned<V>> get(K key) throws VoldemortException {

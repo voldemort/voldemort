@@ -26,6 +26,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
@@ -44,13 +45,13 @@ public class RebalancingJob implements Runnable {
 
     private final int localNodeId;
     private final RoutingStrategy routingStrategy;
-    private final Map<String, StorageEngine<byte[], byte[]>> localEngines;
-    private final Map<String, Store<byte[], byte[]>> remoteStores;
+    private final Map<String, StorageEngine<ByteArray, byte[]>> localEngines;
+    private final Map<String, Store<ByteArray, byte[]>> remoteStores;
 
     public RebalancingJob(int localNodeId,
                           RoutingStrategy routingStrategy,
-                          Map<String, StorageEngine<byte[], byte[]>> engines,
-                          Map<String, Store<byte[], byte[]>> remoteStores) {
+                          Map<String, StorageEngine<ByteArray, byte[]>> engines,
+                          Map<String, Store<ByteArray, byte[]>> remoteStores) {
         this.localNodeId = localNodeId;
         this.localEngines = engines;
         this.remoteStores = remoteStores;
@@ -61,14 +62,14 @@ public class RebalancingJob implements Runnable {
         logger.info("Rebalancing all keys...");
         int totalRebalanced = 0;
         long start = System.currentTimeMillis();
-        for(StorageEngine<byte[], byte[]> engine: localEngines.values()) {
+        for(StorageEngine<ByteArray, byte[]> engine: localEngines.values()) {
             logger.info("Rebalancing " + engine.getName());
-            Store<byte[], byte[]> remote = this.remoteStores.get(engine.getName());
-            ClosableIterator<Entry<byte[], Versioned<byte[]>>> iterator = engine.entries();
+            Store<ByteArray, byte[]> remote = this.remoteStores.get(engine.getName());
+            ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
             int rebalanced = 0;
             long currStart = System.currentTimeMillis();
             while(iterator.hasNext()) {
-                Entry<byte[], Versioned<byte[]>> entry = iterator.next();
+                Entry<ByteArray, Versioned<byte[]>> entry = iterator.next();
                 if(needsRebalancing(entry.getKey())) {
                     remote.put(entry.getKey(), entry.getValue());
                     engine.delete(entry.getKey(), entry.getValue().getVersion());
@@ -86,8 +87,8 @@ public class RebalancingJob implements Runnable {
         logger.info(totalRebalanced + " keys rebalanced in total.");
     }
 
-    private boolean needsRebalancing(byte[] key) {
-        List<Node> responsible = routingStrategy.routeRequest(key);
+    private boolean needsRebalancing(ByteArray key) {
+        List<Node> responsible = routingStrategy.routeRequest(key.get());
         for(Node n: responsible)
             if(n.getId() == localNodeId)
                 return false;

@@ -37,6 +37,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
@@ -58,13 +59,13 @@ public class VoldemortServer extends AbstractService {
     private final Cluster cluster;
     private final MetadataStore metadataStore;
     private final List<VoldemortService> services;
-    private final ConcurrentMap<String, Store<byte[], byte[]>> storeMap;
+    private final ConcurrentMap<String, Store<ByteArray, byte[]>> storeMap;
     private final VoldemortConfig voldemortConfig;
 
     public VoldemortServer(VoldemortConfig config) {
         super("voldemort-server");
         this.voldemortConfig = config;
-        this.storeMap = new ConcurrentHashMap<String, Store<byte[], byte[]>>();
+        this.storeMap = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()),
                                                storeMap);
         this.cluster = this.metadataStore.getCluster();
@@ -77,7 +78,7 @@ public class VoldemortServer extends AbstractService {
         this.voldemortConfig = new VoldemortConfig(props);
         this.cluster = cluster;
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
-        this.storeMap = new ConcurrentHashMap<String, Store<byte[], byte[]>>();
+        this.storeMap = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.services = createServices();
         this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()),
                                                storeMap);
@@ -194,7 +195,7 @@ public class VoldemortServer extends AbstractService {
         return null;
     }
 
-    public ConcurrentMap<String, Store<byte[], byte[]>> getStoreMap() {
+    public ConcurrentMap<String, Store<ByteArray, byte[]>> getStoreMap() {
         return storeMap;
     }
 

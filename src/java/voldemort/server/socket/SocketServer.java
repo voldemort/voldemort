@@ -41,6 +41,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 
 /**
  * A simple socket-based server for serving voldemort requests
@@ -55,7 +56,7 @@ public class SocketServer extends Thread {
     private final ExecutorService threadPool;
     private final Random random = new Random();
     private final int port;
-    private final ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap;
+    private final ConcurrentMap<String, ? extends Store<ByteArray, byte[]>> storeMap;
     private final ThreadGroup threadGroup;
     private final CountDownLatch isStarted = new CountDownLatch(1);
     private final int socketBufferSize;
@@ -87,7 +88,7 @@ public class SocketServer extends Thread {
         }
     };
 
-    public SocketServer(ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap,
+    public SocketServer(ConcurrentMap<String, ? extends Store<ByteArray, byte[]>> storeMap,
                         int port,
                         int defaultThreads,
                         int maxThreads,

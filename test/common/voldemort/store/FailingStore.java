@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.utils.Utils;
@@ -63,4 +64,7 @@ public class FailingStore<K, V> implements Store<K, V> {
         throw exception;
     }
 
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        throw exception;
+    }
 }

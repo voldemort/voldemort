@@ -40,8 +40,8 @@ public class SlopSerializer implements Serializer<Slop> {
         try {
             data.writeUTF(slop.getStoreName());
             data.writeUTF(slop.getOperation().toString());
-            data.writeInt(slop.getKey().length);
-            data.write(slop.getKey());
+            data.writeInt(slop.getKey().get().length);
+            data.write(slop.getKey().get());
             if(slop.getValue() == null) {
                 data.writeInt(-1);
             } else {

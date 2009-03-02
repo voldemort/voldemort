@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.store.Entry;
-import voldemort.store.KeyWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
@@ -45,15 +44,15 @@ import voldemort.versioning.Versioned;
  */
 public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
 
-    private final ConcurrentMap<KeyWrapper, List<Versioned<V>>> map;
+    private final ConcurrentMap<K, List<Versioned<V>>> map;
     private final String name;
 
     public InMemoryStorageEngine(String name) {
         this.name = Utils.notNull(name);
-        this.map = new ConcurrentHashMap<KeyWrapper, List<Versioned<V>>>();
+        this.map = new ConcurrentHashMap<K, List<Versioned<V>>>();
     }
 
-    public InMemoryStorageEngine(String name, ConcurrentMap<KeyWrapper, List<Versioned<V>>> map) {
+    public InMemoryStorageEngine(String name, ConcurrentMap<K, List<Versioned<V>>> map) {
         this.name = Utils.notNull(name);
         this.map = Utils.notNull(map);
     }
@@ -61,17 +60,12 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     public void close() {}
 
     public boolean delete(K key) {
-        return delete(new KeyWrapper(key));
-    }
-
-    private boolean delete(KeyWrapper key) {
         return map.remove(key) != null;
     }
 
-    public boolean delete(K k, Version version) {
-        StoreUtils.assertValidKey(k);
+    public boolean delete(K key, Version version) {
+        StoreUtils.assertValidKey(key);
 
-        KeyWrapper key = new KeyWrapper(k);
         if(version == null)
             return delete(key);
 
@@ -97,9 +91,8 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         }
     }
 
-    public List<Versioned<V>> get(K k) throws VoldemortException {
-        StoreUtils.assertValidKey(k);
-        KeyWrapper key = new KeyWrapper(k);
+    public List<Versioned<V>> get(K key) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
         List<Versioned<V>> results = map.get(key);
         if(results == null) {
             return new ArrayList<Versioned<V>>(0);
@@ -110,10 +103,14 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         }
     }
 
-    public void put(K k, Versioned<V> value) throws VoldemortException {
-        StoreUtils.assertValidKey(k);
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        return StoreUtils.getAll(this, keys);
+    }
 
-        KeyWrapper key = new KeyWrapper(k);
+    public void put(K key, Versioned<V> value) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+
         VectorClock clock = (VectorClock) value.getVersion();
         boolean success = false;
         while(!success) {
@@ -162,7 +159,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
         int count = 0;
-        for(Map.Entry<KeyWrapper, List<Versioned<V>>> entry: map.entrySet()) {
+        for(Map.Entry<K, List<Versioned<V>>> entry: map.entrySet()) {
             if(count > size) {
                 builder.append("...");
                 break;
@@ -179,7 +176,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     @NotThreadsafe
     private class InMemoryIterator implements ClosableIterator<Entry<K, Versioned<V>>> {
 
-        private Iterator<KeyWrapper> iterator;
+        private Iterator<K> iterator;
         private K currentKey;
         private List<Versioned<V>> currentList;
         private int listIndex;
@@ -202,7 +199,6 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
             return new Entry<K, Versioned<V>>(currentKey, item);
         }
 
-        @SuppressWarnings("unchecked")
         public Entry<K, Versioned<V>> next() {
             if(hasNextInCurrentList()) {
                 return getFromCurrentList();
@@ -210,7 +206,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                 // keep trying to get a next, until we find one (they could get
                 // removed)
                 while(true) {
-                    KeyWrapper key = null;
+                    K key = null;
                     List<Versioned<V>> list = null;
                     do {
                         key = iterator.next();
@@ -221,7 +217,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                         // again
                         if(list.size() == 0)
                             continue;
-                        currentKey = (K) key.get();
+                        currentKey = key;
                         currentList = new ArrayList<Versioned<V>>(list);
                         listIndex = 0;
                         return getFromCurrentList();
@@ -239,5 +235,4 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         }
 
     }
-
 }

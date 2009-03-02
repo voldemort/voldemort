@@ -36,6 +36,7 @@ import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -83,8 +84,8 @@ public class RemoteStoreComparisonTest {
 
         /*** Do Socket tests ***/
         String storeName = "test";
-        ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
+        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(1);
+        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         SocketPool socketPool = new SocketPool(10, 10, 1000, 32 * 1024);
         final SocketStore socketStore = new SocketStore(storeName, "localhost", 6666, socketPool);
         SocketServer socketServer = new SocketServer(stores, 6666, 50, 50, 1000);
@@ -94,8 +95,9 @@ public class RemoteStoreComparisonTest {
         PerformanceTest socketWriteTest = new PerformanceTest() {
 
             public void doOperation(int i) {
-                byte[] key = String.valueOf(i).getBytes();
-                socketStore.put(key, new Versioned<byte[]>(key));
+                byte[] bytes = String.valueOf(i).getBytes();
+                ByteArray key = new ByteArray(bytes);
+                socketStore.put(key, new Versioned<byte[]>(bytes));
             }
         };
         System.out.println("###########################################");
@@ -108,7 +110,7 @@ public class RemoteStoreComparisonTest {
 
             public void doOperation(int i) {
                 try {
-                    List<Versioned<byte[]>> s = socketStore.get(String.valueOf(i).getBytes());
+                    List<Versioned<byte[]>> s = socketStore.get(ByteArray.valueOf(String.valueOf(i)));
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();
@@ -126,7 +128,7 @@ public class RemoteStoreComparisonTest {
         socketServer.shutdown();
 
         /*** Do HTTP tests ***/
-        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
+        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         HttpService httpService = new HttpService(storeName, null, numThreads, 8080);
         httpService.start();
         HttpClient httpClient = new HttpClient(new MultiThreadedHttpConnectionManager());
@@ -151,7 +153,7 @@ public class RemoteStoreComparisonTest {
 
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
-                httpStore.put(key, new Versioned<byte[]>(key));
+                httpStore.put(new ByteArray(key), new Versioned<byte[]>(key));
             }
         };
         System.out.println("###########################################");
@@ -163,7 +165,8 @@ public class RemoteStoreComparisonTest {
         PerformanceTest httpReadTest = new PerformanceTest() {
 
             public void doOperation(int i) {
-                List<Versioned<byte[]>> s = httpStore.get(String.valueOf(i).getBytes());
+                List<Versioned<byte[]>> s = httpStore.get(new ByteArray(String.valueOf(i)
+                                                                              .getBytes()));
             }
         };
         System.out.println("Performing HTTP read test.");
@@ -172,5 +175,4 @@ public class RemoteStoreComparisonTest {
 
         httpService.stop();
     }
-
 }

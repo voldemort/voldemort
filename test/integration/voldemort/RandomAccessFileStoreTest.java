@@ -22,6 +22,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import voldemort.store.readonly.RandomAccessFileStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -46,9 +47,9 @@ public class RandomAccessFileStoreTest {
         RandomAccessFileStore store = null; // new RandomAccessFileStore("test",
         // 10000L, index, data);
         for(int i: ImmutableList.of(964, 2, 15, 78, 192, 984)) {
-            byte[] key = Integer.toString(i).getBytes();
+            ByteArray key = ByteArray.valueOf(Integer.toString(i));
             List<Versioned<byte[]>> values = store.get(key);
-            System.out.print(new String(key));
+            System.out.print(new String(key.get()));
             System.out.print(' ');
             System.out.println(new String(values.get(0).getValue()));
         }

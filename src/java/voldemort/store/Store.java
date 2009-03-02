@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.versioning.Version;
@@ -25,6 +26,9 @@ import voldemort.versioning.Versioned;
 /**
  * The basic interface used for storage and storage decorators. Allows the usual
  * crud operations.
+ * 
+ * Note that certain operations rely on the correct implementation of equals and
+ * hashCode for the key. As such, arrays as keys should be avoided.
  * 
  * @author jay
  * 
@@ -40,6 +44,18 @@ public interface Store<K, V> {
      * @throws VoldemortException
      */
     public List<Versioned<V>> get(K key) throws VoldemortException;
+
+    /**
+     * Get the values associated with the given keys and returns them in a Map
+     * of keys to a list of versioned values. Note that the returned map will
+     * only contain entries for the keys which have a value associated with
+     * them.
+     * 
+     * @param keys The keys to check for.
+     * @return A Map of keys to a list of versioned values.
+     * @throws VoldemortException
+     */
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException;
 
     /**
      * Associate the value with the key and version in this store

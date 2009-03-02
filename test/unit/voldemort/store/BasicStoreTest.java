@@ -21,7 +21,9 @@ import static voldemort.TestUtils.randomLetters;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
@@ -98,6 +100,18 @@ public abstract class BasicStoreTest<K, V> extends TestCase {
         try {
             store.get(null);
             fail("Store should not get null keys!");
+        } catch(IllegalArgumentException e) {
+            // this is good
+        }
+        try {
+            store.getAll(null);
+            fail("Store should not getAll null keys!");
+        } catch(IllegalArgumentException e) {
+            // this is good
+        }
+        try {
+            store.getAll(Collections.<K> singleton(null));
+            fail("Store should not getAll null keys!");
         } catch(IllegalArgumentException e) {
             // this is good
         }
@@ -227,4 +241,35 @@ public abstract class BasicStoreTest<K, V> extends TestCase {
         assertEquals(0, store.get(key).size());
     }
 
+    public void testGetAll() throws Exception {
+        Store<K, V> store = getStore();
+        int putCount = 10;
+        List<K> keys = getKeys(putCount);
+        List<V> values = getValues(putCount);
+        for(int i = 0; i < putCount; i++)
+            store.put(keys.get(i), new Versioned<V>(values.get(i)));
+
+        int countForGet = putCount / 2;
+        List<K> keysForGet = keys.subList(0, countForGet);
+        List<V> valuesForGet = values.subList(0, countForGet);
+        Map<K, List<Versioned<V>>> result = store.getAll(keysForGet);
+        assertEquals(countForGet, result.size());
+        for(int i = 0; i < keysForGet.size(); ++i) {
+            K key = keysForGet.get(i);
+            V expectedValue = valuesForGet.get(i);
+            List<Versioned<V>> versioneds = result.get(key);
+            assertGetAllValues(expectedValue, versioneds);
+        }
+    }
+
+    public void testGetAllWithAbsentKeys() {
+        Store<K, V> store = getStore();
+        Map<K, List<Versioned<V>>> result = store.getAll(getKeys(3));
+        assertEquals(0, result.size());
+    }
+
+    protected void assertGetAllValues(V expectedValue, List<Versioned<V>> versioneds) {
+        assertEquals(1, versioneds.size());
+        valuesEqual(expectedValue, versioneds.get(0).getValue());
+    }
 }

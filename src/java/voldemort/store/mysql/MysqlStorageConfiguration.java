@@ -24,6 +24,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
+import voldemort.utils.ByteArray;
 
 public class MysqlStorageConfiguration implements StorageConfiguration {
 
@@ -39,7 +40,7 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         this.dataSource = ds;
     }
 
-    public StorageEngine<byte[], byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[]> getStore(String name) {
         return new MysqlStorageEngine(name, dataSource);
     }
 

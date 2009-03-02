@@ -41,6 +41,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.xml.ClusterMapper;
 
 public class TestReadOnlyHadoopSwapper extends TestCase {
@@ -103,8 +104,8 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
 
     public void testswap() throws Throwable {
         // assert that read-only store is working
-        Store<byte[], byte[]> store1 = server1.getStoreMap().get(storeName);
-        Store<byte[], byte[]> store2 = server2.getStoreMap().get(storeName);
+        Store<ByteArray, byte[]> store1 = server1.getStoreMap().get(storeName);
+        Store<ByteArray, byte[]> store2 = server2.getStoreMap().get(storeName);
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
@@ -112,7 +113,7 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
         // initial keys are from 1 to 1000
         for(int i = 1; i < 1000; i++) {
 
-            byte[] key = serializer.toBytes("key" + i);
+            ByteArray key = new ByteArray(serializer.toBytes("key" + i));
             byte[] value = serializer.toBytes("value" + i);
 
             assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
@@ -145,14 +146,14 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
 
         // check that only new keys can be seen
         for(int i = 1; i < 1000; i++) {
-            byte[] key = serializer.toBytes("key" + i);
+            ByteArray key = new ByteArray(serializer.toBytes("key" + i));
             byte[] value = serializer.toBytes("value" + i);
             assertEquals("store 1 get for key:" + i + " should be empty", 0, store1.get(key).size());
             assertEquals("store 2 get for key:" + i + " should be empty", 0, store2.get(key).size());
         }
 
         for(int i = 2000; i < 3000; i++) {
-            byte[] key = serializer.toBytes("key" + i);
+            ByteArray key = new ByteArray(serializer.toBytes("key" + i));
             byte[] value = serializer.toBytes("value" + i);
             assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
                          true,

@@ -19,6 +19,7 @@ package voldemort.store.serialized;
 import voldemort.serialization.Serializer;
 import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -35,9 +36,9 @@ import voldemort.versioning.Versioned;
 public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> implements
         StorageEngine<K, V> {
 
-    private final StorageEngine<byte[], byte[]> storageEngine;
+    private final StorageEngine<ByteArray, byte[]> storageEngine;
 
-    public SerializingStorageEngine(StorageEngine<byte[], byte[]> innerStorageEngine,
+    public SerializingStorageEngine(StorageEngine<ByteArray, byte[]> innerStorageEngine,
                                     Serializer<K> keySerializer,
                                     Serializer<V> valueSerializer) {
         super(innerStorageEngine, keySerializer, valueSerializer);
@@ -50,9 +51,9 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
 
     private class DelegatingClosableIterator implements ClosableIterator<Entry<K, Versioned<V>>> {
 
-        private final ClosableIterator<Entry<byte[], Versioned<byte[]>>> iterator;
+        private final ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator;
 
-        public DelegatingClosableIterator(ClosableIterator<Entry<byte[], Versioned<byte[]>>> iterator) {
+        public DelegatingClosableIterator(ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator) {
             this.iterator = iterator;
         }
 
@@ -61,12 +62,12 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
         }
 
         public Entry<K, Versioned<V>> next() {
-            Entry<byte[], Versioned<byte[]>> next = iterator.next();
+            Entry<ByteArray, Versioned<byte[]>> next = iterator.next();
             if(next == null) {
                 return null;
             } else {
                 Versioned<byte[]> versioned = next.getValue();
-                return new Entry<K, Versioned<V>>(getKeySerializer().toObject(next.getKey()),
+                return new Entry<K, Versioned<V>>(getKeySerializer().toObject(next.getKey().get()),
                                                   new Versioned<V>(getValueSerializer().toObject(versioned.getValue()),
                                                                    versioned.getVersion()));
             }

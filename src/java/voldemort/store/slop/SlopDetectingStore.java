@@ -24,6 +24,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -40,15 +41,15 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public class SlopDetectingStore extends DelegatingStore<byte[], byte[]> {
+public class SlopDetectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private final int replicationFactor;
     private final Node localNode;
     private final RoutingStrategy routingStrategy;
-    private final Store<byte[], Slop> slopStore;
+    private final Store<ByteArray, Slop> slopStore;
 
-    public SlopDetectingStore(Store<byte[], byte[]> innerStore,
-                              Store<byte[], Slop> slopStore,
+    public SlopDetectingStore(Store<ByteArray, byte[]> innerStore,
+                              Store<ByteArray, Slop> slopStore,
                               int replicationFactor,
                               Node localNode,
                               RoutingStrategy routingStrategy) {
@@ -59,14 +60,14 @@ public class SlopDetectingStore extends DelegatingStore<byte[], byte[]> {
         this.slopStore = Utils.notNull(slopStore);
     }
 
-    private boolean isLocal(byte[] key) {
-        List<Node> nodes = routingStrategy.routeRequest(key);
+    private boolean isLocal(ByteArray key) {
+        List<Node> nodes = routingStrategy.routeRequest(key.get());
         int index = nodes.indexOf(localNode);
         return index >= 0 && index < replicationFactor;
     }
 
     @Override
-    public boolean delete(byte[] key, Version version) throws VoldemortException {
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
         if(isLocal(key)) {
             return getInnerStore().delete(key, version);
         } else {
@@ -82,7 +83,7 @@ public class SlopDetectingStore extends DelegatingStore<byte[], byte[]> {
     }
 
     @Override
-    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         if(isLocal(key)) {
             getInnerStore().put(key, value);
         } else {

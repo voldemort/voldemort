@@ -32,6 +32,8 @@ import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Utils;
@@ -42,7 +44,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableSet;
 
-public class MetadataStore implements StorageEngine<byte[], byte[]> {
+public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
     public static final String CLUSTER_KEY = "cluster.xml";
@@ -52,9 +54,9 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
     private final File directory;
     private final ClusterMapper clusterMapper;
     private final StoreDefinitionsMapper storeMapper;
-    private final Map<String, ? extends Store<byte[], byte[]>> stores;
+    private final Map<String, ? extends Store<ByteArray, byte[]>> stores;
 
-    public MetadataStore(File directory, Map<String, ? extends Store<byte[], byte[]>> stores) {
+    public MetadataStore(File directory, Map<String, ? extends Store<ByteArray, byte[]>> stores) {
         this.directory = directory;
         this.storeMapper = new StoreDefinitionsMapper();
         this.clusterMapper = new ClusterMapper();
@@ -72,7 +74,7 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
         return METADATA_STORE_NAME;
     }
 
-    public boolean delete(byte[] key, Version version) throws VoldemortException {
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new VoldemortException("You can't delete your metadata, fool!");
     }
 
@@ -80,7 +82,7 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
      * Store the new metadata, and apply any changes made by adding or deleting
      * stores
      */
-    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         throw new VoldemortException("No metadata modifications allowed (yet).");
     }
 
@@ -88,8 +90,8 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
 
     }
 
-    public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
-        String keyStr = new String(key);
+    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+        String keyStr = new String(key.get());
         if(!KNOWN_KEYS.contains(keyStr))
             throw new IllegalArgumentException("Unknown metadata key: " + keyStr);
         File file = new File(this.directory, keyStr);
@@ -103,14 +105,23 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
         }
     }
 
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        return StoreUtils.getAll(this, keys);
+    }
+
     public Cluster getCluster() {
-        return clusterMapper.readCluster(new StringReader(getSingleValue(get(ByteUtils.getBytes(CLUSTER_KEY,
-                                                                                                "UTF-8")))));
+        return clusterMapper.readCluster(createStringReader(CLUSTER_KEY));
+    }
+
+    private StringReader createStringReader(String keyName) {
+        return new StringReader(getSingleValue(get(new ByteArray(ByteUtils.getBytes(keyName,
+                                                                                    "UTF-8")))));
     }
 
     public List<StoreDefinition> getStores() {
-        return storeMapper.readStoreList(new StringReader(getSingleValue(get(ByteUtils.getBytes(STORES_KEY,
-                                                                                                "UTF-8")))));
+        return storeMapper.readStoreList(createStringReader(STORES_KEY));
     }
 
     private String getSingleValue(List<Versioned<byte[]>> found) {
@@ -120,7 +131,7 @@ public class MetadataStore implements StorageEngine<byte[], byte[]> {
         return ByteUtils.getString(found.get(0).getValue(), "UTF-8");
     }
 
-    public ClosableIterator<Entry<byte[], Versioned<byte[]>>> entries() {
+    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
         throw new IllegalStateException("Not implemented.");
     }
 

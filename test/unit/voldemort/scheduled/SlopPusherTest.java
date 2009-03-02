@@ -31,12 +31,13 @@ import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 public class SlopPusherTest extends TestCase {
 
-    private StorageEngine<byte[], Slop> slopStore;
-    private Map<Integer, Store<byte[], byte[]>> stores;
+    private StorageEngine<ByteArray, Slop> slopStore;
+    private Map<Integer, Store<ByteArray, byte[]>> stores;
     private SlopPusherJob pusher;
     private Random random;
 
@@ -45,11 +46,11 @@ public class SlopPusherTest extends TestCase {
     }
 
     protected void setUp() throws Exception {
-        slopStore = new InMemoryStorageEngine<byte[], Slop>("slop");
-        stores = new HashMap<Integer, Store<byte[], byte[]>>();
-        stores.put(0, new InMemoryStorageEngine<byte[], byte[]>("0"));
-        stores.put(1, new InMemoryStorageEngine<byte[], byte[]>("1"));
-        stores.put(2, new InMemoryStorageEngine<byte[], byte[]>("2"));
+        slopStore = new InMemoryStorageEngine<ByteArray, Slop>("slop");
+        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        stores.put(0, new InMemoryStorageEngine<ByteArray, byte[]>("0"));
+        stores.put(1, new InMemoryStorageEngine<ByteArray, byte[]>("1"));
+        stores.put(2, new InMemoryStorageEngine<ByteArray, byte[]>("2"));
         pusher = new SlopPusherJob(slopStore, stores);
         random = new Random();
     }

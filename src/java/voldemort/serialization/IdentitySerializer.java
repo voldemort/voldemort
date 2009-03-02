@@ -16,6 +16,7 @@
 
 package voldemort.serialization;
 
+
 /**
  * A Serializer implmentation that does nothing at all, just maps byte arrays to
  * identical byte arrays

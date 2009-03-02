@@ -18,16 +18,22 @@ package voldemort.store.serialized;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
+import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 /**
- * A store that transforms requests to a Store<byte[],byte[]> to a Store<K,V>
+ * A store that transforms requests to a Store<ByteArray,byte[]> to a Store<K,V>
  * 
  * @author jay
  * 
@@ -36,11 +42,11 @@ import voldemort.versioning.Versioned;
  */
 public class SerializingStore<K, V> implements Store<K, V> {
 
-    private final Store<byte[], byte[]> store;
+    private final Store<ByteArray, byte[]> store;
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
 
-    public SerializingStore(Store<byte[], byte[]> store,
+    public SerializingStore(Store<ByteArray, byte[]> store,
                             Serializer<K> keySerializer,
                             Serializer<V> valueSerializer) {
         this.store = Utils.notNull(store);
@@ -49,11 +55,22 @@ public class SerializingStore<K, V> implements Store<K, V> {
     }
 
     public boolean delete(K key, Version version) throws VoldemortException {
-        return store.delete(keySerializer.toBytes(key), version);
+        return store.delete(keyToBytes(key), version);
+    }
+
+    private ByteArray keyToBytes(K key) {
+        return new ByteArray(keySerializer.toBytes(key));
+    }
+
+    private Map<ByteArray, K> keysToBytes(Iterable<K> keys) {
+        Map<ByteArray, K> result = StoreUtils.newEmptyHashMap(keys);
+        for(K key: keys)
+            result.put(keyToBytes(key), key);
+        return result;
     }
 
     public List<Versioned<V>> get(K key) throws VoldemortException {
-        List<Versioned<byte[]>> found = store.get(keySerializer.toBytes(key));
+        List<Versioned<byte[]>> found = store.get(keyToBytes(key));
         List<Versioned<V>> results = new ArrayList<Versioned<V>>(found.size());
         for(Versioned<byte[]> versioned: found)
             results.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),
@@ -61,14 +78,30 @@ public class SerializingStore<K, V> implements Store<K, V> {
         return results;
     }
 
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, K> byteKeyToKey = keysToBytes(keys);
+        Map<ByteArray, List<Versioned<byte[]>>> storeResult = store.getAll(byteKeyToKey.keySet());
+        Map<K, List<Versioned<V>>> result = Maps.newHashMapWithExpectedSize(storeResult.size());
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: storeResult.entrySet()) {
+            List<Versioned<V>> values = Lists.newArrayListWithExpectedSize(mapEntry.getValue()
+                                                                                   .size());
+            for(Versioned<byte[]> versioned: mapEntry.getValue())
+                values.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),
+                                            versioned.getVersion()));
+
+            result.put(byteKeyToKey.get(mapEntry.getKey()), values);
+        }
+        return result;
+    }
+
     public String getName() {
         return store.getName();
     }
 
     public void put(K key, Versioned<V> value) throws VoldemortException {
-        store.put(keySerializer.toBytes(key),
-                  new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
-                                        value.getVersion()));
+        store.put(keyToBytes(key), new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
+                                                         value.getVersion()));
     }
 
     public void close() {

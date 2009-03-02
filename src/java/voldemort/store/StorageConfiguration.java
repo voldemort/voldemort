@@ -16,6 +16,8 @@
 
 package voldemort.store;
 
+import voldemort.utils.ByteArray;
+
 /**
  * An abstraction that represents the shared resources of a persistence engine.
  * This could include file handles, db connection pools, caches, etc.
@@ -38,7 +40,7 @@ public interface StorageConfiguration {
      * @param name The name of the storage
      * @return The storage engine
      */
-    public StorageEngine<byte[], byte[]> getStore(String name);
+    public StorageEngine<ByteArray, byte[]> getStore(String name);
 
     /**
      * Get the type of stores returned by this configuration

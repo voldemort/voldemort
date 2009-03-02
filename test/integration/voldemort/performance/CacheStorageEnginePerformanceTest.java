@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.store.Store;
 import voldemort.store.memory.CacheStorageConfiguration;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -37,7 +38,7 @@ public class CacheStorageEnginePerformanceTest {
         final int mod = 100;
         final int readMax = (int) readPercent * mod;
 
-        final Store<byte[], byte[]> store = new CacheStorageConfiguration().getStore("test");
+        final Store<ByteArray, byte[]> store = new CacheStorageConfiguration().getStore("test");
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
         PerformanceTest readWriteTest = new PerformanceTest() {
@@ -45,10 +46,11 @@ public class CacheStorageEnginePerformanceTest {
             public void doOperation(int index) throws Exception {
                 try {
                     byte[] bytes = Integer.toString(index % valueRange).getBytes();
+                    ByteArray key = new ByteArray(bytes);
                     if(index % mod < readMax)
-                        store.get(bytes);
+                        store.get(key);
                     else
-                        store.put(bytes, new Versioned<byte[]>(bytes));
+                        store.put(key, new Versioned<byte[]>(bytes));
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();
                 }

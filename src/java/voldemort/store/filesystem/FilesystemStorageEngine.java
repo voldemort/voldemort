@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.apache.commons.codec.DecoderException;
@@ -74,9 +75,12 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
 
     public synchronized List<Versioned<String>> get(String key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        File[] files = this.directory.listFiles();
-        List<Versioned<String>> found = new ArrayList<Versioned<String>>();
+        return get(key, this.directory.listFiles());
+    }
+
+    private List<Versioned<String>> get(String key, File[] files) {
         try {
+            List<Versioned<String>> found = new ArrayList<Versioned<String>>();
             for(File file: files) {
                 if(file.getName().startsWith(key)) {
                     VectorClock clock = getVersion(file);
@@ -88,6 +92,18 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
+    }
+
+    public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        Map<String, List<Versioned<String>>> result = StoreUtils.newEmptyHashMap(keys);
+        for(String key: keys) {
+            List<Versioned<String>> values = get(key, this.directory.listFiles());
+            if(!values.isEmpty())
+                result.put(key, values);
+        }
+        return result;
     }
 
     public String getName() {
@@ -180,5 +196,4 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
             throw new UnsupportedOperationException("No removal y'all.");
         }
     }
-
 }

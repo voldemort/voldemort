@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -30,6 +31,7 @@ import voldemort.serialization.VoldemortOpCode;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -43,7 +45,7 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public class SocketStore implements Store<byte[], byte[]> {
+public class SocketStore implements Store<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(SocketStore.class);
     private final ErrorCodeMapper errorCodeMapper = new ErrorCodeMapper();
@@ -62,15 +64,15 @@ public class SocketStore implements Store<byte[], byte[]> {
     // don't close the socket pool, it is shared
     }
 
-    public boolean delete(byte[] key, Version version) throws VoldemortException {
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.DELETE_OP_CODE);
             outputStream.writeUTF(name);
-            outputStream.writeInt(key.length);
-            outputStream.write(key);
+            outputStream.writeInt(key.length());
+            outputStream.write(key.get());
             VectorClock clock = (VectorClock) version;
             outputStream.writeShort(clock.sizeInBytes());
             outputStream.write(clock.toBytes());
@@ -86,15 +88,23 @@ public class SocketStore implements Store<byte[], byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        // TODO We can optimise this, but wait for protobuf protocol before
+        // considering
+        return StoreUtils.getAll(this, keys);
+    }
+
+    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.GET_OP_CODE);
             outputStream.writeUTF(name);
-            outputStream.writeInt(key.length);
-            outputStream.write(key);
+            outputStream.writeInt(key.length());
+            outputStream.write(key.get());
             outputStream.flush();
             DataInputStream inputStream = sands.getInputStream();
             checkException(inputStream);
@@ -118,15 +128,15 @@ public class SocketStore implements Store<byte[], byte[]> {
         }
     }
 
-    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.PUT_OP_CODE);
             outputStream.writeUTF(name);
-            outputStream.writeInt(key.length);
-            outputStream.write(key);
+            outputStream.writeInt(key.length());
+            outputStream.write(key.get());
             VectorClock clock = (VectorClock) value.getVersion();
             outputStream.writeInt(value.getValue().length + clock.sizeInBytes());
             outputStream.write(clock.toBytes());
@@ -161,5 +171,4 @@ public class SocketStore implements Store<byte[], byte[]> {
             logger.warn("Failed to close socket");
         }
     }
-
 }

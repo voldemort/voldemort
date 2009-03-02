@@ -35,6 +35,7 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
@@ -52,7 +53,7 @@ import com.google.common.collect.Maps;
 public class RoutedStoreTest extends ByteArrayStoreTest {
 
     private Cluster cluster;
-    private final byte[] aKey = "jay".getBytes();
+    private final ByteArray aKey = ByteArray.valueOf("jay");
     private final byte[] aValue = "kreps".getBytes();
 
     @Override
@@ -62,13 +63,13 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
     }
 
     @Override
-    public Store<byte[], byte[]> getStore() {
-        return new InconsistencyResolvingStore<byte[], byte[]>(getStore(cluster,
-                                                                        cluster.getNumberOfNodes(),
-                                                                        cluster.getNumberOfNodes(),
-                                                                        4,
-                                                                        0),
-                                                               new VectorClockInconsistencyResolver<byte[]>());
+    public Store<ByteArray, byte[]> getStore() {
+        return new InconsistencyResolvingStore<ByteArray, byte[]>(getStore(cluster,
+                                                                           cluster.getNumberOfNodes(),
+                                                                           cluster.getNumberOfNodes(),
+                                                                           4,
+                                                                           0),
+                                                                  new VectorClockInconsistencyResolver<byte[]>());
     }
 
     private RoutedStore getStore(Cluster cluster, int reads, int writes, int threads, int failing) {
@@ -92,7 +93,7 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
                                  int sleepy,
                                  RoutingStrategy strategy,
                                  VoldemortException e) {
-        Map<Integer, Store<byte[], byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
         int count = 0;
         for(Node n: cluster.getNodes()) {
             if(count >= cluster.getNumberOfNodes())
@@ -101,22 +102,22 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
                                                    + cluster.getNumberOfNodes()
                                                    + " nodes in the cluster.");
             else if(count < failing)
-                subStores.put(n.getId(), new FailingStore<byte[], byte[]>("test", e));
+                subStores.put(n.getId(), new FailingStore<ByteArray, byte[]>("test", e));
             else if(count < failing + sleepy)
                 subStores.put(n.getId(),
-                              new SleepyStore<byte[], byte[]>(Long.MAX_VALUE,
-                                                              new InMemoryStorageEngine<byte[], byte[]>("test")));
+                              new SleepyStore<ByteArray, byte[]>(Long.MAX_VALUE,
+                                                                 new InMemoryStorageEngine<ByteArray, byte[]>("test")));
             else
-                subStores.put(n.getId(), new InMemoryStorageEngine<byte[], byte[]>("test"));
+                subStores.put(n.getId(), new InMemoryStorageEngine<ByteArray, byte[]>("test"));
 
             count += 1;
         }
         return new RoutedStore("test", subStores, strategy, reads, writes, threads, true, 1000L);
     }
 
-    private int countOccurances(RoutedStore routedStore, byte[] key, Versioned<byte[]> value) {
+    private int countOccurances(RoutedStore routedStore, ByteArray key, Versioned<byte[]> value) {
         int count = 0;
-        for(Store<byte[], byte[]> store: routedStore.getInnerStores().values())
+        for(Store<ByteArray, byte[]> store: routedStore.getInnerStores().values())
             try {
                 if(store.get(key).size() > 0 && Objects.deepEquals(store.get(key).get(0), value))
                     count += 1;
@@ -128,7 +129,7 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
 
     private void assertNEqual(RoutedStore routedStore,
                               int expected,
-                              byte[] key,
+                              ByteArray key,
                               Versioned<byte[]> value) {
         int count = countOccurances(routedStore, key, value);
         assertEquals("Expected " + expected + " occurances of '" + key + "' with value '" + value
@@ -137,7 +138,7 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
 
     private void assertNOrMoreEqual(RoutedStore routedStore,
                                     int expected,
-                                    byte[] key,
+                                    ByteArray key,
                                     Versioned<byte[]> value) {
         int count = countOccurances(routedStore, key, value);
         assertTrue("Expected " + expected + " or more occurances of '" + key + "' with value '"
@@ -146,8 +147,8 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
 
     public void testBasicOperations(int reads, int writes, int failures, int threads) {
         RoutedStore routedStore = getStore(cluster, reads, writes, threads, failures);
-        Store<byte[], byte[]> store = new InconsistencyResolvingStore<byte[], byte[]>(routedStore,
-                                                                                      new VectorClockInconsistencyResolver<byte[]>());
+        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                                            new VectorClockInconsistencyResolver<byte[]>());
         VectorClock clock = getClock(1);
         Versioned<byte[]> versioned = new Versioned<byte[]>(aValue, clock);
         routedStore.put(aKey, versioned);
@@ -213,7 +214,7 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
     }
 
     public void testPutIncrementsVersion() {
-        Store<byte[], byte[]> store = getStore();
+        Store<ByteArray, byte[]> store = getStore();
         VectorClock clock = new VectorClock();
         VectorClock copy = clock.clone();
         store.put(aKey, new Versioned<byte[]>(getValue(), clock));
@@ -235,15 +236,15 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
         // test put
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        Store<byte[], byte[]> s1 = getStore(cluster,
-                                            1,
-                                            9,
-                                            cluster.getNumberOfNodes(),
-                                            9,
-                                            9,
-                                            0,
-                                            strategy,
-                                            new VoldemortException());
+        Store<ByteArray, byte[]> s1 = getStore(cluster,
+                                               1,
+                                               9,
+                                               cluster.getNumberOfNodes(),
+                                               9,
+                                               9,
+                                               0,
+                                               strategy,
+                                               new VoldemortException());
         try {
             s1.put(aKey, new Versioned<byte[]>(aValue));
             fail("Failure is expected");
@@ -252,15 +253,15 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
 
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        Store<byte[], byte[]> s2 = getStore(cluster,
-                                            1,
-                                            9,
-                                            cluster.getNumberOfNodes(),
-                                            9,
-                                            9,
-                                            0,
-                                            strategy,
-                                            new UnreachableStoreException("no go"));
+        Store<ByteArray, byte[]> s2 = getStore(cluster,
+                                               1,
+                                               9,
+                                               cluster.getNumberOfNodes(),
+                                               9,
+                                               9,
+                                               0,
+                                               strategy,
+                                               new UnreachableStoreException("no go"));
         try {
             s2.put(aKey, new Versioned<byte[]>(aValue));
             fail("Failure is expected");
@@ -354,5 +355,11 @@ public class RoutedStoreTest extends ByteArrayStoreTest {
             if(n.getStatus().isAvailable())
                 found++;
         assertEquals("Number of operational nodes not what was expected.", expected, found);
+    }
+
+    @Override
+    protected void assertGetAllValues(byte[] expectedValue, List<Versioned<byte[]>> versioneds) {
+        assertEquals(cluster.getNodes().size(), versioneds.size());
+        valuesEqual(expectedValue, versioneds.get(0).getValue());
     }
 }

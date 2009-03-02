@@ -19,10 +19,10 @@ package voldemort.store.memory;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import voldemort.store.KeyWrapper;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 /**
@@ -33,9 +33,9 @@ import voldemort.versioning.Versioned;
  */
 public class InMemoryStorageConfiguration implements StorageConfiguration {
 
-    public StorageEngine<byte[], byte[]> getStore(String name) {
-        return new InMemoryStorageEngine<byte[], byte[]>(name,
-                                                         new ConcurrentHashMap<KeyWrapper, List<Versioned<byte[]>>>());
+    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+        return new InMemoryStorageEngine<ByteArray, byte[]>(name,
+                                                            new ConcurrentHashMap<ByteArray, List<Versioned<byte[]>>>());
     }
 
     public StorageEngineType getType() {

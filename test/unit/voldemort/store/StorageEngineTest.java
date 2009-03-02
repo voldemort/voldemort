@@ -23,6 +23,7 @@ import java.util.Map;
 import voldemort.TestUtils;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.serialized.SerializingStorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.versioning.Versioned;
 
@@ -31,16 +32,16 @@ import com.google.common.collect.ImmutableMap;
 public abstract class StorageEngineTest extends ByteArrayStoreTest {
 
     @Override
-    public Store<byte[], byte[]> getStore() {
+    public Store<ByteArray, byte[]> getStore() {
         return getStorageEngine();
     }
 
-    public abstract StorageEngine<byte[], byte[]> getStorageEngine();
+    public abstract StorageEngine<ByteArray, byte[]> getStorageEngine();
 
     public void testGetNoEntries() {
-        ClosableIterator<Entry<byte[], Versioned<byte[]>>> it = null;
+        ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> it = null;
         try {
-            StorageEngine<byte[], byte[]> engine = getStorageEngine();
+            StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
             it = engine.entries();
             while(it.hasNext())
                 fail("There shouldn't be any entries in this store.");
@@ -51,7 +52,7 @@ public abstract class StorageEngineTest extends ByteArrayStoreTest {
     }
 
     public void testIterationWithSerialization() {
-        StorageEngine<byte[], byte[]> store = getStorageEngine();
+        StorageEngine<ByteArray, byte[]> store = getStorageEngine();
         StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
                                                                                                  new StringSerializer(),
                                                                                                  new StringSerializer());
@@ -71,11 +72,11 @@ public abstract class StorageEngineTest extends ByteArrayStoreTest {
     }
 
     public void testPruneOnWrite() {
-        StorageEngine<byte[], byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
         Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 }, TestUtils.getClock(1));
         Versioned<byte[]> v2 = new Versioned<byte[]>(new byte[] { 2 }, TestUtils.getClock(2));
         Versioned<byte[]> v3 = new Versioned<byte[]>(new byte[] { 3 }, TestUtils.getClock(1, 2));
-        byte[] key = new byte[] { 3 };
+        ByteArray key = new ByteArray((byte) 3);
         engine.put(key, v1);
         engine.put(key, v2);
         assertEquals(2, engine.get(key).size());

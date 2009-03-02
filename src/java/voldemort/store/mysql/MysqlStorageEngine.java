@@ -21,15 +21,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
@@ -45,7 +48,7 @@ import com.google.common.collect.Lists;
  * @author jay
  * 
  */
-public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
+public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(MysqlStorageEngine.class);
     private static int MYSQL_ERR_DUP_KEY = 1022;
@@ -108,7 +111,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         }
     }
 
-    public ClosableIterator<Entry<byte[], Versioned<byte[]>>> entries() {
+    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -127,7 +130,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
     // don't close datasource cause others could be using it
     }
 
-    public boolean delete(byte[] key, Version maxVersion) throws PersistenceFailureException {
+    public boolean delete(ByteArray key, Version maxVersion) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         Connection conn = null;
         PreparedStatement selectStmt = null;
@@ -137,7 +140,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         try {
             conn = datasource.getConnection();
             selectStmt = conn.prepareStatement(select);
-            selectStmt.setBytes(1, key);
+            selectStmt.setBytes(1, key.get());
             rs = selectStmt.executeQuery();
             boolean deletedSomething = false;
             while(rs.next()) {
@@ -173,8 +176,9 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(byte[] key) throws PersistenceFailureException {
-        StoreUtils.assertValidKey(key);
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -182,16 +186,20 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         try {
             conn = datasource.getConnection();
             stmt = conn.prepareStatement(select);
-            stmt.setBytes(1, key);
-            rs = stmt.executeQuery();
-            List<Versioned<byte[]>> found = Lists.newArrayList();
-            while(rs.next()) {
-                byte[] version = rs.getBytes("version_");
-                byte[] value = rs.getBytes("value_");
-                found.add(new Versioned<byte[]>(value, new VectorClock(version)));
+            Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
+            for(ByteArray key: keys) {
+                stmt.setBytes(1, key.get());
+                rs = stmt.executeQuery();
+                List<Versioned<byte[]>> found = Lists.newArrayList();
+                while(rs.next()) {
+                    byte[] version = rs.getBytes("version_");
+                    byte[] value = rs.getBytes("value_");
+                    found.add(new Versioned<byte[]>(value, new VectorClock(version)));
+                }
+                if(found.size() > 0)
+                    result.put(key, found);
             }
-
-            return found;
+            return result;
         } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
         } finally {
@@ -201,11 +209,16 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         }
     }
 
+    public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
+        StoreUtils.assertValidKey(key);
+        return StoreUtils.get(this, key);
+    }
+
     public String getName() {
         return name;
     }
 
-    public void put(byte[] key, Versioned<byte[]> value) throws PersistenceFailureException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         boolean doCommit = false;
         Connection conn = null;
@@ -220,7 +233,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
 
             // check for superior versions
             select = conn.prepareStatement(selectSql);
-            select.setBytes(1, key);
+            select.setBytes(1, key.get());
             results = select.executeQuery();
             while(results.next()) {
                 byte[] thisKey = results.getBytes("key_");
@@ -237,7 +250,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
 
             // Okay, cool, now put the value
             insert = conn.prepareStatement(insertSql);
-            insert.setBytes(1, key);
+            insert.setBytes(1, key.get());
             VectorClock clock = (VectorClock) value.getVersion();
             insert.setBytes(2, clock.toBytes());
             insert.setBytes(3, value.getValue());
@@ -292,7 +305,7 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
     }
 
     private class MysqlClosableIterator implements
-            ClosableIterator<Entry<byte[], Versioned<byte[]>>> {
+            ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> {
 
         private boolean hasMore;
         private final ResultSet rs;
@@ -323,16 +336,16 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
             return this.hasMore;
         }
 
-        public Entry<byte[], Versioned<byte[]>> next() {
+        public Entry<ByteArray, Versioned<byte[]>> next() {
             try {
                 if(!this.hasMore)
                     throw new PersistenceFailureException("Next called on iterator, but no more items available!");
-                byte[] key = rs.getBytes("key_");
+                ByteArray key = new ByteArray(rs.getBytes("key_"));
                 byte[] value = rs.getBytes("value_");
                 VectorClock clock = new VectorClock(rs.getBytes("version_"));
                 this.hasMore = rs.next();
-                return new Entry<byte[], Versioned<byte[]>>(key,
-                                                            new Versioned<byte[]>(value, clock));
+                return new Entry<ByteArray, Versioned<byte[]>>(key, new Versioned<byte[]>(value,
+                                                                                          clock));
             } catch(SQLException e) {
                 throw new PersistenceFailureException(e);
             }
@@ -347,5 +360,4 @@ public class MysqlStorageEngine implements StorageEngine<byte[], byte[]> {
         }
 
     }
-
 }

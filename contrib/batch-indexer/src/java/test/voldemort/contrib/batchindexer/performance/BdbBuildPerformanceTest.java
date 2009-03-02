@@ -32,6 +32,7 @@ import voldemort.performance.PerformanceTest;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.bdb.BdbStorageConfiguration;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
 import voldemort.utils.Utils;
@@ -49,7 +50,7 @@ public class BdbBuildPerformanceTest {
         String storeName = args[1];
         String jsonDataFile = args[2];
 
-        final Store<byte[], byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
+        final Store<ByteArray, byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);
@@ -72,7 +73,7 @@ public class BdbBuildPerformanceTest {
                     BytesWritable value = new BytesWritable();
 
                     reader.next(key, value);
-                    store.put(ByteUtils.copy(key.get(), 0, key.getSize()),
+                    store.put(new ByteArray(ByteUtils.copy(key.get(), 0, key.getSize())),
                               new Versioned(ByteUtils.copy(value.get(), 0, value.getSize())));
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();

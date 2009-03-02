@@ -33,6 +33,7 @@ import voldemort.server.AbstractService;
 import voldemort.server.VoldemortServer;
 import voldemort.server.VoldemortService;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
 /**
@@ -51,12 +52,12 @@ public class JmxService extends AbstractService {
     private final Cluster cluster;
     private final List<VoldemortService> services;
     private final Set<ObjectName> registeredBeans;
-    private final Map<String, Store<byte[], byte[]>> storeMap;
+    private final Map<String, Store<ByteArray, byte[]>> storeMap;
 
     public JmxService(String name,
                       VoldemortServer server,
                       Cluster cluster,
-                      Map<String, Store<byte[], byte[]>> storeMap,
+                      Map<String, Store<ByteArray, byte[]>> storeMap,
                       List<VoldemortService> services) {
         super(name);
         this.server = server;
@@ -75,7 +76,7 @@ public class JmxService extends AbstractService {
             logger.debug("Registering mbean for service '" + service.getName() + "'.");
             registerBean(service, JmxUtils.createObjectName(service.getClass()));
         }
-        for(Store<byte[], byte[]> store: storeMap.values()) {
+        for(Store<ByteArray, byte[]> store: storeMap.values()) {
             logger.info("Registering mbean for store '" + store.getName() + "'.");
             registerBean(store,
                          JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),

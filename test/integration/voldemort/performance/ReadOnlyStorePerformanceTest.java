@@ -28,6 +28,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -46,10 +47,11 @@ public class ReadOnlyStorePerformanceTest {
         String storeName = args[3];
 
         final VoldemortConfig voldemortConfig = new VoldemortConfig(new Props(new File(serverPropsFile)));
-        final Store<byte[], byte[]> store = new RandomAccessFileStorageConfiguration(voldemortConfig).getStore(storeName);
+        final Store<ByteArray, byte[]> store = new RandomAccessFileStorageConfiguration(voldemortConfig).getStore(storeName);
         File storeFile = new File(voldemortConfig.getMetadataDirectory() + File.separatorChar
                                   + "stores.xml");
         final List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new java.io.FileReader(storeFile));
+
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);
         final AtomicInteger totalResults = new AtomicInteger(0);
@@ -79,12 +81,11 @@ public class ReadOnlyStorePerformanceTest {
                 try {
                     Integer memberId = new Integer((int) (Math.random() * MaxMemberID));
                     totalResults.incrementAndGet();
+                    List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(memberId)));
 
-                    List<Versioned<byte[]>> results = store.get(keySerializer.toBytes(memberId));
-
-                    if(results.size() == 0) {
+                    if(results.size() == 0)
                         nullResults.incrementAndGet();
-                    }
+
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();
                 }

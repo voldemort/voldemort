@@ -8,6 +8,7 @@ import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.store.serialized.SerializingStorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -33,7 +34,7 @@ public class CatBdbStore {
         databaseConfig.setTransactional(true);
         databaseConfig.setSortedDuplicates(false);
         Database database = environment.openDatabase(null, "test", databaseConfig);
-        StorageEngine<byte[], byte[]> store = new BdbStorageEngine("test", environment, database);
+        StorageEngine<ByteArray, byte[]> store = new BdbStorageEngine("test", environment, database);
         StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
                                                                                                  new StringSerializer(),
                                                                                                  new StringSerializer());

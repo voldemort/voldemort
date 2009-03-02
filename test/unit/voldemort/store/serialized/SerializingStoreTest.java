@@ -22,6 +22,7 @@ import voldemort.serialization.StringSerializer;
 import voldemort.store.BasicStoreTest;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.utils.ByteArray;
 
 /**
  * @author jay
@@ -36,7 +37,7 @@ public class SerializingStoreTest extends BasicStoreTest<String, String> {
 
     @Override
     public Store<String, String> getStore() {
-        return new SerializingStore<String, String>(new InMemoryStorageEngine<byte[], byte[]>("test"),
+        return new SerializingStore<String, String>(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
                                                     new StringSerializer(),
                                                     new StringSerializer());
     }

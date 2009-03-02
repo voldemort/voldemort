@@ -23,6 +23,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.VoldemortService;
 import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 
 /**
  * The VoldemortService that loads up the socket server
@@ -36,7 +37,7 @@ public class SocketService extends AbstractService implements VoldemortService {
     private final SocketServer server;
 
     public SocketService(String name,
-                         ConcurrentMap<String, ? extends Store<byte[], byte[]>> storeMap,
+                         ConcurrentMap<String, ? extends Store<ByteArray, byte[]>> storeMap,
                          int port,
                          int coreConnections,
                          int maxConnections,

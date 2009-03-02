@@ -19,16 +19,23 @@ package voldemort.store;
 import java.util.List;
 
 import voldemort.TestUtils;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 /**
  * @author jay
  * 
  */
-public abstract class ByteArrayStoreTest extends BasicStoreTest<byte[], byte[]> {
+public abstract class ByteArrayStoreTest extends BasicStoreTest<ByteArray, byte[]> {
 
-    public List<byte[]> getKeys(int numValues) {
-        return this.getByteValues(numValues, 8);
+    @Override
+    public List<ByteArray> getKeys(int numValues) {
+        List<ByteArray> keys = Lists.newArrayList();
+        for(byte[] array: this.getByteValues(numValues, 8))
+            keys.add(new ByteArray(array));
+        return keys;
     }
 
     @Override
@@ -42,10 +49,10 @@ public abstract class ByteArrayStoreTest extends BasicStoreTest<byte[], byte[]> 
     }
 
     public void testEmptyByteArray() {
-        Store<byte[], byte[]> store = getStore();
+        Store<ByteArray, byte[]> store = getStore();
         Versioned<byte[]> bytes = new Versioned<byte[]>(new byte[0]);
-        store.put(new byte[0], bytes);
-        List<Versioned<byte[]>> found = store.get(new byte[0]);
+        store.put(new ByteArray(new byte[0]), bytes);
+        List<Versioned<byte[]>> found = store.get(new ByteArray(new byte[0]));
         assertEquals("Incorrect number of results.", 1, found.size());
         assertEquals("Get doesn't equal put.", bytes, found.get(0));
     }

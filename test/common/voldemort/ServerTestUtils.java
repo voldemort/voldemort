@@ -35,6 +35,7 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
+import voldemort.utils.ByteArray;
 
 /**
  * Helper functions for testing with real server implementations
@@ -44,11 +45,11 @@ import voldemort.store.socket.SocketStore;
  */
 public class ServerTestUtils {
 
-    public static ConcurrentMap<String, Store<byte[], byte[]>> getStores(String storeName,
-                                                                         String clusterXml,
-                                                                         String storesXml) {
-        ConcurrentMap<String, Store<byte[], byte[]>> stores = new ConcurrentHashMap<String, Store<byte[], byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<byte[], byte[]>(storeName));
+    public static ConcurrentMap<String, Store<ByteArray, byte[]>> getStores(String storeName,
+                                                                            String clusterXml,
+                                                                            String storesXml) {
+        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(1);
+        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         // create metadata dir
         File metadataDir = TestUtils.getTempDirectory();
         try {
@@ -86,9 +87,9 @@ public class ServerTestUtils {
                                          String storesXml,
                                          String storeName,
                                          int port) throws Exception {
-        ConcurrentMap<String, Store<byte[], byte[]>> stores = getStores(storeName,
-                                                                        clusterXml,
-                                                                        storesXml);
+        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = getStores(storeName,
+                                                                           clusterXml,
+                                                                           storesXml);
 
         // initialize servlet
         Server server = new Server(port);

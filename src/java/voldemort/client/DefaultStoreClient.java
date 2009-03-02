@@ -17,6 +17,8 @@
 package voldemort.client;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.cluster.Node;
@@ -29,6 +31,8 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Maps;
 
 /**
  * The default {@link voldemort.client.StoreClient StoreClient} implementation
@@ -85,6 +89,10 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public Versioned<V> get(K key, Versioned<V> defaultValue) {
         List<Versioned<V>> items = store.get(key);
+        return getItemOrThrow(key, defaultValue, items);
+    }
+
+    private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
         if(items.size() == 0)
             return defaultValue;
         else if(items.size() == 1)
@@ -96,6 +104,17 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public Versioned<V> get(K key) {
         return get(key, null);
+    }
+
+    public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
+        Map<K, List<Versioned<V>>> items = store.getAll(keys);
+        Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
+
+        for(Entry<K, List<Versioned<V>>> mapEntry: items.entrySet()) {
+            Versioned<V> value = getItemOrThrow(mapEntry.getKey(), null, mapEntry.getValue());
+            result.put(mapEntry.getKey(), value);
+        }
+        return result;
     }
 
     public void put(K key, V value) {

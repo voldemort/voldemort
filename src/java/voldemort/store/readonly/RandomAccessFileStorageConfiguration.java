@@ -29,6 +29,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
+import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
 public class RandomAccessFileStorageConfiguration implements StorageConfiguration {
@@ -57,7 +58,7 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
             JmxUtils.unregisterMbean(server, name);
     }
 
-    public StorageEngine<byte[], byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[]> getStore(String name) {
         RandomAccessFileStore store = new RandomAccessFileStore(name,
                                                                 storageDir,
                                                                 numBackups,

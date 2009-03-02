@@ -27,6 +27,7 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -53,10 +54,10 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public class SloppyStore extends DelegatingStore<byte[], byte[]> {
+public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
 
     private final int node;
-    private final List<Store<byte[], Slop>> backupStores;
+    private final List<Store<ByteArray, Slop>> backupStores;
 
     /**
      * Create a store which delegates its operations to it inner store and
@@ -68,11 +69,11 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
      *        failures, the iterator determines preference.
      */
     public SloppyStore(int node,
-                       Store<byte[], byte[]> innerStore,
-                       Collection<? extends Store<byte[], Slop>> backupStores) {
+                       Store<ByteArray, byte[]> innerStore,
+                       Collection<? extends Store<ByteArray, Slop>> backupStores) {
         super(innerStore);
         this.node = node;
-        this.backupStores = new ArrayList<Store<byte[], Slop>>(backupStores);
+        this.backupStores = new ArrayList<Store<ByteArray, Slop>>(backupStores);
     }
 
     /**
@@ -80,7 +81,7 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
      * in the first available SlopStore for eventual consistency.
      */
     @Override
-    public boolean delete(byte[] key, Version version) throws VoldemortException {
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
             return getInnerStore().delete(key, version);
@@ -88,7 +89,7 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
             List<Exception> failures = new ArrayList<Exception>();
             failures.add(e);
             Slop slop = new Slop(getName(), Slop.Operation.DELETE, key, null, node, new Date());
-            for(Store<byte[], Slop> slopStore: backupStores) {
+            for(Store<ByteArray, Slop> slopStore: backupStores) {
                 try {
                     slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version));
                     return false;
@@ -108,7 +109,7 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
      * the first available SlopStore for eventual consistency.
      */
     @Override
-    public void put(byte[] key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
             getInnerStore().put(key, value);
@@ -122,7 +123,7 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
                                  value.getValue(),
                                  node,
                                  new Date());
-            for(Store<byte[], Slop> slopStore: backupStores) {
+            for(Store<ByteArray, Slop> slopStore: backupStores) {
                 try {
                     slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()));
                     persisted = true;
@@ -143,8 +144,8 @@ public class SloppyStore extends DelegatingStore<byte[], byte[]> {
         }
     }
 
-    public List<Store<byte[], Slop>> getBackupStores() {
-        return new ArrayList<Store<byte[], Slop>>(backupStores);
+    public List<Store<ByteArray, Slop>> getBackupStores() {
+        return new ArrayList<Store<ByteArray, Slop>>(backupStores);
     }
 
 }

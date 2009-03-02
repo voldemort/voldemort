@@ -16,6 +16,8 @@
 
 package voldemort.client;
 
+import java.util.Map;
+
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -64,6 +66,17 @@ public interface StoreClient<K, V> {
      * @return The versioned value, or null if no value is stored for this key.
      */
     public Versioned<V> get(K key);
+
+    /**
+     * Gets the versioned values associated with the given keys and returns them
+     * in a Map of keys to versioned values. Note that the returned map will
+     * only contain entries for the keys which have a value associated with
+     * them.
+     * 
+     * @param keys The keys for which to fetch the values.
+     * @return A Map of keys to versioned values.
+     */
+    public Map<K, Versioned<V>> getAll(Iterable<K> keys);
 
     /**
      * Get the versioned value associated with the given key or the defaultValue

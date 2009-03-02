@@ -19,6 +19,7 @@ package voldemort.store.slop;
 import java.util.Arrays;
 import java.util.Date;
 
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 
@@ -50,7 +51,7 @@ public class Slop {
         }
     }
 
-    final private byte[] key;
+    final private ByteArray key;
     final private byte[] value;
     final private String storeName;
     final private int nodeId;
@@ -63,6 +64,15 @@ public class Slop {
                 byte[] value,
                 int nodeId,
                 Date arrived) {
+        this(storeName, operation, new ByteArray(key), value, nodeId, arrived);
+    }
+
+    public Slop(String storeName,
+                Operation operation,
+                ByteArray key,
+                byte[] value,
+                int nodeId,
+                Date arrived) {
         this.operation = Utils.notNull(operation);
         this.storeName = Utils.notNull(storeName);
         this.key = Utils.notNull(key);
@@ -71,7 +81,7 @@ public class Slop {
         this.arrived = Utils.notNull(arrived);
     }
 
-    public byte[] getKey() {
+    public ByteArray getKey() {
         return key;
     }
 
@@ -95,10 +105,10 @@ public class Slop {
         return storeName;
     }
 
-    public byte[] makeKey() {
+    public ByteArray makeKey() {
         byte[] storeName = ByteUtils.getBytes(getStoreName(), "UTF-8");
         byte[] opCode = new byte[] { operation.getOpCode() };
-        return ByteUtils.cat(opCode, spacer, storeName, spacer, key);
+        return new ByteArray(ByteUtils.cat(opCode, spacer, storeName, spacer, key.get()));
     }
 
     @Override
@@ -111,14 +121,13 @@ public class Slop {
         Slop slop = (Slop) obj;
 
         return operation == slop.getOperation() && Objects.equal(storeName, getStoreName())
-               && Objects.deepEquals(key, slop.getKey())
-               && Objects.deepEquals(value, slop.getValue()) && nodeId == slop.getNodeId()
-               && Objects.equal(arrived, slop.getArrived());
+               && key.equals(slop.getKey()) && Objects.deepEquals(value, slop.getValue())
+               && nodeId == slop.getNodeId() && Objects.equal(arrived, slop.getArrived());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(storeName, operation, nodeId, arrived) + Arrays.hashCode(key)
+        return Objects.hashCode(storeName, operation, nodeId, arrived) + key.hashCode()
                + Arrays.hashCode(value);
     }
 

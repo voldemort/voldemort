@@ -39,6 +39,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
@@ -110,30 +111,30 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                         storeDef.getReplicationFactor());
 
         // construct mapping
-        Map<Integer, Store<byte[], byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
-            Store<byte[], byte[]> store = getStore(storeDef.getName(),
-                                                   node.getHost(),
-                                                   getPort(node));
+            Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
+                                                      node.getHost(),
+                                                      getPort(node));
             if(enableVerboseLogging)
                 store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
         }
 
-        Store<byte[], byte[]> store = new RoutedStore(storeName,
-                                                      clientMapping,
-                                                      routingStrategy,
-                                                      storeDef.getPreferredReads() == null ? storeDef.getRequiredReads()
-                                                                                          : storeDef.getPreferredReads(),
-                                                      storeDef.getRequiredReads(),
-                                                      storeDef.getPreferredWrites() == null ? storeDef.getRequiredWrites()
-                                                                                           : storeDef.getPreferredWrites(),
-                                                      storeDef.getRequiredWrites(),
-                                                      true,
-                                                      threadPool,
-                                                      routingTimeoutMs,
-                                                      nodeBannageMs,
-                                                      SystemTime.INSTANCE);
+        Store<ByteArray, byte[]> store = new RoutedStore(storeName,
+                                                         clientMapping,
+                                                         routingStrategy,
+                                                         storeDef.getPreferredReads() == null ? storeDef.getRequiredReads()
+                                                                                             : storeDef.getPreferredReads(),
+                                                         storeDef.getRequiredReads(),
+                                                         storeDef.getPreferredWrites() == null ? storeDef.getRequiredWrites()
+                                                                                              : storeDef.getPreferredWrites(),
+                                                         storeDef.getRequiredWrites(),
+                                                         true,
+                                                         threadPool,
+                                                         routingTimeoutMs,
+                                                         nodeBannageMs,
+                                                         SystemTime.INSTANCE);
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
@@ -158,9 +159,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private String bootstrapMetadata(String key, URI[] urls) {
         for(URI url: urls) {
             try {
-                Store<byte[], byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
-                                                             url.getHost(),
-                                                             url.getPort());
+                Store<ByteArray, byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
+                                                                url.getHost(),
+                                                                url.getPort());
                 Store<String, String> store = new SerializingStore<String, String>(remoteStore,
                                                                                    new StringSerializer("UTF-8"),
                                                                                    new StringSerializer("UTF-8"));
@@ -203,7 +204,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return uris;
     }
 
-    protected abstract Store<byte[], byte[]> getStore(String storeName, String host, int port);
+    protected abstract Store<ByteArray, byte[]> getStore(String storeName, String host, int port);
 
     protected abstract int getPort(Node node);
 

@@ -27,6 +27,7 @@ import voldemort.cluster.Node;
 import voldemort.store.ByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -54,7 +55,7 @@ public class HttpStoreTest extends ByteArrayStoreTest {
     }
 
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
-        byte[] key = "test".getBytes();
+        ByteArray key = new ByteArray("test".getBytes());
         HttpStore badUrlHttpStore = new HttpStore("test", url, port, new HttpClient());
         try {
             badUrlHttpStore.put(key, new Versioned<byte[]>("value".getBytes(), new VectorClock()));
@@ -90,7 +91,7 @@ public class HttpStoreTest extends ByteArrayStoreTest {
     }
 
     @Override
-    public Store<byte[], byte[]> getStore() {
+    public Store<ByteArray, byte[]> getStore() {
         return httpStore;
     }
 

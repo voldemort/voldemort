@@ -28,6 +28,7 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
 /**
@@ -149,7 +150,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected Store<byte[], byte[]> getStore(String storeName, String host, int port) {
+    protected Store<ByteArray, byte[]> getStore(String storeName, String host, int port) {
         return new SocketStore(Utils.notNull(storeName), Utils.notNull(host), port, socketPool);
     }
 

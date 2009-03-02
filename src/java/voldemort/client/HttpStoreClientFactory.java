@@ -27,12 +27,14 @@ import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
+import voldemort.utils.ByteArray;
 
 /**
  * A {@link voldemort.client.StoreClientFactory StoreClientFactory} that creates
@@ -131,7 +133,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected Store<byte[], byte[]> getStore(String name, String host, int port) {
+    protected Store<ByteArray, byte[]> getStore(String name, String host, int port) {
         return new HttpStore(name, host, port, httpClient);
     }
 

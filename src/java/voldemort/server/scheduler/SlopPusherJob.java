@@ -28,6 +28,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -43,13 +44,13 @@ public class SlopPusherJob implements Runnable {
 
     private static final Logger logger = Logger.getLogger(SlopPusherJob.class.getName());
 
-    private final StorageEngine<byte[], Slop> slopStore;
-    private final ConcurrentMap<Integer, Store<byte[], byte[]>> stores;
+    private final StorageEngine<ByteArray, Slop> slopStore;
+    private final ConcurrentMap<Integer, Store<ByteArray, byte[]>> stores;
 
-    public SlopPusherJob(StorageEngine<byte[], Slop> slop,
-                         Map<Integer, ? extends Store<byte[], byte[]>> stores) {
+    public SlopPusherJob(StorageEngine<ByteArray, Slop> slop,
+                         Map<Integer, ? extends Store<ByteArray, byte[]>> stores) {
         this.slopStore = slop;
-        this.stores = new ConcurrentHashMap<Integer, Store<byte[], byte[]>>(stores);
+        this.stores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(stores);
     }
 
     /**
@@ -60,7 +61,7 @@ public class SlopPusherJob implements Runnable {
         logger.debug("Pushing slop...");
         int slopsPushed = 0;
         int attemptedPushes = 0;
-        ClosableIterator<Entry<byte[], Versioned<Slop>>> iterator = null;
+        ClosableIterator<Entry<ByteArray, Versioned<Slop>>> iterator = null;
         try {
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
@@ -69,10 +70,10 @@ public class SlopPusherJob implements Runnable {
                     throw new InterruptedException("Task cancelled!");
 
                 try {
-                    Entry<byte[], Versioned<Slop>> entry = iterator.next();
+                    Entry<ByteArray, Versioned<Slop>> entry = iterator.next();
                     Versioned<Slop> versioned = entry.getValue();
                     Slop slop = versioned.getValue();
-                    Store<byte[], byte[]> store = stores.get(slop.getNodeId());
+                    Store<ByteArray, byte[]> store = stores.get(slop.getNodeId());
                     try {
                         if(slop.getOperation() == Operation.PUT)
                             store.put(entry.getKey(), new Versioned<byte[]>(slop.getValue(),

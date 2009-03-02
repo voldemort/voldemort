@@ -37,6 +37,7 @@ import voldemort.VoldemortException;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.http.HttpResponseCodeErrorMapper;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -59,12 +60,12 @@ public class StoreServlet extends HttpServlet {
     private static final HttpResponseCodeErrorMapper httpResponseCodeErrorMapper = new HttpResponseCodeErrorMapper();
     private static final Hex urlCodec = new Hex();
 
-    private ConcurrentMap<String, Store<byte[], byte[]>> stores;
+    private ConcurrentMap<String, Store<ByteArray, byte[]>> stores;
 
     /* For use by servlet container */
     public StoreServlet() {}
 
-    public StoreServlet(ConcurrentMap<String, Store<byte[], byte[]>> stores) {
+    public StoreServlet(ConcurrentMap<String, Store<ByteArray, byte[]>> stores) {
         this.stores = stores;
     }
 
@@ -80,8 +81,8 @@ public class StoreServlet extends HttpServlet {
         }
     }
 
-    private Store<byte[], byte[]> getStore(String name) {
-        Store<byte[], byte[]> store = stores.get(name);
+    private Store<ByteArray, byte[]> getStore(String name) {
+        Store<ByteArray, byte[]> store = stores.get(name);
         if(store == null)
             throw new VoldemortException("No store named '" + name + "'.");
         return store;
@@ -91,9 +92,9 @@ public class StoreServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        byte[] key = getKey(path);
+        ByteArray key = getKey(path);
         String storeName = getStoreName(path);
-        Store<byte[], byte[]> store = getStore(storeName);
+        Store<ByteArray, byte[]> store = getStore(storeName);
         DataOutputStream stream = new DataOutputStream(response.getOutputStream());
         try {
             List<Versioned<byte[]>> values = store.get(key);
@@ -115,9 +116,9 @@ public class StoreServlet extends HttpServlet {
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        byte[] key = getKey(path);
+        ByteArray key = getKey(path);
         String storeName = getStoreName(path);
-        Store<byte[], byte[]> store = getStore(storeName);
+        Store<ByteArray, byte[]> store = getStore(storeName);
         int size = request.getContentLength();
         byte[] contents = new byte[size];
         ByteUtils.read(request.getInputStream(), contents);
@@ -136,9 +137,9 @@ public class StoreServlet extends HttpServlet {
     public void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        byte[] key = getKey(path);
+        ByteArray key = getKey(path);
         String storeName = getStoreName(path);
-        Store<byte[], byte[]> store = getStore(storeName);
+        Store<ByteArray, byte[]> store = getStore(storeName);
         try {
             byte[] versionBytes = ByteUtils.getBytes(request.getHeader(VERSION_EXTENSION), "UTF-8");
             VectorClock clock = new VectorClock(Base64.decodeBase64(versionBytes));
@@ -163,7 +164,7 @@ public class StoreServlet extends HttpServlet {
                + "</error>";
     }
 
-    private byte[] getKey(String[] urlPieces) {
+    private ByteArray getKey(String[] urlPieces) {
         if(urlPieces.length < 2)
             throw new VoldemortException("Invalid request for " + Join.join(".", urlPieces)
                                          + ": must specify both a store and key.");
@@ -171,7 +172,7 @@ public class StoreServlet extends HttpServlet {
         String keyStr = urlPieces[urlPieces.length - 1];
         try {
             byte[] key = ByteUtils.getBytes(keyStr, "UTF-8");
-            return urlCodec.decode(key);
+            return new ByteArray(urlCodec.decode(key));
         } catch(DecoderException e) {
             throw new VoldemortException("Corrupt key format.", e);
         }

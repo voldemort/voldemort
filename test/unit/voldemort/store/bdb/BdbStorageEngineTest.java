@@ -25,6 +25,7 @@ import org.apache.commons.io.FileDeleteStrategy;
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineTest;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -73,7 +74,7 @@ public class BdbStorageEngineTest extends StorageEngineTest {
     }
 
     @Override
-    public StorageEngine<byte[], byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
         return store;
     }
 
@@ -91,12 +92,12 @@ public class BdbStorageEngineTest extends StorageEngineTest {
     }
 
     public void testPersistence() throws Exception {
-        StorageEngine<byte[], byte[]> eng = getStorageEngine();
-        eng.put("abc".getBytes(), new Versioned<byte[]>("cdef".getBytes()));
+        StorageEngine<ByteArray, byte[]> eng = getStorageEngine();
+        eng.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
         eng.close();
         this.database = environment.openDatabase(null, "test", databaseConfig);
         eng = new BdbStorageEngine("test", this.environment, this.database);
-        List<Versioned<byte[]>> vals = eng.get("abc".getBytes());
+        List<Versioned<byte[]>> vals = eng.get(new ByteArray("abc".getBytes()));
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
     }

@@ -22,27 +22,28 @@ import java.util.List;
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineTest;
+import voldemort.utils.ByteArray;
 
 public class InMemoryStorageEngineTest extends StorageEngineTest {
 
-    private InMemoryStorageEngine<byte[], byte[]> store;
+    private StorageEngine<ByteArray, byte[]> store;
 
     @Override
-    public StorageEngine<byte[], byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
         return store;
     }
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        this.store = new InMemoryStorageEngine<byte[], byte[]>("test");
+        this.store = new InMemoryStorageEngine<ByteArray, byte[]>("test");
     }
 
     @Override
-    public List<byte[]> getKeys(int numKeys) {
-        List<byte[]> keys = new ArrayList<byte[]>(numKeys);
+    public List<ByteArray> getKeys(int numKeys) {
+        List<ByteArray> keys = new ArrayList<ByteArray>(numKeys);
         for(int i = 0; i < numKeys; i++)
-            keys.add(TestUtils.randomBytes(10));
+            keys.add(new ByteArray(TestUtils.randomBytes(10)));
         return keys;
     }
 

@@ -15,17 +15,17 @@
  */
 
 package voldemort.store.memory;
+
 import java.util.List;
 
-import voldemort.store.KeyWrapper;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StorageEngineType;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.ReferenceType;
 import com.google.common.collect.ReferenceMap;
-
 
 /**
  * Identical to the InMemoryStorageConfiguration except that it creates google
@@ -39,10 +39,10 @@ public class CacheStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<byte[], byte[]> getStore(String name) {
-        ReferenceMap<KeyWrapper, List<Versioned<byte[]>>> backingMap = new ReferenceMap<KeyWrapper, List<Versioned<byte[]>>>(ReferenceType.STRONG,
-                                                                                                                             ReferenceType.SOFT);
-        return new InMemoryStorageEngine<byte[], byte[]>(name, backingMap);
+    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+        ReferenceMap<ByteArray, List<Versioned<byte[]>>> backingMap = new ReferenceMap<ByteArray, List<Versioned<byte[]>>>(ReferenceType.STRONG,
+                                                                                                                           ReferenceType.SOFT);
+        return new InMemoryStorageEngine<ByteArray, byte[]>(name, backingMap);
     }
 
     public StorageEngineType getType() {
