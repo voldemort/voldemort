@@ -22,4 +22,4 @@ then
   exit 1
 fi
 
-bin/run-wrapper.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4}
+bin/run-class.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4}

@@ -24,4 +24,4 @@ fi
 
 base_dir=$(dirname $0)/..
 
-$base_dir/bin/run-wrapper.sh voldemort.VoldemortClientShell ${1} ${2} ${3}
+$base_dir/bin/run-class.sh voldemort.VoldemortClientShell ${1} ${2} ${3}
