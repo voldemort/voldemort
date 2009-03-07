@@ -67,6 +67,22 @@
 		</javac>
 		<buildnumber file="build_number.txt"/>
 	</target>
+  
+  <target name="buildtest" description="Compile test classes">
+    <replace-dir dir="${testclasses.dir}"/>
+    <copy todir="${testclasses.dir}">
+      <fileset dir="${commontestsrc.dir}">
+        <exclude name="**/*.java"/>
+        <exclude name="**/*.html"/>
+      </fileset>
+    </copy>
+    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+      <src path="${unittestsrc.dir}"/>
+      <src path="${inttestsrc.dir}"/>
+      <src path="${commontestsrc.dir}"/>
+      <classpath refid="main-classpath"/>
+    </javac>
+  </target>
 
 	<target name="test" depends="build, buildtest" description="Build test jar file">
 		<jar destfile="${dist.dir}/${name}-test-${curr.release}.jar">
@@ -148,16 +164,6 @@
 				<include name="voldemort/utils/*"/>
 			</fileset>
 		</jar>
-	</target>
-
-	<target name="buildtest" description="Compile test classes">
-		<replace-dir dir="${testclasses.dir}"/>
-		<javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
-			<src path="${unittestsrc.dir}"/>
-			<src path="${inttestsrc.dir}"/>
-			<src path="${commontestsrc.dir}"/>
-			<classpath refid="main-classpath"/>
-		</javac>
 	</target>
 
 	<target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests.">
