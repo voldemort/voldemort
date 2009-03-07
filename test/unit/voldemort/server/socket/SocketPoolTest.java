@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
@@ -33,7 +34,8 @@ import voldemort.store.socket.SocketPool;
  */
 public class SocketPoolTest extends TestCase {
 
-    private int port = 8567;
+    private int port1;
+    private int port2;
     private int maxConnections = 3;
     private SocketPool pool;
     private SocketDestination dest1;
@@ -41,11 +43,14 @@ public class SocketPoolTest extends TestCase {
     private SocketServer server;
 
     public void setUp() {
+        int[] ports = ServerTestUtils.findFreePorts(2);
+        this.port1 = ports[0];
+        this.port2 = ports[1];
         this.pool = new SocketPool(maxConnections, maxConnections, 1000, 32 * 1024);
-        this.dest1 = new SocketDestination("localhost", port);
-        this.dest2 = new SocketDestination("localhost", port);
+        this.dest1 = new SocketDestination("localhost", port1);
+        this.dest2 = new SocketDestination("localhost", port1);
         this.server = new SocketServer(new ConcurrentHashMap(),
-                                       port,
+                                       port1,
                                        maxConnections,
                                        maxConnections,
                                        10000);

@@ -30,6 +30,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
 /**
  * @author jay
@@ -44,9 +45,9 @@ public class HttpStoreTest extends ByteArrayStoreTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        Cluster cluster = VoldemortTestConstants.getOneNodeCluster();
+        Cluster cluster = ServerTestUtils.getLocalCluster(1);
         Node node = cluster.getNodes().iterator().next();
-        context = ServerTestUtils.getJettyServer(VoldemortTestConstants.getOneNodeClusterXml(),
+        context = ServerTestUtils.getJettyServer(new ClusterMapper().writeCluster(cluster),
                                                  VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                  "users",
                                                  node.getHttpPort());
@@ -75,11 +76,15 @@ public class HttpStoreTest extends ByteArrayStoreTest {
     }
 
     public void testBadUrl() {
-        testBadUrlOrPort("asfgsadfsda", 80, UnreachableStoreException.class);
+        testBadUrlOrPort("asfgsadfsda",
+                         ServerTestUtils.findFreePort(),
+                         UnreachableStoreException.class);
     }
 
     public void testBadPort() {
-        testBadUrlOrPort("localhost", 7777, UnreachableStoreException.class);
+        testBadUrlOrPort("localhost",
+                         ServerTestUtils.findFreePort(),
+                         UnreachableStoreException.class);
     }
 
     @Override

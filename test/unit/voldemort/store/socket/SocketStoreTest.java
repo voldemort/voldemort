@@ -39,19 +39,19 @@ public class SocketStoreTest extends ByteArrayStoreTest {
 
     private static final Logger logger = Logger.getLogger(SocketStoreTest.class);
 
-    private static final int SOCKET_PORT = 6667;
-
+    private int socketPort;
     private SocketServer socketServer;
     private SocketStore socketStore;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        socketPort = ServerTestUtils.findFreePort();
         socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
                                                        VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                        "test",
-                                                       SOCKET_PORT);
-        socketStore = ServerTestUtils.getSocketStore("test", SOCKET_PORT);
+                                                       socketPort);
+        socketStore = ServerTestUtils.getSocketStore("test", socketPort);
     }
 
     @Override
@@ -104,7 +104,7 @@ public class SocketStoreTest extends ByteArrayStoreTest {
             Socket s = new Socket();
             s.setTcpNoDelay(true);
             s.setSoTimeout(1000);
-            s.connect(new InetSocketAddress("localhost", SOCKET_PORT));
+            s.connect(new InetSocketAddress("localhost", socketPort));
             logger.info("Client opened" + i);
             // Thread.sleep(1);
             assertTrue(s.isConnected());

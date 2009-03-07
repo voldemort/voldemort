@@ -55,7 +55,9 @@ public class TestUtils {
     private static final Random random = new Random(19873482374L);
 
     /**
-     * Get a vector clock with events on the sequence of nodes given
+     * Get a vector clock with events on the sequence of nodes given So
+     * getClock(1,1,2,2,2) means a clock that has two writes on node 1 and 3
+     * writes on node 2.
      * 
      * @param nodes The sequence of nodes
      * @return A VectorClock initialized with the given sequence of events
@@ -246,4 +248,5 @@ public class TestUtils {
 
         return config;
     }
+
 }

@@ -18,6 +18,9 @@ package voldemort;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -27,6 +30,8 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.server.http.StoreServlet;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
@@ -36,6 +41,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * Helper functions for testing with real server implementations
@@ -103,5 +110,50 @@ public class ServerTestUtils {
 
     public static HttpStore getHttpStore(String storeName, int port) {
         return new HttpStore(storeName, "localhost", port, new HttpClient());
+    }
+
+    /**
+     * Return a free port as chosen by new SocketServer(0)
+     */
+    public static int findFreePort() {
+        return findFreePorts(1)[0];
+    }
+
+    /**
+     * Return an array of free ports as chosen by new SocketServer(0)
+     */
+    public static int[] findFreePorts(int n) {
+        int[] ports = new int[n];
+        ServerSocket[] sockets = new ServerSocket[n];
+        try {
+            for(int i = 0; i < n; i++) {
+                sockets[i] = new ServerSocket(0);
+                ports[i] = sockets[i].getLocalPort();
+            }
+            return ports;
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            for(int i = 0; i < n; i++) {
+                try {
+                    if(sockets[i] != null)
+                        sockets[i].close();
+                } catch(IOException e) {}
+            }
+        }
+    }
+
+    public static Cluster getLocalCluster(int numberOfNodes) {
+        return getLocalCluster(numberOfNodes, findFreePorts(2 * numberOfNodes));
+    }
+
+    public static Cluster getLocalCluster(int numberOfNodes, int[] ports) {
+        if(2 * numberOfNodes != ports.length)
+            throw new IllegalArgumentException(2 * numberOfNodes + " ports required but only "
+                                               + ports.length + " given.");
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < numberOfNodes; i++)
+            nodes.add(new Node(i, "localhost", ports[2 * i], ports[2 * i + 1], ImmutableList.of(i)));
+        return new Cluster("test-cluster", nodes);
     }
 }

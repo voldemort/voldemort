@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.util.Date;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -27,6 +28,7 @@ import voldemort.serialization.ObjectSerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.xml.ClusterMapper;
 
 /**
  * @author jay
@@ -36,13 +38,11 @@ public abstract class AbstractStoreClientFactoryTest extends TestCase {
 
     private Node node;
     private Cluster cluster;
-    private String clusterXml;
     private String storeDefinitionXml;
 
     public void setUp() throws Exception {
-        this.clusterXml = VoldemortTestConstants.getOneNodeClusterXml();
         this.storeDefinitionXml = VoldemortTestConstants.getSingleStoreDefinitionsXml();
-        this.cluster = VoldemortTestConstants.getOneNodeCluster();
+        this.cluster = ServerTestUtils.getLocalCluster(1);
         this.node = cluster.getNodes().iterator().next();
     }
 
@@ -69,7 +69,7 @@ public abstract class AbstractStoreClientFactoryTest extends TestCase {
     }
 
     protected String getClusterXml() {
-        return this.clusterXml;
+        return new ClusterMapper().writeCluster(this.cluster);
     }
 
     protected String getStoreDefXml() {

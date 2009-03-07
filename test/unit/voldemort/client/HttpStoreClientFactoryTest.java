@@ -36,14 +36,13 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
     public void setUp() throws Exception {
         super.setUp();
-        int httpPort = 8080;
-        url = "http://localhost:" + httpPort;
         context = ServerTestUtils.getJettyServer(getClusterXml(),
                                                  getStoreDefXml(),
                                                  getValidStoreName(),
-                                                 httpPort);
+                                                 getLocalNode().getHttpPort());
         server = context.getServer();
-        httpStore = ServerTestUtils.getHttpStore(getValidStoreName(), httpPort);
+        httpStore = ServerTestUtils.getHttpStore(getValidStoreName(), getLocalNode().getHttpPort());
+        url = getLocalNode().getHttpUrl().toString();
     }
 
     public void tearDown() throws Exception {
