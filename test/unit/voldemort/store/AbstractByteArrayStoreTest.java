@@ -28,7 +28,7 @@ import com.google.common.collect.Lists;
  * @author jay
  * 
  */
-public abstract class ByteArrayStoreTest extends BasicStoreTest<ByteArray, byte[]> {
+public abstract class AbstractByteArrayStoreTest extends AbstractStoreTest<ByteArray, byte[]> {
 
     @Override
     public List<ByteArray> getKeys(int numValues) {

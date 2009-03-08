@@ -26,10 +26,10 @@ import org.apache.commons.dbcp.BasicDataSource;
 
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineTest;
+import voldemort.store.AbstractStorageEngineTest;
 import voldemort.utils.ByteArray;
 
-public class MysqlStorageEngineTest extends StorageEngineTest {
+public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
 
     private MysqlStorageEngine engine;
 

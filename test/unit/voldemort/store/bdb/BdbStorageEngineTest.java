@@ -24,7 +24,7 @@ import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineTest;
+import voldemort.store.AbstractStorageEngineTest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -34,7 +34,7 @@ import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 
-public class BdbStorageEngineTest extends StorageEngineTest {
+public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 
     private Environment environment;
     private Database database;

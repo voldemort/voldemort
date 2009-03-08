@@ -22,7 +22,7 @@ import java.util.Date;
 import java.util.List;
 
 import voldemort.TestUtils;
-import voldemort.store.ByteArrayStoreTest;
+import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.FailingStore;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -30,7 +30,7 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class SloppyStoreTest extends ByteArrayStoreTest {
+public class SloppyStoreTest extends AbstractByteArrayStoreTest {
 
     private static final byte[] testVal = "test".getBytes();
     private static final int NODE_ID = 0;

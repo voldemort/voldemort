@@ -24,7 +24,7 @@ import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.store.ByteArrayStoreTest;
+import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -36,7 +36,7 @@ import voldemort.xml.ClusterMapper;
  * @author jay
  * 
  */
-public class HttpStoreTest extends ByteArrayStoreTest {
+public class HttpStoreTest extends AbstractByteArrayStoreTest {
 
     private HttpStore httpStore;
     private Server server;

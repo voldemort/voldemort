@@ -34,7 +34,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.base.Objects;
 
-public abstract class BasicStoreTest<K, V> extends TestCase {
+public abstract class AbstractStoreTest<K, V> extends TestCase {
 
     public abstract Store<K, V> getStore();
 

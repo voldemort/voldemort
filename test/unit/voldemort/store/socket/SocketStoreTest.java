@@ -30,12 +30,12 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.server.socket.SocketServer;
-import voldemort.store.ByteArrayStoreTest;
+import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class SocketStoreTest extends ByteArrayStoreTest {
+public class SocketStoreTest extends AbstractByteArrayStoreTest {
 
     private static final Logger logger = Logger.getLogger(SocketStoreTest.class);
 

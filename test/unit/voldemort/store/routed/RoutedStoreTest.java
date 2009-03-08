@@ -27,7 +27,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.ByteArrayStoreTest;
+import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.FailingStore;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.SleepyStore;
@@ -50,7 +50,7 @@ import com.google.common.collect.Maps;
  * @author jay
  * 
  */
-public class RoutedStoreTest extends ByteArrayStoreTest {
+public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     private Cluster cluster;
     private final ByteArray aKey = ByteArray.valueOf("jay");

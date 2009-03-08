@@ -29,7 +29,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableMap;
 
-public abstract class StorageEngineTest extends ByteArrayStoreTest {
+public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTest {
 
     @Override
     public Store<ByteArray, byte[]> getStore() {

@@ -19,7 +19,7 @@ package voldemort.store.serialized;
 import java.util.List;
 
 import voldemort.serialization.StringSerializer;
-import voldemort.store.BasicStoreTest;
+import voldemort.store.AbstractStoreTest;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
@@ -28,7 +28,7 @@ import voldemort.utils.ByteArray;
  * @author jay
  * 
  */
-public class SerializingStoreTest extends BasicStoreTest<String, String> {
+public class SerializingStoreTest extends AbstractStoreTest<String, String> {
 
     @Override
     public List<String> getKeys(int numKeys) {

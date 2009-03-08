@@ -23,10 +23,10 @@ import java.util.List;
 import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.TestUtils;
-import voldemort.store.BasicStoreTest;
+import voldemort.store.AbstractStoreTest;
 import voldemort.store.Store;
 
-public class FilesystemStorageEngineTest extends BasicStoreTest<String, String> {
+public class FilesystemStorageEngineTest extends AbstractStoreTest<String, String> {
 
     private List<File> tempDirs;
 

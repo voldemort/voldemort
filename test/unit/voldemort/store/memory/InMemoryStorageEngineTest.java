@@ -21,10 +21,10 @@ import java.util.List;
 
 import voldemort.TestUtils;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineTest;
+import voldemort.store.AbstractStorageEngineTest;
 import voldemort.utils.ByteArray;
 
-public class InMemoryStorageEngineTest extends StorageEngineTest {
+public class InMemoryStorageEngineTest extends AbstractStorageEngineTest {
 
     private StorageEngine<ByteArray, byte[]> store;
 
