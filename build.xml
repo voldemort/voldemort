@@ -25,6 +25,7 @@
 	</path>
 
 	<path id="test-classpath">
+	    <pathelement path="${env.VOLD_TEST_JARS}"/>
 		<path refid="main-classpath" />
 		<pathelement path="${testclasses.dir}"/>
 	</path>
