@@ -6,6 +6,7 @@
 	<property name="name" value="voldemort"/>
 	<property name="display.name" value="Voldemort"/>
 	<property name="author" value="Jay Kreps"/>
+  <property environment="env"/>
 
 	<path id="main-classpath">
 		<fileset dir="${lib.dir}">
@@ -25,7 +26,7 @@
 	</path>
 
 	<path id="test-classpath">
-	    <pathelement path="${env.VOLD_TEST_JARS}"/>
+	  <pathelement path="${env.VOLD_TEST_JARS}"/>
 		<path refid="main-classpath" />
 		<pathelement path="${testclasses.dir}"/>
 	</path>
@@ -129,8 +130,6 @@
 		<buildnumber file="build_number.txt"/>
 	</target>
 
-
-
 	<target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
 		<jar destfile="${dist.dir}/${name}-contrib-${curr.release}.jar">
 			<fileset dir="${contrib.classes.dir}">
@@ -188,7 +187,7 @@
 			<batchtest fork="yes" todir="${testreport.dir}">
 				<fileset dir="${unittestsrc.dir}">
 					<include name="**/*Test.java"/>
-				  <exclude name="**/*Abstract*.java" />
+				  <exclude name="**/Abstract*.java" />
 				</fileset>
 			</batchtest>
 		</junit>
