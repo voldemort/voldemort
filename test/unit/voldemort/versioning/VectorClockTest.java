@@ -18,6 +18,7 @@ package voldemort.versioning;
 
 import static voldemort.TestUtils.getClock;
 import junit.framework.TestCase;
+import voldemort.TestUtils;
 
 /**
  * VectorClock tests
@@ -43,15 +44,22 @@ public class VectorClockTest extends TestCase {
     }
 
     public void testMerge() {
+        // merging two clocks should create a clock contain the element-wise
+        // maximums
         assertEquals("Two empty clocks merge to an empty clock.",
                      getClock().merge(getClock()),
                      getClock());
-        assertEquals("Merging two clocks should be the same as taking the max of their event counts.",
-                     getClock(1).merge(getClock(2)),
-                     getClock(1, 2));
-        assertEquals("Merging two clocks should be the same as taking the max of their event counts.",
-                     getClock(1, 1, 1, 2, 3).merge(getClock(1, 2, 2, 4)),
-                     getClock(1, 1, 1, 2, 2, 3, 4));
+        assertEquals("Merge of a clock with itself does nothing",
+                     getClock(1).merge(getClock(1)),
+                     getClock(1));
+        assertEquals(getClock(1).merge(getClock(2)), getClock(1, 2));
+        assertEquals(getClock(1).merge(getClock(1, 2)), getClock(1, 2));
+        assertEquals(getClock(1, 2).merge(getClock(1)), getClock(1, 2));
+        assertEquals("Two-way merge fails.",
+                     getClock(1, 1, 1, 2, 3, 5).merge(getClock(1, 2, 2, 4)),
+                     getClock(1, 1, 1, 2, 2, 3, 4, 5));
+        assertEquals(getClock(2, 3, 5).merge(getClock(1, 2, 2, 4, 7)),
+                     getClock(1, 2, 2, 3, 4, 5, 7));
     }
 
     public void testSerialization() {
@@ -71,4 +79,22 @@ public class VectorClockTest extends TestCase {
         assertEquals("Clock does not serialize to itself.", clock, new VectorClock(clock.toBytes()));
     }
 
+    public void testIncrementOrderDoesntMatter() {
+        // Clocks should have the property that no matter what order the
+        // increment operations are done in the resulting clocks are equal
+        int numTests = 10;
+        int numNodes = 10;
+        int numValues = 100;
+        VectorClock[] clocks = new VectorClock[numNodes];
+        for(int t = 0; t < numTests; t++) {
+            int[] test = TestUtils.randomInts(numNodes, numValues);
+            for(int n = 0; n < numNodes; n++)
+                clocks[n] = getClock(TestUtils.shuffle(test));
+            // test all are equal
+            for(int n = 0; n < numNodes - 1; n++)
+                assertEquals("Clock " + n + " and " + (n + 1) + " are not equal.",
+                             clocks[n],
+                             clocks[n + 1]);
+        }
+    }
 }

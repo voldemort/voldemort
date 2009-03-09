@@ -16,7 +16,7 @@
 
 package voldemort.serialization.json;
 
-import static voldemort.TestUtils.str;
+import static voldemort.TestUtils.quote;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -47,10 +47,10 @@ public class JsonReaderTest extends TestCase {
     }
 
     public void testStrings() throws IOException {
-        assertParsed("hello", str("hello"));
-        assertParsed(" hello ", str(" hello "));
-        assertParsed(" hello \n\r", str(" hello \n\r"));
-        assertParsed("", str(""));
+        assertParsed("hello", quote("hello"));
+        assertParsed(" hello ", quote(" hello "));
+        assertParsed(" hello \n\r", quote(" hello \n\r"));
+        assertParsed("", quote(""));
         assertParsed("\"", "'\"'");
 
         // test strings with single quotes
@@ -58,19 +58,19 @@ public class JsonReaderTest extends TestCase {
         assertParsed("\u1234", "'\\u1234'");
 
         // control sequences
-        assertParsed("\"", str("\\\""));
-        assertParsed("\\", str("\\\\"));
-        assertParsed("/", str("\\/"));
-        assertParsed("\b", str("\\b"));
-        assertParsed("\f", str("\\f"));
-        assertParsed("\n", str("\\n"));
-        assertParsed("\r", str("\\r"));
-        assertParsed("\t", str("\\t"));
+        assertParsed("\"", quote("\\\""));
+        assertParsed("\\", quote("\\\\"));
+        assertParsed("/", quote("\\/"));
+        assertParsed("\b", quote("\\b"));
+        assertParsed("\f", quote("\\f"));
+        assertParsed("\n", quote("\\n"));
+        assertParsed("\r", quote("\\r"));
+        assertParsed("\t", quote("\\t"));
 
         // unicode literals
-        assertParsed("\u1234", str("\\u1234"));
-        assertParsed("\u12aF", str("\\u12aF"));
-        assertParsed("\u12Af", str("\\u12Af"));
+        assertParsed("\u1234", quote("\\u1234"));
+        assertParsed("\u12aF", quote("\\u12aF"));
+        assertParsed("\u12Af", quote("\\u12Af"));
     }
 
     public void testNumbers() throws IOException {
@@ -101,7 +101,7 @@ public class JsonReaderTest extends TestCase {
         assertFails("pkldjf");
         assertFails("1ef");
         assertFails("1E");
-        assertFails(str("\\u123v"));
+        assertFails(quote("\\u123v"));
     }
 
     public void testParseMultiple() throws Exception {

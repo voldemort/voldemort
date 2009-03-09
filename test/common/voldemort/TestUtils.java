@@ -21,10 +21,12 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
-
 
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
@@ -48,7 +50,7 @@ public class TestUtils {
     public static final String DIGITS = "0123456789";
     public static final String LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
-    private static final Random random = new Random(19873482374L);
+    public static final Random RAND = new Random(19873482374L);
 
     /**
      * Get a vector clock with events on the sequence of nodes given So
@@ -103,7 +105,7 @@ public class TestUtils {
     /**
      * Create a string with some random letters
      * 
-     * @param random The Random number generator to use
+     * @param RAND The Random number generator to use
      * @param length The length of the string to create
      * @return The string
      */
@@ -122,14 +124,52 @@ public class TestUtils {
     public static String randomString(String sampler, int length) {
         StringBuilder builder = new StringBuilder(length);
         for(int i = 0; i < length; i++)
-            builder.append(sampler.charAt(random.nextInt(sampler.length())));
+            builder.append(sampler.charAt(RAND.nextInt(sampler.length())));
         return builder.toString();
     }
 
+    /**
+     * Generate an array of random bytes
+     * 
+     * @param length
+     * @return
+     */
     public static byte[] randomBytes(int length) {
         byte[] bytes = new byte[length];
-        random.nextBytes(bytes);
+        RAND.nextBytes(bytes);
         return bytes;
+    }
+
+    /**
+     * Return an array of length count containing random integers in the range
+     * (0, max) generated off the test rng.
+     * 
+     * @param max The bound on the random number size
+     * @param count The number of integers to generate
+     * @return The array of integers
+     */
+    public static int[] randomInts(int max, int count) {
+        int[] vals = new int[count];
+        for(int i = 0; i < count; i++)
+            vals[i] = RAND.nextInt(max);
+        return vals;
+    }
+
+    /**
+     * Weirdly java doesn't seem to have Arrays.shuffle(), this terrible hack
+     * does that.
+     * 
+     * @return A shuffled copy of the input
+     */
+    public static int[] shuffle(int[] input) {
+        List<Integer> vals = new ArrayList<Integer>(input.length);
+        for(int i = 0; i < input.length; i++)
+            vals.add(input[i]);
+        Collections.shuffle(vals, RAND);
+        int[] copy = new int[input.length];
+        for(int i = 0; i < input.length; i++)
+            copy[i] = vals.get(i);
+        return copy;
     }
 
     /**
@@ -153,19 +193,37 @@ public class TestUtils {
         return copy[index];
     }
 
+    /**
+     * Create a temporary directory in the directory given by java.io.tmpdir
+     * 
+     * @return The directory created.
+     */
     public static File createTempDir() {
         return createTempDir(new File(System.getProperty("java.io.tmpdir")));
     }
 
+    /**
+     * Create a temporary directory that is a child of the given directory
+     * 
+     * @param parent The parent directory
+     * @return The temporary directory
+     */
     public static File createTempDir(File parent) {
-        File temp = new File(parent, Integer.toString(Math.abs(random.nextInt()) % 1000000));
+        File temp = new File(parent, Integer.toString(Math.abs(RAND.nextInt()) % 1000000));
         temp.delete();
         temp.mkdir();
         temp.deleteOnExit();
         return temp;
     }
 
-    public static String str(String s) {
+    /**
+     * Wrap the given string in quotation marks. This is slightly more readable
+     * then the java inline quotes that require escaping.
+     * 
+     * @param s The string to wrap in quotes
+     * @return The string
+     */
+    public static String quote(String s) {
         return "\"" + s + "\"";
     }
 

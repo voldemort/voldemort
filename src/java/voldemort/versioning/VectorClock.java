@@ -155,14 +155,19 @@ public class VectorClock implements Version, Serializable {
         boolean found = false;
         int index = 0;
         for(; index < versions.size(); index++) {
-            if(versions.get(index).getNodeId() >= node) {
+            if(versions.get(index).getNodeId() == node) {
                 found = true;
+                break;
+            } else if(versions.get(index).getNodeId() > node) {
+                found = false;
                 break;
             }
         }
 
         if(found) {
             versions.set(index, versions.get(index).incremented());
+        } else if(index < versions.size() - 1) {
+            versions.add(index, new ClockEntry((short) node, (short) 1));
         } else {
             // we don't already have a version for this, so add it
             if(versions.size() > MAX_NUMBER_OF_VERSIONS)
@@ -254,13 +259,14 @@ public class VectorClock implements Version, Serializable {
                 i++;
             } else {
                 newClock.versions.add(v2.clone());
+                j++;
             }
         }
 
         // Okay now there may be leftovers on one or the other list remaining
         for(int k = i; k < this.versions.size(); k++)
             newClock.versions.add(this.versions.get(k).clone());
-        for(int k = j; k < this.versions.size(); k++)
+        for(int k = j; k < clock.versions.size(); k++)
             newClock.versions.add(clock.versions.get(k).clone());
 
         return newClock;
