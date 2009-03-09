@@ -16,10 +16,11 @@
 
 package voldemort.store.http;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,6 +95,12 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         }
     }
 
+    private BufferedInputStream getBufferedInputStream(InputStream inputStream) {
+        if(inputStream instanceof BufferedInputStream)
+            return (BufferedInputStream) inputStream;
+        return new BufferedInputStream(inputStream);
+    }
+
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         String url = getUrl(key);
@@ -103,7 +110,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
             int response = httpClient.executeMethod(method);
             if(response != HttpURLConnection.HTTP_OK)
                 httpResponseCodeErrorMapper.throwError(response, method.getStatusText());
-            DataInputStream input = new DataInputStream(new ByteArrayInputStream(method.getResponseBody()));
+            DataInputStream input = createDataInputStream(method);
             List<Versioned<byte[]>> items = new ArrayList<Versioned<byte[]>>();
             try {
                 while(true) {
@@ -115,9 +122,10 @@ public class HttpStore implements Store<ByteArray, byte[]> {
                     items.add(new Versioned<byte[]>(data, clock));
                 }
             } catch(EOFException e) {
-                input.close();
+                return items;
+            } finally {
+                StoreUtils.close(input);
             }
-            return items;
         } catch(HttpException e) {
             throw new VoldemortException(e);
         } catch(IOException e) {
@@ -127,6 +135,10 @@ public class HttpStore implements Store<ByteArray, byte[]> {
             if(method != null)
                 method.releaseConnection();
         }
+    }
+
+    private DataInputStream createDataInputStream(GetMethod method) throws IOException {
+        return new DataInputStream(getBufferedInputStream(method.getResponseBodyAsStream()));
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
