@@ -36,7 +36,8 @@ public class SocketPoolTest extends TestCase {
 
     private int port1;
     private int port2;
-    private int maxConnections = 3;
+    private int maxConnectionsPerNode = 3;
+    private int maxTotalConnections = 2 * maxConnectionsPerNode + 1;
     private SocketPool pool;
     private SocketDestination dest1;
     private SocketDestination dest2;
@@ -46,13 +47,13 @@ public class SocketPoolTest extends TestCase {
         int[] ports = ServerTestUtils.findFreePorts(2);
         this.port1 = ports[0];
         this.port2 = ports[1];
-        this.pool = new SocketPool(maxConnections, maxConnections, 1000, 32 * 1024);
+        this.pool = new SocketPool(maxConnectionsPerNode, maxTotalConnections, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port1);
         this.dest2 = new SocketDestination("localhost", port1);
         this.server = new SocketServer(new ConcurrentHashMap(),
                                        port1,
-                                       maxConnections,
-                                       maxConnections,
+                                       maxTotalConnections,
+                                       maxTotalConnections + 3,
                                        10000);
         this.server.start();
         this.server.awaitStartupCompletion();
@@ -88,7 +89,7 @@ public class SocketPoolTest extends TestCase {
 
     public void testNoChurn() throws Exception {
         ExecutorService service = Executors.newFixedThreadPool(10);
-        int numRequests = 1000;
+        int numRequests = 100;
         final AtomicInteger curr = new AtomicInteger(0);
         final CountDownLatch latch = new CountDownLatch(numRequests);
         for(int i = 0; i < numRequests; i++) {
@@ -97,12 +98,15 @@ public class SocketPoolTest extends TestCase {
                 public void run() {
                     SocketDestination dest = curr.getAndIncrement() % 2 == 0 ? dest1 : dest2;
                     SocketAndStreams sas = pool.checkout(dest);
-                    pool.checkin(dest1, sas);
+                    pool.checkin(dest, sas);
                     latch.countDown();
                 }
             });
         }
         latch.await();
-        assertEquals(maxConnections, pool.getNumberSocketsCreated());
+        assertTrue("Created more sockets than expected (created = "
+                           + pool.getNumberSocketsCreated() + ", expected = " + maxTotalConnections
+                           + ".",
+                   maxTotalConnections >= pool.getNumberSocketsCreated());
     }
 }
