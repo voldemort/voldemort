@@ -39,6 +39,7 @@ import voldemort.store.Store;
 import voldemort.store.http.HttpResponseCodeErrorMapper;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -92,12 +93,11 @@ public class StoreServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        ByteArray key = getKey(path);
-        String storeName = getStoreName(path);
-        Store<ByteArray, byte[]> store = getStore(storeName);
+        Pair<ByteArray, String> keyAndStore = getKeyAndStore(path);
+        Store<ByteArray, byte[]> store = getStore(keyAndStore.getSecond());
         DataOutputStream stream = new DataOutputStream(response.getOutputStream());
         try {
-            List<Versioned<byte[]>> values = store.get(key);
+            List<Versioned<byte[]>> values = store.get(keyAndStore.getFirst());
             for(Versioned<byte[]> versioned: values) {
                 byte[] clock = ((VectorClock) versioned.getVersion()).toBytes();
                 byte[] value = versioned.getValue();
@@ -116,16 +116,15 @@ public class StoreServlet extends HttpServlet {
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        ByteArray key = getKey(path);
-        String storeName = getStoreName(path);
-        Store<ByteArray, byte[]> store = getStore(storeName);
+        Pair<ByteArray, String> keyAndStore = getKeyAndStore(path);
+        Store<ByteArray, byte[]> store = getStore(keyAndStore.getSecond());
         int size = request.getContentLength();
         byte[] contents = new byte[size];
         ByteUtils.read(request.getInputStream(), contents);
         try {
             VectorClock clock = new VectorClock(Base64.decodeBase64(request.getHeader(VERSION_EXTENSION)
                                                                            .getBytes()));
-            store.put(key, new Versioned<byte[]>(contents, clock));
+            store.put(keyAndStore.getFirst(), new Versioned<byte[]>(contents, clock));
         } catch(VoldemortException v) {
             HttpResponseCodeErrorMapper.ResponseCode code = httpResponseCodeErrorMapper.mapErrorToResponseCode(v);
             response.setContentType("text/xml");
@@ -137,13 +136,12 @@ public class StoreServlet extends HttpServlet {
     public void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String[] path = SLASH_PATTERN.split(request.getPathInfo());
-        ByteArray key = getKey(path);
-        String storeName = getStoreName(path);
-        Store<ByteArray, byte[]> store = getStore(storeName);
+        Pair<ByteArray, String> keyAndStore = getKeyAndStore(path);
+        Store<ByteArray, byte[]> store = getStore(keyAndStore.getSecond());
         try {
             byte[] versionBytes = ByteUtils.getBytes(request.getHeader(VERSION_EXTENSION), "UTF-8");
             VectorClock clock = new VectorClock(Base64.decodeBase64(versionBytes));
-            boolean succeeded = store.delete(key, clock);
+            boolean succeeded = store.delete(keyAndStore.getFirst(), clock);
             if(!succeeded)
                 response.sendError(HttpURLConnection.HTTP_NOT_FOUND);
         } catch(VoldemortException v) {
@@ -164,25 +162,22 @@ public class StoreServlet extends HttpServlet {
                + "</error>";
     }
 
-    private ByteArray getKey(String[] urlPieces) {
-        if(urlPieces.length < 2)
+    private Pair<ByteArray, String> getKeyAndStore(String[] urlPieces) {
+        if(urlPieces.length < 2) {
             throw new VoldemortException("Invalid request for " + Join.join(".", urlPieces)
                                          + ": must specify both a store and key.");
-
-        String keyStr = urlPieces[urlPieces.length - 1];
-        try {
-            byte[] key = ByteUtils.getBytes(keyStr, "UTF-8");
-            return new ByteArray(urlCodec.decode(key));
-        } catch(DecoderException e) {
-            throw new VoldemortException("Corrupt key format.", e);
+        } else if(urlPieces.length == 2) {
+            return Pair.create(ByteArray.EMPTY, urlPieces[urlPieces.length - 1]);
+        } else {
+            String keyStr = urlPieces[urlPieces.length - 1];
+            String store = urlPieces[urlPieces.length - 2];
+            try {
+                byte[] key = ByteUtils.getBytes(keyStr, "UTF-8");
+                return Pair.create(new ByteArray(urlCodec.decode(key)), store);
+            } catch(DecoderException e) {
+                throw new VoldemortException("Corrupt key format.", e);
+            }
         }
-    }
-
-    private String getStoreName(String[] urlPieces) {
-        if(urlPieces.length < 2)
-            throw new VoldemortException("Invalid request for " + Join.join("/", urlPieces)
-                                         + ": must specify both a store and key.");
-        return urlPieces[urlPieces.length - 2];
     }
 
 }

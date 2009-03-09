@@ -11,6 +11,8 @@ public final class ByteArray implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public static ByteArray EMPTY = new ByteArray();
+
     private final byte[] underlying;
 
     /* Cache hashCode using similar approach to java.lang.String */
