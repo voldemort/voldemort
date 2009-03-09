@@ -28,6 +28,7 @@ import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 
 import voldemort.server.http.HttpService;
 import voldemort.server.socket.SocketServer;
@@ -133,7 +134,7 @@ public class RemoteStoreComparisonTest {
         httpService.start();
         HttpClient httpClient = new HttpClient(new MultiThreadedHttpConnectionManager());
         HttpClientParams clientParams = httpClient.getParams();
-        clientParams.setParameter(HttpClientParams.RETRY_HANDLER,
+        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
                                   new DefaultHttpMethodRetryHandler(0, false));
         clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
         clientParams.setParameter("http.useragent", "test-agent");

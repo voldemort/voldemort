@@ -26,6 +26,7 @@ import org.apache.commons.httpclient.cookie.CookiePolicy;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
+import org.apache.commons.httpclient.params.HttpMethodParams;
 
 public class HttpClientBench {
 
@@ -73,7 +74,7 @@ public class HttpClientBench {
         HttpClientParams clientParams = httpClient.getParams();
         clientParams.setConnectionManagerTimeout(DEFAULT_CONNECTION_MANAGER_TIMEOUT);
         clientParams.setSoTimeout(500);
-        clientParams.setParameter(HttpClientParams.RETRY_HANDLER,
+        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
                                   new DefaultHttpMethodRetryHandler(0, false));
         clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
         clientParams.setBooleanParameter("http.tcp.nodelay", false);

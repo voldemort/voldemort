@@ -119,7 +119,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
         HttpClientParams clientParams = this.httpClient.getParams();
         clientParams.setConnectionManagerTimeout(connectionManagerTimeoutMs);
         clientParams.setSoTimeout(socketSoTimeoutMs);
-        clientParams.setParameter(HttpClientParams.RETRY_HANDLER,
+        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
                                   new DefaultHttpMethodRetryHandler(numRetries, false));
         clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
         clientParams.setParameter("http.useragent", VOLDEMORT_USER_AGENT);
