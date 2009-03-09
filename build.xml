@@ -67,7 +67,6 @@
 			<src path="${java.dir}"/>
 			<classpath refid="main-classpath"/>
 		</javac>
-		<buildnumber file="build_number.txt"/>
 	</target>
   
   <target name="buildtest" description="Compile test classes">
@@ -127,7 +126,6 @@
 			<classpath refid="main-classpath"/>
 			<classpath refid="contrib-classpath"/>
 		</javac>
-		<buildnumber file="build_number.txt"/>
 	</target>
 
 	<target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
