@@ -24,9 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.store.Store;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
+import voldemort.utils.ByteArray;
 
 /**
  * @author jay
@@ -51,7 +53,7 @@ public class SocketPoolTest extends TestCase {
         this.pool = new SocketPool(maxConnectionsPerNode, maxTotalConnections, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port1);
         this.dest2 = new SocketDestination("localhost", port1);
-        this.server = new SocketServer(new ConcurrentHashMap(),
+        this.server = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
                                        port1,
                                        maxTotalConnections,
                                        maxTotalConnections + 3,
