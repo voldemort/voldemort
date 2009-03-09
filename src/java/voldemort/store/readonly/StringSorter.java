@@ -20,6 +20,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.OutputStreamWriter;
+import java.util.Iterator;
 
 import org.apache.commons.io.LineIterator;
 
@@ -44,8 +45,9 @@ public class StringSorter {
         ExternalSorter<String> sorter = new ExternalSorter<String>(new StringSerializer(),
                                                                    internalSortSize,
                                                                    numThreads);
-        LineIterator it = new LineIterator(new BufferedReader(new FileReader(input),
-                                                              10 * 1024 * 1024));
+        @SuppressWarnings("unchecked")
+        Iterator<String> it = new LineIterator(new BufferedReader(new FileReader(input),
+                                                                  10 * 1024 * 1024));
 
         String seperator = System.getProperty("line.separator");
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out),
