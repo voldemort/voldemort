@@ -62,7 +62,7 @@ public class QueryServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
         super.doGet(req, resp);
-        Map m = Maps.newHashMap();
+        Map<String, Object> m = Maps.newHashMap();
         engine.render("query.vm", m, resp.getOutputStream());
     }
 

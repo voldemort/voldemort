@@ -3,7 +3,6 @@ package voldemort.performance;
 import java.util.ArrayList;
 import java.util.List;
 
-import voldemort.serialization.Serializer;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
 
@@ -12,10 +11,10 @@ public class TestSerialization {
     public static void main(String[] args) {
         JsonTypeDefinition def = JsonTypeDefinition.fromJson("[\"int32\"]");
         int size = 30000;
-        List value = new ArrayList(size);
+        List<Integer> value = new ArrayList<Integer>(size);
         for(int i = 0; i < size; i++)
             value.add(i);
-        Serializer ser = new JsonTypeSerializer(def);
+        JsonTypeSerializer ser = new JsonTypeSerializer(def);
         long start = System.currentTimeMillis();
         int iters = 100;
         List<byte[]> bytes = new ArrayList<byte[]>(iters);

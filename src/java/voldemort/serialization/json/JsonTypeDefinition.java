@@ -96,7 +96,7 @@ public class JsonTypeDefinition implements Serializable {
      */
     public JsonTypeDefinition projectionType(String... properties) {
         if(this.getType() instanceof Map) {
-            Map<String, Object> type = (Map<String, Object>) getType();
+            Map<?, ?> type = (Map<?, ?>) getType();
             Arrays.sort(properties);
             Map<String, Object> newType = new LinkedHashMap<String, Object>();
             for(String prop: properties)
@@ -109,7 +109,7 @@ public class JsonTypeDefinition implements Serializable {
 
     public JsonTypeDefinition subtype(String field) {
         if(this.getType() instanceof Map) {
-            Map<String, Object> type = (Map<String, Object>) getType();
+            Map<?, ?> type = (Map<?, ?>) getType();
             return new JsonTypeDefinition(type.get(field));
         } else {
             throw new IllegalArgumentException("Cannot take the projection of a type that is not a Map.");
@@ -169,13 +169,13 @@ public class JsonTypeDefinition implements Serializable {
         if(type == null) {
             throw new IllegalArgumentException("Type or subtype cannot be null.");
         } else if(type instanceof List) {
-            List<Object> l = (List<Object>) type;
+            List<?> l = (List<?>) type;
             if(l.size() != 1)
                 throw new IllegalArgumentException("Lists in type definition must have length exactly one.");
             validate(l.get(0));
         } else if(type instanceof Map) {
-            Map<String, Object> m = (Map<String, Object>) type;
-            for(Map.Entry<String, Object> entry: m.entrySet())
+            Map<?, ?> m = (Map<?, ?>) type;
+            for(Map.Entry<?, ?> entry: m.entrySet())
                 validate(entry.getValue());
         } else if(type instanceof JsonTypes) {
             // this is good
