@@ -41,6 +41,7 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
         super(innerStore);
     }
 
+    @Override
     public List<Versioned<byte[]>> get(K key) throws VoldemortException {
         List<Versioned<byte[]>> found = getInnerStore().get(key);
         List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(found.size());
@@ -55,6 +56,7 @@ public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K,
         return results;
     }
 
+    @Override
     public void put(K key, Versioned<byte[]> value) throws VoldemortException {
         try {
             getInnerStore().put(key,

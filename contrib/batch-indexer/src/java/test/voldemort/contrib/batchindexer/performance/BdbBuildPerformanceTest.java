@@ -66,6 +66,7 @@ public class BdbBuildPerformanceTest {
 
         PerformanceTest readWriteTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 try {
 

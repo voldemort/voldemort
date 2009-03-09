@@ -33,6 +33,7 @@ public class DataCleanupJobTest extends TestCase {
     private MockTime time;
     private StorageEngine<String, String> engine;
 
+    @Override
     public void setUp() {
         time = new MockTime();
         engine = new InMemoryStorageEngine<String, String>("test");

@@ -125,6 +125,7 @@ class TextBatchMapper extends ReadOnlyBatchIndexMapper<LongWritable, Text> {
 
 class TextBatchIndexer extends ReadOnlyBatchIndexer {
 
+    @Override
     public void configure(JobConf conf) {
 
         conf.set("job.name", "testCSVBatchIndexer");

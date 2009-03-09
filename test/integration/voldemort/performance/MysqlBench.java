@@ -135,6 +135,7 @@ public class MysqlBench {
         System.out.println("WRITE TEST");
         PerformanceTest writeTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 upsert(Integer.toString(index), Integer.toString(index));
             }
@@ -147,6 +148,7 @@ public class MysqlBench {
         System.out.println("READ TEST");
         PerformanceTest readTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 select(Integer.toString(index));
             }

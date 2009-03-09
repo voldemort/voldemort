@@ -37,6 +37,7 @@ public class InconsistentDataException extends VoldemortException {
         super(message);
     }
 
+    @Override
     public short getId() {
         return 8;
     }

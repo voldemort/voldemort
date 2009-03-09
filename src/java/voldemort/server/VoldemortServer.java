@@ -115,6 +115,7 @@ public class VoldemortServer extends AbstractService {
         return services;
     }
 
+    @Override
     protected void startInner() throws VoldemortException {
         logger.info("Starting all services: ");
         long start = System.currentTimeMillis();
@@ -125,6 +126,7 @@ public class VoldemortServer extends AbstractService {
         // add a shutdown hook to stop the server
         Runtime.getRuntime().addShutdownHook(new Thread() {
 
+            @Override
             public void run() {
                 if(VoldemortServer.this.isStarted())
                     VoldemortServer.this.stop();
@@ -140,6 +142,7 @@ public class VoldemortServer extends AbstractService {
      * 
      * @throws VoldemortException
      */
+    @Override
     protected void stopInner() throws VoldemortException {
         List<VoldemortException> exceptions = new ArrayList<VoldemortException>();
         logger.info("Stopping services:");

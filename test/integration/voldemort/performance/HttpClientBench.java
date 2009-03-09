@@ -50,6 +50,7 @@ public class HttpClientBench {
         final HttpClient client = createClient();
         PerformanceTest perfTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) {
                 GetMethod get = new GetMethod(url);
                 try {

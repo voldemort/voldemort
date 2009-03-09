@@ -60,6 +60,7 @@ public class InsufficientOperationalNodesException extends StoreOperationFailure
         return this.causes;
     }
 
+    @Override
     public short getId() {
         return 2;
     }

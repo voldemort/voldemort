@@ -24,8 +24,10 @@ import junit.framework.TestCase;
  */
 public class PartitionedRoutingStrategyTest extends TestCase {
 
+    @Override
     public void setUp() throws Exception {}
 
+    @Override
     public void tearDown() throws Exception {}
 
     public void testToWrite() {

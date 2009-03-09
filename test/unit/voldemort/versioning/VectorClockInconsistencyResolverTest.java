@@ -31,6 +31,7 @@ public class VectorClockInconsistencyResolverTest extends TestCase {
     private Versioned<String> current;
     private Versioned<String> concurrent;
 
+    @Override
     public void setUp() {
         resolver = new VectorClockInconsistencyResolver<String>();
         current = getVersioned(1, 1, 2, 3);

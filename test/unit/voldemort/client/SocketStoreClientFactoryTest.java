@@ -44,6 +44,7 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
                                                  getLocalNode().getSocketPort());
     }
 
+    @Override
     public void tearDown() throws Exception {
         super.tearDown();
         server.shutdown();

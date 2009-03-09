@@ -40,6 +40,7 @@ public class StoreOperationFailureException extends VoldemortException {
         super(t);
     }
 
+    @Override
     public short getId() {
         return 3;
     }

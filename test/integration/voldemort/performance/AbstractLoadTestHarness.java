@@ -44,6 +44,7 @@ public abstract class AbstractLoadTestHarness {
 
         PerformanceTest writeTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 String iStr = Integer.toString(index);
                 client.put(iStr, new Versioned<String>(iStr));
@@ -58,6 +59,7 @@ public abstract class AbstractLoadTestHarness {
 
         PerformanceTest readTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 String iStr = Integer.toString(index);
                 String found = client.getValue(iStr);

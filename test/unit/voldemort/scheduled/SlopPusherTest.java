@@ -45,6 +45,7 @@ public class SlopPusherTest extends TestCase {
         super(name);
     }
 
+    @Override
     protected void setUp() throws Exception {
         slopStore = new InMemoryStorageEngine<ByteArray, Slop>("slop");
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();

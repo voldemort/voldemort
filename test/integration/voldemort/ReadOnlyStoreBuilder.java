@@ -99,6 +99,7 @@ public class ReadOnlyStoreBuilder {
             return this.bytes;
         }
 
+        @Override
         public boolean equals(Object o) {
             if(o == null)
                 return false;
@@ -107,6 +108,7 @@ public class ReadOnlyStoreBuilder {
             return Arrays.equals(this.getBytes(), ((ByteKey) o).getBytes());
         }
 
+        @Override
         public int hashCode() {
             return Arrays.hashCode(getBytes());
         }

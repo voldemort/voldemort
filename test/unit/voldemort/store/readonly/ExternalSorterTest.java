@@ -30,6 +30,7 @@ public class ExternalSorterTest extends TestCase {
 
     private List<String> strings;
 
+    @Override
     public void setUp() {
         strings = new ArrayList<String>();
         for(int i = 0; i < 500; i++)

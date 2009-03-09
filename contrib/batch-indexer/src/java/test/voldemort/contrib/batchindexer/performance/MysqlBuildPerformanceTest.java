@@ -66,6 +66,7 @@ public class MysqlBuildPerformanceTest {
 
         PerformanceTest readWriteTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int index) throws Exception {
                 try {
 

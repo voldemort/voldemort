@@ -33,6 +33,7 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
 
     private MysqlStorageEngine engine;
 
+    @Override
     public void setUp() throws Exception {
         this.engine = (MysqlStorageEngine) getStorageEngine();
         engine.destroy();
@@ -45,6 +46,7 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
         return new MysqlStorageEngine("test_store", getDataSource());
     }
 
+    @Override
     public void tearDown() {
         engine.destroy();
     }

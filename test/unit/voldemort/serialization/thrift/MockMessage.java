@@ -67,6 +67,7 @@ public class MockMessage implements TBase, java.io.Serializable {
         this.__isset.strSet = true;
     }
 
+    @Override
     public boolean equals(Object that) {
         if(that == null)
             return false;
@@ -118,6 +119,7 @@ public class MockMessage implements TBase, java.io.Serializable {
         return true;
     }
 
+    @Override
     public int hashCode() {
         return 0;
     }
@@ -280,6 +282,7 @@ public class MockMessage implements TBase, java.io.Serializable {
         oprot.writeStructEnd();
     }
 
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("MockMessage(");
         sb.append("name:");

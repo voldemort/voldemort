@@ -77,6 +77,7 @@ public class ReadOnlyStorePerformanceTest {
 
             private final int MaxMemberID = (35 * 1000 * 1000);
 
+            @Override
             public void doOperation(int index) throws Exception {
                 try {
                     Integer memberId = new Integer((int) (Math.random() * MaxMemberID));

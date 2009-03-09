@@ -34,11 +34,13 @@ public class CacheStorageEngineTest extends InMemoryStorageEngineTest {
 
     private static final int NUM_OBJECTS = 1000;
 
+    @Override
     public void setUp() throws Exception {
         super.setUp();
         System.gc();
     }
 
+    @Override
     public StorageEngine<ByteArray, byte[]> getStorageEngine() {
         return new CacheStorageConfiguration().getStore("test");
     }

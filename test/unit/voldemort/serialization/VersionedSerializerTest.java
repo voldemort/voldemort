@@ -24,6 +24,7 @@ public class VersionedSerializerTest extends TestCase {
 
     private VersionedSerializer<String> serializer;
 
+    @Override
     public void setUp() {
         this.serializer = new VersionedSerializer<String>(new StringSerializer("UTF-8"));
     }

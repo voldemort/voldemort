@@ -55,6 +55,7 @@ public class RemoteStoreComparisonTest {
         final Store<byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[]>("test");
         PerformanceTest memWriteTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
                 memStore.put(key, new Versioned<byte[]>(key));
@@ -68,6 +69,7 @@ public class RemoteStoreComparisonTest {
 
         PerformanceTest memReadTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 try {
                     List<Versioned<byte[]>> s = memStore.get(String.valueOf(i).getBytes());
@@ -95,6 +97,7 @@ public class RemoteStoreComparisonTest {
 
         PerformanceTest socketWriteTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 byte[] bytes = String.valueOf(i).getBytes();
                 ByteArray key = new ByteArray(bytes);
@@ -109,6 +112,7 @@ public class RemoteStoreComparisonTest {
 
         PerformanceTest socketReadTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 try {
                     List<Versioned<byte[]>> s = socketStore.get(ByteArray.valueOf(String.valueOf(i)));
@@ -152,6 +156,7 @@ public class RemoteStoreComparisonTest {
 
         PerformanceTest httpWriteTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
                 httpStore.put(new ByteArray(key), new Versioned<byte[]>(key));
@@ -165,6 +170,7 @@ public class RemoteStoreComparisonTest {
 
         PerformanceTest httpReadTest = new PerformanceTest() {
 
+            @Override
             public void doOperation(int i) {
                 List<Versioned<byte[]>> s = httpStore.get(new ByteArray(String.valueOf(i)
                                                                               .getBytes()));

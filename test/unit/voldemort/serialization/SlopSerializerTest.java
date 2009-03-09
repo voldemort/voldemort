@@ -25,6 +25,7 @@ public class SlopSerializerTest extends TestCase {
 
     private SlopSerializer serializer;
 
+    @Override
     public void setUp() {
         this.serializer = new SlopSerializer();
     }

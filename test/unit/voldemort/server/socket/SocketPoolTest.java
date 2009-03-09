@@ -43,6 +43,7 @@ public class SocketPoolTest extends TestCase {
     private SocketDestination dest2;
     private SocketServer server;
 
+    @Override
     public void setUp() {
         int[] ports = ServerTestUtils.findFreePorts(2);
         this.port1 = ports[0];
@@ -59,6 +60,7 @@ public class SocketPoolTest extends TestCase {
         this.server.awaitStartupCompletion();
     }
 
+    @Override
     public void tearDown() {
         this.pool.close();
         this.server.shutdown();

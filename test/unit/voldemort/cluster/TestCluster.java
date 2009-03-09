@@ -31,6 +31,7 @@ public class TestCluster extends TestCase {
     private List<Node> nodes;
     private Cluster cluster;
 
+    @Override
     public void setUp() {
         this.nodes = ImmutableList.of(new Node(1,
                                                "test1",

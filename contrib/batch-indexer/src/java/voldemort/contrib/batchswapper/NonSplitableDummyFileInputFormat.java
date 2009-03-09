@@ -17,6 +17,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 
 public class NonSplitableDummyFileInputFormat extends TextInputFormat {
 
+    @Override
     protected boolean isSplitable(FileSystem fs, Path filename) {
         return false;
     }

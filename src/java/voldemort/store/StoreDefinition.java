@@ -147,6 +147,7 @@ public class StoreDefinition implements Serializable {
         return this.retentionPeriodDays;
     }
 
+    @Override
     public boolean equals(Object o) {
         if(this == o)
             return true;
@@ -168,6 +169,7 @@ public class StoreDefinition implements Serializable {
                && Objects.equal(getRetentionDays(), def.getRetentionDays());
     }
 
+    @Override
     public int hashCode() {
         return Objects.hashCode(getName(),
                                 getType(),

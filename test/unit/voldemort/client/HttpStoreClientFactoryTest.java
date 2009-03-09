@@ -34,6 +34,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
     private Context context;
     private String url;
 
+    @Override
     public void setUp() throws Exception {
         super.setUp();
         context = ServerTestUtils.getJettyServer(getClusterXml(),
@@ -45,6 +46,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
         url = getLocalNode().getHttpUrl().toString();
     }
 
+    @Override
     public void tearDown() throws Exception {
         httpStore.close();
         server.stop();
