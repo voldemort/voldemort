@@ -18,7 +18,6 @@ package voldemort.serialization.json;
 
 import static voldemort.TestUtils.quote;
 
-import java.io.IOException;
 import java.io.StringReader;
 
 import junit.framework.TestCase;
@@ -33,20 +32,20 @@ import com.google.common.collect.ImmutableMap;
  */
 public class JsonReaderTest extends TestCase {
 
-    public void testObjects() throws IOException {
+    public void testObjects() {
         assertParsed(ImmutableMap.of("1", 1, "2", 2), "{\"1\":1, \"2\":2}");
         assertParsed(ImmutableMap.of("1", 1, "2", 2), "{\"1\"   : 1, \"2\": 2}");
         assertParsed(ImmutableMap.of(), "{}");
         assertParsed(ImmutableMap.of("h", ImmutableMap.of()), "{\"h\":{}}");
     }
 
-    public void testArrays() throws IOException {
+    public void testArrays() {
         assertParsed(ImmutableList.of(), "[]");
         assertParsed(ImmutableList.of(1), "[1]");
         assertParsed(ImmutableList.of(1, ImmutableList.of(1)), "[1, [1]]");
     }
 
-    public void testStrings() throws IOException {
+    public void testStrings() {
         assertParsed("hello", quote("hello"));
         assertParsed(" hello ", quote(" hello "));
         assertParsed(" hello \n\r", quote(" hello \n\r"));
@@ -73,7 +72,7 @@ public class JsonReaderTest extends TestCase {
         assertParsed("\u12Af", quote("\\u12Af"));
     }
 
-    public void testNumbers() throws IOException {
+    public void testNumbers() {
         assertParsed(-1, "-1");
         assertParsed(1, "1");
         assertParsedDouble(1.1d, "1.1");
@@ -83,16 +82,16 @@ public class JsonReaderTest extends TestCase {
         assertParsedDouble(-1e-10d, "-1E-10");
     }
 
-    public void testNull() throws IOException {
+    public void testNull() {
         assertParsed(null, "null");
     }
 
-    public void testBoolean() throws IOException {
+    public void testBoolean() {
         assertParsed(true, "true");
         assertParsed(false, "false");
     }
 
-    public void testInvalid() throws IOException {
+    public void testInvalid() {
         assertFails("1a");
         assertFails("[2");
         assertFails("{");
@@ -136,7 +135,7 @@ public class JsonReaderTest extends TestCase {
                                                  + " {}, {\"\":\"sk7QzU\"}, \"0lMsJq\"]");
     }
 
-    private void assertFails(String value) throws IOException {
+    private void assertFails(String value) {
         try {
             new JsonReader(new StringReader(value)).read();
             fail("Invalid value \"" + value + "\" parsed without error.");
@@ -145,14 +144,14 @@ public class JsonReaderTest extends TestCase {
         }
     }
 
-    private void assertParsedDouble(Double d1, String value) throws IOException {
+    private void assertParsedDouble(Double d1, String value) {
         Object o = new JsonReader(new StringReader(value)).read();
         assertEquals(Double.class, o.getClass());
         Double d2 = (Double) o;
         assertEquals(d1.doubleValue(), d2.doubleValue(), 0.00001);
     }
 
-    private void assertParsed(Object expected, String value) throws IOException {
+    private void assertParsed(Object expected, String value) {
         assertEquals(expected, new JsonReader(new StringReader(value)).read());
         // add some random whitespace
         assertEquals(expected, new JsonReader(new StringReader("  " + value + "  ")).read());
