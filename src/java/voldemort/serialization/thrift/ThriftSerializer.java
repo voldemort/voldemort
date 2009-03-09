@@ -64,7 +64,7 @@ public class ThriftSerializer<T extends TBase> implements Serializer<T> {
         }
         try {
             this.messageClass = (Class<T>) Class.forName(thriftInfo[0]);
-            T msgObj = messageClass.newInstance();
+            Object msgObj = messageClass.newInstance();
             if(!(msgObj instanceof TBase)) {
                 throw new IllegalArgumentException(thriftInfo[0]
                                                    + " is not a subtype of com.facebook.thrift.TBase");
