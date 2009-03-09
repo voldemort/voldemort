@@ -73,6 +73,10 @@ public class JsonStoreBuilder {
                             File outputDir,
                             int internalSortSize,
                             int numThreads) {
+        if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
+            throw new IllegalStateException("Number of nodes is " + cluster.getNumberOfNodes()
+                                            + " but the replication factor is "
+                                            + storeDefinition.getReplicationFactor() + ".");
         this.reader = reader;
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
@@ -167,11 +171,9 @@ public class JsonStoreBuilder {
                                                                                internalSortSize,
                                                                                numThreads);
         JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
-        MessageDigest digest = ByteUtils.getDigest("MD5");
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
             byte[] keyMd5 = pair.getKeyMd5();
-            digest.reset();
             for(int i = 0; i < this.storeDefinition.getReplicationFactor(); i++) {
                 int nodeId = nodes.get(i).getId();
                 int numBytes = pair.getValue().length;

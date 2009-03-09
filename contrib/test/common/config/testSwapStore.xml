@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <stores>
-    <store>
+  <store>
     <name>swapTestStore</name>
     <persistence>read-only</persistence>
     <routing>client</routing>
@@ -16,4 +16,4 @@
       <schema-info>"string"</schema-info>
     </value-serializer>
   </store>
-  </stores>
+</stores>

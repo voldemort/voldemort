@@ -324,15 +324,13 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
             List<Pair<ByteArray, Long>> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
                 long valueLocation = getValueLocation(index, key.get());
-                if(valueLocation < 0)
-                    result.put(key, Collections.<Versioned<byte[]>> emptyList());
-                else
+                if(valueLocation >= 0)
                     keysAndValueLocations.add(Pair.create(key, valueLocation));
             }
             Collections.sort(keysAndValueLocations, KEYS_AND_VALUES_COMPARATOR);
 
+            data = getFile(dataFiles);
             for(Pair<ByteArray, Long> keyAndValueLocation: keysAndValueLocations) {
-                data = getFile(dataFiles);
                 data.seek(keyAndValueLocation.getSecond());
                 int size = data.readInt();
                 byte[] value = new byte[size];

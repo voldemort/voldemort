@@ -158,9 +158,12 @@ public class TestUtils {
     }
 
     public static File getTempDirectory() {
-        String tempDir = System.getProperty("java.io.tmpdir") + File.separatorChar
-                         + (Math.abs(random.nextInt()) % 1000000);
-        File temp = new File(tempDir);
+        return getTempDirectory(new File(System.getProperty("java.io.tmpdir")));
+    }
+
+    public static File getTempDirectory(File parent) {
+        File temp = new File(parent, Integer.toString(Math.abs(random.nextInt()) % 1000000));
+        temp.delete();
         temp.mkdir();
         temp.deleteOnExit();
         return temp;

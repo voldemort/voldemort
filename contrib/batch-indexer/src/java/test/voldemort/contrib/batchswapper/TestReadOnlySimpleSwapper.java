@@ -47,7 +47,7 @@ public class TestReadOnlySimpleSwapper extends TestCase {
 
     private static final String clusterFile = "contrib/test/common/config/two-node-cluster.xml";
     private static final String storerFile = "contrib/test/common/config/testSwapStore.xml";
-    private static final String storeName = "swapTestStore";
+    private static final String storeName = "swap-store";
 
     VoldemortServer server1;
     VoldemortServer server2;
@@ -57,27 +57,24 @@ public class TestReadOnlySimpleSwapper extends TestCase {
         // clean baseDir to be sure
         FileDeleteStrategy.FORCE.delete(new File(baseDir));
 
-        // First make the readOnlyIndex and copy the index to start Read-Only
-        // store cleanly
         String indexDir = makeReadOnlyIndex(1, 1000);
+        server1 = startServer(2, indexDir);
+        server2 = startServer(1, indexDir);
+    }
 
-        VoldemortConfig config = TestUtils.createServerConfig(0, baseDir, clusterFile, storerFile);
-        server1 = new VoldemortServer(config);
+    private VoldemortServer startServer(int nodeId, String indexDir) throws Exception {
+        VoldemortConfig config = TestUtils.createServerConfig(nodeId,
+                                                              baseDir,
+                                                              clusterFile,
+                                                              storerFile);
+        VoldemortServer server = new VoldemortServer(config);
         // copy read-only index before starting
-        FileUtils.copyFile(new File(indexDir, "0.index"),
+        FileUtils.copyFile(new File(indexDir, nodeId + ".index"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
-        FileUtils.copyFile(new File(indexDir, "0.data"),
+        FileUtils.copyFile(new File(indexDir, nodeId + ".data"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
-        server1.start();
-
-        config = TestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
-        server2 = new VoldemortServer(config);
-        // copy read-only index before starting
-        FileUtils.copyFile(new File(indexDir, "1.index"),
-                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
-        FileUtils.copyFile(new File(indexDir, "1.data"),
-                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
-        server2.start();
+        server.start();
+        return server;
     }
 
     @Override
