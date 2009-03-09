@@ -30,6 +30,7 @@ import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
 import javax.management.MBeanException;
+import javax.management.MBeanOperationInfo;
 import javax.management.MBeanParameterInfo;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
@@ -114,17 +115,17 @@ public class JmxUtils {
             if(jmxOperation != null || jmxGetter != null || jmxSetter != null) {
                 String description = "";
                 int visibility = 1;
-                int impact = ModelMBeanOperationInfo.UNKNOWN;
+                int impact = MBeanOperationInfo.UNKNOWN;
                 if(jmxOperation != null) {
                     description = jmxOperation.description();
                     impact = jmxOperation.impact();
                 } else if(jmxGetter != null) {
                     description = jmxGetter.description();
-                    impact = ModelMBeanOperationInfo.INFO;
+                    impact = MBeanOperationInfo.INFO;
                     visibility = 4;
                 } else if(jmxSetter != null) {
                     description = jmxSetter.description();
-                    impact = ModelMBeanOperationInfo.ACTION;
+                    impact = MBeanOperationInfo.ACTION;
                     visibility = 4;
                 }
                 ModelMBeanOperationInfo info = new ModelMBeanOperationInfo(m.getName(),
@@ -245,7 +246,7 @@ public class JmxUtils {
      * @param c The class
      * @return The created object name
      */
-    public static ObjectName createObjectName(Class c) {
+    public static ObjectName createObjectName(Class<?> c) {
         return createObjectName(getPackageName(c), getClassName(c));
     }
 
@@ -255,7 +256,7 @@ public class JmxUtils {
      * @param c The class
      * @return The package name as a String
      */
-    public static String getPackageName(Class c) {
+    public static String getPackageName(Class<?> c) {
         String name = c.getName();
         return name.substring(0, name.lastIndexOf('.'));
     }
@@ -266,7 +267,7 @@ public class JmxUtils {
      * @param c The class name with package
      * @return the class name without the package
      */
-    public static String getClassName(Class c) {
+    public static String getClassName(Class<?> c) {
         String name = c.getName();
         return name.substring(name.lastIndexOf('.') + 1, name.length());
     }
