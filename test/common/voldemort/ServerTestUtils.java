@@ -58,7 +58,7 @@ public class ServerTestUtils {
         ConcurrentMap<String, Store<ByteArray, byte[]>> stores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(1);
         stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         // create metadata dir
-        File metadataDir = TestUtils.getTempDirectory();
+        File metadataDir = TestUtils.createTempDir();
         try {
             FileUtils.writeStringToFile(new File(metadataDir, "cluster.xml"), clusterXml);
             FileUtils.writeStringToFile(new File(metadataDir, "stores.xml"), storesXml);

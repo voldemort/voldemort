@@ -157,11 +157,11 @@ public class TestUtils {
         return copy[index];
     }
 
-    public static File getTempDirectory() {
-        return getTempDirectory(new File(System.getProperty("java.io.tmpdir")));
+    public static File createTempDir() {
+        return createTempDir(new File(System.getProperty("java.io.tmpdir")));
     }
 
-    public static File getTempDirectory(File parent) {
+    public static File createTempDir(File parent) {
         File temp = new File(parent, Integer.toString(Math.abs(random.nextInt()) % 1000000));
         temp.delete();
         temp.mkdir();

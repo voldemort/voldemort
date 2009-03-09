@@ -50,7 +50,7 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
 
     @Override
     public Store<String, String> getStore() {
-        File tempDir = TestUtils.getTempDirectory();
+        File tempDir = TestUtils.createTempDir();
         tempDirs.add(tempDir);
         return new FilesystemStorageEngine("test", tempDir.getAbsolutePath());
     }

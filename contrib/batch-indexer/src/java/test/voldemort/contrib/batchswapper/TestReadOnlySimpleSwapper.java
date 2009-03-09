@@ -43,7 +43,7 @@ import voldemort.xml.ClusterMapper;
 public class TestReadOnlySimpleSwapper extends TestCase {
 
     private static final int TEST_SIZE = 500;
-    private static final String baseDir = TestUtils.getTempDirectory().getAbsolutePath();
+    private static final String baseDir = TestUtils.createTempDir().getAbsolutePath();
 
     private static final String clusterFile = "contrib/test/common/config/two-node-cluster.xml";
     private static final String storerFile = "contrib/test/common/config/testSwapStore.xml";

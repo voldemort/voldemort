@@ -24,7 +24,7 @@ public class RandomAccessFileStoreTest extends TestCase {
 
     @Override
     public void setUp() {
-        this.dir = TestUtils.getTempDirectory();
+        this.dir = TestUtils.createTempDir();
     }
 
     @Override

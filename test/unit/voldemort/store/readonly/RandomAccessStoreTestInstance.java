@@ -106,7 +106,7 @@ public class RandomAccessStoreTestInstance {
         RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), repFactor);
 
         // build and open store
-        File outputDir = TestUtils.getTempDirectory(baseDir);
+        File outputDir = TestUtils.createTempDir(baseDir);
         JsonStoreBuilder storeBuilder = new JsonStoreBuilder(reader,
                                                              cluster,
                                                              storeDef,
