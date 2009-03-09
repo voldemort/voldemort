@@ -25,6 +25,7 @@ import voldemort.serialization.StringSerializer;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     public abstract StorageEngine<ByteArray, byte[]> getStorageEngine();
 
     public void testGetNoEntries() {
-        ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> it = null;
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
         try {
             StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
             it = engine.entries();
@@ -59,12 +60,12 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet())
             stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));
-        ClosableIterator<Entry<String, Versioned<String>>> iter = stringStore.entries();
+        ClosableIterator<Pair<String, Versioned<String>>> iter = stringStore.entries();
         int count = 0;
         while(iter.hasNext()) {
-            Entry<String, Versioned<String>> entry = iter.next();
-            assertTrue(vals.containsKey(entry.getKey()));
-            assertEquals(vals.get(entry.getKey()), entry.getValue().getValue());
+            Pair<String, Versioned<String>> keyAndVal = iter.next();
+            assertTrue(vals.containsKey(keyAndVal.getFirst()));
+            assertEquals(vals.get(keyAndVal.getFirst()), keyAndVal.getSecond().getValue());
             count++;
         }
         assertEquals(count, vals.size());

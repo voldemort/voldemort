@@ -17,10 +17,10 @@
 package voldemort.store.serialized;
 
 import voldemort.serialization.Serializer;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -45,15 +45,15 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
         this.storageEngine = Utils.notNull(innerStorageEngine);
     }
 
-    public ClosableIterator<Entry<K, Versioned<V>>> entries() {
+    public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new DelegatingClosableIterator(storageEngine.entries());
     }
 
-    private class DelegatingClosableIterator implements ClosableIterator<Entry<K, Versioned<V>>> {
+    private class DelegatingClosableIterator implements ClosableIterator<Pair<K, Versioned<V>>> {
 
-        private final ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator;
+        private final ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
 
-        public DelegatingClosableIterator(ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator) {
+        public DelegatingClosableIterator(ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator) {
             this.iterator = iterator;
         }
 
@@ -61,15 +61,15 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
             return iterator.hasNext();
         }
 
-        public Entry<K, Versioned<V>> next() {
-            Entry<ByteArray, Versioned<byte[]>> next = iterator.next();
-            if(next == null) {
+        public Pair<K, Versioned<V>> next() {
+            Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
+            if(keyAndVal == null) {
                 return null;
             } else {
-                Versioned<byte[]> versioned = next.getValue();
-                return new Entry<K, Versioned<V>>(getKeySerializer().toObject(next.getKey().get()),
-                                                  new Versioned<V>(getValueSerializer().toObject(versioned.getValue()),
-                                                                   versioned.getVersion()));
+                Versioned<byte[]> versioned = keyAndVal.getSecond();
+                return Pair.create(getKeySerializer().toObject(keyAndVal.getFirst().get()),
+                                   new Versioned<V>(getValueSerializer().toObject(versioned.getValue()),
+                                                    versioned.getVersion()));
             }
 
         }

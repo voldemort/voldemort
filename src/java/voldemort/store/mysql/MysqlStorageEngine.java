@@ -28,12 +28,12 @@ import javax.sql.DataSource;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -111,7 +111,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
@@ -306,7 +306,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private class MysqlClosableIterator implements
-            ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> {
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
         private boolean hasMore;
         private final ResultSet rs;
@@ -337,7 +337,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
             return this.hasMore;
         }
 
-        public Entry<ByteArray, Versioned<byte[]>> next() {
+        public Pair<ByteArray, Versioned<byte[]>> next() {
             try {
                 if(!this.hasMore)
                     throw new PersistenceFailureException("Next called on iterator, but no more items available!");
@@ -345,8 +345,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 byte[] value = rs.getBytes("value_");
                 VectorClock clock = new VectorClock(rs.getBytes("version_"));
                 this.hasMore = rs.next();
-                return new Entry<ByteArray, Versioned<byte[]>>(key, new Versioned<byte[]>(value,
-                                                                                          clock));
+                return Pair.create(key, new Versioned<byte[]>(value, clock));
             } catch(SQLException e) {
                 throw new PersistenceFailureException(e);
             }

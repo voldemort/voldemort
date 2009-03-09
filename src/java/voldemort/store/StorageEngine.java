@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 /**
@@ -44,9 +45,14 @@ import voldemort.versioning.Versioned;
 public interface StorageEngine<K, V> extends Store<K, V> {
 
     /**
-     * @return An iterator over the entries in this StorageEngine. Note that the
-     *         iterator MUST be closed after use.
+     * Get an iterator over pairs of entries in the store. The key is the first
+     * element in the pair and the versioned value is the second element.
+     * 
+     * Note that the iterator need not be threadsafe, and that it must be
+     * manually closed after use.
+     * 
+     * @return An iterator over the entries in this StorageEngine.
      */
-    public ClosableIterator<Entry<K, Versioned<V>>> entries();
+    public ClosableIterator<Pair<K, Versioned<V>>> entries();
 
 }

@@ -28,10 +28,10 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -51,7 +51,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
                                                + " does not exist or can not be read.");
     }
 
-    public ClosableIterator<Entry<String, Versioned<String>>> entries() {
+    public ClosableIterator<Pair<String, Versioned<String>>> entries() {
         return new FilesystemClosableIterator();
     }
 
@@ -150,7 +150,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
     }
 
     private class FilesystemClosableIterator implements
-            ClosableIterator<Entry<String, Versioned<String>>> {
+            ClosableIterator<Pair<String, Versioned<String>>> {
 
         private File[] files;
         private int index;
@@ -168,7 +168,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
             return this.files != null && this.index < this.files.length;
         }
 
-        public Entry<String, Versioned<String>> next() {
+        public Pair<String, Versioned<String>> next() {
             synchronized(FilesystemStorageEngine.this) {
                 while(true) {
                     if(!hasNext())
@@ -181,9 +181,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
                         VectorClock clock = getVersion(files[index]);
                         String value = FileUtils.readFileToString(files[index]);
                         this.index++;
-                        return new Entry<String, Versioned<String>>(key,
-                                                                    new Versioned<String>(value,
-                                                                                          clock));
+                        return Pair.create(key, new Versioned<String>(value, clock));
                     } catch(IOException e) {
                         // probably the file has been removed or something, skip
                         // it

@@ -20,11 +20,11 @@ import java.io.File;
 import java.util.Iterator;
 
 import voldemort.serialization.StringSerializer;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -54,10 +54,10 @@ public class CatBdbStore {
         StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
                                                                                                  new StringSerializer(),
                                                                                                  new StringSerializer());
-        Iterator<Entry<String, Versioned<String>>> iter = stringStore.entries();
+        Iterator<Pair<String, Versioned<String>>> iter = stringStore.entries();
         while(iter.hasNext()) {
-            Entry<String, Versioned<String>> entry = iter.next();
-            System.out.println(entry.getKey() + " => " + entry.getValue().getValue());
+            Pair<String, Versioned<String>> entry = iter.next();
+            System.out.println(entry.getFirst() + " => " + entry.getSecond().getValue());
         }
     }
 }

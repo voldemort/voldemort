@@ -40,7 +40,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
@@ -299,7 +298,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new UnsupportedOperationException("Iteration is not supported for "
                                                 + getClass().getName());
     }

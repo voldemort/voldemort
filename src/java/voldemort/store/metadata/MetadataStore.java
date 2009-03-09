@@ -28,7 +28,6 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -36,6 +35,7 @@ import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -131,8 +131,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return ByteUtils.getString(found.get(0).getValue(), "UTF-8");
     }
 
-    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
-        throw new IllegalStateException("Not implemented.");
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
+        throw new UnsupportedOperationException("Not implemented.");
     }
 
 }

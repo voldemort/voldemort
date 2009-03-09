@@ -28,7 +28,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.VersionedSerializer;
-import voldemort.store.Entry;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -36,6 +35,7 @@ import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -81,7 +81,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return name;
     }
 
-    public ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> entries() {
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
             Cursor cursor = bdbDatabase.openCursor(null, null);
             return new BdbStoreIterator(cursor);
@@ -314,11 +314,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private static class BdbStoreIterator implements
-            ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> {
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
         private volatile boolean isOpen;
         private final Cursor cursor;
-        private Entry<ByteArray, Versioned<byte[]>> current;
+        private Pair<ByteArray, Versioned<byte[]>> current;
 
         public BdbStoreIterator(Cursor cursor) {
             this.cursor = cursor;
@@ -330,10 +330,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             } catch(DatabaseException e) {
                 throw new PersistenceFailureException(e);
             }
-            current = getEntry(keyEntry, valueEntry);
+            current = getPair(keyEntry, valueEntry);
         }
 
-        private Entry<ByteArray, Versioned<byte[]>> getEntry(DatabaseEntry key, DatabaseEntry value) {
+        private Pair<ByteArray, Versioned<byte[]>> getPair(DatabaseEntry key, DatabaseEntry value) {
             if(key == null || key.getData() == null) {
                 return null;
             } else {
@@ -341,8 +341,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 byte[] bytes = ByteUtils.copy(value.getData(),
                                               clock.sizeInBytes(),
                                               value.getData().length);
-                return new Entry<ByteArray, Versioned<byte[]>>(new ByteArray(key.getData()),
-                                                               new Versioned<byte[]>(bytes, clock));
+                return Pair.create(new ByteArray(key.getData()),
+                                   new Versioned<byte[]>(bytes, clock));
             }
         }
 
@@ -350,7 +350,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             return current != null;
         }
 
-        public Entry<ByteArray, Versioned<byte[]>> next() {
+        public Pair<ByteArray, Versioned<byte[]>> next() {
             if(!isOpen)
                 throw new PersistenceFailureException("Call to next() on a closed iterator.");
 
@@ -361,11 +361,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             } catch(DatabaseException e) {
                 throw new PersistenceFailureException(e);
             }
-            Entry<ByteArray, Versioned<byte[]>> previous = current;
+            Pair<ByteArray, Versioned<byte[]>> previous = current;
             if(keyEntry.getData() == null)
                 current = null;
             else
-                current = getEntry(keyEntry, valueEntry);
+                current = getPair(keyEntry, valueEntry);
 
             return previous;
         }

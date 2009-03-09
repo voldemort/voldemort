@@ -23,11 +23,11 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
@@ -65,14 +65,14 @@ public class RebalancingJob implements Runnable {
         for(StorageEngine<ByteArray, byte[]> engine: localEngines.values()) {
             logger.info("Rebalancing " + engine.getName());
             Store<ByteArray, byte[]> remote = this.remoteStores.get(engine.getName());
-            ClosableIterator<Entry<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
             int rebalanced = 0;
             long currStart = System.currentTimeMillis();
             while(iterator.hasNext()) {
-                Entry<ByteArray, Versioned<byte[]>> entry = iterator.next();
-                if(needsRebalancing(entry.getKey())) {
-                    remote.put(entry.getKey(), entry.getValue());
-                    engine.delete(entry.getKey(), entry.getValue().getVersion());
+                Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
+                if(needsRebalancing(keyAndVal.getFirst())) {
+                    remote.put(keyAndVal.getFirst(), keyAndVal.getSecond());
+                    engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                     rebalanced++;
                 }
             }

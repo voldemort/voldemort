@@ -20,9 +20,9 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Logger;
 
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -55,7 +55,7 @@ public class DataCleanupJob<K, V> implements Runnable {
 
     public void run() {
         acquireCleanupPermit();
-        ClosableIterator<Entry<K, Versioned<V>>> iterator;
+        ClosableIterator<Pair<K, Versioned<V>>> iterator;
         try {
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
             int deleted = 0;
@@ -69,10 +69,10 @@ public class DataCleanupJob<K, V> implements Runnable {
                         return;
                     }
 
-                    Entry<K, Versioned<V>> entry = iterator.next();
-                    VectorClock clock = (VectorClock) entry.getValue().getVersion();
+                    Pair<K, Versioned<V>> keyAndVal = iterator.next();
+                    VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                     if(now - clock.getTimestamp() > maxAgeMs) {
-                        store.delete(entry.getKey(), clock);
+                        store.delete(keyAndVal.getFirst(), clock);
                         deleted++;
                     }
                 }
@@ -96,7 +96,8 @@ public class DataCleanupJob<K, V> implements Runnable {
         try {
             this.cleanupPermits.acquire();
         } catch(InterruptedException e) {
-            throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.", e);
+            throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.",
+                                            e);
         }
     }
 

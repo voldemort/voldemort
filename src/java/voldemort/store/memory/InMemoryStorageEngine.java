@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
@@ -142,7 +142,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         }
     }
 
-    public ClosableIterator<Entry<K, Versioned<V>>> entries() {
+    public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new InMemoryIterator();
     }
 
@@ -174,7 +174,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     }
 
     @NotThreadsafe
-    private class InMemoryIterator implements ClosableIterator<Entry<K, Versioned<V>>> {
+    private class InMemoryIterator implements ClosableIterator<Pair<K, Versioned<V>>> {
 
         private Iterator<K> iterator;
         private K currentKey;
@@ -193,13 +193,13 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
             return currentList != null && listIndex < currentList.size();
         }
 
-        private Entry<K, Versioned<V>> getFromCurrentList() {
+        private Pair<K, Versioned<V>> getFromCurrentList() {
             Versioned<V> item = currentList.get(listIndex);
             listIndex++;
-            return new Entry<K, Versioned<V>>(currentKey, item);
+            return Pair.create(currentKey, item);
         }
 
-        public Entry<K, Versioned<V>> next() {
+        public Pair<K, Versioned<V>> next() {
             if(hasNextInCurrentList()) {
                 return getFromCurrentList();
             } else {

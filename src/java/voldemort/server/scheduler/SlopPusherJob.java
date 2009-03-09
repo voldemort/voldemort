@@ -23,13 +23,13 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.store.Entry;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
@@ -61,7 +61,7 @@ public class SlopPusherJob implements Runnable {
         logger.debug("Pushing slop...");
         int slopsPushed = 0;
         int attemptedPushes = 0;
-        ClosableIterator<Entry<ByteArray, Versioned<Slop>>> iterator = null;
+        ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
         try {
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
@@ -70,16 +70,16 @@ public class SlopPusherJob implements Runnable {
                     throw new InterruptedException("Task cancelled!");
 
                 try {
-                    Entry<ByteArray, Versioned<Slop>> entry = iterator.next();
-                    Versioned<Slop> versioned = entry.getValue();
+                    Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
+                    Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
                     Store<ByteArray, byte[]> store = stores.get(slop.getNodeId());
                     try {
                         if(slop.getOperation() == Operation.PUT)
-                            store.put(entry.getKey(), new Versioned<byte[]>(slop.getValue(),
-                                                                            versioned.getVersion()));
+                            store.put(keyAndVal.getFirst(),
+                                      new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
                         else
-                            store.delete(entry.getKey(), versioned.getVersion());
+                            store.delete(keyAndVal.getFirst(), versioned.getVersion());
                         slopStore.delete(slop.makeKey(), versioned.getVersion());
                         slopsPushed++;
                     } catch(ObsoleteVersionException e) {

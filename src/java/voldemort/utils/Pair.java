@@ -25,15 +25,15 @@ public final class Pair<F, S> implements Serializable, Function<F, S> {
      * 
      * <p>
      * <code>
-   * Pair<String, String> pair = Pair.create("first", "second");
-   * </code>
+     * Pair<String, String> pair = Pair.create("first", "second");
+     * </code>
      * </p>
      * 
-     * @param <F>
-     * @param <S>
-     * @param first
-     * @param second
-     * @return
+     * @param <F> The type of the first thing.
+     * @param <S> The type of the second thing
+     * @param first The first thing
+     * @param second The second thing
+     * @return The pair (first,second)
      */
     public static final <F, S> Pair<F, S> create(F first, S second) {
         return new Pair<F, S>(first, second);
