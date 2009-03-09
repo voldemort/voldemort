@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -33,6 +34,7 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
+@Threadsafe
 public interface Store<K, V> {
 
     /**
