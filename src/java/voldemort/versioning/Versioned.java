@@ -36,6 +36,10 @@ public final class Versioned<T> implements Serializable {
     private volatile VectorClock version;
     private volatile T object;
 
+    public final static <T> Versioned<T> of(T object) {
+        return new Versioned<T>(object);
+    }
+
     public Versioned(T object) {
         this(object, new VectorClock());
     }
@@ -58,14 +62,13 @@ public final class Versioned<T> implements Serializable {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public boolean equals(Object object) {
-        if(object == this)
+    public boolean equals(Object o) {
+        if(o == this)
             return true;
-        else if(!(object instanceof Versioned))
+        else if(!(o instanceof Versioned))
             return false;
 
-        Versioned versioned = (Versioned) object;
+        Versioned<?> versioned = (Versioned<?>) o;
         return Objects.equal(getVersion(), versioned.getVersion())
                && Utils.deepEquals(getValue(), versioned.getValue());
     }

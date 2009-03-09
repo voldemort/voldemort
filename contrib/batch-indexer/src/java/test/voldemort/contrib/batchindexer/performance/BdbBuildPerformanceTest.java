@@ -74,7 +74,7 @@ public class BdbBuildPerformanceTest {
 
                     reader.next(key, value);
                     store.put(new ByteArray(ByteUtils.copy(key.get(), 0, key.getSize())),
-                              new Versioned(ByteUtils.copy(value.get(), 0, value.getSize())));
+                              Versioned.of(ByteUtils.copy(value.get(), 0, value.getSize())));
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();
                 }
