@@ -113,7 +113,7 @@ public class ThriftSerializerTest extends TestCase {
 
         ThriftSerializer<MockMessage> serializer = new ThriftSerializer<MockMessage>("java=voldemort.serialization.thrift.MockMessage,protocol=binary");
         byte[] b = serializer.toBytes(message);
-        MockMessage message2 = (MockMessage) serializer.toObject(b);
+        MockMessage message2 = serializer.toObject(b);
 
         assertEquals(message, message2);
     }
@@ -122,7 +122,7 @@ public class ThriftSerializerTest extends TestCase {
         MockMessage message = new MockMessage();
         ThriftSerializer<MockMessage> serializer = new ThriftSerializer<MockMessage>("java=voldemort.serialization.thrift.MockMessage, protocol=binary ");
         byte[] b = serializer.toBytes(message);
-        MockMessage message2 = (MockMessage) serializer.toObject(b);
+        MockMessage message2 = serializer.toObject(b);
 
         assertEquals(message, message2);
     }

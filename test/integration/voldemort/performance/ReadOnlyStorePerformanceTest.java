@@ -75,7 +75,7 @@ public class ReadOnlyStorePerformanceTest {
 
         PerformanceTest readWriteTest = new PerformanceTest() {
 
-            private final int MaxMemberID = (int) (35 * 1000 * 1000);
+            private final int MaxMemberID = (35 * 1000 * 1000);
 
             public void doOperation(int index) throws Exception {
                 try {
