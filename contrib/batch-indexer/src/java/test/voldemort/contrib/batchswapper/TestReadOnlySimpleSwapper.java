@@ -27,6 +27,7 @@ import junit.framework.TestCase;
 import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.commons.io.FileUtils;
 
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.contrib.batchswapper.ReadOnlyBatchIndexSwapper;
@@ -63,7 +64,7 @@ public class TestReadOnlySimpleSwapper extends TestCase {
     }
 
     private VoldemortServer startServer(int nodeId, String indexDir) throws Exception {
-        VoldemortConfig config = TestUtils.createServerConfig(nodeId,
+        VoldemortConfig config = ServerTestUtils.createServerConfig(nodeId,
                                                               baseDir,
                                                               clusterFile,
                                                               storerFile);

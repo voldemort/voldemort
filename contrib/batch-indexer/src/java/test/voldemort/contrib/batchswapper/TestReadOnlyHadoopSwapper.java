@@ -31,6 +31,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Mapper;
 
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.contrib.batchswapper.AbstractSwapperMapper;
@@ -65,7 +66,7 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
         // store cleanly
         String indexDir = makeReadOnlyIndex(1, 1000);
 
-        VoldemortConfig config = TestUtils.createServerConfig(0, baseDir, clusterFile, storerFile);
+        VoldemortConfig config = ServerTestUtils.createServerConfig(0, baseDir, clusterFile, storerFile);
         server1 = new VoldemortServer(config);
         // copy read-only index before starting
         FileUtils.copyFile(new File(indexDir, "0.index"),
@@ -74,7 +75,7 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
         server1.start();
 
-        config = TestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
+        config = ServerTestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
         server2 = new VoldemortServer(config);
         // copy read-only index before starting
         FileUtils.copyFile(new File(indexDir, "1.index"),

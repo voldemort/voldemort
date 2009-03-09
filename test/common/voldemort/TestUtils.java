@@ -21,12 +21,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.io.FileUtils;
 
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
@@ -34,11 +32,9 @@ import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngineType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
-import voldemort.utils.Props;
 import voldemort.versioning.VectorClock;
 
 /**
@@ -223,33 +219,6 @@ public class TestUtils {
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();
-    }
-
-    public static VoldemortConfig createServerConfig(int nodeId,
-                                                     String baseDir,
-                                                     String clusterFile,
-                                                     String storeFile) throws IOException {
-        Props props = new Props();
-        props.put("node.id", nodeId);
-        props.put("voldemort.home", baseDir + "/node-" + nodeId);
-        props.put("bdb.cache.size", 1 * 1024 * 1024);
-        props.put("jmx.enable", "false");
-        VoldemortConfig config = new VoldemortConfig(props);
-
-        // clean and reinit metadata dir.
-        File tempDir = new File(config.getMetadataDirectory());
-        tempDir.mkdirs();
-
-        File tempDir2 = new File(config.getDataDirectory());
-        tempDir2.mkdirs();
-
-        // copy cluster.xml / stores.xml to temp metadata dir.
-        FileUtils.copyFile(new File(clusterFile), new File(tempDir.getAbsolutePath()
-                                                           + File.separatorChar + "cluster.xml"));
-        FileUtils.copyFile(new File(storeFile), new File(tempDir.getAbsolutePath()
-                                                         + File.separatorChar + "stores.xml"));
-
-        return config;
     }
 
 }

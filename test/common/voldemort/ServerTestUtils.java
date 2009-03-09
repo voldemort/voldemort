@@ -32,6 +32,7 @@ import org.mortbay.jetty.servlet.ServletHolder;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.http.StoreServlet;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
@@ -41,6 +42,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Props;
 
 import com.google.common.collect.ImmutableList;
 
@@ -155,5 +157,32 @@ public class ServerTestUtils {
         for(int i = 0; i < numberOfNodes; i++)
             nodes.add(new Node(i, "localhost", ports[2 * i], ports[2 * i + 1], ImmutableList.of(i)));
         return new Cluster("test-cluster", nodes);
+    }
+
+    public static VoldemortConfig createServerConfig(int nodeId,
+                                                     String baseDir,
+                                                     String clusterFile,
+                                                     String storeFile) throws IOException {
+        Props props = new Props();
+        props.put("node.id", nodeId);
+        props.put("voldemort.home", baseDir + "/node-" + nodeId);
+        props.put("bdb.cache.size", 1 * 1024 * 1024);
+        props.put("jmx.enable", "false");
+        VoldemortConfig config = new VoldemortConfig(props);
+    
+        // clean and reinit metadata dir.
+        File tempDir = new File(config.getMetadataDirectory());
+        tempDir.mkdirs();
+    
+        File tempDir2 = new File(config.getDataDirectory());
+        tempDir2.mkdirs();
+    
+        // copy cluster.xml / stores.xml to temp metadata dir.
+        FileUtils.copyFile(new File(clusterFile), new File(tempDir.getAbsolutePath()
+                                                           + File.separatorChar + "cluster.xml"));
+        FileUtils.copyFile(new File(storeFile), new File(tempDir.getAbsolutePath()
+                                                         + File.separatorChar + "stores.xml"));
+    
+        return config;
     }
 }
