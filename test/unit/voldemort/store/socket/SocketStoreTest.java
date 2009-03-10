@@ -22,7 +22,6 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -82,7 +81,6 @@ public class SocketStoreTest extends AbstractByteArrayStoreTest {
 
     public void testThreadOverload() throws Exception {
         final Store<ByteArray, byte[]> store = getStore();
-        final AtomicInteger val = new AtomicInteger(0);
         int numOps = 100;
         final CountDownLatch latch = new CountDownLatch(numOps);
         Executor exec = Executors.newCachedThreadPool();
