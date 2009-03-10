@@ -73,12 +73,15 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
     }
 
     protected void assertEquals(String message, Versioned<V> v1, Versioned<V> v2) {
-        assertEquals(message, v1, v2);
+        String assertTrueMessage = v1 + " != " + v2 + ".";
+        if(message != null)
+            assertTrueMessage += message;
+        assertTrue(message, valuesEqual(v1.getValue(), v2.getValue()));
+        assertEquals(message, v1.getVersion(), v2.getVersion());
     }
 
     protected void assertEquals(Versioned<V> v1, Versioned<V> v2) {
-        assertTrue(v1 + " != " + v2 + ".", valuesEqual(v1.getValue(), v2.getValue()));
-        assertEquals(v1.getVersion(), v2.getVersion());
+        assertEquals(null, v1, v2);
     }
 
     public void assertContains(Collection<Versioned<V>> collection, Versioned<V> value) {
