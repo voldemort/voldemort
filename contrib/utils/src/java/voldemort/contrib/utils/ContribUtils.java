@@ -56,7 +56,6 @@ public class ContribUtils {
             // try getting the raw file path.
             URI[] uris = DistributedCache.getCacheFiles(conf);
             Path[] paths = new Path[uris.length];
-            int index = 0;
             for(URI uri: uris) {
                 logger.info("Adding uri:" + uri);
                 if(uri.getFragment().equals(fileName)) {

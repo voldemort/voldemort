@@ -29,7 +29,6 @@ import org.apache.commons.io.FileUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StorageEngine;
-import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -54,13 +53,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private final File directory;
     private final ClusterMapper clusterMapper;
     private final StoreDefinitionsMapper storeMapper;
-    private final Map<String, ? extends Store<ByteArray, byte[]>> stores;
 
-    public MetadataStore(File directory, Map<String, ? extends Store<ByteArray, byte[]>> stores) {
+    public MetadataStore(File directory) {
         this.directory = directory;
         this.storeMapper = new StoreDefinitionsMapper();
         this.clusterMapper = new ClusterMapper();
-        this.stores = stores;
         if(this.directory.listFiles() == null)
             throw new IllegalArgumentException("No configuration found in "
                                                + this.directory.getAbsolutePath() + ".");

@@ -76,7 +76,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         return getStore(cluster,
                         reads,
                         writes,
-                        cluster.getNumberOfNodes(),
                         threads,
                         failing,
                         0,
@@ -87,7 +86,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     private RoutedStore getStore(Cluster cluster,
                                  int reads,
                                  int writes,
-                                 int replicationFactor,
                                  int threads,
                                  int failing,
                                  int sleepy,
@@ -179,7 +177,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Versioned<byte[]> versioned = new Versioned<byte[]>(aValue, clock);
         RoutedStore routedStore = getStore(cluster,
                                            reads,
-                                           cluster.getNumberOfNodes(),
                                            writes,
                                            threads,
                                            failures,
@@ -239,7 +236,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Store<ByteArray, byte[]> s1 = getStore(cluster,
                                                1,
                                                9,
-                                               cluster.getNumberOfNodes(),
                                                9,
                                                9,
                                                0,
@@ -256,7 +252,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Store<ByteArray, byte[]> s2 = getStore(cluster,
                                                1,
                                                9,
-                                               cluster.getNumberOfNodes(),
                                                9,
                                                9,
                                                0,
@@ -271,15 +266,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // test get
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        s1 = getStore(cluster,
-                      1,
-                      9,
-                      cluster.getNumberOfNodes(),
-                      9,
-                      9,
-                      0,
-                      strategy,
-                      new VoldemortException());
+        s1 = getStore(cluster, 1, 9, 9, 9, 0, strategy, new VoldemortException());
         try {
             s1.get(aKey);
             fail("Failure is expected");
@@ -288,15 +275,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        s2 = getStore(cluster,
-                      1,
-                      9,
-                      cluster.getNumberOfNodes(),
-                      9,
-                      9,
-                      0,
-                      strategy,
-                      new UnreachableStoreException("no go"));
+        s2 = getStore(cluster, 1, 9, 9, 9, 0, strategy, new UnreachableStoreException("no go"));
         try {
             s2.get(aKey);
             fail("Failure is expected");
@@ -306,15 +285,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // test delete
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        s1 = getStore(cluster,
-                      1,
-                      9,
-                      cluster.getNumberOfNodes(),
-                      9,
-                      9,
-                      0,
-                      strategy,
-                      new VoldemortException());
+        s1 = getStore(cluster, 1, 9, 9, 9, 0, strategy, new VoldemortException());
         try {
             s1.delete(aKey, new VectorClock());
             fail("Failure is expected");
@@ -323,15 +294,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         cluster = getNineNodeCluster();
         strategy = new RouteToAllStrategy(cluster.getNodes());
-        s2 = getStore(cluster,
-                      1,
-                      9,
-                      cluster.getNumberOfNodes(),
-                      9,
-                      9,
-                      0,
-                      strategy,
-                      new UnreachableStoreException("no go"));
+        s2 = getStore(cluster, 1, 9, 9, 9, 0, strategy, new UnreachableStoreException("no go"));
         try {
             s2.delete(aKey, new VectorClock());
             fail("Failure is expected");
@@ -339,7 +302,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertOperationalNodes(cluster, 0);
     }
 
-    public void testStoreTimeouts() throws InterruptedException {
+    public void testStoreTimeouts() {
     /*
      * Cluster cluster = getThreeNodeThreePartitionCluster(); RoutingStrategy
      * strategy = new RouteToAllStrategy(cluster); final Store<byte[],byte[]>

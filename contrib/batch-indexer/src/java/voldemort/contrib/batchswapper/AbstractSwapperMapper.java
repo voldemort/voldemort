@@ -64,7 +64,6 @@ public abstract class AbstractSwapperMapper implements Mapper<LongWritable, Text
             System.out.println("mapper got file:" + sourcefileName);
 
             isIndexFile = new Path(sourcefileName).getName().contains("index");
-            String storeName = conf.get("voldemort.store.name");
 
             // split on '.' character names expected are 0.index , 0.data
             String[] tempSplits = new Path(sourcefileName).getName().split("\\.");

@@ -66,8 +66,7 @@ public class VoldemortServer extends AbstractService {
         super("voldemort-server");
         this.voldemortConfig = config;
         this.storeMap = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
-        this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()),
-                                               storeMap);
+        this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()));
         this.cluster = this.metadataStore.getCluster();
         this.identityNode = this.cluster.getNodeById(voldemortConfig.getNodeId());
         this.services = createServices();
@@ -80,8 +79,7 @@ public class VoldemortServer extends AbstractService {
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
         this.storeMap = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.services = createServices();
-        this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()),
-                                               storeMap);
+        this.metadataStore = new MetadataStore(new File(voldemortConfig.getMetadataDirectory()));
     }
 
     private List<VoldemortService> createServices() {

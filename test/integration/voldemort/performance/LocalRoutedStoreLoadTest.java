@@ -35,8 +35,6 @@ import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.FnvHashFunction;
-import voldemort.utils.HashFunction;
 import voldemort.utils.Props;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.VectorClockInconsistencyResolver;
@@ -52,7 +50,6 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory")
                                                                          + File.separator
                                                                          + "/cluster.xml"));
-        HashFunction hasher = new FnvHashFunction();
         RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));

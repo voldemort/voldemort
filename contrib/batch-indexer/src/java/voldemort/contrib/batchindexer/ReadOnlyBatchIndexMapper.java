@@ -10,7 +10,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -18,7 +17,6 @@ import voldemort.contrib.utils.ContribUtils;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
 
@@ -39,7 +37,6 @@ import voldemort.utils.ByteUtils;
 public abstract class ReadOnlyBatchIndexMapper<K, V> implements
         Mapper<K, V, BytesWritable, BytesWritable> {
 
-    private static Logger logger = Logger.getLogger(ReadOnlyBatchIndexMapper.class);
     private Cluster _cluster = null;
     private StoreDefinition _storeDef = null;
     private ConsistentRoutingStrategy _routingStrategy = null;
@@ -71,6 +68,7 @@ public abstract class ReadOnlyBatchIndexMapper<K, V> implements
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void configure(JobConf conf) {
 
         try {
@@ -87,8 +85,6 @@ public abstract class ReadOnlyBatchIndexMapper<K, V> implements
             _cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
             _storeDef = ContribUtils.getVoldemortStoreDetails(storeFilePath,
                                                               conf.get("voldemort.store.name"));
-
-            SerializerDefinition serDef = new SerializerDefinition("string", "UTF-8");
 
             _keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getKeySerializer());
             _valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getValueSerializer());

@@ -66,7 +66,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * The service responsible for managing all storage types
@@ -83,7 +82,6 @@ public class StorageService extends AbstractService {
     private final ConcurrentMap<String, Store<ByteArray, byte[]>> localStoreMap;
     private final Map<String, StorageEngine<ByteArray, byte[]>> rawEngines;
     private final ConcurrentMap<StorageEngineType, StorageConfiguration> storageConfigurations;
-    private final StoreDefinitionsMapper storeMapper;
     private final SchedulerService scheduler;
     private final Map<String, RandomAccessFileStore> readOnlyStores;
     private MetadataStore metadataStore;
@@ -95,12 +93,11 @@ public class StorageService extends AbstractService {
                           VoldemortConfig config) {
         super(name);
         this.voldemortConfig = config;
-        this.storeMapper = new StoreDefinitionsMapper();
         this.localStoreMap = storeMap;
         this.rawEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
         this.scheduler = scheduler;
         this.storageConfigurations = initStorageConfigurations(config);
-        this.metadataStore = new MetadataStore(new File(config.getMetadataDirectory()), storeMap);
+        this.metadataStore = new MetadataStore(new File(config.getMetadataDirectory()));
         this.readOnlyStores = new ConcurrentHashMap<String, RandomAccessFileStore>();
     }
 

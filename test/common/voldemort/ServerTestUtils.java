@@ -64,7 +64,7 @@ public class ServerTestUtils {
         try {
             FileUtils.writeStringToFile(new File(metadataDir, "cluster.xml"), clusterXml);
             FileUtils.writeStringToFile(new File(metadataDir, "stores.xml"), storesXml);
-            MetadataStore metadata = new MetadataStore(metadataDir, stores);
+            MetadataStore metadata = new MetadataStore(metadataDir);
             stores.put(MetadataStore.METADATA_STORE_NAME, metadata);
             return stores;
         } catch(IOException e) {
@@ -169,20 +169,20 @@ public class ServerTestUtils {
         props.put("bdb.cache.size", 1 * 1024 * 1024);
         props.put("jmx.enable", "false");
         VoldemortConfig config = new VoldemortConfig(props);
-    
+
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
         tempDir.mkdirs();
-    
+
         File tempDir2 = new File(config.getDataDirectory());
         tempDir2.mkdirs();
-    
+
         // copy cluster.xml / stores.xml to temp metadata dir.
         FileUtils.copyFile(new File(clusterFile), new File(tempDir.getAbsolutePath()
                                                            + File.separatorChar + "cluster.xml"));
         FileUtils.copyFile(new File(storeFile), new File(tempDir.getAbsolutePath()
                                                          + File.separatorChar + "stores.xml"));
-    
+
         return config;
     }
 }

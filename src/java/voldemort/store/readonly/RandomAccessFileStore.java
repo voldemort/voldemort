@@ -417,8 +417,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
      * @throws IOException
      * @throws InterruptedException
      */
-    private long getValueLocation(RandomAccessFile index, byte[] key) throws IOException,
-            InterruptedException {
+    private long getValueLocation(RandomAccessFile index, byte[] key) throws IOException {
         byte[] keyMd5 = ByteUtils.md5(key);
         byte[] keyBuffer = new byte[KEY_HASH_SIZE];
         long low = 0;

@@ -19,6 +19,7 @@ package voldemort.server.socket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
@@ -28,6 +29,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.StringOutputStream;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -132,6 +134,8 @@ public class StreamStoreRequestHandler {
     private void writeException(DataOutputStream stream, VoldemortException e) throws IOException {
         short code = errorMapper.getCode(e);
         stream.writeShort(code);
-        stream.writeUTF(e.getMessage());
+        StringOutputStream sos = new StringOutputStream();
+        e.printStackTrace(new PrintStream(sos));
+        stream.writeUTF(sos.getString());
     }
 }

@@ -15,7 +15,6 @@ import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.util.Tool;
-import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -47,8 +46,6 @@ import voldemort.contrib.utils.ContribUtils;
  */
 public abstract class ReadOnlyBatchIndexHadoopSwapper extends Configured implements Tool,
         JobConfigurable {
-
-    private static Logger logger = Logger.getLogger(ReadOnlyBatchIndexHadoopSwapper.class);
 
     public int run(String[] args) {
         JobConf conf = new JobConf(ReadOnlyBatchIndexHadoopSwapper.class);

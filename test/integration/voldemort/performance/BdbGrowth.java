@@ -107,7 +107,6 @@ public class BdbGrowth {
 
             startTime = System.currentTimeMillis();
             for(int j = 0; j < increment; j++) {
-                final int fj = j;
                 results.add(service.submit(new Callable<Object>() {
 
                     public Object call() throws Exception {

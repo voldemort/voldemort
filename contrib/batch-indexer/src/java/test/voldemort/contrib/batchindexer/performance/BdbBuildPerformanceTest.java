@@ -53,7 +53,6 @@ public class BdbBuildPerformanceTest {
         final Store<ByteArray, byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
-        final AtomicInteger nullResults = new AtomicInteger(0);
 
         Path jsonFilePath = new Path(jsonDataFile);
         FileStatus jsonFileStatus = jsonFilePath.getFileSystem(new Configuration())

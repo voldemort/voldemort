@@ -43,9 +43,6 @@ public abstract class ReadOnlyBatchIndexSwapper {
         String storeName = props.get("voldemort.store.name");
         final Path inputDir = new Path(props.get("source.local.path"));
 
-        final String indexFileName = storeName + ".index";
-        final String dataFileName = storeName + ".data";
-
         ExecutorService executors = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
         final Semaphore semaphore = new Semaphore(0, false);
         final boolean[] succeeded = new boolean[cluster.getNumberOfNodes()];
