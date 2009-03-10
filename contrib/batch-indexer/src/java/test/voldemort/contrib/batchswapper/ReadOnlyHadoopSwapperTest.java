@@ -39,6 +39,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.xml.ClusterMapper;
 
@@ -109,7 +110,8 @@ public class ReadOnlyHadoopSwapperTest extends TestCase {
         Store<ByteArray, byte[]> store2 = server2.getStoreMap().get(storeName);
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
-        Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
+        Serializer<Object> serializer = StoreUtils.unsafeGetSerializer(new DefaultSerializerFactory(),
+                                                                       serDef);
 
         // initial keys are from 1 to 1000
         for(int i = 1; i < 1000; i++) {
