@@ -27,7 +27,7 @@ import java.io.OutputStream;
  */
 public class StringOutputStream extends OutputStream {
 
-    StringBuilder mBuf;
+    StringBuilder mBuf = new StringBuilder();
 
     @Override
     public void write(int data) throws IOException {
