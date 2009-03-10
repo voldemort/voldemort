@@ -252,8 +252,8 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
             open();
         } finally {
-            logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
             fileModificationLock.writeLock().unlock();
+            logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
         }
     }
 
