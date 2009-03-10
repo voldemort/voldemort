@@ -508,8 +508,8 @@ public class JsonTypeSerializer implements Serializer<Object> {
         if(stream.readByte() == -1)
             return null;
         Map<String, Object> m = new HashMap<String, Object>(type.size());
-        for(String property: type.keySet())
-            m.put(property, read(stream, type.get(property)));
+        for(Map.Entry<String, Object> typeMapEntry: type.entrySet())
+            m.put(typeMapEntry.getKey(), read(stream, typeMapEntry.getValue()));
         return m;
     }
 
