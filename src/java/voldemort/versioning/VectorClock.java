@@ -23,6 +23,8 @@ import java.util.List;
 import voldemort.annotations.concurrency.NotThreadsafe;
 import voldemort.utils.ByteUtils;
 
+import com.google.common.collect.Lists;
+
 /**
  * A vector of the number of writes mastered by each node. The vector is stored
  * sparely, since, in general, writes will be mastered by only one node. This
@@ -191,9 +193,8 @@ public class VectorClock implements Version, Serializable {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public VectorClock clone() {
-        return new VectorClock(new ArrayList(versions), this.timestamp);
+        return new VectorClock(Lists.newArrayList(versions), this.timestamp);
     }
 
     @Override
