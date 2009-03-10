@@ -76,7 +76,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         String assertTrueMessage = v1 + " != " + v2 + ".";
         if(message != null)
             assertTrueMessage += message;
-        assertTrue(message, valuesEqual(v1.getValue(), v2.getValue()));
+        assertTrue(assertTrueMessage, valuesEqual(v1.getValue(), v2.getValue()));
         assertEquals(message, v1.getVersion(), v2.getVersion());
     }
 
