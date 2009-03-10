@@ -17,7 +17,6 @@
 package voldemort.utils;
 
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -307,35 +306,6 @@ public class ByteUtils {
         } else {
             throw new IllegalArgumentException("Unknown prefix!");
         }
-    }
-
-    /**
-     * 
-     * @param value
-     * @param output
-     * @throws IOException
-     */
-    public static void writeVarNumber(long value, DataOutputStream output) throws IOException {
-        int size;
-        int signMask = Long.signum(value) << 8;
-        if(value < 1 << 6) {
-            size = 1;
-            output.write(signMask | (byte) value);
-        } else if(value < 1 << 13) {
-            size = 2;
-            output.write(signMask | MASK_10000000 | readNthByte(value, 1));
-        } else if(value < 1 << 28) {
-            size = 4;
-            output.write(signMask | MASK_11000000 | readNthByte(value, 3));
-        } else if(value < 1L << 60) {
-            size = 8;
-            output.write(signMask | MASK_11100000 | readNthByte(value, 7));
-        } else {
-            throw new IllegalArgumentException(value + " is larger than maximum allowable");
-        }
-        // write all but first byte
-        for(int i = size - 2; i >= 0; i--)
-            output.write(readNthByte(value, i));
     }
 
     /**

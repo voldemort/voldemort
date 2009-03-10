@@ -16,14 +16,8 @@
 
 package voldemort;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Arrays;
-import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.utils.ByteUtils;
@@ -138,43 +132,6 @@ public class UtilsTest extends TestCase {
         long asLong = Long.parseLong(theLong, 16);
         byte asByte = (byte) Short.parseShort(theByte, 16);
         assertEquals(asByte, ByteUtils.readNthByte(asLong, nth));
-    }
-
-    public void testVarNumberSerialization() throws Exception {
-        varNumber(128);
-        List<Long> values = Arrays.asList(0L,
-                                          1L,
-                                          2L,
-                                          62L,
-                                          63L,
-                                          64L,
-                                          126L,
-                                          127L,
-                                          128L,
-                                          536870911L,
-                                          536870912L,
-                                          2147483647L,
-                                          2147483657L,
-                                          17179869184L);
-        for(long v: values) {
-            varNumber(v);
-            // varNumber(-v);
-        }
-    }
-
-    public void varNumber(long value) throws IOException {
-        // System.out.println("Got: " + Long.toBinaryString(value));
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        DataOutputStream dataOut = new DataOutputStream(out);
-        ByteUtils.writeVarNumber(value, dataOut);
-        dataOut.flush();
-        // System.out.println("Bytes: " +
-        // ByteUtils.toBinaryString(out.toByteArray()));
-        ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-        DataInputStream dataIn = new DataInputStream(in);
-        long found = ByteUtils.readVarNumber(dataIn);
-        // System.out.println("Found: " + Long.toBinaryString(found));
-        assertEquals(value, found);
     }
 
     public void testMd5() {
