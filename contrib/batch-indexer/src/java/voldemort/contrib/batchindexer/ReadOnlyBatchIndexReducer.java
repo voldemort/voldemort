@@ -84,7 +84,7 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
             _indexFileStream = fs.create(taskIndexFileName, (short) 1);
             _valueFileStream = fs.create(taskValueFileName, (short) 1);
         } catch(IOException e) {
-            new RuntimeException("Failed to open Input/OutputStream", e);
+            throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
     }
 
