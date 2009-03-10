@@ -26,6 +26,9 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Maps;
@@ -106,5 +109,16 @@ public class StoreUtils {
                 logger.error("Error closing stream", e);
             }
         }
+    }
+
+    /**
+     * This is a temporary measure until we have a type-safe solution for
+     * retrieving serializers from a SerializerFactory. It avoids warnings all
+     * over the codebase while making it easy to verify who calls it.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> Serializer<T> unsafeGetSerializer(SerializerFactory serializerFactory,
+                                                        SerializerDefinition serializerDefinition) {
+        return (Serializer<T>) serializerFactory.getSerializer(serializerDefinition);
     }
 }
