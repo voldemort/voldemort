@@ -50,7 +50,8 @@ public class TestUtils {
     public static final String DIGITS = "0123456789";
     public static final String LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
     public static final String CHARACTERS = LETTERS + DIGITS + "~!@#$%^&*()____+-=[];',,,./>?:{}";
-    public static final Random RAND = new Random(19873482374L);
+    public static final Random SEEDED_RANDOM = new Random(19873482374L);
+    public static final Random UNSEEDED_RANDOM = new Random();
 
     /**
      * Get a vector clock with events on the sequence of nodes given So
@@ -105,7 +106,7 @@ public class TestUtils {
     /**
      * Create a string with some random letters
      * 
-     * @param RAND The Random number generator to use
+     * @param SEEDED_RANDOM The Random number generator to use
      * @param length The length of the string to create
      * @return The string
      */
@@ -124,7 +125,7 @@ public class TestUtils {
     public static String randomString(String sampler, int length) {
         StringBuilder builder = new StringBuilder(length);
         for(int i = 0; i < length; i++)
-            builder.append(sampler.charAt(RAND.nextInt(sampler.length())));
+            builder.append(sampler.charAt(SEEDED_RANDOM.nextInt(sampler.length())));
         return builder.toString();
     }
 
@@ -136,7 +137,7 @@ public class TestUtils {
      */
     public static byte[] randomBytes(int length) {
         byte[] bytes = new byte[length];
-        RAND.nextBytes(bytes);
+        SEEDED_RANDOM.nextBytes(bytes);
         return bytes;
     }
 
@@ -151,7 +152,7 @@ public class TestUtils {
     public static int[] randomInts(int max, int count) {
         int[] vals = new int[count];
         for(int i = 0; i < count; i++)
-            vals[i] = RAND.nextInt(max);
+            vals[i] = SEEDED_RANDOM.nextInt(max);
         return vals;
     }
 
@@ -165,7 +166,7 @@ public class TestUtils {
         List<Integer> vals = new ArrayList<Integer>(input.length);
         for(int i = 0; i < input.length; i++)
             vals.add(input[i]);
-        Collections.shuffle(vals, RAND);
+        Collections.shuffle(vals, SEEDED_RANDOM);
         int[] copy = new int[input.length];
         for(int i = 0; i < input.length; i++)
             copy[i] = vals.get(i);
@@ -209,7 +210,8 @@ public class TestUtils {
      * @return The temporary directory
      */
     public static File createTempDir(File parent) {
-        File temp = new File(parent, Integer.toString(Math.abs(RAND.nextInt()) % 1000000));
+        File temp = new File(parent,
+                             Integer.toString(Math.abs(UNSEEDED_RANDOM.nextInt()) % 1000000));
         temp.delete();
         temp.mkdir();
         temp.deleteOnExit();
