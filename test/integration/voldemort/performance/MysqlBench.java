@@ -19,8 +19,6 @@ package voldemort.performance;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import javax.sql.DataSource;
 
@@ -34,7 +32,6 @@ import org.apache.commons.dbcp.BasicDataSource;
  */
 public class MysqlBench {
 
-    private final ExecutorService threadPool;
     private final DataSource dataSource;
     private final int numRequests;
     private final int numThreads;
@@ -64,7 +61,6 @@ public class MysqlBench {
                       String username,
                       String password) {
         this.numThreads = numThreads;
-        this.threadPool = Executors.newFixedThreadPool(numThreads);
         this.numRequests = numRequests;
         BasicDataSource ds = new BasicDataSource();
         ds.setDriverClassName("com.mysql.jdbc.Driver");
