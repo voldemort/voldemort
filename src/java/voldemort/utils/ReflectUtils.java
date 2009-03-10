@@ -18,6 +18,7 @@ package voldemort.utils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 
 /**
  * Utilities for reflection
@@ -36,17 +37,17 @@ public class ReflectUtils {
             T t = cons.newInstance(args);
             return t;
         } catch(NoSuchMethodException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
-                                       e);
+            throw new RuntimeException("Could not construct " + klass + " with arguments "
+                                       + Arrays.toString(args), e);
         } catch(InvocationTargetException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
-                                       e);
+            throw new RuntimeException("Could not construct " + klass + " with arguments "
+                                       + Arrays.toString(args), e);
         } catch(InstantiationException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
-                                       e);
+            throw new RuntimeException("Could not construct " + klass + " with arguments "
+                                       + Arrays.toString(args), e);
         } catch(IllegalAccessException e) {
-            throw new RuntimeException("Could not construct " + klass + " with arguments " + args,
-                                       e);
+            throw new RuntimeException("Could not construct " + klass + " with arguments "
+                                       + Arrays.toString(args), e);
         }
     }
 
