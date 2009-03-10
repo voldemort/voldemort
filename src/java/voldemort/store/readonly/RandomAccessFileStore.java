@@ -71,9 +71,9 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         }
     };
 
-    public static int KEY_HASH_SIZE = 16;
-    public static int POSITION_SIZE = 8;
-    public static int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
+    public static final int KEY_HASH_SIZE = 16;
+    public static final int POSITION_SIZE = 8;
+    public static final int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
     private final String name;
     private final long fdWaitTimeoutMs;

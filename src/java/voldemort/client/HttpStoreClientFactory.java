@@ -45,7 +45,7 @@ import voldemort.utils.ByteArray;
  */
 public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
-    public static String URL_SCHEME = "http";
+    public static final String URL_SCHEME = "http";
 
     private static final int DEFAULT_CONNECTION_TIMEOUT = 5000;
     private static final int DEFAULT_SO_TIMEOUT = 5000;

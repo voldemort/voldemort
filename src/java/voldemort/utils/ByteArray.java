@@ -11,7 +11,7 @@ public final class ByteArray implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    public static ByteArray EMPTY = new ByteArray();
+    public static final ByteArray EMPTY = new ByteArray();
 
     private final byte[] underlying;
 

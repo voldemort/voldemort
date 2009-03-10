@@ -26,7 +26,7 @@ import java.util.Date;
  */
 public class SystemTime implements Time {
 
-    public static SystemTime INSTANCE = new SystemTime();
+    public static final SystemTime INSTANCE = new SystemTime();
 
     public Date getCurrentDate() {
         return new Date();
