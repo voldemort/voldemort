@@ -16,7 +16,6 @@
 
 package voldemort.performance;
 
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -72,7 +71,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 try {
-                    List<Versioned<byte[]>> s = memStore.get(String.valueOf(i).getBytes());
+                    memStore.get(String.valueOf(i).getBytes());
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();
@@ -115,7 +114,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 try {
-                    List<Versioned<byte[]>> s = socketStore.get(ByteArray.valueOf(String.valueOf(i)));
+                    socketStore.get(ByteArray.valueOf(String.valueOf(i)));
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();
@@ -172,8 +171,7 @@ public class RemoteStoreComparisonTest {
 
             @Override
             public void doOperation(int i) {
-                List<Versioned<byte[]>> s = httpStore.get(new ByteArray(String.valueOf(i)
-                                                                              .getBytes()));
+                httpStore.get(new ByteArray(String.valueOf(i).getBytes()));
             }
         };
         System.out.println("Performing HTTP read test.");
