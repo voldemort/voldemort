@@ -46,7 +46,7 @@ public class ProtoBufSerializerTest extends TestCase {
 
     private static class InvalidMessageWithParseFrom {
 
-        public static InvalidMessageWithParseFrom parseFrom(byte[] bytes) {
+        public static InvalidMessageWithParseFrom parseFrom(@SuppressWarnings("unused") byte[] bytes) {
             return new InvalidMessageWithParseFrom();
         }
     }
