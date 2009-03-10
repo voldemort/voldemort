@@ -21,7 +21,6 @@ import static voldemort.TestUtils.bytesEqual;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
@@ -39,7 +38,6 @@ public class SlopPusherTest extends TestCase {
     private StorageEngine<ByteArray, Slop> slopStore;
     private Map<Integer, Store<ByteArray, byte[]>> stores;
     private SlopPusherJob pusher;
-    private Random random;
 
     public SlopPusherTest(String name) {
         super(name);
@@ -53,7 +51,6 @@ public class SlopPusherTest extends TestCase {
         stores.put(1, new InMemoryStorageEngine<ByteArray, byte[]>("1"));
         stores.put(2, new InMemoryStorageEngine<ByteArray, byte[]>("2"));
         pusher = new SlopPusherJob(slopStore, stores);
-        random = new Random();
     }
 
     private Slop randomSlop(String name, int nodeId) {
