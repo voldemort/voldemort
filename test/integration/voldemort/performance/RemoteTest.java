@@ -118,7 +118,7 @@ public class RemoteTest {
                 public void run() {
                     try {
                         String str = Integer.toString(count2.getAndIncrement());
-                        Versioned<String> found = store.get(str);
+                        store.get(str);
                     } catch(Exception e) {
                         e.printStackTrace();
                     } finally {
