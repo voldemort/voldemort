@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 
-import org.apache.log4j.Logger;
-
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
@@ -48,7 +46,6 @@ import voldemort.versioning.Versioned;
 public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
-    private static final Logger logger = Logger.getLogger(VoldemortClientShell.class.getName());
 
     public static void main(String[] args) throws Exception {
         if(args.length < 2 || args.length > 3)
