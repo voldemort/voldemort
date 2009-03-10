@@ -85,6 +85,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         assertEquals(1, engine.get(key).size());
     }
 
+    @SuppressWarnings("unused")
     private boolean remove(List<byte[]> list, byte[] item) {
         Iterator<byte[]> it = list.iterator();
         boolean removedSomething = false;
