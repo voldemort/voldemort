@@ -59,10 +59,12 @@ public class MockStoreClientFactory<K, V> implements StoreClientFactory {
         this.time = time;
     }
 
+    @SuppressWarnings("hiding")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
     }
 
+    @SuppressWarnings("hiding")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> inconsistencyResolver) {
         // Add inconsistency resolving decorator, using their inconsistency
