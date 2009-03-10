@@ -30,7 +30,7 @@ public class VersionedSerializerTest extends TestCase {
     }
 
     private void assertSerializes(String message, Versioned<String> obj) {
-        assertEquals(obj, this.serializer.toObject(this.serializer.toBytes(obj)));
+        assertEquals(message, obj, this.serializer.toObject(this.serializer.toBytes(obj)));
     }
 
     public void testSerialization() {
