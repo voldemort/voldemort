@@ -25,8 +25,8 @@ import javax.sql.DataSource;
 import org.apache.commons.dbcp.BasicDataSource;
 
 import voldemort.TestUtils;
-import voldemort.store.StorageEngine;
 import voldemort.store.AbstractStorageEngineTest;
+import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 
 public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
@@ -68,7 +68,8 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
 
     public void testOpenNonExistantStoreCreatesTable() throws SQLException {
         String newStore = TestUtils.randomLetters(15);
-        MysqlStorageEngine engine = new MysqlStorageEngine(newStore, getDataSource());
+        /* Create the engine for side-effect */
+        new MysqlStorageEngine(newStore, getDataSource());
         DataSource ds = getDataSource();
         executeQuery(ds, "select 1 from " + newStore + " limit 1");
         executeQuery(ds, "drop table " + newStore);
