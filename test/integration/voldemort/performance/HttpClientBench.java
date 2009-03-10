@@ -55,7 +55,7 @@ public class HttpClientBench {
                 GetMethod get = new GetMethod(url);
                 try {
                     client.executeMethod(get);
-                    byte[] bytes = get.getResponseBody();
+                    get.getResponseBody();
                 } catch(Exception e) {
                     e.printStackTrace();
                 } finally {
