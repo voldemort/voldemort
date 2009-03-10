@@ -18,13 +18,12 @@ package voldemort.store.bdb;
 
 import java.io.File;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.TestUtils;
-import voldemort.store.StorageEngine;
 import voldemort.store.AbstractStorageEngineTest;
+import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -41,12 +40,10 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     private File tempDir;
     private BdbStorageEngine store;
     private DatabaseConfig databaseConfig;
-    private Random random;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        this.random = new Random();
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
         environmentConfig = new EnvironmentConfig();
         environmentConfig.setTxnNoSync(true);
