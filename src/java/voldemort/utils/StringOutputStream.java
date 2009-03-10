@@ -29,6 +29,7 @@ public class StringOutputStream extends OutputStream {
 
     StringBuilder mBuf;
 
+    @Override
     public void write(int data) throws IOException {
         mBuf.append((char) data);
     }
