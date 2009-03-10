@@ -43,7 +43,8 @@ public class SocketPoolTest extends TestCase {
     private SocketPool pool;
     private SocketDestination dest1;
     private SocketDestination dest2;
-    private SocketServer server;
+    private SocketServer server1;
+    private SocketServer server2;
 
     @Override
     public void setUp() {
@@ -52,20 +53,28 @@ public class SocketPoolTest extends TestCase {
         this.port2 = ports[1];
         this.pool = new SocketPool(maxConnectionsPerNode, maxTotalConnections, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port1);
-        this.dest2 = new SocketDestination("localhost", port1);
-        this.server = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
-                                       port1,
-                                       maxTotalConnections,
-                                       maxTotalConnections + 3,
-                                       10000);
-        this.server.start();
-        this.server.awaitStartupCompletion();
+        this.dest2 = new SocketDestination("localhost", port2);
+        this.server1 = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
+                                        port1,
+                                        maxTotalConnections,
+                                        maxTotalConnections + 3,
+                                        10000);
+        this.server2 = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
+                                        port2,
+                                        maxTotalConnections,
+                                        maxTotalConnections + 3,
+                                        10000);
+        this.server1.start();
+        this.server1.awaitStartupCompletion();
+        this.server2.start();
+        this.server2.awaitStartupCompletion();
     }
 
     @Override
     public void tearDown() {
         this.pool.close();
-        this.server.shutdown();
+        this.server1.shutdown();
+        this.server2.shutdown();
     }
 
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {
