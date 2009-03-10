@@ -26,16 +26,11 @@ import junit.framework.TestCase;
 
 import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.commons.io.FileUtils;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Mapper;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.contrib.batchswapper.AbstractSwapperMapper;
-import voldemort.contrib.batchswapper.ReadOnlyBatchIndexHadoopSwapper;
+import voldemort.contrib.batchswapper.ReadOnlyBatchIndexSwapper;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -43,15 +38,16 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Props;
 import voldemort.xml.ClusterMapper;
 
-public class TestReadOnlyHadoopSwapper extends TestCase {
+public class ReadOnlySimpleSwapperTest extends TestCase {
 
     private static final int TEST_SIZE = 500;
     private static final String baseDir = TestUtils.createTempDir().getAbsolutePath();
 
-    private static final String clusterFile = "contrib/test/common/config/two-node-cluster.xml";
-    private static final String storerFile = "contrib/test/common/config/testSwapStore.xml";
+    private static final String clusterFile = "contrib/common/config/two-node-cluster.xml";
+    private static final String storerFile = "contrib/common/config/testSwapStore.xml";
     private static final String storeName = "swapTestStore";
 
     VoldemortServer server1;
@@ -62,27 +58,24 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
         // clean baseDir to be sure
         FileDeleteStrategy.FORCE.delete(new File(baseDir));
 
-        // First make the readOnlyIndex and copy the index to start Read-Only
-        // store cleanly
         String indexDir = makeReadOnlyIndex(1, 1000);
+        server1 = startServer(0, indexDir);
+        server2 = startServer(1, indexDir);
+    }
 
-        VoldemortConfig config = ServerTestUtils.createServerConfig(0, baseDir, clusterFile, storerFile);
-        server1 = new VoldemortServer(config);
+    private VoldemortServer startServer(int nodeId, String indexDir) throws Exception {
+        VoldemortConfig config = ServerTestUtils.createServerConfig(nodeId,
+                                                                    baseDir,
+                                                                    clusterFile,
+                                                                    storerFile);
+        VoldemortServer server = new VoldemortServer(config);
         // copy read-only index before starting
-        FileUtils.copyFile(new File(indexDir, "0.index"),
+        FileUtils.copyFile(new File(indexDir, nodeId + ".index"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
-        FileUtils.copyFile(new File(indexDir, "0.data"),
+        FileUtils.copyFile(new File(indexDir, nodeId + ".data"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
-        server1.start();
-
-        config = ServerTestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
-        server2 = new VoldemortServer(config);
-        // copy read-only index before starting
-        FileUtils.copyFile(new File(indexDir, "1.index"),
-                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
-        FileUtils.copyFile(new File(indexDir, "1.data"),
-                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
-        server2.start();
+        server.start();
+        return server;
     }
 
     @Override
@@ -99,8 +92,8 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
             entryMap.put("key" + i, "value-" + i);
         }
 
-        Cluster cluster = new ClusterMapper().readCluster(new FileReader(new File("contrib/test/common/config/two-node-cluster.xml")));
-        return TestUtils.createReadOnlyIndex(cluster, entryMap, baseDir);
+        Cluster cluster = new ClusterMapper().readCluster(new FileReader(new File("contrib/common/config/two-node-cluster.xml")));
+        return ReadOnlySwapperTestUtils.createReadOnlyIndex(cluster, entryMap, baseDir);
     }
 
     public void testswap() throws Throwable {
@@ -125,25 +118,38 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
         // lets create new index files
         final String newIndexDir = makeReadOnlyIndex(2000, 3000);
 
-        ReadOnlyBatchIndexHadoopSwapper indexSwapper = new ReadOnlyBatchIndexHadoopSwapper() {
+        ReadOnlyBatchIndexSwapper indexSwapper = new ReadOnlyBatchIndexSwapper() {
 
             @Override
-            public void configure(JobConf conf) {
-                conf.set("voldemort.cluster.local.filePath", clusterFile);
-                conf.set("voldemort.store.name", storeName);
-                conf.set("source.path", newIndexDir);
-                conf.set("destination.path", baseDir + File.separatorChar
-                                             + (int) (Math.random() * 1000));
+            public void configure(Props props) {
+                props.put("voldemort.cluster.local.filePath", clusterFile);
+                props.put("voldemort.store.name", storeName);
+                props.put("source.local.path", newIndexDir);
+                props.put("destination.remote.path", baseDir + File.separatorChar
+                                                     + (int) (Math.random() * 1000));
             }
 
             @Override
-            public Class<? extends Mapper<LongWritable, Text, Text, Text>> getSwapperMapperClass() {
-                return SwapperMapper.class;
+            public boolean copyRemoteFile(String hostname, String source, String destination) {
+                // for test both files are local just
+                int i = 0;
+                while(i++ < 5)
+                    try {
+                        FileUtils.copyFile(new File(source), new File(destination));
+                        if(new File(destination).exists()) {
+                            return true;
+                        }
+
+                    } catch(IOException e) {
+                        // ignore
+                    }
+
+                return false;
             }
         };
 
         // do Index Swap
-        indexSwapper.run(null);
+        indexSwapper.run();
 
         // check that only new keys can be seen
         for(int i = 1; i < 1000; i++) {
@@ -161,24 +167,5 @@ public class TestReadOnlyHadoopSwapper extends TestCase {
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
         }
 
-    }
-
-    static class SwapperMapper extends AbstractSwapperMapper {
-
-        @Override
-        public boolean copyRemoteFile(String hostname, String source, String destination) {
-            // for test both files are local just
-            System.out.println("copy Remote Files called host:" + hostname + " source:" + source
-                               + " destination:" + destination);
-            assertEquals("source file should be present", true, new File(source).exists());
-            try {
-                FileUtils.copyFile(new File(source), new File(destination));
-            } catch(IOException e) {
-                System.out.println("copy call Failed");
-                e.printStackTrace();
-            }
-
-            return new File(destination).exists();
-        }
     }
 }

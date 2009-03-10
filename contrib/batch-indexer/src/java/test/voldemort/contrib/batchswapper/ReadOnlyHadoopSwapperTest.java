@@ -26,11 +26,13 @@ import junit.framework.TestCase;
 
 import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.mapred.JobConf;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.contrib.batchswapper.ReadOnlyBatchIndexSwapper;
+import voldemort.contrib.batchswapper.AbstractSwapperMapper;
+import voldemort.contrib.batchswapper.ReadOnlyBatchIndexHadoopSwapper;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -38,17 +40,16 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Props;
 import voldemort.xml.ClusterMapper;
 
-public class TestReadOnlySimpleSwapper extends TestCase {
+public class ReadOnlyHadoopSwapperTest extends TestCase {
 
     private static final int TEST_SIZE = 500;
     private static final String baseDir = TestUtils.createTempDir().getAbsolutePath();
 
-    private static final String clusterFile = "contrib/test/common/config/two-node-cluster.xml";
-    private static final String storerFile = "contrib/test/common/config/testSwapStore.xml";
-    private static final String storeName = "swap-store";
+    private static final String clusterFile = "contrib/common/config/two-node-cluster.xml";
+    private static final String storerFile = "contrib/common/config/testSwapStore.xml";
+    private static final String storeName = "swapTestStore";
 
     VoldemortServer server1;
     VoldemortServer server2;
@@ -58,24 +59,30 @@ public class TestReadOnlySimpleSwapper extends TestCase {
         // clean baseDir to be sure
         FileDeleteStrategy.FORCE.delete(new File(baseDir));
 
+        // First make the readOnlyIndex and copy the index to start Read-Only
+        // store cleanly
         String indexDir = makeReadOnlyIndex(1, 1000);
-        server1 = startServer(2, indexDir);
-        server2 = startServer(1, indexDir);
-    }
 
-    private VoldemortServer startServer(int nodeId, String indexDir) throws Exception {
-        VoldemortConfig config = ServerTestUtils.createServerConfig(nodeId,
-                                                              baseDir,
-                                                              clusterFile,
-                                                              storerFile);
-        VoldemortServer server = new VoldemortServer(config);
+        VoldemortConfig config = ServerTestUtils.createServerConfig(0,
+                                                                    baseDir,
+                                                                    clusterFile,
+                                                                    storerFile);
+        server1 = new VoldemortServer(config);
         // copy read-only index before starting
-        FileUtils.copyFile(new File(indexDir, nodeId + ".index"),
+        FileUtils.copyFile(new File(indexDir, "0.index"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
-        FileUtils.copyFile(new File(indexDir, nodeId + ".data"),
+        FileUtils.copyFile(new File(indexDir, "0.data"),
                            new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
-        server.start();
-        return server;
+        server1.start();
+
+        config = ServerTestUtils.createServerConfig(1, baseDir, clusterFile, storerFile);
+        server2 = new VoldemortServer(config);
+        // copy read-only index before starting
+        FileUtils.copyFile(new File(indexDir, "1.index"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".index"));
+        FileUtils.copyFile(new File(indexDir, "1.data"),
+                           new File(config.getReadOnlyDataStorageDirectory(), storeName + ".data"));
+        server2.start();
     }
 
     @Override
@@ -92,8 +99,8 @@ public class TestReadOnlySimpleSwapper extends TestCase {
             entryMap.put("key" + i, "value-" + i);
         }
 
-        Cluster cluster = new ClusterMapper().readCluster(new FileReader(new File("contrib/test/common/config/two-node-cluster.xml")));
-        return TestUtils.createReadOnlyIndex(cluster, entryMap, baseDir);
+        Cluster cluster = new ClusterMapper().readCluster(new FileReader(new File("contrib/common/config/two-node-cluster.xml")));
+        return ReadOnlySwapperTestUtils.createReadOnlyIndex(cluster, entryMap, baseDir);
     }
 
     public void testswap() throws Throwable {
@@ -110,7 +117,6 @@ public class TestReadOnlySimpleSwapper extends TestCase {
             ByteArray key = new ByteArray(serializer.toBytes("key" + i));
             byte[] value = serializer.toBytes("value" + i);
 
-            System.out.println("checking key:" + i);
             assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
                          true,
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
@@ -119,38 +125,25 @@ public class TestReadOnlySimpleSwapper extends TestCase {
         // lets create new index files
         final String newIndexDir = makeReadOnlyIndex(2000, 3000);
 
-        ReadOnlyBatchIndexSwapper indexSwapper = new ReadOnlyBatchIndexSwapper() {
+        ReadOnlyBatchIndexHadoopSwapper indexSwapper = new ReadOnlyBatchIndexHadoopSwapper() {
 
             @Override
-            public void configure(Props props) {
-                props.put("voldemort.cluster.local.filePath", clusterFile);
-                props.put("voldemort.store.name", storeName);
-                props.put("source.local.path", newIndexDir);
-                props.put("destination.remote.path", baseDir + File.separatorChar
-                                                     + (int) (Math.random() * 1000));
+            public void configure(JobConf conf) {
+                conf.set("voldemort.cluster.local.filePath", clusterFile);
+                conf.set("voldemort.store.name", storeName);
+                conf.set("source.path", newIndexDir);
+                conf.set("destination.path", baseDir + File.separatorChar
+                                             + (int) (Math.random() * 1000));
             }
 
             @Override
-            public boolean copyRemoteFile(String hostname, String source, String destination) {
-                // for test both files are local just
-                int i = 0;
-                while(i++ < 5)
-                    try {
-                        FileUtils.copyFile(new File(source), new File(destination));
-                        if(new File(destination).exists()) {
-                            return true;
-                        }
-
-                    } catch(IOException e) {
-                        // ignore
-                    }
-
-                return false;
+            public Class<? extends SwapperMapper> getSwapperMapperClass() {
+                return SwapperMapper.class;
             }
         };
 
         // do Index Swap
-        indexSwapper.run();
+        indexSwapper.run(null);
 
         // check that only new keys can be seen
         for(int i = 1; i < 1000; i++) {
@@ -168,5 +161,24 @@ public class TestReadOnlySimpleSwapper extends TestCase {
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
         }
 
+    }
+
+    static class SwapperMapper extends AbstractSwapperMapper {
+
+        @Override
+        public boolean copyRemoteFile(String hostname, String source, String destination) {
+            // for test both files are local just
+            System.out.println("copy Remote Files called host:" + hostname + " source:" + source
+                               + " destination:" + destination);
+            assertEquals("source file should be present", true, new File(source).exists());
+            try {
+                FileUtils.copyFile(new File(source), new File(destination));
+            } catch(IOException e) {
+                System.out.println("copy call Failed");
+                e.printStackTrace();
+            }
+
+            return new File(destination).exists();
+        }
     }
 }

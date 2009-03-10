@@ -22,7 +22,7 @@ import org.apache.hadoop.fs.Path;
 
 import voldemort.contrib.utils.ContribUtils;
 
-public class TestContribUtils extends TestCase {
+public class ContribUtilsTest extends TestCase {
 
     public void testGetFileFromPathList() {
         Path path1 = new Path("simpleFileName");

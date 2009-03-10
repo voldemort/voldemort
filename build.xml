@@ -170,7 +170,8 @@
 			<formatter type="brief" usefile="false"/>
 			<batchtest fork="yes" todir="${testreport.dir}">
 				<fileset dir="${contrib.classes.dir}">
-					<include name="**/Test*.class"/>
+					<include name="**/*Test.class"/>
+					<exclude name="**/*PerformanceTest.class"/>
 				</fileset>
 			</batchtest>
 		</junit>
@@ -196,6 +197,9 @@
 			<report todir="${testhtml.dir}" format="frames" />
 		</junitreport>
 	</target>
+
+         <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
+         </target>
 
 	<target name="war" depends="build" description="Build server war file">
 		<war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">

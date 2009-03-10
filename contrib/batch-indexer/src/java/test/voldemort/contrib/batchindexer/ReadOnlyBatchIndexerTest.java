@@ -52,7 +52,7 @@ import voldemort.versioning.Versioned;
  * @author bbansal
  * 
  */
-public class TestReadOnlyBatchIndexer extends TestCase {
+public class ReadOnlyBatchIndexerTest extends TestCase {
 
     @SuppressWarnings("unchecked")
     public void testCSVFileBatchIndexer() throws Exception {
@@ -84,7 +84,7 @@ public class TestReadOnlyBatchIndexer extends TestCase {
                                                                            Valueserializer);
 
         // query all keys and check for value
-        BufferedReader reader = new BufferedReader(new FileReader(new File("contrib/test/common/test-data/usersCSV.txt")));
+        BufferedReader reader = new BufferedReader(new FileReader(new File("contrib/common/test-data/usersCSV.txt")));
         String line;
         while(null != (line = reader.readLine())) {
 
@@ -125,17 +125,15 @@ class TextBatchMapper extends ReadOnlyBatchIndexMapper<LongWritable, Text> {
 
 class TextBatchIndexer extends ReadOnlyBatchIndexer {
 
-    @Override
     public void configure(JobConf conf) {
 
         conf.set("job.name", "testCSVBatchIndexer");
-        conf.set("voldemort.cluster.local.filePath",
-                 "contrib/test/common/config/nine-node-cluster.xml");
-        conf.set("voldemort.store.local.filePath", "contrib/test/common/config/stores.xml");
+        conf.set("voldemort.cluster.local.filePath", "contrib/common/config/nine-node-cluster.xml");
+        conf.set("voldemort.store.local.filePath", "contrib/common/config/stores.xml");
         conf.set("voldemort.store.name", "users");
 
         // set inset/outset path
-        FileInputFormat.addInputPaths(conf, "contrib/test/common/test-data/usersCSV.txt");
+        FileInputFormat.addInputPaths(conf, "contrib/common/test-data/usersCSV.txt");
         FileOutputFormat.setOutputPath(conf, new Path("contrib/batch-indexer/temp-output/text"));
 
         conf.setMapperClass(TextBatchMapper.class);
