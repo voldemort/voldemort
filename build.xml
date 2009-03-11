@@ -167,7 +167,7 @@
 	<target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests.">
 		<junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
 			<classpath refid="contrib-test-classpath"/>
-			<formatter type="brief" usefile="false"/>
+			<formatter type="xml"/>
 			<batchtest fork="yes" todir="${testreport.dir}">
 				<fileset dir="${contrib.classes.dir}">
 					<include name="**/*Test.class"/>
@@ -175,6 +175,12 @@
 				</fileset>
 			</batchtest>
 		</junit>
+		<junitreport todir="${testhtml.dir}">
+			<fileset dir="${testreport.dir}">
+				<include name="TEST-*.xml"/>
+			</fileset>
+			<report todir="${testhtml.dir}" format="frames" />
+		</junitreport>
 	</target>
 
 	<target name="junit" depends="build, buildtest" description="Run junit tests.">
