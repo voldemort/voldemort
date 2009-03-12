@@ -116,16 +116,18 @@ public class ReadOnlyHadoopSwapperTest extends TestCase {
         for(int i = 1; i < 1000; i++) {
 
             ByteArray key = new ByteArray(serializer.toBytes("key" + i));
-            byte[] value = serializer.toBytes("value" + i);
+            byte[] value = serializer.toBytes("value-" + i);
 
             assertEquals("either store1 or store2 will have the key:'key-" + i + "'",
                          true,
                          store1.get(key).size() > 0 || store2.get(key).size() > 0);
 
             assertEquals("value should match",
-                         value,
-                         (store1.get(key).size() > 0) ? store1.get(key).get(0) : store2.get(key)
-                                                                                       .get(0));
+                         new String(value),
+                         new String((store1.get(key).size() > 0) ? store1.get(key)
+                                                                         .get(0)
+                                                                         .getValue()
+                                                                : store2.get(key).get(0).getValue()));
         }
 
         // lets create new index files
