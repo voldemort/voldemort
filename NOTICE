@@ -135,4 +135,4 @@ This product includes a copy of slf4j made by slf4j.org, which contains the foll
     DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
     
-This project includes MongoDB which is available from http://www.mongodb.org/display/DOCS/Home or http://github.com/geir/mongo-java-driver/tree/master
+This project includes the the XJDM driver for MongoDB which is available at http://github.com/geir/mongo-java-driver/tree/master
