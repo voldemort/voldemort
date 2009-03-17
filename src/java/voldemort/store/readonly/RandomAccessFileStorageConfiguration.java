@@ -28,11 +28,12 @@ import javax.management.ObjectName;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineType;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
 public class RandomAccessFileStorageConfiguration implements StorageConfiguration {
+
+    public static final String TYPE_NAME = "read-only";
 
     private final int numFileHandles;
     private final int numBackups;
@@ -75,8 +76,8 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
         return store;
     }
 
-    public StorageEngineType getType() {
-        return StorageEngineType.READONLY;
+    public String getType() {
+        return TYPE_NAME;
     }
 
 }

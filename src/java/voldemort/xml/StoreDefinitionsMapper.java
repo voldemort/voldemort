@@ -41,7 +41,6 @@ import org.xml.sax.SAXException;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.store.StorageEngineType;
 import voldemort.store.StoreDefinition;
 
 /**
@@ -121,7 +120,7 @@ public class StoreDefinitionsMapper {
 
     private StoreDefinition readStore(Element store) {
         String name = store.getChildText(STORE_NAME_ELMT);
-        StorageEngineType storeType = StorageEngineType.fromDisplay(store.getChildText(STORE_PERSISTENCE_ELMT));
+        String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);
         int replicationFactor = Integer.parseInt(store.getChildText(STORE_REPLICATION_FACTOR_ELMT));
         int requiredReads = Integer.parseInt(store.getChildText(STORE_REQUIRED_READS_ELMT));
         int requiredWrites = Integer.parseInt(store.getChildText(STORE_REQUIRED_WRITES_ELMT));
@@ -200,8 +199,7 @@ public class StoreDefinitionsMapper {
     private Element toElement(StoreDefinition storeDefinition) {
         Element store = new Element(STORE_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
-        store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()
-                                                                                    .toDisplay()));
+        store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
         store.addContent(new Element(STORE_REPLICATION_FACTOR_ELMT).setText(Integer.toString(storeDefinition.getReplicationFactor())));

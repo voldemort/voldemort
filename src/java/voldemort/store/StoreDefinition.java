@@ -35,7 +35,7 @@ public class StoreDefinition implements Serializable {
     private static final long serialVersionUID = 1;
 
     private final String name;
-    private final StorageEngineType type;
+    private final String type;
     private final SerializerDefinition keySerializer;
     private final SerializerDefinition valueSerializer;
     private final RoutingTier routingPolicy;
@@ -47,7 +47,7 @@ public class StoreDefinition implements Serializable {
     private final Integer retentionPeriodDays;
 
     public StoreDefinition(String name,
-                           StorageEngineType type,
+                           String type,
                            SerializerDefinition keySerializer,
                            SerializerDefinition valueSerializer,
                            RoutingTier routingPolicy,
@@ -135,7 +135,7 @@ public class StoreDefinition implements Serializable {
         return preferredReads;
     }
 
-    public StorageEngineType getType() {
+    public String getType() {
         return type;
     }
 

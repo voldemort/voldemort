@@ -14,7 +14,7 @@
  * the License.
  */
 
-package test.voldemort.contrib.batchindexer.performance;
+package voldemort.contrib.batchindexer.performance;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,7 +31,7 @@ import org.apache.hadoop.mapred.SequenceFileRecordReader;
 import voldemort.performance.PerformanceTest;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
-import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
@@ -39,18 +39,18 @@ import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
-public class MysqlBuildPerformanceTest {
+public class BdbBuildPerformanceTest {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
         if(args.length != 3)
-            Utils.croak("USAGE: java " + MysqlBuildPerformanceTest.class.getName()
+            Utils.croak("USAGE: java " + BdbBuildPerformanceTest.class.getName()
                         + "serverPropsFile storeName jsonSequenceDataFile");
 
         String serverPropsFile = args[0];
         String storeName = args[1];
         String jsonDataFile = args[2];
 
-        final Store<ByteArray, byte[]> store = new MysqlStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
+        final Store<ByteArray, byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
@@ -80,8 +80,8 @@ public class MysqlBuildPerformanceTest {
                 }
             }
         };
-        readWriteTest.run(1000, 1);
-        System.out.println("MySQl write throuhput with one thread:");
+        readWriteTest.run(30 * 1000 * 1000, 1);
+        System.out.println("Bdb write throuhput with one thread:");
         readWriteTest.printStats();
     }
 }

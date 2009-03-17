@@ -249,6 +249,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         int putCount = 10;
         List<K> keys = getKeys(putCount);
         List<V> values = getValues(putCount);
+        assertEquals(putCount, values.size());
         for(int i = 0; i < putCount; i++)
             store.put(keys.get(i), new Versioned<V>(values.get(i)));
 

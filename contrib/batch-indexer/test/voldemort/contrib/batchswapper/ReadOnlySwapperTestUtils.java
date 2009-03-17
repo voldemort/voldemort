@@ -1,4 +1,4 @@
-package test.voldemort.contrib.batchswapper;
+package voldemort.contrib.batchswapper;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -13,9 +13,9 @@ import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.store.StorageEngineType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
+import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 
 public class ReadOnlySwapperTestUtils {
 
@@ -43,7 +43,7 @@ public class ReadOnlySwapperTestUtils {
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinition("test",
-                                                       StorageEngineType.READONLY,
+                                                       RandomAccessFileStorageConfiguration.TYPE_NAME,
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,

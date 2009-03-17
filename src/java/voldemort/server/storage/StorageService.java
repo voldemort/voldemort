@@ -47,15 +47,10 @@ import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.logging.LoggingStore;
-import voldemort.store.memory.CacheStorageConfiguration;
-import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 import voldemort.store.readonly.RandomAccessFileStore;
 import voldemort.store.serialized.SerializingStore;
@@ -66,6 +61,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 
 /**
  * The service responsible for managing all storage types
@@ -81,7 +77,7 @@ public class StorageService extends AbstractService {
     private final VoldemortConfig voldemortConfig;
     private final ConcurrentMap<String, Store<ByteArray, byte[]>> localStoreMap;
     private final Map<String, StorageEngine<ByteArray, byte[]>> rawEngines;
-    private final ConcurrentMap<StorageEngineType, StorageConfiguration> storageConfigurations;
+    private final ConcurrentMap<String, StorageConfiguration> storageConfigurations;
     private final SchedulerService scheduler;
     private final Map<String, RandomAccessFileStore> readOnlyStores;
     private MetadataStore metadataStore;
@@ -101,19 +97,20 @@ public class StorageService extends AbstractService {
         this.readOnlyStores = new ConcurrentHashMap<String, RandomAccessFileStore>();
     }
 
-    private ConcurrentMap<StorageEngineType, StorageConfiguration> initStorageConfigurations(VoldemortConfig config) {
-        ConcurrentMap<StorageEngineType, StorageConfiguration> configs = new ConcurrentHashMap<StorageEngineType, StorageConfiguration>();
-        if(config.iseBdbEngineEnabled())
-            configs.put(StorageEngineType.BDB, new BdbStorageConfiguration(config));
-        if(config.isMysqlEngineEnabled())
-            configs.put(StorageEngineType.MYSQL, new MysqlStorageConfiguration(config));
-        if(config.isMemoryEngineEnabled())
-            configs.put(StorageEngineType.MEMORY, new InMemoryStorageConfiguration());
-        if(config.isCacheEngineEnabled())
-            configs.put(StorageEngineType.CACHE, new CacheStorageConfiguration());
-        if(config.isReadOnlyEngineEnabled())
-            configs.put(StorageEngineType.READONLY,
-                        new RandomAccessFileStorageConfiguration(config));
+    private ConcurrentMap<String, StorageConfiguration> initStorageConfigurations(VoldemortConfig config) {
+        ConcurrentMap<String, StorageConfiguration> configs = new ConcurrentHashMap<String, StorageConfiguration>();
+        for(String configClassName: config.getStorageConfigurations()) {
+            try {
+                Class<?> configClass = Utils.loadClass(configClassName);
+                StorageConfiguration configuration = (StorageConfiguration) Utils.callConstructor(configClass,
+                                                                                                  new Class<?>[] { VoldemortConfig.class },
+                                                                                                  new Object[] { config });
+                logger.info("Initializing " + configuration.getType() + " storage engine.");
+                configs.put(configuration.getType(), configuration);
+            } catch(IllegalStateException e) {
+                logger.error("Error loading storage configuration '" + configClassName + "'.", e);
+            }
+        }
 
         if(configs.size() == 0)
             throw new ConfigurationException("No storage engine has been enabled!");
@@ -139,7 +136,7 @@ public class StorageService extends AbstractService {
                 StorageEngine<ByteArray, byte[]> engine = getStore(def.getName(), def.getType());
                 rawEngines.put(engine.getName(), engine);
 
-                if(def.getType().equals(StorageEngineType.READONLY))
+                if(def.getType().equals(RandomAccessFileStorageConfiguration.TYPE_NAME))
                     this.readOnlyStores.put(engine.getName(), (RandomAccessFileStore) engine);
 
                 /* Now add any store wrappers that are enabled */
@@ -193,7 +190,7 @@ public class StorageService extends AbstractService {
         }
     }
 
-    private StorageEngine<ByteArray, byte[]> getStore(String name, StorageEngineType type) {
+    private StorageEngine<ByteArray, byte[]> getStore(String name, String type) {
         StorageConfiguration config = storageConfigurations.get(type);
         if(config == null)
             throw new ConfigurationException("Attempt to open store " + name + " but " + type
@@ -260,7 +257,7 @@ public class StorageService extends AbstractService {
     // RebalancingJob(voldemortConfig.getNodeId(), this.rawEngines));
     }
 
-    public StorageConfiguration getStorageConfiguration(StorageEngineType type) {
+    public StorageConfiguration getStorageConfiguration(String type) {
         return storageConfigurations.get(type);
     }
 

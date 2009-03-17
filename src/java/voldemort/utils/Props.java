@@ -22,8 +22,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -251,6 +253,21 @@ public class Props implements Map<String, String> {
             return Long.parseLong(bytes.substring(0, bytes.length() - 1)) * 1024 * 1024 * 1024;
         else
             return Long.parseLong(bytes);
+    }
+
+    public List<String> getList(String key, List<String> defaultValue) {
+        if(!containsKey(key))
+            return defaultValue;
+
+        String value = get(key);
+        String[] pieces = value.split("\\s*,\\s*");
+        return Arrays.asList(pieces);
+    }
+
+    public List<String> getList(String key) {
+        if(!containsKey(key))
+            throw new UndefinedPropertyException(key);
+        return getList(key, null);
     }
 
 }

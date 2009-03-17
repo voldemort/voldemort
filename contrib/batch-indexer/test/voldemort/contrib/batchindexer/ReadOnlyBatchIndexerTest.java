@@ -14,7 +14,7 @@
  * the License.
  */
 
-package test.voldemort.contrib.batchindexer;
+package voldemort.contrib.batchindexer;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -34,8 +34,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ToolRunner;
 
-import voldemort.contrib.batchindexer.ReadOnlyBatchIndexMapper;
-import voldemort.contrib.batchindexer.ReadOnlyBatchIndexer;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;

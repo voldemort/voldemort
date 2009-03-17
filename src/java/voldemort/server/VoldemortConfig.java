@@ -19,14 +19,20 @@ package voldemort.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Properties;
 
-import voldemort.store.StorageEngineType;
+import voldemort.store.bdb.BdbStorageConfiguration;
+import voldemort.store.memory.CacheStorageConfiguration;
+import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * Configuration parameters for the voldemort server.
@@ -46,7 +52,7 @@ public class VoldemortConfig implements Serializable {
     private String dataDirectory;
     private String metadataDirectory;
 
-    private StorageEngineType slopStoreType;
+    private String slopStoreType;
 
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
@@ -85,13 +91,12 @@ public class VoldemortConfig implements Serializable {
     private boolean enableHttpServer;
     private boolean enableSocketServer;
     private boolean enableJmx;
-    private boolean enableBdbEngine;
-    private boolean enableMysqlEngine;
-    private boolean enableCacheEngine;
-    private boolean enableMemoryEngine;
-    private boolean enableReadOnlyEngine;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
+
+    private List<String> storageConfigurations;
+
+    private Props allProps;
 
     private final long pusherPollMs;
 
@@ -111,11 +116,6 @@ public class VoldemortConfig implements Serializable {
         this.metadataDirectory = props.getString("metadata.directory", voldemortHome
                                                                        + File.separator + "config");
 
-        this.enableBdbEngine = props.getBoolean("enable.bdb.engine", true);
-        this.enableMysqlEngine = props.getBoolean("enable.mysql.engine", false);
-        this.enableMemoryEngine = props.getBoolean("enable.memory.engine", true);
-        this.enableCacheEngine = props.getBoolean("enable.cache.engine", true);
-
         this.bdbCacheSize = props.getBytes("bdb.cache.size", 200 * 1024 * 1024);
         this.bdbWriteTransactions = props.getBoolean("bdb.write.transactions", false);
         this.bdbFlushTransactions = props.getBoolean("bdb.flush.transactions", false);
@@ -127,7 +127,6 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
 
-        this.enableReadOnlyEngine = props.getBoolean("enable.readonly.engine", true);
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlyFileHandles = props.getInt("readonly.file.handles", 5);
@@ -136,8 +135,7 @@ public class VoldemortConfig implements Serializable {
                                                                              + "read-only");
         this.readOnlyCacheSize = props.getInt("readonly.cache.size", 100 * 1000 * 1000);
 
-        this.slopStoreType = StorageEngineType.fromDisplay(props.getString("slop.store.engine",
-                                                                           StorageEngineType.BDB.toDisplay()));
+        this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -163,6 +161,15 @@ public class VoldemortConfig implements Serializable {
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 3);
+
+        this.storageConfigurations = props.getList("storage.configs",
+                                                   ImmutableList.of(BdbStorageConfiguration.class.getName(),
+                                                                    InMemoryStorageConfiguration.class.getName(),
+                                                                    CacheStorageConfiguration.class.getName(),
+                                                                    RandomAccessFileStorageConfiguration.class.getName()));
+
+        // save props for access from plugins
+        this.allProps = props;
 
         validateParams();
     }
@@ -385,30 +392,6 @@ public class VoldemortConfig implements Serializable {
         this.enableJmx = enableJmx;
     }
 
-    public boolean iseBdbEngineEnabled() {
-        return enableBdbEngine;
-    }
-
-    public void setEnableBdbEngine(boolean enableBdbEngine) {
-        this.enableBdbEngine = enableBdbEngine;
-    }
-
-    public boolean isMysqlEngineEnabled() {
-        return enableMysqlEngine;
-    }
-
-    public void setEnableMysqlEngine(boolean enableMysqlEngine) {
-        this.enableMysqlEngine = enableMysqlEngine;
-    }
-
-    public boolean isMemoryEngineEnabled() {
-        return enableMemoryEngine;
-    }
-
-    public void setEnableMemoryEngine(boolean enableMemoryEngine) {
-        this.enableMemoryEngine = enableMemoryEngine;
-    }
-
     public long getPusherPollMs() {
         return pusherPollMs;
     }
@@ -461,11 +444,11 @@ public class VoldemortConfig implements Serializable {
         this.mysqlPort = mysqlPort;
     }
 
-    public StorageEngineType getSlopStoreType() {
+    public String getSlopStoreType() {
         return slopStoreType;
     }
 
-    public void setSlopStoreType(StorageEngineType slopStoreType) {
+    public void setSlopStoreType(String slopStoreType) {
         this.slopStoreType = slopStoreType;
     }
 
@@ -569,22 +552,6 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyBackups = readOnlyBackups;
     }
 
-    public boolean isReadOnlyEngineEnabled() {
-        return enableReadOnlyEngine;
-    }
-
-    public void setEnableReadOnlyEngine(boolean enableReadOnlyEngine) {
-        this.enableReadOnlyEngine = enableReadOnlyEngine;
-    }
-
-    public boolean isCacheEngineEnabled() {
-        return enableCacheEngine;
-    }
-
-    public void setEnableCacheEngine(boolean enableCacheEngine) {
-        this.enableCacheEngine = enableCacheEngine;
-    }
-
     public boolean isBdbWriteTransactionsEnabled() {
         return bdbWriteTransactions;
     }
@@ -607,6 +574,18 @@ public class VoldemortConfig implements Serializable {
 
     public void setSocketBufferSize(int socketBufferSize) {
         this.socketBufferSize = socketBufferSize;
+    }
+
+    public List<String> getStorageConfigurations() {
+        return storageConfigurations;
+    }
+
+    public void setStorageConfigurations(List<String> storageConfigurations) {
+        this.storageConfigurations = storageConfigurations;
+    }
+
+    public Props getAllProps() {
+        return this.allProps;
     }
 
 }

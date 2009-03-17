@@ -19,9 +19,9 @@ package voldemort.store.memory;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineType;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
@@ -37,6 +37,13 @@ import com.google.common.collect.MapMaker;
  */
 public class CacheStorageConfiguration implements StorageConfiguration {
 
+    public static final String TYPE_NAME = "cache";
+
+    public CacheStorageConfiguration() {}
+
+    @SuppressWarnings("unused")
+    public CacheStorageConfiguration(VoldemortConfig config) {}
+
     public void close() {}
 
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
@@ -45,8 +52,8 @@ public class CacheStorageConfiguration implements StorageConfiguration {
         return new InMemoryStorageEngine<ByteArray, byte[]>(name, backingMap);
     }
 
-    public StorageEngineType getType() {
-        return StorageEngineType.CACHE;
+    public String getType() {
+        return TYPE_NAME;
     }
 
 }

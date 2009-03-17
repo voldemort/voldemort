@@ -26,7 +26,6 @@ import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineType;
 import voldemort.store.StorageInitializationException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -45,6 +44,8 @@ import com.sleepycat.je.EnvironmentConfig;
  * 
  */
 public class BdbStorageConfiguration implements StorageConfiguration {
+
+    public static final String TYPE_NAME = "bdb";
 
     private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
 
@@ -110,8 +111,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    public StorageEngineType getType() {
-        return StorageEngineType.BDB;
+    public String getType() {
+        return TYPE_NAME;
     }
 
     public void close() {

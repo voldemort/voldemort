@@ -22,6 +22,7 @@ import java.util.Arrays;
 import junit.framework.TestCase;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ReflectUtils;
+import voldemort.utils.Utils;
 
 public class UtilsTest extends TestCase {
 
@@ -161,4 +162,44 @@ public class UtilsTest extends TestCase {
         assertEquals(-1, ByteUtils.compare(new byte[] { -4 }, new byte[] { -1 }));
     }
 
+    public void testLoadClass() {
+        assertEquals(String.class, Utils.loadClass(String.class.getName()));
+        try {
+            Utils.loadClass("not a class name");
+            fail("Loading of bad class name allowed.");
+        } catch(IllegalArgumentException e) {
+            // this is good
+        }
+    }
+
+    public void testCallMethod() {
+        assertEquals("abcd", Utils.callMethod("ABCD",
+                                              String.class,
+                                              "toLowerCase",
+                                              new Class<?>[0],
+                                              new Object[0]));
+        assertEquals('B', Utils.callMethod("ABCD",
+                                           String.class,
+                                           "charAt",
+                                           new Class<?>[] { int.class },
+                                           new Object[] { 1 }));
+        try {
+            Utils.callMethod("ABCD",
+                             String.class,
+                             "nonExistantMethod",
+                             new Class<?>[0],
+                             new Object[0]);
+            fail("Called non-existant method");
+        } catch(IllegalArgumentException e) {
+            // this is good
+        }
+    }
+
+    public void testCallConstructor() {
+        StringBuilder builder = new StringBuilder("hello");
+        assertEquals(new String(builder),
+                     Utils.callConstructor(String.class,
+                                           new Class<?>[] { StringBuilder.class },
+                                           new Object[] { builder }));
+    }
 }

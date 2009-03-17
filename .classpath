@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src/java"/>
+	<classpathentry kind="src" path="contrib/batch-indexer/test"/>
+	<classpathentry kind="src" path="contrib/mongodb/src/java"/>
+	<classpathentry kind="src" path="contrib/mongodb/test"/>
 	<classpathentry kind="src" path="contrib/utils/src/java"/>
 	<classpathentry kind="src" path="contrib/batch-indexer/src/java"/>
 	<classpathentry kind="src" path="test/unit"/>
@@ -34,5 +37,6 @@
 	<classpathentry kind="lib" path="lib/protobuf-java-2.0.3.jar"/>
 	<classpathentry kind="lib" path="lib/libthrift-20080411p1.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-snapshot-20090211.jar"/>
+	<classpathentry kind="lib" path="contrib/mongodb/lib/mongo-xjdm.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

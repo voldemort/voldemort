@@ -45,7 +45,7 @@ public interface StorageConfiguration {
     /**
      * Get the type of stores returned by this configuration
      */
-    public StorageEngineType getType();
+    public String getType();
 
     /**
      * Close the storage configuration

@@ -24,10 +24,11 @@ import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
-import voldemort.store.StorageEngineType;
 import voldemort.utils.ByteArray;
 
 public class MysqlStorageConfiguration implements StorageConfiguration {
+
+    public static final String TYPE_NAME = "mysql";
 
     private BasicDataSource dataSource;
 
@@ -45,8 +46,8 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         return new MysqlStorageEngine(name, dataSource);
     }
 
-    public StorageEngineType getType() {
-        return StorageEngineType.MYSQL;
+    public String getType() {
+        return TYPE_NAME;
     }
 
     public void close() {

@@ -21,7 +21,6 @@ import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.store.StorageEngineType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.serialized.SerializingStore;
@@ -93,7 +92,7 @@ public class RandomAccessStoreTestInstance {
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinition("test",
-                                                       StorageEngineType.READONLY,
+                                                       RandomAccessFileStorageConfiguration.TYPE_NAME,
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
