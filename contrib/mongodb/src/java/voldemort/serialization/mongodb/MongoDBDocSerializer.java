@@ -28,11 +28,11 @@ import voldemort.serialization.Serializer;
  * 
  * @author geir
  */
-public class MongoDocSerializer implements Serializer<Doc> {
+public class MongoDBDocSerializer implements Serializer<Doc> {
 
     BSONObject _bo = new BSONObject();
 
-    public MongoDocSerializer() {}
+    public MongoDBDocSerializer() {}
 
     public byte[] toBytes(Doc doc) {
 

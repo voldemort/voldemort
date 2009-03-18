@@ -11,7 +11,7 @@ import voldemort.serialization.SerializerDefinition;
  * @author jay
  * 
  */
-public class MongoSerializationFactory extends DefaultSerializerFactory {
+public class MongoDBSerializationFactory extends DefaultSerializerFactory {
 
     private static final String MONGODOC_TYPE_NAME = "mongodoc";
 
@@ -19,7 +19,7 @@ public class MongoSerializationFactory extends DefaultSerializerFactory {
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
         if(name.equals(MONGODOC_TYPE_NAME))
-            return new MongoDocSerializer();
+            return new MongoDBDocSerializer();
         else
             return super.getSerializer(serializerDef);
     }
