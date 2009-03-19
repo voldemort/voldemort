@@ -25,7 +25,7 @@ import org.mongodb.driver.ts.Doc;
 
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
-import voldemort.serialization.mongodb.MongoDocSerializer;
+import voldemort.serialization.mongodb.MongoDBDocSerializer;
 import voldemort.store.AbstractStoreTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
@@ -44,7 +44,7 @@ import com.google.common.collect.ImmutableMap;
  */
 public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[]> {
 
-    MongoDocSerializer _mds = new MongoDocSerializer();
+    MongoDBDocSerializer _mds = new MongoDBDocSerializer();
 
     @Override
     protected boolean valuesEqual(byte[] t1, byte[] t2) {
