@@ -62,19 +62,21 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     @Override
     public List<byte[]> getValues(int numValues) {
         List<byte[]> list = new ArrayList<byte[]>();
-        for(int i = 0; i < numValues; i++)
+        for(int i = 0; i < numValues; i++) {
             list.add(_mds.toBytes(new Doc("x", i)));
+        }
         return list;
+
     }
 
     @Override
     public List<ByteArray> getKeys(int numKeys) {
         List<ByteArray> list = new ArrayList<ByteArray>();
         StringBuffer sb = new StringBuffer("key_");
-        for(int i = 0; i < numKeys; i++)
+        for(int i = 0; i < numKeys; i++) {
             sb.append(i);
-        list.add(new ByteArray(sb.toString().getBytes()));
-
+            list.add(new ByteArray(sb.toString().getBytes()));
+        }
         return list;
     }
 
