@@ -75,6 +75,12 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
     public static final int POSITION_SIZE = 8;
     public static final int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
+    /*
+     * The overhead for each cache element is the key size + 4 byte array length
+     * + 12 byte object overhead + 8 bytes for a 64-bit reference to the thing
+     */
+    public static final int MEMORY_OVERHEAD_PER_KEY = KEY_HASH_SIZE + 4 + 12 + 8;
+
     private final String name;
     private final long fdWaitTimeoutMs;
     private long indexFileSize;
@@ -125,16 +131,27 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
          * operations
          */
         this.fileModificationLock = new ReentrantReadWriteLock();
-        /*
-         * The overhead for each cache element is the key size + 4 byte array
-         * length + 12 byte object overhead + 8 bytes for a 64-bit reference to
-         * the thing
-         */
-        int cacheElements = (int) floor(maxCacheSizeBytes / (KEY_HASH_SIZE + 24));
-        this.maxCacheDepth = (int) floor(log(cacheElements) / log(2));
+
+        this.maxCacheDepth = calculateMaxCacheTreeDepth(maxCacheSizeBytes);
         this.keyCache = new byte[(int) pow(2, maxCacheDepth)][];
         this.isOpen = new AtomicBoolean(false);
         open();
+    }
+
+    /**
+     * The max cache depth is the largest complete binary tree that will fit in
+     * the given number of bytes.
+     * 
+     * @param maxCacheSizeBytes The number of bytes
+     * @return The depth of the largest complete binary cache tree requiring
+     *         those bytes.
+     */
+    private int calculateMaxCacheTreeDepth(long maxCacheSizeBytes) {
+        if(maxCacheSizeBytes / MEMORY_OVERHEAD_PER_KEY > Integer.MAX_VALUE)
+            throw new IllegalArgumentException("Maximum cache size is " + Integer.MAX_VALUE
+                                               * MEMORY_OVERHEAD_PER_KEY + " bytes.");
+        int cacheElements = (int) (maxCacheSizeBytes / MEMORY_OVERHEAD_PER_KEY);
+        return (int) floor(log(cacheElements) / log(2));
     }
 
     /**
