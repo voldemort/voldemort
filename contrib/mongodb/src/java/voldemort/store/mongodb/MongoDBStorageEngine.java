@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.mongodb.driver.MongoDBException;
+import org.mongodb.driver.MongoDBIOException;
 import org.mongodb.driver.impl.DirectBufferTLS;
 import org.mongodb.driver.ts.DB;
 import org.mongodb.driver.ts.DBCollection;
@@ -91,17 +92,23 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public static final String VALUE = "v";
     public static final String DB_NAME = "voldemort";
 
-    protected Mongo _mongo;
+    protected Mongo _mongoDB;
     protected DB _db;
     protected DBCollection _coll;
+    protected final String _collectionName;
 
     public MongoDBStorageEngine(String name) throws MongoDBException {
         logger.info("MongoDB Storage Engine : v0.1");
-        _mongo = new Mongo("127.0.0.1", 27017);
-        _db = _mongo.getDB(DB_NAME);
-        _coll = _db.getCollection(name);
+        _collectionName = name;
+        init();
     }
 
+    protected final void  init() throws MongoDBException {
+        _mongoDB = new Mongo("127.0.0.1", 27017);
+        _db = _mongoDB.getDB(DB_NAME);
+        _coll = _db.getCollection(_collectionName);
+    }
+    
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
             return new MongoDBClosableIterator();
@@ -132,6 +139,14 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                                               new VectorClock(d.getBytes(CLOCK)));
                 list.add(val);
             }
+        } catch (MongoDBIOException mioe) {
+            try {
+                init();
+            }
+            catch(MongoDBException ee) {
+                ee.printStackTrace();
+            }
+            throw new VoldemortException(mioe);
         } catch(MongoDBException e) {
             throw new VoldemortException(e);
         } finally {
@@ -160,7 +175,6 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-
         setTls();
 
         String strKey = new String(key.get());
@@ -205,6 +219,14 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             newData.put(CLOCK, ((VectorClock) value.getVersion()).toBytes());
 
             _coll.insert(newData);
+        } catch (MongoDBIOException mioe) {
+            try {
+                init();
+            }
+            catch(MongoDBException ee) {
+                ee.printStackTrace();
+            }
+            throw new VoldemortException(mioe);
         } catch(MongoDBException e) {
             throw new VoldemortException(e);
         } finally {
@@ -214,7 +236,6 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-
         setTls();
         String strKey = new String(key.get());
         boolean deleted = false;
@@ -233,6 +254,14 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
 
             return deleted;
+        } catch (MongoDBIOException mioe) {
+            try {
+                init();
+            }
+            catch(MongoDBException ee) {
+                ee.printStackTrace();
+            }
+            throw new VoldemortException(mioe);
         } catch(MongoDBException e) {
             throw new VoldemortException(e);
         } finally {
