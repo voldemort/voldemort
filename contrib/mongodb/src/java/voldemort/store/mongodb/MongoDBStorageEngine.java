@@ -31,7 +31,9 @@ import org.mongodb.driver.ts.DBCursor;
 import org.mongodb.driver.ts.Doc;
 import org.mongodb.driver.ts.Mongo;
 import org.mongodb.driver.ts.MongoSelector;
+import org.mongodb.driver.ts.IndexInfo;
 import org.mongodb.driver.util.BSONObject;
+import org.mongodb.driver.util.types.BSONBytes;
 
 import voldemort.VoldemortException;
 import voldemort.store.StorageEngine;
@@ -107,6 +109,8 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         _mongoDB = new Mongo("127.0.0.1", 27017);
         _db = _mongoDB.getDB(DB_NAME);
         _coll = _db.getCollection(_collectionName);
+
+        _coll.createIndex(new IndexInfo("k_1", KEY));
     }
     
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -119,7 +123,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        setTls();
+        DirectBufferTLS tls = getTLS();
         List<Versioned<byte[]>> list = new ArrayList<Versioned<byte[]>>();
 
         /*
@@ -132,8 +136,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             cur = _coll.find(new MongoSelector(KEY, strKey));
             for(Doc d: cur) {
 
-                BSONObject bo = new BSONObject(); // TODO : use the TLS buffer
-                // to save the alloc
+                BSONObject bo = new BSONObject(tls.getReadBuffer());
                 bo.serialize(d.getDoc(VALUE));
                 Versioned<byte[]> val = new Versioned<byte[]>(bo.toArray(),
                                                               new VectorClock(d.getBytes(CLOCK)));
@@ -163,8 +166,6 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         for(ByteArray b: keys) {
             List<Versioned<byte[]>> list = get(b);
-            // the test suite expects this - I'd prefer to return an empty list
-            // per key to parallel get()
             if(list.size() > 0) {
                 map.put(b, list);
             }
@@ -175,7 +176,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        setTls();
+        getTLS();
 
         String strKey = new String(key.get());
         DBCursor cur = null;
@@ -200,10 +201,12 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
                 // if my new one occured before the one from the db....
 
-                if(occured == Occured.BEFORE)
+                if(occured == Occured.BEFORE) {
                     throw new ObsoleteVersionException("Key '" + strKey + " is obsolete.");
-                else if(occured == Occured.AFTER)
+                }
+                else if(occured == Occured.AFTER) {
                     _coll.remove(new MongoSelector(d));
+                }
 
                 // TODO - why not concurrent? need to understand better...
             }
@@ -212,10 +215,8 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
              * since we're clean and safe time-wise, just insert it
              */
 
-            BSONObject bo = new BSONObject();
-
             Doc newData = new Doc(KEY, strKey);
-            newData.put(VALUE, bo.deserialize(value.getValue()));
+            newData.put(VALUE, new BSONBytes(value.getValue()));
             newData.put(CLOCK, ((VectorClock) value.getVersion()).toBytes());
 
             _coll.insert(newData);
@@ -236,7 +237,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        setTls();
+        getTLS();
         String strKey = new String(key.get());
         boolean deleted = false;
         DBCursor cur = null;
@@ -315,13 +316,17 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Driver was designed w/ a set of expectations for threading and therefore
      * buffer management (for perf reasons) that don't exactly align w/ the use
      * case here
+     *
+     * @return the current TLS
      */
-    private void setTls() {
+    private DirectBufferTLS getTLS() {
         DirectBufferTLS tls = DirectBufferTLS.getThreadLocal();
         if(tls == null) {
             tls = new DirectBufferTLS();
             tls.set();
         }
+
+        return tls;
     }
 
     public class MongoDBClosableIterator implements
@@ -331,8 +336,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         protected DBCursor _cursor;
 
         public MongoDBClosableIterator() throws MongoDBException {
-            setTls(); // TODO - will be a problem if someone hands this iterator
-            // across threads
+            getTLS(); // TODO - will be a problem if someone hands this iterator across threads
             _cursor = _coll.find();
         }
 
