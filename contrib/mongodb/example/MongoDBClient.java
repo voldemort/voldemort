@@ -22,7 +22,6 @@ import voldemort.client.AbstractStoreClientFactory;
 import voldemort.versioning.Versioned;
 import voldemort.serialization.mongodb.MongoDBSerializationFactory;
 import org.mongodb.driver.ts.Doc;
-import org.mongodb.driver.impl.DirectBufferTLS;
 
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +58,26 @@ public class MongoDBClient {
                                 bootstrapURL);
     }
 
+
+    public long multiWriteLarge(int count, String keyRoot) {
+
+        StoreClient<String , Doc> client = _factory.getStoreClient("test");
+
+        long start = System.currentTimeMillis();
+
+        for (int i=0; i < count; i++) {
+            Doc d = makeLargeDoc();
+            d.add("x", 1);
+
+            Versioned<Doc> v  = new Versioned<Doc>(d);
+
+            client.put(keyRoot + i, v);
+        }
+
+        long end = System.currentTimeMillis();
+
+        return end - start;
+    }
 
     public long multiWrite(int count, String keyRoot){
 
@@ -140,6 +159,41 @@ public class MongoDBClient {
         System.out.println("clock : " + v.getVersion());
     }
 
+    public Doc makeLargeDoc() {
+
+        Doc d = new Doc();
+
+        d.add("pb_id", 2321232);
+        d.add("base_url", "http://www.example.com/test-me");
+        d.add("total_word_count", 6743);
+        d.add("access_time", 1234915320);
+
+        Doc mt = new Doc();
+
+        mt.add("description", "i am a long description string");
+        mt.add("author", "Holly man");
+        mt.add("dynamically_created_meta_tag", "who know what");
+
+        d.add("meta_tags", mt);
+
+        mt = new Doc();
+
+        mt.add("counted_tags", 3450);
+        mt.add("no_of_js_attached",10);
+        mt.add("no_of_images", 6);
+
+        d.put("page_structure", mt);
+
+        mt = new Doc();
+        for (int i = 0; i < 10; i ++) {
+            mt.add(Integer.toString(i), "woog");
+        }
+
+        d.add("harvested_words", mt);
+
+        return d;
+    }
+
     public static void main(String[] args) {
 
         MongoDBClient client = new MongoDBClient("tcp://localhost:6666");
@@ -150,6 +204,10 @@ public class MongoDBClient {
         
         System.out.println(10000.0 / client.multiWrite(10000, keyRoot) * 1000 + " writes per sec");
         System.out.println(10000.0 / client.multiRead(10000, keyRoot) * 1000 + " reads per sec");
+
+        keyRoot = client.getRandomKey(15);
+
+        System.out.println(10000.0 / client.multiWriteLarge(10000, keyRoot) * 1000 + " large writes per sec");
     }
 
 }
