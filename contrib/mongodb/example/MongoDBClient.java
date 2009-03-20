@@ -22,31 +22,27 @@ import voldemort.client.AbstractStoreClientFactory;
 import voldemort.versioning.Versioned;
 import voldemort.serialization.mongodb.MongoDBSerializationFactory;
 import org.mongodb.driver.ts.Doc;
+import org.mongodb.driver.impl.DirectBufferTLS;
 
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Random;
 
 public class MongoDBClient {
 
-    public static void main(String[] args) {
+    protected final StoreClientFactory _factory;
+    Random _rand = new Random();
 
+
+    public MongoDBClient(String bootstrapURL) {
         // In real life this stuff would get wired in
         int numThreads = 10;
         int maxQueuedRequests = 10;
         int maxConnectionsPerNode = 10;
         int maxTotalConnections = 100;
-        String bootstrapUrl = "tcp://localhost:6666";
 
-//        StoreClientFactory factory = new SocketStoreClientFactory(numThreads,
-//                                                                  numThreads,
-//                                                                  maxQueuedRequests,
-//                                                                  maxConnectionsPerNode,
-//                                                                  maxTotalConnections,
-//                                                                  bootstrapUrl);
-
-
-        StoreClientFactory factory = new SocketStoreClientFactory(
+        _factory = new SocketStoreClientFactory(
                 new ThreadPoolExecutor(numThreads,
                                     numThreads,
                                     10000L,
@@ -60,10 +56,71 @@ public class MongoDBClient {
                                 AbstractStoreClientFactory.DEFAULT_ROUTING_TIMEOUT_MS,
                                 AbstractStoreClientFactory.DEFAULT_NODE_BANNAGE_MS,
                                 new MongoDBSerializationFactory(),
-                                bootstrapUrl);
+                                bootstrapURL);
+    }
 
 
-        StoreClient<String , Doc> client = factory.getStoreClient("test");
+    public long multiWrite(int count, String keyRoot){
+
+        StoreClient<String , Doc> client = _factory.getStoreClient("test");
+
+        long start = System.currentTimeMillis();
+
+        for (int i=0; i < count; i++) {
+            Doc d = new Doc("name", "geir");
+            d.add("x", 1);
+
+            Versioned<Doc> v  = new Versioned<Doc>(d);
+
+            client.put(keyRoot + i, v);
+        }
+
+        long end = System.currentTimeMillis();
+
+        return end - start;
+    }
+
+    public long multiRead(int count, String keyRoot){
+
+        StoreClient<String , Doc> client = _factory.getStoreClient("test");
+
+        long start = System.currentTimeMillis();
+
+        int found = 0;
+
+        for (int i=0; i < count; i++) {
+            Versioned<Doc> v  = client.get(keyRoot + i);
+
+            if (v != null) {
+                found++;
+            }
+        }
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("Found : " + found);
+        
+        return end - start;
+    }
+
+    public String getRandomKey(int n) {
+
+        if (n <= 0) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (int i=0; i < n; i++) {
+            sb.append(_rand.nextInt(9));
+        }
+
+        return sb.toString();
+    }
+
+    public void simple(){
+
+        StoreClient<String , Doc> client = _factory.getStoreClient("test");
 
         Versioned<Doc> v = client.get("key");
 
@@ -81,7 +138,18 @@ public class MongoDBClient {
 
         System.out.println("value : " + v.getValue());
         System.out.println("clock : " + v.getVersion());
+    }
 
+    public static void main(String[] args) {
+
+        MongoDBClient client = new MongoDBClient("tcp://localhost:6666");
+
+        client.simple();
+
+        String keyRoot = client.getRandomKey(15);
+        
+        System.out.println(10000.0 / client.multiWrite(10000, keyRoot) * 1000 + " writes per sec");
+        System.out.println(10000.0 / client.multiRead(10000, keyRoot) * 1000 + " reads per sec");
     }
 
 }
