@@ -1,6 +1,7 @@
 package voldemort.store.readonly;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashSet;
@@ -125,8 +126,33 @@ public class RandomAccessFileStoreTest extends TestCase {
         testOpenInvalidStoreFails(RandomAccessFileStore.INDEX_ENTRY_SIZE, 0, false);
     }
 
+    public void testMaxCacheSizeBytesTooBig() throws IOException {
+        createStoreFiles(0, 0);
+        try {
+            new RandomAccessFileStore("test", dir, 1, 1, 1000, Integer.MAX_VALUE * 100L);
+        } catch(IllegalArgumentException e) {
+            return;
+        }
+        fail("IllegalArgumentException should be thrown if maxCacheSizeBytes is bigger than Integer.MAX_VALUES * 24");
+    }
+
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
             throws Exception {
+        createStoreFiles(indexBytes, dataBytes);
+
+        try {
+            new RandomAccessFileStore("test", dir, 1, 1, 1000, 100 * 1000 * 1000);
+            if(!shouldWork)
+                fail("Able to open corrupt read-only store (index size = " + indexBytes
+                     + ", data bytes = " + dataBytes + ").");
+        } catch(VoldemortException e) {
+            if(shouldWork)
+                fail("Unexpected failure:" + e.getMessage());
+        }
+    }
+
+    private void createStoreFiles(int indexBytes, int dataBytes) throws IOException,
+            FileNotFoundException {
         File index = createFile("test.index");
         File data = createFile("test.data");
 
@@ -139,16 +165,6 @@ public class RandomAccessFileStoreTest extends TestCase {
         for(int i = 0; i < indexBytes; i++)
             indexOs.write(i);
         indexOs.close();
-
-        try {
-            new RandomAccessFileStore("test", dir, 1, 1, 1000, 100 * 1000 * 1000);
-            if(!shouldWork)
-                fail("Able to open corrupt read-only store (index size = " + indexBytes
-                     + ", data bytes = " + dataBytes + ").");
-        } catch(VoldemortException e) {
-            if(shouldWork)
-                fail("Unexpected failure:" + e.getMessage());
-        }
     }
 
     private File createFile(String name) throws IOException {
