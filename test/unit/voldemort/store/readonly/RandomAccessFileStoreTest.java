@@ -133,7 +133,7 @@ public class RandomAccessFileStoreTest extends TestCase {
         } catch(IllegalArgumentException e) {
             return;
         }
-        fail("IllegalArgumentException should be thrown if maxCacheSizeBytes is bigger than Integer.MAX_VALUES * 24");
+        fail("IllegalArgumentException should be thrown if maxCacheSizeBytes is bigger than Integer.MAX_VALUES * (KEY_HASH_SIZE + 4 + 12 + 8)");
     }
 
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
