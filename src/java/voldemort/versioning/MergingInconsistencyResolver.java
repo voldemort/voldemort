@@ -26,11 +26,11 @@ import java.util.List;
  * @author jay
  * 
  */
-public class MergingInconsitencyResolver<T> implements InconsistencyResolver<Versioned<T>> {
+public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Versioned<T>> {
 
     private final ObjectMerger<T> merger;
 
-    public MergingInconsitencyResolver(ObjectMerger<T> merger) {
+    public MergingInconsistencyResolver(ObjectMerger<T> merger) {
         this.merger = merger;
     }
 
