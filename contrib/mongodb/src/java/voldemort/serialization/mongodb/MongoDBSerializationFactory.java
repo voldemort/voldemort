@@ -18,8 +18,9 @@ public class MongoDBSerializationFactory extends DefaultSerializerFactory {
     @Override
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
-        if(name.equals(MONGODOC_TYPE_NAME))
+        if(name.equals(MONGODOC_TYPE_NAME)) {
             return new MongoDBDocSerializer();
+        }
         else
             return super.getSerializer(serializerDef);
     }

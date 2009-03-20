@@ -17,6 +17,7 @@
 package voldemort.serialization.mongodb;
 
 import org.mongodb.driver.MongoDBException;
+import org.mongodb.driver.impl.DirectBufferTLS;
 import org.mongodb.driver.ts.Doc;
 import org.mongodb.driver.util.BSONObject;
 
@@ -30,25 +31,38 @@ import voldemort.serialization.Serializer;
  */
 public class MongoDBDocSerializer implements Serializer<Doc> {
 
-    BSONObject _bo = new BSONObject();
-
     public MongoDBDocSerializer() {}
 
     public byte[] toBytes(Doc doc) {
 
+        BSONObject bo = new BSONObject(getTLS().getWriteBuffer());
+
         try {
-            _bo.serialize(doc);
-            return _bo.toArray();
+            bo.serialize(doc);
+            return bo.toArray();
         } catch(MongoDBException e) {
             throw new SerializationException(e);
         }
     }
 
     public Doc toObject(byte[] bytes) {
+        BSONObject bo = new BSONObject(getTLS().getReadBuffer());
+
         try {
-            return _bo.deserialize(bytes);
+            return bo.deserialize(bytes);
         } catch(MongoDBException e) {
             throw new SerializationException(e);
         }
     }
+
+    private DirectBufferTLS getTLS() {
+        DirectBufferTLS tls = DirectBufferTLS.getThreadLocal();
+        if(tls == null) {
+            tls = new DirectBufferTLS();
+            tls.set();
+        }
+
+        return tls;
+    }
+
 }
