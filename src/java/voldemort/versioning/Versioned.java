@@ -33,7 +33,7 @@ public final class Versioned<T> implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    private volatile VectorClock version;
+    private VectorClock version;
     private volatile T object;
 
     public final static <T> Versioned<T> of(T object) {
