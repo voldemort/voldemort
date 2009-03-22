@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -83,7 +82,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
     private final long fdWaitTimeoutMs;
-    private long indexFileSize;
+    private volatile long indexFileSize;
     private final int numBackups;
     private final int numFileHandles;
     private final File storageDir;
@@ -92,7 +91,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
     private final ReadWriteLock fileModificationLock;
     private final byte[][] keyCache;
     private final int maxCacheDepth;
-    private final AtomicBoolean isOpen;
+    private volatile boolean isOpen;
 
     private BlockingQueue<RandomAccessFile> indexFiles;
     private BlockingQueue<RandomAccessFile> dataFiles;
@@ -134,7 +133,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
         this.maxCacheDepth = calculateMaxCacheTreeDepth(maxCacheSizeBytes);
         this.keyCache = new byte[(int) pow(2, maxCacheDepth)][];
-        this.isOpen = new AtomicBoolean(false);
+        this.isOpen = false;
         open();
     }
 
@@ -163,8 +162,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
         try {
             /* check that the store is currently closed */
-            boolean isClosed = isOpen.compareAndSet(false, true);
-            if(!isClosed)
+            if(isOpen)
                 throw new IllegalStateException("Attempt to open already open store.");
 
             /* initialize the pool of file descriptors */
@@ -191,6 +189,8 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
 
             // clear Cache now
             clearCache();
+
+            isOpen = true;
         } catch(FileNotFoundException e) {
             throw new VoldemortException("Could not open store.", e);
         } finally {
@@ -203,8 +203,9 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
      */
     public void close() throws VoldemortException {
         logger.debug("Close called for read-only store.");
-        this.isOpen.compareAndSet(true, false);
         this.fileModificationLock.writeLock().lock();
+        if(!isOpen)
+            throw new IllegalStateException("Attempt to close non-open store.");
         try {
             while(this.indexFiles.size() > 0) {
                 RandomAccessFile f = this.indexFiles.take();
@@ -215,6 +216,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
                 RandomAccessFile f = this.dataFiles.poll();
                 f.close();
             }
+            this.isOpen = false;
         } catch(IOException e) {
             throw new VoldemortException("Error while closing store.", e);
         } catch(InterruptedException e) {
