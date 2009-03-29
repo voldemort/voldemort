@@ -122,19 +122,19 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                 success = map.putIfAbsent(key, items) == null;
             } else {
                 synchronized(items) {
-                    // Check for existing versions
-                    int index = 0;
-                    while(index < items.size()) {
-                        Versioned<V> versioned = items.get(index);
+                    // Check for existing versions - remember which items to
+                    // remove in case of success
+                    List<Versioned<V>> itemsToRemove = new ArrayList<Versioned<V>>(items.size());
+                    for(Versioned<V> versioned: items) {
                         Occured occured = value.getVersion().compare(versioned.getVersion());
-                        if(occured == Occured.BEFORE)
+                        if(occured == Occured.BEFORE) {
                             throw new ObsoleteVersionException("Obsolete version for key '" + key
                                                                + "': " + value.getVersion());
-                        else if(occured == Occured.AFTER)
-                            items.remove(index);
-                        else
-                            index++;
+                        } else if(occured == Occured.AFTER) {
+                            itemsToRemove.add(versioned);
+                        }
                     }
+                    items.removeAll(itemsToRemove);
                     items.add(value);
                 }
                 success = true;
