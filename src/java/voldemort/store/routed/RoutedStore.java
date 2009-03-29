@@ -530,7 +530,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     public void close() {
         this.executor.shutdown();
         try {
-            this.executor.awaitTermination(10, TimeUnit.SECONDS);
+            if(!this.executor.awaitTermination(10, TimeUnit.SECONDS))
+                this.executor.shutdownNow();
         } catch(InterruptedException e) {
             // okay, fine, playing nice didn't work
             this.executor.shutdownNow();
