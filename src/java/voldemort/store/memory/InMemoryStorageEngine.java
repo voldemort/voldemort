@@ -83,8 +83,12 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                         deletedSomething = true;
                     }
                 }
-                if(values.size() == 0)
-                    map.remove(key);
+                if(values.size() == 0) {
+                    // If this remove fails, then another delete operation got
+                    // there before this one
+                    if(!map.remove(key, values))
+                        return false;
+                }
 
                 return deletedSomething;
             }
@@ -122,6 +126,11 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                 success = map.putIfAbsent(key, items) == null;
             } else {
                 synchronized(items) {
+                    // if this check fails, items has been removed from the map
+                    // by delete, so we try again.
+                    if(map.get(key) != items)
+                        continue;
+
                     // Check for existing versions - remember which items to
                     // remove in case of success
                     List<Versioned<V>> itemsToRemove = new ArrayList<Versioned<V>>(items.size());
