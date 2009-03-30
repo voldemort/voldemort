@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -32,7 +33,6 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -40,6 +40,7 @@ import voldemort.versioning.Versioned;
  * A simple non-persistent, in-memory store. Useful for unit testing.
  * 
  * @author jay
+ * @author dain
  * 
  */
 public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
@@ -60,38 +61,37 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     public void close() {}
 
     public boolean delete(K key) {
-        return map.remove(key) != null;
+        return delete(key, null);
     }
 
     public boolean delete(K key, Version version) {
         StoreUtils.assertValidKey(key);
 
         if(version == null)
-            return delete(key);
+            return map.remove(key) != null;
 
         List<Versioned<V>> values = map.get(key);
         if(values == null) {
             return false;
-        } else {
-            synchronized(values) {
-                boolean deletedSomething = false;
-                Iterator<Versioned<V>> iterator = values.iterator();
-                while(iterator.hasNext()) {
-                    Versioned<V> item = iterator.next();
-                    if(item.getVersion().compare(version) == Occured.BEFORE) {
-                        iterator.remove();
-                        deletedSomething = true;
-                    }
+        }
+        synchronized(values) {
+            boolean deletedSomething = false;
+            Iterator<Versioned<V>> iterator = values.iterator();
+            while(iterator.hasNext()) {
+                Versioned<V> item = iterator.next();
+                if(item.getVersion().compare(version) == Occured.BEFORE) {
+                    iterator.remove();
+                    deletedSomething = true;
                 }
-                if(values.size() == 0) {
-                    // If this remove fails, then another delete operation got
-                    // there before this one
-                    if(!map.remove(key, values))
-                        return false;
-                }
-
-                return deletedSomething;
             }
+            if(values.size() == 0) {
+                // If this remove fails, then another delete operation got
+                // there before this one
+                if(!map.remove(key, values))
+                    return false;
+            }
+
+            return deletedSomething;
         }
     }
 
@@ -100,10 +100,9 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         List<Versioned<V>> results = map.get(key);
         if(results == null) {
             return new ArrayList<Versioned<V>>(0);
-        } else {
-            synchronized(results) {
-                return new ArrayList<Versioned<V>>(results);
-            }
+        }
+        synchronized(results) {
+            return new ArrayList<Versioned<V>>(results);
         }
     }
 
@@ -115,14 +114,14 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     public void put(K key, Versioned<V> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
-        VectorClock clock = (VectorClock) value.getVersion();
+        Version version = value.getVersion();
         boolean success = false;
         while(!success) {
             List<Versioned<V>> items = map.get(key);
             // If we have no value, optimistically try to add one
             if(items == null) {
                 items = new ArrayList<Versioned<V>>();
-                items.add(new Versioned<V>(value.getValue(), clock));
+                items.add(new Versioned<V>(value.getValue(), version));
                 success = map.putIfAbsent(key, items) == null;
             } else {
                 synchronized(items) {
@@ -152,7 +151,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
-        return new InMemoryIterator();
+        return new InMemoryIterator<K, V>(map);
     }
 
     public String getName() {
@@ -168,7 +167,7 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
         int count = 0;
-        for(Map.Entry<K, List<Versioned<V>>> entry: map.entrySet()) {
+        for(Entry<K, List<Versioned<V>>> entry: map.entrySet()) {
             if(count > size) {
                 builder.append("...");
                 break;
@@ -183,54 +182,51 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     }
 
     @NotThreadsafe
-    private class InMemoryIterator implements ClosableIterator<Pair<K, Versioned<V>>> {
+    private static class InMemoryIterator<K, V> implements ClosableIterator<Pair<K, Versioned<V>>> {
 
-        private Iterator<K> iterator;
+        private final Iterator<Entry<K, List<Versioned<V>>>> iterator;
         private K currentKey;
-        private List<Versioned<V>> currentList;
-        private int listIndex;
+        private Iterator<Versioned<V>> currentValues;
 
-        public InMemoryIterator() {
-            this.iterator = map.keySet().iterator();
+        public InMemoryIterator(ConcurrentMap<K, List<Versioned<V>>> map) {
+            this.iterator = map.entrySet().iterator();
         }
 
         public boolean hasNext() {
-            return hasNextInCurrentList() || iterator.hasNext();
+            return hasNextInCurrentValues() || iterator.hasNext();
         }
 
-        private boolean hasNextInCurrentList() {
-            return currentList != null && listIndex < currentList.size();
+        private boolean hasNextInCurrentValues() {
+            return currentValues != null && currentValues.hasNext();
         }
 
-        private Pair<K, Versioned<V>> getFromCurrentList() {
-            Versioned<V> item = currentList.get(listIndex);
-            listIndex++;
+        private Pair<K, Versioned<V>> nextInCurrentValues() {
+            Versioned<V> item = currentValues.next();
             return Pair.create(currentKey, item);
         }
 
         public Pair<K, Versioned<V>> next() {
-            if(hasNextInCurrentList()) {
-                return getFromCurrentList();
+            if(hasNextInCurrentValues()) {
+                return nextInCurrentValues();
             } else {
                 // keep trying to get a next, until we find one (they could get
                 // removed)
                 while(true) {
-                    K key = null;
-                    List<Versioned<V>> list = null;
-                    do {
-                        key = iterator.next();
-                        list = map.get(key);
-                    } while(list == null);
+                    Entry<K, List<Versioned<V>>> entry = iterator.next();
+
+                    List<Versioned<V>> list = entry.getValue();
                     synchronized(list) {
                         // okay we may have gotten an empty list, if so try
                         // again
                         if(list.size() == 0)
                             continue;
-                        currentKey = key;
-                        currentList = new ArrayList<Versioned<V>>(list);
-                        listIndex = 0;
-                        return getFromCurrentList();
+
+                        // grab a snapshot of the list while we have exclusive
+                        // access
+                        currentValues = new ArrayList<Versioned<V>>(list).iterator();
                     }
+                    currentKey = entry.getKey();
+                    return nextInCurrentValues();
                 }
             }
         }
