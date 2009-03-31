@@ -35,7 +35,7 @@ public abstract class AbstractService implements VoldemortService {
 
     private static final Logger logger = Logger.getLogger(VoldemortService.class);
 
-    private AtomicBoolean isStarted;
+    private final AtomicBoolean isStarted;
     private final String name;
 
     public AbstractService(String name) {
