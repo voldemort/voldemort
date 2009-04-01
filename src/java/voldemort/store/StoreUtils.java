@@ -26,9 +26,12 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Maps;
@@ -109,6 +112,19 @@ public class StoreUtils {
                 logger.error("Error closing stream", e);
             }
         }
+    }
+
+    public static void assertValidMetadata(ByteArray key,
+                                           RoutingStrategy routingStrategy,
+                                           int currentNodeId) {
+        List<Node> nodes = routingStrategy.routeRequest(key.get());
+        for(Node node: nodes) {
+            if(node.getId() == currentNodeId) {
+                return;
+            }
+        }
+
+        throw new InvalidMetadataException("client routing strategy not in sync with store routing strategy!");
     }
 
     /**
