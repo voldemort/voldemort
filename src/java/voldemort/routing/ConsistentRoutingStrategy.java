@@ -28,6 +28,8 @@ import voldemort.cluster.Node;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
 
+import com.google.common.collect.Sets;
+
 /**
  * A Routing strategy that routes each request to the first N nodes where N is a
  * user defined replication factor.
@@ -93,7 +95,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public Set<Node> getNodes() {
-        Set<Node> s = new HashSet<Node>();
+        Set<Node> s = Sets.newHashSetWithExpectedSize(partitionToNode.length);
         for(Node n: this.partitionToNode)
             s.add(n);
         return s;
