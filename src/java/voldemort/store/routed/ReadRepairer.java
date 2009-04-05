@@ -19,7 +19,6 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -104,8 +103,7 @@ public class ReadRepairer<K, V> {
         for(Integer id: obsolete) {
             // repair all obsolete nodes
             for(Version v: concurrents.keySet()) {
-                Iterator<NodeValue<K, V>> it = concurrents.get(v).iterator();
-                NodeValue<K, V> concurrent = it.next();
+                NodeValue<K, V> concurrent = concurrents.get(v).iterator().next();
                 NodeValue<K, V> repair = new NodeValue<K, V>(id,
                                                              concurrent.getKey(),
                                                              concurrent.getVersioned());
@@ -117,9 +115,7 @@ public class ReadRepairer<K, V> {
             // if there are more then one concurrent versions on different
             // nodes,
             // we should repair so all have the same set of values
-            HashSet<NodeValue<K, V>> existing = new HashSet<NodeValue<K, V>>();
-            for(NodeValue<K, V> value: repairs)
-                existing.add(value);
+            Set<NodeValue<K, V>> existing = new HashSet<NodeValue<K, V>>(repairs);
             for(NodeValue<K, V> entry1: concurrents.values()) {
                 for(NodeValue<K, V> entry2: concurrents.values()) {
                     if(!entry1.getVersion().equals(entry2.getVersion())) {
