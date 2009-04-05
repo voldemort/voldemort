@@ -326,7 +326,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         while(successes.get() < this.preferredReads && nodeIndex < nodes.size()) {
             Node node = nodes.get(nodeIndex);
             try {
-                retrieved.addAll(innerStores.get(node.getId()).get(key));
+                List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
+                retrieved.addAll(fetched);
+                if(repairReads) {
+                    for(Versioned<byte[]> f: fetched)
+                        nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                }
                 successes.incrementAndGet();
                 node.getStatus().setAvailable();
             } catch(UnreachableStoreException e) {
