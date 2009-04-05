@@ -103,7 +103,7 @@ public class ReadRepairer<K, V> {
         List<NodeValue<K, V>> repairs = new ArrayList<NodeValue<K, V>>(3);
         for(Integer id: obsolete) {
             // repair all obsolete nodes
-            for(Version v: concurrents.keys()) {
+            for(Version v: concurrents.keySet()) {
                 Iterator<NodeValue<K, V>> it = concurrents.get(v).iterator();
                 NodeValue<K, V> concurrent = it.next();
                 NodeValue<K, V> repair = new NodeValue<K, V>(id,

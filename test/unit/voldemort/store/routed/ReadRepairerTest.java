@@ -57,6 +57,18 @@ public class ReadRepairerTest extends TestCase {
         assertEquals(empty, repairer.getRepairs(values));
     }
 
+    /**
+     * See Issue 92: ReadRepairer.getRepairs should not return duplicates.
+     */
+    public void testNoDuplicates() throws Exception {
+        List<NodeValue<String, Integer>> values = asList(getValue(1, 1, new int[] { 1, 2 }),
+                                                         getValue(2, 1, new int[] { 1, 2 }),
+                                                         getValue(3, 1, new int[] { 1 }));
+        List<NodeValue<String, Integer>> repairs = repairer.getRepairs(values);
+        assertEquals(1, repairs.size());
+        assertEquals(getValue(3, 1, new int[] { 1, 2 }), repairs.get(0));
+    }
+
     public void testSingleSuccessor() throws Exception {
         assertVariationsEqual(singletonList(getValue(1, 1, new int[] { 1, 1 })),
                               asList(getValue(1, 1, new int[] { 1 }), getValue(2, 1, new int[] { 1,
