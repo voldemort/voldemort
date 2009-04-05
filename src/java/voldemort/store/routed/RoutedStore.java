@@ -349,15 +349,21 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 public void run() {
                     for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
                         try {
-                            logger.debug("Doing read repair on node " + v.getNodeId()
-                                         + " for key '" + v.getKey() + "' with version "
-                                         + v.getVersion() + ".");
+                            if(logger.isDebugEnabled())
+                                logger.debug("Doing read repair on node " + v.getNodeId()
+                                             + " for key '" + v.getKey() + "' with version "
+                                             + v.getVersion() + ".");
                             innerStores.get(v.getNodeId()).put(v.getKey(), v.getVersioned());
                         } catch(ObsoleteVersionException e) {
-                            logger.debug("Read repair cancelled due to obsolete version on node "
-                                         + v.getNodeId() + " for key '" + v.getKey()
-                                         + "' with version " + v.getVersion() + ": "
-                                         + e.getMessage());
+                            if(logger.isDebugEnabled())
+                                logger.debug("Read repair cancelled due to obsolete version on node "
+                                             + v.getNodeId()
+                                             + " for key '"
+                                             + v.getKey()
+                                             + "' with version "
+                                             + v.getVersion()
+                                             + ": "
+                                             + e.getMessage());
                         } catch(Exception e) {
                             logger.debug("Read repair failed: ", e);
                         }
