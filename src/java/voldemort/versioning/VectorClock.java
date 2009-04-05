@@ -206,12 +206,7 @@ public class VectorClock implements Version, Serializable {
         if(!object.getClass().equals(VectorClock.class))
             return false;
         VectorClock clock = (VectorClock) object;
-        if(clock.versions.size() != versions.size())
-            return false;
-        for(int i = 0; i < versions.size(); i++)
-            if(!versions.get(i).equals(clock.versions.get(i)))
-                return false;
-        return true;
+        return versions.equals(clock.versions);
     }
 
     @Override
