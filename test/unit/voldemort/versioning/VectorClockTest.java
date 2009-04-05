@@ -28,6 +28,13 @@ import voldemort.TestUtils;
  */
 public class VectorClockTest extends TestCase {
 
+    public void testEqualsAndHashcode() {
+        VectorClock one = getClock(1, 2);
+        VectorClock other = getClock(1, 2);
+        assertEquals(one, other);
+        assertEquals(one.hashCode(), other.hashCode());
+    }
+
     public void testComparisons() {
         assertTrue("The empty clock should not happen before itself.",
                    getClock().compare(getClock()) != Occured.CONCURRENTLY);
