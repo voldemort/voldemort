@@ -284,7 +284,7 @@ public class VectorClock implements Version, Serializable {
      * Is this Reflexive, AntiSymetic, and Transitive? Compare two VectorClocks,
      * the outcomes will be one of the following: -- Clock 1 is BEFORE clock 2
      * if there exists an i such that c1(i) <= c(2) and there does not exist a j
-     * such that c1(j) > c2(j). -- Clock 1 is CONCURRANT to clock 2 if there
+     * such that c1(j) > c2(j). -- Clock 1 is CONCURRENT to clock 2 if there
      * exists an i, j such that c1(i) < c2(i) and c1(j) > c2(j) -- Clock 1 is
      * AFTER clock 2 otherwise
      * 
