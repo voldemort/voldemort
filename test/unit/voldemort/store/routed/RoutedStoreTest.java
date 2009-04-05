@@ -335,15 +335,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // if there are failures.
         Iterables.get(cluster.getNodes(), 1).getStatus().setUnavailable();
         Iterables.getLast(cluster.getNodes()).getStatus().setUnavailable();
-        store.get(aKey);
+        List<Versioned<byte[]>> versioneds = store.get(aKey);
+        assertEquals(1, versioneds.size());
+        assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
 
         // Read repairs are done asynchronously, so we sleep for a short period.
         // It may be a good idea to use a synchronous executor service.
         Thread.sleep(100);
-
-        List<Versioned<byte[]>> versioneds = store.get(aKey);
-        assertEquals(1, versioneds.size());
-        assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
         for(Store<ByteArray, byte[]> innerStore: routedStore.getInnerStores().values()) {
             List<Versioned<byte[]>> innerVersioneds = innerStore.get(aKey);
             assertEquals(1, versioneds.size());
