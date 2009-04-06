@@ -44,7 +44,10 @@ import com.google.common.collect.Multimap;
 public class ReadRepairer<K, V> {
 
     /**
-     * Oww, I seem so inefficient...am I?
+     * Compute the repair set from the given values and nodes
+     * 
+     * @param nodeValues The value found on each node
+     * @return A set of repairs to perform
      */
     public List<NodeValue<K, V>> getRepairs(List<NodeValue<K, V>> nodeValues) {
         int size = nodeValues.size();
