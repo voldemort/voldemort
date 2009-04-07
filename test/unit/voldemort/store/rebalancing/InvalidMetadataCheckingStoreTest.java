@@ -23,6 +23,7 @@ import voldemort.TestUtils;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.DoNothingStore;
+import voldemort.store.InvalidMetadataCheckingStore;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;

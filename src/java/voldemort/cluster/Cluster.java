@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import junit.framework.Assert;
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
@@ -110,4 +111,29 @@ public class Cluster implements Serializable {
         return builder.toString();
     }
 
+    @Override
+    public boolean equals(Object second) {
+        Cluster secondCluster = (Cluster) second;
+        if(this.getNodes().size() != secondCluster.getNodes().size()) {
+            return false;
+        }
+
+        // cannot use ArrayList.equals() as order might be different
+        ArrayList<Node> nodeAList = new ArrayList<Node>(this.getNodes());
+        for(int i = 0; i < this.getNodes().size(); i++) {
+            Node nodeA = nodeAList.get(i);
+            Node nodeB = secondCluster.getNodeById(nodeA.getId());
+
+            if(nodeA.getNumberOfPartitions() != nodeB.getNumberOfPartitions()) {return false;}
+            
+            for(int j = 0; j < nodeA.getNumberOfPartitions(); j++) {
+                    if (nodeA.getPartitionIds() !=  nodeB.getPartitionIds())
+                    {
+                        return false;
+                }
+            }
+        }
+
+        return true;
+    }
 }

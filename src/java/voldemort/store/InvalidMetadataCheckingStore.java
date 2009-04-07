@@ -14,16 +14,12 @@
  * the License.
  */
 
-package voldemort.store.rebalancing;
+package voldemort.store;
 
 import java.util.List;
 
 import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.DelegatingStore;
-import voldemort.store.InvalidMetadataException;
-import voldemort.store.Store;
-import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
