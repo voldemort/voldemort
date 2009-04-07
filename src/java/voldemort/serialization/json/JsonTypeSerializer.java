@@ -37,8 +37,8 @@ import voldemort.utils.ByteUtils;
  * A serializer that goes from a simple JSON like object definition + an object
  * instance to serialized bytes and back again.
  * 
- * Official motto of this class:
- * "I fought the static type system, and the type system won."
+ * Official motto of this class: "I fought the static type system, and the type
+ * system won."
  * 
  * @author jay
  * 
@@ -499,7 +499,11 @@ public class JsonTypeSerializer implements Serializer<Object> {
                 if(!object.containsKey(entry.getKey()))
                     throw new SerializationException("Missing property: " + entry.getKey() + " in "
                                                      + type);
-                write(output, object.get(entry.getKey()), entry.getValue());
+                try {
+                    write(output, object.get(entry.getKey()), entry.getValue());
+                } catch(SerializationException e) {
+                    throw new SerializationException("Fail to write property: " + entry.getKey(), e);
+                }
             }
         }
     }
