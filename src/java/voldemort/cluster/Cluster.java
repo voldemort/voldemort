@@ -30,6 +30,8 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.utils.Utils;
 
+import com.google.common.collect.Sets;
+
 /**
  * A representation of the voldemort cluster
  * 
@@ -112,6 +114,11 @@ public class Cluster implements Serializable {
 
     @Override
     public boolean equals(Object second) {
+        if(this == second)
+            return true;
+        if(second == null || second.getClass() != getClass())
+            return false;
+
         Cluster secondCluster = (Cluster) second;
         if(this.getNodes().size() != secondCluster.getNodes().size()) {
             return false;
@@ -123,11 +130,9 @@ public class Cluster implements Serializable {
                 return false;
             }
 
-            for(int partitionId: nodeA.getPartitionIds()) {
-                if(!nodeB.getPartitionIds().contains(partitionId)) {
-                    return false;
-                }
-            }
+            if(!Sets.newHashSet(nodeA.getPartitionIds())
+                    .equals(Sets.newHashSet(nodeB.getPartitionIds())))
+                return false;
         }
 
         return true;
