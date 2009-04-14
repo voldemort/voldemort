@@ -18,6 +18,7 @@ package voldemort.serialization.json;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,16 +37,26 @@ public class JsonWriter {
         this.writer = writer;
     }
 
-    public void write(Object o) throws IOException {
+    public void write(Object o) {
 
-        if(o instanceof Map) {
-            writeMap((Map<String, Object>) o);
-        } else if(o instanceof List) {
-            writeList((List<Object>) o);
-        } else if(o instanceof String) {
-            writer.write((String) o);
-        } else {
-            writer.write(o.toString());
+        try {
+            if(null == o) {
+                writer.write("null");
+            } else if(o instanceof Map) {
+                writeMap((Map<String, Object>) o);
+            } else if(o instanceof List) {
+                writeList((List<Object>) o);
+            } else if(o instanceof Date) {
+                writeDate((Date) o);
+            } else if(o instanceof String) {
+                writer.write("'");
+                writer.write((String) o);
+                writer.write("'");
+            } else {
+                writer.write(o.toString());
+            }
+        } catch(Exception e) {
+            throw new RuntimeException("JsonWriter failed to write Object(" + o + ")  as String", e);
         }
     }
 
@@ -54,7 +65,10 @@ public class JsonWriter {
         Set<Map.Entry<String, Object>> entrySet = values.entrySet();
         int index = 0;
         for(Map.Entry<String, Object> entry: entrySet) {
+            writer.write("'");
             writer.write(entry.getKey());
+            writer.write("'");
+
             writer.write(':');
 
             // write Object
@@ -79,5 +93,9 @@ public class JsonWriter {
             }
         }
         writer.write(']');
+    }
+
+    public void writeDate(Date date) throws IOException {
+        writer.write("" + date.getTime());
     }
 }
