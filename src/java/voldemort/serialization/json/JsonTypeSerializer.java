@@ -282,8 +282,6 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return ((Short) o).floatValue();
         else if(c == Integer.class)
             return ((Integer) o).floatValue();
-        else if(c == Double.class)
-            return ((Double) o).floatValue();
         else
             throw new SerializationException("Object of type " + c.getName()
                                              + " cannot be coerced to type " + JsonTypes.FLOAT32
