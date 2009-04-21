@@ -15,9 +15,6 @@ public final class ByteArray implements Serializable {
 
     private final byte[] underlying;
 
-    /* Cache hashCode using similar approach to java.lang.String */
-    private int hashCode;
-
     public static ByteArray valueOf(String s) {
         return new ByteArray(s.getBytes());
     }
@@ -32,13 +29,7 @@ public final class ByteArray implements Serializable {
 
     @Override
     public int hashCode() {
-        // this is a harmless race condition:
-        int h = hashCode;
-        if(h == 0) {
-            h = Arrays.hashCode(underlying);
-            hashCode = h;
-        }
-        return h;
+        return Arrays.hashCode(underlying);
     }
 
     @Override
