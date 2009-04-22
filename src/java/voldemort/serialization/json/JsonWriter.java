@@ -37,6 +37,7 @@ public class JsonWriter {
         this.writer = writer;
     }
 
+    @SuppressWarnings("unchecked")
     public void write(Object o) {
 
         try {
