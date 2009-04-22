@@ -55,7 +55,7 @@ public class DataCleanupJob<K, V> implements Runnable {
 
     public void run() {
         acquireCleanupPermit();
-        ClosableIterator<Pair<K, Versioned<V>>> iterator;
+        ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
             int deleted = 0;
@@ -74,6 +74,8 @@ public class DataCleanupJob<K, V> implements Runnable {
                     if(now - clock.getTimestamp() > maxAgeMs) {
                         store.delete(keyAndVal.getFirst(), clock);
                         deleted++;
+                        if(deleted % 10000 == 0)
+                            logger.debug("Deleted item " + deleted);
                     }
                 }
             } catch(RuntimeException e) {
@@ -86,7 +88,11 @@ public class DataCleanupJob<K, V> implements Runnable {
             }
             logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
                         + " items deleted.");
+        } catch(Exception e) {
+            logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
+            if(iterator != null)
+                iterator.close();
             this.cleanupPermits.release();
         }
     }

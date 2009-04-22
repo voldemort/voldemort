@@ -95,8 +95,8 @@ public class StoreDefinition implements Serializable {
                 throw new IllegalArgumentException("Cannot have more preferredReads then there are replicas.");
         }
 
-        if(retentionPeriodDays != null && retentionPeriodDays <= 0)
-            throw new IllegalArgumentException("Retention days must be greater than 0.");
+        if(retentionPeriodDays != null && retentionPeriodDays < 0)
+            throw new IllegalArgumentException("Retention days must be non-negative.");
     }
 
     public String getName() {

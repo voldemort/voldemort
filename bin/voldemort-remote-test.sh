@@ -16,10 +16,10 @@
 #  limitations under the License.
 #
 
-if [ $# -ne 4 ];
+if [ $# -lt 4 ];
 then
-  echo 'USAGE: bin/voldemort-remote-test.sh bootstrap-url num-requests value-size start-number'
+  echo 'USAGE: bin/voldemort-remote-test.sh bootstrap-url num-requests value-size start-number [rwd]'
   exit 1
 fi
 
-bin/run-class.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4}
+bin/run-class.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4} ${5} ${6}

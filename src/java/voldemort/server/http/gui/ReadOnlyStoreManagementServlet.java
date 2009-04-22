@@ -16,6 +16,7 @@
 
 package voldemort.server.http.gui;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
@@ -24,9 +25,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.storage.StorageService;
+import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.RandomAccessFileStore;
 import voldemort.utils.Utils;
 
@@ -35,13 +40,27 @@ import com.google.common.collect.Maps;
 public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1;
+    private static final Logger logger = Logger.getLogger(ReadOnlyStoreManagementServlet.class);
 
     private Map<String, RandomAccessFileStore> stores;
     private VelocityEngine velocityEngine;
+    private FileFetcher fileFetcher;
 
     public ReadOnlyStoreManagementServlet(VoldemortServer server, VelocityEngine engine) {
         this.stores = getReadOnlyStores(server);
         this.velocityEngine = Utils.notNull(engine);
+        String className = server.getVoldemortConfig()
+                                 .getAllProps()
+                                 .getString("file.fetcher.class", null);
+        if(className == null) {
+            this.fileFetcher = null;
+        } else {
+            try {
+                this.fileFetcher = (FileFetcher) Class.forName(className).newInstance();
+            } catch(Exception e) {
+                throw new VoldemortException("Error loading file fetcher class " + className);
+            }
+        }
     }
 
     @Override
@@ -68,24 +87,50 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        if("swap".equals(getRequired(req, "operation"))) {
-            String indexFile = getRequired(req, "index");
-            String dataFile = getRequired(req, "data");
-            String storeName = getRequired(req, "store");
-            if(!stores.containsKey(storeName))
-                throw new ServletException("'" + storeName
-                                           + "' is not a registered read-only store.");
-            if(!Utils.isReadableFile(indexFile))
-                throw new ServletException("Index file '" + indexFile + "' is not a readable file.");
-            if(!Utils.isReadableFile(dataFile))
-                throw new ServletException("Data file '" + dataFile + "' is not a readable file.");
+        try {
+            if("swap".equals(getRequired(req, "operation"))) {
+                String indexFile = getRequired(req, "index");
+                String dataFile = getRequired(req, "data");
+                String storeName = getRequired(req, "store");
+                if(!stores.containsKey(storeName))
+                    throw new ServletException("'" + storeName
+                                               + "' is not a registered read-only store.");
+                if(!Utils.isReadableFile(indexFile))
+                    throw new ServletException("Index file '" + indexFile
+                                               + "' is not a readable file.");
+                if(!Utils.isReadableFile(dataFile))
+                    throw new ServletException("Data file '" + dataFile
+                                               + "' is not a readable file.");
 
-            RandomAccessFileStore store = stores.get(storeName);
-            store.swapFiles(indexFile, dataFile);
-            resp.getWriter().write("Swap completed.");
-        } else {
-            throw new IllegalArgumentException("Unknown operation parameter: "
-                                               + req.getParameter("operation"));
+                RandomAccessFileStore store = stores.get(storeName);
+                store.swapFiles(indexFile, dataFile);
+                resp.getWriter().write("Swap completed.");
+            } else if("fetch".equals(getRequired(req, "operation"))) {
+                String indexUrl = getRequired(req, "index");
+                String dataUrl = getRequired(req, "data");
+
+                // fetch the files if necessary
+                File indexFile;
+                File dataFile;
+                if(fileFetcher == null) {
+                    indexFile = new File(indexUrl);
+                    dataFile = new File(dataUrl);
+                } else {
+                    logger.info("Executing fetch of " + indexUrl);
+                    indexFile = fileFetcher.fetchFile(indexUrl);
+                    logger.info("Executing fetch of " + dataUrl);
+                    dataFile = fileFetcher.fetchFile(dataUrl);
+                    logger.info("Fetch complete.");
+                }
+                resp.getWriter().write(indexFile.getAbsolutePath());
+                resp.getWriter().write("\n");
+                resp.getWriter().write(dataFile.getAbsolutePath());
+            } else {
+                throw new IllegalArgumentException("Unknown operation parameter: "
+                                                   + req.getParameter("operation"));
+            }
+        } catch(Exception e) {
+            resp.sendError(500, "Error while performing operation: " + e.getMessage());
         }
     }
 

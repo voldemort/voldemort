@@ -225,7 +225,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
 
             // Okay so we cleaned up all the prior stuff, so now we are good to
-            // in
+            // insert the new thing
             valueEntry = new DatabaseEntry(serializer.toBytes(value));
             OperationStatus status = cursor.put(keyEntry, valueEntry);
             if(status != OperationStatus.SUCCESS)
@@ -253,14 +253,16 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             DatabaseEntry keyEntry = new DatabaseEntry(key.get());
             DatabaseEntry valueEntry = new DatabaseEntry();
             cursor = bdbDatabase.openCursor(transaction, null);
-            for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, null); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
-                                                                                                                                                        valueEntry,
-                                                                                                                                                        null)) {
+            OperationStatus status = cursor.getSearchKey(keyEntry,
+                                                         valueEntry,
+                                                         LockMode.READ_UNCOMMITTED);
+            while(status == OperationStatus.SUCCESS) {
                 // if version is null no comparison is necessary
                 if(new VectorClock(valueEntry.getData()).compare(version) == Occured.BEFORE) {
                     cursor.delete();
                     deletedSomething = true;
                 }
+                status = cursor.getNextDup(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             }
             return deletedSomething;
         } catch(DatabaseException e) {
@@ -326,7 +328,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
             try {
-                cursor.getFirst(keyEntry, valueEntry, null);
+                cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             } catch(DatabaseException e) {
                 throw new PersistenceFailureException(e);
             }
@@ -357,7 +359,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
             try {
-                cursor.getNext(keyEntry, valueEntry, null);
+                cursor.getNext(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             } catch(DatabaseException e) {
                 throw new PersistenceFailureException(e);
             }

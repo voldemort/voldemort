@@ -36,6 +36,35 @@
   </head>
   <body>
     <div class="content">
+      <h2>Fetch Data Files</h2>
+      <form method="post">
+        <input type="hidden" name="operation" value="fetch"/>
+        <table align="center">
+          <tr>
+            <td>Store</td>
+            <td>
+              <select name="store">
+                #foreach($store in $stores.keySet())
+                  <option value="$store">$store</option>
+                #end
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>Index File</td>
+            <td><input type="text" name="index"/></td>
+          </tr>
+          <tr>
+            <td>Data File</td>
+            <td><input type="text" name="data"/></td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <input type="submit" value="Submit"/>
+            </td>
+          </tr>
+        </table>
+      </form>
       <h2>Swap Data Files</h2>
       <form method="post">
         <input type="hidden" name="operation" value="swap"/>
@@ -65,6 +94,7 @@
           </tr>
         </table>
       </form>
+      
     </div>
   </body>
 </html>
