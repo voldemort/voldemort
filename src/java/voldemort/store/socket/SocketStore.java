@@ -31,6 +31,7 @@ import voldemort.serialization.VoldemortOpCode;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
+import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
@@ -82,7 +83,8 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             return inputStream.readBoolean();
         } catch(IOException e) {
             close(sands.getSocket());
-            throw new VoldemortException(e);
+            throw new UnreachableStoreException("Failure in delete on " + destination + ": "
+                                                + e.getMessage(), e);
         } finally {
             pool.checkin(destination, sands);
         }
@@ -122,7 +124,8 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             return results;
         } catch(IOException e) {
             close(sands.getSocket());
-            throw new VoldemortException(e);
+            throw new UnreachableStoreException("Failure in get on " + destination + ": "
+                                                + e.getMessage(), e);
         } finally {
             pool.checkin(destination, sands);
         }
@@ -146,7 +149,8 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             checkException(inputStream);
         } catch(IOException e) {
             close(sands.getSocket());
-            throw new VoldemortException(e);
+            throw new UnreachableStoreException("Failure in put on " + destination + ": "
+                                                + e.getMessage(), e);
         } finally {
             pool.checkin(destination, sands);
         }
