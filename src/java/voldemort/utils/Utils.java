@@ -16,10 +16,7 @@
 
 package voldemort.utils;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -411,20 +408,4 @@ public class Utils {
             throw new IllegalArgumentException(e.getCause());
     }
 
-    /**
-     * Read the contents of the file as a string
-     * 
-     * @param f The file to read
-     * @return The string read
-     * @throws IOException If the file doesn't exists or there are errors while
-     *         reading it
-     */
-    public static String readString(File f) throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(f));
-        StringBuilder builder = new StringBuilder();
-        for(int curr = reader.read(); curr >= 0; curr = reader.read())
-            builder.append((char) curr);
-        reader.close();
-        return builder.toString();
-    }
 }
