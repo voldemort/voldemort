@@ -22,6 +22,7 @@ import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import java.util.List;
 import java.util.Map;
 
+import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -54,7 +55,7 @@ import com.google.common.collect.Maps;
 public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     private Cluster cluster;
-    private final ByteArray aKey = ByteArray.valueOf("jay");
+    private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
 
     @Override

@@ -59,7 +59,7 @@ public class CacheStorageEngineTest extends InMemoryStorageEngineTest {
         int objectSize = Math.max((int) maxMemory / NUM_OBJECTS, 1);
         StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
         for(int i = 0; i < NUM_OBJECTS; i++)
-            engine.put(ByteArray.valueOf(Integer.toString(i)),
+            engine.put(TestUtils.toByteArray(Integer.toString(i)),
                        new Versioned<byte[]>(TestUtils.randomBytes(objectSize)));
     }
 

@@ -15,10 +15,6 @@ public final class ByteArray implements Serializable {
 
     private final byte[] underlying;
 
-    public static ByteArray valueOf(String s) {
-        return new ByteArray(s.getBytes());
-    }
-
     public ByteArray(byte... underlying) {
         this.underlying = Utils.notNull(underlying, "underlying");
     }

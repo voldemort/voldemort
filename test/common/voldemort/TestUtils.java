@@ -21,6 +21,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -41,6 +42,7 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 
 /**
@@ -327,5 +329,17 @@ public class TestUtils {
             }
         }
         return diffPartition;
+    }
+
+    /**
+     * Always uses UTF-8.
+     */
+    public static ByteArray toByteArray(String s) {
+        try {
+            return new ByteArray(s.getBytes("UTF-8"));
+        } catch(UnsupportedEncodingException e) {
+            /* Should not happen */
+            throw new IllegalStateException(e);
+        }
     }
 }

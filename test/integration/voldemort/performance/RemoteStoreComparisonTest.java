@@ -29,6 +29,7 @@ import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 
+import voldemort.TestUtils;
 import voldemort.server.http.HttpService;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
@@ -114,7 +115,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 try {
-                    socketStore.get(ByteArray.valueOf(String.valueOf(i)));
+                    socketStore.get(TestUtils.toByteArray(String.valueOf(i)));
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();

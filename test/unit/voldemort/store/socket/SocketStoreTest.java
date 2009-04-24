@@ -88,7 +88,8 @@ public class SocketStoreTest extends AbstractByteArrayStoreTest {
             exec.execute(new Runnable() {
 
                 public void run() {
-                    store.put(ByteArray.valueOf(TestUtils.randomString("abcdefghijklmnopqrs", 10)),
+                    store.put(TestUtils.toByteArray(TestUtils.randomString("abcdefghijklmnopqrs",
+                                                                           10)),
                               new Versioned<byte[]>(TestUtils.randomBytes(8)));
                     latch.countDown();
                 }
