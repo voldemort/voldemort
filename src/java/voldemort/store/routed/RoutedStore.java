@@ -202,6 +202,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         markUnavailable(node, e);
                     } catch(Exception e) {
                         failures.add(e);
+                        logger.warn("Error in DELETE on node " + node.getId() + "("
+                                    + node.getHost() + ")", e);
                     } finally {
                         // signal that the operation is complete
                         semaphore.release();
@@ -301,7 +303,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         failures.add(e);
                         markUnavailable(node, e);
                     } catch(Exception e) {
-                        logger.debug("Error in get.", e);
+                        logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost()
+                                    + ")", e);
                         failures.add(e);
                     } finally {
                         // signal that the operation is complete
@@ -337,14 +340,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 failures.add(e);
                 markUnavailable(node, e);
             } catch(Exception e) {
-                logger.debug("Error in get.", e);
+                logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
                 failures.add(e);
             }
             nodeIndex++;
         }
 
-        if(logger.isDebugEnabled())
-            logger.debug("GET retrieved the following node values: " + formatNodeValues(nodeValues));
+        if(logger.isTraceEnabled())
+            logger.trace("GET retrieved the following node values: " + formatNodeValues(nodeValues));
 
         // if we have multiple values, do any necessary repairs
         if(repairReads && retrieved.size() > 1) {
@@ -478,7 +481,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         markUnavailable(node, e);
                         failures.put(node.getId(), e);
                     } catch(Exception e) {
-                        logger.debug("Error in put:", e);
+                        logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
+                                    + ")", e);
                         failures.put(node.getId(), e);
                     } finally {
                         // signal that the operation is complete
@@ -522,7 +526,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     private void markUnavailable(Node node, Exception e) {
         logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                    + " marking as unavailable for " + this.nodeBannageMs + " ms.");
+                    + " marking as unavailable for " + this.nodeBannageMs + " ms.", e);
         logger.debug(e);
         node.getStatus().setUnavailable();
     }

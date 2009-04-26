@@ -61,6 +61,7 @@
       <fileset dir="${java.dir}">
         <exclude name="**/*.java" />
         <exclude name="**/*.html" />
+        <exclude name="**/log4j.properties" />
       </fileset>
     </copy>
     <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
