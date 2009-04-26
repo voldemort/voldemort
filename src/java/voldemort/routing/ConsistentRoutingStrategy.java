@@ -46,7 +46,7 @@ import com.google.common.collect.Sets;
  */
 public class ConsistentRoutingStrategy implements RoutingStrategy {
 
-    private final int numResults;
+    private final int numReplicas;
     private final Node[] partitionToNode;
     private final HashFunction hash;
 
@@ -55,7 +55,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public ConsistentRoutingStrategy(HashFunction hash, Collection<Node> nodes, int numReplicas) {
-        this.numResults = numReplicas;
+        this.numReplicas = numReplicas;
         this.hash = hash;
         SortedMap<Integer, Node> m = new TreeMap<Integer, Node>();
         for(Node n: nodes) {
@@ -76,7 +76,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public List<Node> routeRequest(byte[] key) {
-        List<Node> preferenceList = new ArrayList<Node>(numResults);
+        List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
@@ -84,7 +84,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
                 preferenceList.add(partitionToNode[index]);
 
             // if we have enough, go home
-            if(preferenceList.size() >= numResults)
+            if(preferenceList.size() >= numReplicas)
                 return preferenceList;
             // move to next clockwise slot on the ring
             index = (index + 1) % partitionToNode.length;
@@ -111,6 +111,24 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             if(partitionToNode[i].equals(n))
                 tags.add(i);
         return tags;
+    }
+
+    public List<Integer> getPartitionList(byte[] key) {
+        List<Integer> preferenceList = new ArrayList<Integer>(numReplicas);
+        int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
+        for(int i = 0; i < partitionToNode.length; i++) {
+            // add this one if we haven't already
+            if(!preferenceList.contains(index))
+                preferenceList.add(index);
+
+            // if we have enough, go home
+            if(preferenceList.size() >= numReplicas)
+                return preferenceList;
+
+            // move to next clockwise slot on the ring
+            index = (index + 1) % partitionToNode.length;
+        }
+        return preferenceList;
     }
 
 }

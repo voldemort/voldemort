@@ -28,7 +28,9 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -133,6 +135,10 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     private VectorClock getVersion(File file) {

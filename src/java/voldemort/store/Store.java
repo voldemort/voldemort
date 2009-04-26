@@ -88,4 +88,16 @@ public interface Store<K, V> {
      */
     public void close() throws VoldemortException;
 
+    /**
+     * Get some capability of the store. Examples would be the serializer used,
+     * or the routing strategy. This provides a mechanism to verify that the
+     * store hierarchy has some set of capabilities without knowing the precise
+     * layering.
+     * 
+     * @param capability The capability type to retrieve
+     * @return The given capaiblity
+     * @throws NoSuchCapabilityException if the capaibility is not present
+     */
+    public Object getCapability(StoreCapabilityType capability);
+
 }

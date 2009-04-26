@@ -46,4 +46,8 @@ public class RouteToAllStrategy implements RoutingStrategy {
         return new HashSet<Node>(nodes);
     }
 
+    public List<Integer> getPartitionList(byte[] key) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
 }

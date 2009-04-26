@@ -41,6 +41,14 @@ public interface RoutingStrategy {
     public List<Node> routeRequest(byte[] key);
 
     /**
+     * Get the partition list for the given key.
+     * 
+     * @param key The key the operation is operating on
+     * @return The partition list for the given key
+     */
+    public List<Integer> getPartitionList(byte[] key);
+
+    /**
      * Get the collection of nodes that are candidates for routing.
      * 
      * @return The collection of nodes

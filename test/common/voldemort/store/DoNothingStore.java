@@ -64,4 +64,8 @@ public class DoNothingStore<K, V> implements Store<K, V> {
         return null;
     }
 
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
+    }
+
 }

@@ -28,9 +28,11 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.VersionedSerializer;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -274,6 +276,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 attemptCommit(transaction);
             }
         }
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     @Override

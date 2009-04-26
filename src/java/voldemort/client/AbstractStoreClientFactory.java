@@ -91,9 +91,15 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return getStoreClient(storeName, null);
     }
 
-    @SuppressWarnings("unchecked")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> inconsistencyResolver) {
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
+
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <K, V> Store<K, V> getRawStore(String storeName,
+                                          InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadata(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
@@ -117,7 +123,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                       node.getHost(),
                                                       getPort(node));
             if(enableVerboseLogging)
-                store = new LoggingStore(store);
+                store = new LoggingStore<ByteArray, byte[]>(store);
             clientMapping.put(node.getId(), store);
         }
 
@@ -144,16 +150,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
-        InconsistencyResolver<Versioned<V>> secondaryResolver = inconsistencyResolver == null ? new TimeBasedInconsistencyResolver()
-                                                                                             : inconsistencyResolver;
+        InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
+                                                                                : resolver;
         Store<K, V> resolvingStore = new InconsistencyResolvingStore<K, V>(serializingStore,
                                                                            new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                              secondaryResolver));
-
-        return new DefaultStoreClient<K, V>(resolvingStore,
-                                            keySerializer,
-                                            valueSerializer,
-                                            routingStrategy);
+        return resolvingStore;
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {

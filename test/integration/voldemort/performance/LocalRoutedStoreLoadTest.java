@@ -20,8 +20,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Map;
 
+import voldemort.StaticStoreClientFactory;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
+import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -65,14 +67,18 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                          10,
                                                          true,
                                                          10000L);
+        /*
+         * public DefaultStoreClient(String storeName,
+         * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory
+         * storeFactory, int maxMetadataRefreshAttempts) {
+         */
         Store<String, String> serializingStore = new SerializingStore<String, String>(store,
                                                                                       new StringSerializer(),
                                                                                       new StringSerializer());
-        return new DefaultStoreClient<String, String>(new InconsistencyResolvingStore<String, String>(serializingStore,
-                                                                                                      resolver),
-                                                      new StringSerializer(),
-                                                      new StringSerializer(),
-                                                      null);
+        Store<String, String> resolvingStore = new InconsistencyResolvingStore<String, String>(serializingStore,
+                                                                                               resolver);
+        StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);
+        return new DefaultStoreClient<String, String>(store.getName(), resolver, factory, 1);
     }
 
     public static void main(String[] args) throws Exception {

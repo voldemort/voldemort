@@ -351,16 +351,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
-    public void testStoreTimeouts() {
-    /*
-     * Cluster cluster = getThreeNodeThreePartitionCluster(); RoutingStrategy
-     * strategy = new RouteToAllStrategy(cluster); final Store<byte[],byte[]>
-     * store = getStore(cluster, 1, 9, 9, 0, 9, strategy, new
-     * VoldemortException()); store.put(aKey, new Versioned<byte[]>(new
-     * byte[0]));
-     */
-    }
-
     public void assertOperationalNodes(Cluster cluster, int expected) {
         int found = 0;
         for(Node n: cluster.getNodes())
@@ -369,9 +359,4 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertEquals("Number of operational nodes not what was expected.", expected, found);
     }
 
-    @Override
-    protected void assertGetAllValues(byte[] expectedValue, List<Versioned<byte[]>> versioneds) {
-        assertEquals(cluster.getNodes().size(), versioneds.size());
-        valuesEqual(expectedValue, versioneds.get(0).getValue());
-    }
 }

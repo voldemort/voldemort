@@ -73,9 +73,13 @@ public class DelegatingStore<K, V> implements Store<K, V> {
         return innerStore;
     }
 
+    public Object getCapability(StoreCapabilityType capability) {
+        return innerStore.getCapability(capability);
+    }
+
     @Override
     public String toString() {
-        return super.toString();
+        return innerStore.toString();
     }
 
 }

@@ -16,9 +16,11 @@
 
 package voldemort.client;
 
+import java.util.List;
 import java.util.Map;
 
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.cluster.Node;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -160,4 +162,11 @@ public interface StoreClient<K, V> {
      */
     public boolean delete(K key, Version version);
 
+    /**
+     * Returns the list of nodes which should have this key.
+     * 
+     * @param key
+     * @return a list of Nodes which should hold this key
+     */
+    public List<Node> getResponsibleNodes(K key);
 }

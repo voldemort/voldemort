@@ -38,19 +38,19 @@ import voldemort.versioning.Versioned;
  * 
  */
 @SuppressWarnings("unchecked")
-public class MockStoreClientFactory<K, V> implements StoreClientFactory {
+public class MockStoreClientFactory implements StoreClientFactory {
 
     private final int nodeId;
-    private final Serializer<K> keySerializer;
-    private final Serializer<V> valueSerializer;
+    private final Serializer<?> keySerializer;
+    private final Serializer<?> valueSerializer;
     private final Time time;
 
-    public MockStoreClientFactory(Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+    public MockStoreClientFactory(Serializer<?> keySerializer, Serializer<?> valueSerializer) {
         this(keySerializer, valueSerializer, 0, SystemTime.INSTANCE);
     }
 
-    public MockStoreClientFactory(Serializer<K> keySerializer,
-                                  Serializer<V> valueSerializer,
+    public MockStoreClientFactory(Serializer<?> keySerializer,
+                                  Serializer<?> valueSerializer,
                                   int nodeId,
                                   Time time) {
         this.nodeId = nodeId;
@@ -59,29 +59,32 @@ public class MockStoreClientFactory<K, V> implements StoreClientFactory {
         this.time = time;
     }
 
-    @SuppressWarnings("hiding")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
     }
 
-    @SuppressWarnings("hiding")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> inconsistencyResolver) {
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
+        return new DefaultStoreClient(storeName, resolver, this, 3);
+    }
+
+    public <K1, V1> Store<K1, V1> getRawStore(String storeName,
+                                              InconsistencyResolver<Versioned<V1>> resolver) {
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
-        InconsistencyResolver<Versioned<V>> secondaryResolver = new TimeBasedInconsistencyResolver();
-        if(inconsistencyResolver != null)
-            secondaryResolver = inconsistencyResolver;
+        InconsistencyResolver<Versioned<V1>> secondaryResolver = new TimeBasedInconsistencyResolver();
+        if(resolver != null)
+            secondaryResolver = resolver;
 
         Store store = new VersionIncrementingStore(new InMemoryStorageEngine(storeName),
                                                    nodeId,
                                                    time);
         if(isSerialized())
             store = new SerializingStore(store, keySerializer, valueSerializer);
-        Store<K, V> consistentStore = new InconsistencyResolvingStore<K, V>(store,
-                                                                            new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                              secondaryResolver));
-        return new DefaultStoreClient(consistentStore, keySerializer, valueSerializer, null);
+        Store<K1, V1> consistentStore = new InconsistencyResolvingStore<K1, V1>(store,
+                                                                                new ChainedResolver<Versioned<V1>>(new VectorClockInconsistencyResolver(),
+                                                                                                                   secondaryResolver));
+        return consistentStore;
     }
 
     private boolean isSerialized() {

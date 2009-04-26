@@ -28,8 +28,10 @@ import javax.sql.DataSource;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -128,6 +130,10 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void close() throws PersistenceFailureException {
     // don't close datasource cause others could be using it
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     public boolean delete(ByteArray key, Version maxVersion) throws PersistenceFailureException {

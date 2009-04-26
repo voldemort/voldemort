@@ -29,14 +29,16 @@ import org.mongodb.driver.ts.DB;
 import org.mongodb.driver.ts.DBCollection;
 import org.mongodb.driver.ts.DBCursor;
 import org.mongodb.driver.ts.Doc;
+import org.mongodb.driver.ts.IndexInfo;
 import org.mongodb.driver.ts.Mongo;
 import org.mongodb.driver.ts.MongoSelector;
-import org.mongodb.driver.ts.IndexInfo;
 import org.mongodb.driver.util.BSONObject;
 import org.mongodb.driver.util.types.BSONBytes;
 
 import voldemort.VoldemortException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -105,14 +107,14 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         init();
     }
 
-    protected final void  init() throws MongoDBException {
+    protected final void init() throws MongoDBException {
         _mongoDB = new Mongo("127.0.0.1", 27017);
         _db = _mongoDB.getDB(DB_NAME);
         _coll = _db.getCollection(_collectionName);
 
         _coll.createIndex(new IndexInfo("k_1", KEY));
     }
-    
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
             return new MongoDBClosableIterator();
@@ -142,11 +144,10 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                                               new VectorClock(d.getBytes(CLOCK)));
                 list.add(val);
             }
-        } catch (MongoDBIOException mioe) {
+        } catch(MongoDBIOException mioe) {
             try {
                 init();
-            }
-            catch(MongoDBException ee) {
+            } catch(MongoDBException ee) {
                 ee.printStackTrace();
             }
             throw new VoldemortException(mioe);
@@ -203,8 +204,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
                 if(occured == Occured.BEFORE) {
                     throw new ObsoleteVersionException("Key '" + strKey + " is obsolete.");
-                }
-                else if(occured == Occured.AFTER) {
+                } else if(occured == Occured.AFTER) {
                     _coll.remove(new MongoSelector(d));
                 }
 
@@ -220,11 +220,10 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             newData.put(CLOCK, ((VectorClock) value.getVersion()).toBytes());
 
             _coll.insert(newData);
-        } catch (MongoDBIOException mioe) {
+        } catch(MongoDBIOException mioe) {
             try {
                 init();
-            }
-            catch(MongoDBException ee) {
+            } catch(MongoDBException ee) {
                 ee.printStackTrace();
             }
             throw new VoldemortException(mioe);
@@ -255,11 +254,10 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
 
             return deleted;
-        } catch (MongoDBIOException mioe) {
+        } catch(MongoDBIOException mioe) {
             try {
                 init();
-            }
-            catch(MongoDBException ee) {
+            } catch(MongoDBException ee) {
                 ee.printStackTrace();
             }
             throw new VoldemortException(mioe);
@@ -316,7 +314,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Driver was designed w/ a set of expectations for threading and therefore
      * buffer management (for perf reasons) that don't exactly align w/ the use
      * case here
-     *
+     * 
      * @return the current TLS
      */
     private DirectBufferTLS getTLS() {
@@ -329,6 +327,10 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return tls;
     }
 
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
+    }
+
     public class MongoDBClosableIterator implements
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
@@ -336,7 +338,8 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         protected DBCursor _cursor;
 
         public MongoDBClosableIterator() throws MongoDBException {
-            getTLS(); // TODO - will be a problem if someone hands this iterator across threads
+            getTLS(); // TODO - will be a problem if someone hands this iterator
+            // across threads
             _cursor = _coll.find();
         }
 

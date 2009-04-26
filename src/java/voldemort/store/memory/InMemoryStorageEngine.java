@@ -26,7 +26,9 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -148,6 +150,10 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
                 success = true;
             }
         }
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {

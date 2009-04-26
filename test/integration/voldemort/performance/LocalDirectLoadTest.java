@@ -16,8 +16,10 @@
 
 package voldemort.performance;
 
+import voldemort.StaticStoreClientFactory;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
+import voldemort.client.StoreClientFactory;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
@@ -39,12 +41,10 @@ public class LocalDirectLoadTest extends AbstractLoadTestHarness {
                                                                            new StringSerializer(),
                                                                            new StringSerializer());
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
-
-        return new DefaultStoreClient<String, String>(new InconsistencyResolvingStore<String, String>(store,
-                                                                                                      resolver),
-                                                      new StringSerializer(),
-                                                      new StringSerializer(),
-                                                      null);
+        Store<String, String> resolvingStore = new InconsistencyResolvingStore<String, String>(store,
+                                                                                               resolver);
+        StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);
+        return new DefaultStoreClient<String, String>(store.getName(), resolver, factory, 1);
     }
 
     public static void main(String[] args) throws Exception {

@@ -67,4 +67,8 @@ public class FailingStore<K, V> implements Store<K, V> {
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
         throw exception;
     }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
+    }
 }

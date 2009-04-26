@@ -19,6 +19,7 @@ package voldemort.store.versioned;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -49,6 +50,14 @@ public class VersionIncrementingStore<K, V> extends DelegatingStore<K, V> implem
         VectorClock clock = (VectorClock) value.getVersion();
         clock.incrementVersion(nodeId, time.getMilliseconds());
         super.put(key, value);
+    }
+
+    @Override
+    public Object getCapability(StoreCapabilityType capability) {
+        if(StoreCapabilityType.VERSION_INCREMENTING.equals(capability))
+            return true;
+        else
+            return super.getCapability(capability);
     }
 
 }

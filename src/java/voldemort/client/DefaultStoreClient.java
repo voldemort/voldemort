@@ -24,8 +24,11 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.utils.Utils;
+import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -49,34 +52,53 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Versioned<V> NOT_FOUND = new Versioned<V>(null, null);
 
-    private final Store<K, V> store;
-    private final Serializer<K> keySerializer;
-    private final Serializer<V> valueSerializer;
-    private final RoutingStrategy routingStragy;
+    private final StoreClientFactory storeFactory;
 
-    public DefaultStoreClient(Store<K, V> store,
-                              Serializer<K> keySerializer,
-                              Serializer<V> valueSerializer,
-                              RoutingStrategy routingStrategy) {
-        this.store = Utils.notNull(store);
-        this.keySerializer = Utils.notNull(keySerializer);
-        this.valueSerializer = Utils.notNull(valueSerializer);
-        this.routingStragy = routingStrategy;
+    private final int metadataRefreshAttempts;
+    private final String storeName;
+    private final InconsistencyResolver<Versioned<V>> resolver;
+    private volatile Store<K, V> store;
+
+    public DefaultStoreClient(String storeName,
+                              InconsistencyResolver<Versioned<V>> resolver,
+                              StoreClientFactory storeFactory,
+                              int maxMetadataRefreshAttempts) {
+        this.storeName = Utils.notNull(storeName);
+        this.resolver = resolver;
+        this.storeFactory = Utils.notNull(storeFactory);
+        this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
+        reinit();
+    }
+
+    private void reinit() {
+        this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
     public boolean delete(K key) {
         Versioned<V> versioned = get(key);
         if(versioned == null)
             return false;
-        return store.delete(key, versioned.getVersion());
+        return delete(key, versioned.getVersion());
     }
 
     public boolean delete(K key, Version version) {
-        return store.delete(key, version);
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                return store.delete(key, version);
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
+        throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                           + " metadata refresh attempts failed.");
     }
 
     public V getValue(K key, V defaultValue) {
-        return get(key).getValue();
+        Versioned<V> versioned = get(key);
+        if(versioned == null)
+            return null;
+        else
+            return versioned.getValue();
     }
 
     public V getValue(K key) {
@@ -88,8 +110,16 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public Versioned<V> get(K key, Versioned<V> defaultValue) {
-        List<Versioned<V>> items = store.get(key);
-        return getItemOrThrow(key, defaultValue, items);
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                List<Versioned<V>> items = store.get(key);
+                return getItemOrThrow(key, defaultValue, items);
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
+        throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                           + " metadata refresh attempts failed.");
     }
 
     private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
@@ -107,7 +137,18 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
-        Map<K, List<Versioned<V>>> items = store.getAll(keys);
+        Map<K, List<Versioned<V>>> items = null;
+        for(int attempts = 0;; attempts++) {
+            if(attempts < this.metadataRefreshAttempts)
+                throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                                   + " metadata refresh attempts failed.");
+            try {
+                items = store.getAll(keys);
+                break;
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
         Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
 
         for(Entry<K, List<Versioned<V>>> mapEntry: items.entrySet()) {
@@ -122,12 +163,12 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         if(versioned == NOT_FOUND)
             versioned = new Versioned<V>(value, new VectorClock());
         versioned.setObject(value);
-        store.put(key, versioned);
+        put(key, versioned);
     }
 
     public boolean putIfNotObsolete(K key, Versioned<V> versioned) {
         try {
-            store.put(key, versioned);
+            put(key, versioned);
             return true;
         } catch(ObsoleteVersionException e) {
             return false;
@@ -135,7 +176,16 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
-        store.put(key, versioned);
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                store.put(key, versioned);
+                return;
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
+        throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                           + " metadata refresh attempts failed.");
     }
 
     public boolean applyUpdate(UpdateAction<K, V> action) {
@@ -164,18 +214,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return false;
     }
 
-    public Serializer<K> getKeySerializer() {
-        return this.keySerializer;
-    }
-
-    public Serializer<V> getValueSerializer() {
-        return this.valueSerializer;
-    }
-
     public List<Node> getResponsibleNodes(K key) {
-        if(this.routingStragy == null)
-            throw new UnsupportedOperationException("This store client has no routing strategy.");
-        return this.routingStragy.routeRequest(keySerializer.toBytes(key));
+        RoutingStrategy strategy = (RoutingStrategy) store.getCapability(StoreCapabilityType.ROUTING_STRATEGY);
+        @SuppressWarnings("unchecked")
+        Serializer<K> keySerializer = (Serializer<K>) store.getCapability(StoreCapabilityType.KEY_SERIALIZER);
+        return strategy.routeRequest(keySerializer.toBytes(key));
     }
 
 }

@@ -23,6 +23,7 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
@@ -114,6 +115,17 @@ public class SerializingStore<K, V> implements Store<K, V> {
 
     protected Serializer<K> getKeySerializer() {
         return keySerializer;
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        switch(capability) {
+            case KEY_SERIALIZER:
+                return this.keySerializer;
+            case VALUE_SERIALIZER:
+                return this.valueSerializer;
+            default:
+                return store.getCapability(capability);
+        }
     }
 
 }

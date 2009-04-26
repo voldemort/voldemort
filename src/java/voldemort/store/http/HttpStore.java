@@ -36,7 +36,9 @@ import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 
 import voldemort.VoldemortException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -181,6 +183,10 @@ public class HttpStore implements Store<ByteArray, byte[]> {
     private String getUrl(ByteArray key) throws VoldemortException {
         return "http://" + host + ":" + port + "/" + getName() + "/"
                + ByteUtils.getString(codec.encode(key.get()), "UTF-8");
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
 }

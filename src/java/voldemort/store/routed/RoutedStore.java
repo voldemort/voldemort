@@ -37,7 +37,9 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -50,10 +52,7 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * A Store which multiplexes requests to different internal StoreClients
- * 
- * The ParallelRoutedStore delegates operations to appropriate sets of
- * sub-clients in parallel.
+ * A Store which multiplexes requests to different internal Stores
  * 
  * @author jay
  * 
@@ -569,4 +568,18 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
         return this.innerStores;
     }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        switch(capability) {
+            case ROUTING_STRATEGY:
+                return this.routingStrategy;
+            case READ_REPAIRER:
+                return this.readRepairer;
+            case VERSION_INCREMENTING:
+                return true;
+            default:
+                throw new NoSuchCapabilityException(capability, getName());
+        }
+    }
+
 }

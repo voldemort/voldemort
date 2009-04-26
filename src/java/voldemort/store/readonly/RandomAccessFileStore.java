@@ -39,8 +39,10 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -539,5 +541,9 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
     @JmxGetter(name = "indexFile", description = "The name of the file currently storing the index for this store.")
     public String getIndexFileName() {
         return this.indexFile.getAbsolutePath();
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 }

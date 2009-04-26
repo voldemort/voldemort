@@ -17,6 +17,7 @@
 package voldemort.store.stats;
 
 import java.util.List;
+import java.util.Map;
 
 import javax.management.MBeanOperationInfo;
 
@@ -25,7 +26,6 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
-import voldemort.utils.Time;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -37,104 +37,107 @@ import voldemort.versioning.Versioned;
  */
 public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
 
-    private volatile int callsToGet = 0;
-    private volatile double avgGetCompletionTime = 0.0d;
-
-    private volatile int callsToPut = 0;
-    private volatile double avgPutCompletionTime = 0.0d;
-
-    private volatile int callsToDelete = 0;
-    private volatile double avgDeleteCompletionTime = 0.0d;
-
-    private volatile int exceptionsThrown = 0;
+    private final StoreStats stats;
 
     public StatTrackingStore(Store<K, V> innerStore) {
         super(innerStore);
+        this.stats = new StoreStats();
     }
 
     @Override
     public boolean delete(K key, Version version) throws VoldemortException {
-        callsToDelete++;
         long start = System.nanoTime();
         try {
             return super.delete(key, version);
         } catch(VoldemortException e) {
-            exceptionsThrown++;
+            stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            long elapsed = System.nanoTime() - start;
-            avgDeleteCompletionTime += (elapsed - avgDeleteCompletionTime) / callsToDelete;
+            stats.recordTime(Tracked.DELETE, System.nanoTime() - start);
         }
     }
 
     @Override
     public List<Versioned<V>> get(K key) throws VoldemortException {
-        callsToGet++;
         long start = System.nanoTime();
         try {
             return super.get(key);
         } catch(VoldemortException e) {
-            exceptionsThrown++;
+            stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            long elapsed = System.nanoTime() - start;
-            avgGetCompletionTime += (elapsed - avgGetCompletionTime) / callsToGet;
+            stats.recordTime(Tracked.GET, System.nanoTime() - start);
+        }
+    }
+
+    @Override
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        long start = System.nanoTime();
+        try {
+            return super.getAll(keys);
+        } catch(VoldemortException e) {
+            stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
+            throw e;
+        } finally {
+            stats.recordTime(Tracked.GET_ALL, System.nanoTime() - start);
         }
     }
 
     @Override
     public void put(K key, Versioned<V> value) throws VoldemortException {
-        callsToPut++;
         long start = System.nanoTime();
         try {
             super.put(key, value);
         } catch(VoldemortException e) {
-            exceptionsThrown++;
+            stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
         } finally {
-            long elapsed = System.nanoTime() - start;
-            avgPutCompletionTime += (elapsed - avgPutCompletionTime) / callsToPut;
+            stats.recordTime(Tracked.PUT, System.nanoTime() - start);
         }
     }
 
-    @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
+    @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.")
+    public int getNumberOfCallsToGetAll() {
+        return stats.getCount(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET since the last reset.")
     public int getNumberOfCallsToGet() {
-        return callsToGet;
+        return stats.getCount(Tracked.GET);
     }
 
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
     public int getNumberOfCallsToPut() {
-        return callsToPut;
+        return stats.getCount(Tracked.PUT);
     }
 
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
     public int getNumberOfCallsToDelete() {
-        return callsToDelete;
+        return stats.getCount(Tracked.DELETE);
     }
 
     @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
     public double getAverageGetCompletionTimeInMs() {
-        return avgGetCompletionTime / Time.NS_PER_MS;
+        return stats.getAvgTimeInMs(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    public double getAverageGetAllCompletionTimeInMs() {
+        return stats.getAvgTimeInMs(Tracked.GET_ALL);
     }
 
     @JmxGetter(name = "averagePutCompletionTimeInMs", description = "The avg. time in ms for PUT calls to complete.")
     public double getAveragePutCompletionTimeInMs() {
-        return avgPutCompletionTime / Time.NS_PER_MS;
+        return stats.getAvgTimeInMs(Tracked.PUT);
     }
 
     @JmxGetter(name = "averageDeleteCompletionTimeInMs", description = "The avg. time in ms for DELETE calls to complete.")
     public double getAverageDeleteCompletionTimeInMs() {
-        return avgDeleteCompletionTime / Time.NS_PER_MS;
+        return stats.getAvgTimeInMs(Tracked.DELETE);
     }
 
     @JmxOperation(description = "Reset statistics.", impact = MBeanOperationInfo.ACTION)
     public void resetStatistics() {
-        callsToGet = 0;
-        callsToPut = 0;
-        callsToDelete = 0;
-        avgGetCompletionTime = 0d;
-        avgPutCompletionTime = 0d;
-        avgDeleteCompletionTime = 0d;
+        stats.reset();
     }
-
 }

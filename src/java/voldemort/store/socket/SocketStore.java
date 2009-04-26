@@ -29,7 +29,9 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -154,6 +156,13 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         } finally {
             pool.checkin(destination, sands);
         }
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        if(StoreCapabilityType.SOCKET_POOL.equals(capability))
+            return this.pool;
+        else
+            throw new NoSuchCapabilityException(capability, getName());
     }
 
     public String getName() {

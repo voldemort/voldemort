@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.versioning.Version;
@@ -132,6 +133,14 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
                          + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
                          + elapsedMs + " ms.");
         }
+    }
+
+    @Override
+    public Object getCapability(StoreCapabilityType capability) {
+        if(capability == StoreCapabilityType.LOGGER)
+            return this.logger;
+        else
+            return getInnerStore().getCapability(capability);
     }
 
 }

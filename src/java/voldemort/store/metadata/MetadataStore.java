@@ -28,7 +28,9 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
+import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -85,6 +87,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public void close() throws VoldemortException {
 
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new NoSuchCapabilityException(capability, getName());
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {

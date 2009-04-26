@@ -17,10 +17,12 @@
 package voldemort.store.versioned;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -43,6 +45,22 @@ public class InconsistencyResolvingStore<K, V> extends DelegatingStore<K, V> {
     @Override
     public List<Versioned<V>> get(K key) throws VoldemortException {
         return resolver.resolveConflicts(super.get(key));
+    }
+
+    @Override
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        Map<K, List<Versioned<V>>> m = super.getAll(keys);
+        for(Map.Entry<K, List<Versioned<V>>> entry: m.entrySet())
+            m.put(entry.getKey(), resolver.resolveConflicts(entry.getValue()));
+        return m;
+    }
+
+    @Override
+    public Object getCapability(StoreCapabilityType capability) {
+        if(capability == StoreCapabilityType.INCONSISTENCY_RESOLVER)
+            return this.resolver;
+        else
+            return super.getCapability(capability);
     }
 
 }
