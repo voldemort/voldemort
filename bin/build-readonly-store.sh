@@ -34,4 +34,6 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
+CLASSPATH=$CLASSPATH:$base_dir/dist/resources
+
 java -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder ${1} ${2} ${3} ${4} ${5} ${6} ${7}

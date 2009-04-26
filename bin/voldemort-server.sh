@@ -34,4 +34,6 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
+CLASSPATH=$CLASSPATH:$base_dir/dist/resources
+
 java -Xmx2G -server -cp $CLASSPATH -Dcom.sun.management.jmxremote voldemort.server.VoldemortServer ${1}

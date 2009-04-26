@@ -33,5 +33,6 @@ for file in $base_dir/lib/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
 done
+CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 java -agentlib:hprof=cpu=samples,depth=10 -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}

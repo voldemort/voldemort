@@ -64,6 +64,9 @@
         <exclude name="**/log4j.properties" />
       </fileset>
     </copy>
+    <!-- place to put log4j.properties -->
+    <replace-dir dir="${resources.dir}"/>
+    <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
     <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
