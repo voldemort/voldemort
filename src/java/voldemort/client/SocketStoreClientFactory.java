@@ -118,6 +118,32 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
              bootstrapUrls);
     }
 
+    public SocketStoreClientFactory(int coreThreads,
+                                    int maxThreads,
+                                    int maxQueuedRequests,
+                                    int maxConnectionsPerNode,
+                                    int maxTotalConnections,
+                                    int socketTimeoutMs,
+                                    int socketBufferSize,
+                                    int routingTimeoutMs,
+                                    String... bootstrapUrls) {
+        this(new ThreadPoolExecutor(coreThreads,
+                                    maxThreads,
+                                    10000L,
+                                    TimeUnit.MILLISECONDS,
+                                    new LinkedBlockingQueue<Runnable>(maxQueuedRequests),
+                                    new DaemonThreadFactory("voldemort-client-thread-"),
+                                    new ThreadPoolExecutor.CallerRunsPolicy()),
+             maxConnectionsPerNode,
+             maxTotalConnections,
+             socketTimeoutMs,
+             routingTimeoutMs,
+             AbstractStoreClientFactory.DEFAULT_NODE_BANNAGE_MS,
+             socketBufferSize,
+             new DefaultSerializerFactory(),
+             bootstrapUrls);
+    }
+
     public SocketStoreClientFactory(ExecutorService service,
                                     int maxConnectionsPerNode,
                                     int maxTotalConnections,
