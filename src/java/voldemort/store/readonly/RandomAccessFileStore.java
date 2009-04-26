@@ -75,8 +75,8 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
     public static final int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
     /*
-     * The overhead for each cache element is the key size + 4 byte array length +
-     * 12 byte object overhead + 8 bytes for a 64-bit reference to the thing
+     * The overhead for each cache element is the key size + 4 byte array length
+     * + 12 byte object overhead + 8 bytes for a 64-bit reference to the thing
      */
     public static final int MEMORY_OVERHEAD_PER_KEY = KEY_HASH_SIZE + 4 + 12 + 8;
 
@@ -106,9 +106,9 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
      * @param numFileHandles The number of file descriptors to keep pooled for
      *        each file
      * @param fdWaitTimeoutMs The maximum time to wait to acquire a file handle
-     * @param maxCacheSize The maximum size of the cache, in bytes. The actual
-     *        size of the cache will be the largest power of two lower than this
-     *        number
+     * @param maxCacheSizeBytes The maximum size of the cache, in bytes. The
+     *        actual size of the cache will be the largest power of two lower
+     *        than this number
      */
     public RandomAccessFileStore(String name,
                                  File storageDir,

@@ -215,9 +215,10 @@
   <macrodef name="make-javadocs">
     <attribute name="dir" />
     <attribute name="packagenames" />
+    <attribute name="javadir" />
     <sequential>
       <replace-dir dir="@{dir}" />
-      <javadoc sourcepath="${java.dir}" destdir="@{dir}" windowtitle="${display.name}" source="1.5" author="true" version="true" use="true" packagenames="@{packagenames}">
+      <javadoc sourcepath="@{javadir}" destdir="@{dir}" windowtitle="${display.name}" source="1.5" author="true" version="true" use="true" packagenames="@{packagenames}">
         <doctitle>${display.name}</doctitle>
         <bottom>${author}</bottom>
         <classpath refid="main-classpath" />
@@ -226,9 +227,8 @@
   </macrodef>
 
   <target name="docs" description="Create complete Javadoc documentation">
-    <make-javadocs dir="${javadoc.dir}/all" packagenames="*" />
-    <make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*" />
-    <make-javadocs dir="${javadoc.dir}/contrib" packagenames="voldemort.contrib.*" />
+    <make-javadocs dir="${javadoc.dir}/all" packagenames="*" javadir="${java.dir}"/>
+    <make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*" javadir="${java.dir}"/>
   </target>
 
   <target name="redeploy" depends="war, deploy">

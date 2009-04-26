@@ -102,7 +102,7 @@ public class StoreUtils {
      * This is typically used in finally blocks to prevent an exception thrown
      * during close from hiding an exception thrown inside the try.
      * 
-     * @param input the InputStream to close, may be null.
+     * @param stream the InputStream to close, may be null.
      */
     public static void close(InputStream stream) {
         if(stream != null) {

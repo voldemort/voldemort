@@ -44,7 +44,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
      * 
      * @param node The id of the destination node
      * @param innerStore The store which we delegate write operations to
-     * @param routingStrategy: the routing stratgey for this cluster
+     * @param routingStrategy the routing stratgey for this cluster
      *        configuration.
      */
     public InvalidMetadataCheckingStore(int node,
