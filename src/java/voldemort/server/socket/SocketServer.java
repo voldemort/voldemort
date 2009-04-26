@@ -100,7 +100,7 @@ public class SocketServer extends Thread {
         this.threadPool = new ThreadPoolExecutor(defaultThreads,
                                                  maxThreads,
                                                  1,
-                                                 TimeUnit.SECONDS,
+                                                 TimeUnit.MILLISECONDS,
                                                  new SynchronousQueue<Runnable>(),
                                                  threadFactory,
                                                  rejectedExecutionHandler);
