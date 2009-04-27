@@ -24,6 +24,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.utils.Utils;
 
 /**
  * A helper template for implementing VoldemortService
@@ -36,15 +37,15 @@ public abstract class AbstractService implements VoldemortService {
     private static final Logger logger = Logger.getLogger(VoldemortService.class);
 
     private final AtomicBoolean isStarted;
-    private final String name;
+    private final ServiceType type;
 
-    public AbstractService(String name) {
-        this.name = name;
+    public AbstractService(ServiceType type) {
+        this.type = Utils.notNull(type);
         this.isStarted = new AtomicBoolean(false);
     }
 
-    public String getName() {
-        return name;
+    public ServiceType getType() {
+        return type;
     }
 
     @JmxGetter(name = "started", description = "Determine if the service has been started.")
@@ -58,13 +59,13 @@ public abstract class AbstractService implements VoldemortService {
         if(!isntStarted)
             throw new IllegalStateException("Server is already started!");
 
-        logger.info("Starting " + getName());
+        logger.info("Starting " + getType().getDisplayName());
         startInner();
     }
 
     @JmxOperation(description = "Stop the service.", impact = MBeanOperationInfo.ACTION)
     public void stop() {
-        logger.info("Stopping " + getName());
+        logger.info("Stopping " + getType().getDisplayName());
         synchronized(this) {
             if(!isStarted()) {
                 logger.info("The service is already stopped, ignoring duplicate attempt.");

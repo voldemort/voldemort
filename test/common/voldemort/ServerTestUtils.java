@@ -18,11 +18,10 @@ package voldemort;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
@@ -30,19 +29,30 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.client.RoutingTier;
+import voldemort.client.protocol.RequestFormatFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.http.StoreServlet;
+import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.store.http.HttpStore;
+import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
 
@@ -54,64 +64,70 @@ import com.google.common.collect.ImmutableList;
  */
 public class ServerTestUtils {
 
-    public static ConcurrentMap<String, Store<ByteArray, byte[]>> getStores(String storeName,
-                                                                            String clusterXml,
-                                                                            String storesXml) {
-        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
-        // create metadata dir
-        File metadataDir = TestUtils.createTempDir();
-        try {
-            FileUtils.writeStringToFile(new File(metadataDir, "cluster.xml"), clusterXml);
-            FileUtils.writeStringToFile(new File(metadataDir, "stores.xml"), storesXml);
-            MetadataStore metadata = new MetadataStore(metadataDir);
-            stores.put(MetadataStore.METADATA_STORE_NAME, metadata);
-            return stores;
-        } catch(IOException e) {
-            throw new VoldemortException("Error creating metadata directory:", e);
-        }
+    public static StoreRepository getStores(String storeName, String clusterXml, String storesXml) {
+        StoreRepository repository = new StoreRepository();
+        Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
+        repository.addLocalStore(store);
+        repository.addRoutedStore(store);
+        MetadataStore metadata = new MetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
+                                                   new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml)));
+        repository.addLocalStore(metadata);
+        return repository;
     }
 
     public static SocketServer getSocketServer(String clusterXml,
                                                String storesXml,
                                                String storeName,
-                                               int port) {
-
-        SocketServer socketServer = new SocketServer(getStores(storeName, clusterXml, storesXml),
-                                                     port,
+                                               int port,
+                                               RequestFormatType type) {
+        RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
+                                                                            clusterXml,
+                                                                            storesXml));
+        SocketServer socketServer = new SocketServer(port,
                                                      5,
                                                      10,
-                                                     10000);
+                                                     10000,
+                                                     factory.getRequestHandler(type));
         socketServer.start();
         socketServer.awaitStartupCompletion();
         return socketServer;
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
-        SocketPool socketPool = new SocketPool(1, 2, 1000, 32 * 1024);
-        return new SocketStore(storeName, "localhost", port, socketPool);
+        SocketPool socketPool = new SocketPool(1, 2, 10000, 1000, 32 * 1024);
+        return new SocketStore(storeName,
+                               "localhost",
+                               port,
+                               socketPool,
+                               RequestFormatType.VOLDEMORT,
+                               false);
     }
 
     public static Context getJettyServer(String clusterXml,
                                          String storesXml,
                                          String storeName,
+                                         RequestFormatType requestFormat,
                                          int port) throws Exception {
-        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = getStores(storeName,
-                                                                           clusterXml,
-                                                                           storesXml);
+        StoreRepository repository = getStores(storeName, clusterXml, storesXml);
 
         // initialize servlet
         Server server = new Server(port);
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
 
-        context.addServlet(new ServletHolder(new StoreServlet(stores)), "/*");
+        RequestHandler handler = new RequestHandlerFactory(repository).getRequestHandler(requestFormat);
+        context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
         server.start();
         return context;
     }
 
-    public static HttpStore getHttpStore(String storeName, int port) {
-        return new HttpStore(storeName, "localhost", port, new HttpClient());
+    public static HttpStore getHttpStore(String storeName, RequestFormatType format, int port) {
+        return new HttpStore(storeName,
+                             "localhost",
+                             port,
+                             new HttpClient(),
+                             new RequestFormatFactory().getRequestFormat(format),
+                             false);
     }
 
     /**
@@ -157,6 +173,24 @@ public class ServerTestUtils {
         for(int i = 0; i < numberOfNodes; i++)
             nodes.add(new Node(i, "localhost", ports[2 * i], ports[2 * i + 1], ImmutableList.of(i)));
         return new Cluster("test-cluster", nodes);
+    }
+
+    public static List<StoreDefinition> getStoreDefs(int numStores) {
+        List<StoreDefinition> defs = new ArrayList<StoreDefinition>();
+        SerializerDefinition serDef = new SerializerDefinition("string");
+        for(int i = 0; i < numStores; i++)
+            defs.add(new StoreDefinition("test" + i,
+                                         InMemoryStorageConfiguration.TYPE_NAME,
+                                         serDef,
+                                         serDef,
+                                         RoutingTier.SERVER,
+                                         2,
+                                         1,
+                                         1,
+                                         1,
+                                         1,
+                                         1));
+        return defs;
     }
 
     public static VoldemortConfig createServerConfig(int nodeId,

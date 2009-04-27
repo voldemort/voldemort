@@ -16,6 +16,7 @@
 
 package voldemort;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
@@ -37,14 +38,7 @@ public class TestClientShutdown {
         String storeName = args[0];
         String bootstrapUrl = args[1];
 
-        StoreClientFactory factory = new SocketStoreClientFactory(2,
-                                                                  2,
-                                                                  3,
-                                                                  10,
-                                                                  2000,
-                                                                  2000,
-                                                                  2000,
-                                                                  bootstrapUrl);
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
         DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);

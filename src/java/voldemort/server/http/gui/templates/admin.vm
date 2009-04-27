@@ -46,7 +46,7 @@
 	        <th>Store Name</th>
 	        <th>Type</th>
 	      </tr>
-	    #foreach($store in $stores.values())
+	    #foreach($store in $repository.allStorageEngines)
 	   	  <tr>
 	   	    <td>$store.getName()</td>
 	   	    <td>$store.getClass().getName()</td>

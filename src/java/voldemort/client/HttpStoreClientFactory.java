@@ -17,7 +17,7 @@
 package voldemort.client;
 
 import java.net.URI;
-import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HostConfiguration;
@@ -29,9 +29,9 @@ import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 
+import voldemort.client.protocol.RequestFormatFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.utils.ByteArray;
@@ -47,94 +47,49 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
     public static final String URL_SCHEME = "http";
 
-    private static final int DEFAULT_CONNECTION_TIMEOUT = 5000;
-    private static final int DEFAULT_SO_TIMEOUT = 5000;
-    private static final int DEFAULT_CONNECTION_MANAGER_TIMEOUT = 5000;
-    private static final int DEFAULT_MAX_CONNECTIONS = 40;
-    private static final int DEFAULT_MAX_HOST_CONNECTIONS = 40;
-    private static final int DEFAULT_NUM_RETRIES = 0;
     private static final String VOLDEMORT_USER_AGENT = "vldmrt/0.01";
 
     private final HttpClient httpClient;
     private final MultiThreadedHttpConnectionManager connectionManager;
+    private final RequestFormatFactory requestFormatFactory;
+    private final boolean reroute;
 
-    public HttpStoreClientFactory(int numThreads, String... bootstrapUrls) {
-        this(numThreads,
-             DEFAULT_CONNECTION_MANAGER_TIMEOUT,
-             DEFAULT_SO_TIMEOUT,
-             DEFAULT_NUM_RETRIES,
-             DEFAULT_CONNECTION_TIMEOUT,
-             DEFAULT_ROUTING_TIMEOUT_MS,
-             AbstractStoreClientFactory.DEFAULT_NODE_BANNAGE_MS,
-             DEFAULT_MAX_CONNECTIONS,
-             DEFAULT_MAX_HOST_CONNECTIONS,
-             bootstrapUrls);
-    }
-
-    public HttpStoreClientFactory(int numThreads,
-                                  int connectionManagerTimeoutMs,
-                                  int socketSoTimeoutMs,
-                                  int numRetries,
-                                  int connectionTimeoutMs,
-                                  int routingTimeoutMs,
-                                  int nodeBannageMs,
-                                  int maxConnections,
-                                  int maxSingleHostConnections,
-                                  String... bootstrapUrls) {
-        this(numThreads,
-             connectionManagerTimeoutMs,
-             socketSoTimeoutMs,
-             numRetries,
-             connectionTimeoutMs,
-             routingTimeoutMs,
-             nodeBannageMs,
-             maxConnections,
-             maxSingleHostConnections,
-             new DefaultSerializerFactory(),
-             bootstrapUrls);
-    }
-
-    public HttpStoreClientFactory(int numThreads,
-                                  int connectionManagerTimeoutMs,
-                                  int socketSoTimeoutMs,
-                                  int numRetries,
-                                  int connectionTimeoutMs,
-                                  int routingTimeoutMs,
-                                  int nodeBannageMs,
-                                  int maxConnections,
-                                  int maxSingleHostConnections,
-                                  SerializerFactory serializerFactory,
-                                  String... bootstrapUrls) {
-        // TODO: Customize this threadpool??
-        super(Executors.newFixedThreadPool(numThreads),
-              serializerFactory,
-              routingTimeoutMs,
-              nodeBannageMs,
-              bootstrapUrls);
+    public HttpStoreClientFactory(ClientConfig config) {
+        super(config);
         HostConfiguration hostConfig = new HostConfiguration();
         hostConfig.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
         this.connectionManager = new MultiThreadedHttpConnectionManager();
         this.httpClient = new HttpClient(connectionManager);
         this.httpClient.setHostConfiguration(hostConfig);
         HttpClientParams clientParams = this.httpClient.getParams();
-        clientParams.setConnectionManagerTimeout(connectionManagerTimeoutMs);
-        clientParams.setSoTimeout(socketSoTimeoutMs);
+        clientParams.setConnectionManagerTimeout(config.getConnectionTimeout(TimeUnit.MILLISECONDS));
+        clientParams.setSoTimeout(config.getSocketTimeout(TimeUnit.MILLISECONDS));
         clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
-                                  new DefaultHttpMethodRetryHandler(numRetries, false));
+                                  new DefaultHttpMethodRetryHandler(0, false));
         clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
         clientParams.setParameter("http.useragent", VOLDEMORT_USER_AGENT);
         HttpConnectionManagerParams managerParams = this.httpClient.getHttpConnectionManager()
                                                                    .getParams();
-        managerParams.setConnectionTimeout(connectionTimeoutMs);
-        managerParams.setMaxTotalConnections(maxConnections);
+        managerParams.setConnectionTimeout(config.getConnectionTimeout(TimeUnit.MILLISECONDS));
+        managerParams.setMaxTotalConnections(config.getMaxTotalConnections());
         managerParams.setStaleCheckingEnabled(false);
         managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(),
-                                               maxSingleHostConnections);
+                                               config.getMaxConnectionsPerNode());
+        this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
+        this.requestFormatFactory = new RequestFormatFactory();
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getStore(String name, String host, int port) {
-        return new HttpStore(name, host, port, httpClient);
+    protected Store<ByteArray, byte[]> getStore(String name,
+                                                String host,
+                                                int port,
+                                                RequestFormatType type) {
+        return new HttpStore(name,
+                             host,
+                             port,
+                             httpClient,
+                             requestFormatFactory.getRequestFormat(type),
+                             reroute);
     }
 
     @Override

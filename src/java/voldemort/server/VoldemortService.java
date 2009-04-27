@@ -25,9 +25,9 @@ package voldemort.server;
 public interface VoldemortService {
 
     /**
-     * @return The name of this service
+     * @return The type of this service
      */
-    public String getName();
+    public ServiceType getType();
 
     /**
      * Start the service.

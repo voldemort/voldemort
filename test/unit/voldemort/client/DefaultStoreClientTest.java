@@ -68,14 +68,14 @@ public class DefaultStoreClientTest extends TestCase {
     }
 
     public void testPutVersioned() {
-        client.put("k", Versioned.of("v"));
+        client.put("k", Versioned.value("v"));
         Versioned<String> v = client.get("k");
         assertEquals("GET should return the version set by PUT.", "v", v.getValue());
         VectorClock expected = new VectorClock();
         expected.incrementVersion(nodeId, time.getMilliseconds());
         assertEquals("The version should be incremented after a put.", expected, v.getVersion());
         try {
-            client.put("k", Versioned.of("v"));
+            client.put("k", Versioned.value("v"));
             fail("Put of obsolete version should throw exception.");
         } catch(ObsoleteVersionException e) {
             // this is good

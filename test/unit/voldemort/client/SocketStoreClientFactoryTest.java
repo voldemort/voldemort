@@ -17,9 +17,9 @@
 package voldemort.client;
 
 import java.net.URISyntaxException;
-import java.util.concurrent.Executors;
 
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.socket.SocketServer;
 
@@ -41,7 +41,8 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
         server = ServerTestUtils.getSocketServer(getClusterXml(),
                                                  getStoreDefXml(),
                                                  getValidStoreName(),
-                                                 getLocalNode().getSocketPort());
+                                                 getLocalNode().getSocketPort(),
+                                                 RequestFormatType.VOLDEMORT);
     }
 
     @Override
@@ -52,26 +53,14 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
 
     @Override
     protected StoreClientFactory getFactory(String... bootstrapUrls) {
-        return new SocketStoreClientFactory(Executors.newCachedThreadPool(),
-                                            5,
-                                            10,
-                                            1000,
-                                            1000,
-                                            10000,
-                                            bootstrapUrls);
+        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls));
     }
 
     @Override
     protected StoreClientFactory getFactoryWithSerializer(SerializerFactory factory,
                                                           String... bootstrapUrls) {
-        return new SocketStoreClientFactory(Executors.newCachedThreadPool(),
-                                            5,
-                                            10,
-                                            1000,
-                                            1000,
-                                            1000,
-                                            factory,
-                                            bootstrapUrls);
+        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+                                                              .setSerializerFactory(factory));
     }
 
     @Override

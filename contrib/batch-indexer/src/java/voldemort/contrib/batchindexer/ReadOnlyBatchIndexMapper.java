@@ -37,11 +37,11 @@ import voldemort.utils.ByteUtils;
 public abstract class ReadOnlyBatchIndexMapper<K, V> implements
         Mapper<K, V, BytesWritable, BytesWritable> {
 
-    private Cluster _cluster = null;
-    private StoreDefinition _storeDef = null;
-    private ConsistentRoutingStrategy _routingStrategy = null;
-    private Serializer<Object> _keySerializer;
-    private Serializer<Object> _valueSerializer;
+    private Cluster cluster = null;
+    private StoreDefinition storeDef = null;
+    private ConsistentRoutingStrategy routingStrategy = null;
+    private Serializer<Object> keySerializer;
+    private Serializer<Object> valueSerializer;
 
     public abstract Object getKeyBytes(K key, V value);
 
@@ -51,10 +51,10 @@ public abstract class ReadOnlyBatchIndexMapper<K, V> implements
                     V value,
                     OutputCollector<BytesWritable, BytesWritable> output,
                     Reporter reporter) throws IOException {
-        byte[] keyBytes = _keySerializer.toBytes(getKeyBytes(key, value));
-        byte[] valBytes = _valueSerializer.toBytes(getValueBytes(key, value));
+        byte[] keyBytes = keySerializer.toBytes(getKeyBytes(key, value));
+        byte[] valBytes = valueSerializer.toBytes(getValueBytes(key, value));
 
-        List<Node> nodes = _routingStrategy.routeRequest(keyBytes);
+        List<Node> nodes = routingStrategy.routeRequest(keyBytes);
         for(Node node: nodes) {
             ByteArrayOutputStream versionedValue = new ByteArrayOutputStream();
             DataOutputStream valueDin = new DataOutputStream(versionedValue);
@@ -82,17 +82,17 @@ public abstract class ReadOnlyBatchIndexMapper<K, V> implements
             }
 
             // get Cluster and Store details
-            _cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
-            _storeDef = ContribUtils.getVoldemortStoreDetails(storeFilePath,
-                                                              conf.get("voldemort.store.name"));
+            cluster = ContribUtils.getVoldemortClusterDetails(clusterFilePath);
+            storeDef = ContribUtils.getVoldemortStoreDetails(storeFilePath,
+                                                             conf.get("voldemort.store.name"));
 
-            _keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getKeySerializer());
-            _valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(_storeDef.getValueSerializer());
+            keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(storeDef.getKeySerializer());
+            valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(storeDef.getValueSerializer());
 
-            _routingStrategy = new ConsistentRoutingStrategy(_cluster.getNodes(),
-                                                             _storeDef.getReplicationFactor());
+            routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
+                                                            storeDef.getReplicationFactor());
 
-            if(_routingStrategy == null) {
+            if(routingStrategy == null) {
                 throw new RuntimeException("Failed to create routing strategy");
             }
         } catch(Exception e) {

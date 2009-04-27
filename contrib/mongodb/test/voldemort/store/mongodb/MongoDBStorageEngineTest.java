@@ -44,7 +44,7 @@ import com.google.common.collect.ImmutableMap;
  */
 public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[]> {
 
-    MongoDBDocSerializer _mds = new MongoDBDocSerializer();
+    MongoDBDocSerializer mds = new MongoDBDocSerializer();
 
     @Override
     protected boolean valuesEqual(byte[] t1, byte[] t2) {
@@ -63,7 +63,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     public List<byte[]> getValues(int numValues) {
         List<byte[]> list = new ArrayList<byte[]>();
         for(int i = 0; i < numValues; i++) {
-            list.add(_mds.toBytes(new Doc("x", i)));
+            list.add(mds.toBytes(new Doc("x", i)));
         }
         return list;
 
@@ -110,7 +110,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet()) {
             store.put(new ByteArray(entry.getKey().getBytes()),
-                      new Versioned<byte[]>(_mds.toBytes(new Doc(entry.getKey(), entry.getValue()))));
+                      new Versioned<byte[]>(mds.toBytes(new Doc(entry.getKey(), entry.getValue()))));
         }
 
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iter = store.entries();
@@ -121,7 +121,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
             String key = new String(entry.getFirst().get());
             assertTrue(vals.containsKey(key));
 
-            assertEquals(vals.get(key), _mds.toObject(entry.getSecond().getValue()).getString(key));
+            assertEquals(vals.get(key), mds.toObject(entry.getSecond().getValue()).getString(key));
             count++;
         }
 
@@ -132,11 +132,11 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     public void testPruneOnWrite() {
         StorageEngine<ByteArray, byte[]> engine = getStore();
         Doc d = new Doc("x", 1);
-        Versioned<byte[]> v1 = new Versioned<byte[]>(_mds.toBytes(d.add("x", 1)),
+        Versioned<byte[]> v1 = new Versioned<byte[]>(mds.toBytes(d.add("x", 1)),
                                                      TestUtils.getClock(1));
-        Versioned<byte[]> v2 = new Versioned<byte[]>(_mds.toBytes(d.add("x", 2)),
+        Versioned<byte[]> v2 = new Versioned<byte[]>(mds.toBytes(d.add("x", 2)),
                                                      TestUtils.getClock(2));
-        Versioned<byte[]> v3 = new Versioned<byte[]>(_mds.toBytes(d.add("x", 3)),
+        Versioned<byte[]> v3 = new Versioned<byte[]>(mds.toBytes(d.add("x", 3)),
                                                      TestUtils.getClock(1, 2));
 
         ByteArray key = new ByteArray("foo".getBytes());

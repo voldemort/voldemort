@@ -117,6 +117,26 @@ public class Props implements Map<String, String> {
         return props.put(key, value.toString());
     }
 
+    public Props with(String key, String value) {
+        put(key, value);
+        return this;
+    }
+
+    public Props with(String key, Integer value) {
+        put(key, value);
+        return this;
+    }
+
+    public Props with(String key, Double value) {
+        put(key, value);
+        return this;
+    }
+
+    public Props with(String key, Long value) {
+        put(key, value);
+        return this;
+    }
+
     public void putAll(Map<? extends String, ? extends String> m) {
         props.putAll(m);
     }

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import com.google.common.base.Nullable;
@@ -406,6 +407,46 @@ public class Utils {
             throw (RuntimeException) cause;
         else
             throw new IllegalArgumentException(e.getCause());
+    }
+
+    /**
+     * Return a copy of the list sorted according to the given comparator
+     * 
+     * @param <T> The type of the elements in the list
+     * @param l The list to sort
+     * @param comparator The comparator to use for sorting
+     * @return A sorted copy of the list
+     */
+    public static <T> List<T> sorted(List<T> l, Comparator<T> comparator) {
+        List<T> copy = new ArrayList<T>(l);
+        Collections.sort(copy, comparator);
+        return copy;
+    }
+
+    /**
+     * Return a copy of the list sorted according to the natural order
+     * 
+     * @param <T> The type of the elements in the list
+     * @param l The list to sort
+     * @return A sorted copy of the list
+     */
+    public static <T extends Comparable<T>> List<T> sorted(List<T> l) {
+        List<T> copy = new ArrayList<T>(l);
+        Collections.sort(copy);
+        return copy;
+    }
+
+    /**
+     * A reversed copy of the given list
+     * 
+     * @param <T> The type of the items in the list
+     * @param l The list to reverse
+     * @return The list, reversed
+     */
+    public static <T> List<T> reversed(List<T> l) {
+        List<T> copy = new ArrayList<T>(l);
+        Collections.reverse(copy);
+        return copy;
     }
 
 }

@@ -24,10 +24,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.TestUtils;
+import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
-import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.versioning.Versioned;
 
 public class RemoteTest {
@@ -46,15 +46,8 @@ public class RemoteTest {
         if(args.length > 4)
             ops = args[4];
 
-        StoreClientFactory factory = new SocketStoreClientFactory(Executors.newFixedThreadPool(20),
-                                                                  6,
-                                                                  200,
-                                                                  20000,
-                                                                  20000,
-                                                                  20000,
-                                                                  64000,
-                                                                  new DefaultSerializerFactory(),
-                                                                  url);
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
+                                                                                    .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient("test");
 
         final String value = new String(TestUtils.randomBytes(valueSize));

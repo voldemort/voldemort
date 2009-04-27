@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.HttpStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
@@ -59,7 +60,8 @@ public class QueryServlet extends HttpServlet {
     public QueryServlet(VelocityEngine engine, URI bootstrap) {
         this.engine = engine;
         this.uri = bootstrap;
-        this.clientFactory = new HttpStoreClientFactory(1, bootstrap.toString());
+        this.clientFactory = new HttpStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrap.toString())
+                                                                          .setMaxThreads(1));
         this.serializerFactory = new DefaultSerializerFactory();
     }
 

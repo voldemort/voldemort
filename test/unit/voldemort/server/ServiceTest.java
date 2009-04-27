@@ -46,11 +46,11 @@ public class ServiceTest extends TestCase {
         private RuntimeException stopException = null;
 
         public FakeService() {
-            super("do-nothing");
+            super(ServiceType.SCHEDULER);
         }
 
         public FakeService(RuntimeException startException, RuntimeException stopException) {
-            super("do-nothing");
+            super(ServiceType.SCHEDULER);
             this.startException = startException;
             this.stopException = stopException;
         }

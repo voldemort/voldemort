@@ -342,4 +342,8 @@ public class VectorClock implements Version, Serializable {
         return this.timestamp;
     }
 
+    public List<ClockEntry> getEntries() {
+        return this.versions;
+    }
+
 }

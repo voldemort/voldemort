@@ -58,3 +58,17 @@ Background Resources
 - Brewer's conjecture: http://citeseer.ist.psu.edu/544596.html
 
 Current build is from r19 
+
+
+Supporting other clients
+- Each store is available via all protcols, they are seperated by port
+- Wire format vs. protocol (HTTP vs. Tcp/IP), protocol buffers
+- How to abstract wire format?
+- A given serialization type may or may not be supported by the client language
+
+Socket servers share threadpool? 
+
+A WireProtocol takes bytes and creates a voldemort request, and takes objects to create a voldemort response.
+Likewise the client does the opposite
+
+Connector.handleRequest()

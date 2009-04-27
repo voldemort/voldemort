@@ -63,7 +63,7 @@ public class AdminServlet extends HttpServlet {
             throws ServletException, IOException {
         Map<String, Object> params = Maps.newHashMap();
         params.put("cluster", server.getCluster());
-        params.put("stores", server.getStoreMap());
+        params.put("repository", server.getStoreRepository());
         params.put("services", server.getServices());
         velocityEngine.render("admin.vm", params, response.getOutputStream());
     }

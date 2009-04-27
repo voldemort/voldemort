@@ -28,6 +28,7 @@ import org.apache.log4j.Logger;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
@@ -46,10 +47,12 @@ public class SocketStoreTest extends AbstractByteArrayStoreTest {
     protected void setUp() throws Exception {
         super.setUp();
         socketPort = ServerTestUtils.findFreePort();
+        /* TODO: parameterize to test all wire formats */
         socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
                                                        VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                        "test",
-                                                       socketPort);
+                                                       socketPort,
+                                                       RequestFormatType.VOLDEMORT);
         socketStore = ServerTestUtils.getSocketStore("test", socketPort);
     }
 

@@ -16,65 +16,54 @@
 
 package voldemort.server.socket;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
-import voldemort.store.Store;
+import voldemort.server.StoreRepository;
+import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
+import voldemort.store.ErrorCodeMapper;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
-import voldemort.utils.ByteArray;
 
 /**
+ * Tests for the socket pooling
+ * 
  * @author jay
  * 
  */
 public class SocketPoolTest extends TestCase {
 
-    private int port1;
-    private int port2;
+    private int port;
     private int maxConnectionsPerNode = 3;
     private int maxTotalConnections = 2 * maxConnectionsPerNode + 1;
     private SocketPool pool;
     private SocketDestination dest1;
-    private SocketDestination dest2;
-    private SocketServer server1;
-    private SocketServer server2;
+    private SocketServer server;
 
     @Override
     public void setUp() {
-        int[] ports = ServerTestUtils.findFreePorts(2);
-        this.port1 = ports[0];
-        this.port2 = ports[1];
-        this.pool = new SocketPool(maxConnectionsPerNode, maxTotalConnections, 1000, 32 * 1024);
-        this.dest1 = new SocketDestination("localhost", port1);
-        this.dest2 = new SocketDestination("localhost", port2);
-        this.server1 = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
-                                        port1,
-                                        maxTotalConnections,
-                                        maxTotalConnections + 3,
-                                        10000);
-        this.server2 = new SocketServer(new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(),
-                                        port2,
-                                        maxTotalConnections,
-                                        maxTotalConnections + 3,
-                                        10000);
-        this.server1.start();
-        this.server1.awaitStartupCompletion();
-        this.server2.start();
-        this.server2.awaitStartupCompletion();
+        this.port = ServerTestUtils.findFreePort();
+        this.pool = new SocketPool(maxConnectionsPerNode,
+                                   maxTotalConnections,
+                                   1000,
+                                   1000,
+                                   32 * 1024);
+        this.dest1 = new SocketDestination("localhost", port);
+        VoldemortNativeRequestHandler requestHandler = new VoldemortNativeRequestHandler(new ErrorCodeMapper(),
+                                                                                         new StoreRepository());
+        this.server = new SocketServer(port,
+                                       maxTotalConnections,
+                                       maxTotalConnections + 3,
+                                       10000,
+                                       requestHandler);
+        this.server.start();
+        this.server.awaitStartupCompletion();
     }
 
     @Override
     public void tearDown() {
         this.pool.close();
-        this.server1.shutdown();
-        this.server2.shutdown();
+        this.server.shutdown();
     }
 
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {
@@ -100,26 +89,4 @@ public class SocketPoolTest extends TestCase {
         assertTrue(sas1 != sas2);
     }
 
-    public void testNoChurn() throws Exception {
-        ExecutorService service = Executors.newFixedThreadPool(10);
-        int numRequests = 100;
-        final AtomicInteger curr = new AtomicInteger(0);
-        final CountDownLatch latch = new CountDownLatch(numRequests);
-        for(int i = 0; i < numRequests; i++) {
-            service.execute(new Runnable() {
-
-                public void run() {
-                    SocketDestination dest = curr.getAndIncrement() % 2 == 0 ? dest1 : dest2;
-                    SocketAndStreams sas = pool.checkout(dest);
-                    pool.checkin(dest, sas);
-                    latch.countDown();
-                }
-            });
-        }
-        latch.await();
-        assertTrue("Created more sockets than expected (created = "
-                           + pool.getNumberSocketsCreated() + ", expected = " + maxTotalConnections
-                           + ".",
-                   maxTotalConnections >= pool.getNumberSocketsCreated());
-    }
 }

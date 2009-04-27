@@ -18,6 +18,11 @@ package voldemort.store.bdb;
 
 import java.io.File;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.io.FileDeleteStrategy;
 
@@ -25,6 +30,8 @@ import voldemort.TestUtils;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -36,6 +43,7 @@ import com.sleepycat.je.EnvironmentConfig;
 public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 
     private Environment environment;
+    private EnvironmentConfig envConfig;
     private Database database;
     private File tempDir;
     private BdbStorageEngine store;
@@ -44,13 +52,12 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
-        environmentConfig.setAllowCreate(true);
-        environmentConfig.setTransactional(true);
+        this.envConfig = new EnvironmentConfig();
+        this.envConfig.setTxnNoSync(true);
+        this.envConfig.setAllowCreate(true);
+        this.envConfig.setTransactional(true);
         this.tempDir = TestUtils.createTempDir();
-        this.environment = new Environment(this.tempDir, environmentConfig);
+        this.environment = new Environment(this.tempDir, envConfig);
         this.databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setTransactional(true);
@@ -63,7 +70,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     protected void tearDown() throws Exception {
         super.tearDown();
         try {
-            database.close();
+            store.close();
             environment.close();
         } finally {
             FileDeleteStrategy.FORCE.delete(tempDir);
@@ -89,12 +96,13 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     public void testPersistence() throws Exception {
-        StorageEngine<ByteArray, byte[]> eng = getStorageEngine();
-        eng.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
-        eng.close();
+        this.store.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
+        this.store.close();
+        this.environment.close();
+        this.environment = new Environment(this.tempDir, envConfig);
         this.database = environment.openDatabase(null, "test", databaseConfig);
-        eng = new BdbStorageEngine("test", this.environment, this.database);
-        List<Versioned<byte[]>> vals = eng.get(new ByteArray("abc".getBytes()));
+        this.store = new BdbStorageEngine("test", this.environment, this.database);
+        List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()));
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
     }
@@ -126,4 +134,42 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         fail("No exception thrown for null database.");
     }
 
+    public void testSimultaneousIterationAndModification() throws Exception {
+        // start a thread to do modifications
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        final Random rand = new Random();
+        final AtomicInteger count = new AtomicInteger(0);
+        executor.execute(new Runnable() {
+
+            public void run() {
+                while(!Thread.interrupted()) {
+                    byte[] bytes = Integer.toString(count.getAndIncrement()).getBytes();
+                    store.put(new ByteArray(bytes), Versioned.value(bytes));
+                    count.incrementAndGet();
+                }
+            }
+        });
+        executor.execute(new Runnable() {
+
+            public void run() {
+                while(!Thread.interrupted()) {
+                    byte[] bytes = Integer.toString(rand.nextInt(count.get())).getBytes();
+                    store.delete(new ByteArray(bytes), new VectorClock());
+                    count.incrementAndGet();
+                }
+            }
+        });
+
+        // wait a bit
+        while(count.get() < 300)
+            continue;
+
+        // now simultaneously do iteration
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iter = this.store.entries();
+        while(iter.hasNext())
+            iter.next();
+        iter.close();
+        executor.shutdownNow();
+        assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS));
+    }
 }

@@ -36,10 +36,6 @@ public final class Versioned<T> implements Serializable {
     private VectorClock version;
     private volatile T object;
 
-    public final static <T> Versioned<T> of(T object) {
-        return new Versioned<T>(object);
-    }
-
     public Versioned(T object) {
         this(object, new VectorClock());
     }
@@ -89,6 +85,14 @@ public final class Versioned<T> implements Serializable {
      */
     public Versioned<T> cloneVersioned() {
         return new Versioned<T>(this.getValue(), this.version.clone());
+    }
+
+    public static <S> Versioned<S> value(S s) {
+        return new Versioned<S>(s, new VectorClock());
+    }
+
+    public static <S> Versioned<S> value(S s, Version v) {
+        return new Versioned<S>(s, v);
     }
 
     public static final class HappenedBeforeComparator<S> implements Comparator<Versioned<S>> {

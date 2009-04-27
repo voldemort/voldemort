@@ -1,0 +1,84 @@
+package voldemort;
+
+option java_package = "voldemort.protocol.pb";
+option java_outer_classname = "VProto";
+option optimize_for = SPEED;
+
+message ClockEntry {
+  required int32 node_id = 1;
+  required int64 version = 2;
+}
+
+message VectorClock {
+  repeated ClockEntry entries = 1;
+  optional int64 timestamp = 2;
+}
+
+message Versioned {
+  required bytes value = 1;
+  required VectorClock version = 2;
+}
+
+message Error {
+  required int32 error_code = 1;
+  required string error_message = 2;
+}
+
+message KeyedVersions {
+  required bytes key = 1;
+  repeated Versioned versions = 2;
+}
+
+message GetRequest {
+  optional bytes key = 1;
+}
+
+message GetResponse {
+  repeated Versioned versioned = 1;
+  optional Error error = 2;
+}
+
+message GetAllRequest {
+  repeated bytes keys = 1;
+}
+
+message GetAllResponse {
+  repeated KeyedVersions values = 1;
+  optional Error error = 2;
+}
+
+message PutRequest {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message PutResponse {
+  optional Error error = 1;
+}
+
+message DeleteRequest {
+  required bytes key = 1;
+  required VectorClock version = 2;
+}
+
+message DeleteResponse {
+  required bool success = 1;
+  optional Error error = 2;
+}
+
+enum RequestType {
+  GET = 0;
+  GET_ALL = 1;
+  PUT = 2;
+  DELETE = 3;
+}
+
+message VoldemortRequest {
+  required RequestType type = 1;
+  required bool should_route = 2 [default = false];
+  required string store = 3;
+  optional GetRequest get = 4;
+  optional GetAllRequest getAll = 5;
+  optional PutRequest put = 6;
+  optional DeleteRequest delete = 7;
+}

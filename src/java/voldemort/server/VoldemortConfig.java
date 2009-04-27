@@ -22,9 +22,11 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
 
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
@@ -82,23 +84,39 @@ public class VoldemortConfig implements Serializable {
     private int socketTimeoutMs;
     private int socketBufferSize;
 
-    private int routingTimeoutMs;
+    private int clientRoutingTimeoutMs;
+    private int clientMaxConnectionsPerNode;
+    private int clientMaxTotalConnections;
+    private int clientConnectionTimeoutMs;
+    private int clientNodeBannageMs;
+    private int clientMaxThreads;
+    private int clientThreadIdleMs;
+    private int clientMaxQueuedRequests;
 
     private int schedulerThreads;
 
-    private boolean enableSlopDetection;
+    private int numCleanupPermits;
+
+    private RequestFormatType requestFormatType;
+
+    private boolean enableSlop;
     private boolean enableGui;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
     private boolean enableJmx;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
+    private boolean enableServerRouting;
 
     private List<String> storageConfigurations;
 
     private Props allProps;
 
     private final long pusherPollMs;
+
+    public VoldemortConfig(int nodeId, String voldemortHome) {
+        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -149,27 +167,42 @@ public class VoldemortConfig implements Serializable {
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
 
-        this.routingTimeoutMs = props.getInt("routing.timeout.ms", 5000);
+        this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
+        this.clientMaxTotalConnections = props.getInt("client.max.total.connections", 100);
+        this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
+        this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
+        this.clientNodeBannageMs = props.getInt("client.node.bannage.ms", 10000);
+        this.clientMaxThreads = props.getInt("client.max.threads", 100);
+        this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 5000);
+        this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
 
         this.enableHttpServer = props.getBoolean("http.enable", true);
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
-        this.enableSlopDetection = props.getBoolean("slop.detection.enable", false);
+        this.enableSlop = props.getBoolean("slop.enable", true);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
+        this.enableServerRouting = props.getBoolean("enable.server.routing", true);
 
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 3);
 
+        this.numCleanupPermits = props.getInt("num.cleanup.permits", 1);
+
         this.storageConfigurations = props.getList("storage.configs",
                                                    ImmutableList.of(BdbStorageConfiguration.class.getName(),
+                                                                    MysqlStorageConfiguration.class.getName(),
                                                                     InMemoryStorageConfiguration.class.getName(),
                                                                     CacheStorageConfiguration.class.getName(),
                                                                     RandomAccessFileStorageConfiguration.class.getName()));
 
         // save props for access from plugins
         this.allProps = props;
+
+        String requestFormatName = props.getString("request.format",
+                                                   RequestFormatType.VOLDEMORT.getName());
+        this.requestFormatType = RequestFormatType.fromName(requestFormatName);
 
         validateParams();
     }
@@ -185,11 +218,13 @@ public class VoldemortConfig implements Serializable {
             throw new ConfigurationException("pusher.poll.ms cannot be less than 1.");
         if(socketTimeoutMs < 0)
             throw new ConfigurationException("socket.timeout.ms must be 0 or more ms.");
-        if(routingTimeoutMs < 0)
+        if(clientRoutingTimeoutMs < 0)
             throw new ConfigurationException("routing.timeout.ms must be 0 or more ms.");
         if(schedulerThreads < 1)
             throw new ConfigurationException("Must have at least 1 scheduler thread, "
                                              + this.schedulerThreads + " set.");
+        if(enableServerRouting && !enableSocketServer)
+            throw new ConfigurationException("Server-side routing is enabled, this requires the socket server to also be enabled.");
     }
 
     private int getIntEnvVariable(String name) {
@@ -461,19 +496,75 @@ public class VoldemortConfig implements Serializable {
     }
 
     public int getRoutingTimeoutMs() {
-        return this.routingTimeoutMs;
+        return this.clientRoutingTimeoutMs;
     }
 
-    public void setRoutingTimeoutMs(int routingTimeoutMs) {
-        this.routingTimeoutMs = routingTimeoutMs;
+    public void setClientRoutingTimeoutMs(int routingTimeoutMs) {
+        this.clientRoutingTimeoutMs = routingTimeoutMs;
     }
 
-    public boolean isSlopDetectionEnabled() {
-        return this.enableSlopDetection;
+    public int getClientMaxConnectionsPerNode() {
+        return clientMaxConnectionsPerNode;
     }
 
-    public void setEnableSlopDetection(boolean enableSlopDetection) {
-        this.enableSlopDetection = enableSlopDetection;
+    public void setClientMaxConnectionsPerNode(int maxConnectionsPerNode) {
+        this.clientMaxConnectionsPerNode = maxConnectionsPerNode;
+    }
+
+    public int getClientMaxTotalConnections() {
+        return clientMaxTotalConnections;
+    }
+
+    public void setClientMaxTotalConnections(int maxTotalConnections) {
+        this.clientMaxTotalConnections = maxTotalConnections;
+    }
+
+    public int getClientConnectionTimeoutMs() {
+        return clientConnectionTimeoutMs;
+    }
+
+    public void setClientConnectionTimeoutMs(int connectionTimeoutMs) {
+        this.clientConnectionTimeoutMs = connectionTimeoutMs;
+    }
+
+    public int getClientNodeBannageMs() {
+        return clientNodeBannageMs;
+    }
+
+    public void setClientNodeBannageMs(int nodeBannageMs) {
+        this.clientNodeBannageMs = nodeBannageMs;
+    }
+
+    public int getClientMaxThreads() {
+        return clientMaxThreads;
+    }
+
+    public void setClientMaxThreads(int clientMaxThreads) {
+        this.clientMaxThreads = clientMaxThreads;
+    }
+
+    public int getClientThreadIdleMs() {
+        return clientThreadIdleMs;
+    }
+
+    public void setClientThreadIdleMs(int clientThreadIdleMs) {
+        this.clientThreadIdleMs = clientThreadIdleMs;
+    }
+
+    public int getClientMaxQueuedRequests() {
+        return clientMaxQueuedRequests;
+    }
+
+    public void setClientMaxQueuedRequests(int clientMaxQueuedRequests) {
+        this.clientMaxQueuedRequests = clientMaxQueuedRequests;
+    }
+
+    public boolean isSlopEnabled() {
+        return this.enableSlop;
+    }
+
+    public void setEnableSlop(boolean enableSlop) {
+        this.enableSlop = enableSlop;
     }
 
     public boolean isVerboseLoggingEnabled() {
@@ -586,6 +677,30 @@ public class VoldemortConfig implements Serializable {
 
     public Props getAllProps() {
         return this.allProps;
+    }
+
+    public void setRequestFormatType(RequestFormatType type) {
+        this.requestFormatType = type;
+    }
+
+    public RequestFormatType getRequestFormatType() {
+        return this.requestFormatType;
+    }
+
+    public boolean isServerRoutingEnabled() {
+        return this.enableServerRouting;
+    }
+
+    public void setEnableServerRouting(boolean enableServerRouting) {
+        this.enableServerRouting = enableServerRouting;
+    }
+
+    public int getNumCleanupPermits() {
+        return numCleanupPermits;
+    }
+
+    public void setNumCleanupPermits(int numCleanupPermits) {
+        this.numCleanupPermits = numCleanupPermits;
     }
 
 }

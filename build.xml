@@ -94,6 +94,19 @@
       <fileset dir="${testclasses.dir}" />
     </jar>
   </target>
+  
+  <target name="protobuff" description="Generate source files from .proto files">
+    <path id="proto-files">
+      <fileset dir="${protobuff.dir}" />
+    </path>
+    <property name="proto.path" location="${protobuff.dir}"/> 
+    <property name="javaout.path" location="${java.dir}"/>
+    <exec executable="protoc" failonerror="true">
+      <arg value="--proto_path=${proto.path}"/>
+      <arg value="--java_out=${javaout.path}"/>
+      <arg pathref="proto-files"/>
+    </exec>
+  </target>
 
   <target name="jar" depends="build" description="Build server jar file">
     <jar destfile="${dist.dir}/${name}-${curr.release}.jar">
@@ -114,6 +127,16 @@
         <include name="**/*.java" />
       </fileset>
     </jar>
+  </target>
+  
+  <target name="war" depends="build" description="Build server war file">
+    <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
+      <classes dir="${classes.dir}"/>
+      <lib dir="${lib.dir}">
+        <exclude name="${lib.dir}/servlet-api.jar"/>
+        <exclude name="${lib.dir}/src/**"/>
+      </lib>
+    </war>
   </target>
 
   <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
@@ -204,16 +227,6 @@
   </target>
 
   <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
-  </target>
-
-  <target name="war" depends="build" description="Build server war file">
-    <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
-      <classes dir="${classes.dir}" />
-      <lib dir="${lib.dir}">
-        <exclude name="${lib.dir}/servlet-api.jar" />
-        <exclude name="${lib.dir}/src/**" />
-      </lib>
-    </war>
   </target>
 
   <macrodef name="make-javadocs">

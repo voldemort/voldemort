@@ -16,6 +16,7 @@
 
 package voldemort.performance;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.HttpStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.server.VoldemortConfig;
@@ -35,18 +36,9 @@ public class RemoteHttpStoreLoadTest extends AbstractLoadTestHarness {
         serverA.start();
         serverB.start();
 
-        HttpStoreClientFactory factory = new HttpStoreClientFactory(5,
-                                                                    2000,
-                                                                    2000,
-                                                                    0,
-                                                                    2000,
-                                                                    2000,
-                                                                    10000,
-                                                                    10,
-                                                                    5,
-                                                                    serverA.getIdentityNode()
-                                                                           .getHttpUrl()
-                                                                           .toString());
+        HttpStoreClientFactory factory = new HttpStoreClientFactory(new ClientConfig().setBootstrapUrls(serverA.getIdentityNode()
+                                                                                                              .getHttpUrl()
+                                                                                                              .toString()));
         return factory.getStoreClient("users");
     }
 

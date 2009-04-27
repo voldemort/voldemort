@@ -16,9 +16,6 @@
 
 package voldemort.performance;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
@@ -30,7 +27,11 @@ import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 
 import voldemort.TestUtils;
+import voldemort.client.protocol.RequestFormatFactory;
+import voldemort.client.protocol.RequestFormatType;
+import voldemort.server.StoreRepository;
 import voldemort.server.http.HttpService;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
@@ -87,11 +88,21 @@ public class RemoteStoreComparisonTest {
 
         /*** Do Socket tests ***/
         String storeName = "test";
-        ConcurrentMap<String, Store<ByteArray, byte[]>> stores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>(1);
-        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
-        SocketPool socketPool = new SocketPool(10, 10, 1000, 32 * 1024);
-        final SocketStore socketStore = new SocketStore(storeName, "localhost", 6666, socketPool);
-        SocketServer socketServer = new SocketServer(stores, 6666, 50, 50, 1000);
+        StoreRepository repository = new StoreRepository();
+        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
+        SocketPool socketPool = new SocketPool(10, 10, 1000, 1000, 32 * 1024);
+        final SocketStore socketStore = new SocketStore(storeName,
+                                                        "localhost",
+                                                        6666,
+                                                        socketPool,
+                                                        RequestFormatType.VOLDEMORT,
+                                                        false);
+        RequestHandlerFactory factory = new RequestHandlerFactory(repository);
+        SocketServer socketServer = new SocketServer(6666,
+                                                     50,
+                                                     50,
+                                                     1000,
+                                                     factory.getRequestHandler(RequestFormatType.VOLDEMORT));
         socketServer.start();
         socketServer.awaitStartupCompletion();
 
@@ -133,8 +144,12 @@ public class RemoteStoreComparisonTest {
         socketServer.shutdown();
 
         /*** Do HTTP tests ***/
-        stores.put(storeName, new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
-        HttpService httpService = new HttpService(storeName, null, numThreads, 8080);
+        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
+        HttpService httpService = new HttpService(null,
+                                                  repository,
+                                                  RequestFormatType.VOLDEMORT,
+                                                  numThreads,
+                                                  8080);
         httpService.start();
         HttpClient httpClient = new HttpClient(new MultiThreadedHttpConnectionManager());
         HttpClientParams clientParams = httpClient.getParams();
@@ -151,7 +166,12 @@ public class RemoteStoreComparisonTest {
         managerParams.setMaxTotalConnections(numThreads);
         managerParams.setStaleCheckingEnabled(false);
         managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(), numThreads);
-        final HttpStore httpStore = new HttpStore("test", "localhost", 8080, httpClient);
+        final HttpStore httpStore = new HttpStore("test",
+                                                  "localhost",
+                                                  8080,
+                                                  httpClient,
+                                                  new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT),
+                                                  false);
         Thread.sleep(400);
 
         PerformanceTest httpWriteTest = new PerformanceTest() {

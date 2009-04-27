@@ -18,13 +18,10 @@ package voldemort.store.metadata;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.commons.io.FileUtils;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -51,22 +48,32 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
     public static final Set<String> KNOWN_KEYS = ImmutableSet.of("cluster.xml", "stores.xml");
+    private static final ClusterMapper clusterMapper = new ClusterMapper();
+    private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
-    private final File directory;
-    private final ClusterMapper clusterMapper;
-    private final StoreDefinitionsMapper storeMapper;
+    private final Cluster cluster;
+    private final List<StoreDefinition> storeDefs;
 
-    public MetadataStore(File directory) {
-        this.directory = directory;
-        this.storeMapper = new StoreDefinitionsMapper();
-        this.clusterMapper = new ClusterMapper();
-        if(this.directory.listFiles() == null)
-            throw new IllegalArgumentException("No configuration found in "
-                                               + this.directory.getAbsolutePath() + ".");
-        if(!this.directory.exists() && this.directory.canRead())
-            throw new IllegalArgumentException("Metadata directory "
-                                               + this.directory.getAbsolutePath()
+    public MetadataStore(Cluster cluster, List<StoreDefinition> defs) {
+        this.cluster = cluster;
+        this.storeDefs = defs;
+    }
+
+    public static MetadataStore readFromDirectory(File dir) {
+        if(!Utils.isReadableDir(dir))
+            throw new IllegalArgumentException("Metadata directory " + dir.getAbsolutePath()
                                                + " does not exist or can not be read.");
+        if(dir.listFiles() == null)
+            throw new IllegalArgumentException("No configuration found in " + dir.getAbsolutePath()
+                                               + ".");
+
+        try {
+            Cluster cluster = clusterMapper.readCluster(new File(dir, CLUSTER_KEY));
+            List<StoreDefinition> defs = storeMapper.readStoreList(new File(dir, STORES_KEY));
+            return new MetadataStore(cluster, defs);
+        } catch(IOException e) {
+            throw new VoldemortException("Error reading configuration.", e);
+        }
     }
 
     public String getName() {
@@ -94,18 +101,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        String keyStr = new String(key.get());
-        if(!KNOWN_KEYS.contains(keyStr))
-            throw new IllegalArgumentException("Unknown metadata key: " + keyStr);
-        File file = new File(this.directory, keyStr);
-        if(!Utils.isReadableFile(file.getAbsolutePath()))
-            throw new VoldemortException("Attempt to read metadata failed: "
-                                         + file.getAbsolutePath() + " is not a readable file!");
-        try {
-            return Collections.singletonList(new Versioned<byte[]>(FileUtils.readFileToByteArray(file)));
-        } catch(IOException e) {
-            throw new VoldemortException("Error reading metadata value '" + keyStr + "': ", e);
-        }
+        String keyStr = ByteUtils.getString(key.get(), "UTF-8");
+        if(CLUSTER_KEY.equals(keyStr))
+            return Collections.singletonList(new Versioned<byte[]>(ByteUtils.getBytes(clusterMapper.writeCluster(cluster),
+                                                                                      "UTF-8")));
+        else if(STORES_KEY.equals(keyStr))
+            return Collections.singletonList(new Versioned<byte[]>(ByteUtils.getBytes(storeMapper.writeStoreList(storeDefs),
+                                                                                      "UTF-8")));
+        else
+            throw new VoldemortException("Unknown metadata key " + keyStr);
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
@@ -115,23 +119,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public Cluster getCluster() {
-        return clusterMapper.readCluster(createStringReader(CLUSTER_KEY));
-    }
-
-    private StringReader createStringReader(String keyName) {
-        return new StringReader(getSingleValue(get(new ByteArray(ByteUtils.getBytes(keyName,
-                                                                                    "UTF-8")))));
+        return cluster;
     }
 
     public List<StoreDefinition> getStores() {
-        return storeMapper.readStoreList(createStringReader(STORES_KEY));
-    }
-
-    private String getSingleValue(List<Versioned<byte[]>> found) {
-        if(found.size() != 1)
-            throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "
-                                         + found.size());
-        return ByteUtils.getString(found.get(0).getValue(), "UTF-8");
+        return storeDefs;
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {

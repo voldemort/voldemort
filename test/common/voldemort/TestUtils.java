@@ -32,6 +32,7 @@ import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import junit.framework.AssertionFailedError;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -39,11 +40,14 @@ import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 /**
  * Helper utilities for tests
@@ -145,6 +149,22 @@ public class TestUtils {
         byte[] bytes = new byte[length];
         SEEDED_RANDOM.nextBytes(bytes);
         return bytes;
+    }
+
+    public static <K, V> void assertContains(Store<K, V> store, K key, V... values) {
+        List<Versioned<V>> found = store.get(key);
+        if(found.size() != values.length)
+            throw new AssertionFailedError("Expected to find " + values.length
+                                           + " values in store, but found only " + found.size()
+                                           + ".");
+        for(V v: values) {
+            boolean isFound = false;
+            for(Versioned<V> f: found)
+                if(Utils.deepEquals(f.getValue(), v))
+                    isFound = true;
+            if(!isFound)
+                throw new AssertionFailedError("Could not find value " + v + " in results.");
+        }
     }
 
     /**

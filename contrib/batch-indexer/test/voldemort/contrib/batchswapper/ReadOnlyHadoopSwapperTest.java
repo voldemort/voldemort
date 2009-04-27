@@ -103,8 +103,8 @@ public class ReadOnlyHadoopSwapperTest extends TestCase {
 
     public void testswap() throws Throwable {
         // assert that read-only store is working
-        Store<ByteArray, byte[]> store1 = server1.getStoreMap().get(storeName);
-        Store<ByteArray, byte[]> store2 = server2.getStoreMap().get(storeName);
+        Store<ByteArray, byte[]> store1 = server1.getStoreRepository().getStorageEngine(storeName);
+        Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         Serializer<Object> serializer = StoreUtils.unsafeGetSerializer(new DefaultSerializerFactory(),

@@ -1,12 +1,13 @@
-package voldemort.client;
+package voldemort.utils;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A thread factory that sets the threads to run as daemons.
+ * A thread factory that sets the threads to run as daemons. (Otherwise things
+ * that embed the threadpool can't shut themselves down).
  * 
- * @author jkreps
+ * @author jay
  * 
  */
 public class DaemonThreadFactory implements ThreadFactory {

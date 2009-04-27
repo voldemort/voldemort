@@ -121,7 +121,7 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
         return stats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET calls to complete.")
+    @JmxGetter(name = "averageGetCompletionTimeInMs", description = "The avg. time in ms for GET_ALL calls to complete.")
     public double getAverageGetAllCompletionTimeInMs() {
         return stats.getAvgTimeInMs(Tracked.GET_ALL);
     }

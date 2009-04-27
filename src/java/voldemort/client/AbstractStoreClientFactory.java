@@ -17,14 +17,20 @@
 package voldemort.client;
 
 import java.io.StringReader;
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -38,8 +44,10 @@ import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
@@ -68,23 +76,27 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
     private final URI[] bootstrapUrls;
-    private final long routingTimeoutMs;
-    private final long nodeBannageMs;
+    private final int routingTimeoutMs;
+    private final int nodeBannageMs;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
-    private final boolean enableVerboseLogging;
+    private final boolean isJmxEnabled;
+    private final MBeanServer mbeanServer;
 
-    public AbstractStoreClientFactory(ExecutorService threadPool,
-                                      SerializerFactory serializerFactory,
-                                      int routingTimeoutMs,
-                                      int nodeBannageMs,
-                                      String... bootstrapUrls) {
-        this.threadPool = threadPool;
-        this.serializerFactory = serializerFactory;
-        this.bootstrapUrls = validateUrls(bootstrapUrls);
-        this.routingTimeoutMs = routingTimeoutMs;
-        this.nodeBannageMs = nodeBannageMs;
-        this.enableVerboseLogging = true;
+    public AbstractStoreClientFactory(ClientConfig config) {
+        this.threadPool = new ClientThreadPool(config.getMaxThreads(),
+                                               config.getThreadIdleTime(TimeUnit.MILLISECONDS),
+                                               config.getMaxQueuedRequests());
+        this.serializerFactory = config.getSerializerFactory();
+        this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
+        this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
+        this.nodeBannageMs = config.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
+        this.isJmxEnabled = config.isJmxEnabled();
+        if(isJmxEnabled)
+            this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
+        else
+            this.mbeanServer = null;
+        registerJmx(JmxUtils.createObjectName(threadPool.getClass()), threadPool);
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -121,20 +133,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
-                                                      getPort(node));
-            if(enableVerboseLogging)
-                store = new LoggingStore<ByteArray, byte[]>(store);
+                                                      getPort(node),
+                                                      RequestFormatType.VOLDEMORT);
+            store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
         }
 
         Store<ByteArray, byte[]> store = new RoutedStore(storeName,
                                                          clientMapping,
                                                          routingStrategy,
-                                                         storeDef.getPreferredReads() == null ? storeDef.getRequiredReads()
-                                                                                             : storeDef.getPreferredReads(),
+                                                         storeDef.getPreferredReads(),
                                                          storeDef.getRequiredReads(),
-                                                         storeDef.getPreferredWrites() == null ? storeDef.getRequiredWrites()
-                                                                                              : storeDef.getPreferredWrites(),
+                                                         storeDef.getPreferredWrites(),
                                                          storeDef.getRequiredWrites(),
                                                          true,
                                                          threadPool,
@@ -142,20 +152,26 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          nodeBannageMs,
                                                          SystemTime.INSTANCE);
 
+        if(isJmxEnabled) {
+            store = new StatTrackingStore(store);
+            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                  store.getName()), store);
+        }
+
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Store<K, V> serializingStore = new SerializingStore<K, V>(store,
-                                                                  keySerializer,
-                                                                  valueSerializer);
+        Store<K, V> serializedStore = new SerializingStore<K, V>(store,
+                                                                 keySerializer,
+                                                                 valueSerializer);
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
         InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
                                                                                 : resolver;
-        Store<K, V> resolvingStore = new InconsistencyResolvingStore<K, V>(serializingStore,
-                                                                           new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                             secondaryResolver));
-        return resolvingStore;
+        serializedStore = new InconsistencyResolvingStore<K, V>(serializedStore,
+                                                                new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
+                                                                                                  secondaryResolver));
+        return serializedStore;
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {
@@ -163,7 +179,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             try {
                 Store<ByteArray, byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
                                                                 url.getHost(),
-                                                                url.getPort());
+                                                                url.getPort(),
+                                                                RequestFormatType.VOLDEMORT);
                 Store<String, String> store = new SerializingStore<String, String>(remoteStore,
                                                                                    new StringSerializer("UTF-8"),
                                                                                    new StringSerializer("UTF-8"));
@@ -206,7 +223,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return uris;
     }
 
-    protected abstract Store<ByteArray, byte[]> getStore(String storeName, String host, int port);
+    protected abstract Store<ByteArray, byte[]> getStore(String storeName,
+                                                         String host,
+                                                         int port,
+                                                         RequestFormatType type);
 
     protected abstract int getPort(Node node);
 
@@ -228,8 +248,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializerFactory;
     }
 
-    public boolean isEnableVerboseLogging() {
-        return enableVerboseLogging;
+    protected void registerJmx(ObjectName name, Object object) {
+        if(this.isJmxEnabled) {
+            if(mbeanServer.isRegistered(name))
+                JmxUtils.unregisterMbean(mbeanServer, name);
+            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
+        }
     }
 
 }

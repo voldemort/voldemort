@@ -20,6 +20,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.http.HttpStore;
 
@@ -40,9 +41,12 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
         context = ServerTestUtils.getJettyServer(getClusterXml(),
                                                  getStoreDefXml(),
                                                  getValidStoreName(),
+                                                 RequestFormatType.VOLDEMORT,
                                                  getLocalNode().getHttpPort());
         server = context.getServer();
-        httpStore = ServerTestUtils.getHttpStore(getValidStoreName(), getLocalNode().getHttpPort());
+        httpStore = ServerTestUtils.getHttpStore(getValidStoreName(),
+                                                 RequestFormatType.VOLDEMORT,
+                                                 getLocalNode().getHttpPort());
         url = getLocalNode().getHttpUrl().toString();
     }
 
@@ -55,23 +59,14 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
     @Override
     protected StoreClientFactory getFactory(String... bootstrapUrls) {
-        return new HttpStoreClientFactory(4, bootstrapUrls);
+        return new HttpStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls));
     }
 
     @Override
     protected StoreClientFactory getFactoryWithSerializer(SerializerFactory factory,
                                                           String... bootstrapUrls) {
-        return new HttpStoreClientFactory(3,
-                                          1000,
-                                          1000,
-                                          0,
-                                          1000,
-                                          1000,
-                                          10000,
-                                          10,
-                                          10,
-                                          factory,
-                                          bootstrapUrls);
+        return new HttpStoreClientFactory(new ClientConfig().setSerializerFactory(factory)
+                                                            .setBootstrapUrls(bootstrapUrls));
     }
 
     @Override

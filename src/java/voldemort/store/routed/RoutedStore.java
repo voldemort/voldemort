@@ -143,9 +143,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(preferredWrites < requiredWrites)
             throw new IllegalArgumentException("preferredWrites must be greater or equal to requiredWrites.");
         if(preferredReads > innerStores.size())
-            throw new IllegalArgumentException("preferredReads is larger than the total number of stores!");
+            throw new IllegalArgumentException("preferredReads is larger than the total number of nodes!");
         if(preferredWrites > innerStores.size())
-            throw new IllegalArgumentException("preferredWrites is larger than the total number of stores!");
+            throw new IllegalArgumentException("preferredWrites is larger than the total number of nodes!");
 
         this.name = name;
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(innerStores);

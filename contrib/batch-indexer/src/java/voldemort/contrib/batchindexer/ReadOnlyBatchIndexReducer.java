@@ -20,14 +20,14 @@ import voldemort.utils.ByteUtils;
 
 public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWritable, Text, Text> {
 
-    private DataOutputStream _indexFileStream = null;
-    private DataOutputStream _valueFileStream = null;
+    private DataOutputStream indexFileStream = null;
+    private DataOutputStream valueFileStream = null;
 
-    private long _position = 0;
+    private long position = 0;
 
-    private JobConf _conf = null;
-    private String _taskId = null;
-    private int _nodeId = -1;
+    private JobConf conf = null;
+    private String taskId = null;
+    private int nodeId = -1;
 
     Path taskIndexFileName;
     Path taskValueFileName;
@@ -46,21 +46,21 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
             BytesWritable value = values.next();
             byte[] valBytes = ByteUtils.copy(value.get(), 0, value.getSize());
 
-            if(_nodeId == -1) {
+            if(nodeId == -1) {
                 DataInputStream buffer = new DataInputStream(new ByteArrayInputStream(valBytes));
-                _nodeId = buffer.readInt();
+                nodeId = buffer.readInt();
             }
             // strip first 4 bytes as node_id
             byte[] value1 = ByteUtils.copy(valBytes, 4, valBytes.length);
 
             // Write Index Key/ position
-            _indexFileStream.write(keyBytes);
-            _indexFileStream.writeLong(_position);
-            _valueFileStream.writeInt(value1.length);
-            _valueFileStream.write(value1);
-            _position += value1.length + 4;
+            indexFileStream.write(keyBytes);
+            indexFileStream.writeLong(position);
+            valueFileStream.writeInt(value1.length);
+            valueFileStream.write(value1);
+            position += value1.length + 4;
 
-            if(_position < 0) {
+            if(position < 0) {
                 throw new RuntimeException("Position bigger than Integer size, split input files.");
             }
         }
@@ -69,20 +69,20 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
 
     public void configure(JobConf job) {
         try {
-            _position = 0;
-            _conf = job;
+            position = 0;
+            conf = job;
 
-            _taskId = job.get("mapred.task.id");
+            taskId = job.get("mapred.task.id");
 
-            taskIndexFileName = new Path(FileOutputFormat.getOutputPath(_conf),
-                                         _conf.get("voldemort.index.filename") + "_" + _taskId);
-            taskValueFileName = new Path(FileOutputFormat.getOutputPath(_conf),
-                                         _conf.get("voldemort.data.filename") + "_" + _taskId);
+            taskIndexFileName = new Path(FileOutputFormat.getOutputPath(conf),
+                                         conf.get("voldemort.index.filename") + "_" + taskId);
+            taskValueFileName = new Path(FileOutputFormat.getOutputPath(conf),
+                                         conf.get("voldemort.data.filename") + "_" + taskId);
 
             FileSystem fs = taskIndexFileName.getFileSystem(job);
 
-            _indexFileStream = fs.create(taskIndexFileName, (short) 1);
-            _valueFileStream = fs.create(taskValueFileName, (short) 1);
+            indexFileStream = fs.create(taskIndexFileName, (short) 1);
+            valueFileStream = fs.create(taskValueFileName, (short) 1);
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
@@ -90,13 +90,13 @@ public class ReadOnlyBatchIndexReducer implements Reducer<BytesWritable, BytesWr
 
     public void close() throws IOException {
 
-        _indexFileStream.close();
-        _valueFileStream.close();
+        indexFileStream.close();
+        valueFileStream.close();
 
-        Path hdfsIndexFile = new Path(FileOutputFormat.getOutputPath(_conf), _nodeId + ".index");
-        Path hdfsValueFile = new Path(FileOutputFormat.getOutputPath(_conf), _nodeId + ".data");
+        Path hdfsIndexFile = new Path(FileOutputFormat.getOutputPath(conf), nodeId + ".index");
+        Path hdfsValueFile = new Path(FileOutputFormat.getOutputPath(conf), nodeId + ".data");
 
-        FileSystem fs = hdfsIndexFile.getFileSystem(_conf);
+        FileSystem fs = hdfsIndexFile.getFileSystem(conf);
         fs.rename(taskIndexFileName, hdfsIndexFile);
         fs.rename(taskValueFileName, hdfsValueFile);
     }

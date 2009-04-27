@@ -18,6 +18,7 @@ package voldemort.server.http.gui;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
@@ -28,13 +29,17 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.storage.StorageService;
+import voldemort.store.StorageEngine;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.RandomAccessFileStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class ReadOnlyStoreManagementServlet extends HttpServlet {
@@ -42,7 +47,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private static final long serialVersionUID = 1;
     private static final Logger logger = Logger.getLogger(ReadOnlyStoreManagementServlet.class);
 
-    private Map<String, RandomAccessFileStore> stores;
+    private List<RandomAccessFileStore> stores;
     private VelocityEngine velocityEngine;
     private FileFetcher fileFetcher;
 
@@ -70,10 +75,15 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
-    private Map<String, RandomAccessFileStore> getReadOnlyStores(VoldemortServer server) {
+    private List<RandomAccessFileStore> getReadOnlyStores(VoldemortServer server) {
         StorageService storage = (StorageService) Utils.notNull(server)
-                                                       .getService("storage-service");
-        return storage.getReadOnlyStores();
+                                                       .getService(ServiceType.STORAGE);
+        List<RandomAccessFileStore> l = Lists.newArrayList();
+        for(StorageEngine<ByteArray, byte[]> engine: storage.getStoreRepository()
+                                                            .getStorageEnginesByClass(RandomAccessFileStore.class)) {
+            l.add((RandomAccessFileStore) engine);
+        }
+        return l;
     }
 
     @Override
@@ -92,7 +102,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                 String indexFile = getRequired(req, "index");
                 String dataFile = getRequired(req, "data");
                 String storeName = getRequired(req, "store");
-                if(!stores.containsKey(storeName))
+                RandomAccessFileStore store = this.getStore(storeName);
+                if(store == null)
                     throw new ServletException("'" + storeName
                                                + "' is not a registered read-only store.");
                 if(!Utils.isReadableFile(indexFile))
@@ -102,7 +113,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                     throw new ServletException("Data file '" + dataFile
                                                + "' is not a readable file.");
 
-                RandomAccessFileStore store = stores.get(storeName);
                 store.swapFiles(indexFile, dataFile);
                 resp.getWriter().write("Swap completed.");
             } else if("fetch".equals(getRequired(req, "operation"))) {
@@ -139,5 +149,12 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         if(val == null)
             throw new ServletException("Missing required parameter '" + name + "'.");
         return val;
+    }
+
+    private RandomAccessFileStore getStore(String storeName) throws ServletException {
+        for(RandomAccessFileStore store: this.stores)
+            if(store.getName().equals(storeName))
+                return store;
+        throw new ServletException("'" + storeName + "' is not a registered read-only store.");
     }
 }

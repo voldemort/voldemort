@@ -22,6 +22,9 @@ import org.mortbay.jetty.servlet.Context;
 
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.protocol.RequestFormat;
+import voldemort.client.protocol.RequestFormatFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.AbstractByteArrayStoreTest;
@@ -33,6 +36,8 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
 /**
+ * Tests of HTTP store against the HTTP server
+ * 
  * @author jay
  * 
  */
@@ -50,14 +55,23 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         context = ServerTestUtils.getJettyServer(new ClusterMapper().writeCluster(cluster),
                                                  VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                  "users",
+                                                 RequestFormatType.VOLDEMORT,
                                                  node.getHttpPort());
         server = context.getServer();
-        httpStore = ServerTestUtils.getHttpStore("users", node.getHttpPort());
+        httpStore = ServerTestUtils.getHttpStore("users",
+                                                 RequestFormatType.VOLDEMORT,
+                                                 node.getHttpPort());
     }
 
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
         ByteArray key = new ByteArray("test".getBytes());
-        HttpStore badUrlHttpStore = new HttpStore("test", url, port, new HttpClient());
+        RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT);
+        HttpStore badUrlHttpStore = new HttpStore("test",
+                                                  url,
+                                                  port,
+                                                  new HttpClient(),
+                                                  requestFormat,
+                                                  false);
         try {
             badUrlHttpStore.put(key, new Versioned<byte[]>("value".getBytes(), new VectorClock()));
         } catch(Exception e) {

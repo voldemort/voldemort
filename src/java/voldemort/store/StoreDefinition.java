@@ -127,12 +127,20 @@ public class StoreDefinition implements Serializable {
         return this.requiredReads;
     }
 
-    public Integer getPreferredWrites() {
-        return preferredWrites;
+    public boolean hasPreferredWrites() {
+        return preferredWrites != null;
     }
 
-    public Integer getPreferredReads() {
-        return preferredReads;
+    public int getPreferredWrites() {
+        return preferredWrites == null ? getRequiredWrites() : preferredWrites;
+    }
+
+    public int getPreferredReads() {
+        return preferredReads == null ? getRequiredReads() : preferredReads;
+    }
+
+    public boolean hasPreferredReads() {
+        return preferredReads != null;
     }
 
     public String getType() {

@@ -16,6 +16,8 @@
 
 package voldemort.xml;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -71,6 +73,17 @@ public class ClusterMapper {
             this.schema = factory.newSchema(source);
         } catch(SAXException e) {
             throw new MappingException(e);
+        }
+    }
+
+    public Cluster readCluster(File f) throws IOException {
+        FileReader reader = null;
+        try {
+            reader = new FileReader(f);
+            return readCluster(reader);
+        } finally {
+            if(reader != null)
+                reader.close();
         }
     }
 

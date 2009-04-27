@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
 import voldemort.utils.Time;
 
 /**
@@ -59,8 +60,8 @@ public class SchedulerService extends AbstractService {
     private final ScheduledThreadPoolExecutor scheduler;
     private final Time time;
 
-    public SchedulerService(String name, int schedulerThreads, Time time) {
-        super(name);
+    public SchedulerService(int schedulerThreads, Time time) {
+        super(ServiceType.SCHEDULER);
         this.time = time;
         this.scheduler = new ScheduledThreadPoolExecutor(schedulerThreads, schedulerThreadFactory);
     }

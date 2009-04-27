@@ -16,6 +16,7 @@
 
 package voldemort.server.http;
 
+import org.apache.log4j.Logger;
 import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.nio.SelectChannelConnector;
@@ -26,11 +27,16 @@ import org.mortbay.thread.BoundedThreadPool;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.gui.AdminServlet;
 import voldemort.server.http.gui.ReadOnlyStoreManagementServlet;
 import voldemort.server.http.gui.VelocityEngine;
+import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 
 /**
  * An embedded http server that uses jetty
@@ -41,19 +47,27 @@ import voldemort.server.http.gui.VelocityEngine;
 @JmxManaged(description = "A store connector that serves remote clients via HTTP.")
 public class HttpService extends AbstractService {
 
+    private final Logger logger = Logger.getLogger(HttpService.class);
+
     private final int port;
     private final int numberOfThreads;
     private final VoldemortServer server;
     private final VelocityEngine velocityEngine;
+    private final RequestHandler requestHandler;
     private Server httpServer;
     private Context context;
 
-    public HttpService(String name, VoldemortServer server, int numberOfThreads, int httpPort) {
-        super(name);
+    public HttpService(VoldemortServer server,
+                       StoreRepository storeRepository,
+                       RequestFormatType requestType,
+                       int numberOfThreads,
+                       int httpPort) {
+        super(ServiceType.HTTP);
         this.port = httpPort;
         this.numberOfThreads = numberOfThreads;
         this.server = server;
         this.velocityEngine = new VelocityEngine(VoldemortServletContextListener.VOLDEMORT_TEMPLATE_DIR);
+        this.requestHandler = new RequestHandlerFactory(storeRepository).getRequestHandler(requestType);
     }
 
     @Override
@@ -76,13 +90,14 @@ public class HttpService extends AbstractService {
                                  velocityEngine);
             context.addServlet(new ServletHolder(new AdminServlet(server, velocityEngine)),
                                "/admin");
-            context.addServlet(new ServletHolder(new StoreServlet(server.getStoreMap())), "/*");
+            context.addServlet(new ServletHolder(new StoreServlet(requestHandler)), "/stores");
             context.addServlet(new ServletHolder(new ReadOnlyStoreManagementServlet(server,
                                                                                     velocityEngine)),
                                "/read-only/mgmt");
             this.context = context;
             this.httpServer = httpServer;
             this.httpServer.start();
+            logger.info("HTTP service started on port " + this.port);
         } catch(Exception e) {
             throw new VoldemortException(e);
         }
@@ -91,8 +106,10 @@ public class HttpService extends AbstractService {
     @Override
     public void stopInner() {
         try {
-            httpServer.stop();
-            context.destroy();
+            if(httpServer != null)
+                httpServer.stop();
+            if(context != null)
+                context.destroy();
         } catch(Exception e) {
             throw new VoldemortException(e);
         }
@@ -108,6 +125,10 @@ public class HttpService extends AbstractService {
     @JmxGetter(name = "port", description = "The port on which http connections are accepted.")
     public int getPort() {
         return port;
+    }
+
+    public RequestHandler getRequestHandler() {
+        return requestHandler;
     }
 
 }

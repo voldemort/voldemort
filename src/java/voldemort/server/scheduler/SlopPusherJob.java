@@ -16,13 +16,10 @@
 
 package voldemort.server.scheduler;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.server.StoreRepository;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.Slop;
@@ -44,13 +41,10 @@ public class SlopPusherJob implements Runnable {
 
     private static final Logger logger = Logger.getLogger(SlopPusherJob.class.getName());
 
-    private final StorageEngine<ByteArray, Slop> slopStore;
-    private final ConcurrentMap<Integer, Store<ByteArray, byte[]>> stores;
+    private final StoreRepository storeRepo;
 
-    public SlopPusherJob(StorageEngine<ByteArray, Slop> slop,
-                         Map<Integer, ? extends Store<ByteArray, byte[]>> stores) {
-        this.slopStore = slop;
-        this.stores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(stores);
+    public SlopPusherJob(StoreRepository storeRepo) {
+        this.storeRepo = storeRepo;
     }
 
     /**
@@ -63,23 +57,27 @@ public class SlopPusherJob implements Runnable {
         int attemptedPushes = 0;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
         try {
+            StorageEngine<ByteArray, Slop> slopStore = storeRepo.getSlopStore();
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
-                attemptedPushes++;
-                if(Thread.currentThread().isInterrupted())
+                if(Thread.interrupted())
                     throw new InterruptedException("Task cancelled!");
+                attemptedPushes++;
 
                 try {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
-                    Store<ByteArray, byte[]> store = stores.get(slop.getNodeId());
+                    Store<ByteArray, byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
+                                                                            slop.getNodeId());
                     try {
                         if(slop.getOperation() == Operation.PUT)
                             store.put(keyAndVal.getFirst(),
                                       new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
-                        else
+                        else if(slop.getOperation() == Operation.DELETE)
                             store.delete(keyAndVal.getFirst(), versioned.getVersion());
+                        else
+                            logger.error("Unknown slop operation: " + slop.getOperation());
                         slopStore.delete(slop.makeKey(), versioned.getVersion());
                         slopsPushed++;
                     } catch(ObsoleteVersionException e) {
@@ -106,10 +104,6 @@ public class SlopPusherJob implements Runnable {
         logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
-    }
-
-    public void close() {
-        this.slopStore.close();
     }
 
 }

@@ -16,32 +16,30 @@
 
 package voldemort.server.storage;
 
-import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
-import javax.management.MBeanOperationInfo;
-
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxOperation;
+import voldemort.client.ClientThreadPool;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
-import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
@@ -51,11 +49,11 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
-import voldemort.store.readonly.RandomAccessFileStore;
-import voldemort.store.serialized.SerializingStore;
+import voldemort.store.routed.RoutedStore;
+import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.SlopDetectingStore;
+import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
@@ -75,96 +73,151 @@ public class StorageService extends AbstractService {
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
 
     private final VoldemortConfig voldemortConfig;
-    private final ConcurrentMap<String, Store<ByteArray, byte[]>> localStoreMap;
-    private final Map<String, StorageEngine<ByteArray, byte[]>> rawEngines;
-    private final ConcurrentMap<String, StorageConfiguration> storageConfigurations;
+    private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
-    private final Map<String, RandomAccessFileStore> readOnlyStores;
-    private MetadataStore metadataStore;
-    private Store<ByteArray, Slop> slopStore;
+    private final MetadataStore metadataStore;
+    private final Semaphore cleanupPermits;
+    private final SocketPool socketPool;
+    private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
+    private final ClientThreadPool clientThreadPool;
 
-    public StorageService(String name,
-                          ConcurrentMap<String, Store<ByteArray, byte[]>> storeMap,
+    public StorageService(StoreRepository storeRepository,
+                          MetadataStore metadataStore,
                           SchedulerService scheduler,
                           VoldemortConfig config) {
-        super(name);
+        super(ServiceType.STORAGE);
         this.voldemortConfig = config;
-        this.localStoreMap = storeMap;
-        this.rawEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
         this.scheduler = scheduler;
-        this.storageConfigurations = initStorageConfigurations(config);
-        this.metadataStore = new MetadataStore(new File(config.getMetadataDirectory()));
-        this.readOnlyStores = new ConcurrentHashMap<String, RandomAccessFileStore>();
+        this.storeRepository = storeRepository;
+        this.metadataStore = metadataStore;
+        this.cleanupPermits = new Semaphore(1);
+        this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
+        this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
+                                                     config.getClientThreadIdleMs(),
+                                                     config.getClientMaxQueuedRequests());
+        this.socketPool = new SocketPool(config.getClientMaxConnectionsPerNode(),
+                                         config.getClientMaxTotalConnections(),
+                                         config.getClientConnectionTimeoutMs(),
+                                         config.getSocketTimeoutMs(),
+                                         config.getSocketBufferSize());
     }
 
-    private ConcurrentMap<String, StorageConfiguration> initStorageConfigurations(VoldemortConfig config) {
-        ConcurrentMap<String, StorageConfiguration> configs = new ConcurrentHashMap<String, StorageConfiguration>();
-        for(String configClassName: config.getStorageConfigurations()) {
-            try {
-                Class<?> configClass = Utils.loadClass(configClassName);
-                StorageConfiguration configuration = (StorageConfiguration) Utils.callConstructor(configClass,
-                                                                                                  new Class<?>[] { VoldemortConfig.class },
-                                                                                                  new Object[] { config });
-                logger.info("Initializing " + configuration.getType() + " storage engine.");
-                configs.put(configuration.getType(), configuration);
-            } catch(IllegalStateException e) {
-                logger.error("Error loading storage configuration '" + configClassName + "'.", e);
-            }
+    private void initStorageConfig(String configClassName) {
+        try {
+            Class<?> configClass = Utils.loadClass(configClassName);
+            StorageConfiguration configuration = (StorageConfiguration) Utils.callConstructor(configClass,
+                                                                                              new Class<?>[] { VoldemortConfig.class },
+                                                                                              new Object[] { voldemortConfig });
+            logger.info("Initializing " + configuration.getType() + " storage engine.");
+            storageConfigs.put(configuration.getType(), configuration);
+        } catch(IllegalStateException e) {
+            logger.error("Error loading storage configuration '" + configClassName + "'.", e);
         }
 
-        if(configs.size() == 0)
+        if(storageConfigs.size() == 0)
             throw new ConfigurationException("No storage engine has been enabled!");
-
-        return configs;
     }
 
     @Override
     protected void startInner() {
-        this.localStoreMap.clear();
-        this.localStoreMap.put(MetadataStore.METADATA_STORE_NAME, metadataStore);
-        Store<ByteArray, byte[]> slopStorage = getStore("slop", voldemortConfig.getSlopStoreType());
-        this.slopStore = new SerializingStore<ByteArray, Slop>(slopStorage,
-                                                               new ByteArraySerializer(),
-                                                               new SlopSerializer());
-        Cluster cluster = this.metadataStore.getCluster();
+        /* Initialize storage configurations */
+        for(String configClassName: voldemortConfig.getStorageConfigurations())
+            initStorageConfig(configClassName);
+
+        /* Register metadata and slop stores */
+        registerEngine(metadataStore);
+        if(voldemortConfig.isSlopEnabled()) {
+            StorageEngine<ByteArray, byte[]> slopEngine = getStorageEngine("slop",
+                                                                           voldemortConfig.getSlopStoreType());
+            registerEngine(slopEngine);
+            storeRepository.setSlopStore(new SerializingStorageEngine<ByteArray, Slop>(slopEngine,
+                                                                                       new ByteArraySerializer(),
+                                                                                       new SlopSerializer()));
+        }
         List<StoreDefinition> storeDefs = this.metadataStore.getStores();
         logger.info("Initializing stores:");
-        Time time = new SystemTime();
         for(StoreDefinition def: storeDefs) {
-            if(!def.getName().equals(MetadataStore.METADATA_STORE_NAME)) {
-                logger.info("Opening store '" + def.getName() + "'.");
-                StorageEngine<ByteArray, byte[]> engine = getStore(def.getName(), def.getType());
-                rawEngines.put(engine.getName(), engine);
-
-                if(def.getType().equals(RandomAccessFileStorageConfiguration.TYPE_NAME))
-                    this.readOnlyStores.put(engine.getName(), (RandomAccessFileStore) engine);
-
-                /* Now add any store wrappers that are enabled */
-                Store<ByteArray, byte[]> store = engine;
-                if(voldemortConfig.isSlopDetectionEnabled()) {
-                    RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
-                                                                                    def.getReplicationFactor());
-                    store = new SlopDetectingStore(store,
-                                                   this.slopStore,
-                                                   def.getReplicationFactor(),
-                                                   cluster.getNodeById(this.voldemortConfig.getNodeId()),
-                                                   routingStrategy);
-                }
-                if(voldemortConfig.isVerboseLoggingEnabled())
-                    store = new LoggingStore<ByteArray, byte[]>(store, cluster.getName(), time);
-                if(voldemortConfig.isStatTrackingEnabled())
-                    store = new StatTrackingStore<ByteArray, byte[]>(store);
-                this.localStoreMap.put(def.getName(), store);
-            }
+            openStore(def);
         }
         logger.info("All stores initialized.");
-
-        scheduleCleanupJobs(storeDefs, rawEngines);
     }
 
-    private void scheduleCleanupJobs(List<StoreDefinition> storeDefs,
-                                     Map<String, StorageEngine<ByteArray, byte[]>> engines) {
-        // Schedule data retention cleanup jobs
+    public void openStore(StoreDefinition storeDef) {
+        logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
+        StorageEngine<ByteArray, byte[]> engine = getStorageEngine(storeDef.getName(),
+                                                                   storeDef.getType());
+        registerEngine(engine);
+
+        if(voldemortConfig.isServerRoutingEnabled())
+            registerNodeStores(storeDef, metadataStore.getCluster(), voldemortConfig.getNodeId());
+
+        if(storeDef.hasRetentionPeriod())
+            scheduleCleanupJob(storeDef, engine);
+    }
+
+    /**
+     * Register the given engine with the storage repository
+     * 
+     * @param engine Register the storage engine
+     */
+    public void registerEngine(StorageEngine<ByteArray, byte[]> engine) {
+        Cluster cluster = this.metadataStore.getCluster();
+        storeRepository.addStorageEngine(engine);
+
+        /* Now add any store wrappers that are enabled */
+        Store<ByteArray, byte[]> store = engine;
+        if(voldemortConfig.isVerboseLoggingEnabled())
+            store = new LoggingStore<ByteArray, byte[]>(store,
+                                                        cluster.getName(),
+                                                        SystemTime.INSTANCE);
+        if(voldemortConfig.isStatTrackingEnabled())
+            store = new StatTrackingStore<ByteArray, byte[]>(store);
+        storeRepository.addLocalStore(store);
+    }
+
+    public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
+        Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
+        for(Node node: cluster.getNodes()) {
+            Store<ByteArray, byte[]> store;
+            if(node.getId() == localNode) {
+                store = this.storeRepository.getLocalStore(def.getName());
+            } else {
+                store = new SocketStore(def.getName(),
+                                        node.getHost(),
+                                        node.getSocketPort(),
+                                        socketPool,
+                                        RequestFormatType.VOLDEMORT,
+                                        false);
+            }
+            this.storeRepository.addNodeStore(node.getId(), store);
+            nodeStores.put(node.getId(), store);
+        }
+
+        RoutedStore routedStore = new RoutedStore(def.getName(),
+                                                  nodeStores,
+                                                  new ConsistentRoutingStrategy(cluster.getNodes(),
+                                                                                def.getReplicationFactor()),
+                                                  def.getPreferredReads(),
+                                                  def.getRequiredReads(),
+                                                  def.getPreferredWrites(),
+                                                  def.getRequiredWrites(),
+                                                  true,
+                                                  this.clientThreadPool,
+                                                  voldemortConfig.getRoutingTimeoutMs(),
+                                                  voldemortConfig.getClientNodeBannageMs(),
+                                                  SystemTime.INSTANCE);
+        this.storeRepository.addRoutedStore(routedStore);
+    }
+
+    /**
+     * Schedule a data retention cleanup job for the given store
+     * 
+     * @param storeDef The store definition
+     * @param engine The storage engine to do cleanup on
+     */
+    private void scheduleCleanupJob(StoreDefinition storeDef,
+                                    StorageEngine<ByteArray, byte[]> engine) {
+        // Schedule data retention cleanup job if applicable
         GregorianCalendar cal = new GregorianCalendar();
         cal.add(Calendar.DAY_OF_YEAR, 1);
         cal.set(Calendar.HOUR, 0);
@@ -174,103 +227,81 @@ public class StorageService extends AbstractService {
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
-        Semaphore cleanupPermits = new Semaphore(1);
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.hasRetentionPeriod()) {
-                logger.info("Scheduling data retention cleanup job for store '"
-                            + storeDef.getName() + "' at " + startTime + ".");
-                StorageEngine<ByteArray, byte[]> engine = engines.get(storeDef.getName());
-                Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
-                                                                            cleanupPermits,
-                                                                            storeDef.getRetentionDays()
-                                                                                    * Time.MS_PER_DAY,
-                                                                            SystemTime.INSTANCE);
-                this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
-            }
-        }
+        logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
+                    + "' at " + startTime + ".");
+        Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
+                                                                    cleanupPermits,
+                                                                    storeDef.getRetentionDays()
+                                                                            * Time.MS_PER_DAY,
+                                                                    SystemTime.INSTANCE);
+        this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
     }
 
-    private StorageEngine<ByteArray, byte[]> getStore(String name, String type) {
-        StorageConfiguration config = storageConfigurations.get(type);
+    private StorageEngine<ByteArray, byte[]> getStorageEngine(String name, String type) {
+        StorageConfiguration config = storageConfigs.get(type);
         if(config == null)
             throw new ConfigurationException("Attempt to open store " + name + " but " + type
-                                             + " storage engine has not been enabled.");
+                                             + " storage engine of type " + type
+                                             + " has not been enabled.");
         return config.getStore(name);
     }
 
     @Override
     protected void stopInner() {
-        try {
-            if(metadataStore != null)
-                metadataStore.close();
-        } catch(VoldemortException e) {
-            logger.error("Error while closing metadata store:", e);
-        }
-        try {
-            if(slopStore != null)
-                slopStore.close();
-        } catch(VoldemortException e) {
-            logger.error("Error while closing metadata store:", e);
-        }
-        VoldemortException exception = null;
-        logger.info("Closing stores:");
-        for(Store<ByteArray, byte[]> s: this.localStoreMap.values()) {
+        /*
+         * We may end up closing a given store more than once, but that is cool
+         * because close() is idempotent
+         */
+
+        Exception lastException = null;
+        logger.info("Closing all stores.");
+        /* This will also close the node stores including local stores */
+        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllRoutedStores()) {
+            logger.info("Closing routed store for " + store.getName());
             try {
-                logger.info("Closing store '" + s.getName() + "'.");
-                s.close();
-            } catch(VoldemortException e) {
-                // in the event of a failure still attempt to close other stores
-                logger.error(e);
-                exception = e;
+                store.close();
+            } catch(Exception e) {
+                lastException = e;
             }
         }
-        this.localStoreMap.clear();
-
-        logger.info("Closing storage configurations:");
-        for(StorageConfiguration config: storageConfigurations.values()) {
-            try {
-                logger.info("Closing storage configuration for " + config.getType());
-                config.close();
-            } catch(VoldemortException e) {
-                logger.error("Error when shutting down storage configuration: ", e);
-            }
-        }
-
-        // propagate the first exception
-        if(exception != null)
-            throw exception;
         logger.info("All stores closed.");
-    }
 
-    public ConcurrentMap<String, Store<ByteArray, byte[]>> getLocalStoreMap() {
-        return localStoreMap;
-    }
+        /* Close slop store if necessary */
+        if(this.storeRepository.hasSlopStore()) {
+            try {
+                this.storeRepository.getSlopStore().close();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
 
-    @JmxGetter(name = "storeNames", description = "Get the names of all open stores.")
-    public Set<String> getStoreNames() {
-        return new HashSet<String>(localStoreMap.keySet());
-    }
+        /* Close all storage configs */
+        logger.info("Closing storage configurations.");
+        for(StorageConfiguration config: storageConfigs.values()) {
+            logger.info("Closing " + config.getType() + " storage config.");
+            try {
+                config.close();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
 
-    @JmxOperation(impact = MBeanOperationInfo.ACTION, description = "Push all keys that do not belong to this store out to the correct store.")
-    public void rebalance() {
-    // this.scheduler.scheduleNow(new
-    // RebalancingJob(voldemortConfig.getNodeId(), this.rawEngines));
-    }
+        this.clientThreadPool.shutdownNow();
+        logger.info("Closed client threadpool.");
 
-    public StorageConfiguration getStorageConfiguration(String type) {
-        return storageConfigurations.get(type);
+        /* If there is an exception, throw it */
+        if(lastException instanceof VoldemortException)
+            throw (VoldemortException) lastException;
+        else if(lastException != null)
+            throw new VoldemortException(lastException);
     }
 
     public MetadataStore getMetadataStore() {
         return this.metadataStore;
     }
 
-    public Map<String, RandomAccessFileStore> getReadOnlyStores() {
-        return this.readOnlyStores;
-    }
-
-    public Store<ByteArray, Slop> getSlopStore() {
-        return this.slopStore;
+    public StoreRepository getStoreRepository() {
+        return this.storeRepository;
     }
 
 }

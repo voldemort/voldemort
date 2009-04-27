@@ -17,9 +17,10 @@
 package voldemort.server.jmx;
 
 import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.management.MBeanServer;
@@ -30,6 +31,8 @@ import org.apache.log4j.Logger;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Cluster;
 import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.server.VoldemortService;
 import voldemort.store.Store;
@@ -52,20 +55,19 @@ public class JmxService extends AbstractService {
     private final Cluster cluster;
     private final List<VoldemortService> services;
     private final Set<ObjectName> registeredBeans;
-    private final Map<String, Store<ByteArray, byte[]>> storeMap;
+    private final StoreRepository storeRepository;
 
-    public JmxService(String name,
-                      VoldemortServer server,
+    public JmxService(VoldemortServer server,
                       Cluster cluster,
-                      Map<String, Store<ByteArray, byte[]>> storeMap,
-                      List<VoldemortService> services) {
-        super(name);
+                      StoreRepository storeRepository,
+                      Collection<VoldemortService> services) {
+        super(ServiceType.JMX);
         this.server = server;
         this.cluster = cluster;
-        this.services = services;
+        this.services = new ArrayList<VoldemortService>(services);
         this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
         this.registeredBeans = new HashSet<ObjectName>();
-        this.storeMap = storeMap;
+        this.storeRepository = storeRepository;
     }
 
     @Override
@@ -73,10 +75,11 @@ public class JmxService extends AbstractService {
         registerBean(server, JmxUtils.createObjectName(VoldemortServer.class));
         registerBean(cluster, JmxUtils.createObjectName(Cluster.class));
         for(VoldemortService service: services) {
-            logger.debug("Registering mbean for service '" + service.getName() + "'.");
+            logger.debug("Registering mbean for service '" + service.getType().getDisplayName()
+                         + "'.");
             registerBean(service, JmxUtils.createObjectName(service.getClass()));
         }
-        for(Store<ByteArray, byte[]> store: storeMap.values()) {
+        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllStorageEngines()) {
             logger.info("Registering mbean for store '" + store.getName() + "'.");
             registerBean(store,
                          JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),

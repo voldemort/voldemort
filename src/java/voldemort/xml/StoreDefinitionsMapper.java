@@ -16,6 +16,8 @@
 
 package voldemort.xml;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -77,6 +79,17 @@ public class StoreDefinitionsMapper {
             this.schema = factory.newSchema(source);
         } catch(SAXException e) {
             throw new MappingException(e);
+        }
+    }
+
+    public List<StoreDefinition> readStoreList(File f) throws IOException {
+        FileReader reader = null;
+        try {
+            reader = new FileReader(f);
+            return readStoreList(reader);
+        } finally {
+            if(reader != null)
+                reader.close();
         }
     }
 
@@ -203,10 +216,10 @@ public class StoreDefinitionsMapper {
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
         store.addContent(new Element(STORE_REPLICATION_FACTOR_ELMT).setText(Integer.toString(storeDefinition.getReplicationFactor())));
-        if(storeDefinition.getPreferredReads() != null)
+        if(storeDefinition.hasPreferredReads())
             store.addContent(new Element(STORE_PREFERRED_READS_ELMT).setText(Integer.toString(storeDefinition.getPreferredReads())));
         store.addContent(new Element(STORE_REQUIRED_READS_ELMT).setText(Integer.toString(storeDefinition.getRequiredReads())));
-        if(storeDefinition.getPreferredWrites() != null)
+        if(storeDefinition.hasPreferredWrites())
             store.addContent(new Element(STORE_PREFERRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getPreferredWrites())));
         store.addContent(new Element(STORE_REQUIRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getRequiredWrites())));
 

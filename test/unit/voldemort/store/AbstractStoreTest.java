@@ -272,6 +272,13 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertEquals(0, result.size());
     }
 
+    public void testCloseIsIdempotent() {
+        Store<K, V> store = getStore();
+        store.close();
+        // second close is okay, should not throw an exception
+        store.close();
+    }
+
     protected void assertGetAllValues(V expectedValue, List<Versioned<V>> versioneds) {
         assertEquals(1, versioneds.size());
         valuesEqual(expectedValue, versioneds.get(0).getValue());
