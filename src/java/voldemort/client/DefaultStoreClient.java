@@ -139,7 +139,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
         Map<K, List<Versioned<V>>> items = null;
         for(int attempts = 0;; attempts++) {
-            if(attempts < this.metadataRefreshAttempts)
+            if(attempts >= this.metadataRefreshAttempts)
                 throw new InvalidMetadataException(this.metadataRefreshAttempts
                                                    + " metadata refresh attempts failed.");
             try {

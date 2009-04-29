@@ -1,5 +1,8 @@
 package voldemort.client;
 
+import java.util.Arrays;
+import java.util.Map;
+
 import junit.framework.TestCase;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.StringSerializer;
@@ -119,4 +122,18 @@ public class DefaultStoreClientTest extends TestCase {
         assertNull("After a successful delete(k), get(k) should return null.", client.get("k"));
     }
 
+    public void testGetAll() {
+        client.put("k", "v");
+        client.put("l", "m");
+        client.put("a", "b");
+
+        Map<String, Versioned<String>> result = client.getAll(Arrays.asList("k", "l"));
+        assertEquals(2, result.size());
+        assertEquals("v", result.get("k").getValue());
+        assertEquals("m", result.get("l").getValue());
+
+        result = client.getAll(Arrays.asList("m", "s"));
+        assertNotNull(client.get("k").getVersion());
+        assertEquals(0, result.size());
+    }
 }
