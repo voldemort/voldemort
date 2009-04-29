@@ -139,8 +139,9 @@ public class ClientConfig {
      * 
      * @param threadIdleTime
      */
-    public void setThreadIdleTime(long threadIdleTime, TimeUnit unit) {
+    public ClientConfig setThreadIdleTime(long threadIdleTime, TimeUnit unit) {
         this.threadIdleMs = unit.toMillis(threadIdleTime);
+        return this;
     }
 
     public int getMaxQueuedRequests() {
@@ -153,8 +154,9 @@ public class ClientConfig {
      * 
      * @param maxQueuedRequests The maximum number of queued requests
      */
-    public void setMaxQueuedRequests(int maxQueuedRequests) {
+    public ClientConfig setMaxQueuedRequests(int maxQueuedRequests) {
         this.maxQueuedRequests = maxQueuedRequests;
+        return this;
     }
 
     public int getSocketBufferSize() {
@@ -271,8 +273,8 @@ public class ClientConfig {
      * 
      * @param enableJmx If true JMX monitoring of the clients will be enabled
      */
-    public void setEnableJmx(boolean enableJmx) {
+    public ClientConfig setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
+        return this;
     }
-
 }
