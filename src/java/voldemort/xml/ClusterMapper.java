@@ -31,6 +31,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
+import org.apache.commons.lang.StringUtils;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -42,8 +43,6 @@ import org.xml.sax.SAXException;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-
-import com.google.common.base.Join;
 
 /**
  * Parse a cluster xml file
@@ -139,9 +138,8 @@ public class ClusterMapper {
         server.addContent(new Element(HOST_ELMT).setText(node.getHost()));
         server.addContent(new Element(HTTP_PORT_ELMT).setText(Integer.toString(node.getHttpPort())));
         server.addContent(new Element(SOCKET_PORT_ELMT).setText(Integer.toString(node.getSocketPort())));
-        server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(Join.join(", ",
-                                                                                node.getPartitionIds())));
+        String serverPartitionsText = StringUtils.join(node.getPartitionIds().toArray(), ", ");
+        server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(serverPartitionsText));
         return server;
     }
-
 }
