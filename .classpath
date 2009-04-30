@@ -22,7 +22,6 @@
 	<classpathentry kind="lib" path="lib/commons-logging.jar"/>
 	<classpathentry kind="lib" path="lib/commons-pool-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/jdom.jar"/>
-	<classpathentry kind="lib" path="lib/je-3.3.62.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-6.1.6rc0.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-util-6.1.6rc0.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.1.jar"/>
@@ -39,5 +38,6 @@
 	<classpathentry kind="lib" path="lib/libthrift-20080411p1.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-snapshot-20090211.jar"/>
 	<classpathentry kind="lib" path="contrib/mongodb/lib/mongo-xjdm.jar"/>
+	<classpathentry kind="lib" path="lib/je-3.3.75.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
