@@ -211,9 +211,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
 
             if(uri.getHost() == null || uri.getHost().length() == 0)
-                throw new IllegalArgumentException("Illegal scheme in bootstrap URL, must specify a host.");
+                throw new IllegalArgumentException("Illegal scheme in bootstrap URL, must specify a host, URL: "
+                                                   + uri);
             else if(uri.getPort() < 0)
-                throw new IllegalArgumentException("Must specify a port in bootstrap URL!");
+                throw new IllegalArgumentException("Must specify a port in bootstrap URL, URL: "
+                                                   + uri);
             else
                 validateUrl(uri);
 
