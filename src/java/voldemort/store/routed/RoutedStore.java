@@ -17,20 +17,25 @@
 package voldemort.store.routed;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -50,6 +55,9 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * A Store which multiplexes requests to different internal Stores
@@ -248,8 +256,175 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        // TODO Add optimised implementation.
-        return StoreUtils.getAll(this, keys);
+
+        Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
+
+        // Keys for each node needed to satisfy preferredReads if no failures.
+        Map<Node, List<ByteArray>> nodeToKeysMap = Maps.newHashMap();
+
+        // Keep track of nodes per key that might be needed if there are
+        // failures during getAll
+        Map<ByteArray, List<Node>> keyToExtraNodesMap = Maps.newHashMap();
+
+        for(ByteArray key: keys) {
+            List<Node> nodesForKey = routingStrategy.routeRequest(key.get());
+
+            // quickly fail if there aren't enough nodes to meet the requirement
+            checkRequiredReads(nodesForKey);
+
+            List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferredReads);
+            List<Node> extraNodes = Lists.newArrayListWithCapacity(nodesForKey.size()
+                                                                   - preferredReads);
+
+            // Give preference to available nodes
+            for(int i = 0; i < preferredReads && i < nodesForKey.size(); i++) {
+                Node node = nodesForKey.get(i);
+                if(isAvailable(node))
+                    preferredNodes.add(node);
+                else
+                    extraNodes.add(node);
+            }
+
+            // If available ones are not enough, fallback to unavailable ones,
+            // they may be back.
+            while(preferredNodes.size() < preferredReads && !extraNodes.isEmpty())
+                preferredNodes.add(extraNodes.remove(0));
+
+            for(Node node: preferredNodes) {
+                List<ByteArray> nodeKeys = nodeToKeysMap.get(node);
+                if(nodeKeys == null) {
+                    nodeKeys = Lists.newArrayList();
+                    nodeToKeysMap.put(node, nodeKeys);
+                }
+                nodeKeys.add(key);
+            }
+            if(!extraNodes.isEmpty()) {
+                List<Node> nodes = keyToExtraNodesMap.get(key);
+                if(nodes == null)
+                    keyToExtraNodesMap.put(key, extraNodes);
+                nodes.addAll(extraNodes);
+            }
+        }
+
+        List<Callable<GetAllResult>> callables = Lists.newArrayList();
+        for(Map.Entry<Node, List<ByteArray>> entry: nodeToKeysMap.entrySet()) {
+            final Node node = entry.getKey();
+            final Collection<ByteArray> nodeKeys = entry.getValue();
+            if(isAvailable(node))
+                callables.add(new GetAllCallable(node, nodeKeys));
+        }
+
+        // A list of thrown exceptions, indicating the number of failures
+        List<Exception> failures = Lists.newArrayList();
+        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
+
+        Map<ByteArray, MutableInt> keyToSuccessCount = Maps.newHashMap();
+        for(ByteArray key: keys)
+            keyToSuccessCount.put(key, new MutableInt(0));
+
+        List<Future<GetAllResult>> futures;
+        try {
+            // TODO What to do about timeouts? They should be longer as getAll
+            // is
+            // likely to
+            // take longer. At the moment, it's just timeoutMs * 3, but should
+            // this
+            // be based
+            // on the number of the keys?
+            futures = executor.invokeAll(callables, timeoutMs * 3, TimeUnit.MILLISECONDS);
+        } catch(InterruptedException e) {
+            throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
+        }
+        for(Future<GetAllResult> f: futures) {
+            if(f.isCancelled()) {
+                logger.warn("Get operation timed out after " + timeoutMs + " ms.");
+                continue;
+            }
+            try {
+                GetAllResult getResult = f.get();
+                if(getResult.exception != null) {
+                    failures.add(getResult.exception);
+                    continue;
+                }
+                for(ByteArray key: keys) {
+                    List<Versioned<byte[]>> retrieved = getResult.retrieved.get(key);
+                    MutableInt successCount = keyToSuccessCount.get(key);
+                    successCount.setValue(successCount.intValue() + 1);
+
+                    /*
+                     * retrieved can be null if there are no values for the key
+                     * provided
+                     */
+                    if(retrieved != null) {
+                        List<Versioned<byte[]>> existing = result.get(key);
+                        if(existing == null)
+                            result.put(key, Lists.newArrayList(retrieved));
+                        else
+                            existing.addAll(retrieved);
+                    }
+                }
+                nodeValues.addAll(getResult.nodeValues);
+
+            } catch(InterruptedException e) {
+                throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
+            } catch(ExecutionException e) {
+                // TODO We catch all Exception and subclasses inside
+                // the Callable as get() does. That means that Error
+                // subclasses or classes
+                // that extends Throwable directly escape. What to do about
+                // those?
+                if(e.getCause() instanceof Error)
+                    throw (Error) e.getCause();
+                else
+                    logger.error(e.getMessage(), e);
+            }
+        }
+
+        for(ByteArray key: keys) {
+            MutableInt successCountWrapper = keyToSuccessCount.get(key);
+            int successCount = successCountWrapper.intValue();
+            if(successCount < preferredReads) {
+                for(Node node: keyToExtraNodesMap.get(key)) {
+                    try {
+                        List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
+                        List<Versioned<byte[]>> versioneds = result.get(key);
+                        if(versioneds == null)
+                            result.put(key, Lists.newArrayList(values));
+                        else
+                            versioneds.addAll(values);
+                        node.getStatus().setAvailable();
+                        if(++successCount >= preferredReads)
+                            break;
+
+                    } catch(UnreachableStoreException e) {
+                        failures.add(e);
+                        markUnavailable(node, e);
+                    } catch(Exception e) {
+                        logger.warn("Error in GET_ALL on node " + node.getId() + "(" + node.getHost()
+                                    + ")", e);
+                        failures.add(e);
+                    }
+                }
+            }
+            successCountWrapper.setValue(successCount);
+        }
+
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: result.entrySet()) {
+            if(repairReads && entry.getValue().size() > 1)
+                repairReads(nodeValues);
+        }
+
+        for(Map.Entry<ByteArray, MutableInt> mapEntry: keyToSuccessCount.entrySet()) {
+            int successCount = mapEntry.getValue().intValue();
+            if(successCount < requiredReads)
+                throw new InsufficientOperationalNodesException(this.requiredReads
+                                                                        + " reads required, but "
+                                                                        + successCount
+                                                                        + " succeeded.",
+                                                                failures);
+        }
+
+        return result;
     }
 
     /*
@@ -264,11 +439,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
 
         // quickly fail if there aren't enough nodes to meet the requirement
-        if(nodes.size() < this.requiredReads)
-            throw new InsufficientOperationalNodesException("Only " + nodes.size()
-                                                            + " nodes in preference list, but "
-                                                            + this.requiredReads
-                                                            + " reads required.");
+        checkRequiredReads(nodes);
 
         final List<Versioned<byte[]>> retrieved = Collections.synchronizedList(new ArrayList<Versioned<byte[]>>());
         final List<NodeValue<ByteArray, byte[]>> nodeValues = Collections.synchronizedList(new ArrayList<NodeValue<ByteArray, byte[]>>());
@@ -349,34 +520,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             logger.trace("GET retrieved the following node values: " + formatNodeValues(nodeValues));
 
         // if we have multiple values, do any necessary repairs
-        if(repairReads && retrieved.size() > 1) {
-            this.executor.execute(new Runnable() {
-
-                public void run() {
-                    for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
-                        try {
-                            if(logger.isDebugEnabled())
-                                logger.debug("Doing read repair on node " + v.getNodeId()
-                                             + " for key '" + v.getKey() + "' with version "
-                                             + v.getVersion() + ".");
-                            innerStores.get(v.getNodeId()).put(v.getKey(), v.getVersioned());
-                        } catch(ObsoleteVersionException e) {
-                            if(logger.isDebugEnabled())
-                                logger.debug("Read repair cancelled due to obsolete version on node "
-                                             + v.getNodeId()
-                                             + " for key '"
-                                             + v.getKey()
-                                             + "' with version "
-                                             + v.getVersion()
-                                             + ": "
-                                             + e.getMessage());
-                        } catch(Exception e) {
-                            logger.debug("Read repair failed: ", e);
-                        }
-                    }
-                }
-            });
-        }
+        if(repairReads && retrieved.size() > 1)
+            repairReads(nodeValues);
 
         if(successes.get() >= this.requiredReads)
             return retrieved;
@@ -386,6 +531,40 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                                     + successes.get()
                                                                     + " succeeded.",
                                                             failures);
+    }
+
+    private void repairReads(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
+        this.executor.execute(new Runnable() {
+
+            public void run() {
+                for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
+                    try {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Doing read repair on node " + v.getNodeId()
+                                         + " for key '" + v.getKey() + "' with version "
+                                         + v.getVersion() + ".");
+                        innerStores.get(v.getNodeId()).put(v.getKey(), v.getVersioned());
+                    } catch(ObsoleteVersionException e) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Read repair cancelled due to obsolete version on node "
+                                         + v.getNodeId() + " for key '" + v.getKey()
+                                         + "' with version " + v.getVersion() + ": "
+                                         + e.getMessage());
+                    } catch(Exception e) {
+                        logger.debug("Read repair failed: ", e);
+                    }
+                }
+            }
+        });
+    }
+
+    private void checkRequiredReads(final List<Node> nodes)
+            throws InsufficientOperationalNodesException {
+        if(nodes.size() < this.requiredReads)
+            throw new InsufficientOperationalNodesException("Only " + nodes.size()
+                                                            + " nodes in preference list, but "
+                                                            + this.requiredReads
+                                                            + " reads required.");
     }
 
     private String formatNodeValues(List<NodeValue<ByteArray, byte[]>> nodeValues) {
@@ -579,6 +758,58 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 return true;
             default:
                 throw new NoSuchCapabilityException(capability, getName());
+        }
+    }
+    
+    private final class GetAllCallable implements Callable<GetAllResult> {
+
+        private final Node node;
+        private final Collection<ByteArray> nodeKeys;
+
+        private GetAllCallable(Node node, Collection<ByteArray> nodeKeys) {
+            this.node = node;
+            this.nodeKeys = nodeKeys;
+        }
+
+        public GetAllResult call() {
+            Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
+            Exception exception = null;
+            List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
+            try {
+                retrieved = innerStores.get(node.getId()).getAll(nodeKeys);
+                if(repairReads) {
+                    for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: retrieved.entrySet()) {
+                        ByteArray key = entry.getKey();
+                        for(Versioned<byte[]> v: entry.getValue())
+                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, v));
+                    }
+                }
+                node.getStatus().setAvailable();
+            } catch(UnreachableStoreException e) {
+                exception = e;
+                markUnavailable(node, e);
+            } catch(Exception e) {
+                logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
+            }
+            return new GetAllResult(node, retrieved, nodeValues, exception);
+        }
+    }
+
+    private class GetAllResult {
+
+        final Node node;
+        final Map<ByteArray, List<Versioned<byte[]>>> retrieved;
+        final Exception exception;
+        final List<NodeValue<ByteArray, byte[]>> nodeValues;
+
+        private GetAllResult(Node node,
+                             Map<ByteArray, List<Versioned<byte[]>>> retrieved,
+                             List<NodeValue<ByteArray, byte[]>> nodeValues,
+                             Exception exception) {
+            this.node = node;
+            this.exception = exception;
+            this.retrieved = retrieved;
+            this.nodeValues = nodeValues;
         }
     }
 
