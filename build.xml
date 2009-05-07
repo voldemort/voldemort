@@ -129,6 +129,21 @@
     </jar>
   </target>
   
+  <target name="alljar" depends="build, contrib-build" description="Build a jar file that includes all contrib code.">
+    <jar destfile="${dist.dir}/${name}-${curr.release}-all.jar">
+      <fileset dir="${classes.dir}">
+        <include name="**/*.*" />
+      </fileset>
+      <fileset dir="${contrib.classes.dir}">
+        <include name="**/*.*" />
+      </fileset>
+      <!-- include xsds -->
+      <fileset dir="${java.dir}">
+        <include name="**/*.xsd" />
+      </fileset>
+    </jar>
+  </target>
+  
   <target name="war" depends="build" description="Build server war file">
     <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
       <classes dir="${classes.dir}"/>

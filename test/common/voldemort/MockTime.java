@@ -17,47 +17,56 @@
 package voldemort;
 
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.utils.Time;
 
 public class MockTime implements Time {
 
-    private long currentTime;
+    private long timeMs;
 
     public MockTime() {
-        this.currentTime = System.currentTimeMillis();
+        this.timeMs = System.currentTimeMillis();
     }
 
     public MockTime(long time) {
-        this.currentTime = time;
+        this.timeMs = time;
     }
 
     public Date getCurrentDate() {
-        return new Date(currentTime);
+        return new Date(timeMs);
     }
 
     public long getMilliseconds() {
-        return this.currentTime;
+        return this.timeMs;
     }
 
     public long getNanoseconds() {
-        return this.currentTime;
+        return this.timeMs * Time.NS_PER_MS;
     }
 
     public int getSeconds() {
-        return (int) (getMilliseconds() / MS_PER_SECOND);
+        return (int) (timeMs / MS_PER_SECOND);
     }
 
-    public void setTime(long time) {
-        this.currentTime = time;
+    public void sleep(long ms) {
+        addMilliseconds(ms);
+    }
+
+    public void setTime(long ms) {
+        this.timeMs = ms;
     }
 
     public void setCurrentDate(Date date) {
-        this.currentTime = date.getTime();
+        this.timeMs = date.getTime();
     }
 
     public void addMilliseconds(long ms) {
-        this.currentTime += ms;
+        this.timeMs += ms;
+    }
+
+    public void add(long duration, TimeUnit units) {
+        this.timeMs += TimeUnit.MILLISECONDS.convert(duration, units);
     }
 
 }

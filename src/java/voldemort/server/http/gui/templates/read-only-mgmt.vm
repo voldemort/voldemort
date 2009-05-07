@@ -44,8 +44,8 @@
             <td>Store</td>
             <td>
               <select name="store">
-                #foreach($store in $stores.keySet())
-                  <option value="$store">$store</option>
+                #foreach($store in $stores)
+                  <option value="$store.name">$store.name</option>
                 #end
               </select>
             </td>
@@ -73,8 +73,8 @@
             <td>Store</td>
             <td>
               <select name="store">
-                #foreach($store in $stores.keySet())
-                  <option value="$store">$store</option>
+                #foreach($store in $stores)
+                  <option value="$store.name">$store.name</option>
                 #end
               </select>
             </td>

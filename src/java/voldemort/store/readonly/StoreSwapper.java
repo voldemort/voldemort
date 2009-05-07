@@ -26,6 +26,13 @@ import voldemort.cluster.Node;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
+/**
+ * A helper class to invoke the FETCH and SWAP operations on a remote store via
+ * HTTP.
+ * 
+ * @author jay
+ * 
+ */
 public class StoreSwapper {
 
     private static final Logger logger = Logger.getLogger(StoreSwapper.class);
@@ -36,11 +43,11 @@ public class StoreSwapper {
     private final String readOnlyMgmtPath;
     private final String basePath;
 
-    private StoreSwapper(Cluster cluster,
-                         ExecutorService executor,
-                         HttpClient httpClient,
-                         String readOnlyMgmtPath,
-                         String basePath) {
+    public StoreSwapper(Cluster cluster,
+                        ExecutorService executor,
+                        HttpClient httpClient,
+                        String readOnlyMgmtPath,
+                        String basePath) {
         super();
         this.cluster = cluster;
         this.executor = executor;
@@ -50,11 +57,11 @@ public class StoreSwapper {
     }
 
     public void swapStoreData(String storeName) {
-        List<String[]> fetched = invokeFetch(storeName);
+        List<String[]> fetched = invokeFetch();
         invokeSwap(storeName, fetched);
     }
 
-    private List<String[]> invokeFetch(final String storeName) {
+    private List<String[]> invokeFetch() {
         // do fetch
         Map<Integer, Future<String[]>> fetchFiles = new HashMap<Integer, Future<String[]>>();
         for(final Node node: cluster.getNodes()) {
@@ -64,12 +71,14 @@ public class StoreSwapper {
                     String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
                     PostMethod post = new PostMethod(url);
                     post.addParameter("operation", "fetch");
-                    post.addParameter("index", basePath + "/" + storeName + "/" + node.getId()
-                                               + ".index");
-                    post.addParameter("data", basePath + "/" + storeName + "/" + node.getId()
-                                              + ".data");
+                    String indexFile = basePath + "/" + node.getId() + ".index";
+                    String dataFile = basePath + "/" + node.getId() + ".data";
+                    post.addParameter("index", indexFile);
+                    post.addParameter("data", dataFile);
+                    logger.info("Invoking fetch for node " + node.getId() + " for " + indexFile
+                                + " and " + dataFile);
                     int responseCode = httpClient.executeMethod(post);
-                    String response = post.getResponseBodyAsString(10000);
+                    String response = post.getResponseBodyAsString(30000);
                     if(responseCode != 200)
                         throw new VoldemortException("Swap request on node " + node.getId()
                                                      + " failed: " + post.getStatusText());
@@ -77,6 +86,7 @@ public class StoreSwapper {
                     if(files.length != 2)
                         throw new VoldemortException("Expected two files, but found "
                                                      + files.length + " in '" + response + "'.");
+                    logger.info("Fetch succeeded on node " + node.getId());
                     return files;
                 }
             }));
@@ -110,17 +120,19 @@ public class StoreSwapper {
                 post.addParameter("operation", "swap");
                 String indexFile = fetchFiles.get(nodeId)[0];
                 String dataFile = fetchFiles.get(nodeId)[1];
-                logger.info("Swapping for node " + nodeId + " index = " + indexFile + ", data = "
-                            + dataFile);
+                logger.info("Attempting swap for node " + nodeId + " index = " + indexFile
+                            + ", data = " + dataFile);
                 post.addParameter("index", indexFile);
                 post.addParameter("data", dataFile);
                 post.addParameter("store", storeName);
                 int responseCode = httpClient.executeMethod(post);
                 String response = post.getStatusText();
-                if(responseCode == 200)
+                if(responseCode == 200) {
                     successes++;
-                else
+                    logger.info("Swap succeeded for node " + node.getId());
+                } else {
                     throw new VoldemortException(response);
+                }
             } catch(Exception e) {
                 exception = e;
                 logger.error("Exception thrown during swap operation on node " + nodeId + ": ", e);
@@ -146,6 +158,7 @@ public class StoreSwapper {
         HttpClient client = new HttpClient(manager);
         StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath, filePath);
         swapper.swapStoreData(storeName);
+        logger.info("Swap succeeded on all nodes.");
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.SECONDS);
         System.exit(0);

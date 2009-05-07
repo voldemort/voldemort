@@ -20,6 +20,8 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,7 +29,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import com.google.common.base.Nullable;
+import voldemort.VoldemortException;
 
 /**
  * Helper functions FTW!
@@ -140,30 +142,6 @@ public class Utils {
     }
 
     /**
-     * Check if the two objects are equal to one another if t1 == t2 they are
-     * equal if t1 != t2 and one is null, they are not equal to each other if
-     * t1.equals(t2) they are equal to each other
-     * 
-     * @param o1 The first object
-     * @param o2 The second object
-     * @return True iff they are equal
-     */
-    public static boolean areNEquals(Object o1, Object o2) {
-        if(o1 == o2)
-            return true;
-        // t1 != t2
-        else if(o1 == null || o2 == null)
-            // only null equals null
-            return false;
-        // are they of the same class?
-        else if(!o1.getClass().equals(o2.getClass()))
-            return false;
-        // t1 != null
-        else
-            return o1.equals(o2);
-    }
-
-    /**
      * Throw an IllegalArgumentException if any of the given objects are null
      * 
      * @param objects The objects to test
@@ -224,7 +202,7 @@ public class Utils {
      * {@link Arrays#hashCode(int[])} or the like is used to calculate the hash
      * code.
      */
-    public static int deepHashCode(@Nullable Object o) {
+    public static int deepHashCode(Object o) {
         if(o == null) {
             return 0;
         }
@@ -273,7 +251,7 @@ public class Utils {
      * Note that this method does not "deeply" compare the fields of the
      * objects.
      */
-    public static boolean deepEquals(@Nullable Object o1, @Nullable Object o2) {
+    public static boolean deepEquals(Object o1, Object o2) {
         if(o1 == o2) {
             return true;
         }
@@ -447,6 +425,21 @@ public class Utils {
         List<T> copy = new ArrayList<T>(l);
         Collections.reverse(copy);
         return copy;
+    }
+
+    /**
+     * A helper function that wraps the checked parsing exception when creating
+     * a URI
+     * 
+     * @param uri The URI to parse
+     * @return a URI object.
+     */
+    public static URI parseUri(String uri) {
+        try {
+            return new URI(uri);
+        } catch(URISyntaxException e) {
+            throw new VoldemortException(e);
+        }
     }
 
 }

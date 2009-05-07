@@ -46,6 +46,7 @@ public class ErrorCodeMapper {
         codeToException.put((short) 7, UnreachableStoreException.class);
         codeToException.put((short) 8, InconsistentDataException.class);
         codeToException.put((short) 9, InvalidMetadataException.class);
+        codeToException.put((short) 10, PersistenceFailureException.class);
 
         exceptionToCode = new HashMap<Class<? extends VoldemortException>, Short>();
         for(Map.Entry<Short, Class<? extends VoldemortException>> entry: codeToException.entrySet())
@@ -63,7 +64,7 @@ public class ErrorCodeMapper {
     public short getCode(VoldemortException e) {
         Short code = exceptionToCode.get(e.getClass());
         if(code == null)
-            throw new IllegalArgumentException("No mapping code for " + e.getClass());
+            throw new IllegalArgumentException("No mapping code for " + e.getClass(), e);
         else
             return code;
     }

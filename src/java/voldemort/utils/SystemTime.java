@@ -44,4 +44,8 @@ public class SystemTime implements Time {
         return (int) (getMilliseconds() / MS_PER_SECOND);
     }
 
+    public void sleep(long ms) throws InterruptedException {
+        Thread.sleep(ms);
+    }
+
 }

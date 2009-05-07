@@ -44,4 +44,6 @@ public interface Time {
 
     public Date getCurrentDate();
 
+    public void sleep(long ms) throws InterruptedException;
+
 }

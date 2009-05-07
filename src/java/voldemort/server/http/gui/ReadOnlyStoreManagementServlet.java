@@ -42,6 +42,19 @@ import voldemort.utils.Utils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+/**
+ * A servlet that supports both manual or programatic operations on read only
+ * stores. The operations are
+ * <ol>
+ * <li>FETCH. Fetch the given files to the local node. Parameters:
+ * operation=fetch, index=index-file-url, data=data-file-url</li>
+ * <li>SWAP. operation=swap, store=store-name, index=index-file-url,
+ * data=data-file-url</li>
+ * </ol>
+ * 
+ * @author jay
+ * 
+ */
 public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1;
@@ -61,6 +74,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             this.fileFetcher = null;
         } else {
             try {
+                logger.info("Loading fetcher " + className);
                 this.fileFetcher = (FileFetcher) Class.forName(className).newInstance();
             } catch(Exception e) {
                 throw new VoldemortException("Error loading file fetcher class " + className);
@@ -98,7 +112,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         try {
-            if("swap".equals(getRequired(req, "operation"))) {
+            String operation = getRequired(req, "operation").toLowerCase();
+            if("swap".equals(operation)) {
                 String indexFile = getRequired(req, "index");
                 String dataFile = getRequired(req, "data");
                 String storeName = getRequired(req, "store");
@@ -115,7 +130,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
                 store.swapFiles(indexFile, dataFile);
                 resp.getWriter().write("Swap completed.");
-            } else if("fetch".equals(getRequired(req, "operation"))) {
+            } else if("fetch".equals(operation)) {
                 String indexUrl = getRequired(req, "index");
                 String dataUrl = getRequired(req, "data");
 
@@ -126,10 +141,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                     indexFile = new File(indexUrl);
                     dataFile = new File(dataUrl);
                 } else {
-                    logger.info("Executing fetch of " + indexUrl);
-                    indexFile = fileFetcher.fetchFile(indexUrl);
                     logger.info("Executing fetch of " + dataUrl);
                     dataFile = fileFetcher.fetchFile(dataUrl);
+
+                    // fetch index second in hope that it will still be in page
+                    // cache when the swap occurs
+                    logger.info("Executing fetch of " + indexUrl);
+                    indexFile = fileFetcher.fetchFile(indexUrl);
                     logger.info("Fetch complete.");
                 }
                 resp.getWriter().write(indexFile.getAbsolutePath());

@@ -16,6 +16,11 @@
 #  limitations under the License.
 #
 
+if [ $# -lt 1 ]; then
+	echo $0 java-class-name [options]
+	exit 1
+fi
+
 base_dir=$(dirname $0)/..
 
 for file in $base_dir/lib/*.jar;
