@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
@@ -155,7 +156,14 @@ public class StoreSwapper {
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
         ExecutorService executor = Executors.newFixedThreadPool(10);
         HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
+
+        int numConnections = cluster.getNumberOfNodes() + 3;
+        manager.getParams().setMaxTotalConnections(numConnections);
+        manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
+                                                     numConnections);
         HttpClient client = new HttpClient(manager);
+        client.getParams().setParameter("http.socket.timeout", 3 * 60 * 60 * 1000);
+
         StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath, filePath);
         swapper.swapStoreData(storeName);
         logger.info("Swap succeeded on all nodes.");
