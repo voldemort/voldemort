@@ -332,7 +332,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Given by "bdb.sync.transactions". If true then sync transactions to disk
+     * Given by "bdb.flush.transactions". If true then sync transactions to disk
      * immediately. default: false
      */
     public boolean isBdbFlushTransactionsEnabled() {
