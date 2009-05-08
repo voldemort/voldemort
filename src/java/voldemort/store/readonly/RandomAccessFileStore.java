@@ -263,6 +263,14 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
                 logger.error("Failure while copying in new data files, restoring from backup and aborting.");
                 success = firstIndexBackup.renameTo(indexFile)
                           && firstDataBackup.renameTo(dataFile);
+
+                // open the new store
+                try {
+                    open();
+                } catch(Exception e) {
+                    success = false;
+                }
+
                 if(success) {
                     logger.error("Restored from backup.");
                     throw new VoldemortException("Failure while copying in new data files, but managed to restore from backup.");
@@ -271,8 +279,6 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
                     throw new VoldemortException("Failure while copying in new data files, and restoration failed, everything is FUBAR.");
                 }
             }
-
-            open();
         } finally {
             fileModificationLock.writeLock().unlock();
             logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
