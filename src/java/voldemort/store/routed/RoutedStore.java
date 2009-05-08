@@ -789,24 +789,22 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 exception = e;
                 markUnavailable(node, e);
             } catch(Exception e) {
+                exception = e;
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
             }
-            return new GetAllResult(node, retrieved, nodeValues, exception);
+            return new GetAllResult(retrieved, nodeValues, exception);
         }
     }
 
     private class GetAllResult {
 
-        final Node node;
         final Map<ByteArray, List<Versioned<byte[]>>> retrieved;
         final Exception exception;
         final List<NodeValue<ByteArray, byte[]>> nodeValues;
 
-        private GetAllResult(Node node,
-                             Map<ByteArray, List<Versioned<byte[]>>> retrieved,
+        private GetAllResult(Map<ByteArray, List<Versioned<byte[]>>> retrieved,
                              List<NodeValue<ByteArray, byte[]>> nodeValues,
                              Exception exception) {
-            this.node = node;
             this.exception = exception;
             this.retrieved = retrieved;
             this.nodeValues = nodeValues;
