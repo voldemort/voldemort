@@ -93,7 +93,6 @@ public class StoreDefinitionsMapper {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public List<StoreDefinition> readStoreList(Reader input) {
         try {
 
@@ -106,8 +105,8 @@ public class StoreDefinitionsMapper {
                 throw new MappingException("Invalid root element: "
                                            + doc.getRootElement().getName());
             List<StoreDefinition> stores = new ArrayList<StoreDefinition>();
-            for(Element store: (List<Element>) root.getChildren(STORE_ELMT))
-                stores.add(readStore(store));
+            for(Object store: root.getChildren(STORE_ELMT))
+                stores.add(readStore((Element) store));
             return stores;
         } catch(JDOMException e) {
             throw new MappingException(e);
