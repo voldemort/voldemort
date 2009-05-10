@@ -82,7 +82,7 @@ final class NodeValue<K, V> implements Serializable, Cloneable {
     public boolean equals(Object o) {
         if(o == this)
             return true;
-        if(!(o instanceof NodeValue))
+        if(!(o instanceof NodeValue<?, ?>))
             return false;
 
         NodeValue<?, ?> v = (NodeValue<?, ?>) o;
