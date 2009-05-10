@@ -95,7 +95,7 @@ public class JsonTypeDefinition implements Serializable {
      * @return The new type definition
      */
     public JsonTypeDefinition projectionType(String... properties) {
-        if(this.getType() instanceof Map) {
+        if(this.getType() instanceof Map<?, ?>) {
             Map<?, ?> type = (Map<?, ?>) getType();
             Arrays.sort(properties);
             Map<String, Object> newType = new LinkedHashMap<String, Object>();
@@ -108,7 +108,7 @@ public class JsonTypeDefinition implements Serializable {
     }
 
     public JsonTypeDefinition subtype(String field) {
-        if(this.getType() instanceof Map) {
+        if(this.getType() instanceof Map<?, ?>) {
             Map<?, ?> type = (Map<?, ?>) getType();
             return new JsonTypeDefinition(type.get(field));
         } else {
@@ -132,13 +132,13 @@ public class JsonTypeDefinition implements Serializable {
             b.append('"');
             b.append(t.toDisplay());
             b.append('"');
-        } else if(type instanceof List) {
+        } else if(type instanceof List<?>) {
             b.append('[');
             List<?> l = (List<?>) type;
             for(Object o: l)
                 b.append(format(o));
             b.append(']');
-        } else if(type instanceof Map) {
+        } else if(type instanceof Map<?, ?>) {
             b.append('{');
             Map<?, ?> m = (Map<?, ?>) type;
             int i = 0;
@@ -168,12 +168,12 @@ public class JsonTypeDefinition implements Serializable {
     private void validate(Object type) {
         if(type == null) {
             throw new IllegalArgumentException("Type or subtype cannot be null.");
-        } else if(type instanceof List) {
+        } else if(type instanceof List<?>) {
             List<?> l = (List<?>) type;
             if(l.size() != 1)
                 throw new IllegalArgumentException("Lists in type definition must have length exactly one.");
             validate(l.get(0));
-        } else if(type instanceof Map) {
+        } else if(type instanceof Map<?, ?>) {
             Map<?, ?> m = (Map<?, ?>) type;
             for(Map.Entry<?, ?> entry: m.entrySet())
                 validate(entry.getValue());
