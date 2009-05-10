@@ -114,52 +114,68 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         try {
             String operation = getRequired(req, "operation").toLowerCase();
             if("swap".equals(operation)) {
-                String indexFile = getRequired(req, "index");
-                String dataFile = getRequired(req, "data");
-                String storeName = getRequired(req, "store");
-                RandomAccessFileStore store = this.getStore(storeName);
-                if(store == null)
-                    throw new ServletException("'" + storeName
-                                               + "' is not a registered read-only store.");
-                if(!Utils.isReadableFile(indexFile))
-                    throw new ServletException("Index file '" + indexFile
-                                               + "' is not a readable file.");
-                if(!Utils.isReadableFile(dataFile))
-                    throw new ServletException("Data file '" + dataFile
-                                               + "' is not a readable file.");
-
-                store.swapFiles(indexFile, dataFile);
-                resp.getWriter().write("Swap completed.");
+                doSwap(req, resp);
             } else if("fetch".equals(operation)) {
-                String indexUrl = getRequired(req, "index");
-                String dataUrl = getRequired(req, "data");
-
-                // fetch the files if necessary
-                File indexFile;
-                File dataFile;
-                if(fileFetcher == null) {
-                    indexFile = new File(indexUrl);
-                    dataFile = new File(dataUrl);
-                } else {
-                    logger.info("Executing fetch of " + dataUrl);
-                    dataFile = fileFetcher.fetchFile(dataUrl);
-
-                    // fetch index second in hope that it will still be in page
-                    // cache when the swap occurs
-                    logger.info("Executing fetch of " + indexUrl);
-                    indexFile = fileFetcher.fetchFile(indexUrl);
-                    logger.info("Fetch complete.");
-                }
-                resp.getWriter().write(indexFile.getAbsolutePath());
-                resp.getWriter().write("\n");
-                resp.getWriter().write(dataFile.getAbsolutePath());
+                doFetch(req, resp);
+            } else if("rollback".equals(operation)) {
+                doRollback(req);
             } else {
                 throw new IllegalArgumentException("Unknown operation parameter: "
                                                    + req.getParameter("operation"));
             }
         } catch(Exception e) {
+            logger.error("Error while performing operation.", e);
             resp.sendError(500, "Error while performing operation: " + e.getMessage());
         }
+    }
+
+    private void doSwap(HttpServletRequest req, HttpServletResponse resp) throws IOException,
+            ServletException {
+        String indexFile = getRequired(req, "index");
+        String dataFile = getRequired(req, "data");
+        String storeName = getRequired(req, "store");
+        RandomAccessFileStore store = this.getStore(storeName);
+        if(store == null)
+            throw new ServletException("'" + storeName + "' is not a registered read-only store.");
+        if(!Utils.isReadableFile(indexFile))
+            throw new ServletException("Index file '" + indexFile + "' is not a readable file.");
+        if(!Utils.isReadableFile(dataFile))
+            throw new ServletException("Data file '" + dataFile + "' is not a readable file.");
+
+        store.swapFiles(indexFile, dataFile);
+        resp.getWriter().write("Swap completed.");
+    }
+
+    private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
+            ServletException {
+        String indexUrl = getRequired(req, "index");
+        String dataUrl = getRequired(req, "data");
+
+        // fetch the files if necessary
+        File indexFile;
+        File dataFile;
+        if(fileFetcher == null) {
+            indexFile = new File(indexUrl);
+            dataFile = new File(dataUrl);
+        } else {
+            logger.info("Executing fetch of " + dataUrl);
+            dataFile = fileFetcher.fetchFile(dataUrl);
+
+            // fetch index second in hope that it will still be in page
+            // cache when the swap occurs
+            logger.info("Executing fetch of " + indexUrl);
+            indexFile = fileFetcher.fetchFile(indexUrl);
+            logger.info("Fetch complete.");
+        }
+        resp.getWriter().write(indexFile.getAbsolutePath());
+        resp.getWriter().write("\n");
+        resp.getWriter().write(dataFile.getAbsolutePath());
+    }
+
+    private void doRollback(HttpServletRequest req) throws ServletException {
+        String storeName = getRequired(req, "store");
+        RandomAccessFileStore store = getStore(storeName);
+        store.rollback();
     }
 
     private String getRequired(HttpServletRequest req, String name) throws ServletException {

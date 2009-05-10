@@ -21,7 +21,6 @@ import static java.lang.Math.log;
 import static java.lang.Math.pow;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Collections;
@@ -167,6 +166,19 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
             if(isOpen)
                 throw new IllegalStateException("Attempt to open already open store.");
 
+            // if neither file exists, create them both
+            // but if one exists, that is not right
+            if(!indexFile.exists() && !dataFile.exists()) {
+                logger.info("Creating empty files " + indexFile + " and " + dataFile
+                            + " for store " + name + ".");
+                indexFile.getParentFile().mkdirs();
+                indexFile.createNewFile();
+                dataFile.createNewFile();
+            } else if(indexFile.exists() ^ dataFile.exists()) {
+                throw new VoldemortException("Invalid index and data file for store " + name
+                                             + ", one exists but not the other.");
+            }
+
             /* initialize the pool of file descriptors */
             this.indexFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
             this.dataFiles = new ArrayBlockingQueue<RandomAccessFile>(numFileHandles);
@@ -193,8 +205,8 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
             clearCache();
 
             isOpen = true;
-        } catch(FileNotFoundException e) {
-            throw new VoldemortException("Could not open store.", e);
+        } catch(IOException e) {
+            throw new VoldemortException("Could not open store: " + e.getMessage(), e);
         } finally {
             fileModificationLock.writeLock().unlock();
         }
@@ -255,21 +267,22 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
                 throw new VoldemortException("Error while renaming backups.");
 
             // copy in new files
-            logger.info("Setting primary data and index files for store '" + getName() + "'to "
+            logger.info("Setting primary data and index files for store '" + getName() + "' to "
                         + newDataFile + " and " + newIndexFile + " respectively.");
             success = new File(newIndexFile).renameTo(indexFile)
                       && new File(newDataFile).renameTo(dataFile);
+
+            // open the new store
+            try {
+                open();
+            } catch(Exception e) {
+                success = false;
+            }
+
             if(!success) {
                 logger.error("Failure while copying in new data files, restoring from backup and aborting.");
                 success = firstIndexBackup.renameTo(indexFile)
                           && firstDataBackup.renameTo(dataFile);
-
-                // open the new store
-                try {
-                    open();
-                } catch(Exception e) {
-                    success = false;
-                }
 
                 if(success) {
                     logger.error("Restored from backup.");
@@ -285,6 +298,38 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    @JmxOperation(description = "Rollback to the most recent backup of the current store.")
+    public void rollback() {
+        logger.info("Rolling back store '" + getName() + ".");
+        fileModificationLock.writeLock().lock();
+        try {
+            close();
+            File index1 = new File(storageDir, name + ".index.1");
+            File data1 = new File(storageDir, name + ".data.1");
+            if(!index1.exists() || !data1.exists())
+                throw new VoldemortException("Backup 1 does not exists, nothing to roll back to.");
+
+            // rename the current files to .bak
+            new File(storageDir, name + ".index").renameTo(new File(storageDir, name + ".index.bak"));
+            new File(storageDir, name + ".data").renameTo(new File(storageDir, name + ".data.bak"));
+
+            // rename .1 to be the primary
+            index1.renameTo(new File(storageDir, name + ".index"));
+            data1.renameTo(new File(storageDir, name + ".data"));
+
+            // shift all others to the left
+            for(int i = 2; i < numBackups; i++) {
+                rename(".index", i, i - 1);
+                rename(".data", i, i - 1);
+            }
+
+            open();
+        } finally {
+            fileModificationLock.writeLock().unlock();
+            logger.info("Rollback operation completed on '" + getName() + "', releasing lock.");
+        }
+    }
+
     /**
      * Shift all store backups so that the .data file becomes .data.1, .data.1
      * becomes .data.2, etc.
@@ -293,15 +338,17 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
      */
     private void shiftBackups(String suffix) {
         // do the hokey pokey and turn the files around
-        for(int i = numBackups - 1; i > 0; i--) {
-            File theFile = new File(storageDir, name + suffix + "." + i);
-            if(theFile.exists()) {
-                File theDest = new File(storageDir, name + suffix + "." + i + 1);
-                boolean succeeded = theFile.renameTo(theDest);
-                if(!succeeded)
-                    throw new VoldemortException("Rename of " + theFile + " to " + theDest
-                                                 + " failed.");
-            }
+        for(int i = numBackups - 1; i > 0; i--)
+            rename(suffix, i, i + 1);
+    }
+
+    private void rename(String suffix, int fromIndex, int toIndex) {
+        File theFile = new File(storageDir, name + suffix + "." + fromIndex);
+        if(theFile.exists()) {
+            File theDest = new File(storageDir, name + suffix + "." + toIndex);
+            boolean succeeded = theFile.renameTo(theDest);
+            if(!succeeded)
+                throw new VoldemortException("Rename of " + theFile + " to " + theDest + " failed.");
         }
     }
 
@@ -379,6 +426,7 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    @JmxOperation(description = "Erase the current contents of the cache.")
     public void clearCache() {
         try {
             logger.info("Clearing cache.");
@@ -390,8 +438,9 @@ public class RandomAccessFileStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    @JmxOperation(description = "Load the cache from the index file.")
     public void preloadCache() {
-        logger.info("Starting cache preloading...");
+        logger.info("Preloading cache to depth " + this.maxCacheDepth + "...");
         if(this.indexFileSize > 0) {
             try {
                 this.fileModificationLock.readLock().lock();
