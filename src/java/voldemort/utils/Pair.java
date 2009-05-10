@@ -78,7 +78,7 @@ public final class Pair<F, S> implements Serializable, Function<F, S> {
     public final boolean equals(Object obj) {
         if(this == obj)
             return true;
-        if(!(obj instanceof Pair))
+        if(!(obj instanceof Pair<?, ?>))
             return false;
 
         final Pair<?, ?> other = (Pair<?, ?>) (obj);
