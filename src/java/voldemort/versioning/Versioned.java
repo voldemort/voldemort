@@ -61,7 +61,7 @@ public final class Versioned<T> implements Serializable {
     public boolean equals(Object o) {
         if(o == this)
             return true;
-        else if(!(o instanceof Versioned))
+        else if(!(o instanceof Versioned<?>))
             return false;
 
         Versioned<?> versioned = (Versioned<?>) o;
