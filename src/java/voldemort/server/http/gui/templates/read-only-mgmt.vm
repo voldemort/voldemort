@@ -51,12 +51,8 @@
             </td>
           </tr>
           <tr>
-            <td>Index File</td>
-            <td><input type="text" name="index"/></td>
-          </tr>
-          <tr>
-            <td>Data File</td>
-            <td><input type="text" name="data"/></td>
+            <td>Store Directory</td>
+            <td><input type="text" name="dir"/></td>
           </tr>
           <tr>
             <td colspan="2">
@@ -80,12 +76,8 @@
             </td>
           </tr>
           <tr>
-            <td>Index File</td>
-            <td><input type="text" name="index"/></td>
-          </tr>
-          <tr>
-            <td>Data File</td>
-            <td><input type="text" name="data"/></td>
+            <td>Store Directory</td>
+            <td><input type="text" name="dir"/></td>
           </tr>
           <tr>
             <td colspan="2">

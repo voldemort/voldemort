@@ -219,6 +219,26 @@
       </tarfileset>
     </tar>
   </target>
+  
+  <target name="hadoop-benchmark-jar" depends="build, contrib-build" description="Build a jar file that includes all contrib code.">
+    <jar destfile="${dist.dir}/${name}-${curr.release}-all.jar">
+      <fileset dir="${classes.dir}">
+        <include name="**/*.*" />
+      </fileset>
+      <fileset dir="${contrib.classes.dir}">
+        <include name="**/*.*" />
+      </fileset>
+      <!-- include xsds -->
+      <fileset dir="${java.dir}">
+        <include name="**/*.xsd" />
+      </fileset>
+      <fileset dir="">
+        <include name="lib/jdom.jar"/>
+        <include name="lib/google-collect*.jar"/>
+        <include name="lib/commons-lang*.jar"/>
+      </fileset>
+    </jar>
+  </target>
 
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />

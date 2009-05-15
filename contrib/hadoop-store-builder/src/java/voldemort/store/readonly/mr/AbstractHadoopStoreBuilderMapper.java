@@ -29,8 +29,8 @@ import voldemort.utils.ByteUtils;
  * @author bbansal, jay
  * 
  */
-public abstract class AbstractStoreBuilderMapper<K, V> extends HadoopStoreBuilderBase implements
-        Mapper<K, V, BytesWritable, BytesWritable> {
+public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends HadoopStoreBuilderBase
+        implements Mapper<K, V, BytesWritable, BytesWritable> {
 
     private ConsistentRoutingStrategy routingStrategy;
     private Serializer<Object> keySerializer;
@@ -57,11 +57,11 @@ public abstract class AbstractStoreBuilderMapper<K, V> extends HadoopStoreBuilde
 
         List<Node> nodes = routingStrategy.routeRequest(keyBytes);
         for(Node node: nodes) {
-            ByteArrayOutputStream versionedValue = new ByteArrayOutputStream();
-            DataOutputStream valueDin = new DataOutputStream(versionedValue);
-            valueDin.writeInt(node.getId());
-            valueDin.write(valBytes);
-            valueDin.close();
+            ByteArrayOutputStream versionedValue = new ByteArrayOutputStream(keyBytes.length + 4);
+            DataOutputStream valueStream = new DataOutputStream(versionedValue);
+            valueStream.writeInt(node.getId());
+            valueStream.write(valBytes);
+            valueStream.close();
             BytesWritable outputKey = new BytesWritable(ByteUtils.md5(keyBytes));
             BytesWritable outputVal = new BytesWritable(versionedValue.toByteArray());
 

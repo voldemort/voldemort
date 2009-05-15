@@ -114,6 +114,23 @@ public class Utils {
     }
 
     /**
+     * Move the source file to the dest file name. If there is a file or
+     * directory at dest it will be overwritten. If the source file does not
+     * exist or cannot be copied and exception will be thrown exist
+     * 
+     * @param source The file to copy from
+     * @param dest The file to copy to
+     */
+    public static void move(File source, File dest) {
+        if(!source.exists())
+            throw new VoldemortException("File " + source.toString() + " does not exist.");
+        Utils.rm(dest);
+        boolean succeeded = source.renameTo(dest);
+        if(!succeeded)
+            throw new VoldemortException("Rename of " + source + " to " + dest + " failed.");
+    }
+
+    /**
      * @return true iff the argument is the name of a readable file
      */
     public static boolean isReadableFile(String fileName) {

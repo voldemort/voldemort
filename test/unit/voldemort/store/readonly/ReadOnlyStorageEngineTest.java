@@ -17,9 +17,9 @@ import voldemort.store.Store;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
-public class RandomAccessFileStoreTest extends TestCase {
+public class ReadOnlyStorageEngineTest extends TestCase {
 
-    private static int TEST_SIZE = 100;
+    private static int TEST_SIZE = 10;
 
     private File dir;
 
@@ -113,35 +113,26 @@ public class RandomAccessFileStoreTest extends TestCase {
         // empty is okay
         testOpenInvalidStoreFails(0, 0, true);
         // two entries with 1 byte each of data
-        testOpenInvalidStoreFails(RandomAccessFileStore.INDEX_ENTRY_SIZE * 2,
-                                  RandomAccessFileStore.INDEX_ENTRY_SIZE * +2,
+        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 2,
+                                  ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * +2,
                                   true);
 
         // okay these are corrupt:
         // invalid index size
         testOpenInvalidStoreFails(73, 1024, false);
         // too little data for index (1 byte short for all empty values)
-        testOpenInvalidStoreFails(RandomAccessFileStore.INDEX_ENTRY_SIZE * 10, 10 * 4 - 1, false);
+        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 10, 10 * 4 - 1, false);
         // empty index implies no data
-        testOpenInvalidStoreFails(RandomAccessFileStore.INDEX_ENTRY_SIZE, 0, false);
-    }
-
-    public void testMaxCacheSizeBytesTooBig() throws IOException {
-        createStoreFiles(0, 0);
-        try {
-            new RandomAccessFileStore("test", dir, 1, 1, 1000, Integer.MAX_VALUE * 100L);
-        } catch(IllegalArgumentException e) {
-            return;
-        }
-        fail("IllegalArgumentException should be thrown if maxCacheSizeBytes is bigger than Integer.MAX_VALUES * (KEY_HASH_SIZE + 4 + 12 + 8)");
+        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE, 0, false);
     }
 
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
             throws Exception {
-        createStoreFiles(indexBytes, dataBytes);
+        File versionDir = new File(dir, "version-0");
+        createStoreFiles(versionDir, indexBytes, dataBytes, 2);
 
         try {
-            new RandomAccessFileStore("test", dir, 1, 1, 1000, 100 * 1000 * 1000);
+            new ReadOnlyStorageEngine("test", dir, 1, 1, 1000);
             if(!shouldWork)
                 fail("Able to open corrupt read-only store (index size = " + indexBytes
                      + ", data bytes = " + dataBytes + ").");
@@ -151,23 +142,50 @@ public class RandomAccessFileStoreTest extends TestCase {
         }
     }
 
-    private void createStoreFiles(int indexBytes, int dataBytes) throws IOException,
-            FileNotFoundException {
-        File index = createFile("test.index");
-        File data = createFile("test.data");
+    public void testSwap() throws IOException {
+        createStoreFiles(dir, ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", dir, 2, 2, 1000);
+        assertVersionsExist(dir, 0);
 
-        // write some random crap for index and data
-        FileOutputStream dataOs = new FileOutputStream(data);
-        for(int i = 0; i < dataBytes; i++)
-            dataOs.write(i);
-        dataOs.close();
-        FileOutputStream indexOs = new FileOutputStream(index);
-        for(int i = 0; i < indexBytes; i++)
-            indexOs.write(i);
-        indexOs.close();
+        // swap to a new version
+        File newDir = TestUtils.createTempDir();
+        createStoreFiles(newDir, 0, 0, 2);
+        engine.swapFiles(newDir.getAbsolutePath());
+        assertVersionsExist(dir, 0, 1);
+
+        engine.rollback();
+        assertVersionsExist(dir, 0);
     }
 
-    private File createFile(String name) throws IOException {
+    private void assertVersionsExist(File dir, int... versions) {
+        for(int i = 0; i < versions.length; i++) {
+            File versionDir = new File(dir, "version-" + versions[i]);
+            assertTrue("Could not find " + dir + "/version-" + versions[i], versionDir.exists());
+        }
+        // now check that the next higher version does not exist
+        File versionDir = new File(dir, "version-" + versions.length);
+        assertFalse("Found version directory that should not exist.", versionDir.exists());
+    }
+
+    private void createStoreFiles(File dir, int indexBytes, int dataBytes, int chunks)
+            throws IOException, FileNotFoundException {
+        for(int chunk = 0; chunk < chunks; chunk++) {
+            File index = createFile(dir, chunk + ".index");
+            File data = createFile(dir, chunk + ".data");
+            // write some random crap for index and data
+            FileOutputStream dataOs = new FileOutputStream(data);
+            for(int i = 0; i < dataBytes; i++)
+                dataOs.write(i);
+            dataOs.close();
+            FileOutputStream indexOs = new FileOutputStream(index);
+            for(int i = 0; i < indexBytes; i++)
+                indexOs.write(i);
+            indexOs.close();
+        }
+    }
+
+    private File createFile(File dir, String name) throws IOException {
+        dir.mkdirs();
         File data = new File(dir, name);
         data.createNewFile();
         return data;

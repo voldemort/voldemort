@@ -42,61 +42,51 @@ public class StoreSwapper {
     private final ExecutorService executor;
     private final HttpClient httpClient;
     private final String readOnlyMgmtPath;
-    private final String basePath;
 
     public StoreSwapper(Cluster cluster,
                         ExecutorService executor,
                         HttpClient httpClient,
-                        String readOnlyMgmtPath,
-                        String basePath) {
+                        String readOnlyMgmtPath) {
         super();
         this.cluster = cluster;
         this.executor = executor;
         this.httpClient = httpClient;
         this.readOnlyMgmtPath = readOnlyMgmtPath;
-        this.basePath = basePath;
     }
 
-    public void swapStoreData(String storeName) {
-        List<String[]> fetched = invokeFetch();
+    public void swapStoreData(String storeName, String basePath) {
+        List<String> fetched = invokeFetch(basePath);
         invokeSwap(storeName, fetched);
     }
 
-    private List<String[]> invokeFetch() {
+    private List<String> invokeFetch(final String basePath) {
         // do fetch
-        Map<Integer, Future<String[]>> fetchFiles = new HashMap<Integer, Future<String[]>>();
+        Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
-            fetchFiles.put(node.getId(), executor.submit(new Callable<String[]>() {
+            fetchDirs.put(node.getId(), executor.submit(new Callable<String>() {
 
-                public String[] call() throws Exception {
+                public String call() throws Exception {
                     String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
                     PostMethod post = new PostMethod(url);
                     post.addParameter("operation", "fetch");
-                    String indexFile = basePath + "/" + node.getId() + ".index";
-                    String dataFile = basePath + "/" + node.getId() + ".data";
-                    post.addParameter("index", indexFile);
-                    post.addParameter("data", dataFile);
-                    logger.info("Invoking fetch for node " + node.getId() + " for " + indexFile
-                                + " and " + dataFile);
+                    String storeDir = basePath + "/node-" + node.getId();
+                    post.addParameter("dir", storeDir);
+                    logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
                     int responseCode = httpClient.executeMethod(post);
                     String response = post.getResponseBodyAsString(30000);
                     if(responseCode != 200)
-                        throw new VoldemortException("Swap request on node " + node.getId()
-                                                     + " failed: " + post.getStatusText());
-                    String[] files = response.split("\n");
-                    if(files.length != 2)
-                        throw new VoldemortException("Expected two files, but found "
-                                                     + files.length + " in '" + response + "'.");
+                        throw new VoldemortException("Swap request on node " + node.getId() + " ("
+                                                     + url + ") failed: " + post.getStatusText());
                     logger.info("Fetch succeeded on node " + node.getId());
-                    return files;
+                    return response.trim();
                 }
             }));
         }
 
         // wait for all operations to complete successfully
-        List<String[]> results = new ArrayList<String[]>();
+        List<String> results = new ArrayList<String>();
         for(int nodeId = 0; nodeId < cluster.getNumberOfNodes(); nodeId++) {
-            Future<String[]> val = fetchFiles.get(nodeId);
+            Future<String> val = fetchDirs.get(nodeId);
             try {
                 results.add(val.get());
             } catch(ExecutionException e) {
@@ -109,7 +99,7 @@ public class StoreSwapper {
         return results;
     }
 
-    private void invokeSwap(String storeName, List<String[]> fetchFiles) {
+    private void invokeSwap(String storeName, List<String> fetchFiles) {
         // do swap
         int successes = 0;
         Exception exception = null;
@@ -119,12 +109,9 @@ public class StoreSwapper {
                 String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
                 PostMethod post = new PostMethod(url);
                 post.addParameter("operation", "swap");
-                String indexFile = fetchFiles.get(nodeId)[0];
-                String dataFile = fetchFiles.get(nodeId)[1];
-                logger.info("Attempting swap for node " + nodeId + " index = " + indexFile
-                            + ", data = " + dataFile);
-                post.addParameter("index", indexFile);
-                post.addParameter("data", dataFile);
+                String dir = fetchFiles.get(nodeId);
+                logger.info("Attempting swap for node " + nodeId + " dir = " + dir);
+                post.addParameter("dir", dir);
                 post.addParameter("store", storeName);
                 int responseCode = httpClient.executeMethod(post);
                 String response = post.getStatusText();
@@ -146,7 +133,7 @@ public class StoreSwapper {
 
     public static void main(String[] args) throws Exception {
         if(args.length != 4)
-            Utils.croak("USAGE: cluster.xml store_name mgmtpath file_path");
+            Utils.croak("USAGE: cluster.xml store_name mgmtpath store_file_path");
         String clusterXml = args[0];
         String storeName = args[1];
         String mgmtPath = args[2];
@@ -164,8 +151,8 @@ public class StoreSwapper {
         HttpClient client = new HttpClient(manager);
         client.getParams().setParameter("http.socket.timeout", 3 * 60 * 60 * 1000);
 
-        StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath, filePath);
-        swapper.swapStoreData(storeName);
+        StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath);
+        swapper.swapStoreData(storeName, filePath);
         logger.info("Swap succeeded on all nodes.");
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.SECONDS);

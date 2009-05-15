@@ -27,7 +27,7 @@ import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.mysql.MysqlStorageConfiguration;
-import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -76,7 +76,6 @@ public class VoldemortConfig implements Serializable {
     private long readOnlyFileWaitTimeoutMs;
     private int readOnlyBackups;
     private String readOnlyStorageDir;
-    private long readOnlyCacheSize;
 
     private int coreThreads;
     private int maxThreads;
@@ -151,7 +150,6 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
-        this.readOnlyCacheSize = props.getInt("readonly.cache.size", 100 * 1000 * 1000);
 
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
 
@@ -195,7 +193,7 @@ public class VoldemortConfig implements Serializable {
                                                                     MysqlStorageConfiguration.class.getName(),
                                                                     InMemoryStorageConfiguration.class.getName(),
                                                                     CacheStorageConfiguration.class.getName(),
-                                                                    RandomAccessFileStorageConfiguration.class.getName()));
+                                                                    ReadOnlyStorageConfiguration.class.getName()));
 
         // save props for access from plugins
         this.allProps = props;
@@ -633,10 +631,6 @@ public class VoldemortConfig implements Serializable {
 
     public int getReadOnlyBackups() {
         return readOnlyBackups;
-    }
-
-    public long getReadOnlyCacheSize() {
-        return readOnlyCacheSize;
     }
 
     public void setReadOnlyBackups(int readOnlyBackups) {

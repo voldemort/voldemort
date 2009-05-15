@@ -39,7 +39,7 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.readonly.RandomAccessFileStore;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.versioning.Versioned;
 
@@ -51,9 +51,10 @@ import voldemort.versioning.Versioned;
  * @author bbansal, jay
  * 
  */
-public class StoreBuilderTest extends TestCase {
+public class HadoopStoreBuilderTest extends TestCase {
 
-    public static class TextStoreMapper extends AbstractStoreBuilderMapper<LongWritable, Text> {
+    public static class TextStoreMapper extends
+            AbstractHadoopStoreBuilderMapper<LongWritable, Text> {
 
         @Override
         public Object makeKey(LongWritable key, Text value) {
@@ -107,26 +108,25 @@ public class StoreBuilderTest extends TestCase {
                                                             cluster,
                                                             def,
                                                             2,
+                                                            64 * 1024,
                                                             new Path(tempDir.getAbsolutePath()),
                                                             new Path(outputDir.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()));
         builder.build();
 
         // rename files
-        assertTrue("Rename failed.",
-                   new File(outputDir, "0.index").renameTo(new File(storeDir, storeName + ".index")));
-        assertTrue("Rename failed.",
-                   new File(outputDir, "0.data").renameTo(new File(storeDir, storeName + ".data")));
+        File versionDir = new File(storeDir, "version-0");
+        versionDir.mkdirs();
+        assertTrue("Rename failed.", new File(outputDir, "node-0").renameTo(versionDir));
 
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Store<Object, Object> store = new SerializingStore<Object, Object>(new RandomAccessFileStore(storeName,
+        Store<Object, Object> store = new SerializingStore<Object, Object>(new ReadOnlyStorageEngine(storeName,
                                                                                                      storeDir,
                                                                                                      1,
                                                                                                      3,
-                                                                                                     1000,
-                                                                                                     100 * 1000 * 1000),
+                                                                                                     1000),
                                                                            serializer,
                                                                            serializer);
 

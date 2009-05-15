@@ -13,7 +13,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.store.readonly.mr.AbstractStoreBuilderMapper;
+import voldemort.store.readonly.mr.AbstractHadoopStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
@@ -50,12 +50,14 @@ public class BuildTestStore extends Configured implements Tool {
         Cluster cluster = new ClusterMapper().readCluster(new File(configDir, "cluster.xml"));
 
         Configuration config = this.getConf();
+        config.set("mapred.job.name", "test-store-builder");
         HadoopStoreBuilder builder = new HadoopStoreBuilder(config,
                                                             BuildTestStoreMapper.class,
                                                             SequenceFileInputFormat.class,
                                                             cluster,
                                                             def,
                                                             2,
+                                                            512 * 1024 * 1024,
                                                             new Path(tempDir),
                                                             new Path(outputDir),
                                                             new Path(inputDir));
@@ -63,7 +65,7 @@ public class BuildTestStore extends Configured implements Tool {
         return 0;
     }
 
-    public static class BuildTestStoreMapper extends AbstractStoreBuilderMapper<Text, Text> {
+    public static class BuildTestStoreMapper extends AbstractHadoopStoreBuilderMapper<Text, Text> {
 
         @Override
         public Object makeKey(Text key, Text value) {

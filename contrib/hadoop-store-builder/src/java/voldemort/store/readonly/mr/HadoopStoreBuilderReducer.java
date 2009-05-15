@@ -15,6 +15,8 @@ import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -30,9 +32,11 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
 
     private DataOutputStream indexFileStream = null;
     private DataOutputStream valueFileStream = null;
-    private long position = 0;
+    private int position = 0;
     private String taskId = null;
+    private int numChunks = -1;
     private int nodeId = -1;
+    private int chunkId = -1;
     private Path taskIndexFileName;
     private Path taskValueFileName;
     private String outputDir;
@@ -53,18 +57,26 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
             BytesWritable writable = values.next();
             byte[] valueBytes = writable.get();
 
-            if(nodeId == -1)
-                nodeId = ByteUtils.readInt(valueBytes, 0);
+            if(this.nodeId == -1)
+                this.nodeId = ByteUtils.readInt(valueBytes, 0);
+            if(this.chunkId == -1)
+                this.chunkId = ReadOnlyUtils.chunk(keyBytes, this.numChunks);
 
             // read all but the first 4 bytes, which contain the node id
             byte[] value = ByteUtils.copy(valueBytes, 4, writable.getSize());
 
-            // Write Index Key/ position
-            indexFileStream.write(keyBytes);
-            indexFileStream.writeLong(position);
-            valueFileStream.writeInt(value.length);
-            valueFileStream.write(value);
-            position += 4 + value.length;
+            // Write key and position
+            this.indexFileStream.write(keyBytes);
+            this.indexFileStream.writeInt(this.position);
+
+            // Write length and value
+            this.valueFileStream.writeInt(value.length);
+            this.valueFileStream.write(value);
+
+            this.position += 4 + value.length;
+            if(this.position < 0)
+                throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
+                                             + " has exceeded " + Integer.MAX_VALUE + " bytes.");
         }
 
     }
@@ -73,22 +85,27 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
     public void configure(JobConf job) {
         super.configure(job);
         try {
-            conf = job;
-            position = 0;
-            outputDir = job.get("final.output.dir");
-            taskId = job.get("mapred.task.id");
+            this.conf = job;
+            this.position = 0;
+            this.numChunks = job.getInt("num.chunks", -1);
+            this.outputDir = job.get("final.output.dir");
+            this.taskId = job.get("mapred.task.id");
 
-            taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName() + "."
-                                                                              + taskId + ".index");
-            taskValueFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName() + "."
-                                                                              + taskId + ".data");
+            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
+                                                                                   + "."
+                                                                                   + this.taskId
+                                                                                   + ".index");
+            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
+                                                                                   + "."
+                                                                                   + this.taskId
+                                                                                   + ".data");
             int replicationFactor = job.getInt("store.output.replication.factor", 2);
 
-            logger.info("Opening " + taskIndexFileName + " and " + taskValueFileName
+            logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
                         + " for writing.");
-            FileSystem fs = taskIndexFileName.getFileSystem(job);
-            indexFileStream = fs.create(taskIndexFileName, (short) replicationFactor);
-            valueFileStream = fs.create(taskValueFileName, (short) replicationFactor);
+            FileSystem fs = this.taskIndexFileName.getFileSystem(job);
+            this.indexFileStream = fs.create(this.taskIndexFileName, (short) replicationFactor);
+            this.valueFileStream = fs.create(this.taskValueFileName, (short) replicationFactor);
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
@@ -96,19 +113,20 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
 
     @Override
     public void close() throws IOException {
-        indexFileStream.close();
-        valueFileStream.close();
+        this.indexFileStream.close();
+        this.valueFileStream.close();
 
-        Path indexFile = new Path(outputDir, nodeId + ".index");
-        Path valueFile = new Path(outputDir, nodeId + ".data");
+        Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
+        Path indexFile = new Path(nodeDir, this.chunkId + ".index");
+        Path valueFile = new Path(nodeDir, this.chunkId + ".data");
 
         // create output directory
-        FileSystem fs = indexFile.getFileSystem(conf);
-        fs.mkdirs(indexFile.getParent());
+        FileSystem fs = indexFile.getFileSystem(this.conf);
+        fs.mkdirs(nodeDir);
 
-        logger.info("Moving " + taskIndexFileName + " to " + indexFile + ".");
+        logger.info("Moving " + this.taskIndexFileName + " to " + indexFile + ".");
         fs.rename(taskIndexFileName, indexFile);
-        logger.info("Moving " + taskValueFileName + " to " + valueFile + ".");
-        fs.rename(taskValueFileName, valueFile);
+        logger.info("Moving " + this.taskValueFileName + " to " + valueFile + ".");
+        fs.rename(this.taskValueFileName, valueFile);
     }
 }

@@ -35,7 +35,7 @@ import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.storage.StorageService;
 import voldemort.store.StorageEngine;
 import voldemort.store.readonly.FileFetcher;
-import voldemort.store.readonly.RandomAccessFileStore;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
@@ -60,7 +60,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private static final long serialVersionUID = 1;
     private static final Logger logger = Logger.getLogger(ReadOnlyStoreManagementServlet.class);
 
-    private List<RandomAccessFileStore> stores;
+    private List<ReadOnlyStorageEngine> stores;
     private VelocityEngine velocityEngine;
     private FileFetcher fileFetcher;
 
@@ -89,13 +89,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
-    private List<RandomAccessFileStore> getReadOnlyStores(VoldemortServer server) {
+    private List<ReadOnlyStorageEngine> getReadOnlyStores(VoldemortServer server) {
         StorageService storage = (StorageService) Utils.notNull(server)
                                                        .getService(ServiceType.STORAGE);
-        List<RandomAccessFileStore> l = Lists.newArrayList();
+        List<ReadOnlyStorageEngine> l = Lists.newArrayList();
         for(StorageEngine<ByteArray, byte[]> engine: storage.getStoreRepository()
-                                                            .getStorageEnginesByClass(RandomAccessFileStore.class)) {
-            l.add((RandomAccessFileStore) engine);
+                                                            .getStorageEnginesByClass(ReadOnlyStorageEngine.class)) {
+            l.add((ReadOnlyStorageEngine) engine);
         }
         return l;
     }
@@ -131,50 +131,37 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private void doSwap(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
-        String indexFile = getRequired(req, "index");
-        String dataFile = getRequired(req, "data");
+        String dir = getRequired(req, "dir");
         String storeName = getRequired(req, "store");
-        RandomAccessFileStore store = this.getStore(storeName);
+        ReadOnlyStorageEngine store = this.getStore(storeName);
         if(store == null)
             throw new ServletException("'" + storeName + "' is not a registered read-only store.");
-        if(!Utils.isReadableFile(indexFile))
-            throw new ServletException("Index file '" + indexFile + "' is not a readable file.");
-        if(!Utils.isReadableFile(dataFile))
-            throw new ServletException("Data file '" + dataFile + "' is not a readable file.");
+        if(!Utils.isReadableDir(dir))
+            throw new ServletException("Store directory '" + dir + "' is not a readable directory.");
 
-        store.swapFiles(indexFile, dataFile);
+        store.swapFiles(dir);
         resp.getWriter().write("Swap completed.");
     }
 
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
-        String indexUrl = getRequired(req, "index");
-        String dataUrl = getRequired(req, "data");
+        String fetchUrl = getRequired(req, "dir");
 
         // fetch the files if necessary
-        File indexFile;
-        File dataFile;
+        File fetchDir;
         if(fileFetcher == null) {
-            indexFile = new File(indexUrl);
-            dataFile = new File(dataUrl);
+            fetchDir = new File(fetchUrl);
         } else {
-            logger.info("Executing fetch of " + dataUrl);
-            dataFile = fileFetcher.fetchFile(dataUrl);
-
-            // fetch index second in hope that it will still be in page
-            // cache when the swap occurs
-            logger.info("Executing fetch of " + indexUrl);
-            indexFile = fileFetcher.fetchFile(indexUrl);
+            logger.info("Executing fetch of " + fetchUrl);
+            fetchDir = fileFetcher.fetch(fetchUrl);
             logger.info("Fetch complete.");
         }
-        resp.getWriter().write(indexFile.getAbsolutePath());
-        resp.getWriter().write("\n");
-        resp.getWriter().write(dataFile.getAbsolutePath());
+        resp.getWriter().write(fetchDir.getAbsolutePath());
     }
 
     private void doRollback(HttpServletRequest req) throws ServletException {
         String storeName = getRequired(req, "store");
-        RandomAccessFileStore store = getStore(storeName);
+        ReadOnlyStorageEngine store = getStore(storeName);
         store.rollback();
     }
 
@@ -185,8 +172,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         return val;
     }
 
-    private RandomAccessFileStore getStore(String storeName) throws ServletException {
-        for(RandomAccessFileStore store: this.stores)
+    private ReadOnlyStorageEngine getStore(String storeName) throws ServletException {
+        for(ReadOnlyStorageEngine store: this.stores)
             if(store.getName().equals(storeName))
                 return store;
         throw new ServletException("'" + storeName + "' is not a registered read-only store.");

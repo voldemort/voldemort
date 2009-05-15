@@ -65,6 +65,7 @@ public class JsonStoreBuilder {
     private final File outputDir;
     private final int internalSortSize;
     private final int numThreads;
+    private final int numChunks;
 
     public JsonStoreBuilder(JsonReader reader,
                             Cluster cluster,
@@ -72,7 +73,8 @@ public class JsonStoreBuilder {
                             RoutingStrategy routingStrategy,
                             File outputDir,
                             int internalSortSize,
-                            int numThreads) {
+                            int numThreads,
+                            int numChunks) {
         if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
             throw new IllegalStateException("Number of nodes is " + cluster.getNumberOfNodes()
                                             + " but the replication factor is "
@@ -84,6 +86,7 @@ public class JsonStoreBuilder {
         this.routingStrategy = routingStrategy;
         this.internalSortSize = internalSortSize;
         this.numThreads = numThreads;
+        this.numChunks = numChunks;
     }
 
     /**
@@ -93,10 +96,10 @@ public class JsonStoreBuilder {
      * @throws IOException
      */
     public static void main(String[] args) throws IOException {
-        if(args.length != 7)
+        if(args.length != 8)
             Utils.croak("USAGE: java "
                         + JsonStoreBuilder.class.getName()
-                        + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads");
+                        + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads num_chunks");
         String clusterFile = args[0];
         String storeDefFile = args[1];
         String storeName = args[2];
@@ -104,6 +107,7 @@ public class JsonStoreBuilder {
         String inputFile = args[4];
         File outputDir = new File(args[5]);
         int numThreads = Integer.parseInt(args[6]);
+        int numChunks = Integer.parseInt(args[7]);
 
         try {
             JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile),
@@ -131,7 +135,8 @@ public class JsonStoreBuilder {
                                  routingStrategy,
                                  outputDir,
                                  sortBufferSize,
-                                 numThreads).build();
+                                 numThreads,
+                                 numChunks).build();
         } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
@@ -141,23 +146,22 @@ public class JsonStoreBuilder {
     public void build() throws IOException {
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
-        DataOutputStream[] indexes = new DataOutputStream[numNodes];
-        DataOutputStream[] datas = new DataOutputStream[numNodes];
-        long[] positions = new long[numNodes];
-
-        int current = 0;
+        DataOutputStream[][] indexes = new DataOutputStream[numNodes][numChunks];
+        DataOutputStream[][] datas = new DataOutputStream[numNodes][numChunks];
+        int[][] positions = new int[numNodes][numChunks];
         for(Node node: cluster.getNodes()) {
-            File indexFile = new File(outputDir, node.getId() + ".index");
-            File dataFile = new File(outputDir, node.getId() + ".data");
-            positions[current] = 0;
-            // create outputDir if not exist
-            outputDir.mkdirs();
-
-            indexes[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                             1000000));
-            datas[current] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                           1000000));
-            current++;
+            int nodeId = node.getId();
+            File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
+            nodeDir.mkdirs();
+            for(int chunk = 0; chunk < numChunks; chunk++) {
+                File indexFile = new File(nodeDir, chunk + ".index");
+                File dataFile = new File(nodeDir, chunk + ".data");
+                positions[nodeId][chunk] = 0;
+                indexes[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                                       1000000));
+                datas[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                                     1000000));
+            }
         }
 
         SerializerFactory factory = new DefaultSerializerFactory();
@@ -176,12 +180,14 @@ public class JsonStoreBuilder {
             byte[] keyMd5 = pair.getKeyMd5();
             for(int i = 0; i < this.storeDefinition.getReplicationFactor(); i++) {
                 int nodeId = nodes.get(i).getId();
+                int chunk = ReadOnlyUtils.chunk(keyMd5, numChunks);
                 int numBytes = pair.getValue().length;
-                datas[nodeId].writeInt(numBytes);
-                datas[nodeId].write(pair.getValue());
-                indexes[nodeId].write(keyMd5);
-                indexes[nodeId].writeLong(positions[nodeId]);
-                positions[nodeId] += numBytes + 4;
+                datas[nodeId][chunk].writeInt(numBytes);
+                datas[nodeId][chunk].write(pair.getValue());
+                indexes[nodeId][chunk].write(keyMd5);
+                indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
+                positions[nodeId][chunk] += numBytes + 4;
+                checkOverFlow(chunk, positions[nodeId][chunk]);
             }
             count++;
         }
@@ -189,11 +195,20 @@ public class JsonStoreBuilder {
         logger.info(count + " items read.");
 
         // sort and write out
-        logger.info("Closing all store files");
-        for(int i = 0; i < numNodes; i++) {
-            indexes[i].close();
-            datas[i].close();
+        logger.info("Closing all store files.");
+        for(int node = 0; node < numNodes; node++) {
+            for(int chunk = 0; chunk < numChunks; chunk++) {
+                indexes[node][chunk].close();
+                datas[node][chunk].close();
+            }
         }
+    }
+
+    /* Check if the position has exceeded Integer.MAX_VALUE */
+    private void checkOverFlow(int chunk, int position) {
+        if(position < 0)
+            throw new VoldemortException("Chunk overflow: chunk " + chunk + " has exceeded "
+                                         + Integer.MAX_VALUE + " bytes.");
     }
 
     private static class KeyValuePairSerializer implements Serializer<KeyValuePair> {

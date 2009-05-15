@@ -28,7 +28,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
-import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.utils.Utils;
@@ -48,7 +48,7 @@ public class ReadOnlyStorePerformanceTest {
         String storeName = args[3];
 
         final VoldemortConfig voldemortConfig = new VoldemortConfig(new Props(new File(serverPropsFile)));
-        final Store<ByteArray, byte[]> store = new RandomAccessFileStorageConfiguration(voldemortConfig).getStore(storeName);
+        final Store<ByteArray, byte[]> store = new ReadOnlyStorageConfiguration(voldemortConfig).getStore(storeName);
         File storeFile = new File(voldemortConfig.getMetadataDirectory() + File.separatorChar
                                   + "stores.xml");
         final List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new java.io.FileReader(storeFile));

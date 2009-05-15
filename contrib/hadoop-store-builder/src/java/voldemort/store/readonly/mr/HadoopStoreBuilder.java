@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Collections;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
@@ -31,12 +32,13 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class HadoopStoreBuilder {
 
     private final Configuration config;
-    private final Class<? extends AbstractStoreBuilderMapper<?, ?>> mapperClass;
+    private final Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass;
     @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
     private final StoreDefinition storeDef;
     private final int replicationFactor;
+    private final int chunkSizeBytes;
     private final Path inputPath;
     private final Path outputDir;
     private final Path tempDir;
@@ -50,17 +52,19 @@ public class HadoopStoreBuilder {
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
      * @param replicationFactor
+     * @param chunkSizeBytes
      * @param tempDir
      * @param outputDir
      * @param path
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
                               int replicationFactor,
+                              int chunkSizeBytes,
                               Path tempDir,
                               Path outputDir,
                               Path inputPath) {
@@ -72,6 +76,7 @@ public class HadoopStoreBuilder {
         this.cluster = Utils.notNull(cluster);
         this.storeDef = Utils.notNull(storeDef);
         this.replicationFactor = replicationFactor;
+        this.chunkSizeBytes = chunkSizeBytes;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
     }
@@ -83,7 +88,6 @@ public class HadoopStoreBuilder {
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
         conf.setInt("store.output.replication.factor", replicationFactor);
-        conf.setNumReduceTasks(cluster.getNumberOfNodes());
         conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
         conf.setMapperClass(mapperClass);
         conf.setMapOutputKeyClass(BytesWritable.class);
@@ -94,6 +98,7 @@ public class HadoopStoreBuilder {
         conf.setOutputValueClass(BytesWritable.class);
         conf.setInputFormat(inputFormatClass);
         conf.setOutputFormat(SequenceFileOutputFormat.class);
+        conf.setJarByClass(getClass());
         FileInputFormat.setInputPaths(conf, inputPath);
         conf.set("final.output.dir", outputDir.toString());
         FileOutputFormat.setOutputPath(conf, tempDir);
@@ -103,11 +108,14 @@ public class HadoopStoreBuilder {
             FileSystem fs = tempDir.getFileSystem(conf);
             fs.delete(tempDir, true);
 
-            // run job
+            FileStatus status = fs.getFileStatus(inputPath);
+            int numChunks = Math.max((int) status.getLen() / chunkSizeBytes, 1);
+            conf.setInt("num.chunks", numChunks);
+            conf.setNumReduceTasks(cluster.getNumberOfNodes() * numChunks);
+
             JobClient.runJob(conf);
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
     }
-
 }

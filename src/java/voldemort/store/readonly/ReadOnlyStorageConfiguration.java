@@ -31,7 +31,7 @@ import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
-public class RandomAccessFileStorageConfiguration implements StorageConfiguration {
+public class ReadOnlyStorageConfiguration implements StorageConfiguration {
 
     public static final String TYPE_NAME = "read-only";
 
@@ -40,16 +40,14 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
     private final long fileAccessWaitTimeoutMs;
     private final File storageDir;
     private final Set<ObjectName> registeredBeans;
-    private final long cacheSize;
     private final int nodeId;
 
-    public RandomAccessFileStorageConfiguration(VoldemortConfig config) {
+    public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.numFileHandles = config.getReadOnlyStorageFileHandles();
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
         this.fileAccessWaitTimeoutMs = config.getReadOnlyFileWaitTimeoutMs();
         this.numBackups = config.getReadOnlyBackups();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
-        this.cacheSize = config.getReadOnlyCacheSize();
         this.nodeId = config.getNodeId();
     }
 
@@ -60,12 +58,11 @@ public class RandomAccessFileStorageConfiguration implements StorageConfiguratio
     }
 
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        RandomAccessFileStore store = new RandomAccessFileStore(name,
-                                                                storageDir,
+        ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
+                                                                new File(storageDir, name),
                                                                 numBackups,
                                                                 numFileHandles,
-                                                                fileAccessWaitTimeoutMs,
-                                                                cacheSize);
+                                                                fileAccessWaitTimeoutMs);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                        name + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),

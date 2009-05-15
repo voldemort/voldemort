@@ -92,7 +92,7 @@ public class RandomAccessStoreTestInstance {
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinition("test",
-                                                       RandomAccessFileStorageConfiguration.TYPE_NAME,
+                                                       ReadOnlyStorageConfiguration.TYPE_NAME,
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
@@ -104,7 +104,7 @@ public class RandomAccessStoreTestInstance {
                                                        1);
         RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), repFactor);
 
-        // build and open store
+        // build store files in outputDir
         File outputDir = TestUtils.createTempDir(baseDir);
         JsonStoreBuilder storeBuilder = new JsonStoreBuilder(reader,
                                                              cluster,
@@ -112,34 +112,26 @@ public class RandomAccessStoreTestInstance {
                                                              router,
                                                              outputDir,
                                                              testSize / 5,
-                                                             1);
+                                                             1,
+                                                             2);
         storeBuilder.build();
 
+        File nodeDir = TestUtils.createTempDir(baseDir);
         @SuppressWarnings("unchecked")
         Serializer<String> serializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(serDef);
         Map<Integer, Store<String, String>> nodeStores = Maps.newHashMap();
-        File nodeDataDir = new File(baseDir, "nodes");
-        nodeDataDir.deleteOnExit();
         for(int i = 0; i < numNodes; i++) {
-            File nodeDir = new File(nodeDataDir, Integer.toString(i));
-            nodeDir.mkdirs();
-
-            // rename files
-            boolean indexCreated = new File(outputDir, i + ".index").renameTo(new File(nodeDir,
-                                                                                       "test.index"));
-            boolean dataFileCreated = new File(outputDir, i + ".data").renameTo(new File(nodeDir,
-                                                                                         "test.data"));
-            if(!indexCreated || !dataFileCreated)
-                throw new IllegalArgumentException("Failed to create index or data file.");
-
-            // open store
+            File currNode = new File(nodeDir, Integer.toString(i));
+            currNode.mkdirs();
+            currNode.deleteOnExit();
+            Utils.move(new File(outputDir, "node-" + Integer.toString(i)), new File(currNode,
+                                                                                    "version-0"));
             nodeStores.put(i,
-                           new SerializingStore<String, String>(new RandomAccessFileStore("test",
-                                                                                          nodeDir,
+                           new SerializingStore<String, String>(new ReadOnlyStorageEngine("test",
+                                                                                          currNode,
                                                                                           1,
                                                                                           3,
-                                                                                          1000,
-                                                                                          100 * 1024),
+                                                                                          1000),
                                                                 serializer,
                                                                 serializer));
         }

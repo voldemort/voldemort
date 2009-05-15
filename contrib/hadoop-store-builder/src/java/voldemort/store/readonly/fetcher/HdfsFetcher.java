@@ -30,38 +30,75 @@ public class HdfsFetcher implements FileFetcher {
     private static final int BUFFER_SIZE = 64 * 1024;
     private static final int REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
 
+    private File tempDir;
     private final Long maxBytesPerSecond;
 
     public HdfsFetcher(Props props) {
-        this(props.getBytes("fetcher.max.bytes.per.sec"));
+        this(props.getBytes("fetcher.max.bytes.per.sec"),
+             new File(props.getString("hdfs.fetcher.tmp.dir", null)));
     }
 
     public HdfsFetcher() {
-        this((Long) null);
+        this((Long) null, null);
     }
 
-    public HdfsFetcher(Long maxBytesPerSecond) {
+    public HdfsFetcher(Long maxBytesPerSecond, File tempDir) {
+        if(tempDir == null)
+            this.tempDir = new File(System.getProperty("java.io.tmpdir"), "hdfs-fetcher");
+        else
+            this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
         this.maxBytesPerSecond = maxBytesPerSecond;
+        this.tempDir.mkdirs();
     }
 
-    public File fetchFile(String fileUrl) throws IOException {
-        Path filePath = new Path(fileUrl);
+    public File fetch(String fileUrl) throws IOException {
+        Path path = new Path(fileUrl);
         Configuration config = new Configuration();
         config.setInt("io.file.buffer.size", 64 * 1024);
-        FileSystem fs = filePath.getFileSystem(config);
+        FileSystem fs = path.getFileSystem(config);
         IoThrottler throttler = null;
         if(maxBytesPerSecond != null)
             throttler = new IoThrottler(maxBytesPerSecond);
 
         // copy file
-        long bytesCopied = 0;
-        long bytesSinceLastReport = 0;
+        CopyStats stats = new CopyStats();
+        File destination = new File(this.tempDir, path.getName());
+        fetch(fs, path, destination, throttler, stats);
+        return destination;
+    }
+
+    private void fetch(FileSystem fs, Path source, File dest, IoThrottler throttler, CopyStats stats)
+            throws IOException {
+        if(fs.isFile(source)) {
+            copyFile(fs, source, dest, throttler, stats);
+        } else {
+            dest.mkdirs();
+            FileStatus[] statuses = fs.listStatus(source);
+            if(statuses != null) {
+                for(FileStatus status: statuses) {
+                    if(!status.getPath().getName().startsWith(".")) {
+                        fetch(fs,
+                              status.getPath(),
+                              new File(dest, status.getPath().getName()),
+                              throttler,
+                              stats);
+                    }
+                }
+            }
+        }
+    }
+
+    private void copyFile(FileSystem fs,
+                          Path source,
+                          File dest,
+                          IoThrottler throttler,
+                          CopyStats stats) throws IOException {
+        logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
         try {
-            input = fs.open(filePath);
-            File outputFile = File.createTempFile("fetcher-", ".dat");
-            output = new FileOutputStream(outputFile);
+            input = fs.open(source);
+            output = new FileOutputStream(dest);
             byte[] buffer = new byte[BUFFER_SIZE];
             while(true) {
                 int read = input.read(buffer);
@@ -70,18 +107,44 @@ public class HdfsFetcher implements FileFetcher {
                 output.write(buffer, 0, read);
                 if(throttler != null)
                     throttler.maybeThrottle(read);
-                bytesSinceLastReport += read;
-                bytesCopied += read;
-                if(bytesSinceLastReport > REPORTING_INTERVAL_BYTES) {
-                    logger.info(bytesCopied / (1024 * 1024) + " MB copied");
-                    bytesSinceLastReport = 0;
+                stats.recordBytes(read);
+                if(stats.getBytesSinceLastReport() > REPORTING_INTERVAL_BYTES) {
+                    logger.info(stats.getBytesCopied() / (1024 * 1024) + " MB copied");
+                    stats.resetBytesSinceLastReport();
                 }
-
             }
-            return outputFile;
+            logger.info("Completed copy of " + source + " to " + dest);
         } finally {
             IOUtils.closeQuietly(output);
             IOUtils.closeQuietly(input);
+        }
+    }
+
+    private static class CopyStats {
+
+        private long bytesSinceLastReport;
+        private long bytesCopied;
+
+        public CopyStats() {
+            this.bytesCopied = 0;
+            this.bytesSinceLastReport = 0;
+        }
+
+        public void recordBytes(long bytes) {
+            this.bytesCopied += bytes;
+            this.bytesSinceLastReport += bytes;
+        }
+
+        public void resetBytesSinceLastReport() {
+            this.bytesSinceLastReport = 0;
+        }
+
+        public long getBytesSinceLastReport() {
+            return bytesSinceLastReport;
+        }
+
+        public long getBytesCopied() {
+            return bytesCopied;
         }
     }
 
@@ -96,10 +159,10 @@ public class HdfsFetcher implements FileFetcher {
         Path p = new Path(url);
         FileStatus status = p.getFileSystem(new Configuration()).getFileStatus(p);
         long size = status.getLen();
-        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec);
+        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, null);
         long start = System.currentTimeMillis();
-        fetcher.fetchFile(url);
+        File location = fetcher.fetch(url);
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
-        System.out.println("Fetch completed: " + rate + " bytes/sec.");
+        System.out.println("Fetch to " + location + " completed: " + rate + " bytes/sec.");
     }
 }

@@ -43,7 +43,7 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
-import voldemort.store.readonly.RandomAccessFileStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -279,7 +279,7 @@ public class TestUtils {
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinition("test",
-                                                       RandomAccessFileStorageConfiguration.TYPE_NAME,
+                                                       ReadOnlyStorageConfiguration.TYPE_NAME,
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
@@ -301,7 +301,8 @@ public class TestUtils {
                                                              router,
                                                              dataDir,
                                                              100,
-                                                             1);
+                                                             1,
+                                                             2);
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();
