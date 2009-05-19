@@ -6,6 +6,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -55,8 +56,8 @@ public class GenerateData extends Configured implements Tool {
 
         conf.setInputFormat(TextInputFormat.class);
         conf.setOutputFormat(SequenceFileOutputFormat.class);
-        conf.setOutputKeyClass(Text.class);
-        conf.setOutputValueClass(Text.class);
+        conf.setOutputKeyClass(BytesWritable.class);
+        conf.setOutputValueClass(BytesWritable.class);
 
         Path inputPath = new Path(args[0]);
         FileInputFormat.setInputPaths(conf, inputPath);
@@ -73,15 +74,15 @@ public class GenerateData extends Configured implements Tool {
     }
 
     public static class GenerateDataMapper extends MapReduceBase implements
-            Mapper<LongWritable, Text, Text, Text> {
+            Mapper<LongWritable, Text, BytesWritable, BytesWritable> {
 
-        private String string;
+        private BytesWritable value;
 
         public void map(LongWritable lineNumber,
                         Text line,
-                        OutputCollector<Text, Text> collector,
+                        OutputCollector<BytesWritable, BytesWritable> collector,
                         Reporter reporter) throws IOException {
-            collector.collect(line, new Text(string));
+            collector.collect(new BytesWritable(line.getBytes()), value);
         }
 
         @Override
@@ -90,7 +91,7 @@ public class GenerateData extends Configured implements Tool {
             int size = job.getInt("value.size", -1);
             for(int i = 0; i < size; i++)
                 builder.append('a');
-            this.string = builder.toString();
+            this.value = new BytesWritable(builder.toString().getBytes());
         }
     }
 

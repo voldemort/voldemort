@@ -14,6 +14,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 public class HadoopStoreBuilderBase {
 
+    private int numChunks;
     private Cluster cluster;
     private StoreDefinition storeDef;
 
@@ -23,6 +24,9 @@ public class HadoopStoreBuilderBase {
         if(storeDefs.size() != 1)
             throw new IllegalStateException("Expected to find only a single store, but found multiple!");
         this.storeDef = storeDefs.get(0);
+        this.numChunks = conf.getInt("num.chunks", -1);
+        if(this.numChunks < 1)
+            throw new VoldemortException("num.chunks not specified in the job conf.");
     }
 
     @SuppressWarnings("unused")
@@ -46,6 +50,10 @@ public class HadoopStoreBuilderBase {
     private final void checkNotNull(Object o) {
         if(o == null)
             throw new VoldemortException("Not configured yet!");
+    }
+
+    public int getNumChunks() {
+        return this.numChunks;
     }
 
 }

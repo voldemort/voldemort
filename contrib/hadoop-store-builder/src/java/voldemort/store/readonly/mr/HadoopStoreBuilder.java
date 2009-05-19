@@ -14,6 +14,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -31,6 +32,11 @@ import voldemort.xml.StoreDefinitionsMapper;
  */
 public class HadoopStoreBuilder {
 
+    public static final long MIN_CHUNK_SIZE = 1L;
+    public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
+
+    private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
+
     private final Configuration config;
     private final Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass;
     @SuppressWarnings("unchecked")
@@ -38,7 +44,7 @@ public class HadoopStoreBuilder {
     private final Cluster cluster;
     private final StoreDefinition storeDef;
     private final int replicationFactor;
-    private final int chunkSizeBytes;
+    private final long chunkSizeBytes;
     private final Path inputPath;
     private final Path outputDir;
     private final Path tempDir;
@@ -64,7 +70,7 @@ public class HadoopStoreBuilder {
                               Cluster cluster,
                               StoreDefinition storeDef,
                               int replicationFactor,
-                              int chunkSizeBytes,
+                              long chunkSizeBytes,
                               Path tempDir,
                               Path outputDir,
                               Path inputPath) {
@@ -79,6 +85,9 @@ public class HadoopStoreBuilder {
         this.chunkSizeBytes = chunkSizeBytes;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
+        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
+            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
+                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
     }
 
     public void build() {
@@ -108,14 +117,34 @@ public class HadoopStoreBuilder {
             FileSystem fs = tempDir.getFileSystem(conf);
             fs.delete(tempDir, true);
 
-            FileStatus status = fs.getFileStatus(inputPath);
-            int numChunks = Math.max((int) status.getLen() / chunkSizeBytes, 1);
+            long size = sizeOfPath(fs, inputPath);
+            int numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfNodes() / chunkSizeBytes), 1);
+            logger.info("Data size = " + size + ", replication factor = "
+                        + storeDef.getReplicationFactor() + ", numNodes = "
+                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
+                        + ",  num.chunks = " + numChunks);
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(cluster.getNumberOfNodes() * numChunks);
 
+            logger.info("Building store...");
             JobClient.runJob(conf);
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
+    }
+
+    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
+        long size = 0;
+        FileStatus[] statuses = fs.listStatus(path);
+        if(statuses != null) {
+            for(FileStatus status: statuses) {
+                if(status.isDir())
+                    size += sizeOfPath(fs, status.getPath());
+                else
+                    size += status.getLen();
+            }
+        }
+        return size;
     }
 }

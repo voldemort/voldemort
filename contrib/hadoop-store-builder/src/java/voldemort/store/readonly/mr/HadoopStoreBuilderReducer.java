@@ -62,18 +62,16 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
             if(this.chunkId == -1)
                 this.chunkId = ReadOnlyUtils.chunk(keyBytes, this.numChunks);
 
-            // read all but the first 4 bytes, which contain the node id
-            byte[] value = ByteUtils.copy(valueBytes, 4, writable.getSize());
-
             // Write key and position
             this.indexFileStream.write(keyBytes);
             this.indexFileStream.writeInt(this.position);
 
             // Write length and value
-            this.valueFileStream.writeInt(value.length);
-            this.valueFileStream.write(value);
+            int valueLength = writable.getSize() - 4;
+            this.valueFileStream.writeInt(valueLength);
+            this.valueFileStream.write(valueBytes, 4, valueLength);
 
-            this.position += 4 + value.length;
+            this.position += 4 + valueLength;
             if(this.position < 0)
                 throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
                                              + " has exceeded " + Integer.MAX_VALUE + " bytes.");

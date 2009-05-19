@@ -35,4 +35,4 @@ do
 done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -agentlib:hprof=cpu=samples,depth=10 -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}
+java -d64 -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}

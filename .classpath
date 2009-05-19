@@ -36,7 +36,8 @@
 	<classpathentry kind="lib" path="lib/libthrift-20080411p1.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-snapshot-20090211.jar"/>
 	<classpathentry kind="lib" path="contrib/mongodb/lib/mongo-xjdm.jar"/>
-	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-0.18.1-core.jar"/>
 	<classpathentry kind="lib" path="lib/je-3.3.75.jar"/>
+	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-cli-2.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-0.18.1-core.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

@@ -6,7 +6,7 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -15,6 +15,7 @@ import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.mr.AbstractHadoopStoreBuilderMapper;
 import voldemort.store.readonly.mr.HadoopStoreBuilder;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -51,13 +52,14 @@ public class BuildTestStore extends Configured implements Tool {
 
         Configuration config = this.getConf();
         config.set("mapred.job.name", "test-store-builder");
+        config.setInt("mapred.min.split.size", 1024 * 1024 * 1024);
         HadoopStoreBuilder builder = new HadoopStoreBuilder(config,
                                                             BuildTestStoreMapper.class,
                                                             SequenceFileInputFormat.class,
                                                             cluster,
                                                             def,
                                                             2,
-                                                            512 * 1024 * 1024,
+                                                            (long) (1.5 * 1024 * 1024 * 1024),
                                                             new Path(tempDir),
                                                             new Path(outputDir),
                                                             new Path(inputDir));
@@ -65,16 +67,24 @@ public class BuildTestStore extends Configured implements Tool {
         return 0;
     }
 
-    public static class BuildTestStoreMapper extends AbstractHadoopStoreBuilderMapper<Text, Text> {
+    public static class BuildTestStoreMapper extends
+            AbstractHadoopStoreBuilderMapper<BytesWritable, BytesWritable> {
 
         @Override
-        public Object makeKey(Text key, Text value) {
-            return key.toString();
+        public Object makeKey(BytesWritable key, BytesWritable value) {
+            return getValid(key);
         }
 
         @Override
-        public Object makeValue(Text key, Text value) {
-            return value.toString();
+        public Object makeValue(BytesWritable key, BytesWritable value) {
+            return value.get();
+        }
+
+        private byte[] getValid(BytesWritable writable) {
+            if(writable.getSize() == writable.getCapacity())
+                return writable.get();
+            else
+                return ByteUtils.copy(writable.get(), 0, writable.getSize());
         }
 
     }
