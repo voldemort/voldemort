@@ -19,7 +19,7 @@ public class HadoopStoreBuilderPartitioner extends HadoopStoreBuilderBase implem
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
         int nodeId = ByteUtils.readInt(value.get(), 0);
         int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
-        return (nodeId * getNumChunks() + chunkId % numReduceTasks);
+        return (nodeId * getNumChunks() + chunkId) % numReduceTasks;
     }
 
 }

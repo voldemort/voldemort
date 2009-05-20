@@ -77,7 +77,7 @@ public class BuildTestStore extends Configured implements Tool {
 
         @Override
         public Object makeValue(BytesWritable key, BytesWritable value) {
-            return value.get();
+            return getValid(value);
         }
 
         private byte[] getValid(BytesWritable writable) {

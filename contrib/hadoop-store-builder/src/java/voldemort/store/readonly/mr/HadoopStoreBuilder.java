@@ -102,11 +102,10 @@ public class HadoopStoreBuilder {
         conf.setMapOutputKeyClass(BytesWritable.class);
         conf.setMapOutputValueClass(BytesWritable.class);
         conf.setReducerClass(HadoopStoreBuilderReducer.class);
+        conf.setInputFormat(inputFormatClass);
         conf.setOutputFormat(SequenceFileOutputFormat.class);
         conf.setOutputKeyClass(BytesWritable.class);
         conf.setOutputValueClass(BytesWritable.class);
-        conf.setInputFormat(inputFormatClass);
-        conf.setOutputFormat(SequenceFileOutputFormat.class);
         conf.setJarByClass(getClass());
         FileInputFormat.setInputPaths(conf, inputPath);
         conf.set("final.output.dir", outputDir.toString());
@@ -125,7 +124,9 @@ public class HadoopStoreBuilder {
                         + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
                         + ",  num.chunks = " + numChunks);
             conf.setInt("num.chunks", numChunks);
-            conf.setNumReduceTasks(cluster.getNumberOfNodes() * numChunks);
+            int numReduces = cluster.getNumberOfNodes() * numChunks;
+            conf.setNumReduceTasks(numReduces);
+            logger.info("Number of reduces: " + numReduces);
 
             logger.info("Building store...");
             JobClient.runJob(conf);

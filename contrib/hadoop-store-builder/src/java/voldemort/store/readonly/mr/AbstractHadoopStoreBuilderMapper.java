@@ -1,8 +1,7 @@
 package voldemort.store.readonly.mr;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.List;
 
 import org.apache.hadoop.io.BytesWritable;
@@ -32,6 +31,7 @@ import voldemort.utils.ByteUtils;
 public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends HadoopStoreBuilderBase
         implements Mapper<K, V, BytesWritable, BytesWritable> {
 
+    private MessageDigest md5er;
     private ConsistentRoutingStrategy routingStrategy;
     private Serializer<Object> keySerializer;
     private Serializer<Object> valueSerializer;
@@ -55,24 +55,26 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends HadoopStore
         byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
         byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
+        // copy the bytes into an array with 4 additional bytes for the node id
+        byte[] nodeIdAndValue = new byte[valBytes.length + 4];
+        System.arraycopy(valBytes, 0, nodeIdAndValue, 4, valBytes.length);
+
+        BytesWritable outputKey = new BytesWritable(md5er.digest(keyBytes));
         List<Node> nodes = routingStrategy.routeRequest(keyBytes);
         for(Node node: nodes) {
-            ByteArrayOutputStream versionedValue = new ByteArrayOutputStream(keyBytes.length + 4);
-            DataOutputStream valueStream = new DataOutputStream(versionedValue);
-            valueStream.writeInt(node.getId());
-            valueStream.write(valBytes);
-            valueStream.close();
-            BytesWritable outputKey = new BytesWritable(ByteUtils.md5(keyBytes));
-            BytesWritable outputVal = new BytesWritable(versionedValue.toByteArray());
+            ByteUtils.writeInt(nodeIdAndValue, node.getId(), 0);
+            BytesWritable outputVal = new BytesWritable(nodeIdAndValue);
 
             output.collect(outputKey, outputVal);
         }
+        md5er.reset();
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public void configure(JobConf conf) {
         super.configure(conf);
+        md5er = ByteUtils.getDigest("md5");
         keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(getStoreDef().getKeySerializer());
         valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(getStoreDef().getValueSerializer());
 

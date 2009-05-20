@@ -50,33 +50,36 @@ public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
                        Iterator<BytesWritable> values,
                        OutputCollector<Text, Text> output,
                        Reporter reporter) throws IOException {
-        // copy out only the valid bytes
-        byte[] keyBytes = ByteUtils.copy(key.get(), 0, key.getSize());
+        BytesWritable writable = values.next();
+        byte[] valueBytes = writable.get();
 
-        while(values.hasNext()) {
-            BytesWritable writable = values.next();
-            byte[] valueBytes = writable.get();
+        if(this.nodeId == -1)
+            this.nodeId = ByteUtils.readInt(valueBytes, 0);
+        if(this.chunkId == -1)
+            this.chunkId = ReadOnlyUtils.chunk(key.get(), this.numChunks);
 
-            if(this.nodeId == -1)
-                this.nodeId = ByteUtils.readInt(valueBytes, 0);
-            if(this.chunkId == -1)
-                this.chunkId = ReadOnlyUtils.chunk(keyBytes, this.numChunks);
+        // Write key and position
+        this.indexFileStream.write(key.get(), 0, key.getSize());
+        this.indexFileStream.writeInt(this.position);
 
-            // Write key and position
-            this.indexFileStream.write(keyBytes);
-            this.indexFileStream.writeInt(this.position);
+        // Write length and value
+        int valueLength = writable.getSize() - 4;
+        this.valueFileStream.writeInt(valueLength);
+        this.valueFileStream.write(valueBytes, 4, valueLength);
 
-            // Write length and value
-            int valueLength = writable.getSize() - 4;
-            this.valueFileStream.writeInt(valueLength);
-            this.valueFileStream.write(valueBytes, 4, valueLength);
+        this.position += 4 + valueLength;
+        if(this.position < 0)
+            throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
+                                         + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
-            this.position += 4 + valueLength;
-            if(this.position < 0)
-                throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
-                                             + " has exceeded " + Integer.MAX_VALUE + " bytes.");
-        }
-
+        // if we have multiple values for this md5 that is a collision, throw an
+        // exception--either the data itself has duplicates, there are trillions
+        // of keys, or someone is attempting something malicious
+        if(values.hasNext())
+            throw new VoldemortException("Duplicate keys detected for md5 sum "
+                                         + ByteUtils.toHexString(ByteUtils.copy(key.get(),
+                                                                                0,
+                                                                                key.getSize())));
     }
 
     @Override
