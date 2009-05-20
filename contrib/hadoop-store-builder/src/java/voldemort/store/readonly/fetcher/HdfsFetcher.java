@@ -27,6 +27,8 @@ import voldemort.utils.Utils;
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
+    private static final String DEFAULT_TEMP_DIR = new File(System.getProperty("java.io.tmpdir"),
+                                                            "hdfs-fetcher").getAbsolutePath();
     private static final int BUFFER_SIZE = 64 * 1024;
     private static final int REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
 
@@ -34,8 +36,11 @@ public class HdfsFetcher implements FileFetcher {
     private final Long maxBytesPerSecond;
 
     public HdfsFetcher(Props props) {
-        this(props.getBytes("fetcher.max.bytes.per.sec"),
-             new File(props.getString("hdfs.fetcher.tmp.dir", null)));
+        this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
+                                                           : null,
+             new File(props.getString("hdfs.fetcher.tmp.dir", DEFAULT_TEMP_DIR)));
+        logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
+                    + " and throttle rate " + maxBytesPerSecond);
     }
 
     public HdfsFetcher() {
@@ -44,7 +49,7 @@ public class HdfsFetcher implements FileFetcher {
 
     public HdfsFetcher(Long maxBytesPerSecond, File tempDir) {
         if(tempDir == null)
-            this.tempDir = new File(System.getProperty("java.io.tmpdir"), "hdfs-fetcher");
+            this.tempDir = new File(DEFAULT_TEMP_DIR);
         else
             this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
         this.maxBytesPerSecond = maxBytesPerSecond;

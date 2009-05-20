@@ -24,6 +24,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 
@@ -152,8 +153,11 @@ public class StoreSwapper {
         client.getParams().setParameter("http.socket.timeout", 3 * 60 * 60 * 1000);
 
         StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath);
+        long start = System.currentTimeMillis();
         swapper.swapStoreData(storeName, filePath);
-        logger.info("Swap succeeded on all nodes.");
+        long end = System.currentTimeMillis();
+        logger.info("Swap succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
+                    + " seconds.");
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.SECONDS);
         System.exit(0);
