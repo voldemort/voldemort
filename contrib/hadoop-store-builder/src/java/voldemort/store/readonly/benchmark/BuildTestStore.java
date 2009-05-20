@@ -52,7 +52,6 @@ public class BuildTestStore extends Configured implements Tool {
 
         Configuration config = this.getConf();
         config.set("mapred.job.name", "test-store-builder");
-        config.setInt("mapred.min.split.size", 1024 * 1024 * 1024);
         HadoopStoreBuilder builder = new HadoopStoreBuilder(config,
                                                             BuildTestStoreMapper.class,
                                                             SequenceFileInputFormat.class,
