@@ -75,8 +75,8 @@ public class VoldemortServer extends AbstractService {
         this.voldemortConfig = new VoldemortConfig(props);
         this.identityNode = metadataStore.getCluster().getNodeById(voldemortConfig.getNodeId());
         this.storeRepository = new StoreRepository();
-        this.services = createServices();
         this.metadataStore = metadataStore;
+        this.services = createServices();
     }
 
     private List<VoldemortService> createServices() {
