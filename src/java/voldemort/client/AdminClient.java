@@ -127,7 +127,7 @@ public class AdminClient {
         }
     }
 
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionKeyValues(int nodeId,
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
                                                                                 String storeName,
                                                                                 List<Integer> partitionList)
             throws VoldemortException {
@@ -192,9 +192,9 @@ public class AdminClient {
         };
     }
 
-    public void setPartitionKeyValues(int nodeId,
-                                      String storeName,
-                                      Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator)
+    public void updatePartitionEntries(int nodeId,
+                                       String storeName,
+                                       Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator)
             throws VoldemortException, IOException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
 
@@ -329,9 +329,9 @@ public class AdminClient {
                                      int stealerNodeId,
                                      String storeName,
                                      List<Integer> stealList) throws IOException {
-        setPartitionKeyValues(stealerNodeId, storeName, fetchPartitionKeyValues(donorNodeId,
-                                                                                storeName,
-                                                                                stealList));
+        updatePartitionEntries(stealerNodeId, storeName, fetchPartitionEntries(donorNodeId,
+                                                                                 storeName,
+                                                                                 stealList));
     }
 
     public List<Integer> getStealList(Cluster old, Cluster updated, int fromNode, int toNode) {

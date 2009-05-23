@@ -89,7 +89,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case VoldemortOpCode.PUT_ENTRIES_AS_STREAM_OP_CODE:
                 engine = readStorageEngine(inputStream, outputStream);
                 if(engine != null)
-                    handlePutEntriesAsStream(engine, inputStream, outputStream);
+                    handleUpdateEntries(engine, inputStream, outputStream);
                 break;
             case VoldemortOpCode.UPDATE_METADATA_OP_CODE:
                 String keyString = inputStream.readUTF();
@@ -152,9 +152,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
      * @param engine
      * @throws IOException
      */
-    private void handlePutEntriesAsStream(StorageEngine<ByteArray, byte[]> engine,
-                                          DataInputStream inputStream,
-                                          DataOutputStream outputStream) throws IOException {
+    private void handleUpdateEntries(StorageEngine<ByteArray, byte[]> engine,
+                                     DataInputStream inputStream,
+                                     DataOutputStream outputStream) throws IOException {
         IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
 
         try {

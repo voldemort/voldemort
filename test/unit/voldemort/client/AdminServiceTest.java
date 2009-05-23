@@ -257,7 +257,7 @@ public class AdminServiceTest extends TestCase {
         AdminClient client = new AdminClient(server.getIdentityNode(),
                                              server.getVoldemortMetadata(),
                                              new SocketPool(100, 100, 2000, 1000, 10000));
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionKeyValues(0,
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionEntries(0,
                                                                                                          storeName,
                                                                                                          Arrays.asList(new Integer[] { 0 }));
 
@@ -272,7 +272,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // check for two partitions
-        entryIterator = client.fetchPartitionKeyValues(0,
+        entryIterator = client.fetchPartitionEntries(0,
                                                             storeName,
                                                             Arrays.asList(new Integer[] { 0, 1 }));
         // assert right partitions returned and both are returned
@@ -311,7 +311,7 @@ public class AdminServiceTest extends TestCase {
                                              server.getVoldemortMetadata(),
                                              new SocketPool(100, 100, 2000, 1000, 10000));
 
-        client.setPartitionKeyValues(0, storeName, entryList.iterator());
+        client.updatePartitionEntries(0, storeName, entryList.iterator());
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
