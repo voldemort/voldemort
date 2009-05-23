@@ -128,7 +128,8 @@ public class SelectorManager implements Runnable {
                              + socketChannel.socket().getSendBufferSize() + " bytes.");
 
         socketChannel.configureBlocking(false);
-        socketChannel.register(selector, SelectionKey.OP_READ);
+        SelectionKey key = socketChannel.register(selector, SelectionKey.OP_READ);
+        key.attach(new AsyncRequestHandler(key, requestHandler));
     }
 
     private void read(SelectionKey selectionKey) {
@@ -141,7 +142,9 @@ public class SelectorManager implements Runnable {
             return;
         }
 
-        threadPool.execute(new AsyncRequestHandler(selectionKey, requestHandler));
+        AsyncRequestHandler asyncRequestHandler = (AsyncRequestHandler) selectionKey.attachment();
+        asyncRequestHandler.disableReadInterest();
+        threadPool.execute(asyncRequestHandler);
     }
 
 }

@@ -22,6 +22,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
@@ -52,16 +53,37 @@ public class AsyncRequestHandler implements Runnable {
 
     private final RequestHandler requestHandler;
 
+    private final DataInputStream inputStream;
+
+    private final DataOutputStream outputStream;
+
     private final Logger logger = Logger.getLogger(getClass());
 
     public AsyncRequestHandler(SelectionKey selectionKey, RequestHandler requestHandler) {
         this.selectionKey = selectionKey;
         this.requestHandler = requestHandler;
 
-        // We disable read interest while we're handling the read in the run
-        // method. Otherwise the same channel would receive a 'thundering herd'
-        // of requests. We re-enable it once run completes.
-        selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
+        SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+
+        inputStream = new DataInputStream(new BufferedInputStream(new ChannelBackedInputStream(socketChannel),
+                                                                  BUFFER_SIZE));
+        outputStream = new DataOutputStream(new BufferedOutputStream(new ChannelBackedOutputStream(socketChannel),
+                                                                     BUFFER_SIZE));
+    }
+
+    public void run() {
+        try {
+            requestHandler.handleRequest(inputStream, outputStream);
+            outputStream.flush();
+            enableReadInterest();
+        } catch(ClosedByInterruptException e) {
+            close();
+        } catch(EOFException e) {
+            close();
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.ERROR))
+                logger.error(e.getMessage(), e);
+        }
     }
 
     int getPort() {
@@ -69,30 +91,29 @@ public class AsyncRequestHandler implements Runnable {
         return socketChannel.socket().getPort();
     }
 
-    public void run() {
-        SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+    /**
+     * We disable read interest while we're handling the read in the run method.
+     * Otherwise the same channel would receive a 'thundering herd' of requests.
+     * We re-enable it once run completes.
+     * 
+     * @see #enableReadInterest()
+     */
 
-        try {
-            DataInputStream inputStream = new DataInputStream(new BufferedInputStream(new ChannelBackedInputStream(socketChannel),
-                                                                                      BUFFER_SIZE));
-            DataOutputStream outputStream = new DataOutputStream(new BufferedOutputStream(new ChannelBackedOutputStream(socketChannel),
-                                                                                          64000));
+    void disableReadInterest() {
+        selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
+    }
 
-            requestHandler.handleRequest(inputStream, outputStream);
-            outputStream.flush();
-        } catch(EOFException e) {
-            close();
-        } catch(Exception e) {
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(e.getMessage(), e);
-        } finally {
-            if(selectionKey.isValid()) {
-                // In the constructor we disabled read interest, here we
-                // re-enable it and wake up the selector in case the socket has
-                // more to do.
-                selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
-                selectionKey.selector().wakeup();
-            }
+    /**
+     * In the constructor we disabled read interest, here we re-enable it and
+     * wake up the selector in case the socket has more to do.
+     * 
+     * @see #disableReadInterest()
+     */
+
+    private void enableReadInterest() {
+        if(selectionKey.isValid()) {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
+            selectionKey.selector().wakeup();
         }
     }
 
