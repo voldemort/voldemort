@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 
 /**
@@ -48,6 +47,6 @@ public class RouteToAllStrategy implements RoutingStrategy {
     }
 
     public List<Integer> getPartitionList(byte[] key) {
-		throw new UnsupportedOperationException("Not yet implemented.");
+        throw new UnsupportedOperationException("Not yet implemented.");
     }
 }
