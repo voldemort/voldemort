@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
@@ -53,6 +55,8 @@ import voldemort.xml.StoreDefinitionsMapper;
  * 
  */
 public class AdminServiceRequestHandler implements RequestHandler {
+
+    private final Logger logger = Logger.getLogger(AdminServiceRequestHandler.class);
 
     private final StoreRepository storeRepository;
     private final VoldemortMetadata metadata;
@@ -289,7 +293,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                     + metadata.getIdentityNode().getId()
                                                     + " for Key:" + cluster_key);
         }
-        System.out.println("Cluster metadata  update called " + cluster_key);
+        logger.debug("Cluster metadata  update called " + cluster_key);
         // update version
         VectorClock updatedVersion = new VectorClock();
         if(clusterInfo.size() > 0) {
@@ -423,5 +427,4 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return false;
     }
 
-    public void refresh() {}
 }

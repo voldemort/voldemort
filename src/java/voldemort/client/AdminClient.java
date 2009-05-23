@@ -128,8 +128,8 @@ public class AdminClient {
     }
 
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
-                                                                                String storeName,
-                                                                                List<Integer> partitionList)
+                                                                              String storeName,
+                                                                              List<Integer> partitionList)
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -241,7 +241,6 @@ public class AdminClient {
         Cluster currentCluster = metadata.getCurrentCluster();
         Node node = currentCluster.getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
-        System.out.println("Trying to check out socket for destination:" + destination);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
@@ -330,8 +329,8 @@ public class AdminClient {
                                      String storeName,
                                      List<Integer> stealList) throws IOException {
         updatePartitionEntries(stealerNodeId, storeName, fetchPartitionEntries(donorNodeId,
-                                                                                 storeName,
-                                                                                 stealList));
+                                                                               storeName,
+                                                                               stealList));
     }
 
     public List<Integer> getStealList(Cluster old, Cluster updated, int fromNode, int toNode) {
