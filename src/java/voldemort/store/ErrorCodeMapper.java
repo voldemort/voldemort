@@ -58,7 +58,7 @@ public class ErrorCodeMapper {
         if(klass == null)
             return new UnknownFailure(Integer.toString(code));
         else
-            return ReflectUtils.construct(klass, new Object[] { message });
+            return ReflectUtils.callConstructor(klass, new Object[] { message });
     }
 
     public short getCode(VoldemortException e) {

@@ -33,8 +33,8 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
@@ -126,8 +126,7 @@ public class JsonStoreBuilder {
             if(!outputDir.exists())
                 Utils.croak("Directory \"" + outputDir.getAbsolutePath() + " does not exist.");
 
-            ConsistentRoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
-                                                                                      storeDef.getReplicationFactor());
+            RoutingStrategy routingStrategy = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
             new JsonStoreBuilder(reader,
                                  cluster,

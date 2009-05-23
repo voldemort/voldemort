@@ -37,7 +37,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
         this.clientWireFormat = new RequestFormatFactory().getRequestFormat(type);
-        this.serverWireFormat = new RequestHandlerFactory(repository).getRequestHandler(type);
+        this.serverWireFormat = new RequestHandlerFactory(repository, null, null).getRequestHandler(type);
     }
 
     public void testNullKeys() throws Exception {

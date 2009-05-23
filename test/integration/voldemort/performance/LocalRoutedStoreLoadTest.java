@@ -20,14 +20,14 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Map;
 
+import voldemort.ServerTestUtils;
 import voldemort.StaticStoreClientFactory;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
-import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
@@ -52,7 +52,6 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory")
                                                                          + File.separator
                                                                          + "/cluster.xml"));
-        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
         for(Node node: cluster.getNodes())
@@ -61,9 +60,14 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
         Store<ByteArray, byte[]> store = new RoutedStore("test",
                                                          clientMapping,
-                                                         routingStrategy,
-                                                         1,
-                                                         1,
+                                                         cluster,
+                                                         ServerTestUtils.getStoreDef("test",
+                                                                                     1,
+                                                                                     1,
+                                                                                     1,
+                                                                                     1,
+                                                                                     1,
+                                                                                     RoutingStrategyType.CONSISTENT_STRATEGY),
                                                          10,
                                                          true,
                                                          10000L);

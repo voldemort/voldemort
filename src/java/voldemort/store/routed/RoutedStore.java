@@ -39,12 +39,15 @@ import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
@@ -72,17 +75,16 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     private final String name;
     private final Map<Integer, Store<ByteArray, byte[]>> innerStores;
-    private final RoutingStrategy routingStrategy;
-    private final int preferredWrites;
-    private final int requiredWrites;
-    private final int preferredReads;
-    private final int requiredReads;
     private final ExecutorService executor;
     private final boolean repairReads;
     private final ReadRepairer<ByteArray, byte[]> readRepairer;
     private final long timeoutMs;
     private final long nodeBannageMs;
     private final Time time;
+    private final Cluster cluster;
+    private final StoreDefinition storeDef;
+
+    private final RoutingStrategy routingStrategy;
 
     /**
      * Create a RoutedStoreClient
@@ -98,19 +100,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
      */
     public RoutedStore(String name,
                        Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                       RoutingStrategy routingStrategy,
-                       int requiredReads,
-                       int requiredWrites,
+                       Cluster cluster,
+                       StoreDefinition storeDef,
                        int numberOfThreads,
                        boolean repairReads,
                        long timeoutMs) {
         this(name,
              innerStores,
-             routingStrategy,
-             requiredReads,
-             requiredReads,
-             requiredWrites,
-             requiredWrites,
+             cluster,
+             storeDef,
              repairReads,
              Executors.newFixedThreadPool(numberOfThreads),
              timeoutMs,
@@ -132,42 +130,38 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
      */
     public RoutedStore(String name,
                        Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                       RoutingStrategy routingStrategy,
-                       int preferredReads,
-                       int requiredReads,
-                       int preferredWrites,
-                       int requiredWrites,
+                       Cluster cluster,
+                       StoreDefinition storeDef,
                        boolean repairReads,
                        ExecutorService threadPool,
                        long timeoutMs,
                        long nodeBannageMs,
                        Time time) {
-        if(requiredReads < 1)
-            throw new IllegalArgumentException("Cannot have a requiredReads number less than 1.");
-        if(requiredWrites < 1)
-            throw new IllegalArgumentException("Cannot have a requiredWrites number less than 1.");
-        if(preferredReads < requiredReads)
-            throw new IllegalArgumentException("preferredReads must be greater or equal to requiredReads.");
-        if(preferredWrites < requiredWrites)
-            throw new IllegalArgumentException("preferredWrites must be greater or equal to requiredWrites.");
-        if(preferredReads > innerStores.size())
-            throw new IllegalArgumentException("preferredReads is larger than the total number of nodes!");
-        if(preferredWrites > innerStores.size())
-            throw new IllegalArgumentException("preferredWrites is larger than the total number of nodes!");
+        if(storeDef.getRequiredReads() < 1)
+            throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
+        if(storeDef.getRequiredWrites() < 1)
+            throw new IllegalArgumentException("Cannot have a storeDef.getRequiredWrites() number less than 1.");
+        if(storeDef.getPreferredReads() < storeDef.getRequiredReads())
+            throw new IllegalArgumentException("storeDef.getPreferredReads() must be greater or equal to storeDef.getRequiredReads().");
+        if(storeDef.getPreferredWrites() < storeDef.getRequiredWrites())
+            throw new IllegalArgumentException("storeDef.getPreferredWrites() must be greater or equal to storeDef.getRequiredWrites().");
+        if(storeDef.getPreferredReads() > innerStores.size())
+            throw new IllegalArgumentException("storeDef.getPreferredReads() is larger than the total number of nodes!");
+        if(storeDef.getPreferredWrites() > innerStores.size())
+            throw new IllegalArgumentException("storeDef.getPreferredWrites() is larger than the total number of nodes!");
 
         this.name = name;
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(innerStores);
-        this.routingStrategy = routingStrategy;
-        this.preferredReads = preferredReads;
-        this.requiredReads = requiredReads;
-        this.preferredWrites = preferredWrites;
-        this.requiredWrites = requiredWrites;
         this.repairReads = repairReads;
         this.executor = threadPool;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
         this.timeoutMs = timeoutMs;
         this.nodeBannageMs = nodeBannageMs;
         this.time = Utils.notNull(time);
+        this.cluster = cluster;
+        this.storeDef = storeDef;
+
+        this.routingStrategy = new RoutingStrategyFactory(this.cluster).getRoutingStrategy(storeDef);
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
@@ -177,10 +171,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         // quickly fail if there aren't enough live nodes to meet the
         // requirements
         final int numNodes = nodes.size();
-        if(numNodes < this.requiredWrites)
+        if(numNodes < this.storeDef.getRequiredWrites())
             throw new InsufficientOperationalNodesException("Only " + numNodes
                                                             + " nodes in preference list, but "
-                                                            + this.requiredWrites
+                                                            + this.storeDef.getRequiredWrites()
                                                             + " writes required.");
 
         // A count of the number of successful operations
@@ -219,8 +213,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             });
         }
 
-        int attempts = Math.min(preferredWrites, numNodes);
-        if(this.preferredWrites <= 0) {
+        int attempts = Math.min(storeDef.getPreferredWrites(), numNodes);
+        if(this.storeDef.getPreferredWrites() <= 0) {
             return true;
         } else {
             for(int i = 0; i < numNodes; i++) {
@@ -243,8 +237,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         // If we get to here, that means we couldn't hit the preferred number
         // of writes, throw an exception if you can't even hit the required
         // number
-        if(successes.get() < requiredWrites)
-            throw new InsufficientOperationalNodesException(this.requiredWrites
+        if(successes.get() < storeDef.getRequiredWrites())
+            throw new InsufficientOperationalNodesException(this.storeDef.getRequiredWrites()
                                                                     + " deletes required, but "
                                                                     + successes.get()
                                                                     + " succeeded.",
@@ -259,7 +253,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
 
-        // Keys for each node needed to satisfy preferredReads if no failures.
+        // Keys for each node needed to satisfy storeDef.getPreferredReads() if
+        // no failures.
         Map<Node, List<ByteArray>> nodeToKeysMap = Maps.newHashMap();
 
         // Keep track of nodes per key that might be needed if there are
@@ -272,12 +267,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             // quickly fail if there aren't enough nodes to meet the requirement
             checkRequiredReads(nodesForKey);
 
-            List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferredReads);
+            List<Node> preferredNodes = Lists.newArrayListWithCapacity(storeDef.getPreferredReads());
             List<Node> extraNodes = Lists.newArrayListWithCapacity(nodesForKey.size()
-                                                                   - preferredReads);
+                                                                   - storeDef.getPreferredReads());
 
             // Give preference to available nodes
-            for(int i = 0; i < preferredReads && i < nodesForKey.size(); i++) {
+            for(int i = 0; i < storeDef.getPreferredReads() && i < nodesForKey.size(); i++) {
                 Node node = nodesForKey.get(i);
                 if(isAvailable(node))
                     preferredNodes.add(node);
@@ -287,7 +282,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
             // If available ones are not enough, fallback to unavailable ones,
             // they may be back.
-            while(preferredNodes.size() < preferredReads && !extraNodes.isEmpty())
+            while(preferredNodes.size() < storeDef.getPreferredReads() && !extraNodes.isEmpty())
                 preferredNodes.add(extraNodes.remove(0));
 
             for(Node node: preferredNodes) {
@@ -383,7 +378,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         for(ByteArray key: keys) {
             MutableInt successCountWrapper = keyToSuccessCount.get(key);
             int successCount = successCountWrapper.intValue();
-            if(successCount < preferredReads) {
+            if(successCount < storeDef.getPreferredReads()) {
                 for(Node node: keyToExtraNodesMap.get(key)) {
                     try {
                         List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
@@ -393,15 +388,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         else
                             versioneds.addAll(values);
                         node.getStatus().setAvailable();
-                        if(++successCount >= preferredReads)
+                        if(++successCount >= storeDef.getPreferredReads())
                             break;
 
                     } catch(UnreachableStoreException e) {
                         failures.add(e);
                         markUnavailable(node, e);
                     } catch(Exception e) {
-                        logger.warn("Error in GET_ALL on node " + node.getId() + "(" + node.getHost()
-                                    + ")", e);
+                        logger.warn("Error in GET_ALL on node " + node.getId() + "("
+                                    + node.getHost() + ")", e);
                         failures.add(e);
                     }
                 }
@@ -416,8 +411,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         for(Map.Entry<ByteArray, MutableInt> mapEntry: keyToSuccessCount.entrySet()) {
             int successCount = mapEntry.getValue().intValue();
-            if(successCount < requiredReads)
-                throw new InsufficientOperationalNodesException(this.requiredReads
+            if(successCount < storeDef.getRequiredReads())
+                throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
                                                                         + " reads required, but "
                                                                         + successCount
                                                                         + " succeeded.",
@@ -450,7 +445,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         final List<Exception> failures = Collections.synchronizedList(new LinkedList<Exception>());
 
         // Do the preferred number of reads in parallel
-        int attempts = Math.min(this.preferredReads, nodes.size());
+        int attempts = Math.min(this.storeDef.getPreferredReads(), nodes.size());
         final CountDownLatch latch = new CountDownLatch(attempts);
         int nodeIndex = 0;
         for(; nodeIndex < attempts; nodeIndex++) {
@@ -495,7 +490,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // Now if we had any failures we will be short a few reads. Do serial
         // reads to make up for these.
-        while(successes.get() < this.preferredReads && nodeIndex < nodes.size()) {
+        while(successes.get() < this.storeDef.getPreferredReads() && nodeIndex < nodes.size()) {
             Node node = nodes.get(nodeIndex);
             try {
                 List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
@@ -523,10 +518,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(repairReads && retrieved.size() > 1)
             repairReads(nodeValues);
 
-        if(successes.get() >= this.requiredReads)
+        if(successes.get() >= this.storeDef.getRequiredReads())
             return retrieved;
         else
-            throw new InsufficientOperationalNodesException(this.requiredReads
+            throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
                                                                     + " reads required, but "
                                                                     + successes.get()
                                                                     + " succeeded.",
@@ -560,10 +555,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     private void checkRequiredReads(final List<Node> nodes)
             throws InsufficientOperationalNodesException {
-        if(nodes.size() < this.requiredReads)
+        if(nodes.size() < this.storeDef.getRequiredReads())
             throw new InsufficientOperationalNodesException("Only " + nodes.size()
                                                             + " nodes in preference list, but "
-                                                            + this.requiredReads
+                                                            + this.storeDef.getRequiredReads()
                                                             + " reads required.");
     }
 
@@ -591,10 +586,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // quickly fail if there aren't enough nodes to meet the requirement
         final int numNodes = nodes.size();
-        if(numNodes < this.requiredWrites)
+        if(numNodes < this.storeDef.getRequiredWrites())
             throw new InsufficientOperationalNodesException("Only " + numNodes
                                                             + " nodes in preference list, but "
-                                                            + this.requiredWrites
+                                                            + this.storeDef.getRequiredWrites()
                                                             + " writes required.");
 
         // A count of the number of successful operations
@@ -671,7 +666,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
 
         // Block until we get enough completions
-        int blockCount = Math.min(preferredWrites - 1, attempts);
+        int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
         for(int i = 0; i < blockCount; i++) {
             try {
                 boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
@@ -679,17 +674,17 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     logger.warn("Timed out waiting for put to succeed.");
                 // okay, at least the required number of operations have
                 // completed, were they successful?
-                if(successes.get() >= this.preferredWrites)
+                if(successes.get() >= this.storeDef.getPreferredWrites())
                     break;
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException("Put operation interrupted", e);
             }
         }
 
-        if(successes.get() < requiredWrites) {
+        if(successes.get() < storeDef.getRequiredWrites()) {
             throw new InsufficientOperationalNodesException(successes.get()
                                                             + " writes succeeded, but "
-                                                            + this.requiredWrites
+                                                            + this.storeDef.getRequiredWrites()
                                                             + " are required.", failures.values());
         }
 

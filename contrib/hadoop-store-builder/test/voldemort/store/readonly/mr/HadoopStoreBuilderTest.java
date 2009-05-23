@@ -34,6 +34,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -96,6 +97,7 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                   serDef,
                                                   serDef,
                                                   RoutingTier.CLIENT,
+                                                  RoutingStrategyType.CONSISTENT_STRATEGY,
                                                   1,
                                                   1,
                                                   1,

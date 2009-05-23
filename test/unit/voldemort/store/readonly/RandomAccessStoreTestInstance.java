@@ -15,8 +15,9 @@ import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -84,10 +85,12 @@ public class RandomAccessStoreTestInstance {
         // set up definitions for cluster and store
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numNodes; i++) {
-            nodes.add(new Node(i, "localhost", 8080 + i, 6666 + i, Arrays.asList(4 * i,
-                                                                                 4 * i + 1,
-                                                                                 4 * i + 2,
-                                                                                 4 * i + 3)));
+            nodes.add(new Node(i,
+                               "localhost",
+                               8080 + i,
+                               6666 + i,
+                               7777 + i,
+                               Arrays.asList(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3)));
         }
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
@@ -96,13 +99,14 @@ public class RandomAccessStoreTestInstance {
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
+                                                       RoutingStrategyType.CONSISTENT_STRATEGY,
                                                        repFactor,
                                                        1,
                                                        1,
                                                        1,
                                                        1,
                                                        1);
-        RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), repFactor);
+        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
         // build store files in outputDir
         File outputDir = TestUtils.createTempDir(baseDir);

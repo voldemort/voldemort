@@ -16,6 +16,7 @@
 
 package voldemort.server.storage;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -34,13 +35,13 @@ import voldemort.client.ClientThreadPool;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.StorageConfiguration;
@@ -48,7 +49,6 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.logging.LoggingStore;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
@@ -57,9 +57,9 @@ import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.Utils;
 
 /**
  * The service responsible for managing all storage types
@@ -75,21 +75,21 @@ public class StorageService extends AbstractService {
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
-    private final MetadataStore metadataStore;
+    private final VoldemortMetadata metadata;
     private final Semaphore cleanupPermits;
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
 
     public StorageService(StoreRepository storeRepository,
-                          MetadataStore metadataStore,
+                          VoldemortMetadata metadata,
                           SchedulerService scheduler,
                           VoldemortConfig config) {
         super(ServiceType.STORAGE);
         this.voldemortConfig = config;
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
-        this.metadataStore = metadataStore;
+        this.metadata = metadata;
         this.cleanupPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
@@ -104,10 +104,10 @@ public class StorageService extends AbstractService {
 
     private void initStorageConfig(String configClassName) {
         try {
-            Class<?> configClass = Utils.loadClass(configClassName);
-            StorageConfiguration configuration = (StorageConfiguration) Utils.callConstructor(configClass,
-                                                                                              new Class<?>[] { VoldemortConfig.class },
-                                                                                              new Object[] { voldemortConfig });
+            Class<?> configClass = ReflectUtils.loadClass(configClassName);
+            StorageConfiguration configuration = (StorageConfiguration) ReflectUtils.callConstructor(configClass,
+                                                                                                     new Class<?>[] { VoldemortConfig.class },
+                                                                                                     new Object[] { voldemortConfig });
             logger.info("Initializing " + configuration.getType() + " storage engine.");
             storageConfigs.put(configuration.getType(), configuration);
         } catch(IllegalStateException e) {
@@ -124,8 +124,7 @@ public class StorageService extends AbstractService {
         for(String configClassName: voldemortConfig.getStorageConfigurations())
             initStorageConfig(configClassName);
 
-        /* Register metadata and slop stores */
-        registerEngine(metadataStore);
+        /* Register slop stores */
         if(voldemortConfig.isSlopEnabled()) {
             StorageEngine<ByteArray, byte[]> slopEngine = getStorageEngine("slop",
                                                                            voldemortConfig.getSlopStoreType());
@@ -134,7 +133,8 @@ public class StorageService extends AbstractService {
                                                                                        new ByteArraySerializer(),
                                                                                        new SlopSerializer()));
         }
-        List<StoreDefinition> storeDefs = this.metadataStore.getStores();
+        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefs()
+                                                                                      .values());
         logger.info("Initializing stores:");
         for(StoreDefinition def: storeDefs) {
             openStore(def);
@@ -149,7 +149,7 @@ public class StorageService extends AbstractService {
         registerEngine(engine);
 
         if(voldemortConfig.isServerRoutingEnabled())
-            registerNodeStores(storeDef, metadataStore.getCluster(), voldemortConfig.getNodeId());
+            registerNodeStores(storeDef, metadata.getCurrentCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
             scheduleCleanupJob(storeDef, engine);
@@ -161,7 +161,7 @@ public class StorageService extends AbstractService {
      * @param engine Register the storage engine
      */
     public void registerEngine(StorageEngine<ByteArray, byte[]> engine) {
-        Cluster cluster = this.metadataStore.getCluster();
+        Cluster cluster = this.metadata.getCurrentCluster();
         storeRepository.addStorageEngine(engine);
 
         /* Now add any store wrappers that are enabled */
@@ -195,12 +195,8 @@ public class StorageService extends AbstractService {
 
         RoutedStore routedStore = new RoutedStore(def.getName(),
                                                   nodeStores,
-                                                  new ConsistentRoutingStrategy(cluster.getNodes(),
-                                                                                def.getReplicationFactor()),
-                                                  def.getPreferredReads(),
-                                                  def.getRequiredReads(),
-                                                  def.getPreferredWrites(),
-                                                  def.getRequiredWrites(),
+                                                  cluster,
+                                                  def,
                                                   true,
                                                   this.clientThreadPool,
                                                   voldemortConfig.getRoutingTimeoutMs(),
@@ -296,8 +292,8 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(lastException);
     }
 
-    public MetadataStore getMetadataStore() {
-        return this.metadataStore;
+    public VoldemortMetadata getMetadataStore() {
+        return this.metadata;
     }
 
     public StoreRepository getStoreRepository() {

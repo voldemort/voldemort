@@ -38,9 +38,11 @@ public class SocketService extends AbstractService implements VoldemortService {
                          int port,
                          int coreConnections,
                          int maxConnections,
-                         int socketBufferSize) {
+                         int socketBufferSize,
+                         String serviceName) {
         super(ServiceType.SOCKET);
-        this.server = new SocketServer(port,
+        this.server = new SocketServer(serviceName,
+                                       port,
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
@@ -50,6 +52,7 @@ public class SocketService extends AbstractService implements VoldemortService {
     @Override
     protected void startInner() {
         this.server.start();
+        this.server.awaitStartupCompletion();
     }
 
     @Override

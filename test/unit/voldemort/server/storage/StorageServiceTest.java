@@ -8,9 +8,9 @@ import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.StoreDefinition;
-import voldemort.store.metadata.MetadataStore;
 
 /**
  * Test that the storage service is able to load all stores.
@@ -34,8 +34,10 @@ public class StorageServiceTest extends TestCase {
         this.cluster = ServerTestUtils.getLocalCluster(1);
         this.storeDefs = ServerTestUtils.getStoreDefs(2);
         this.storeRepository = new StoreRepository();
-        MetadataStore mdStore = new MetadataStore(cluster, storeDefs);
-        storage = new StorageService(storeRepository, mdStore, scheduler, config);
+        storage = new StorageService(storeRepository,
+                                     new VoldemortMetadata(cluster, storeDefs, 0),
+                                     scheduler,
+                                     config);
         storage.start();
     }
 

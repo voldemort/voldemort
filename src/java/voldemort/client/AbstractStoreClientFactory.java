@@ -33,8 +33,6 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
-import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
@@ -124,10 +122,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(storeDef == null)
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
 
-        // create routing strategy
-        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
-                                                                        storeDef.getReplicationFactor());
-
         // construct mapping
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
@@ -141,11 +135,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Store<ByteArray, byte[]> store = new RoutedStore(storeName,
                                                          clientMapping,
-                                                         routingStrategy,
-                                                         storeDef.getPreferredReads(),
-                                                         storeDef.getRequiredReads(),
-                                                         storeDef.getPreferredWrites(),
-                                                         storeDef.getRequiredWrites(),
+                                                         cluster,
+                                                         storeDef,
                                                          true,
                                                          threadPool,
                                                          routingTimeoutMs,

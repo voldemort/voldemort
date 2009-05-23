@@ -1,62 +1,68 @@
 <?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-  <!-- Root element -->
-  <xs:element name="stores">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="store" type="store" minOccurs="0"
-          maxOccurs="unbounded" />
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="name-key">
-      <xs:selector xpath="store" />
-      <xs:field xpath="name" />
-    </xs:key>
-  </xs:element>
+	<!-- Root element -->
+	<xs:element name="stores">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="store" type="store" minOccurs="0"
+					maxOccurs="unbounded" />
+			</xs:sequence>
+		</xs:complexType>
+		<xs:key name="name-key">
+			<xs:selector xpath="store" />
+			<xs:field xpath="name" />
+		</xs:key>
+	</xs:element>
 
-  <!-- An individual store definition -->
-  <xs:complexType name="store">
-    <xs:all>
-      <xs:element name="name" type="xs:token" />
-      <xs:element name="persistence" type="xs:token" />
-      <xs:element name="routing" type="xs:token" />
-      <xs:element name="replication-factor" type="xs:positiveInteger" />
-      <xs:element name="preferred-reads" type="xs:positiveInteger" minOccurs="0" />
-      <xs:element name="required-reads" type="xs:positiveInteger" />
-      <xs:element name="preferred-writes" type="xs:positiveInteger" minOccurs="0" />
-      <xs:element name="required-writes" type="xs:positiveInteger" />
-      <xs:element name="key-serializer" type="serializer" />
-      <xs:element name="value-serializer" type="serializer" />
-      <xs:element name="retention-days" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
-    </xs:all>
-  </xs:complexType>
+	<!-- An individual store definition -->
+	<xs:complexType name="store">
+		<xs:all>
+			<xs:element name="name" type="xs:token" />
+			<xs:element name="persistence" type="xs:token" />
+			<xs:element name="routing" type="xs:token" />
+			<xs:element name="routing-strategy" type="xs:token"
+				minOccurs="0" />
+			<xs:element name="replication-factor" type="xs:positiveInteger" />
+			<xs:element name="preferred-reads" type="xs:positiveInteger"
+				minOccurs="0" />
+			<xs:element name="required-reads" type="xs:positiveInteger" />
+			<xs:element name="preferred-writes" type="xs:positiveInteger"
+				minOccurs="0" />
+			<xs:element name="required-writes" type="xs:positiveInteger" />
+			<xs:element name="key-serializer" type="serializer" />
+			<xs:element name="value-serializer" type="serializer" />
+			<xs:element name="retention-days" type="xs:nonNegativeInteger"
+				minOccurs="0" maxOccurs="1" />
+		</xs:all>
+	</xs:complexType>
 
-  <!-- A value serializer -->
-  <xs:complexType name="serializer">
-    <xs:sequence>
-      <xs:element name="type" type="xs:token" />
-      <xs:element name="schema-info" type="schema-info" minOccurs="0" maxOccurs="255"/>
-    </xs:sequence>
-  </xs:complexType>
-  
-  <!-- Schema info for a value serializer. Values can be versioned. -->
-  <xs:complexType name="schema-info">
-    <xs:simpleContent>
-      <xs:extension base="xs:string">
-        <xs:attribute name="version" use="optional">
-          <xs:simpleType>
-            <xs:union memberTypes="xs:nonNegativeInteger no-version" />
-          </xs:simpleType>
-        </xs:attribute>
-      </xs:extension>
-    </xs:simpleContent>
-  </xs:complexType>
-  
-  <xs:simpleType name="no-version">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="none"/>
-    </xs:restriction>
-  </xs:simpleType>
+	<!-- A value serializer -->
+	<xs:complexType name="serializer">
+		<xs:sequence>
+			<xs:element name="type" type="xs:token" />
+			<xs:element name="schema-info" type="schema-info"
+				minOccurs="0" maxOccurs="255" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- Schema info for a value serializer. Values can be versioned. -->
+	<xs:complexType name="schema-info">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="version" use="optional">
+					<xs:simpleType>
+						<xs:union memberTypes="xs:nonNegativeInteger no-version" />
+					</xs:simpleType>
+				</xs:attribute>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+	<xs:simpleType name="no-version">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="none" />
+		</xs:restriction>
+	</xs:simpleType>
 
 </xs:schema>

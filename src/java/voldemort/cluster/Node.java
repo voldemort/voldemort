@@ -36,28 +36,35 @@ import com.google.common.collect.ImmutableList;
 public class Node implements Serializable {
 
     private static final long serialVersionUID = 1;
-
     private final int id;
     private final String host;
     private final int httpPort;
     private final int socketPort;
     private final List<Integer> partitions;
+    private final int adminSocketPort;
     private final NodeStatus status;
 
-    public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, partitions, new NodeStatus());
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
+                List<Integer> partitions) {
+        this(id, host, httpPort, socketPort, adminPort, partitions, new NodeStatus());
     }
 
     public Node(int id,
                 String host,
                 int httpPort,
                 int socketPort,
+                int adminSocketPort,
                 List<Integer> partitions,
                 NodeStatus status) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
+        this.adminSocketPort = adminSocketPort;
         this.status = status;
         this.partitions = ImmutableList.copyOf(partitions);
     }
@@ -72,6 +79,10 @@ public class Node implements Serializable {
 
     public int getSocketPort() {
         return socketPort;
+    }
+
+    public int getAdminPort() {
+        return adminSocketPort;
     }
 
     public int getId() {

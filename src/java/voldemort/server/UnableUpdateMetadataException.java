@@ -14,17 +14,27 @@
  * the License.
  */
 
-package voldemort.serialization;
+package voldemort.server;
 
-public class VoldemortOpCode {
+/**
+ * Thrown when a server is not able to update metadata as requested.
+ * 
+ * @author bbansal
+ * 
+ */
+public class UnableUpdateMetadataException extends RuntimeException {
 
-    public static final byte GET_OP_CODE = 1;
-    public static final byte PUT_OP_CODE = 2;
-    public static final byte DELETE_OP_CODE = 3;
-    public static final byte GET_ALL_OP_CODE = 4;
-    public static final byte GET_PARTITION_AS_STREAM_OP_CODE = 4;
-    public static final byte PUT_ENTRIES_AS_STREAM_OP_CODE = 5;
-    public static final byte UPDATE_METADATA_OP_CODE = 6;
-    public static final byte SERVER_STATE_CHANGE_OP_CODE = 8;
-    public static final byte REDIRECT_GET_OP_CODE = 9;
+    private static final long serialVersionUID = 1;
+
+    public UnableUpdateMetadataException(Exception cause) {
+        super("Unable to update Metadata as requested.", cause);
+    }
+
+    public UnableUpdateMetadataException(String string) {
+        super(string);
+    }
+
+    public UnableUpdateMetadataException(String string, Exception exception) {
+        super(string, exception);
+    }
 }
