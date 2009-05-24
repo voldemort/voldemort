@@ -28,7 +28,14 @@ import voldemort.store.StoreDefinition;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-public class HadoopStoreBuilderBase {
+/**
+ * A base class with basic configuration values shared by all the mapper,
+ * reducer, and partitioner
+ * 
+ * @author jay
+ * 
+ */
+public class AbstractStoreBuilderConfigurable {
 
     private int numChunks;
     private Cluster cluster;

@@ -33,19 +33,18 @@ import voldemort.serialization.Serializer;
 import voldemort.utils.ByteUtils;
 
 /**
- * Mapper reads input data and translates it into data serialized with the
- * appropriate Serializer for the given store. Override makeKey() and
- * makeValue() to create the appropriate objects to pass into the Serializer.
+ * A base class that can be used for building voldemort read-only stores. To use
+ * it you need to override the makeKey and makeValue methods which specify how
+ * to construct the key and value from the values given in map().
  * 
- * This mapper expects the store name to be defined by the property
- * voldemort.store.name, and it expects to find distributed cache files
- * cluster.xml and stores.xml.
+ * The values given by makeKey and makeValue will then be serialized with the
+ * appropriate voldemort Serializer.
  * 
  * @author bbansal, jay
  * 
  */
-public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends HadoopStoreBuilderBase
-        implements Mapper<K, V, BytesWritable, BytesWritable> {
+public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
+        AbstractStoreBuilderConfigurable implements Mapper<K, V, BytesWritable, BytesWritable> {
 
     private MessageDigest md5er;
     private ConsistentRoutingStrategy routingStrategy;

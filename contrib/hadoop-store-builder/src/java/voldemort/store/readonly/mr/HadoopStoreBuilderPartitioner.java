@@ -24,12 +24,12 @@ import voldemort.utils.ByteUtils;
 
 /**
  * A Partitioner that splits data so that all data for the same nodeId, chunkId
- * combination ends up in the same reduce
+ * combination ends up in the same reduce (and hence in the same store chunk)
  * 
  * @author bbansal, jay
  * 
  */
-public class HadoopStoreBuilderPartitioner extends HadoopStoreBuilderBase implements
+public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigurable implements
         Partitioner<BytesWritable, BytesWritable> {
 
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {

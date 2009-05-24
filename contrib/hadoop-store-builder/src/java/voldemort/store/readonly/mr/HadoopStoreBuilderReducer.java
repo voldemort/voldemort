@@ -41,7 +41,7 @@ import voldemort.utils.ByteUtils;
  * @author bbansal, jay
  * 
  */
-public class HadoopStoreBuilderReducer extends HadoopStoreBuilderBase implements
+public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable implements
         Reducer<BytesWritable, BytesWritable, Text, Text> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilderReducer.class);
