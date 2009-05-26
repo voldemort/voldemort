@@ -199,7 +199,7 @@ public class AdminServiceTest extends TestCase {
                                              server.getVoldemortMetadata(),
                                              new SocketPool(100, 100, 2000, 1000, 10000));
 
-        assertEquals("RedirectGet should match put value",
+        assertEquals("ForcedGet should match put value",
                      new String(value),
                      new String(client.redirectGet(server.getIdentityNode().getId(), "users", key)
                                       .get(0)
@@ -211,8 +211,8 @@ public class AdminServiceTest extends TestCase {
         AdminClient client = new AdminClient(server.getIdentityNode(),
                                              server.getVoldemortMetadata(),
                                              new SocketPool(100, 100, 2000, 1000, 10000));
-        client.changeStateAndRefresh(server.getIdentityNode().getId(),
-                                     VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        client.changeServerState(server.getIdentityNode().getId(),
+                                 VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
 
         VoldemortMetadata.ServerState state = server.getVoldemortMetadata().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -220,8 +220,8 @@ public class AdminServiceTest extends TestCase {
                      state);
 
         // change back to NORMAL state
-        client.changeStateAndRefresh(server.getIdentityNode().getId(),
-                                     VoldemortMetadata.ServerState.NORMAL_STATE);
+        client.changeServerState(server.getIdentityNode().getId(),
+                                 VoldemortMetadata.ServerState.NORMAL_STATE);
 
         state = server.getVoldemortMetadata().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -230,8 +230,8 @@ public class AdminServiceTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK (last time I promise
         // :) )
-        client.changeStateAndRefresh(server.getIdentityNode().getId(),
-                                     VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE);
+        client.changeServerState(server.getIdentityNode().getId(),
+                                 VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE);
 
         state = server.getVoldemortMetadata().getServerState();
 
@@ -240,7 +240,7 @@ public class AdminServiceTest extends TestCase {
                      state);
     }
 
-    public void testGetPartitionsAsStream() {
+    public void testFetchAsStream() {
         // user store should be present
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
@@ -258,8 +258,8 @@ public class AdminServiceTest extends TestCase {
                                              server.getVoldemortMetadata(),
                                              new SocketPool(100, 100, 2000, 1000, 10000));
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionEntries(0,
-                                                                                                         storeName,
-                                                                                                         Arrays.asList(new Integer[] { 0 }));
+                                                                                                  storeName,
+                                                                                                  Arrays.asList(new Integer[] { 0 }));
 
         StoreDefinition storeDef = server.getVoldemortMetadata().getStoreDef(storeName);
         assertNotSame("StoreDefinition for 'users' should not be nul ", null, storeDef);
@@ -272,9 +272,8 @@ public class AdminServiceTest extends TestCase {
         }
 
         // check for two partitions
-        entryIterator = client.fetchPartitionEntries(0,
-                                                            storeName,
-                                                            Arrays.asList(new Integer[] { 0, 1 }));
+        entryIterator = client.fetchPartitionEntries(0, storeName, Arrays.asList(new Integer[] { 0,
+                1 }));
         // assert right partitions returned and both are returned
         Set<Integer> partitionSet2 = new HashSet<Integer>();
         while(entryIterator.hasNext()) {
@@ -289,7 +288,7 @@ public class AdminServiceTest extends TestCase {
                              && partitionSet2.contains(new Integer(1)));
     }
 
-    public void testPutEntriesAsStream() throws IOException {
+    public void testUpdateAsStream() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
@@ -322,7 +321,7 @@ public class AdminServiceTest extends TestCase {
         }
     }
 
-    public void testPipeGetAndPutStreams() throws IOException {
+    public void testFetchAndUpdate() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
@@ -371,7 +370,7 @@ public class AdminServiceTest extends TestCase {
         stealList.add(0);
         stealList.add(1);
 
-        client.pipeGetAndPutStreams(0, 1, storeName, stealList);
+        client.fetchAndUpdateStreams(0, 1, storeName, stealList);
 
         // assert all partition 0, 1 keys present in server 2
         Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);

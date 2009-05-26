@@ -31,6 +31,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.server.VoldemortMetadata;
+import voldemort.server.VoldemortMetadata.ServerState;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -49,7 +50,7 @@ import com.google.common.collect.AbstractIterator;
 
 /**
  * The client implementation for Admin Client hides socket level details from
- * user
+ * user.
  * 
  * @author bbansal
  */
@@ -80,6 +81,16 @@ public class AdminClient {
         return metadata;
     }
 
+    /**
+     * Updates cluster information at (remote) node with given nodeId for
+     * cluster_keys {@link MetadataStore#CLUSTER_KEY} OR
+     * {@link MetadataStore#ROLLBACK_CLUSTER_KEY}
+     * 
+     * @param nodeId
+     * @param cluster
+     * @param cluster_key
+     * @throws VoldemortException
+     */
     public void updateClusterMetadata(int nodeId, Cluster cluster, String cluster_key)
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
@@ -103,6 +114,13 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Updates Store informations at (remote) node.
+     * 
+     * @param nodeId
+     * @param storesList
+     * @throws VoldemortException
+     */
     public void updateStoresMetadata(int nodeId, List<StoreDefinition> storesList)
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
@@ -127,6 +145,16 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Fetch all {key, value} tuples from (remote) node with given nodeId,
+     * storeName and partitionList
+     * 
+     * @param nodeId
+     * @param storeName
+     * @param partitionList
+     * @return
+     * @throws VoldemortException
+     */
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
                                                                               String storeName,
                                                                               List<Integer> partitionList)
@@ -192,6 +220,16 @@ public class AdminClient {
         };
     }
 
+    /**
+     * update Entries at (remote) node with all entries in iterator for passed
+     * storeName
+     * 
+     * @param nodeId
+     * @param storeName
+     * @param entryIterator
+     * @throws VoldemortException
+     * @throws IOException
+     */
     public void updatePartitionEntries(int nodeId,
                                        String storeName,
                                        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator)
@@ -237,7 +275,13 @@ public class AdminClient {
         }
     }
 
-    public void changeStateAndRefresh(int nodeId, VoldemortMetadata.ServerState state) {
+    /**
+     * changes {@link ServerState} for (remote) node with given nodeId
+     * 
+     * @param nodeId
+     * @param state
+     */
+    public void changeServerState(int nodeId, VoldemortMetadata.ServerState state) {
         Cluster currentCluster = metadata.getCurrentCluster();
         Node node = currentCluster.getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
@@ -258,6 +302,16 @@ public class AdminClient {
         }
     }
 
+    /**
+     * provides a mechanism to do forcedGet on (remote) store, Overrides all
+     * security checks and return the value. queries the raw storageEngine at
+     * server end to return the value
+     * 
+     * @param redirectedNodeId
+     * @param storeName
+     * @param key
+     * @return
+     */
     public List<Versioned<byte[]>> redirectGet(int redirectedNodeId, String storeName, ByteArray key) {
         Node redirectedNode = metadata.getCurrentCluster().getNodeById(redirectedNodeId);
         SocketDestination destination = new SocketDestination(redirectedNode.getHost(),
@@ -292,58 +346,23 @@ public class AdminClient {
         }
     }
 
-    public Cluster getTempCluster(Cluster currentCluster,
-                                  Node fromNode,
-                                  Node toNode,
-                                  List<Integer> stealList) {
-        ArrayList<Node> nodes = new ArrayList<Node>();
-        for(Node node: currentCluster.getNodes()) {
-            if(fromNode.getId() == node.getId()) {
-                List<Integer> partitionList = new ArrayList<Integer>(node.getPartitionIds());
-                partitionList.removeAll(stealList);
-                nodes.add(new Node(node.getId(),
-                                   node.getHost(),
-                                   node.getHttpPort(),
-                                   node.getSocketPort(),
-                                   node.getAdminPort(),
-                                   partitionList,
-                                   node.getStatus()));
-            } else if(toNode.getId() == node.getId()) {
-                stealList.addAll(node.getPartitionIds());
-                nodes.add(new Node(node.getId(),
-                                   node.getHost(),
-                                   node.getHttpPort(),
-                                   node.getSocketPort(),
-                                   node.getAdminPort(),
-                                   stealList,
-                                   node.getStatus()));
-            } else {
-                nodes.add(node);
-            }
-        }
-        return new Cluster(currentCluster.getName(), nodes);
-    }
-
-    public void pipeGetAndPutStreams(int donorNodeId,
-                                     int stealerNodeId,
-                                     String storeName,
-                                     List<Integer> stealList) throws IOException {
+    /**
+     * Provides a wrapper to start fetching from donorNodeId and updating
+     * stealerNodeId as Stream for given storeName and partitionList
+     * 
+     * @param donorNodeId
+     * @param stealerNodeId
+     * @param storeName
+     * @param stealList
+     * @throws IOException
+     */
+    public void fetchAndUpdateStreams(int donorNodeId,
+                                      int stealerNodeId,
+                                      String storeName,
+                                      List<Integer> stealList) throws IOException {
         updatePartitionEntries(stealerNodeId, storeName, fetchPartitionEntries(donorNodeId,
                                                                                storeName,
                                                                                stealList));
-    }
-
-    public List<Integer> getStealList(Cluster old, Cluster updated, int fromNode, int toNode) {
-        ArrayList<Integer> stealList = new ArrayList<Integer>();
-        List<Integer> oldPartitions = old.getNodeById(fromNode).getPartitionIds();
-        List<Integer> updatedPartitions = updated.getNodeById(toNode).getPartitionIds();
-
-        for(Integer p: updatedPartitions) {
-            if(oldPartitions.contains(p)) {
-                stealList.add(p);
-            }
-        }
-        return stealList;
     }
 
     private void checkException(DataInputStream inputStream) throws IOException {
