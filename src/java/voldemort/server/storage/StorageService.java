@@ -16,6 +16,7 @@
 
 package voldemort.server.storage;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -49,6 +50,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.logging.LoggingStore;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
@@ -120,6 +122,9 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
+        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(voldemortConfig.getMetadataDirectory()));
+        registerEngine(metadataStore);
+
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
             initStorageConfig(configClassName);

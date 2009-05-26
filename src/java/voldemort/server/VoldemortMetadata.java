@@ -72,9 +72,8 @@ public class VoldemortMetadata implements Serializable {
         this.currentCluster = metadataStore.getCluster();
         this.rollbackCluster = metadataStore.getRollBackCluster();
         this.storeDefMap = new HashMap<String, StoreDefinition>();
-        for(StoreDefinition storeDef: metadataStore.getStores()) {
+        for(StoreDefinition storeDef: metadataStore.getStores())
             this.storeDefMap.put(storeDef.getName(), storeDef);
-        }
         this.serverState = VoldemortMetadata.ServerState.NORMAL_STATE;
         this.node = currentCluster.getNodeById(nodeId);
         this.routingStrategyByStoreName = new HashMap<String, RoutingStrategy>();
@@ -83,9 +82,8 @@ public class VoldemortMetadata implements Serializable {
 
     public void reinitRoutingStrategies() {
         RoutingStrategyFactory factory = new RoutingStrategyFactory(getCurrentCluster());
-        for(StoreDefinition storeDef: this.storeDefMap.values()) {
+        for(StoreDefinition storeDef: this.storeDefMap.values())
             routingStrategyByStoreName.put(storeDef.getName(), factory.getRoutingStrategy(storeDef));
-        }
     }
 
     public Node getIdentityNode() {
