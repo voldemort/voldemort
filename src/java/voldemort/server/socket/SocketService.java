@@ -65,4 +65,7 @@ public class SocketService extends AbstractService implements VoldemortService {
         return server.getPort();
     }
 
+    public StatusManager getStatusManager() {
+        return server.getStatusManager();
+    }
 }

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+import java.lang.management.ManagementFactory;
 
 import org.apache.log4j.Logger;
 
@@ -62,6 +63,10 @@ import voldemort.utils.ConfigurationException;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.JmxUtils;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 /**
  * The service responsible for managing all storage types
@@ -175,8 +180,19 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[]>(store,
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
-        if(voldemortConfig.isStatTrackingEnabled())
+        if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);
+
+            if (voldemortConfig.isJmxEnabled()) {
+
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()), store.getName());
+
+                if(mbeanServer.isRegistered(name))
+                    JmxUtils.unregisterMbean(mbeanServer, name);
+                JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+            }
+        }
         storeRepository.addLocalStore(store);
     }
 

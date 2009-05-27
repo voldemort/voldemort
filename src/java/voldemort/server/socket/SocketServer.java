@@ -57,6 +57,7 @@ public class SocketServer extends Thread {
     private final RequestHandler requestHandler;
     private final int maxThreads;
     private final String serverName;
+    private final StatusManager statusManager;
 
     private ServerSocket serverSocket = null;
 
@@ -79,6 +80,7 @@ public class SocketServer extends Thread {
                                                  new SynchronousQueue<Runnable>(),
                                                  threadFactory,
                                                  rejectedExecutionHandler);
+        this.statusManager = new StatusManager((ThreadPoolExecutor) this.threadPool);
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
@@ -201,6 +203,10 @@ public class SocketServer extends Thread {
 
     private String getThreadName(String baseName) {
         return baseName + random.nextInt(1000000);
+    }
+
+    public StatusManager getStatusManager() {
+        return statusManager;
     }
 
 }

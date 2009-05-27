@@ -1,0 +1,78 @@
+<html>
+  <head>
+    <title>Voldemort Status</title>
+    <style>
+    	h1 {font-weight: bold; 
+    		font-size: 30pt; 
+    		text-align: center}
+    	h2 {font-weight: bold; 
+    		font-size: 20pt; 
+    		text-align: center}
+    	body {font-family: sans-serif; background-color: darkred}
+    	.vTable {margin: auto}
+    	.content {background-color: white; 
+    			  border: 3px solid black; 
+    			  margin: 20px; 
+    			  margin-left: 100px; 
+    			  margin-right: 100px; 
+    			  padding: 10px;
+    			  min-height: 800px}
+    	.vTable td, th
+    	{
+	    	border: 1px solid rgb(221, 221, 221);
+			font-family: Monaco, Courier;
+			font-size: 11px;
+			padding: 3px;
+        }		  
+    </style>
+  </head>
+  <body>
+  
+  	<div class="content">
+  	 	<h1>Voldemort Status</h1>
+	    <table class="vTable">
+	      <tr>
+	      	<td>Server Uptime:</td>
+	      	<td>$status.formattedUptime</td>
+	      </tr>
+	      <tr>
+	      	<td>Active Workers:</td>
+	      	<td>$status.activeWorkersCount</td>
+	      </tr>
+	      <tr>
+	      	<td>Worker Pool Size:</td>
+	      	<td>$status.workerPoolSize</td>
+	      </tr>
+	    </table>
+	    #foreach($store in $stores)
+	  	<h2>$store.name</h2>
+	    <table class="vTable">
+	      <tr>
+	      	<th></th>
+  		    #foreach($counter in $counters)
+	      	<th><b>$counter</b></th>
+ 		    #end
+	      </tr>
+	      <tr>
+	      	<td>Request Count</td>
+  		    #foreach($counter in $counters)
+	      	<td>$store.counters.get($counter).count</td>
+ 		    #end
+	      </tr>
+	      <tr>
+	      	<td>Average Time</td>
+  		    #foreach($counter in $counters)
+	      	<td>$store.counters.get($counter).averageTimeInMs</td>
+ 		    #end
+	      </tr>
+	      <tr>
+	      	<td>Throughput (req/sec)</td>
+  		    #foreach($counter in $counters)
+	      	<td>$store.counters.get($counter).throughput</td>
+ 		    #end
+	      </tr>
+		</table>
+	    #end
+	</div>
+  </body>
+</html>

@@ -19,8 +19,6 @@ package voldemort.store.stats;
 import java.util.List;
 import java.util.Map;
 
-import javax.management.MBeanOperationInfo;
-
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
@@ -28,6 +26,8 @@ import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
+import javax.management.MBeanOperationInfo;
 
 /**
  * A store wrapper that tracks basic usage statistics
@@ -37,11 +37,11 @@ import voldemort.versioning.Versioned;
  */
 public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
 
-    private final StoreStats stats;
+    private  StoreStats stats;
 
     public StatTrackingStore(Store<K, V> innerStore) {
         super(innerStore);
-        this.stats = new StoreStats();
+        resetStatistics();
     }
 
     @Override
@@ -96,23 +96,27 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
         }
     }
 
+    public Map<Tracked, RequestCounter> getCounters() {
+        return stats.getCounters();
+    }
+
     @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.")
-    public int getNumberOfCallsToGetAll() {
+    public long getNumberOfCallsToGetAll() {
         return stats.getCount(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET since the last reset.")
-    public int getNumberOfCallsToGet() {
+    @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
+    public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);
     }
 
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
-    public int getNumberOfCallsToPut() {
+    public long getNumberOfCallsToPut() {
         return stats.getCount(Tracked.PUT);
     }
 
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
-    public int getNumberOfCallsToDelete() {
+    public long getNumberOfCallsToDelete() {
         return stats.getCount(Tracked.DELETE);
     }
 
@@ -138,6 +142,6 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
 
     @JmxOperation(description = "Reset statistics.", impact = MBeanOperationInfo.ACTION)
     public void resetStatistics() {
-        stats.reset();
+        this.stats = new StoreStats();
     }
 }
