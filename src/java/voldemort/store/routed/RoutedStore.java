@@ -338,7 +338,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 for(ByteArray key: getResult.callable.nodeKeys) {
                     List<Versioned<byte[]>> retrieved = getResult.retrieved.get(key);
                     MutableInt successCount = keyToSuccessCount.get(key);
-                    successCount.setValue(successCount.intValue() + 1);
+                    successCount.increment();
 
                     /*
                      * retrieved can be null if there are no values for the key
