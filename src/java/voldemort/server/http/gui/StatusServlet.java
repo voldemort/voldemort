@@ -2,38 +2,40 @@ package voldemort.server.http.gui;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.util.Map;
-import java.util.Date;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Date;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import voldemort.VoldemortException;
 import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.socket.SocketService;
-import voldemort.store.stats.Tracked;
-import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.Store;
-import voldemort.utils.Utils;
+import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
-import voldemort.VoldemortException;
+import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
 
 /**
- *  Servlet to return status and stats information about the server and the various stores.
- *
- *  Currently mapped as /server-status, no parameters return HTML
+ * Servlet to return status and stats information about the server and the
+ * various stores.
  * 
- *   /server-status?format=json   returns JSON outupt
- *
- *   /server-status?action=reset&store=<storename>  resets the stats for a given store
- *
+ * Currently mapped as /server-status, no parameters return HTML
+ * 
+ * /server-status?format=json returns JSON outupt
+ * 
+ * /server-status?action=reset&store=<storename> resets the stats for a given
+ * store
+ * 
  */
 public class StatusServlet extends HttpServlet {
 
@@ -54,8 +56,7 @@ public class StatusServlet extends HttpServlet {
         this.socketService = (SocketService) server.getService(ServiceType.SOCKET);
         try {
             this.myMachine = InetAddress.getLocalHost().getHostName();
-        }
-        catch (UnknownHostException e) {
+        } catch(UnknownHostException e) {
             myMachine = "unknown";
         }
     }
@@ -71,21 +72,22 @@ public class StatusServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        if ("reset".equals(request.getParameter("action"))) {
+        if("reset".equals(request.getParameter("action"))) {
             String storeName = request.getParameter("store");
 
-            if (storeName != null) {
-                Store<ByteArray, byte[]> store = server.getStoreRepository().getLocalStore(storeName);
+            if(storeName != null) {
+                Store<ByteArray, byte[]> store = server.getStoreRepository()
+                                                       .getLocalStore(storeName);
 
-                if (store != null && store instanceof StatTrackingStore) {
-                    ((StatTrackingStore) store).resetStatistics();
-                }                    
+                if(store != null && store instanceof StatTrackingStore<?, ?>) {
+                    ((StatTrackingStore<?, ?>) store).resetStatistics();
+                }
             }
         }
 
-        String format =  request.getParameter("format");
+        String format = request.getParameter("format");
 
-        if ("json".equals(format)) {
+        if("json".equals(format)) {
             outputJSON(request, response);
             return;
         }
@@ -96,7 +98,6 @@ public class StatusServlet extends HttpServlet {
         params.put("stores", server.getStoreRepository().getAllLocalStores());
         velocityEngine.render("status.vm", params, response.getOutputStream());
     }
-
 
     protected void outputJSON(HttpServletRequest request, HttpServletResponse response) {
         StringBuilder sb = new StringBuilder("{\n");
@@ -126,11 +127,11 @@ public class StatusServlet extends HttpServlet {
 
         sb.append("\n  \"storestats\": {");
 
-        for (Store<ByteArray, byte[]> store :  server.getStoreRepository().getAllLocalStores() ) {
+        for(Store<ByteArray, byte[]> store: server.getStoreRepository().getAllLocalStores()) {
 
-            if (store instanceof StatTrackingStore) {
+            if(store instanceof StatTrackingStore<?, ?>) {
 
-                StatTrackingStore statStore = (StatTrackingStore) store;
+                StatTrackingStore<?, ?> statStore = (StatTrackingStore<?, ?>) store;
 
                 sb.append("\n    \"");
                 sb.append(store.getName());
@@ -179,8 +180,7 @@ public class StatusServlet extends HttpServlet {
             OutputStreamWriter writer = new OutputStreamWriter(response.getOutputStream());
             writer.write(sb.toString());
             writer.flush();
-        }
-        catch (Exception e) {
+        } catch(Exception e) {
             throw new VoldemortException(e);
         }
     }
