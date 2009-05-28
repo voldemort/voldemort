@@ -335,7 +335,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     failures.add(getResult.exception);
                     continue;
                 }
-                for(ByteArray key: keys) {
+                for(ByteArray key: getResult.callable.nodeKeys) {
                     List<Versioned<byte[]>> retrieved = getResult.retrieved.get(key);
                     MutableInt successCount = keyToSuccessCount.get(key);
                     successCount.setValue(successCount.intValue() + 1);
@@ -784,19 +784,22 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 exception = e;
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
             }
-            return new GetAllResult(retrieved, nodeValues, exception);
+            return new GetAllResult(this, retrieved, nodeValues, exception);
         }
     }
 
     private class GetAllResult {
 
+        final GetAllCallable callable;
         final Map<ByteArray, List<Versioned<byte[]>>> retrieved;
         final Exception exception;
         final List<NodeValue<ByteArray, byte[]>> nodeValues;
 
-        private GetAllResult(Map<ByteArray, List<Versioned<byte[]>>> retrieved,
+        private GetAllResult(GetAllCallable callable,
+                             Map<ByteArray, List<Versioned<byte[]>>> retrieved,
                              List<NodeValue<ByteArray, byte[]>> nodeValues,
                              Exception exception) {
+            this.callable = callable;
             this.exception = exception;
             this.retrieved = retrieved;
             this.nodeValues = nodeValues;
