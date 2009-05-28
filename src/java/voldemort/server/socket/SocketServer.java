@@ -80,7 +80,7 @@ public class SocketServer extends Thread {
                                                  new SynchronousQueue<Runnable>(),
                                                  threadFactory,
                                                  rejectedExecutionHandler);
-        this.statusManager = new StatusManager((ThreadPoolExecutor) this.threadPool);
+        this.statusManager = new StatusManager(this.threadPool);
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
