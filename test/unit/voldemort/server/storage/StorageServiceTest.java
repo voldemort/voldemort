@@ -33,10 +33,9 @@ public class StorageServiceTest extends TestCase {
 
     @Override
     public void setUp() {
-        VoldemortConfig config = new VoldemortConfig(0, "/tmp");
-        // create "/tmp/config"
-        new File("/tmp/config").mkdir();
-        TestUtils.createTempDir(new File("/tmp/config"));
+        File temp = TestUtils.createTempDir();
+        VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
+        new File(config.getMetadataDirectory()).mkdir();
         config.setBdbCacheSize(100000);
         this.scheduler = new SchedulerService(1, new MockTime());
         this.cluster = ServerTestUtils.getLocalCluster(1);
