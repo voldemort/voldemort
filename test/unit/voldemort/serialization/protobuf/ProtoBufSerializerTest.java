@@ -31,6 +31,10 @@ public class ProtoBufSerializerTest extends TestCase {
             throw new UnsupportedOperationException();
         }
 
+        public com.google.protobuf.Message.Builder toBuilder() {
+            throw new UnsupportedOperationException();
+        }
+
         @Override
         public byte[] toByteArray() {
             return bytes;
