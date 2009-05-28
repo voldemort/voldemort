@@ -8,34 +8,21 @@ import voldemort.utils.Time;
  * A thread-safe request counter that calculates throughput for a specified
  * duration of time.
  * 
- * @author elias
+ * @author elias, gmj
  * 
  */
 public class RequestCounter {
 
-    private static class Pair {
-
-        final long startTime;
-        final long count;
-        final double averageTime;
-
-        public Pair(long startTime, long count, double averageTime) {
-            this.startTime = startTime;
-            this.count = count;
-            this.averageTime = averageTime;
-        }
-    }
-
     private final AtomicReference<Pair> values;
-    private final int duration;
+    private final int durationMS;
 
     /**
-     * @param duration specifies for how long you want to maintain this counter
+     * @param durationMS specifies for how long you want to maintain this counter
      *        (in milliseconds).
      */
-    public RequestCounter(int duration) {
+    public RequestCounter(int durationMS) {
         this.values = new AtomicReference<Pair>(new Pair(System.currentTimeMillis(), 0, 0));
-        this.duration = duration;
+        this.durationMS = durationMS;
     }
 
     public long getCount() {
@@ -44,7 +31,7 @@ public class RequestCounter {
 
     public float getThroughput() {
         Pair oldv = values.get();
-        float elapsed = (System.currentTimeMillis() - oldv.startTime) / 1000f;
+        float elapsed = (System.currentTimeMillis() - oldv.startTimeMS) / 1000f;
         if(elapsed > 0f) {
             return oldv.count / elapsed;
         } else {
@@ -53,29 +40,59 @@ public class RequestCounter {
     }
 
     public double getAverageTimeInMs() {
-        return values.get().averageTime / Time.NS_PER_MS;
+        return values.get().getAverageTimeNS() / Time.NS_PER_MS;
+    }
+
+    public int getDuration() {
+        return durationMS;
     }
 
     /*
-     * We need to make sure that the request is only added to a non-expired
-     * pair. If so, start a new counter pair with recent time.
+     * Updates the stats accumulator with another operation.  We need to make sure that the request
+     * is only added to a non-expired pair. If so, start a new counter pair with recent time.  We'll
+     * only try to do this 3 times - if other threads keep modifying while we're doing our own work,
+     * just bail.
+     *
+     * @param timeNS time of operation, in nanoseconds
      */
-    public void addRequest(double time) {
+    public void addRequest(long timeNS) {
+
         for(int i = 0; i < 3; i++) {
+
             Pair oldv = values.get();
-            long startTime = oldv.startTime;
+
+            long startTimeMS = oldv.startTimeMS;
             long count = oldv.count + 1;
+            long totalTimeNS = oldv.totalTimeNS + timeNS;
+
             long now = System.currentTimeMillis();
-            double averageTime = oldv.averageTime;
-            averageTime += (time - averageTime) / count;
-            if(now - startTime > duration) {
-                startTime = now;
+
+            if(now - startTimeMS > durationMS) {
+                startTimeMS = now;
                 count = 1;
-                averageTime = time;
+                totalTimeNS = timeNS;
             }
-            Pair newv = new Pair(startTime, count, averageTime);
-            if(values.compareAndSet(oldv, newv))
+
+            if(values.compareAndSet(oldv, new Pair(startTimeMS, count, totalTimeNS))) {
                 return;
+            }
         }
     }
+
+    private static class Pair {
+
+        final long startTimeMS;
+        final long count;
+        final long totalTimeNS;
+
+        public Pair(long startTimeMS, long count, long totalTimeNS) {
+            this.startTimeMS = startTimeMS;
+            this.count = count;
+            this.totalTimeNS = totalTimeNS;
+        }
+
+        public double getAverageTimeNS() {
+            return count > 0 ?  1f * totalTimeNS / count : -0f;
+        }
+    }    
 }

@@ -1,11 +1,11 @@
 package voldemort.store.stats;
 
 public enum Tracked {
-    GET("Get"),
-    GET_ALL("Get All"),
-    PUT("Put"),
-    DELETE("Delete"),
-    EXCEPTION("Exception");
+    GET("get"),
+    GET_ALL("getAll"),
+    PUT("put"),
+    DELETE("delete"),
+    EXCEPTION("exception");
 
     private final String name;
 

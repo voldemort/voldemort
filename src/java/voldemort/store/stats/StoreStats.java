@@ -16,6 +16,7 @@ public class StoreStats {
 
     public StoreStats() {
         counters = new EnumMap<Tracked, RequestCounter>(Tracked.class);
+
         for(Tracked tracked: Tracked.values()) {
             counters.put(tracked, new RequestCounter(300000));
         }
@@ -25,12 +26,16 @@ public class StoreStats {
         return counters.get(op).getCount();
     }
 
+    public float getThroughput(Tracked op) {
+        return counters.get(op).getThroughput();
+    }
+
     public double getAvgTimeInMs(Tracked op) {
         return counters.get(op).getAverageTimeInMs();
     }
 
-    public void recordTime(Tracked op, double time) {
-        counters.get(op).addRequest(time);
+    public void recordTime(Tracked op, long timeNS) {
+        counters.get(op).addRequest(timeNS);
     }
 
     public Map<Tracked, RequestCounter> getCounters() {

@@ -20,6 +20,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
+import voldemort.store.stats.RequestCounter;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
@@ -46,9 +47,6 @@ public class StatusServlet extends HttpServlet {
     private SocketService socketService;
 
     private String myMachine;
-
-    /* For use by servlet container */
-    public StatusServlet() {}
 
     public StatusServlet(VoldemortServer server, VelocityEngine engine) {
         this.server = Utils.notNull(server);
@@ -88,7 +86,7 @@ public class StatusServlet extends HttpServlet {
         String format = request.getParameter("format");
 
         if("json".equals(format)) {
-            outputJSON(request, response);
+            outputJSON(response);
             return;
         }
 
@@ -99,18 +97,19 @@ public class StatusServlet extends HttpServlet {
         velocityEngine.render("status.vm", params, response.getOutputStream());
     }
 
-    protected void outputJSON(HttpServletRequest request, HttpServletResponse response) {
+    protected void outputJSON(HttpServletResponse response) {
         StringBuilder sb = new StringBuilder("{\n");
 
-        sb.append("  \"requestURI\": \"");
-        sb.append(request.getRequestURI());
-        sb.append("\",");
-        sb.append("\n  \"servertime\": \"");
+        sb.append("  \"servertime\": \"");
         sb.append(new Date());
         sb.append("\",");
 
         sb.append("\n  \"server\": \"");
         sb.append(myMachine);
+        sb.append("\",");
+
+        sb.append("\n  \"node\": \"");
+        sb.append(server.getVoldemortMetadata().getIdentityNode().getId());
         sb.append("\",");
 
         sb.append("\n  \"uptime\": \"");
@@ -125,58 +124,68 @@ public class StatusServlet extends HttpServlet {
         sb.append(socketService.getStatusManager().getWorkerPoolSize());
         sb.append(",");
 
-        sb.append("\n  \"storestats\": {");
+        sb.append("\n  \"stores\": {");
 
+        int i = 0;
         for(Store<ByteArray, byte[]> store: server.getStoreRepository().getAllLocalStores()) {
 
             if(store instanceof StatTrackingStore<?, ?>) {
 
                 StatTrackingStore<?, ?> statStore = (StatTrackingStore<?, ?>) store;
 
+                Map<Tracked, RequestCounter> stats = statStore.getCounters();
+
+                if (i++ > 0) {
+                    sb.append(",");
+                }
+                
                 sb.append("\n    \"");
-                sb.append(store.getName());
+                sb.append(statStore.getName());
                 sb.append("\" : {\n");
 
-                sb.append("      \"num_get\": ");
-                sb.append(statStore.getNumberOfCallsToGet());
-                sb.append(",\n");
+                int j=0;
 
-                sb.append("      \"ave_get_time\": ");
-                sb.append(statStore.getAverageGetCompletionTimeInMs());
-                sb.append(",\n");
+                for(Tracked t : Tracked.values()) {
 
-                sb.append("      \"num_getall\": ");
-                sb.append(statStore.getNumberOfCallsToGetAll());
-                sb.append(",\n");
+                    if (t == Tracked.EXCEPTION) {
+                        continue;
+                    }
+                    
+                    if (j++ > 0) {
+                        sb.append(",\n");
+                    }
 
-                sb.append("      \"ave_getall_time\": ");
-                sb.append(statStore.getAverageGetAllCompletionTimeInMs());
-                sb.append(",\n");
+                    sb.append("        \"");
+                    sb.append(t.toString());
+                    sb.append("\": { ");
 
-                sb.append("      \"num_put\": ");
-                sb.append(statStore.getNumberOfCallsToPut());
-                sb.append(",\n");
+                    sb.append("\"operations\": ");
+                    sb.append(stats.get(t).getCount());
+                    sb.append(", ");
 
-                sb.append("      \"ave_put_time\": ");
-                sb.append(statStore.getAveragePutCompletionTimeInMs());
-                sb.append(",\n");
+                    sb.append("\"throughput\": ");
+                    sb.append(String.format("%.2f", stats.get(t).getThroughput()));
+                    sb.append(", ");
 
-                sb.append("      \"num_delete\": ");
-                sb.append(statStore.getNumberOfCallsToDelete());
-                sb.append(",\n");
+                    sb.append("\"avg_time_ms\": ");
+                    sb.append(String.format("%.4f", stats.get(t).getAverageTimeInMs()));
+                    sb.append(" }");
+                }
 
-                sb.append("      \"ave_delete_time\": ");
-                sb.append(statStore.getAverageDeleteCompletionTimeInMs());
-                sb.append(",\n");
 
-                sb.append("    },");
+                sb.append(",\n        \"num_exceptions\": ");
+                sb.append(statStore.getNumberOfExceptions());
+                sb.append("\n");
+
+                sb.append("    }");
             }
         }
 
-        sb.append("  }\n");
+        sb.append("\n  }\n");
         sb.append("}\n");
 
         try {
+            response.setContentType("text/plain");
             OutputStreamWriter writer = new OutputStreamWriter(response.getOutputStream());
             writer.write(sb.toString());
             writer.flush();
