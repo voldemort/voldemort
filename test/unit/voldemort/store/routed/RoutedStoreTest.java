@@ -25,6 +25,7 @@ import java.util.Map;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -335,6 +336,34 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */}
         assertOperationalNodes(cluster, 0);
+    }
+
+    /**
+     * Tests that getAll works correctly with a node down in a two node cluster.
+     */
+    public void testGetAllWithFailures() {
+        Cluster cluster = VoldemortTestConstants.getTwoNodeCluster();
+
+        RoutedStore routedStore = getStore(cluster, 1, 2, 1, 0);
+        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+
+        Map<ByteArray, byte[]> expectedValues = Maps.newHashMap();
+        for(byte i = 1; i < 11; ++i) {
+            ByteArray key = new ByteArray(new byte[] { i });
+            byte[] value = new byte[] { (byte) (i + 50) };
+            store.put(key, Versioned.value(value));
+            expectedValues.put(key, value);
+        }
+
+        cluster.getNodes().iterator().next().getStatus().setUnavailable();
+
+        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet());
+        assertEquals(all.size(), expectedValues.size());
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: all.entrySet()) {
+            byte[] value = expectedValues.get(mapEntry.getKey());
+            assertEquals(new ByteArray(value), new ByteArray(mapEntry.getValue().get(0).getValue()));
+        }
     }
 
     /**

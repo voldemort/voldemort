@@ -262,28 +262,21 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         Map<ByteArray, List<Node>> keyToExtraNodesMap = Maps.newHashMap();
 
         for(ByteArray key: keys) {
-            List<Node> nodesForKey = routingStrategy.routeRequest(key.get());
+            List<Node> availableNodes = availableNodes(routingStrategy.routeRequest(key.get()));
 
             // quickly fail if there aren't enough nodes to meet the requirement
-            checkRequiredReads(nodesForKey);
+            checkRequiredReads(availableNodes);
+            int preferredReads = storeDef.getPreferredReads();
+            List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferredReads);
+            List<Node> extraNodes = Lists.newArrayListWithCapacity(availableNodes.size()
+                                                                   - preferredReads);
 
-            List<Node> preferredNodes = Lists.newArrayListWithCapacity(storeDef.getPreferredReads());
-            List<Node> extraNodes = Lists.newArrayListWithCapacity(nodesForKey.size()
-                                                                   - storeDef.getPreferredReads());
-
-            // Give preference to available nodes
-            for(int i = 0; i < storeDef.getPreferredReads() && i < nodesForKey.size(); i++) {
-                Node node = nodesForKey.get(i);
-                if(isAvailable(node))
+            for(Node node: availableNodes) {
+                if(preferredNodes.size() < preferredReads)
                     preferredNodes.add(node);
                 else
                     extraNodes.add(node);
             }
-
-            // If available ones are not enough, fallback to unavailable ones,
-            // they may be back.
-            while(preferredNodes.size() < storeDef.getPreferredReads() && !extraNodes.isEmpty())
-                preferredNodes.add(extraNodes.remove(0));
 
             for(Node node: preferredNodes) {
                 List<ByteArray> nodeKeys = nodeToKeysMap.get(node);
@@ -297,7 +290,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 List<Node> nodes = keyToExtraNodesMap.get(key);
                 if(nodes == null)
                     keyToExtraNodesMap.put(key, extraNodes);
-                nodes.addAll(extraNodes);
+                else
+                    nodes.addAll(extraNodes);
             }
         }
 
@@ -379,25 +373,28 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             MutableInt successCountWrapper = keyToSuccessCount.get(key);
             int successCount = successCountWrapper.intValue();
             if(successCount < storeDef.getPreferredReads()) {
-                for(Node node: keyToExtraNodesMap.get(key)) {
-                    try {
-                        List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
-                        List<Versioned<byte[]>> versioneds = result.get(key);
-                        if(versioneds == null)
-                            result.put(key, Lists.newArrayList(values));
-                        else
-                            versioneds.addAll(values);
-                        node.getStatus().setAvailable();
-                        if(++successCount >= storeDef.getPreferredReads())
-                            break;
+                List<Node> extraNodes = keyToExtraNodesMap.get(key);
+                if(extraNodes != null) {
+                    for(Node node: extraNodes) {
+                        try {
+                            List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
+                            List<Versioned<byte[]>> versioneds = result.get(key);
+                            if(versioneds == null)
+                                result.put(key, Lists.newArrayList(values));
+                            else
+                                versioneds.addAll(values);
+                            node.getStatus().setAvailable();
+                            if(++successCount >= storeDef.getPreferredReads())
+                                break;
 
-                    } catch(UnreachableStoreException e) {
-                        failures.add(e);
-                        markUnavailable(node, e);
-                    } catch(Exception e) {
-                        logger.warn("Error in GET_ALL on node " + node.getId() + "("
-                                    + node.getHost() + ")", e);
-                        failures.add(e);
+                        } catch(UnreachableStoreException e) {
+                            failures.add(e);
+                            markUnavailable(node, e);
+                        } catch(Exception e) {
+                            logger.warn("Error in GET_ALL on node " + node.getId() + "("
+                                        + node.getHost() + ")", e);
+                            failures.add(e);
+                        }
                     }
                 }
             }
@@ -755,7 +752,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 throw new NoSuchCapabilityException(capability, getName());
         }
     }
-    
+
     private final class GetAllCallable implements Callable<GetAllResult> {
 
         private final Node node;
