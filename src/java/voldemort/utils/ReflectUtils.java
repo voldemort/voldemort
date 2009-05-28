@@ -61,6 +61,21 @@ public class ReflectUtils {
         }
     }
 
+    /**
+     * Load the given class using a specific class loader.
+     * 
+     * @param className The name of the class
+     * @param cl The Class Loader to be used for finding the class.
+     * @return The class object
+     */
+    public static Class<?> loadClass(String className, ClassLoader cl) {
+        try {
+            return Class.forName(className, false, cl);
+        } catch(ClassNotFoundException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
     public static <T> T callConstructor(Class<T> klass, Object[] args) {
         Class<?>[] klasses = new Class[args.length];
         for(int i = 0; i < args.length; i++)
