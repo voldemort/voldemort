@@ -32,6 +32,8 @@ import voldemort.versioning.Versioned;
 
 public class RemoteTest {
 
+    public static final int MAX_WORKERS = 8;
+
     public static void main(String[] args) throws Exception {
         if(args.length < 4 || args.length > 5)
             croak("USAGE: java " + RemoteTest.class.getName()
@@ -47,11 +49,12 @@ public class RemoteTest {
             ops = args[4];
 
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
+                                                                                    .setMaxConnectionsPerNode(MAX_WORKERS)
                                                                                     .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient("test");
 
         final String value = new String(TestUtils.randomBytes(valueSize));
-        ExecutorService service = Executors.newFixedThreadPool(8);
+        ExecutorService service = Executors.newFixedThreadPool(MAX_WORKERS);
 
         if(ops.contains("d")) {
             System.err.println("Beginning delete test.");
