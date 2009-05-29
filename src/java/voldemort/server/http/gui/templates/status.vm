@@ -23,8 +23,11 @@
 			font-family: Monaco, Courier;
 			font-size: 11px;
 			padding: 3px;
+ 		    min-width: 50px;
+ 		    text-align: right;
         }		  
     </style>
+    <meta http-equiv="refresh" content="$refresh">
   </head>
   <body>
   
@@ -45,7 +48,7 @@
 	      </tr>
 	    </table>
 	    #foreach($store in $stores)
-	  	<h2>$store.name</h2>
+	  	<h2>Store: $store.name</h2>
 	    <table class="vTable">
 	      <tr>
 	      	<th></th>
@@ -54,21 +57,27 @@
  		    #end
 	      </tr>
 	      <tr>
-	      	<td>Request Count</td>
+	      	<td>Request Count:</td>
   		    #foreach($counter in $counters)
 	      	<td>$store.counters.get($counter).count</td>
  		    #end
 	      </tr>
 	      <tr>
-	      	<td>Average Time</td>
+	      	<td>Average Time:</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).averageTimeInMs</td>
+	      	<td>$store.counters.get($counter).displayAverageTimeInMs</td>
  		    #end
 	      </tr>
 	      <tr>
-	      	<td>Throughput (req/sec)</td>
+	      	<td>Throughput (req/sec):</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).throughput</td>
+	      	<td>$store.counters.get($counter).displayThroughput</td>
+ 		    #end
+	      </tr>
+	      <tr>
+	      	<td>Total Operations:</td>
+  		    #foreach($counter in $counters)
+	      	<td>$store.counters.get($counter).totalCount</td>
  		    #end
 	      </tr>
 		</table>

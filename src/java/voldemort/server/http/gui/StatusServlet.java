@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
@@ -18,9 +20,9 @@ import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
+import voldemort.store.stats.RequestCounter;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
-import voldemort.store.stats.RequestCounter;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
@@ -70,9 +72,10 @@ public class StatusServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        if("reset".equals(request.getParameter("action"))) {
-            String storeName = request.getParameter("store");
+        String storeName = request.getParameter("store");
 
+        // TODO: Shouldn't this be done through a POST?
+        if("reset".equals(request.getParameter("action"))) {
             if(storeName != null) {
                 Store<ByteArray, byte[]> store = server.getStoreRepository()
                                                        .getLocalStore(storeName);
@@ -84,17 +87,37 @@ public class StatusServlet extends HttpServlet {
         }
 
         String format = request.getParameter("format");
-
         if("json".equals(format)) {
             outputJSON(response);
             return;
-        }
+        } else {
+            response.setContentType("text/html");
 
-        Map<String, Object> params = Maps.newHashMap();
-        params.put("status", socketService.getStatusManager());
-        params.put("counters", Tracked.values());
-        params.put("stores", server.getStoreRepository().getAllLocalStores());
-        velocityEngine.render("status.vm", params, response.getOutputStream());
+            long refreshTime = 600;
+            String refresh = request.getParameter("refresh");
+            if(refresh != null) {
+                try {
+                    refreshTime = Integer.parseInt(refresh);
+                } catch(NumberFormatException e) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                }
+            }
+
+            List<Store<ByteArray, byte[]>> stores = null;
+            if(storeName == null) {
+                stores = server.getStoreRepository().getAllLocalStores();
+            } else {
+                stores = Collections.singletonList(server.getStoreRepository()
+                                                         .getLocalStore(storeName));
+            }
+
+            Map<String, Object> params = Maps.newHashMap();
+            params.put("status", socketService.getStatusManager());
+            params.put("counters", Tracked.values());
+            params.put("stores", stores);
+            params.put("refresh", refreshTime);
+            velocityEngine.render("status.vm", params, response.getOutputStream());
+        }
     }
 
     protected void outputJSON(HttpServletResponse response) {
@@ -135,23 +158,23 @@ public class StatusServlet extends HttpServlet {
 
                 Map<Tracked, RequestCounter> stats = statStore.getCounters();
 
-                if (i++ > 0) {
+                if(i++ > 0) {
                     sb.append(",");
                 }
-                
+
                 sb.append("\n    \"");
                 sb.append(statStore.getName());
                 sb.append("\" : {\n");
 
-                int j=0;
+                int j = 0;
 
-                for(Tracked t : Tracked.values()) {
+                for(Tracked t: Tracked.values()) {
 
-                    if (t == Tracked.EXCEPTION) {
+                    if(t == Tracked.EXCEPTION) {
                         continue;
                     }
-                    
-                    if (j++ > 0) {
+
+                    if(j++ > 0) {
                         sb.append(",\n");
                     }
 
@@ -159,19 +182,22 @@ public class StatusServlet extends HttpServlet {
                     sb.append(t.toString());
                     sb.append("\": { ");
 
+                    sb.append("\"total\": ");
+                    sb.append(stats.get(t).getTotalCount());
+                    sb.append(", ");
+
                     sb.append("\"operations\": ");
                     sb.append(stats.get(t).getCount());
                     sb.append(", ");
 
                     sb.append("\"throughput\": ");
-                    sb.append(String.format("%.2f", stats.get(t).getThroughput()));
+                    sb.append(stats.get(t).getDisplayThroughput());
                     sb.append(", ");
 
                     sb.append("\"avg_time_ms\": ");
-                    sb.append(String.format("%.4f", stats.get(t).getAverageTimeInMs()));
+                    sb.append(stats.get(t).getDisplayAverageTimeInMs());
                     sb.append(" }");
                 }
-
 
                 sb.append(",\n        \"num_exceptions\": ");
                 sb.append(statStore.getNumberOfExceptions());

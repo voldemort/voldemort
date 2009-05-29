@@ -30,7 +30,7 @@ public class StatusManager {
         long hours = (time / 3600) - (days * 24);
         long minutes = (time / 60) - (days * 1440) - (hours * 60);
         long seconds = time % 60;
-        return String.format("%d days, %d hours, %d minutes, %d seconds.",
+        return String.format("%d days, %d hours, %d minutes, %d seconds",
                              days,
                              hours,
                              minutes,
