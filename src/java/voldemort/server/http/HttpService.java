@@ -22,7 +22,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
-import org.mortbay.thread.BoundedThreadPool;
+import org.mortbay.thread.QueuedThreadPool;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
@@ -79,7 +79,7 @@ public class HttpService extends AbstractService {
             Connector connector = new SelectChannelConnector();
             connector.setLowResourceMaxIdleTime(3000);
             connector.setPort(this.port);
-            BoundedThreadPool threadPool = new BoundedThreadPool();
+            QueuedThreadPool threadPool = new QueuedThreadPool();
             threadPool.setName("VoldemortHttp");
             threadPool.setMaxThreads(this.numberOfThreads);
             Server httpServer = new Server();

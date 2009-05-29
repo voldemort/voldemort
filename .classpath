@@ -38,5 +38,6 @@
 	<classpathentry kind="lib" path="lib/velocity-1.6.2.jar"/>
 	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
+	<classpathentry kind="lib" path="lib/jopt-simple-3.1.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
