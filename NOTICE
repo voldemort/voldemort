@@ -23,6 +23,8 @@ This product includes google-collections and protocol buffers, two libraries dev
 
 This product includes jdom, a library developed by jdom.org.
 
+This product includes jopt-simple, a library for parsing command line options (http://jopt-simple.sourceforge.net/).
+
 This product includes BDB, Java edition, A library developed by Oracle (http://www.oracle.com/database/berkeley-db/je/index.html), which includes
 the following license information:
 

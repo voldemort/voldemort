@@ -70,9 +70,6 @@ public class RemoteTest {
 
     public static void main(String[] args) throws Exception {
 
-        args = new String[] { "-r", "--request-file", "/Users/elias/dev/ads/voldemort/small_lcids",
-                "-d", "--", "tcp://localhost:6666", "test", "100" };
-
         OptionParser parser = new OptionParser();
         parser.accepts("r", "execute read operations").withOptionalArg();
         parser.accepts("w", "execute write operations").withOptionalArg();
