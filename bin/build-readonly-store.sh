@@ -16,12 +16,6 @@
 #  limitations under the License.
 #
 
-if [ $# != 8 ];
-then
-	echo 'USAGE: bin/build-readonly-store.sh cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads num_chunks'
-	exit 1
-fi
-
 base_dir=$(dirname $0)/..
 
 for file in $base_dir/dist/*.jar;
@@ -36,4 +30,4 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -Xmx2G -server -d64 -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder ${1} ${2} ${3} ${4} ${5} ${6} ${7} ${8}
+java -Xmx2G -server -d64 -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 

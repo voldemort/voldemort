@@ -302,9 +302,11 @@ public class TestUtils {
                                                              storeDef,
                                                              router,
                                                              dataDir,
+                                                             null,
                                                              100,
                                                              1,
-                                                             2);
+                                                             2,
+                                                             10000);
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();

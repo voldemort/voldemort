@@ -38,10 +38,10 @@ public class ReadOnlyStorageEngineTestInstance {
     private final Serializer<String> serializer;
 
     private ReadOnlyStorageEngineTestInstance(Map<String, String> data,
-                                          File baseDir,
-                                          Map<Integer, Store<String, String>> nodeStores,
-                                          RoutingStrategy routingStrategy,
-                                          Serializer<String> serializer) {
+                                              File baseDir,
+                                              Map<Integer, Store<String, String>> nodeStores,
+                                              RoutingStrategy routingStrategy,
+                                              Serializer<String> serializer) {
         this.data = data;
         this.baseDir = baseDir;
         this.nodeStores = nodeStores;
@@ -75,9 +75,9 @@ public class ReadOnlyStorageEngineTestInstance {
     }
 
     public static ReadOnlyStorageEngineTestInstance create(File baseDir,
-                                                       int testSize,
-                                                       int numNodes,
-                                                       int repFactor) throws Exception {
+                                                           int testSize,
+                                                           int numNodes,
+                                                           int repFactor) throws Exception {
         // create some test data
         Map<String, String> data = createTestData(testSize);
         JsonReader reader = makeTestDataReader(data, baseDir);
@@ -115,9 +115,11 @@ public class ReadOnlyStorageEngineTestInstance {
                                                              storeDef,
                                                              router,
                                                              outputDir,
+                                                             null,
                                                              testSize / 5,
                                                              1,
-                                                             2);
+                                                             2,
+                                                             10000);
         storeBuilder.build();
 
         File nodeDir = TestUtils.createTempDir(baseDir);

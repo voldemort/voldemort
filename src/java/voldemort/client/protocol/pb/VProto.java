@@ -4,6 +4,7 @@ package voldemort.client.protocol.pb;
 
 public final class VProto {
   private VProto() {}
+  @SuppressWarnings("unused")
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }

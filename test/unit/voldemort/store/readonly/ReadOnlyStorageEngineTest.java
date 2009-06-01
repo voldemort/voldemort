@@ -38,7 +38,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
      * the correct value is returned
      */
     public void testCanGetGoodValues() throws Exception {
-        RandomAccessStoreTestInstance testData = RandomAccessStoreTestInstance.create(dir,
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
                                                                                       TEST_SIZE,
                                                                                       2,
                                                                                       2);
@@ -63,7 +63,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
      * Do lookups on keys not in the store and test that the keys are not found.
      */
     public void testCantGetBadValues() throws Exception {
-        RandomAccessStoreTestInstance testData = RandomAccessStoreTestInstance.create(dir,
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
                                                                                       TEST_SIZE,
                                                                                       2,
                                                                                       2);
@@ -83,7 +83,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
     }
 
     public void testCanMultigetGoodValues() throws Exception {
-        RandomAccessStoreTestInstance testData = RandomAccessStoreTestInstance.create(dir,
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
                                                                                       TEST_SIZE,
                                                                                       2,
                                                                                       2);
