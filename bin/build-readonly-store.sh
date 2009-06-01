@@ -30,4 +30,8 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -Xmx2G -server -d64 -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 
+if [ -z $VOLD_OPTS ]; then
+  VOLD_OPTS="-Xmx2G -server"
+fi
+
+java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 
