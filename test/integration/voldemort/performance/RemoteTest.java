@@ -72,16 +72,15 @@ public class RemoteTest {
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
-        parser.accepts("r", "execute read operations").withOptionalArg();
-        parser.accepts("w", "execute write operations").withOptionalArg();
-        parser.accepts("d", "execute delete operations").withOptionalArg();
-        parser.accepts("randomize", "randomize operations via keys").withOptionalArg();
-        parser.accepts("request-file", "execute specific requests in order").withOptionalArg();
+        parser.accepts("r", "execute read operations");
+        parser.accepts("w", "execute write operations");
+        parser.accepts("d", "execute delete operations");
+        parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
         parser.accepts("start-key-index", "starting point when using int keys")
-              .withOptionalArg()
+              .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("value-size", "size in bytes for random value")
-              .withOptionalArg()
+              .withRequiredArg()
               .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
