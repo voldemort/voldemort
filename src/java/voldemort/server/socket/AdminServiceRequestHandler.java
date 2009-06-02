@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -103,6 +104,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case VoldemortOpCode.SERVER_STATE_CHANGE_OP_CODE:
                 handleServerStateChangeRequest(inputStream, outputStream);
                 break;
+
+            case VoldemortOpCode.SET_STEAL_INFO_OP_CODE:
+                handleSetStealInfoRequest(inputStream, outputStream);
+                break;
+
             case VoldemortOpCode.REDIRECT_GET_OP_CODE:
                 engine = readStorageEngine(inputStream, outputStream);
                 byte[] key = readKey(inputStream);
@@ -179,14 +185,18 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 engine.put(new ByteArray(key), versionedValue);
 
+                outputStream.writeShort(0); // send no Exception
+                outputStream.flush();
+
                 if(throttler != null) {
-                    throttler.maybeThrottle(key.length + clock.sizeInBytes() + value.length);
+                    throttler.maybeThrottle(key.length + clock.sizeInBytes() + value.length + 1);
                 }
 
                 keySize = inputStream.readInt(); // read next KeySize
             }
             // all puts are handled.
             outputStream.writeShort(0);
+            outputStream.flush();
         } catch(VoldemortException e) {
             writeException(outputStream, e);
         }
@@ -199,8 +209,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
      * <code>KeyLength(int32) bytes(keyLength) valueLength(int32)
      * bytes(valueLength)</code>
      * <p>
-     * <strong>Stream end is indicated by writing a keyLength value of
-     * -1</strong>.
+     * <strong>Stream end is indicated by writing a keyLength value of -1</strong>.
      * <p>
      * Possible usecases
      * <ul>
@@ -321,6 +330,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 metadata.setRollbackCluster(updatedCluster);
             }
             outputStream.writeShort(0);
+            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -359,6 +369,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             metadata.setStoreDefMap(storeDefs);
             metadata.reinitRoutingStrategies();
             outputStream.writeShort(0);
+            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -373,6 +384,27 @@ public class AdminServiceRequestHandler implements RequestHandler {
             metadata.setServerState(newState);
 
             outputStream.writeShort(0);
+            outputStream.flush();
+        } catch(VoldemortException e) {
+            e.printStackTrace();
+            writeException(outputStream, e);
+            return;
+        }
+
+    }
+
+    private void handleSetStealInfoRequest(DataInputStream inputStream,
+                                           DataOutputStream outputStream) throws IOException {
+        try {
+            List<Integer> stealPartitionList = new ArrayList<Integer>();
+            metadata.setDonorNode(inputStream.readInt());
+            int size = inputStream.readInt();
+            for(int i = 0; i < size; i++) {
+                stealPartitionList.add(new Integer(inputStream.readInt()));
+            }
+            metadata.setCurrentPartitionStealList(stealPartitionList);
+            outputStream.writeShort(0);
+            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -409,12 +441,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
             outputStream.write(clock);
             outputStream.write(value);
         }
+        outputStream.flush();
     }
 
     private void writeException(DataOutputStream stream, VoldemortException e) throws IOException {
         short code = errorMapper.getCode(e);
         stream.writeShort(code);
         stream.writeUTF(e.getMessage());
+        stream.flush();
     }
 
     private boolean validPartition(byte[] key, int[] partitionList, RoutingStrategy routingStrategy) {

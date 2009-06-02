@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -139,16 +140,26 @@ public class VoldemortMetadata implements Serializable {
         return serverState;
     }
 
-    public void setServerState(VoldemortMetadata.ServerState serverState) {
-        this.serverState = serverState;
+    public void setServerState(VoldemortMetadata.ServerState newState) {
+
+        if(ServerState.REBALANCING_DONOR_STATE.equals(this.getServerState())
+           || ServerState.REBALANCING_STEALER_STATE.equals(this.getServerState())) {
+            // if new State is one of DONOR/STEALER throw an error
+            if(newState.equals(ServerState.REBALANCING_DONOR_STATE)
+               || newState.equals(ServerState.REBALANCING_STEALER_STATE))
+                throw new VoldemortException("Cannot Change State from " + this.getServerState()
+                                             + " to " + newState);
+        }
+
+        this.serverState = newState;
     }
 
     public Node getDonorNode() {
         return currentDonorNode;
     }
 
-    public void setDonorNode(Node donorNode) {
-        this.currentDonorNode = donorNode;
+    public void setDonorNode(int donorNodeId) {
+        this.currentDonorNode = this.currentCluster.getNodeById(donorNodeId);
     }
 
     public List<Integer> getCurrentPartitionStealList() {

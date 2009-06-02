@@ -259,6 +259,8 @@ public class AdminClient {
                 outputStream.write(value.getValue());
 
                 outputStream.flush();
+
+                checkException(inputStream);
             }
             outputStream.writeInt(-1);
             outputStream.flush();
@@ -290,6 +292,40 @@ public class AdminClient {
             DataOutputStream outputStream = sands.getOutputStream();
             outputStream.writeByte(VoldemortOpCode.SERVER_STATE_CHANGE_OP_CODE);
             outputStream.writeUTF(state.toString());
+            outputStream.flush();
+
+            DataInputStream inputStream = sands.getInputStream();
+            checkException(inputStream);
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+    }
+
+    /**
+     * set given partitionStealList on given nodeid
+     * 
+     * @param stealerNodeId
+     * @param donorNodeId
+     * @param stealPartitionList
+     */
+    public void setStealInfo(int stealerNodeId, int donorNodeId, List<Integer> stealPartitionList) {
+        Cluster currentCluster = metadata.getCurrentCluster();
+        Node node = currentCluster.getNodeById(stealerNodeId);
+        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketAndStreams sands = pool.checkout(destination);
+        try {
+            DataOutputStream outputStream = sands.getOutputStream();
+            outputStream.writeByte(VoldemortOpCode.SET_STEAL_INFO_OP_CODE);
+            // write donorNodeId
+            outputStream.writeInt(donorNodeId);
+            // write list size
+            outputStream.writeInt(stealPartitionList.size());
+            for(Integer partition: stealPartitionList) {
+                outputStream.writeInt(partition);
+            }
             outputStream.flush();
 
             DataInputStream inputStream = sands.getInputStream();

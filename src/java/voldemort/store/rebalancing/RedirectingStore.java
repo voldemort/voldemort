@@ -23,6 +23,7 @@ import voldemort.client.AdminClient;
 import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortMetadata.ServerState;
 import voldemort.store.DelegatingStore;
+import voldemort.store.InvalidMetadataCheckingStoreTest;
 import voldemort.store.Store;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
@@ -30,27 +31,27 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**
- * The RebalancingStore extends {@link InvalidMetadataCheckingStoreTest}
+ * The RedirectingStore extends {@link InvalidMetadataCheckingStoreTest}
  * <p>
  * if current server_state is {@link ServerState#REBALANCING_STEALER_STATE} <br>
  * then
  * <ul>
  * <li>Get: proxy Get call to donor server ONLY for keys belonging to
  * {@link VoldemortMetadata#getCurrentPartitionStealList()}</li>
- * <li>Put: do a get() call on donor state and put to innerstore and than handle
- * client put() request to have correct version handling ONLY for keys belonging
- * to {@link VoldemortMetadata#getCurrentPartitionStealList()}.</li>
+ * <li>Put: do a get() call on donor state and put to innerstore and than
+ * handle client put() request to have correct version handling ONLY for keys
+ * belonging to {@link VoldemortMetadata#getCurrentPartitionStealList()}.</li>
  * </ul>
  * 
  * @author bbansal
  * 
  */
-public class RebalancingStore extends DelegatingStore<ByteArray, byte[]> {
+public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private final AdminClient adminClient;
     private final VoldemortMetadata metadata;
 
-    public RebalancingStore(int node,
+    public RedirectingStore(int node,
                             Store<ByteArray, byte[]> innerStore,
                             VoldemortMetadata metadata,
                             SocketPool socketPool) {

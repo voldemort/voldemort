@@ -106,6 +106,16 @@ public class ServerTestUtils {
                                false);
     }
 
+    public static SocketStore getSocketStore(String storeName, int port, int timeout) {
+        SocketPool socketPool = new SocketPool(1, 2, timeout, timeout, 32 * 1024);
+        return new SocketStore(storeName,
+                               "localhost",
+                               port,
+                               socketPool,
+                               RequestFormatType.VOLDEMORT,
+                               false);
+    }
+
     public static Context getJettyServer(String clusterXml,
                                          String storesXml,
                                          String storeName,
@@ -243,6 +253,8 @@ public class ServerTestUtils {
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
+        config.setStreamMaxReadBytesPerSec(10 * 1000);
+        config.setStreamMaxWriteBytesPerSec(10 * 1000);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());

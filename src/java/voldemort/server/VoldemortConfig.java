@@ -108,6 +108,8 @@ public class VoldemortConfig implements Serializable {
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
     private boolean enableServerRouting;
+    private boolean enableMetadataChecking;
+    private boolean enableRedirectRouting;
 
     private List<String> storageConfigurations;
 
@@ -199,6 +201,8 @@ public class VoldemortConfig implements Serializable {
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
+        this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
+        this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
 
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
@@ -645,6 +649,22 @@ public class VoldemortConfig implements Serializable {
         this.enableStatTracking = enableStatTracking;
     }
 
+    public boolean isEnableMetadataChecking() {
+        return enableMetadataChecking;
+    }
+
+    public void setEnableMetadataChecking(boolean enableMetadataChecking) {
+        this.enableMetadataChecking = enableMetadataChecking;
+    }
+
+    public boolean isEnableRedirectRouting() {
+        return enableRedirectRouting;
+    }
+
+    public void setEnableRedirectRouting(boolean enableRedirectRouting) {
+        this.enableRedirectRouting = enableRedirectRouting;
+    }
+
     public long getBdbCheckpointBytes() {
         return this.bdbCheckpointBytes;
     }
@@ -768,5 +788,4 @@ public class VoldemortConfig implements Serializable {
     public void setNumCleanupPermits(int numCleanupPermits) {
         this.numCleanupPermits = numCleanupPermits;
     }
-
 }

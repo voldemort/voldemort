@@ -152,7 +152,7 @@ public class VoldemortServer extends AbstractService {
     protected void stopInner() throws VoldemortException {
         List<VoldemortException> exceptions = new ArrayList<VoldemortException>();
 
-        logger.info("Stopping services:");
+        logger.info("Stopping services:" + getIdentityNode().getId());
         /* Stop in reverse order */
         for(VoldemortService service: Utils.reversed(services)) {
             try {
@@ -162,7 +162,7 @@ public class VoldemortServer extends AbstractService {
                 logger.error(e);
             }
         }
-        logger.info("All services stopped.");
+        logger.info("All services stopped for Node:" + getIdentityNode().getId());
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);

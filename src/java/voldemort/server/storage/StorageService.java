@@ -17,6 +17,7 @@
 package voldemort.server.storage;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,7 +28,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
-import java.lang.management.ManagementFactory;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
@@ -46,12 +49,14 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.store.InvalidMetadataCheckingStore;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
@@ -60,13 +65,10 @@ import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.JmxUtils;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 
 /**
  * The service responsible for managing all storage types
@@ -180,13 +182,25 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[]>(store,
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
+        if(voldemortConfig.isEnableMetadataChecking())
+            store = new InvalidMetadataCheckingStore(metadata.getIdentityNode().getId(),
+                                                     store,
+                                                     metadata);
+
+        if(voldemortConfig.isEnableRedirectRouting())
+            store = new RedirectingStore(metadata.getIdentityNode().getId(),
+                                         store,
+                                         metadata,
+                                         socketPool);
+
         if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);
 
-            if (voldemortConfig.isJmxEnabled()) {
+            if(voldemortConfig.isJmxEnabled()) {
 
                 MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()), store.getName());
+                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                            store.getName());
 
                 if(mbeanServer.isRegistered(name))
                     JmxUtils.unregisterMbean(mbeanServer, name);

@@ -27,6 +27,7 @@ import java.util.Set;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -228,8 +229,7 @@ public class AdminServiceTest extends TestCase {
                      VoldemortMetadata.ServerState.NORMAL_STATE,
                      state);
 
-        // lets revert back to REBALANCING STATE AND CHECK (last time I promise
-        // :) )
+        // lets revert back to REBALANCING STATE AND CHECK
         client.changeServerState(server.getIdentityNode().getId(),
                                  VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE);
 
@@ -238,6 +238,44 @@ public class AdminServiceTest extends TestCase {
         assertEquals("State should be changed correctly to rebalancing state",
                      VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE,
                      state);
+
+        // we should not be able to change it to REBALANCING_STEALER_STATE
+        try {
+            client.changeServerState(server.getIdentityNode().getId(),
+                                     VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+            fail("We should not be able to change state from DONATE to Stealer");
+        } catch(VoldemortException e) {
+            // ignore this
+        }
+
+        client.changeServerState(server.getIdentityNode().getId(),
+                                 VoldemortMetadata.ServerState.NORMAL_STATE);
+
+        state = server.getVoldemortMetadata().getServerState();
+        assertEquals("State should be changed correctly to rebalancing state",
+                     VoldemortMetadata.ServerState.NORMAL_STATE,
+                     state);
+    }
+
+    public void testSetStealPartitionList() {
+        AdminClient client = new AdminClient(server.getIdentityNode(),
+                                             server.getVoldemortMetadata(),
+                                             new SocketPool(100, 100, 2000, 1000, 10000));
+
+        client.setStealInfo(server.getIdentityNode().getId(), 1, Arrays.asList(5, 6, 7));
+
+        assertEquals("donorNodeId should be set", 1, server.getVoldemortMetadata()
+                                                           .getDonorNode()
+                                                           .getId());
+        assertEquals("StealList should be changed on server",
+                     Arrays.asList(5, 6, 7),
+                     server.getVoldemortMetadata().getCurrentPartitionStealList());
+
+        client.setStealInfo(server.getIdentityNode().getId(), 1, new ArrayList<Integer>());
+
+        assertEquals("StealList should be changed on server for empty list",
+                     new ArrayList<Integer>(),
+                     server.getVoldemortMetadata().getCurrentPartitionStealList());
     }
 
     public void testFetchAsStream() {
@@ -364,7 +402,7 @@ public class AdminServiceTest extends TestCase {
         // use pipeGetAndPutStream to add values to server2
         AdminClient client = new AdminClient(server2.getIdentityNode(),
                                              server2.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+                                             new SocketPool(100, 100, 20000, 10000, 10000));
 
         List<Integer> stealList = new ArrayList<Integer>();
         stealList.add(0);

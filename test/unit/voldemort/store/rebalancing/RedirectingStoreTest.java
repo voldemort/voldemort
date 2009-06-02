@@ -38,7 +38,7 @@ import voldemort.versioning.Versioned;
  * @author bbansal
  * 
  */
-public class RebalancingStoreTest extends TestCase {
+public class RedirectingStoreTest extends TestCase {
 
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -108,10 +108,10 @@ public class RebalancingStoreTest extends TestCase {
         VoldemortMetadata metadata = server0.getVoldemortMetadata();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1));
+        metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = new RebalancingStore(0,
+        RedirectingStore rebalancingStore = new RedirectingStore(0,
                                                                  server0.getStoreRepository()
                                                                         .getLocalStore(storeName),
                                                                  metadata,
@@ -176,10 +176,10 @@ public class RebalancingStoreTest extends TestCase {
         VoldemortMetadata metadata = server0.getVoldemortMetadata();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1));
+        metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = new RebalancingStore(0,
+        RedirectingStore rebalancingStore = new RedirectingStore(0,
                                                                  server0.getStoreRepository()
                                                                         .getLocalStore(storeName),
                                                                  metadata,
