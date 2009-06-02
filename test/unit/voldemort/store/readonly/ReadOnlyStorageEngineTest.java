@@ -39,9 +39,9 @@ public class ReadOnlyStorageEngineTest extends TestCase {
      */
     public void testCanGetGoodValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
-                                                                                      TEST_SIZE,
-                                                                                      2,
-                                                                                      2);
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
@@ -64,9 +64,9 @@ public class ReadOnlyStorageEngineTest extends TestCase {
      */
     public void testCantGetBadValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
-                                                                                      TEST_SIZE,
-                                                                                      2,
-                                                                                      2);
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(int j = 0; j < TEST_SIZE; j++) {
@@ -84,9 +84,9 @@ public class ReadOnlyStorageEngineTest extends TestCase {
 
     public void testCanMultigetGoodValues() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
-                                                                                      TEST_SIZE,
-                                                                                      2,
-                                                                                      2);
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2);
         Set<String> keys = testData.getData().keySet();
         Set<String> gotten = new HashSet<String>();
         for(Map.Entry<Integer, Store<String, String>> entry: testData.getNodeStores().entrySet()) {

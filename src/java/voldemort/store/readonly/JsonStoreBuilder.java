@@ -93,10 +93,10 @@ public class JsonStoreBuilder {
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
         if(tempDir == null)
-            this.outputDir = new File(Utils.notNull(System.getProperty("java.io.tmpdir")));
+            this.tempDir = new File(Utils.notNull(System.getProperty("java.io.tmpdir")));
         else
-            this.outputDir = outputDir;
-        this.tempDir = tempDir;
+            this.tempDir = tempDir;
+        this.outputDir = outputDir;
         this.routingStrategy = routingStrategy;
         this.internalSortSize = internalSortSize;
         this.numThreads = numThreads;
@@ -208,6 +208,8 @@ public class JsonStoreBuilder {
 
     @SuppressWarnings("unchecked")
     public void build() throws IOException {
+        logger.info("Building store " + storeDefinition.getName() + " for "
+                    + cluster.getNumberOfNodes() + " with " + numChunks + " chunks per node.");
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
         DataOutputStream[][] indexes = new DataOutputStream[numNodes][numChunks];
@@ -238,8 +240,8 @@ public class JsonStoreBuilder {
                                                                                new KeyMd5Comparator(),
                                                                                internalSortSize,
                                                                                tempDir.getAbsolutePath(),
-                                                                               numThreads,
-                                                                               ioBufferSize);
+                                                                               ioBufferSize,
+                                                                               numThreads);
         JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());

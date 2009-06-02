@@ -6,12 +6,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
@@ -24,9 +28,11 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
-import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
+
+import com.google.common.base.Join;
 
 /**
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
@@ -133,12 +139,45 @@ public class StoreSwapper {
     }
 
     public static void main(String[] args) throws Exception {
-        if(args.length != 4)
-            Utils.croak("USAGE: cluster.xml store_name mgmtpath store_file_path");
-        String clusterXml = args[0];
-        String storeName = args[1];
-        String mgmtPath = args[2];
-        String filePath = args[3];
+        OptionParser parser = new OptionParser();
+        parser.accepts("help", "print usage information");
+        parser.accepts("cluster", "[REQUIRED] the voldemort cluster.xml file ")
+              .withRequiredArg()
+              .describedAs("cluster.xml");
+        parser.accepts("name", "[REQUIRED] the name of the store to swap")
+              .withRequiredArg()
+              .describedAs("store-name");
+        parser.accepts("servlet-path", "the path for the read-only management servlet")
+              .withRequiredArg()
+              .describedAs("path");
+        parser.accepts("file", "[REQUIRED] uri of a directory containing the new store files")
+              .withRequiredArg()
+              .describedAs("uri");
+        parser.accepts("timeout", "http timeout for the fetch in ms")
+              .withRequiredArg()
+              .describedAs("timeout ms")
+              .ofType(Integer.class);
+
+        OptionSet options = parser.parse(args);
+        if(options.has("help")) {
+            parser.printHelpOn(System.out);
+            System.exit(0);
+        }
+
+        Set<String> missing = CmdUtils.missing(options, "cluster", "name", "file");
+        if(missing.size() > 0) {
+            System.err.println("Missing required arguments: " + Join.join(", ", missing));
+            parser.printHelpOn(System.err);
+            System.exit(1);
+        }
+
+        String clusterXml = (String) options.valueOf("cluster");
+        String storeName = (String) options.valueOf("name");
+        String mgmtPath = CmdUtils.valueOf(options, "servlet-path", "read-only/mgmt");
+        String filePath = (String) options.valueOf("file");
+        int timeoutMs = CmdUtils.valueOf(options,
+                                         "timeout",
+                                         (int) (3 * Time.SECONDS_PER_HOUR * Time.MS_PER_SECOND));
 
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
@@ -150,7 +189,7 @@ public class StoreSwapper {
         manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
                                                      numConnections);
         HttpClient client = new HttpClient(manager);
-        client.getParams().setParameter("http.socket.timeout", 3 * 60 * 60 * 1000);
+        client.getParams().setParameter("http.socket.timeout", timeoutMs);
 
         StoreSwapper swapper = new StoreSwapper(cluster, executor, client, mgmtPath);
         long start = System.currentTimeMillis();
