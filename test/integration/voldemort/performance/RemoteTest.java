@@ -36,6 +36,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.utils.CmdUtils;
 import voldemort.versioning.Versioned;
 
 public class RemoteTest {
@@ -93,18 +94,11 @@ public class RemoteTest {
         String url = nonOptions.get(0);
         String storeName = nonOptions.get(1);
         int numRequests = Integer.parseInt(nonOptions.get(2));
-        int startNum = 0;
-        int valueSize = 1024;
         String ops = "";
         List<String> keys = null;
 
-        if(options.has("start-key-index")) {
-            startNum = (Integer) options.valueOf("start-key-index");
-        }
-
-        if(options.has("value-size")) {
-            startNum = (Integer) options.valueOf("value-size");
-        }
+        Integer startNum = CmdUtils.valueOf(options, "start-key-index", 0);
+        Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
 
         if(options.has("request-file")) {
             keys = loadKeys((String) options.valueOf("request-file"));
