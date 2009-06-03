@@ -649,7 +649,7 @@ public class VoldemortConfig implements Serializable {
         this.enableStatTracking = enableStatTracking;
     }
 
-    public boolean isEnableMetadataChecking() {
+    public boolean isMetadataCheckingEnabled() {
         return enableMetadataChecking;
     }
 
@@ -657,7 +657,7 @@ public class VoldemortConfig implements Serializable {
         this.enableMetadataChecking = enableMetadataChecking;
     }
 
-    public boolean isEnableRedirectRouting() {
+    public boolean isRedirectRoutingEnabled() {
         return enableRedirectRouting;
     }
 

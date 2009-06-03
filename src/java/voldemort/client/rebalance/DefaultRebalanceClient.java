@@ -19,9 +19,9 @@ import voldemort.store.socket.SocketPool;
  * @author bbansal
  * 
  */
-public class DefaultReabalnceClient implements RebalanceClient {
+public class DefaultRebalanceClient implements RebalanceClient {
 
-    private static final Logger logger = Logger.getLogger(DefaultReabalnceClient.class);
+    private static final Logger logger = Logger.getLogger(DefaultRebalanceClient.class);
     private final AdminClient adminClient;
 
     /**
@@ -31,7 +31,7 @@ public class DefaultReabalnceClient implements RebalanceClient {
      * @param socketPool: socket Timeout should be kept high as streaming is
      *        throttled by server min 10 sec +
      */
-    public DefaultReabalnceClient(int connectedNodeId,
+    public DefaultRebalanceClient(int connectedNodeId,
                                   VoldemortMetadata metadata,
                                   SocketPool socketPool) {
         adminClient = new AdminClient(metadata.getCurrentCluster().getNodeById(connectedNodeId),

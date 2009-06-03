@@ -30,7 +30,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
-import voldemort.client.rebalance.DefaultReabalnceClient;
+import voldemort.client.rebalance.DefaultRebalanceClient;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -110,7 +110,7 @@ public class RebalancingClientTest extends TestCase {
         server1.start();
 
         // create RebalanceClient with high timeouts
-        rebalanceClient = new DefaultReabalnceClient(0,
+        rebalanceClient = new DefaultRebalanceClient(0,
                                                      server0.getVoldemortMetadata(),
                                                      new SocketPool(1, 2, 20000, 10000, 32 * 1024));
     }
