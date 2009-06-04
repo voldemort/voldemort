@@ -17,14 +17,19 @@
 package voldemort.store.filesystem;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.TestUtils;
 import voldemort.store.AbstractStoreTest;
 import voldemort.store.Store;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 public class FilesystemStorageEngineTest extends AbstractStoreTest<String, String> {
 
@@ -60,4 +65,34 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
         return getStrings(numValues, 8);
     }
 
+    public void testEmacsTempFile() throws IOException {
+        Store<String, String> store = getStore();
+        assertEquals("Only one tempDir should be present", 1, tempDirs.size());
+        String keyName = "testkey.xml";
+
+        store.put(keyName, new Versioned("testValue"));
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
+
+        // Now create a emacs style temp file
+        new File(tempDirs.get(0), keyName + "#").createNewFile();
+        new File(tempDirs.get(0), "#" + keyName + "#").createNewFile();
+        new File(tempDirs.get(0), keyName + "~").createNewFile();
+        new File(tempDirs.get(0), "." + keyName + "~").createNewFile();
+
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
+
+        // do a new put
+        store.put(keyName, new Versioned("testValue1"));
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
+        assertEquals("Value should match.", "testValue1", store.get(keyName).get(0).getValue());
+
+        // try getAll
+        Map<String, List<Versioned<String>>> map = store.getAll(Arrays.asList(keyName));
+        assertEquals("Only one file of name key should be present.", 1, map.get(keyName).size());
+        assertEquals("Value should match.", "testValue1", map.get(keyName).get(0).getValue());
+
+        // try delete
+        store.delete(keyName, new VectorClock());
+        assertEquals("No file of name key should be present.", 0, store.get(keyName).size());
+    }
 }
