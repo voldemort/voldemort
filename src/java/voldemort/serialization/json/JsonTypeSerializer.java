@@ -52,6 +52,10 @@ public class JsonTypeSerializer implements Serializer<Object> {
         this(JsonTypeDefinition.fromJson(typeDef));
     }
 
+    public JsonTypeSerializer(String typeDef, boolean hasVersion) {
+        this(JsonTypeDefinition.fromJson(typeDef), hasVersion);
+    }
+
     public JsonTypeSerializer(JsonTypeDefinition typeDef) {
         this.hasVersion = false;
         this.typeDefVersions = new TreeMap<Integer, JsonTypeDefinition>();

@@ -30,7 +30,6 @@
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-0.18.1-core.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.6.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.15.jar"/>
-	<classpathentry kind="lib" path="lib/protobuf-java-2.1.0.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-6.1.18.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-util-6.1.18.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.5.6.jar"/>
@@ -39,5 +38,6 @@
 	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
 	<classpathentry kind="lib" path="lib/jopt-simple-3.1.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.1.0.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

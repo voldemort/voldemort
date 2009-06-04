@@ -79,6 +79,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
+    private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
 
     public AbstractStoreClientFactory(ClientConfig config) {
@@ -90,6 +91,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
         this.nodeBannageMs = config.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
         this.isJmxEnabled = config.isJmxEnabled();
+        this.requestFormatType = config.getRequestFormatType();
         if(isJmxEnabled)
             this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
         else
@@ -128,7 +130,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
                                                       getPort(node),
-                                                      RequestFormatType.VOLDEMORT);
+                                                      this.requestFormatType);
             store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
         }
@@ -171,7 +173,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 Store<ByteArray, byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
                                                                 url.getHost(),
                                                                 url.getPort(),
-                                                                RequestFormatType.VOLDEMORT);
+                                                                this.requestFormatType);
                 Store<String, String> store = new SerializingStore<String, String>(remoteStore,
                                                                                    new StringSerializer("UTF-8"),
                                                                                    new StringSerializer("UTF-8"));

@@ -32,6 +32,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.json.EndOfFileException;
@@ -65,7 +66,8 @@ public class VoldemortClientShell {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
 
-        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)
+                                                                                    .setRequestFormatType(RequestFormatType.VOLDEMORT));
         DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);

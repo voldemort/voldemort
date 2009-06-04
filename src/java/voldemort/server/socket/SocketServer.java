@@ -111,7 +111,8 @@ public class SocketServer extends Thread {
 
     @Override
     public void run() {
-        logger.info("Starting voldemort socket server(" + serverName + ") on port " + port + ".");
+        logger.info("Starting voldemort socket server(" + serverName + ") on port " + port
+                    + " using request handler " + requestHandler.getClass());
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
