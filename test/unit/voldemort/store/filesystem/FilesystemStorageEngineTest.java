@@ -70,7 +70,7 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
         assertEquals("Only one tempDir should be present", 1, tempDirs.size());
         String keyName = "testkey.xml";
 
-        store.put(keyName, new Versioned("testValue"));
+        store.put(keyName, new Versioned<String>("testValue"));
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
 
         // Now create a emacs style temp file
@@ -82,7 +82,7 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
 
         // do a new put
-        store.put(keyName, new Versioned("testValue1"));
+        store.put(keyName, new Versioned<String>("testValue1"));
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
         assertEquals("Value should match.", "testValue1", store.get(keyName).get(0).getValue());
 
