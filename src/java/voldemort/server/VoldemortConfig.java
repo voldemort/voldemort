@@ -85,6 +85,7 @@ public class VoldemortConfig implements Serializable {
     private int socketBufferSize;
 
     private boolean useNioConnector;
+    private int nioConnectorSelectors;
 
     private int clientRoutingTimeoutMs;
     private int clientMaxConnectionsPerNode;
@@ -185,6 +186,8 @@ public class VoldemortConfig implements Serializable {
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
 
         this.useNioConnector = props.getBoolean("enable.nio.connector", false);
+        this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
+                                                  Runtime.getRuntime().availableProcessors());
 
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
         this.clientMaxTotalConnections = props.getInt("client.max.total.connections", 100);
@@ -735,6 +738,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setUseNioConnector(boolean useNio) {
         this.useNioConnector = useNio;
+    }
+
+    public int getNioConnectorSelectors() {
+        return nioConnectorSelectors;
+    }
+
+    public void setNioConnectorSelectors(int nioConnectorSelectors) {
+        this.nioConnectorSelectors = nioConnectorSelectors;
     }
 
     public int getAdminSocketBufferSize() {

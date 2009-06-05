@@ -115,7 +115,7 @@ public class VoldemortServer extends AbstractService {
                 services.add(new NioSocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
                                                   identityNode.getSocketPort(),
                                                   voldemortConfig.getSocketBufferSize(),
-                                                  Runtime.getRuntime().availableProcessors()));
+                                                  voldemortConfig.getNioConnectorSelectors()));
             } else {
                 logger.info("Using BIO Connector.");
                 services.add(new SocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
