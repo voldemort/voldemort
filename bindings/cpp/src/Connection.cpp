@@ -32,12 +32,10 @@ using asio::ip::tcp;
 
 Connection::Connection(string& hostName,
                        string& portNum,
-                       shared_ptr<ClientConfig>& conf,
-                       shared_ptr<RequestFormat>& requestFormat)
+                       shared_ptr<ClientConfig>& conf)
     : config(conf), host(hostName), port(portNum), io_service(), 
       resolver(io_service), timer(io_service), socket(io_service), 
-      connbuf(NULL), connstream(NULL) {
-
+      connbuf(NULL), connstream(NULL), active(false) {
     // Start an asynchronous resolve to translate the server and service names
     // into a list of endpoints.
     tcp::resolver::query query(host, port);
@@ -55,8 +53,9 @@ Connection::~Connection() {
     if (connbuf) delete connbuf;
 }
 
-static void check_error(const system::error_code& err) {
+void Connection::check_error(const system::error_code& err) {
     if (err) {
+        active = false;
         throw VoldemortException(err.message());
     } 
 }
@@ -64,10 +63,6 @@ static void check_error(const system::error_code& err) {
 static void set_result(optional<system::error_code>* a, system::error_code b) {
     a->reset(b);
 } 
-
-void Connection::timeout() {
-    op_timeout = true;
-}
 
 void Connection::wait_for_operation(long millis)
 {
@@ -86,6 +81,10 @@ void Connection::wait_for_operation(long millis)
         }
     }
 
+}
+
+void Connection::timeout() {
+    op_timeout = true;
 }
 
 void Connection::handle_resolve(const system::error_code& err,
@@ -107,6 +106,7 @@ void Connection::handle_connect(const system::error_code& err,
                                 tcp::resolver::iterator endpoint_iterator) {
     if (!err) {
         op_complete = true;
+        active = true;
     } else if (endpoint_iterator != tcp::resolver::iterator()) {
         // The connection failed. Try the next endpoint in the list.
         socket.close();
@@ -148,6 +148,7 @@ size_t Connection::write(const char* buffer, size_t bufferLen) {
 }
 
 void Connection::close() {
+    active = false;
     socket.close();
     resolver.cancel();
 }
@@ -232,6 +233,18 @@ iostream& Connection::get_io_stream() {
         connstream = new iostream(connbuf);
     }
     return *connstream;
+}
+
+bool Connection::is_active() {
+    return active;
+}
+
+std::string& Connection::get_host() {
+    return host;
+}
+
+std::string& Connection::get_port() {
+    return port;
 }
 
 } /* namespace Voldemort */

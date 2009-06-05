@@ -192,8 +192,8 @@ static std::list<VersionedValue> * readResults(std::istream* inputStream) {
 }
 
 void VoldemortNativeRequestFormat::writeGetRequest(std::ostream* outputStream,
-                                                   std::string* storeName,
-                                                   std::string* key,
+                                                   const std::string* storeName,
+                                                   const std::string* key,
                                                    bool shouldReroute) {
     uint32_t keyLen = htonl(key->length());
     uint16_t storeNameLen = htons(storeName->length());
@@ -212,32 +212,35 @@ VoldemortNativeRequestFormat::readGetResponse(std::istream* inputStream) {
 }
 
 void VoldemortNativeRequestFormat::writeGetAllRequest(std::ostream* outputStream,
-                                                      std::string* storeName,
-                                                      std::list<std::string*>* keys,
+                                                      const std::string* storeName,
+                                                      std::list<const std::string*>* keys,
                                                       bool shouldReroute) {
+    throw VoldemortException("Not implemented");
 }
 
 void VoldemortNativeRequestFormat::writePutRequest(std::ostream* outputStream,
-                                                   std::string* storeName,
-                                                   std::string* key,
-                                                   std::string* value,
+                                                   const std::string* storeName,
+                                                   const std::string* key,
+                                                   const std::string* value,
                                                    VectorClock* version,
                                                    bool shouldReroute) {
-
+    throw VoldemortException("Not implemented");
 }
 
 void VoldemortNativeRequestFormat::readPutResponse(std::istream* inputStream) {
-
+    throw VoldemortException("Not implemented");
 }
 
 void VoldemortNativeRequestFormat::writeDeleteRequest(std::ostream* outputStream,
-                                                      std::string* storeName,
-                                                      std::string* key,
+                                                      const std::string* storeName,
+                                                      const std::string* key,
                                                       VectorClock* version,
                                                       bool shouldReroute) {
+    throw VoldemortException("Not implemented");
 }
 
 bool VoldemortNativeRequestFormat::readDeleteResponse(std::istream* inputStream) {
+    throw VoldemortException("Not implemented");
 }
 
 } /* namespace Voldemort */

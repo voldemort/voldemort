@@ -60,7 +60,19 @@ class ClientConfig
      */
     std::list<std::string>* getBootstrapUrls();
 
-    /* XXX TODO add getters/setters for other options */
+    /**
+     * Get the maximum number of allowed connections per node
+     * 
+     * @return the value
+     */
+    int getMaxConnectionsPerNode();
+
+    /**
+     * Get the maximum number of allowed connections per node
+     * 
+     * @return the value
+     */
+    int getMaxTotalConnections();
 
  private:
     /** Internal implementation details for ClientConfig */

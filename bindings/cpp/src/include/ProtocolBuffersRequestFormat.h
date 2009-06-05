@@ -45,26 +45,26 @@ public:
 
     // RequestFormat interface 
     virtual void writeGetRequest(std::ostream* outputStream,
-                                 std::string* storeName,
-                                 std::string* key,
+                                 const std::string* storeName,
+                                 const std::string* key,
                                  bool shouldReroute);
     virtual std::list<VersionedValue>* readGetResponse(std::istream* inputStream);
     virtual void writeGetAllRequest(std::ostream* outputStream,
-                                    std::string* storeName,
-                                    std::list<std::string*>* keys,
+                                    const std::string* storeName,
+                                    std::list<const std::string*>* keys,
                                     bool shouldReroute);
     /* XXX - TODO */
     //virtual void readGetAllResponse(std::istream* inputStream);
     virtual void writePutRequest(std::ostream* outputStream,
-                                 std::string* storeName,
-                                 std::string* key,
-                                 std::string* value,
+                                 const std::string* storeName,
+                                 const std::string* key,
+                                 const std::string* value,
                                  VectorClock* version,
                                  bool shouldReroute);
     virtual void readPutResponse(std::istream* inputStream);
     virtual void writeDeleteRequest(std::ostream* outputStream,
-                                    std::string* storeName,
-                                    std::string* key,
+                                    const std::string* storeName,
+                                    const std::string* key,
                                     VectorClock* version,
                                     bool shouldReroute);
     virtual bool readDeleteResponse(std::istream* inputStream);

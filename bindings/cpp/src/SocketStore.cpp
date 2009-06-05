@@ -18,81 +18,71 @@
  */
 
 #include "SocketStore.h"
+#include "ConnectionPool.h"
 #include "voldemort/VoldemortException.h"
 
 #include <sstream>
+#include <boost/bind.hpp>
 
 namespace Voldemort {
 
-using boost::asio::ip::tcp;
+using namespace boost;
+using asio::ip::tcp;
 
-SocketStore::SocketStore(std::string& storeName, 
-                         std::string& storeHost, 
+SocketStore::SocketStore(std::string& storeName,
+                         std::string& storeHost,
                          int storePort,
+                         shared_ptr<ClientConfig>& conf,
+                         shared_ptr<ConnectionPool>& pool,
                          RequestFormat::RequestFormatType requestFormatType) 
     : name(storeName), host(storeHost), port(storePort), 
-      io_service(), resolver(io_service) {
-    request = RequestFormat::newRequestFormat(requestFormatType);
+      config(conf), connPool(pool),
+      request(RequestFormat::newRequestFormat(requestFormatType)) {
+
 }
 
 SocketStore::~SocketStore() {
     close();
-    delete request;
 }
 
-std::list<VersionedValue>* SocketStore::get(std::string* key) {
-    std::ostringstream portString;
-    portString << port;
-
-    tcp::iostream sstream(host, portString.str());
-    if (!sstream) {
-        // XXX - TODO use UnreachableStoreException 
-        throw VoldemortException("Could not access store");
-    }
+std::list<VersionedValue>* SocketStore::get(const std::string& key) {
+    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+    std::iostream& sstream = conn->get_io_stream();
 
     request->writeGetRequest(&sstream,
                              &name,
-                             key,
+                             &key,
                              false);
     sstream.flush();
-    
-    /*
-    */
-    /*
-    tcp::resolver::query query(host, port);
-    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-    tcp::resolver::iterator end;
-
-    tcp::socket socket(io_service);
-    boost::system::error_code error = boost::asio::error::host_not_found;
-    while (error && endpoint_iterator != end)
-    {
-      socket.close();
-      socket.connect(*endpoint_iterator++, error);
-    }
-    if (error)
-      throw boost::system::system_error(error);
-
-    boost::asio::streambuf request;
-    std::ostream request_stream(&request);
-    */
-
-    //sstream << std::endl;
-    
-    std::list<VersionedValue>* result = request->readGetResponse(&sstream);
-    sstream.close();
-    //return NULL;
-    return result;
+    return request->readGetResponse(&sstream);
 }
 
-void SocketStore::put(std::string* key,
-                      VersionedValue value) {
-    /* XXX - TODO */
+void SocketStore::put(const std::string& key, VersionedValue& value) {
+    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+    std::iostream& sstream = conn->get_io_stream();
+
+    request->writePutRequest(&sstream,
+                             &name,
+                             &key,
+                             value.getValue(),
+                             dynamic_cast<VectorClock*>(value.getVersion()),
+                             false);
+    sstream.flush();
+    request->readPutResponse(&sstream);
+
 }
 
-bool SocketStore::deleteKey(std::string* key,
-                            Version version) {
-    /* XXX - TODO */
+bool SocketStore::deleteKey(const std::string& key, Version& version) {
+    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+    std::iostream& sstream = conn->get_io_stream();
+
+    request->writeDeleteRequest(&sstream,
+                                &name,
+                                &key,
+                                dynamic_cast<VectorClock*>(&version),
+                                false);
+    sstream.flush();
+    return request->readDeleteResponse(&sstream);
 }
 
 std::string* SocketStore::getName() {
@@ -100,7 +90,7 @@ std::string* SocketStore::getName() {
 }
 
 void SocketStore::close() {
-    /* XXX - TODO */
+    /* noop */
 }
 
 

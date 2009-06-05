@@ -367,7 +367,8 @@ void protobuf_BuildDesc_voldemort_2dclient_2eproto() {
     "voldemort.PutRequest\022(\n\006delete\030\007 \001(\0132\030.v"
     "oldemort.DeleteRequest*8\n\013RequestType\022\007\n"
     "\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELETE\020\003"
-    "B!\n\025voldemort.protocol.pbB\006VProtoH\001", 1195,
+    "B(\n\034voldemort.client.protocol.pbB\006VProto"
+    "H\001", 1202,
   &protobuf_BuildDesc_voldemort_2dclient_2eproto_AssignGlobalDescriptors);
 }
 

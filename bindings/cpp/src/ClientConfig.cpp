@@ -68,4 +68,12 @@ std::list<std::string>* ClientConfig::getBootstrapUrls() {
     return pimpl_->bootstrapUrls;
 }
 
+int ClientConfig::getMaxConnectionsPerNode() {
+    return pimpl_->maxConnectionsPerNode;
+}
+
+int ClientConfig::getMaxTotalConnections() {
+    return pimpl_->maxTotalConnections;
+}
+
 } /* namespace Voldemort */

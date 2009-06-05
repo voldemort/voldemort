@@ -113,12 +113,16 @@ AM_PATH_CPPUNIT(1.9.6)
 AX_BOOST_BASE([1.3.7])
 AX_BOOST_ASIO
 AX_BOOST_UNIT_TEST_FRAMEWORK
+AX_BOOST_THREAD
 
 if test "x$BOOST_ASIO_LIB" = "x"; then
    AC_MSG_ERROR([Boost ASIO library is required])
 fi
 if test "x$BOOST_UNIT_TEST_FRAMEWORK_LIB" = "x"; then
    AC_MSG_ERROR([Boost ASIO unit test framework is required])
+fi
+if test "x$BOOST_THREAD_LIB" = "x"; then
+   AC_MSG_ERROR([Boost Thread library is required])
 fi
 
 # Check for system pthread convention.  See macro definition in

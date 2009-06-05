@@ -27,43 +27,55 @@
 using namespace std;
 using namespace Voldemort;
 
-int main(int argc, char** argv) {
-    // Initialize the bootstrap URLs.  This is a list of server URLs
-    // in the cluster that we use to download metadata for the
-    // cluster.  You only need one to be able to use the cluster, but
-    // more will increase availability when initializing.
-    list<string> bootstrapUrls;
-    bootstrapUrls.push_back(string("tcp://localhost:6666"));
+void doGet(Store* rawStore, const std::string& key) {
+    cout << "Getting key \"" << key << "\"" << endl;
 
-    // The store name is essentially a namespace on the Voldemort
-    // cluster
-    string storeName("test");
-
-    // The ClientConfig object allows you to configure settings on how
-    // we access the Voldemort cluster.  The set of bootstrap URLs is
-    // the only thing that must be configured.
-    ClientConfig config;
-    config.setBootstrapUrls(&bootstrapUrls);
-
-    // We access the server using a StoreClient object.  We create
-    // StoreClients using a StoreClientFactory.  In this case we're
-    // using the SocketStoreClientFactory which will connect to a
-    // Voldemort cluster over TCP.
-    SocketStoreClientFactory factory(config);
-    
-    string key("hello");
-
-    auto_ptr<Store> rawStore(factory.getRawStore(storeName));
-    auto_ptr<list<VersionedValue> > values(rawStore->get(&key));
+    auto_ptr<list<VersionedValue> > values(rawStore->get(key));
     if (values.get() != NULL) {
         list<VersionedValue>::const_iterator it;
         
         for (it = values->begin(); it != values->end(); ++it) {
             const char* cstr = it->getValue()->c_str();
-            cout << "Value: " << cstr << endl;
+            cout << "  Value: " << cstr << endl;
+            
         }
     }
+}
 
+int main(int argc, char** argv) {
+    try {
+        // Initialize the bootstrap URLs.  This is a list of server URLs
+        // in the cluster that we use to download metadata for the
+        // cluster.  You only need one to be able to use the cluster, but
+        // more will increase availability when initializing.
+        list<string> bootstrapUrls;
+        bootstrapUrls.push_back(string("tcp://localhost:6666"));
+
+        // The store name is essentially a namespace on the Voldemort
+        // cluster
+        string storeName("test");
+
+        // The ClientConfig object allows you to configure settings on how
+        // we access the Voldemort cluster.  The set of bootstrap URLs is
+        // the only thing that must be configured.
+        ClientConfig config;
+        config.setBootstrapUrls(&bootstrapUrls);
+
+        // We access the server using a StoreClient object.  We create
+        // StoreClients using a StoreClientFactory.  In this case we're
+        // using the SocketStoreClientFactory which will connect to a
+        // Voldemort cluster over TCP.
+        SocketStoreClientFactory factory(config);
+    
+        auto_ptr<Store> rawStore(factory.getRawStore(storeName));
+    
+        doGet(rawStore.get(), "hello");
+        doGet(rawStore.get(), "hello1");
+        doGet(rawStore.get(), "hello2");
+
+    } catch (VoldemortException& v) {
+        cerr << "Voldemort Error: " << v.what() << endl;
+    }
 #if 0
     auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
 

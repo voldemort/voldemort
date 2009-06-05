@@ -28,6 +28,8 @@ libvoldemort_la_SOURCES = \
 	include/RequestFormat.h \
 	include/VoldemortNativeRequestFormat.h \
 	include/ProtocolBuffersRequestFormat.h \
+	include/Connection.h \
+	include/ConnectionPool.h \
 	DefaultStoreClient.cpp \
 	VersionedValue.cpp \
 	VectorClock.cpp \
@@ -37,9 +39,11 @@ libvoldemort_la_SOURCES = \
 	RequestFormat.cpp \
 	VoldemortNativeRequestFormat.cpp \
 	ProtocolBuffersRequestFormat.cpp \
+	Connection.cpp \
+	ConnectionPool.cpp \
 	voldemort-client.pb.cc \
 	voldemort-client.pb.h 
 
 libvoldemort_la_LDFLAGS = $(BOOST_LDFLAGS) \
 	-version-info $(VERSION_INFO)
-libvoldemort_la_LIBADD = $(BOOST_ASIO_LIB)
+libvoldemort_la_LIBADD = $(BOOST_ASIO_LIB) $(BOOST_THREAD_LIB)

@@ -20,20 +20,26 @@
 #include <voldemort/SocketStoreClientFactory.h>
 #include "SocketStore.h"
 #include <iostream>
+#include <boost/bind.hpp>
 
 namespace Voldemort {
+
+using namespace boost;
+using asio::ip::tcp;
 
 class SocketStoreClientFactoryImpl {
 public:
     SocketStoreClientFactoryImpl(ClientConfig& conf);
+    ~SocketStoreClientFactoryImpl();
 
-    ClientConfig config;
-    //SocketPool* socketPool;
-    //ThreadPool* threadPool;
+    shared_ptr<ClientConfig> config;
+    shared_ptr<ConnectionPool> connPool;
 };
 
 SocketStoreClientFactoryImpl::SocketStoreClientFactoryImpl(ClientConfig& conf) 
-    : config(conf) {
+    : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)) {
+}
+SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
 
 }
 
@@ -56,7 +62,9 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
     return new SocketStore(storeName,
                            host,
                            6666,
-                           RequestFormat::VOLDEMORT);
+                           pimpl_->config,
+                           pimpl_->connPool,
+                           RequestFormat::PROTOCOL_BUFFERS);
 }
 
 } /* namespace Voldemort */

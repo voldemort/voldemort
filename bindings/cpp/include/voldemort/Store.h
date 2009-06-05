@@ -45,7 +45,7 @@ public:
      * @return A newly-allocated list of values or NULL if no values
      * to retrieve.
      */
-    virtual std::list<VersionedValue>* get(std::string* key) = 0;
+    virtual std::list<VersionedValue>* get(const std::string& key) = 0;
 
     /**
      * Associate the value with the key and version in this store.
@@ -53,8 +53,8 @@ public:
      * @param key The key to store
      * @param value The value to store
      */
-    virtual void put(std::string* key,
-                     VersionedValue value) = 0;
+    virtual void put(const std::string& key,
+                     VersionedValue& value) = 0;
 
     /**
      * Delete all entries prior to the given version
@@ -63,8 +63,8 @@ public:
      * @param version the version to use
      * @return True if anything was deleted
      */
-    virtual bool deleteKey(std::string* key,
-                           Version version) = 0;
+    virtual bool deleteKey(const std::string& key,
+                           Version& version) = 0;
 
     /**
      * Get the name for this store.  The memory is owned by the Store

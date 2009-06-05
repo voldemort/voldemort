@@ -22,13 +22,19 @@
 #define SOCKETSTORE_H
 
 #include <voldemort/Store.h>
+#include <voldemort/ClientConfig.h>
 #include "RequestFormat.h"
+#include "ConnectionPool.h"
 
 #include <list>
 #include <string>
 #include <boost/asio.hpp>
+#include <boost/shared_ptr.hpp>
 
 namespace Voldemort {
+
+using namespace boost;
+using asio::ip::tcp;
 
 /**
  * The client implementation of a socket store -- translates each request into a
@@ -44,21 +50,26 @@ public:
      * @param storeName the name of the store
      * @param storeHost the hostname to connect to
      * @param storePort the port to connect to
-     * @param requestFormatType specified which protocol to use
+     * @param conf the client config object
+     * @param pool the connection pool for connecting to the
+     * servers
+     * @param requestFormat the request format type
      */
     SocketStore(std::string& storeName,
                 std::string& storeHost,
                 int storePort,
+                shared_ptr<ClientConfig>& conf,
+                shared_ptr<ConnectionPool>& pool,
                 RequestFormat::RequestFormatType requestFormatType);
 
     virtual ~SocketStore();
 
     // Store interface 
-    virtual std::list<VersionedValue>* get(std::string* key);
-    virtual void put(std::string* key,
-                     VersionedValue value);
-    virtual bool deleteKey(std::string* key,
-                           Version version);
+    virtual std::list<VersionedValue>* get(const std::string& key);
+    virtual void put(const std::string& key,
+                     VersionedValue& value);
+    virtual bool deleteKey(const std::string& key,
+                           Version& version);
     virtual std::string* getName();
     virtual void close();
 
@@ -66,9 +77,10 @@ private:
     std::string name;
     std::string host;
     int port;
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::resolver resolver;
-    RequestFormat* request;
+
+    shared_ptr<ClientConfig> config;
+    shared_ptr<ConnectionPool> connPool;
+    shared_ptr<RequestFormat> request;
 };
 
 } /* namespace Voldemort */

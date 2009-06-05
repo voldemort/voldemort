@@ -18,11 +18,20 @@
  */
 
 #include <utility>
+#include <vector>
 #include <voldemort/VoldemortException.h>
 #include "ProtocolBuffersRequestFormat.h"
 #include "voldemort-client.pb.h"
+#include <arpa/inet.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 
 namespace Voldemort {
+
+using namespace google::protobuf::io;
+
+#define READ_INT(inputStream, val)              \
+    inputStream->read((char*)&val, 4);          \
+    val = ntohl(val);
 
 ProtocolBuffersRequestFormat::ProtocolBuffersRequestFormat() {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -32,7 +41,7 @@ ProtocolBuffersRequestFormat::~ProtocolBuffersRequestFormat() {
 
 }
 
-static void writeVectorClock(voldemort::VectorClock* vvc, VectorClock* vc) {
+static void setupVectorClock(voldemort::VectorClock* vvc, VectorClock* vc) {
     std::list<std::pair<short, uint64_t> >::const_iterator it;
     std::list<std::pair<short, uint64_t> >* entries = vc->getEntries();
 
@@ -43,13 +52,11 @@ static void writeVectorClock(voldemort::VectorClock* vvc, VectorClock* vc) {
     }
 }
 
-static VectorClock* readVectorClock(voldemort::VectorClock* vvc) {
+static VectorClock* readVectorClock(const voldemort::VectorClock* vvc) {
     std::list<std::pair<short, uint64_t> > entries;
-    voldemort::ClockEntry** ventries = vvc->mutable_entries()->mutable_data();
-
     for (int i = 0; i < vvc->entries_size(); i++) {
-        entries.push_back(std::make_pair((short)ventries[i]->node_id(),
-                                         (uint64_t)ventries[i]->version()));
+        entries.push_back(std::make_pair((short)vvc->entries(i).node_id(),
+                                         (uint64_t)vvc->entries(i).version()));
     }
     return new VectorClock(&entries, (uint64_t)vvc->timestamp());
 }
@@ -60,9 +67,27 @@ static void throwException(const voldemort::Error& error) {
     throw VoldemortException(error.error_message());
 }
 
+static void writeMessageWithLength(std::ostream* outputStream,
+                                   google::protobuf::Message* message) {
+    uint32_t mLen = htonl(message->ByteSize());
+    outputStream->write((char*)&mLen, 4);
+    message->SerializeToOstream(outputStream);
+}
+
+static void readMessageWithLength(std::istream* inputStream,
+                                  google::protobuf::Message* message) {
+    uint32_t mLen;
+    READ_INT(inputStream, mLen);
+    
+    std::vector<char> buffer(mLen);
+    inputStream->read(&buffer[0], mLen);
+
+    message->ParseFromArray((void*)&buffer[0], mLen);
+}
+
 void ProtocolBuffersRequestFormat::writeGetRequest(std::ostream* outputStream,
-                                                   std::string* storeName,
-                                                   std::string* key,
+                                                   const std::string* storeName,
+                                                   const std::string* key,
                                                    bool shouldReroute) {
     voldemort::VoldemortRequest req;
     req.set_type(voldemort::GET);
@@ -70,39 +95,52 @@ void ProtocolBuffersRequestFormat::writeGetRequest(std::ostream* outputStream,
     req.set_should_route(shouldReroute);
     req.mutable_get()->set_key(*key);
 
-    req.SerializeToOstream(outputStream);
+    writeMessageWithLength(outputStream, &req);
 }
 
 std::list<VersionedValue> * 
 ProtocolBuffersRequestFormat::readGetResponse(std::istream* inputStream) {
     voldemort::GetResponse res;
-    res.ParseFromIstream(inputStream);
+    readMessageWithLength(inputStream, &res);
     if (res.has_error()) {
         throwException(res.error());
     }
-    std::list<VersionedValue>* responseList = 
-        new std::list<VersionedValue>();
-    voldemort::Versioned** versioned = res.mutable_versioned()->mutable_data();
-    for (int i = 0; i < res.versioned_size(); i++) {
-        std::string* val = new std::string(versioned[i]->value());
-        VectorClock* clock = readVectorClock(versioned[i]->mutable_version());
-        responseList->push_back(VersionedValue(val, clock));
+
+    std::list<VersionedValue>* responseList = NULL;
+    VectorClock* clock = NULL;
+    std::string* val = NULL;
+
+    try {
+        responseList = new std::list<VersionedValue>();
+        for (int i = 0; i < res.versioned_size(); i++) {
+            val = new std::string(res.versioned(i).value());
+            clock = readVectorClock(&res.versioned(i).version());
+            VersionedValue vv(val, clock);
+            val = NULL;
+            clock = NULL;
+            responseList->push_back(vv);
+        }
+    } catch (...) {
+        if (responseList) delete responseList;
+        if (clock) delete clock;
+        if (val) delete val;
+        throw;
     }
 
     return responseList;
 }
 
 void ProtocolBuffersRequestFormat::writeGetAllRequest(std::ostream* outputStream,
-                                                      std::string* storeName,
-                                                      std::list<std::string*>* keys,
+                                                      const std::string* storeName,
+                                                      std::list<const std::string*>* keys,
                                                       bool shouldReroute) {
     throw "not implemented";
 }
 
 void ProtocolBuffersRequestFormat::writePutRequest(std::ostream* outputStream,
-                                                   std::string* storeName,
-                                                   std::string* key,
-                                                   std::string* value,
+                                                   const std::string* storeName,
+                                                   const std::string* key,
+                                                   const std::string* value,
                                                    VectorClock* version,
                                                    bool shouldReroute) {
     voldemort::VoldemortRequest req;
@@ -115,22 +153,23 @@ void ProtocolBuffersRequestFormat::writePutRequest(std::ostream* outputStream,
 
     voldemort::Versioned* vers = preq->mutable_versioned();
     vers->set_value(*value);
-    writeVectorClock(vers->mutable_version(), version);
+    setupVectorClock(vers->mutable_version(), version);
 
-    req.SerializeToOstream(outputStream);
+    writeMessageWithLength(outputStream, &req);
 }
 
 void ProtocolBuffersRequestFormat::readPutResponse(std::istream* inputStream) {
     voldemort::PutResponse res;
-    res.ParseFromIstream(inputStream);
+    readMessageWithLength(inputStream, &res);
+
     if (res.has_error()) {
         throwException(res.error());
     }
 }
 
 void ProtocolBuffersRequestFormat::writeDeleteRequest(std::ostream* outputStream,
-                                                      std::string* storeName,
-                                                      std::string* key,
+                                                      const std::string* storeName,
+                                                      const std::string* key,
                                                       VectorClock* version,
                                                       bool shouldReroute) {
     voldemort::VoldemortRequest req;
@@ -140,13 +179,15 @@ void ProtocolBuffersRequestFormat::writeDeleteRequest(std::ostream* outputStream
 
     voldemort::DeleteRequest* dreq = req.mutable_delete_();
     dreq->set_key(*key);
-    writeVectorClock(dreq->mutable_version(), version);
-    req.SerializeToOstream(outputStream);
+    setupVectorClock(dreq->mutable_version(), version);
+
+    writeMessageWithLength(outputStream, &req);
 }
 
 bool ProtocolBuffersRequestFormat::readDeleteResponse(std::istream* inputStream) {
     voldemort::DeleteResponse res;
-    res.ParseFromIstream(inputStream);
+    readMessageWithLength(inputStream, &res);
+
     if (res.has_error()) {
         throwException(res.error());
     }

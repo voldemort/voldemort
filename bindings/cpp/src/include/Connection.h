@@ -48,12 +48,10 @@ public:
      * 
      * @param hostName the host to connect to
      * @param portNum the port to connect to
-     * @param conf the client config object
-     * @param requestFormat the request format object */
+     * @param conf the client config object */
     Connection(std::string& hostName,
                std::string& portNum,
-               shared_ptr<ClientConfig>& conf,
-               shared_ptr<RequestFormat>& requestFormat);
+               shared_ptr<ClientConfig>& conf);
     ~Connection();
 
     /**
@@ -70,10 +68,48 @@ public:
      */
     std::iostream& get_io_stream();
 
+    /**
+     * Read some data from the socket up to the provided bufferLen
+     * into buffer.  May read less than bufferLen.
+     *
+     * @param buffer the buffer to read into
+     * @param bufferLen the maximum number of bytes
+     * @return the number of bytes read
+     */
     size_t read_some(char* buffer, size_t bufferLen);
+
+    /**
+     * Write the data provided to the socket from the buffer.  Will
+     * write all the data or generate an error.
+     *
+     * @param buffer the buffer to read from
+     * @param bufferLen the bytes to write
+     * @return the number of bytes written
+     */
     size_t write(const char* buffer, size_t bufferLen);
 
-protected:
+    /**
+     * Checks whether the provided connection is still good
+     *
+     * @return whether the connection is functioning
+     */
+    bool is_active();
+
+    /**
+     * Get the host for this connection
+     *
+     * @return The host string
+     */
+    std::string& get_host();
+
+    /**
+     * Get the port for this connection
+     *
+     * @return The port string
+     */
+    std::string& get_port();
+
+private:
     void wait_for_operation(long millis);
     void timeout();
     void handle_connect(const system::error_code& err,
@@ -83,11 +119,12 @@ protected:
                         tcp::resolver::iterator endpoint_iterator);
     void handle_data_op(const system::error_code& err,
                         size_t transferred);
+    void check_error(const system::error_code& err);
 
     shared_ptr<ClientConfig> config;
 
-    std::string& host;
-    std::string& port;
+    std::string host;
+    std::string port;
 
     asio::io_service io_service;
     tcp::resolver resolver;
@@ -101,6 +138,8 @@ protected:
 
     ConnectionBuffer* connbuf;
     std::iostream* connstream;
+
+    bool active;
 };
 
 /** Stream buffer used to construct iostream */
