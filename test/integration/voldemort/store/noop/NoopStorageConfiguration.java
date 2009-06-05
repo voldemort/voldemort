@@ -22,7 +22,13 @@ import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 
 /**
- * A storage engine that does nothing
+ * A storage engine that does nothing.  To use :
+ *
+ * a) add the following to server.properties
+ *
+ *   storage.configs = voldemort.store.noop.NoopStorageConfiguration, voldemort.store.bdb.BdbStorageConfiguration
+ *
+ * b) use "noop" as the store type in stores.xml
  *
  * @author geir
  *
