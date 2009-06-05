@@ -10,7 +10,7 @@ import voldemort.client.protocol.RequestFormatType;
  */
 public class VoldemortNativeSocketStoreTest extends AbstractSocketStoreTest {
 
-    private VoldemortNativeSocketStoreTest() {
+    public VoldemortNativeSocketStoreTest() {
         super(RequestFormatType.VOLDEMORT);
     }
 

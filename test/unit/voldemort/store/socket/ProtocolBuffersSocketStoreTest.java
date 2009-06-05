@@ -10,7 +10,7 @@ import voldemort.client.protocol.RequestFormatType;
  */
 public class ProtocolBuffersSocketStoreTest extends AbstractSocketStoreTest {
 
-    private ProtocolBuffersSocketStoreTest() {
+    public ProtocolBuffersSocketStoreTest() {
         super(RequestFormatType.PROTOCOL_BUFFERS);
     }
 
