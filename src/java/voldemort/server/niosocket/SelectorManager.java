@@ -19,10 +19,10 @@ package voldemort.server.niosocket;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
-import java.util.concurrent.Executor;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -33,7 +33,7 @@ public class SelectorManager implements Runnable {
 
     private final Selector selector;
 
-    private final Executor threadPool;
+    private final BlockingQueue<SocketChannel> socketChannelQueue;
 
     private final RequestHandler requestHandler;
 
@@ -41,14 +41,16 @@ public class SelectorManager implements Runnable {
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public SelectorManager(Selector selector,
-                           Executor threadPool,
-                           RequestHandler requestHandler,
-                           int socketBufferSize) {
-        this.selector = selector;
-        this.threadPool = threadPool;
+    public SelectorManager(RequestHandler requestHandler, int socketBufferSize) throws IOException {
+        this.selector = Selector.open();
+        this.socketChannelQueue = new LinkedBlockingDeque<SocketChannel>();
         this.requestHandler = requestHandler;
         this.socketBufferSize = socketBufferSize;
+    }
+
+    public void accept(SocketChannel socketChannel) {
+        socketChannelQueue.add(socketChannel);
+        selector.wakeup();
     }
 
     public void run() {
@@ -61,6 +63,8 @@ public class SelectorManager implements Runnable {
                     break;
                 }
 
+                processSockets();
+
                 try {
                     int selected = selector.select();
 
@@ -69,19 +73,12 @@ public class SelectorManager implements Runnable {
 
                         while(i.hasNext()) {
                             SelectionKey selectionKey = i.next();
-
-                            try {
-                                if(selectionKey.isAcceptable()) {
-                                    accept(selectionKey);
-                                } else if(selectionKey.isReadable()) {
-                                    read(selectionKey);
-                                }
-                            } catch(Exception e) {
-                                if(logger.isEnabledFor(Level.ERROR))
-                                    logger.error(e.getMessage(), e);
-                            }
-
                             i.remove();
+
+                            if(selectionKey.isReadable() || selectionKey.isWritable()) {
+                                Runnable worker = (Runnable) selectionKey.attachment();
+                                worker.run();
+                            }
                         }
                     }
                 } catch(Throwable t) {
@@ -93,58 +90,56 @@ public class SelectorManager implements Runnable {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(t.getMessage(), t);
         } finally {
-            if(logger.isInfoEnabled())
-                logger.info("Complete");
+            try {
+                selector.close();
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(e.getMessage(), e);
+            }
         }
     }
 
-    private void accept(SelectionKey selectionKey) throws IOException {
-        ServerSocketChannel serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
-        SocketChannel socketChannel = serverSocketChannel.accept();
+    private void processSockets() {
+        try {
+            SocketChannel socketChannel = null;
 
-        if(socketChannel == null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Claimed accept readiness but nothing to select");
+            while((socketChannel = socketChannelQueue.poll()) != null) {
+                try {
+                    if(logger.isInfoEnabled())
+                        logger.info("Accepting remote connection from "
+                                    + socketChannel.socket().getPort());
 
-            return;
+                    socketChannel.socket().setTcpNoDelay(true);
+                    socketChannel.socket().setReuseAddress(true);
+                    socketChannel.socket().setSendBufferSize(socketBufferSize);
+
+                    if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
+                        if(logger.isDebugEnabled())
+                            logger.debug("Requested socket receive buffer size was "
+                                         + this.socketBufferSize + " bytes but actual size is "
+                                         + socketChannel.socket().getReceiveBufferSize()
+                                         + " bytes.");
+
+                    if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
+                        if(logger.isDebugEnabled())
+                            logger.debug("Requested socket send buffer size was "
+                                         + this.socketBufferSize + " bytes but actual size is "
+                                         + socketChannel.socket().getSendBufferSize() + " bytes.");
+
+                    socketChannel.configureBlocking(false);
+                    AsyncRequestHandler attachment = new AsyncRequestHandler(selector,
+                                                                             socketChannel,
+                                                                             requestHandler);
+                    socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.ERROR))
+                        logger.error(e.getMessage(), e);
+                }
+            }
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.ERROR))
+                logger.error(e.getMessage(), e);
         }
-
-        if(logger.isInfoEnabled())
-            logger.info("Accepting remote connection from " + socketChannel.socket().getPort());
-
-        socketChannel.socket().setTcpNoDelay(true);
-        socketChannel.socket().setSendBufferSize(socketBufferSize);
-
-        if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
-            if(logger.isDebugEnabled())
-                logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
-                             + " bytes but actual size is "
-                             + socketChannel.socket().getReceiveBufferSize() + " bytes.");
-
-        if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
-            if(logger.isDebugEnabled())
-                logger.debug("Requested socket send buffer size was " + this.socketBufferSize
-                             + " bytes but actual size is "
-                             + socketChannel.socket().getSendBufferSize() + " bytes.");
-
-        socketChannel.configureBlocking(false);
-        SelectionKey key = socketChannel.register(selector, SelectionKey.OP_READ);
-        key.attach(new AsyncRequestHandler(key, requestHandler));
-    }
-
-    private void read(SelectionKey selectionKey) {
-        SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
-
-        if(socketChannel == null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Claimed read readiness but nothing to select");
-
-            return;
-        }
-
-        AsyncRequestHandler asyncRequestHandler = (AsyncRequestHandler) selectionKey.attachment();
-        asyncRequestHandler.disableReadInterest();
-        threadPool.execute(asyncRequestHandler);
     }
 
 }

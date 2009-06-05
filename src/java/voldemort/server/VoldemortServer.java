@@ -30,6 +30,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
+import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
@@ -108,13 +109,23 @@ public class VoldemortServer extends AbstractService {
                                          RequestFormatType.VOLDEMORT,
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
-        if(voldemortConfig.isSocketServerEnabled())
-            services.add(new SocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
-                                           identityNode.getSocketPort(),
-                                           voldemortConfig.getCoreThreads(),
-                                           voldemortConfig.getMaxThreads(),
-                                           voldemortConfig.getSocketBufferSize(),
-                                           "client-request-service"));
+        if(voldemortConfig.isSocketServerEnabled()) {
+            if(voldemortConfig.getUseNioConnector()) {
+                logger.info("Using NIO Connector.");
+                services.add(new NioSocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
+                                                  identityNode.getSocketPort(),
+                                                  voldemortConfig.getSocketBufferSize(),
+                                                  Runtime.getRuntime().availableProcessors()));
+            } else {
+                logger.info("Using BIO Connector.");
+                services.add(new SocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
+                                               identityNode.getSocketPort(),
+                                               voldemortConfig.getCoreThreads(),
+                                               voldemortConfig.getMaxThreads(),
+                                               voldemortConfig.getSocketBufferSize(),
+                                               "client-request-service"));
+            }
+        }
         if(voldemortConfig.isAdminServerEnabled())
             services.add(new SocketService(requestHandlerFactory.getRequestHandler(RequestFormatType.ADMIN_HANDLER),
                                            identityNode.getAdminPort(),

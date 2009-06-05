@@ -16,20 +16,19 @@
 
 package voldemort.server.niosocket;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
@@ -49,67 +48,64 @@ public class NioSocketService extends AbstractService implements VoldemortServic
 
     private ServerSocketChannel serverSocketChannel;
 
-    private Selector selector;
+    private final SelectorManager[] selectorManagers;
 
-    private final ExecutorService threadPool;
-
-    private Thread selectorManagerThread;
+    private final ExecutorService selectorManagerThreadPool;
 
     private final Logger logger = Logger.getLogger(getClass());
 
     public NioSocketService(RequestHandler requestHandler,
                             int port,
-                            int coreConnections,
-                            int maxConnections,
-                            int socketBufferSize) {
+                            int socketBufferSize,
+                            int selectors) {
         super(ServiceType.SOCKET);
-
         this.requestHandler = requestHandler;
         this.port = port;
         this.socketBufferSize = socketBufferSize;
 
-        RejectedExecutionHandler rejectedExecutionHandler = new RejectedExecutionHandler() {
+        try {
+            this.serverSocketChannel = ServerSocketChannel.open();
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
 
-            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                AsyncRequestHandler asyncRequestHandler = (AsyncRequestHandler) r;
-
-                if(logger.isEnabledFor(Level.ERROR))
-                    logger.error("Too many requests, " + executor.getActiveCount() + " of "
-                                 + executor.getLargestPoolSize()
-                                 + " threads in use, denying connection from "
-                                 + asyncRequestHandler.getPort());
-            }
-        };
-
-        ThreadFactory threadFactory = new DaemonThreadFactory("voldemort-niosocket-server");
-
-        this.threadPool = new ThreadPoolExecutor(coreConnections,
-                                                 maxConnections,
-                                                 0,
-                                                 TimeUnit.MILLISECONDS,
-                                                 new SynchronousQueue<Runnable>(),
-                                                 threadFactory,
-                                                 rejectedExecutionHandler);
+        this.selectorManagers = new SelectorManager[selectors];
+        this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
+                                                                      new DaemonThreadFactory("voldemort-niosocket-server"));
     }
 
     @Override
     protected void startInner() {
         try {
-            selector = Selector.open();
+            for(int i = 0; i < selectorManagers.length; i++) {
+                selectorManagers[i] = new SelectorManager(requestHandler, socketBufferSize);
+                selectorManagerThreadPool.execute(selectorManagers[i]);
+            }
 
-            InetSocketAddress address = new InetSocketAddress(port);
-            serverSocketChannel = ServerSocketChannel.open();
-            serverSocketChannel.socket().bind(address);
+            InetSocketAddress endpoint = new InetSocketAddress(port);
+            serverSocketChannel.socket().bind(endpoint);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
+            serverSocketChannel.socket().setReuseAddress(true);
 
-            serverSocketChannel.configureBlocking(false);
-            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+            if(logger.isInfoEnabled())
+                logger.info("Server now listening for connections on " + endpoint);
 
-            selectorManagerThread = new Thread(new SelectorManager(selector,
-                                                                   threadPool,
-                                                                   requestHandler,
-                                                                   socketBufferSize));
-            selectorManagerThread.start();
+            AtomicInteger counter = new AtomicInteger();
+
+            while(!Thread.currentThread().isInterrupted()) {
+                SocketChannel socketChannel = serverSocketChannel.accept();
+
+                if(socketChannel == null) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn("Claimed accept but nothing to select");
+
+                    continue;
+                }
+
+                SelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
+                                                                   % selectorManagers.length];
+                selectorManager.accept(socketChannel);
+            }
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(e.getMessage(), e);
@@ -119,38 +115,16 @@ public class NioSocketService extends AbstractService implements VoldemortServic
     @Override
     protected void stopInner() {
         try {
-            threadPool.shutdownNow();
-            boolean terminated = threadPool.awaitTermination(15, TimeUnit.SECONDS);
+            selectorManagerThreadPool.shutdownNow();
+            boolean terminated = selectorManagerThreadPool.awaitTermination(15, TimeUnit.SECONDS);
 
             if(!terminated) {
                 if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Thread pool terminated abnormally");
+                    logger.warn("Selector manager thread pool terminated abnormally");
             }
-        } catch(Exception e) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Thread pool terminated abnormally", e);
-        }
-
-        try {
-            selectorManagerThread.interrupt();
-            selectorManagerThread.join(15 * 1000);
-
-            if(selectorManagerThread.isAlive()) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Selector manager thread not terminated");
-            }
-        } catch(Exception e) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Selector manager thread error", e);
-        }
-
-        try {
-            selector.close();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e.getMessage(), e);
-        } finally {
-            selector = null;
         }
 
         try {
@@ -165,8 +139,6 @@ public class NioSocketService extends AbstractService implements VoldemortServic
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e.getMessage(), e);
-        } finally {
-            serverSocketChannel = null;
         }
     }
 

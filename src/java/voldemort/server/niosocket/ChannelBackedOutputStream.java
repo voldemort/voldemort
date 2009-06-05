@@ -47,7 +47,6 @@ import voldemort.server.protocol.RequestHandler;
  */
 
 @NotThreadsafe
-// Test
 public class ChannelBackedOutputStream extends OutputStream {
 
     private final WritableByteChannel channel;
