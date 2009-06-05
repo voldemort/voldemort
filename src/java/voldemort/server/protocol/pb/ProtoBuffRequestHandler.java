@@ -18,6 +18,7 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 
 /**
  * A Protocol Buffers request handler
@@ -33,29 +34,31 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
 
     public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException {
-        VProto.VoldemortRequest request = VProto.VoldemortRequest.parseFrom(inputStream);
+        VProto.VoldemortRequest request = VProto.VoldemortRequest.parseFrom(ProtoUtils.readWithSize(inputStream));
         boolean shouldRoute = request.getShouldRoute();
         String storeName = request.getStore();
         Store<ByteArray, byte[]> store = getStore(storeName, shouldRoute);
+        Message response;
         switch(request.getType()) {
             case GET:
-                handleGet(request.getGet(), store, outputStream);
+                response = handleGet(request.getGet(), store);
                 break;
             case GET_ALL:
-                handleGetAll(request.getGetAll(), store, outputStream);
+                response = handleGetAll(request.getGetAll(), store);
                 break;
             case PUT:
-                handlePut(request.getPut(), store, outputStream);
+                response = handlePut(request.getPut(), store);
                 break;
             case DELETE:
-                handleDelete(request.getDelete(), store, outputStream);
+                response = handleDelete(request.getDelete(), store);
                 break;
+            default:
+                throw new VoldemortException("Unknown operation " + request.getType());
         }
+        ProtoUtils.writeWithSize(outputStream, response);
     }
 
-    private void handleGet(VProto.GetRequest request,
-                           Store<ByteArray, byte[]> store,
-                           DataOutputStream outputStream) throws IOException {
+    private VProto.GetResponse handleGet(VProto.GetRequest request, Store<ByteArray, byte[]> store) {
         VProto.GetResponse.Builder response = VProto.GetResponse.newBuilder();
         try {
             List<Versioned<byte[]>> values = store.get(ProtoUtils.decodeBytes(request.getKey()));
@@ -64,12 +67,11 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
-        response.build().writeTo(outputStream);
+        return response.build();
     }
 
-    private void handleGetAll(VProto.GetAllRequest request,
-                              Store<ByteArray, byte[]> store,
-                              DataOutputStream outputStream) throws IOException {
+    private VProto.GetAllResponse handleGetAll(VProto.GetAllRequest request,
+                                               Store<ByteArray, byte[]> store) {
         VProto.GetAllResponse.Builder response = VProto.GetAllResponse.newBuilder();
         try {
             List<ByteArray> keys = new ArrayList<ByteArray>(request.getKeysCount());
@@ -86,12 +88,10 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
-        response.build().writeTo(outputStream);
+        return response.build();
     }
 
-    private void handlePut(VProto.PutRequest request,
-                           Store<ByteArray, byte[]> store,
-                           DataOutputStream outputStream) throws IOException {
+    private VProto.PutResponse handlePut(VProto.PutRequest request, Store<ByteArray, byte[]> store) {
         VProto.PutResponse.Builder response = VProto.PutResponse.newBuilder();
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
@@ -100,12 +100,11 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
-        response.build().writeTo(outputStream);
+        return response.build();
     }
 
-    private void handleDelete(VProto.DeleteRequest request,
-                              Store<ByteArray, byte[]> store,
-                              DataOutputStream outputStream) throws IOException {
+    private VProto.DeleteResponse handleDelete(VProto.DeleteRequest request,
+                                               Store<ByteArray, byte[]> store) {
         VProto.DeleteResponse.Builder response = VProto.DeleteResponse.newBuilder();
         try {
             boolean success = store.delete(ProtoUtils.decodeBytes(request.getKey()),
@@ -115,7 +114,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
             response.setSuccess(false);
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
-        response.build().writeTo(outputStream);
+        return response.build();
     }
 
 }

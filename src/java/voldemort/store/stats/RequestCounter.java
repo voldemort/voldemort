@@ -63,7 +63,12 @@ public class RequestCounter {
         Accumulator accum = values.get();
         long now = System.currentTimeMillis();
         if(now - accum.startTimeMS > durationMS) {
-            return accum.newWithTotal();
+            Accumulator newWithTotal = accum.newWithTotal();
+            while(true) {
+                if(values.compareAndSet(accum, newWithTotal)) {
+                    return newWithTotal;
+                }
+            }
         } else {
             return accum;
         }

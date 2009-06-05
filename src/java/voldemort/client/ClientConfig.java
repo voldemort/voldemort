@@ -36,7 +36,7 @@ public class ClientConfig {
     private volatile int maxConnectionsPerNode = 6;
     private volatile int maxTotalConnections = 500;
     private volatile int maxThreads = 5;
-    private volatile int maxQueuedRequests = 500;
+    private volatile int maxQueuedRequests = 50;
     private volatile long threadIdleMs = 100000;
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;

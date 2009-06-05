@@ -31,4 +31,4 @@ done
 HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$base_dir/dist/resources
 export HADOOP_CLASSPATH
 
-hadoop voldemort.store.readonly.mr.HadoopStoreJobRunner $@ 
+$HADOOP_HOME/bin/hadoop voldemort.store.readonly.mr.HadoopStoreJobRunner $@ 

@@ -120,6 +120,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public int run(String[] args) throws Exception {
 
         Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass = null;
@@ -243,11 +244,11 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         return codePath;
     }
 
-    private static void addDepJars(Configuration conf, Class[] deps, List<String> additionalJars)
+    private static void addDepJars(Configuration conf, Class<?>[] deps, List<String> additionalJars)
             throws IOException {
         FileSystem localFs = FileSystem.getLocal(conf);
         Set<String> depJars = new HashSet<String>();
-        for(Class dep: deps) {
+        for(Class<?> dep: deps) {
             String tmp = findInClasspath(dep.getCanonicalName());
             if(tmp != null) {
                 Path path = new Path(tmp);

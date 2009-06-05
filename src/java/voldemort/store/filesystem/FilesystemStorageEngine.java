@@ -72,7 +72,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         for(File file: files) {
             if(file.getName().startsWith(key)) {
                 VectorClock clock = getVersion(file, key);
-                if(clock.compare(version) == Occured.BEFORE)
+                if(null != clock && clock.compare(version) == Occured.BEFORE)
                     deletedSomething |= file.delete();
             }
         }
@@ -90,8 +90,10 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
             for(File file: files) {
                 if(file.getName().startsWith(key)) {
                     VectorClock clock = getVersion(file, key);
-                    found.add(new Versioned<String>(FileUtils.readFileToString(file, "UTF-8"),
-                                                    clock));
+                    if(null != clock) {
+                        found.add(new Versioned<String>(FileUtils.readFileToString(file, "UTF-8"),
+                                                        clock));
+                    }
                 }
             }
             return found;
@@ -124,11 +126,13 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         for(File file: files) {
             if(file.getName().startsWith(key)) {
                 VectorClock clock = getVersion(file, key);
-                if(clock.compare(value.getVersion()) == Occured.AFTER)
-                    throw new ObsoleteVersionException("A successor version to this exists.");
-                else if(clock.compare(value.getVersion()) == Occured.BEFORE) {
-                    // Add the file to deleteList
-                    deleteList.add(file.getAbsolutePath());
+                if(null != clock) {
+                    if(clock.compare(value.getVersion()) == Occured.AFTER)
+                        throw new ObsoleteVersionException("A successor version to this exists.");
+                    else if(clock.compare(value.getVersion()) == Occured.BEFORE) {
+                        // Add the file to deleteList
+                        deleteList.add(file.getAbsolutePath());
+                    }
                 }
             }
         }
@@ -211,9 +215,11 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
                         int split = name.lastIndexOf('-');
                         String key = split < 0 ? name : name.substring(0, split);
                         VectorClock clock = getVersion(files[index], key);
-                        String value = FileUtils.readFileToString(files[index]);
-                        this.index++;
-                        return Pair.create(key, new Versioned<String>(value, clock));
+                        if(null != clock) {
+                            String value = FileUtils.readFileToString(files[index]);
+                            this.index++;
+                            return Pair.create(key, new Versioned<String>(value, clock));
+                        }
                     } catch(IOException e) {
                         // probably the file has been removed or something, skip
                         // it

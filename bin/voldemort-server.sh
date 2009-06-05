@@ -36,4 +36,8 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -d64 -Xmx2G -server -cp $CLASSPATH -Dcom.sun.management.jmxremote voldemort.server.VoldemortServer ${1}
+if [ -z $VOLD_OPTS ]; then
+  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+fi
+
+java $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer ${1}

@@ -34,7 +34,7 @@ import voldemort.utils.DaemonThreadFactory;
 public class ClientThreadPool extends ThreadPoolExecutor {
 
     public ClientThreadPool(int maxThreads, long threadIdleMs, int maxQueuedRequests) {
-        super(1,
+        super(maxThreads,
               maxThreads,
               threadIdleMs,
               TimeUnit.MILLISECONDS,

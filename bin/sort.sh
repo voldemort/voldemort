@@ -35,4 +35,8 @@ do
 done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -d64 -Xmx2G -server -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}
+if [ -z $VOLD_OPTS ]; then
+  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+fi
+
+java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.StringSorter ${1} ${2} ${3}

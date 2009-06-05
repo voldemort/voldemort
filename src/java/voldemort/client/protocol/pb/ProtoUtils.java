@@ -16,6 +16,9 @@
 
 package voldemort.client.protocol.pb;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +31,7 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 
 /**
  * Helper functions for serializing or deserializing client requests in protocol
@@ -88,4 +92,16 @@ public class ProtoUtils {
         return ByteString.copyFrom(array.get());
     }
 
+    public static void writeWithSize(DataOutputStream output, Message message) throws IOException {
+        byte[] bytes = message.toByteArray();
+        output.writeInt(bytes.length);
+        output.write(bytes);
+    }
+
+    public static byte[] readWithSize(DataInputStream input) throws IOException {
+        int size = input.readInt();
+        byte[] bytes = new byte[size];
+        input.readFully(bytes);
+        return bytes;
+    }
 }

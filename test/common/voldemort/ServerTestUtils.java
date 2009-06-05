@@ -97,13 +97,12 @@ public class ServerTestUtils {
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
-        SocketPool socketPool = new SocketPool(1, 2, 10000, 1000, 32 * 1024);
-        return new SocketStore(storeName,
-                               "localhost",
-                               port,
-                               socketPool,
-                               RequestFormatType.VOLDEMORT,
-                               false);
+        return getSocketStore(storeName, port, RequestFormatType.VOLDEMORT);
+    }
+
+    public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
+        SocketPool socketPool = new SocketPool(1, 2, 10000, 100000, 32 * 1024);
+        return new SocketStore(storeName, "localhost", port, socketPool, type, false);
     }
 
     public static Context getJettyServer(String clusterXml,
