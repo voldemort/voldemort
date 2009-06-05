@@ -17,9 +17,6 @@
 package voldemort.utils;
 
 import java.io.File;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -60,19 +57,6 @@ public class Utils {
     public static void croak(String message, int errorCode) {
         System.err.println(message);
         System.exit(errorCode);
-    }
-
-    /**
-     * Combine the given items as a list
-     * 
-     * @param <T> The type of the items
-     * @param args The items to combine
-     * @return A list of the items
-     */
-    public static <T> List<T> asList(T... args) {
-        List<T> items = new ArrayList<T>();
-        Collections.addAll(items, args);
-        return items;
     }
 
     /**
@@ -312,96 +296,6 @@ public class Utils {
             return Arrays.equals((double[]) o1, (double[]) o2);
         }
         throw new AssertionError();
-    }
-
-    /**
-     * Load the given class using the default constructor
-     * 
-     * @param className The name of the class
-     * @return The class object
-     */
-    public static Class<?> loadClass(String className) {
-        try {
-            return Class.forName(className);
-        } catch(ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    /**
-     * Call the class constructor with the given arguments
-     * 
-     * @param c The class
-     * @param args The arguments
-     * @return The constructed object
-     */
-    public static Object callConstructor(Class<?> c, Class<?>[] argTypes, Object[] args) {
-        try {
-            Constructor<?> cons = c.getConstructor(argTypes);
-            return cons.newInstance(args);
-        } catch(InvocationTargetException e) {
-            throw getCause(e);
-        } catch(IllegalAccessException e) {
-            throw new IllegalStateException(e);
-        } catch(NoSuchMethodException e) {
-            throw new IllegalArgumentException(e);
-        } catch(InstantiationException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    /**
-     * Call the named method
-     * 
-     * @param obj The object to call the method on
-     * @param c The class of the object
-     * @param name The name of the method
-     * @param args The method arguments
-     * @return The result of the method
-     */
-    public static Object callMethod(Object obj,
-                                    Class<?> c,
-                                    String name,
-                                    Class<?>[] classes,
-                                    Object[] args) {
-        try {
-            Method m = getMethod(c, name, classes);
-            return m.invoke(obj, args);
-        } catch(InvocationTargetException e) {
-            throw getCause(e);
-        } catch(IllegalAccessException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /**
-     * Get the named method from the class
-     * 
-     * @param c The class to get the method from
-     * @param name The method name
-     * @param argTypes The argument types
-     * @return The method
-     */
-    public static Method getMethod(Class<?> c, String name, Class<?>... argTypes) {
-        try {
-            return c.getMethod(name, argTypes);
-        } catch(NoSuchMethodException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    /**
-     * Get the root cause of the Exception
-     * 
-     * @param e The Exception
-     * @return The root cause of the Exception
-     */
-    private static RuntimeException getCause(InvocationTargetException e) {
-        Throwable cause = e.getCause();
-        if(cause instanceof RuntimeException)
-            throw (RuntimeException) cause;
-        else
-            throw new IllegalArgumentException(e.getCause());
     }
 
     /**

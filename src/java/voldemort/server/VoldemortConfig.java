@@ -47,6 +47,7 @@ public class VoldemortConfig implements Serializable {
     private static final long serialVersionUID = 1;
     public static final String VOLDEMORT_HOME_VAR_NAME = "VOLDEMORT_HOME";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
+    public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
 
     private int nodeId;
 
@@ -102,6 +103,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableGui;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
+    private boolean enableAdminServer;
     private boolean enableJmx;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
@@ -112,6 +114,13 @@ public class VoldemortConfig implements Serializable {
     private Props allProps;
 
     private final long pusherPollMs;
+
+    private int adminCoreThreads;
+    private int adminMaxThreads;
+    private int adminStreamBufferSize;
+
+    private int streamMaxReadBytesPerSec;
+    private int streamMaxWriteBytesPerSec;
 
     public VoldemortConfig(int nodeId, String voldemortHome) {
         this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
@@ -162,6 +171,14 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
+        this.adminMaxThreads = props.getInt("admin.max.threads", 100);
+        this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
+        this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
+                                                          10 * 1000 * 1000);
+
+        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 1 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 1 * 1000 * 1000);
+
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
 
@@ -176,6 +193,7 @@ public class VoldemortConfig implements Serializable {
 
         this.enableHttpServer = props.getBoolean("http.enable", true);
         this.enableSocketServer = props.getBoolean("socket.enable", true);
+        this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
         this.enableSlop = props.getBoolean("slop.enable", true);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
@@ -401,6 +419,28 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = maxThreads;
     }
 
+    /**
+     * Admin Threads count setting default is core=1 , max = 2
+     * 
+     * @return
+     */
+
+    public int getAdminCoreThreads() {
+        return adminCoreThreads;
+    }
+
+    public void setAdminCoreThreads(int coreThreads) {
+        this.adminCoreThreads = coreThreads;
+    }
+
+    public int getAdminMaxThreads() {
+        return adminMaxThreads;
+    }
+
+    public void setAdminMaxThreads(int maxThreads) {
+        this.adminMaxThreads = maxThreads;
+    }
+
     public boolean isHttpServerEnabled() {
         return enableHttpServer;
     }
@@ -413,8 +453,32 @@ public class VoldemortConfig implements Serializable {
         return enableSocketServer;
     }
 
-    public void setEnableSocketServer(boolean enableSocketServer) {
+    public void setAdminServerEnabled(boolean enableSocketServer) {
         this.enableSocketServer = enableSocketServer;
+    }
+
+    public boolean isAdminServerEnabled() {
+        return enableAdminServer;
+    }
+
+    public int getStreamMaxReadBytesPerSec() {
+        return streamMaxReadBytesPerSec;
+    }
+
+    public void setStreamMaxReadBytesPerSec(int streamMaxReadBytesPerSec) {
+        this.streamMaxReadBytesPerSec = streamMaxReadBytesPerSec;
+    }
+
+    public int getStreamMaxWriteBytesPerSec() {
+        return streamMaxWriteBytesPerSec;
+    }
+
+    public void setStreamMaxWriteBytesPerSec(int streamMaxWriteBytesPerSec) {
+        this.streamMaxWriteBytesPerSec = streamMaxWriteBytesPerSec;
+    }
+
+    public void setEnableAdminServer(boolean enableAdminServer) {
+        this.enableAdminServer = enableAdminServer;
     }
 
     public boolean isJmxEnabled() {
@@ -659,6 +723,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setSocketBufferSize(int socketBufferSize) {
         this.socketBufferSize = socketBufferSize;
+    }
+
+    public int getAdminSocketBufferSize() {
+        return adminStreamBufferSize;
+    }
+
+    public void setAdminSocketBufferSize(int socketBufferSize) {
+        this.adminStreamBufferSize = socketBufferSize;
     }
 
     public List<String> getStorageConfigurations() {

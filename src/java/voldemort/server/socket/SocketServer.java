@@ -56,13 +56,18 @@ public class SocketServer extends Thread {
     private final int socketBufferSize;
     private final RequestHandler requestHandler;
     private final int maxThreads;
+    private final String serverName;
+    private final StatusManager statusManager;
+
     private ServerSocket serverSocket = null;
 
-    public SocketServer(int port,
+    public SocketServer(String serverName,
+                        int port,
                         int defaultThreads,
                         int maxThreads,
                         int socketBufferSize,
                         RequestHandler requestHandler) {
+        this.serverName = serverName;
         this.port = port;
         this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
@@ -75,6 +80,7 @@ public class SocketServer extends Thread {
                                                  new SynchronousQueue<Runnable>(),
                                                  threadFactory,
                                                  rejectedExecutionHandler);
+        this.statusManager = new StatusManager(this.threadPool);
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
@@ -105,7 +111,8 @@ public class SocketServer extends Thread {
 
     @Override
     public void run() {
-        logger.info("Starting voldemort socket server on port " + port + ".");
+        logger.info("Starting voldemort socket server(" + serverName + ") on port " + port
+                    + " using request handler " + requestHandler.getClass());
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
@@ -149,7 +156,8 @@ public class SocketServer extends Thread {
     }
 
     public void shutdown() {
-        logger.info("Shutting down voldemort socket server on port " + port + ".");
+        logger.info("Shutting down voldemort socket server(" + serverName + ") on port " + port
+                    + ".");
         threadGroup.interrupt();
         interrupt();
         threadPool.shutdownNow();
@@ -162,7 +170,7 @@ public class SocketServer extends Thread {
             if(!serverSocket.isClosed())
                 serverSocket.close();
         } catch(IOException e) {
-            logger.warn("Exception while closing server socket: ", e);
+            logger.warn("Exception while closing server socket in " + serverName + ": ", e);
         }
     }
 
@@ -196,6 +204,10 @@ public class SocketServer extends Thread {
 
     private String getThreadName(String baseName) {
         return baseName + random.nextInt(1000000);
+    }
+
+    public StatusManager getStatusManager() {
+        return statusManager;
     }
 
 }

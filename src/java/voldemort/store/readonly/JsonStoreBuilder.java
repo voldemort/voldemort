@@ -27,14 +27,18 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
@@ -42,10 +46,12 @@ import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.base.Join;
 import com.google.common.collect.AbstractIterator;
 
 /**
@@ -63,18 +69,22 @@ public class JsonStoreBuilder {
     private final StoreDefinition storeDefinition;
     private final RoutingStrategy routingStrategy;
     private final File outputDir;
+    private final File tempDir;
     private final int internalSortSize;
     private final int numThreads;
     private final int numChunks;
+    private final int ioBufferSize;
 
     public JsonStoreBuilder(JsonReader reader,
                             Cluster cluster,
                             StoreDefinition storeDefinition,
                             RoutingStrategy routingStrategy,
                             File outputDir,
+                            File tempDir,
                             int internalSortSize,
                             int numThreads,
-                            int numChunks) {
+                            int numChunks,
+                            int ioBufferSize) {
         if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
             throw new IllegalStateException("Number of nodes is " + cluster.getNumberOfNodes()
                                             + " but the replication factor is "
@@ -82,11 +92,16 @@ public class JsonStoreBuilder {
         this.reader = reader;
         this.cluster = cluster;
         this.storeDefinition = storeDefinition;
+        if(tempDir == null)
+            this.tempDir = new File(Utils.notNull(System.getProperty("java.io.tmpdir")));
+        else
+            this.tempDir = tempDir;
         this.outputDir = outputDir;
         this.routingStrategy = routingStrategy;
         this.internalSortSize = internalSortSize;
         this.numThreads = numThreads;
         this.numChunks = numChunks;
+        this.ioBufferSize = ioBufferSize;
     }
 
     /**
@@ -96,22 +111,70 @@ public class JsonStoreBuilder {
      * @throws IOException
      */
     public static void main(String[] args) throws IOException {
-        if(args.length != 8)
-            Utils.croak("USAGE: java "
-                        + JsonStoreBuilder.class.getName()
-                        + " cluster.xml store_definitions.xml store_name sort_obj_buffer_size input_data output_dir num_threads num_chunks");
-        String clusterFile = args[0];
-        String storeDefFile = args[1];
-        String storeName = args[2];
-        int sortBufferSize = Integer.parseInt(args[3]);
-        String inputFile = args[4];
-        File outputDir = new File(args[5]);
-        int numThreads = Integer.parseInt(args[6]);
-        int numChunks = Integer.parseInt(args[7]);
+        OptionParser parser = new OptionParser();
+        parser.accepts("help", "print usage information");
+        parser.accepts("cluster", "[REQUIRED] path to cluster xml config file")
+              .withRequiredArg()
+              .describedAs("cluster.xml");
+        parser.accepts("stores", "[REQUIRED] path to stores xml config file")
+              .withRequiredArg()
+              .describedAs("stores.xml");
+        parser.accepts("name", "[REQUIRED] store name").withRequiredArg().describedAs("store name");
+        parser.accepts("buffer", "[REQUIRED] number of key/value pairs to buffer in memory")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("input", "[REQUIRED] input file to read from")
+              .withRequiredArg()
+              .describedAs("input-file");
+        parser.accepts("output", "[REQUIRED] directory to output stores to")
+              .withRequiredArg()
+              .describedAs("output directory");
+        parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
+        parser.accepts("chunks", "number of store chunks per store")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("io-buffer-size", "size of i/o buffers in bytes")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("temp-dir", "temporary directory for sorted file pieces")
+              .withRequiredArg()
+              .describedAs("temp dir");
+        OptionSet options = parser.parse(args);
+
+        if(options.has("help")) {
+            parser.printHelpOn(System.out);
+            System.exit(0);
+        }
+
+        Set<String> missing = CmdUtils.missing(options,
+                                               "cluster",
+                                               "stores",
+                                               "name",
+                                               "buffer",
+                                               "input",
+                                               "output");
+        if(missing.size() > 0) {
+            System.err.println("Missing required arguments: " + Join.join(", ", missing));
+            parser.printHelpOn(System.err);
+            System.exit(1);
+        }
+
+        String clusterFile = (String) options.valueOf("cluster");
+        String storeDefFile = (String) options.valueOf("stores");
+        String storeName = (String) options.valueOf("name");
+        int sortBufferSize = (Integer) options.valueOf("buffer");
+        String inputFile = (String) options.valueOf("input");
+        File outputDir = new File((String) options.valueOf("output"));
+        int numThreads = CmdUtils.valueOf(options, "threads", 2);
+        int numChunks = CmdUtils.valueOf(options, "chunks", 2);
+        int ioBufferSize = CmdUtils.valueOf(options, "io-buffer-size", 1000000);
+        File tempDir = new File(CmdUtils.valueOf(options,
+                                                 "temp-dir",
+                                                 System.getProperty("java.io.tmpdir")));
 
         try {
             JsonReader reader = new JsonReader(new BufferedReader(new FileReader(inputFile),
-                                                                  1000000));
+                                                                  ioBufferSize));
             Cluster cluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(clusterFile)));
             StoreDefinition storeDef = null;
             List<StoreDefinition> stores = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storeDefFile)));
@@ -126,17 +189,18 @@ public class JsonStoreBuilder {
             if(!outputDir.exists())
                 Utils.croak("Directory \"" + outputDir.getAbsolutePath() + " does not exist.");
 
-            ConsistentRoutingStrategy routingStrategy = new ConsistentRoutingStrategy(cluster.getNodes(),
-                                                                                      storeDef.getReplicationFactor());
+            RoutingStrategy routingStrategy = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
             new JsonStoreBuilder(reader,
                                  cluster,
                                  storeDef,
                                  routingStrategy,
                                  outputDir,
+                                 tempDir,
                                  sortBufferSize,
                                  numThreads,
-                                 numChunks).build();
+                                 numChunks,
+                                 ioBufferSize).build();
         } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
@@ -144,6 +208,8 @@ public class JsonStoreBuilder {
 
     @SuppressWarnings("unchecked")
     public void build() throws IOException {
+        logger.info("Building store " + storeDefinition.getName() + " for "
+                    + cluster.getNumberOfNodes() + " with " + numChunks + " chunks per node.");
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
         DataOutputStream[][] indexes = new DataOutputStream[numNodes][numChunks];
@@ -158,9 +224,9 @@ public class JsonStoreBuilder {
                 File dataFile = new File(nodeDir, chunk + ".data");
                 positions[nodeId][chunk] = 0;
                 indexes[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                       1000000));
+                                                                                       ioBufferSize));
                 datas[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                     1000000));
+                                                                                     ioBufferSize));
             }
         }
 
@@ -173,6 +239,8 @@ public class JsonStoreBuilder {
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
                                                                                new KeyMd5Comparator(),
                                                                                internalSortSize,
+                                                                               tempDir.getAbsolutePath(),
+                                                                               ioBufferSize,
                                                                                numThreads);
         JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
         for(KeyValuePair pair: sorter.sorted(iter)) {

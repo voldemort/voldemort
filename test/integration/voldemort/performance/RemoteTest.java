@@ -16,56 +16,128 @@
 
 package voldemort.performance;
 
-import static voldemort.utils.Utils.croak;
-
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.utils.CmdUtils;
 import voldemort.versioning.Versioned;
 
 public class RemoteTest {
 
+    public static final int MAX_WORKERS = 8;
+
+    public static class KeyProvider {
+
+        private final List<String> keys;
+        private final AtomicInteger index;
+
+        public KeyProvider(int start, List<String> keys) {
+            this.index = new AtomicInteger(start);
+            this.keys = keys;
+        }
+
+        public String next() {
+            if(keys != null) {
+                return keys.get(index.getAndIncrement() % keys.size());
+            } else {
+                return Integer.toString(index.getAndIncrement());
+            }
+        }
+    }
+
+    public static void printUsage(PrintStream out, OptionParser parser) throws IOException {
+        out.println("Usage: $VOLDEMORT_HOME/bin/remote-test.sh \\");
+        out.println("          [options] bootstrapUrl storeName num-requests\n");
+        parser.printHelpOn(out);
+        System.exit(1);
+    }
+
     public static void main(String[] args) throws Exception {
-        if(args.length < 4 || args.length > 5)
-            croak("USAGE: java " + RemoteTest.class.getName()
-                  + " url num_requests value_size start_num [rwd]");
+
+        OptionParser parser = new OptionParser();
+        parser.accepts("r", "execute read operations");
+        parser.accepts("w", "execute write operations");
+        parser.accepts("d", "execute delete operations");
+        parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
+        parser.accepts("start-key-index", "starting point when using int keys")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("value-size", "size in bytes for random value")
+              .withRequiredArg()
+              .ofType(Integer.class);
+
+        OptionSet options = parser.parse(args);
+
+        List<String> nonOptions = options.nonOptionArguments();
+        if(nonOptions.size() != 3) {
+            printUsage(System.err, parser);
+        }
+
+        String url = nonOptions.get(0);
+        String storeName = nonOptions.get(1);
+        int numRequests = Integer.parseInt(nonOptions.get(2));
+        String ops = "";
+        List<String> keys = null;
+
+        Integer startNum = CmdUtils.valueOf(options, "start-key-index", 0);
+        Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
+
+        if(options.has("request-file")) {
+            keys = loadKeys((String) options.valueOf("request-file"));
+        }
+
+        if(options.has("r")) {
+            ops += "r";
+        }
+        if(options.has("w")) {
+            ops += "w";
+        }
+        if(options.has("d")) {
+            ops += "d";
+        }
+
+        if(ops.length() == 0) {
+            ops = "rwd";
+        }
 
         System.err.println("Bootstraping cluster data.");
-        String url = args[0];
-        int numRequests = Integer.parseInt(args[1]);
-        int valueSize = Integer.parseInt(args[2]);
-        int startNum = Integer.parseInt(args[3]);
-        String ops = "rwd";
-        if(args.length > 4)
-            ops = args[4];
-
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
+                                                                                    .setMaxConnectionsPerNode(MAX_WORKERS)
                                                                                     .setBootstrapUrls(url));
-        final StoreClient<String, String> store = factory.getStoreClient("test");
+        final StoreClient<String, String> store = factory.getStoreClient(storeName);
 
         final String value = new String(TestUtils.randomBytes(valueSize));
-        ExecutorService service = Executors.newFixedThreadPool(8);
+        ExecutorService service = Executors.newFixedThreadPool(MAX_WORKERS);
 
         if(ops.contains("d")) {
             System.err.println("Beginning delete test.");
-            final AtomicInteger count0 = new AtomicInteger(startNum);
             final AtomicInteger successes = new AtomicInteger(0);
-            long start = System.currentTimeMillis();
+            final KeyProvider keyProvider0 = new KeyProvider(startNum, keys);
             final CountDownLatch latch0 = new CountDownLatch(numRequests);
+            long start = System.currentTimeMillis();
             for(int i = 0; i < numRequests; i++) {
                 service.execute(new Runnable() {
 
                     public void run() {
                         try {
-                            String str = Integer.toString(count0.getAndIncrement());
-                            store.delete(str);
+                            store.delete(keyProvider0.next());
                             successes.getAndIncrement();
                         } catch(Exception e) {
                             e.printStackTrace();
@@ -84,16 +156,15 @@ public class RemoteTest {
 
         if(ops.contains("w")) {
             System.err.println("Beginning write test.");
-            final AtomicInteger count1 = new AtomicInteger(startNum);
-            long start = System.currentTimeMillis();
+            final KeyProvider keyProvider1 = new KeyProvider(startNum, keys);
             final CountDownLatch latch1 = new CountDownLatch(numRequests);
+            long start = System.currentTimeMillis();
             for(int i = 0; i < numRequests; i++) {
                 service.execute(new Runnable() {
 
                     public void run() {
                         try {
-                            String str = Integer.toString(count1.getAndIncrement());
-                            store.put(str, new Versioned<String>(value));
+                            store.put(keyProvider1.next(), new Versioned<String>(value));
                         } catch(Exception e) {
                             e.printStackTrace();
                         } finally {
@@ -110,16 +181,15 @@ public class RemoteTest {
 
         if(ops.contains("r")) {
             System.err.println("Beginning read test.");
+            final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
             final CountDownLatch latch2 = new CountDownLatch(numRequests);
             long start = System.currentTimeMillis();
-            final AtomicInteger count2 = new AtomicInteger(startNum);
             for(int i = 0; i < numRequests; i++) {
                 service.execute(new Runnable() {
 
                     public void run() {
                         try {
-                            String str = Integer.toString(count2.getAndIncrement());
-                            store.get(str);
+                            store.get(keyProvider2.next());
                         } catch(Exception e) {
                             e.printStackTrace();
                         } finally {
@@ -137,4 +207,28 @@ public class RemoteTest {
         System.exit(0);
     }
 
+    public static List<String> loadKeys(String path) throws FileNotFoundException, IOException {
+
+        List<String> targets = new ArrayList<String>();
+        File file = new File(path);
+        BufferedReader reader = null;
+
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            String text = null;
+            while((text = reader.readLine()) != null) {
+                targets.add(text);
+            }
+        } finally {
+            try {
+                if(reader != null) {
+                    reader.close();
+                }
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return targets;
+    }
 }

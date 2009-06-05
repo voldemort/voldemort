@@ -51,7 +51,8 @@ public class SocketPoolTest extends TestCase {
         this.dest1 = new SocketDestination("localhost", port);
         VoldemortNativeRequestHandler requestHandler = new VoldemortNativeRequestHandler(new ErrorCodeMapper(),
                                                                                          new StoreRepository());
-        this.server = new SocketServer(port,
+        this.server = new SocketServer("test-socket",
+                                       port,
                                        maxTotalConnections,
                                        maxTotalConnections + 3,
                                        10000,

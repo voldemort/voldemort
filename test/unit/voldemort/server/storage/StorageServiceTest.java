@@ -1,16 +1,21 @@
 package voldemort.server.storage;
 
+import java.io.File;
 import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.MockTime;
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
 /**
  * Test that the storage service is able to load all stores.
@@ -28,14 +33,23 @@ public class StorageServiceTest extends TestCase {
 
     @Override
     public void setUp() {
-        VoldemortConfig config = new VoldemortConfig(0, "/tmp");
+        File temp = TestUtils.createTempDir();
+        VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
+        new File(config.getMetadataDirectory()).mkdir();
         config.setBdbCacheSize(100000);
         this.scheduler = new SchedulerService(1, new MockTime());
         this.cluster = ServerTestUtils.getLocalCluster(1);
         this.storeDefs = ServerTestUtils.getStoreDefs(2);
         this.storeRepository = new StoreRepository();
-        MetadataStore mdStore = new MetadataStore(cluster, storeDefs);
-        storage = new StorageService(storeRepository, mdStore, scheduler, config);
+        MetadataStore mdStore = MetadataStore.readFromDirectory(new File(config.getMetadataDirectory()));
+        mdStore.put(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()),
+                    new Versioned<byte[]>(cluster.toString().getBytes()));
+        mdStore.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
+                    new Versioned<byte[]>(storeDefs.toString().getBytes()));
+        storage = new StorageService(storeRepository,
+                                     new VoldemortMetadata(cluster, storeDefs, 0),
+                                     scheduler,
+                                     config);
         storage.start();
     }
 

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
@@ -24,9 +40,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
- * Creates a simple Read-Only Voldemort store for easy batch update.
- * <p>
- * Creates a read-only store from the specified input data
+ * Builds a read-only voldemort store as a hadoop job from the given input data.
  * 
  * @author bbansal, jay
  */
@@ -57,11 +71,13 @@ public class HadoopStoreBuilder {
      * @param inputFormatClass The input format to use for reading values
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
-     * @param replicationFactor
-     * @param chunkSizeBytes
-     * @param tempDir
-     * @param outputDir
-     * @param path
+     * @param replicationFactor The replication factor to use for storing the
+     *        built store.
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
@@ -90,6 +106,9 @@ public class HadoopStoreBuilder {
                                          + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
     }
 
+    /**
+     * Run the job
+     */
     public void build() {
         JobConf conf = new JobConf(config);
         conf.setInt("io.file.buffer.size", 64 * 1024);

@@ -1,6 +1,6 @@
 package voldemort;
 
-option java_package = "voldemort.protocol.pb";
+option java_package = "voldemort.client.protocol.pb";
 option java_outer_classname = "VProto";
 option optimize_for = SPEED;
 

@@ -42,6 +42,7 @@ import org.jdom.transform.JDOMSource;
 import org.xml.sax.SAXException;
 
 import voldemort.client.RoutingTier;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 
@@ -68,6 +69,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_REQUIRED_READS_ELMT = "required-reads";
     public final static String STORE_PREFERRED_READS_ELMT = "preferred-reads";
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
+    public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     private final static String STORE_VERSION_ATTR = "version";
 
     private final Schema schema;
@@ -149,6 +151,10 @@ public class StoreDefinitionsMapper {
             throw new MappingException("Only a single schema is allowed for the store key.");
         SerializerDefinition valueSerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
         RoutingTier routingTier = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_TIER_ELMT));
+
+        String routingStrategyType = (null != store.getChildText(STORE_ROUTING_STRATEGY)) ? store.getChildText(STORE_ROUTING_STRATEGY)
+                                                                                         : RoutingStrategyType.CONSISTENT_STRATEGY;
+
         Element retention = store.getChild(STORE_RETENTION_POLICY_ELMT);
         Integer retentionPolicyDays = null;
         if(retention != null)
@@ -159,6 +165,7 @@ public class StoreDefinitionsMapper {
                                    keySerializer,
                                    valueSerializer,
                                    routingTier,
+                                   routingStrategyType,
                                    replicationFactor,
                                    preferredReads,
                                    requiredReads,

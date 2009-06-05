@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client.protocol.pb;
 
 import java.io.DataInputStream;
@@ -37,19 +53,19 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                    VectorClock version,
                                    boolean shouldReroute) throws IOException {
         StoreUtils.assertValidKey(key);
-        VProto.VoldemortRequest.newBuilder()
-                               .setType(RequestType.DELETE)
-                               .setStore(storeName)
-                               .setShouldRoute(shouldReroute)
-                               .setDelete(VProto.DeleteRequest.newBuilder()
-                                                              .setKey(ByteString.copyFrom(key.get()))
-                                                              .setVersion(ProtoUtils.encodeClock(version)))
-                               .build()
-                               .writeTo(output);
+        ProtoUtils.writeWithSize(output,
+                                 VProto.VoldemortRequest.newBuilder()
+                                                        .setType(RequestType.DELETE)
+                                                        .setStore(storeName)
+                                                        .setShouldRoute(shouldReroute)
+                                                        .setDelete(VProto.DeleteRequest.newBuilder()
+                                                                                       .setKey(ByteString.copyFrom(key.get()))
+                                                                                       .setVersion(ProtoUtils.encodeClock(version)))
+                                                        .build());
     }
 
     public boolean readDeleteResponse(DataInputStream input) throws IOException {
-        VProto.DeleteResponse response = VProto.DeleteResponse.parseFrom(input);
+        VProto.DeleteResponse response = VProto.DeleteResponse.parseFrom(ProtoUtils.readWithSize(input));
         if(response.hasError())
             throwException(response.getError());
         return response.getSuccess();
@@ -60,18 +76,18 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                 ByteArray key,
                                 boolean shouldReroute) throws IOException {
         StoreUtils.assertValidKey(key);
-        VProto.VoldemortRequest.newBuilder()
-                               .setType(RequestType.GET)
-                               .setStore(storeName)
-                               .setShouldRoute(shouldReroute)
-                               .setGet(VProto.GetRequest.newBuilder()
-                                                        .setKey(ByteString.copyFrom(key.get())))
-                               .build()
-                               .writeTo(output);
+        ProtoUtils.writeWithSize(output,
+                                 VProto.VoldemortRequest.newBuilder()
+                                                        .setType(RequestType.GET)
+                                                        .setStore(storeName)
+                                                        .setShouldRoute(shouldReroute)
+                                                        .setGet(VProto.GetRequest.newBuilder()
+                                                                                 .setKey(ByteString.copyFrom(key.get())))
+                                                        .build());
     }
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream input) throws IOException {
-        VProto.GetResponse response = VProto.GetResponse.parseFrom(input);
+        VProto.GetResponse response = VProto.GetResponse.parseFrom(ProtoUtils.readWithSize(input));
         if(response.hasError())
             throwException(response.getError());
         return ProtoUtils.decodeVersions(response.getVersionedList());
@@ -86,18 +102,17 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         for(ByteArray key: keys)
             req.addKeys(ByteString.copyFrom(key.get()));
 
-        VProto.VoldemortRequest.newBuilder()
-                               .setType(RequestType.GET_ALL)
-                               .setStore(storeName)
-                               .setShouldRoute(shouldReroute)
-                               .setGetAll(req)
-                               .build()
-                               .writeTo(output);
+        ProtoUtils.writeWithSize(output, VProto.VoldemortRequest.newBuilder()
+                                                                .setType(RequestType.GET_ALL)
+                                                                .setStore(storeName)
+                                                                .setShouldRoute(shouldReroute)
+                                                                .setGetAll(req)
+                                                                .build());
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream input)
             throws IOException {
-        VProto.GetAllResponse response = VProto.GetAllResponse.parseFrom(input);
+        VProto.GetAllResponse response = VProto.GetAllResponse.parseFrom(ProtoUtils.readWithSize(input));
         if(response.hasError())
             throwException(response.getError());
         Map<ByteArray, List<Versioned<byte[]>>> vals = new HashMap<ByteArray, List<Versioned<byte[]>>>(response.getValuesCount());
@@ -119,17 +134,16 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                          .setVersioned(VProto.Versioned.newBuilder()
                                                                                        .setValue(ByteString.copyFrom(value))
                                                                                        .setVersion(ProtoUtils.encodeClock(version)));
-        VProto.VoldemortRequest.newBuilder()
-                               .setType(RequestType.PUT)
-                               .setStore(storeName)
-                               .setShouldRoute(shouldReroute)
-                               .setPut(req)
-                               .build()
-                               .writeTo(output);
+        ProtoUtils.writeWithSize(output, VProto.VoldemortRequest.newBuilder()
+                                                                .setType(RequestType.PUT)
+                                                                .setStore(storeName)
+                                                                .setShouldRoute(shouldReroute)
+                                                                .setPut(req)
+                                                                .build());
     }
 
     public void readPutResponse(DataInputStream input) throws IOException {
-        VProto.PutResponse response = VProto.PutResponse.parseFrom(input);
+        VProto.PutResponse response = VProto.PutResponse.parseFrom(ProtoUtils.readWithSize(input));
         if(response.hasError())
             throwException(response.getError());
     }

@@ -35,25 +35,35 @@ import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class SocketStoreTest extends AbstractByteArrayStoreTest {
+/**
+ * A base-socket store test that works with any store RequestFormat
+ * 
+ * @author jay
+ * 
+ */
+public class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {
 
-    private static final Logger logger = Logger.getLogger(SocketStoreTest.class);
+    private static final Logger logger = Logger.getLogger(AbstractSocketStoreTest.class);
+
+    public AbstractSocketStoreTest(RequestFormatType type) {
+        this.requestFormatType = type;
+    }
 
     private int socketPort;
     private SocketServer socketServer;
     private SocketStore socketStore;
+    private RequestFormatType requestFormatType;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        socketPort = ServerTestUtils.findFreePort();
-        /* TODO: parameterize to test all wire formats */
+        this.socketPort = ServerTestUtils.findFreePort();
         socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
                                                        VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                        "test",
                                                        socketPort,
-                                                       RequestFormatType.VOLDEMORT);
-        socketStore = ServerTestUtils.getSocketStore("test", socketPort);
+                                                       requestFormatType);
+        socketStore = ServerTestUtils.getSocketStore("test", socketPort, requestFormatType);
     }
 
     @Override

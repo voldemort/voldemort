@@ -159,6 +159,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                 + " to use the given index and data file.")
     public void swapFiles(String newStoreDirectory) {
         logger.info("Swapping files for store '" + getName() + "' from " + newStoreDirectory);
+        File newDataDir = new File(newStoreDirectory);
+        if(!newDataDir.exists())
+            throw new VoldemortException("File " + newDataDir.getAbsolutePath()
+                                         + " does not exist.");
+
         logger.info("Acquiring write lock on '" + getName() + "':");
         fileModificationLock.writeLock().lock();
         boolean success = false;
@@ -168,8 +173,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             shiftBackupsRight();
             // copy in new files
             logger.info("Setting primary files for store '" + getName() + "' to "
-                        + newStoreDirectory + " respectively.");
-            success = new File(newStoreDirectory).renameTo(new File(storeDir, "version-0"));
+                        + newStoreDirectory);
+            success = newDataDir.renameTo(new File(storeDir, "version-0"));
 
             // open the new store
             if(success) {
@@ -183,27 +188,33 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         } finally {
             try {
                 // we failed to do the swap, attempt a rollback
-                if(!success) {
+                if(!success)
                     rollback();
-                    open();
-                }
             } finally {
                 fileModificationLock.writeLock().unlock();
                 logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
             }
         }
+        // okay we have released the lock and the store is now open again, it is
+        // safe to do a potentially slow delete if we have one too many backups
+        File extraBackup = new File(storeDir, "version-" + (numBackups + 1));
+        if(extraBackup.exists()) {
+            logger.info("Deleting oldest backup file " + extraBackup);
+            Utils.rm(extraBackup);
+            logger.info("Delete completed successfully.");
+        }
     }
 
     @JmxOperation(description = "Rollback to the most recent backup of the current store.")
     public void rollback() {
-        logger.info("Rolling back store '" + getName() + ".");
+        logger.info("Rolling back store '" + getName() + "' to version 1.");
         fileModificationLock.writeLock().lock();
         try {
             if(isOpen)
                 close();
             File backup = new File(storeDir, "version-1");
             if(!backup.exists())
-                throw new VoldemortException("Backup 1 does not exists, nothing to roll back to.");
+                throw new VoldemortException("Version 1 does not exists, nothing to roll back to.");
             shiftBackupsLeft();
             open();
         } finally {
@@ -218,18 +229,30 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private void shiftBackupsLeft() {
         if(isOpen)
             throw new VoldemortException("Can't move backup files while store is open.");
-        // move all the files back to how they were, except the last one which
-        // we copy to a backup location
-        File primary = new File(storeDir, "0");
+
+        // Turn the current data into a .bak so we can take a look at it
+        // manually if we want
+        File primary = new File(storeDir, "version-0");
         DateFormat df = new SimpleDateFormat("MM-dd-yyyy");
         if(primary.exists())
-            Utils.move(primary, new File(storeDir, "0." + df.format(new Date()) + ".bak"));
-        for(int i = 0; i < numBackups; i++) {
-            File from = new File(storeDir, "version-" + Integer.toString(i + 1));
-            File to = new File(storeDir, "version-" + Integer.toString(i));
-            if(from.exists())
-                Utils.move(from, to);
-        }
+            Utils.move(primary, new File(storeDir, "version-0." + df.format(new Date()) + ".bak"));
+
+        shiftBackupsLeft(0);
+    }
+
+    private void shiftBackupsLeft(int beginShift) {
+        File source = new File(storeDir, "version-" + Integer.toString(beginShift + 1));
+        File dest = new File(storeDir, "version-" + Integer.toString(beginShift));
+
+        // if the source file doesn't exist there is nothing to shift
+        if(!source.exists())
+            return;
+
+        // rename the file
+        source.renameTo(dest);
+
+        // now rename any remaining files
+        shiftBackupsLeft(beginShift + 1);
     }
 
     /**
@@ -238,13 +261,26 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private void shiftBackupsRight() {
         if(isOpen)
             throw new VoldemortException("Can't move backup files while store is open.");
-        // do the hokey pokey and turn the files around
-        for(int i = numBackups - 1; i >= 0; i--) {
-            File from = new File(storeDir, "version-" + Integer.toString(i));
-            File to = new File(storeDir, "version-" + Integer.toString(i + 1));
-            if(from.exists())
-                Utils.move(from, to);
-        }
+        shiftBackupsRight(0);
+    }
+
+    private void shiftBackupsRight(int beginShift) {
+        if(isOpen)
+            throw new VoldemortException("Can't move backup files while store is open.");
+
+        File source = new File(storeDir, "version-" + Integer.toString(beginShift));
+
+        // if the source file doesn't exist there is nothing to shift
+        if(!source.exists())
+            return;
+
+        // if the dest file exists, it will need to be shifted too
+        File dest = new File(storeDir, "version-" + Integer.toString(beginShift + 1));
+        if(dest.exists())
+            shiftBackupsRight(beginShift + 1);
+
+        // okay finally do the rename
+        source.renameTo(dest);
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {

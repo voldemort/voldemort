@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
@@ -17,19 +33,18 @@ import voldemort.serialization.Serializer;
 import voldemort.utils.ByteUtils;
 
 /**
- * Mapper reads input data and translates it into data serialized with the
- * appropriate Serializer for the given store. Override makeKey() and
- * makeValue() to create the appropriate objects to pass into the Serializer.
+ * A base class that can be used for building voldemort read-only stores. To use
+ * it you need to override the makeKey and makeValue methods which specify how
+ * to construct the key and value from the values given in map().
  * 
- * This mapper expects the store name to be defined by the property
- * voldemort.store.name, and it expects to find distributed cache files
- * cluster.xml and stores.xml.
+ * The values given by makeKey and makeValue will then be serialized with the
+ * appropriate voldemort Serializer.
  * 
  * @author bbansal, jay
  * 
  */
-public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends HadoopStoreBuilderBase
-        implements Mapper<K, V, BytesWritable, BytesWritable> {
+public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
+        AbstractStoreBuilderConfigurable implements Mapper<K, V, BytesWritable, BytesWritable> {
 
     private MessageDigest md5er;
     private ConsistentRoutingStrategy routingStrategy;

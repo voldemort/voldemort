@@ -34,5 +34,9 @@ do
 done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
+if [ -z $VOLD_OPTS ]; then
+  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+fi
+
 export CLASSPATH
-java -Xmx2G -d64 -server -Dcom.sun.management.jmxremote -cp $CLASSPATH ${1} ${2} ${3} ${4} ${5} ${6} ${7} 
+java $VOLD_OPTS -cp $CLASSPATH ${1} ${2} ${3} ${4} ${5} ${6} ${7} 

@@ -16,10 +16,6 @@
 #  limitations under the License.
 #
 
-if [ $# -lt 4 ];
-then
-  echo 'USAGE: bin/voldemort-remote-test.sh bootstrap-url num-requests value-size start-number [rwd]'
-  exit 1
-fi
+bin_dir=$(dirname $0)
 
-bin/run-class.sh voldemort.performance.RemoteTest ${1} ${2} ${3} ${4} ${5} ${6}
+${bin_dir}/run-class.sh voldemort.performance.RemoteTest $@

@@ -24,7 +24,6 @@ import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +35,12 @@ import junit.framework.AssertionFailedError;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
+import voldemort.server.VoldemortMetadata;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.JsonStoreBuilder;
@@ -283,13 +284,14 @@ public class TestUtils {
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
+                                                       RoutingStrategyType.CONSISTENT_STRATEGY,
                                                        1,
                                                        1,
                                                        1,
                                                        1,
                                                        1,
                                                        1);
-        RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
+        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
         // make a temp dir
         File dataDir = new File(baseDir + File.separatorChar + "read-only-temp-index-"
@@ -300,19 +302,23 @@ public class TestUtils {
                                                              storeDef,
                                                              router,
                                                              dataDir,
+                                                             null,
                                                              100,
                                                              1,
-                                                             2);
+                                                             2,
+                                                             10000);
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();
     }
 
-    public static RoutingStrategy getRoutingStrategy(int[][] partitionMap, int numReplication) {
-        return new ConsistentRoutingStrategy(createNodes(partitionMap), numReplication);
+    public static VoldemortMetadata createMetadata(int[][] partitionMap, StoreDefinition storeDef) {
+        return new VoldemortMetadata(new Cluster("test-cluster", createNodes(partitionMap)),
+                                     Arrays.asList(storeDef),
+                                     0);
     }
 
-    public static Collection<Node> createNodes(int[][] partitionMap) {
+    public static List<Node> createNodes(int[][] partitionMap) {
         ArrayList<Node> nodes = new ArrayList<Node>(partitionMap.length);
         ArrayList<Integer> partitionList = new ArrayList<Integer>();
 
@@ -321,7 +327,7 @@ public class TestUtils {
             for(int p = 0; p < partitionMap[i].length; p++) {
                 partitionList.add(partitionMap[i][p]);
             }
-            nodes.add(new Node(i, "localhost", 8880 + i, 6666 + i, partitionList));
+            nodes.add(new Node(i, "localhost", 8880 + i, 6666 + i, 7777 + i, partitionList));
         }
 
         return nodes;

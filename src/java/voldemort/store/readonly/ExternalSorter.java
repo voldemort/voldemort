@@ -156,44 +156,44 @@ public class ExternalSorter<V> {
         final AtomicInteger count = new AtomicInteger(0);
         final List<File> tempFiles = Collections.synchronizedList(new ArrayList<File>());
         while(input.hasNext()) {
-            final int chunkId = count.getAndIncrement();
-            final long chunkStart = System.currentTimeMillis();
-            logger.info("Chunk " + chunkId + ": filling sort buffer for chunk...");
+            final int segmentId = count.getAndIncrement();
+            final long segmentStartMs = System.currentTimeMillis();
+            logger.info("Segment " + segmentId + ": filling sort buffer for segment...");
             @SuppressWarnings("unchecked")
             final V[] buffer = (V[]) new Object[internalSortSize];
-            int chunkSizeIter = 0;
-            for(; chunkSizeIter < internalSortSize && input.hasNext(); chunkSizeIter++)
-                buffer[chunkSizeIter] = input.next();
-            final int chunkSize = chunkSizeIter;
-            logger.info("Chunk " + chunkId + ": sort buffer filled...adding to sort queue.");
+            int segmentSizeIter = 0;
+            for(; segmentSizeIter < internalSortSize && input.hasNext(); segmentSizeIter++)
+                buffer[segmentSizeIter] = input.next();
+            final int segmentSize = segmentSizeIter;
+            logger.info("Segment " + segmentId + ": sort buffer filled...adding to sort queue.");
 
             // sort and write out asynchronously
             executor.execute(new Runnable() {
 
                 public void run() {
-                    logger.info("Chunk " + chunkId + ": sorting buffer.");
+                    logger.info("Segment " + segmentId + ": sorting buffer.");
                     long start = System.currentTimeMillis();
-                    Arrays.sort(buffer, 0, chunkSize, comparator);
+                    Arrays.sort(buffer, 0, segmentSize, comparator);
                     long ellapsed = System.currentTimeMillis() - start;
-                    logger.info("Chunk " + chunkId + ": sort completed in " + ellapsed
+                    logger.info("Segment " + segmentId + ": sort completed in " + ellapsed
                                 + " ms, writing to temp file.");
 
                     // write out values to a temp file
                     try {
-                        File tempFile = File.createTempFile("chunk-", ".dat", tempDir);
+                        File tempFile = File.createTempFile("segment-", ".dat", tempDir);
                         tempFile.deleteOnExit();
                         tempFiles.add(tempFile);
                         DataOutputStream output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(tempFile),
                                                                                                 bufferSize));
-                        for(int i = 0; i < chunkSize; i++)
+                        for(int i = 0; i < segmentSize; i++)
                             writeValue(output, buffer[i]);
                         output.close();
                     } catch(IOException e) {
                         throw new VoldemortException(e);
                     }
-                    long chunkEllapsed = System.currentTimeMillis() - chunkStart;
-                    logger.info("Chunk " + chunkId + ": completed processing of chunk in "
-                                + chunkEllapsed + " ms.");
+                    long segmentEllapsed = System.currentTimeMillis() - segmentStartMs;
+                    logger.info("Segment " + segmentId + ": completed processing of segment in "
+                                + segmentEllapsed + " ms.");
                 }
             });
         }

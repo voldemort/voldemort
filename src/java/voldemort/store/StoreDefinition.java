@@ -45,12 +45,14 @@ public class StoreDefinition implements Serializable {
     private final Integer preferredReads;
     private final int requiredReads;
     private final Integer retentionPeriodDays;
+    private final String routingStrategyType;
 
     public StoreDefinition(String name,
                            String type,
                            SerializerDefinition keySerializer,
                            SerializerDefinition valueSerializer,
                            RoutingTier routingPolicy,
+                           String routingStrategyType,
                            int replicationFactor,
                            Integer preferredReads,
                            int requiredReads,
@@ -68,6 +70,7 @@ public class StoreDefinition implements Serializable {
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
         this.retentionPeriodDays = retentionDays;
+        this.routingStrategyType = routingStrategyType;
         checkParameterLegality();
     }
 
@@ -121,6 +124,10 @@ public class StoreDefinition implements Serializable {
 
     public int getReplicationFactor() {
         return this.replicationFactor;
+    }
+
+    public String getRoutingStrategyType() {
+        return routingStrategyType;
     }
 
     public int getRequiredReads() {

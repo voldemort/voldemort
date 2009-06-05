@@ -43,6 +43,7 @@ import org.xml.sax.SAXException;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 
 /**
  * Parse a cluster xml file
@@ -62,6 +63,7 @@ public class ClusterMapper {
     private static final String HOST_ELMT = "host";
     private static final String HTTP_PORT_ELMT = "http-port";
     private static final String SOCKET_PORT_ELMT = "socket-port";
+    private static final String ADMIN_PORT_ELMT = "admin-port";
 
     private final Schema schema;
 
@@ -120,7 +122,11 @@ public class ClusterMapper {
         List<Integer> partitions = new ArrayList<Integer>();
         for(String aPartition: COMMA_SEP.split(partitionsText))
             partitions.add(Integer.parseInt(aPartition.trim()));
-        return new Node(id, host, httpPort, socketPort, partitions);
+
+        int adminPort = (null != server.getChildText(ADMIN_PORT_ELMT)) ? Integer.parseInt(server.getChildText(ADMIN_PORT_ELMT))
+                                                                      : VoldemortConfig.VOLDEMORT_DEFAULT_ADMIN_PORT;
+
+        return new Node(id, host, httpPort, socketPort, adminPort, partitions);
     }
 
     public String writeCluster(Cluster cluster) {
@@ -138,6 +144,7 @@ public class ClusterMapper {
         server.addContent(new Element(HOST_ELMT).setText(node.getHost()));
         server.addContent(new Element(HTTP_PORT_ELMT).setText(Integer.toString(node.getHttpPort())));
         server.addContent(new Element(SOCKET_PORT_ELMT).setText(Integer.toString(node.getSocketPort())));
+        server.addContent(new Element(ADMIN_PORT_ELMT).setText(Integer.toString(node.getAdminPort())));
         String serverPartitionsText = StringUtils.join(node.getPartitionIds().toArray(), ", ");
         server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(serverPartitionsText));
         return server;

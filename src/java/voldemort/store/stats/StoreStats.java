@@ -1,6 +1,8 @@
 package voldemort.store.stats;
 
-import voldemort.utils.Time;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Some convenient statistics to track about the store
@@ -10,32 +12,34 @@ import voldemort.utils.Time;
  */
 public class StoreStats {
 
-    private int[] calls;
-    private double[] times;
+    private final Map<Tracked, RequestCounter> counters;
 
     public StoreStats() {
-        this.calls = new int[Tracked.values().length];
-        this.times = new double[Tracked.values().length];
+        counters = new EnumMap<Tracked, RequestCounter>(Tracked.class);
+
+        for(Tracked tracked: Tracked.values()) {
+            counters.put(tracked, new RequestCounter(300000));
+        }
     }
 
-    public int getCount(Tracked op) {
-        return calls[op.ordinal()];
+    public long getCount(Tracked op) {
+        return counters.get(op).getCount();
+    }
+
+    public float getThroughput(Tracked op) {
+        return counters.get(op).getThroughput();
     }
 
     public double getAvgTimeInMs(Tracked op) {
-        return times[op.ordinal()] / Time.NS_PER_MS;
+        return counters.get(op).getAverageTimeInMs();
     }
 
-    public void recordTime(Tracked op, double time) {
-        calls[op.ordinal()]++;
-        times[op.ordinal()] += (time - times[op.ordinal()]) / calls[op.ordinal()];
+    public void recordTime(Tracked op, long timeNS) {
+        counters.get(op).addRequest(timeNS);
     }
 
-    public void reset() {
-        for(int i = 0; i < Tracked.values().length; i++) {
-            this.calls[i] = 0;
-            this.times[i] = 0.0;
-        }
+    public Map<Tracked, RequestCounter> getCounters() {
+        return Collections.unmodifiableMap(counters);
     }
 
 }

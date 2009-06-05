@@ -54,5 +54,5 @@ public interface RoutingStrategy {
      * @return The collection of nodes
      */
     public Set<Node> getNodes();
-
+    
 }

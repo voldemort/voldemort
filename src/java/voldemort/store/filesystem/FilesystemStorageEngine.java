@@ -25,7 +25,9 @@ import java.util.NoSuchElementException;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FileDeleteStrategy;
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.store.NoSuchCapabilityException;
@@ -44,6 +46,8 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
 
     private final String name;
     private final File directory;
+
+    private static final Logger logger = Logger.getLogger(FilesystemStorageEngine.class);
 
     public FilesystemStorageEngine(String name, String directory) {
         this.name = name;
@@ -67,8 +71,8 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         boolean deletedSomething = false;
         for(File file: files) {
             if(file.getName().startsWith(key)) {
-                VectorClock clock = getVersion(file);
-                if(clock.compare(version) == Occured.BEFORE)
+                VectorClock clock = getVersion(file, key);
+                if(null != clock && clock.compare(version) == Occured.BEFORE)
                     deletedSomething |= file.delete();
             }
         }
@@ -85,9 +89,11 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
             List<Versioned<String>> found = new ArrayList<Versioned<String>>();
             for(File file: files) {
                 if(file.getName().startsWith(key)) {
-                    VectorClock clock = getVersion(file);
-                    found.add(new Versioned<String>(FileUtils.readFileToString(file, "UTF-8"),
-                                                    clock));
+                    VectorClock clock = getVersion(file, key);
+                    if(null != clock) {
+                        found.add(new Versioned<String>(FileUtils.readFileToString(file, "UTF-8"),
+                                                        clock));
+                    }
                 }
             }
             return found;
@@ -113,20 +119,27 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
     }
 
     public synchronized void put(String key, Versioned<String> value) throws VoldemortException {
+        ArrayList<String> deleteList = new ArrayList<String>();
         StoreUtils.assertValidKey(key);
         // Check for obsolete version
         File[] files = this.directory.listFiles();
         for(File file: files) {
             if(file.getName().startsWith(key)) {
-                VectorClock clock = getVersion(file);
-                if(clock.compare(value.getVersion()) == Occured.AFTER)
-                    throw new ObsoleteVersionException("A successor version to this exists.");
+                VectorClock clock = getVersion(file, key);
+                if(null != clock) {
+                    if(clock.compare(value.getVersion()) == Occured.AFTER)
+                        throw new ObsoleteVersionException("A successor version to this exists.");
+                    else if(clock.compare(value.getVersion()) == Occured.BEFORE) {
+                        // Add the file to deleteList
+                        deleteList.add(file.getAbsolutePath());
+                    }
+                }
             }
         }
 
         VectorClock clock = (VectorClock) value.getVersion();
-        String path = this.directory.getAbsolutePath() + File.separator + key + '-'
-                      + new String(Hex.encodeHex(clock.toBytes()));
+        String path = this.directory.getAbsolutePath() + File.separator + key + "-"
+                      + new String(Hex.encodeHex(clock.toBytes())) + ".version";
         File newFile = new File(path);
         try {
             if(!newFile.createNewFile())
@@ -135,24 +148,41 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
+
+        // if succceded remove the old value Object.
+        for(String file: deleteList) {
+            try {
+                FileDeleteStrategy.FORCE.delete(new File(file));
+            } catch(IOException e) {
+                logger.warn("Failed to Delete File:" + file);
+            }
+        }
     }
 
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
     }
 
-    private VectorClock getVersion(File file) {
+    private VectorClock getVersion(File file, String key) {
         try {
             int index = file.getName().lastIndexOf('-');
-            if(index <= 0)
-                return new VectorClock();
-            else
+            if(index <= 0) {
+                // the filename should match key exactly
+                if(file.getName().equals(key)) {
+                    return new VectorClock();
+                }
+            } else if(file.getName().endsWith(".version")) {
                 return new VectorClock(Hex.decodeHex(file.getName()
+                                                         .replace(".version", "")
                                                          .substring(index + 1)
                                                          .toCharArray()));
+            }
         } catch(DecoderException e) {
             throw new VoldemortException(e);
         }
+
+        // if filename is not recognized
+        return null;
     }
 
     private class FilesystemClosableIterator implements
@@ -184,10 +214,12 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
                         String name = files[index].getName();
                         int split = name.lastIndexOf('-');
                         String key = split < 0 ? name : name.substring(0, split);
-                        VectorClock clock = getVersion(files[index]);
-                        String value = FileUtils.readFileToString(files[index]);
-                        this.index++;
-                        return Pair.create(key, new Versioned<String>(value, clock));
+                        VectorClock clock = getVersion(files[index], key);
+                        if(null != clock) {
+                            String value = FileUtils.readFileToString(files[index]);
+                            this.index++;
+                            return Pair.create(key, new Versioned<String>(value, clock));
+                        }
                     } catch(IOException e) {
                         // probably the file has been removed or something, skip
                         // it

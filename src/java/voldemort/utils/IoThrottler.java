@@ -1,11 +1,9 @@
-package voldemort.store.readonly.fetcher;
+package voldemort.utils;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 /**
  * A class to throttle IO to a certain rate

@@ -22,7 +22,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
-import org.mortbay.thread.BoundedThreadPool;
+import org.mortbay.thread.QueuedThreadPool;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
@@ -34,6 +34,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.gui.AdminServlet;
 import voldemort.server.http.gui.ReadOnlyStoreManagementServlet;
+import voldemort.server.http.gui.StatusServlet;
 import voldemort.server.http.gui.VelocityEngine;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -67,7 +68,9 @@ public class HttpService extends AbstractService {
         this.numberOfThreads = numberOfThreads;
         this.server = server;
         this.velocityEngine = new VelocityEngine(VoldemortServletContextListener.VOLDEMORT_TEMPLATE_DIR);
-        this.requestHandler = new RequestHandlerFactory(storeRepository).getRequestHandler(requestType);
+        this.requestHandler = new RequestHandlerFactory(storeRepository,
+                                                        server.getVoldemortMetadata(),
+                                                        server.getVoldemortConfig()).getRequestHandler(requestType);
     }
 
     @Override
@@ -76,7 +79,7 @@ public class HttpService extends AbstractService {
             Connector connector = new SelectChannelConnector();
             connector.setLowResourceMaxIdleTime(3000);
             connector.setPort(this.port);
-            BoundedThreadPool threadPool = new BoundedThreadPool();
+            QueuedThreadPool threadPool = new QueuedThreadPool();
             threadPool.setName("VoldemortHttp");
             threadPool.setMaxThreads(this.numberOfThreads);
             Server httpServer = new Server();
@@ -94,6 +97,8 @@ public class HttpService extends AbstractService {
             context.addServlet(new ServletHolder(new ReadOnlyStoreManagementServlet(server,
                                                                                     velocityEngine)),
                                "/read-only/mgmt");
+            context.addServlet(new ServletHolder(new StatusServlet(server, velocityEngine)),
+                               "/server-status");
             this.context = context;
             this.httpServer = httpServer;
             this.httpServer.start();

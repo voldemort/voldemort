@@ -45,7 +45,7 @@ public class VoldemortServletContextListener implements ServletContextListener {
     public void contextDestroyed(ServletContextEvent event) {
         logger.info("Calling application shutdown...");
         VoldemortServer server = (VoldemortServer) event.getServletContext()
-                                                        .getAttribute(SERVER_CONFIG_KEY);
+                                                        .getAttribute(SERVER_KEY);
         if(server != null)
             server.stop();
         logger.info("Destroying application...");

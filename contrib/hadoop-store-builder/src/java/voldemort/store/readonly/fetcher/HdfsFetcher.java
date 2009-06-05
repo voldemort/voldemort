@@ -1,9 +1,27 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.readonly.fetcher;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -14,6 +32,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.store.readonly.FileFetcher;
+import voldemort.utils.IoThrottler;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -80,6 +99,9 @@ public class HdfsFetcher implements FileFetcher {
             dest.mkdirs();
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
+                // sort the files so that index files come last. Maybe
+                // this will help keep them cached until the swap
+                Arrays.sort(statuses, new IndexFileLastComparator());
                 for(FileStatus status: statuses) {
                     if(!status.getPath().getName().startsWith(".")) {
                         fetch(fs,
@@ -151,6 +173,27 @@ public class HdfsFetcher implements FileFetcher {
         public long getBytesCopied() {
             return bytesCopied;
         }
+    }
+
+    /**
+     * A comparator that sorts index files last. This is a heuristic for
+     * retaining the index file in page cache until the swap occurs
+     * 
+     */
+    static class IndexFileLastComparator implements Comparator<FileStatus> {
+
+        public int compare(FileStatus fs1, FileStatus fs2) {
+            // directories before files
+            if(fs1.isDir())
+                return fs2.isDir() ? 0 : -1;
+            // index files after all other files
+            else if(fs1.getPath().getName().endsWith(".index"))
+                return fs2.getPath().getName().endsWith(".index") ? 0 : 1;
+            // everything else is equivalent
+            else
+                return 0;
+        }
+
     }
 
     /*

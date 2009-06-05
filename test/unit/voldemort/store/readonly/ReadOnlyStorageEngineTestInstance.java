@@ -15,8 +15,9 @@ import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -28,7 +29,7 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
 
-public class RandomAccessStoreTestInstance {
+public class ReadOnlyStorageEngineTestInstance {
 
     private final Map<String, String> data;
     private final File baseDir;
@@ -36,11 +37,11 @@ public class RandomAccessStoreTestInstance {
     private final RoutingStrategy routingStrategy;
     private final Serializer<String> serializer;
 
-    private RandomAccessStoreTestInstance(Map<String, String> data,
-                                          File baseDir,
-                                          Map<Integer, Store<String, String>> nodeStores,
-                                          RoutingStrategy routingStrategy,
-                                          Serializer<String> serializer) {
+    private ReadOnlyStorageEngineTestInstance(Map<String, String> data,
+                                              File baseDir,
+                                              Map<Integer, Store<String, String>> nodeStores,
+                                              RoutingStrategy routingStrategy,
+                                              Serializer<String> serializer) {
         this.data = data;
         this.baseDir = baseDir;
         this.nodeStores = nodeStores;
@@ -73,10 +74,10 @@ public class RandomAccessStoreTestInstance {
         return new JsonReader(reader);
     }
 
-    public static RandomAccessStoreTestInstance create(File baseDir,
-                                                       int testSize,
-                                                       int numNodes,
-                                                       int repFactor) throws Exception {
+    public static ReadOnlyStorageEngineTestInstance create(File baseDir,
+                                                           int testSize,
+                                                           int numNodes,
+                                                           int repFactor) throws Exception {
         // create some test data
         Map<String, String> data = createTestData(testSize);
         JsonReader reader = makeTestDataReader(data, baseDir);
@@ -84,10 +85,12 @@ public class RandomAccessStoreTestInstance {
         // set up definitions for cluster and store
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numNodes; i++) {
-            nodes.add(new Node(i, "localhost", 8080 + i, 6666 + i, Arrays.asList(4 * i,
-                                                                                 4 * i + 1,
-                                                                                 4 * i + 2,
-                                                                                 4 * i + 3)));
+            nodes.add(new Node(i,
+                               "localhost",
+                               8080 + i,
+                               6666 + i,
+                               7777 + i,
+                               Arrays.asList(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3)));
         }
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
@@ -96,13 +99,14 @@ public class RandomAccessStoreTestInstance {
                                                        serDef,
                                                        serDef,
                                                        RoutingTier.CLIENT,
+                                                       RoutingStrategyType.CONSISTENT_STRATEGY,
                                                        repFactor,
                                                        1,
                                                        1,
                                                        1,
                                                        1,
                                                        1);
-        RoutingStrategy router = new ConsistentRoutingStrategy(cluster.getNodes(), repFactor);
+        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
         // build store files in outputDir
         File outputDir = TestUtils.createTempDir(baseDir);
@@ -111,9 +115,11 @@ public class RandomAccessStoreTestInstance {
                                                              storeDef,
                                                              router,
                                                              outputDir,
+                                                             null,
                                                              testSize / 5,
                                                              1,
-                                                             2);
+                                                             2,
+                                                             10000);
         storeBuilder.build();
 
         File nodeDir = TestUtils.createTempDir(baseDir);
@@ -136,7 +142,7 @@ public class RandomAccessStoreTestInstance {
                                                                 serializer));
         }
 
-        return new RandomAccessStoreTestInstance(data, baseDir, nodeStores, router, serializer);
+        return new ReadOnlyStorageEngineTestInstance(data, baseDir, nodeStores, router, serializer);
     }
 
     public List<Node> routeRequest(String key) {
