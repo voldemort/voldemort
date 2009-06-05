@@ -57,8 +57,8 @@ public class SelectorManager implements Runnable {
         try {
             while(true) {
                 if(Thread.currentThread().isInterrupted()) {
-                    if(logger.isInfoEnabled())
-                        logger.info("Interrupted");
+                    if(logger.isDebugEnabled())
+                        logger.debug("Interrupted");
 
                     break;
                 }
@@ -105,9 +105,9 @@ public class SelectorManager implements Runnable {
 
             while((socketChannel = socketChannelQueue.poll()) != null) {
                 try {
-                    if(logger.isInfoEnabled())
-                        logger.info("Accepting remote connection from "
-                                    + socketChannel.socket().getPort());
+                    if(logger.isDebugEnabled())
+                        logger.debug("Registering connection from "
+                                     + socketChannel.socket().getPort());
 
                     socketChannel.socket().setTcpNoDelay(true);
                     socketChannel.socket().setReuseAddress(true);

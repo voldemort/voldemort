@@ -74,6 +74,10 @@ public class AsyncRequestHandler implements Runnable {
                                                                   BUFFER_SIZE));
         outputStream = new DataOutputStream(new BufferedOutputStream(new ChannelBackedOutputStream(socketChannel),
                                                                      BUFFER_SIZE));
+
+        if(logger.isInfoEnabled())
+            logger.info("Accepting remote connection from "
+                        + socketChannel.socket().getRemoteSocketAddress());
     }
 
     public void run() {
@@ -98,7 +102,8 @@ public class AsyncRequestHandler implements Runnable {
 
     private void close(SelectionKey selectionKey) {
         if(logger.isInfoEnabled())
-            logger.info("Closing remote connection from " + socketChannel.socket().getPort());
+            logger.info("Closing remote connection from "
+                        + socketChannel.socket().getRemoteSocketAddress());
 
         try {
             socketChannel.socket().close();

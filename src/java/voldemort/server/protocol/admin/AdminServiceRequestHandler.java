@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.server.socket;
+package voldemort.server.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

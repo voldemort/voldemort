@@ -35,6 +35,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandler;
 
 /**

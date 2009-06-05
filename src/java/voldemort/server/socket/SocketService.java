@@ -18,9 +18,9 @@ package voldemort.server.socket;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.server.AbstractService;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
-import voldemort.server.VoldemortService;
+import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandler;
 
 /**
@@ -30,7 +30,7 @@ import voldemort.server.protocol.RequestHandler;
  * 
  */
 @JmxManaged(description = "A server that handles remote operations on stores via tcp/ip.")
-public class SocketService extends AbstractService implements VoldemortService {
+public class SocketService extends AbstractSocketService {
 
     private final SocketServer server;
 
@@ -60,11 +60,13 @@ public class SocketService extends AbstractService implements VoldemortService {
         this.server.shutdown();
     }
 
+    @Override
     @JmxGetter(name = "port", description = "The port on which the server is accepting connections.")
     public int getPort() {
         return server.getPort();
     }
 
+    @Override
     public StatusManager getStatusManager() {
         return server.getStatusManager();
     }

@@ -1,4 +1,4 @@
-package voldemort.server.socket;
+package voldemort.server;
 
 import java.util.concurrent.ThreadPoolExecutor;
 

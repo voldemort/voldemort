@@ -18,10 +18,12 @@ package voldemort.server.niosocket;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,14 +33,14 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.server.AbstractService;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
-import voldemort.server.VoldemortService;
+import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.utils.DaemonThreadFactory;
 
 @JmxManaged(description = "A server that handles remote operations on stores via TCP/IP.")
-public class NioSocketService extends AbstractService implements VoldemortService {
+public class NioSocketService extends AbstractSocketService {
 
     private final RequestHandler requestHandler;
 
@@ -51,6 +53,10 @@ public class NioSocketService extends AbstractService implements VoldemortServic
     private final SelectorManager[] selectorManagers;
 
     private final ExecutorService selectorManagerThreadPool;
+
+    private final StatusManager statusManager;
+
+    private Thread acceptorThread;
 
     private final Logger logger = Logger.getLogger(getClass());
 
@@ -72,6 +78,7 @@ public class NioSocketService extends AbstractService implements VoldemortServic
         this.selectorManagers = new SelectorManager[selectors];
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
                                                                       new DaemonThreadFactory("voldemort-niosocket-server"));
+        this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
     }
 
     @Override
@@ -87,25 +94,8 @@ public class NioSocketService extends AbstractService implements VoldemortServic
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 
-            if(logger.isInfoEnabled())
-                logger.info("Server now listening for connections on " + endpoint);
-
-            AtomicInteger counter = new AtomicInteger();
-
-            while(!Thread.currentThread().isInterrupted()) {
-                SocketChannel socketChannel = serverSocketChannel.accept();
-
-                if(socketChannel == null) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn("Claimed accept but nothing to select");
-
-                    continue;
-                }
-
-                SelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
-                                                                   % selectorManagers.length];
-                selectorManager.accept(socketChannel);
-            }
+            acceptorThread = new Thread(new Acceptor(endpoint));
+            acceptorThread.start();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(e.getMessage(), e);
@@ -114,6 +104,20 @@ public class NioSocketService extends AbstractService implements VoldemortServic
 
     @Override
     protected void stopInner() {
+        try {
+            // Signal the thread to stop accepting new connections...
+            acceptorThread.interrupt();
+            acceptorThread.join(15000);
+
+            if(acceptorThread.isAlive()) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn("Acceptor thread pool did not stop");
+            }
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e.getMessage(), e);
+        }
+
         try {
             selectorManagerThreadPool.shutdownNow();
             boolean terminated = selectorManagerThreadPool.awaitTermination(15, TimeUnit.SECONDS);
@@ -142,9 +146,59 @@ public class NioSocketService extends AbstractService implements VoldemortServic
         }
     }
 
+    @Override
     @JmxGetter(name = "port", description = "The port on which the server is accepting connections.")
     public int getPort() {
         return port;
+    }
+
+    @Override
+    public StatusManager getStatusManager() {
+        return statusManager;
+    }
+
+    private class Acceptor implements Runnable {
+
+        private InetSocketAddress endpoint;
+
+        private Acceptor(InetSocketAddress endpoint) {
+            this.endpoint = endpoint;
+        }
+
+        public void run() {
+            if(logger.isInfoEnabled())
+                logger.info("Server now listening for connections on " + endpoint);
+
+            AtomicInteger counter = new AtomicInteger();
+
+            while(!Thread.currentThread().isInterrupted()) {
+                try {
+                    SocketChannel socketChannel = serverSocketChannel.accept();
+
+                    if(socketChannel == null) {
+                        if(logger.isEnabledFor(Level.WARN))
+                            logger.warn("Claimed accept but nothing to select");
+
+                        continue;
+                    }
+
+                    SelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
+                                                                       % selectorManagers.length];
+                    selectorManager.accept(socketChannel);
+                } catch(ClosedByInterruptException e) {
+                    // If you're *really* interested...
+                    if(logger.isTraceEnabled())
+                        logger.trace(e.getMessage(), e);
+                } catch(IOException e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e.getMessage(), e);
+                }
+            }
+
+            if(logger.isInfoEnabled())
+                logger.info("Server has stopped listening for connections on " + endpoint);
+        }
+
     }
 
 }
