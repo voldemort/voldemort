@@ -18,7 +18,6 @@ package voldemort.performance;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -85,6 +84,9 @@ public class RemoteTest {
         parser.accepts("iterations", "number of times to repeat the test  Default = 1")
               .withRequiredArg()
               .ofType(Integer.class);
+        parser.accepts("threads", "max number concurrent worker threads  Default = " + MAX_WORKERS)
+              .withRequiredArg()
+              .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
 
@@ -102,6 +104,7 @@ public class RemoteTest {
         Integer startNum = CmdUtils.valueOf(options, "start-key-index", 0);
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
+        Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
 
         if(options.has("request-file")) {
             keys = loadKeys((String) options.valueOf("request-file"));
@@ -125,15 +128,16 @@ public class RemoteTest {
         System.out.println("value size : " + valueSize);
         System.out.println("start index : " + startNum);
         System.out.println("iterations : " + numIterations);
-        
+        System.out.println("threads : " + numThreads);
+
         System.out.println("Bootstraping cluster data.");
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
-                                                                                    .setMaxConnectionsPerNode(MAX_WORKERS)
+                                                                                    .setMaxConnectionsPerNode(numThreads)
                                                                                     .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient(storeName);
 
         final String value = new String(TestUtils.randomBytes(valueSize));
-        ExecutorService service = Executors.newFixedThreadPool(MAX_WORKERS);
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
          for (int loopCount=0; loopCount < numIterations; loopCount++) {
 
@@ -221,7 +225,7 @@ public class RemoteTest {
         System.exit(0);
     }
 
-    public static List<String> loadKeys(String path) throws FileNotFoundException, IOException {
+    public static List<String> loadKeys(String path) throws IOException {
 
         List<String> targets = new ArrayList<String>();
         File file = new File(path);
@@ -229,7 +233,7 @@ public class RemoteTest {
 
         try {
             reader = new BufferedReader(new FileReader(file));
-            String text = null;
+            String text;
             while((text = reader.readLine()) != null) {
                 targets.add(text);
             }
