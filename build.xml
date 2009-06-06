@@ -148,7 +148,7 @@
     <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
       <classes dir="${classes.dir}"/>
       <lib dir="${lib.dir}">
-        <exclude name="${lib.dir}/servlet-api.jar"/>
+        <exclude name="${lib.dir}/servlet-api*.jar"/>
         <exclude name="${lib.dir}/src/**"/>
       </lib>
     </war>
@@ -234,7 +234,7 @@
         <include name="**/*.xsd" />
       </fileset>
       <fileset dir="">
-        <include name="lib/jdom.jar"/>
+        <include name="lib/jdom*.jar"/>
         <include name="lib/google-collect*.jar"/>
         <include name="lib/commons-lang*.jar"/>
       </fileset>
