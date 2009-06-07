@@ -44,7 +44,7 @@ public class IoThrottlerTest extends TestCase {
             throttler.maybeThrottle(readSize);
         }
         long doneTime = time.getMilliseconds();
-        long bytesRead = numReads * readSize;
+        long bytesRead = numReads * (long) readSize;
         double unthrottledSecs = readTime * numReads / (double) Time.MS_PER_SECOND;
         double ellapsedSecs = (double) (doneTime - startTime) / Time.MS_PER_SECOND;
         double observedRate = bytesRead / ellapsedSecs;
