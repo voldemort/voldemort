@@ -4,7 +4,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,8 +57,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         outputStream.flush();
     }
 
-    public boolean isCompleteRequest(byte[] bytes) {
-        final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    public boolean isCompleteRequest(final ByteBuffer buffer) {
         DataInputStream inputStream = new DataInputStream(new InputStream() {
 
             @Override
@@ -72,6 +70,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
             @Override
             public synchronized int read(byte[] bytes, int off, int len) throws IOException {
+                if(!buffer.hasRemaining())
+                    return -1;
+
                 len = Math.min(len, buffer.remaining());
                 buffer.get(bytes, off, len);
                 return len;
@@ -126,9 +127,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             // If there aren't any remaining, we've "consumed" all the bytes and
             // thus have a complete request...
             return !buffer.hasRemaining();
-        } catch(BufferUnderflowException e) {
-            return false;
-        } catch(IOException e) {
+        } catch(Throwable t) {
             return false;
         }
     }

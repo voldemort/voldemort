@@ -59,8 +59,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         ProtoUtils.writeWithSize(outputStream, response);
     }
 
-    public boolean isCompleteRequest(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    public boolean isCompleteRequest(ByteBuffer buffer) {
         int size = buffer.getInt();
         return buffer.remaining() == size;
     }

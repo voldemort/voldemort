@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -116,7 +117,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         outputStream.flush();
     }
 
-    public boolean isCompleteRequest(byte[] bytes) {
+    public boolean isCompleteRequest(ByteBuffer buffer) {
         throw new Error("NYI");
     }
 

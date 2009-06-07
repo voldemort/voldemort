@@ -129,7 +129,8 @@ public class SelectorManager implements Runnable {
                     socketChannel.configureBlocking(false);
                     AsyncRequestHandler attachment = new AsyncRequestHandler(selector,
                                                                              socketChannel,
-                                                                             requestHandler);
+                                                                             requestHandler,
+                                                                             socketBufferSize);
                     socketChannel.register(selector, SelectionKey.OP_READ, attachment);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
