@@ -15,4 +15,6 @@ public interface RequestHandler {
     public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException;
 
+    public boolean isCompleteRequest(byte[] bytes);
+
 }

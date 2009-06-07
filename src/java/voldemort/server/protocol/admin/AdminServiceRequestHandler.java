@@ -116,6 +116,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         outputStream.flush();
     }
 
+    public boolean isCompleteRequest(byte[] bytes) {
+        throw new Error("NYI");
+    }
+
     private byte[] readKey(DataInputStream inputStream) throws IOException {
         int keySize = inputStream.readInt();
         byte[] key = new byte[keySize];

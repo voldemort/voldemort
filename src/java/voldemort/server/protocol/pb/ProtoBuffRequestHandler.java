@@ -3,6 +3,7 @@ package voldemort.server.protocol.pb;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,12 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                 throw new VoldemortException("Unknown operation " + request.getType());
         }
         ProtoUtils.writeWithSize(outputStream, response);
+    }
+
+    public boolean isCompleteRequest(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        int size = buffer.getInt();
+        return buffer.remaining() == size;
     }
 
     private VProto.GetResponse handleGet(VProto.GetRequest request, Store<ByteArray, byte[]> store) {

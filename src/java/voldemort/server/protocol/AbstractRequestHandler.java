@@ -26,15 +26,15 @@ public abstract class AbstractRequestHandler implements RequestHandler {
         return errorMapper;
     }
 
-    protected StoreRepository getStoreRepository()
-    {
+    protected StoreRepository getStoreRepository() {
         return storeRepository;
     }
-    
+
     protected Store<ByteArray, byte[]> getStore(String name, boolean isRouted) {
         if(isRouted)
             return storeRepository.getRoutedStore(name);
         else
             return storeRepository.getLocalStore(name);
     }
+
 }
