@@ -62,9 +62,13 @@ public class ErrorCodeMapper {
     }
 
     public short getCode(VoldemortException e) {
-        Short code = exceptionToCode.get(e.getClass());
+        return getCode(e.getClass());
+    }
+
+    public short getCode(Class<? extends VoldemortException> c) {
+        Short code = exceptionToCode.get(c);
         if(code == null)
-            throw new IllegalArgumentException("No mapping code for " + e.getClass(), e);
+            throw new IllegalArgumentException("No mapping code for " + c);
         else
             return code;
     }

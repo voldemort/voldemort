@@ -10,6 +10,7 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -39,21 +40,25 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         String storeName = request.getStore();
         Store<ByteArray, byte[]> store = getStore(storeName, shouldRoute);
         Message response;
-        switch(request.getType()) {
-            case GET:
-                response = handleGet(request.getGet(), store);
-                break;
-            case GET_ALL:
-                response = handleGetAll(request.getGetAll(), store);
-                break;
-            case PUT:
-                response = handlePut(request.getPut(), store);
-                break;
-            case DELETE:
-                response = handleDelete(request.getDelete(), store);
-                break;
-            default:
-                throw new VoldemortException("Unknown operation " + request.getType());
+        if(store == null) {
+            response = unknownStore(storeName, request.getType());
+        } else {
+            switch(request.getType()) {
+                case GET:
+                    response = handleGet(request.getGet(), store);
+                    break;
+                case GET_ALL:
+                    response = handleGetAll(request.getGetAll(), store);
+                    break;
+                case PUT:
+                    response = handlePut(request.getPut(), store);
+                    break;
+                case DELETE:
+                    response = handleDelete(request.getDelete(), store);
+                    break;
+                default:
+                    throw new VoldemortException("Unknown operation " + request.getType());
+            }
         }
         ProtoUtils.writeWithSize(outputStream, response);
     }
@@ -115,6 +120,25 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
         return response.build();
+    }
+
+    public Message unknownStore(String storeName, RequestType type) {
+        VProto.Error error = VProto.Error.newBuilder()
+                                         .setErrorCode(getErrorMapper().getCode(VoldemortException.class))
+                                         .setErrorMessage("Unknown store '" + storeName + "'.")
+                                         .build();
+        switch(type) {
+            case GET:
+                return VProto.GetResponse.newBuilder().setError(error).build();
+            case GET_ALL:
+                return VProto.GetAllResponse.newBuilder().setError(error).build();
+            case PUT:
+                return VProto.PutResponse.newBuilder().setError(error).build();
+            case DELETE:
+                return VProto.DeleteResponse.newBuilder().setError(error).setSuccess(false).build();
+            default:
+                throw new VoldemortException("Unknown operation " + type);
+        }
     }
 
 }
