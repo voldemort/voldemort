@@ -41,7 +41,7 @@ public class NoopStorageConfiguration implements StorageConfiguration {
     public NoopStorageConfiguration(VoldemortConfig config) {}
 
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        return new NoopStorageEngine(name);
+        return new NoopStorageEngine(name, false);
     }
 
     public String getType() {
