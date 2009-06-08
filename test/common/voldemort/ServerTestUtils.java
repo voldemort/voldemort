@@ -237,8 +237,6 @@ public class ServerTestUtils {
         props.put("enable.mysql.engine", "true");
 
         VoldemortConfig config = new VoldemortConfig(props);
-
-        config = new VoldemortConfig(props);
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
