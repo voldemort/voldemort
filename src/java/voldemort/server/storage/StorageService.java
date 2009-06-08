@@ -17,6 +17,7 @@
 package voldemort.server.storage;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,14 +28,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
-import java.lang.management.ManagementFactory;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientThreadPool;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
@@ -58,15 +60,14 @@ import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.JmxUtils;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
+import voldemort.versioning.VectorClockInconsistencyResolver;
 
 /**
  * The service responsible for managing all storage types
@@ -183,10 +184,11 @@ public class StorageService extends AbstractService {
         if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);
 
-            if (voldemortConfig.isJmxEnabled()) {
+            if(voldemortConfig.isJmxEnabled()) {
 
                 MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()), store.getName());
+                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                            store.getName());
 
                 if(mbeanServer.isRegistered(name))
                     JmxUtils.unregisterMbean(mbeanServer, name);
@@ -207,22 +209,24 @@ public class StorageService extends AbstractService {
                                         node.getHost(),
                                         node.getSocketPort(),
                                         socketPool,
-                                        RequestFormatType.VOLDEMORT,
+                                        voldemortConfig.getRequestFormatType(),
                                         false);
             }
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
 
-        RoutedStore routedStore = new RoutedStore(def.getName(),
-                                                  nodeStores,
-                                                  cluster,
-                                                  def,
-                                                  true,
-                                                  this.clientThreadPool,
-                                                  voldemortConfig.getRoutingTimeoutMs(),
-                                                  voldemortConfig.getClientNodeBannageMs(),
-                                                  SystemTime.INSTANCE);
+        Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
+                                                               nodeStores,
+                                                               cluster,
+                                                               def,
+                                                               true,
+                                                               this.clientThreadPool,
+                                                               voldemortConfig.getRoutingTimeoutMs(),
+                                                               voldemortConfig.getClientNodeBannageMs(),
+                                                               SystemTime.INSTANCE);
+        routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                         new VectorClockInconsistencyResolver<byte[]>());
         this.storeRepository.addRoutedStore(routedStore);
     }
 

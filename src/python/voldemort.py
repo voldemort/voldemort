@@ -109,8 +109,9 @@ class StoreClient:
 	def _reconnect(self):
 		num_nodes = len(self.nodes)
 		attempts = 0
+		new_node_id = self.node_id
 		while attempts < num_nodes:
-			new_node_id = self.node_id + 1 % num_nodes
+			new_node_id = (new_node_id + 1) % num_nodes
 			new_node = self.nodes[new_node_id]
 			connection = None
 			try:
@@ -120,9 +121,9 @@ class StoreClient:
 				logging.debug('Connection succeeded')
 				self.request_count = 0
 				return new_node_id, connection
-			except socket.error, exp:
+			except socket.error, (err_num, message):
 				self._close_socket(connection)
-				logging.warn('Error connecting to node ' + str(new_node_id) + ': ' + str(exp))
+				logging.warn('Error connecting to node ' + str(new_node_id) + ': ' + message)
 				attempts += 1
 				
 		# If we get here all nodes have failed us, explode
@@ -168,17 +169,19 @@ class StoreClient:
 		random.shuffle(bootstrap_urls)
 		for host, port in bootstrap_urls:
 			logging.debug('Attempting to bootstrap metadata from ' + host + ':' + str(port))
-			connection = socket.socket()
-			connection.connect((host, port))
 			try:
+				connection = socket.socket()
+				connection.connect((host, port))
 				cluster_xmls = self._get_with_connection(connection, 'metadata', 'cluster.xml', should_route = False)
 				if len(cluster_xmls) != 1:
-					raise Exception, 'Expected exactly one version of the metadata but found ' + str(cluster_xmls)
-				logging.debug('Bootstrap succeeded')
-				return Node.parse_cluster(cluster_xmls[0][0])
-			except Exception, exp:
-				logging.warn('Metadata bootstrap from ' + host + ':' + str(port) + " failed: " + str(exp))
-			self._close_socket(connection)
+					raise VoldemortException('Expected exactly one version of the metadata but found ' + str(cluster_xmls))
+				nodes = Node.parse_cluster(cluster_xmls[0][0])
+				logging.debug('Bootstrap from ' + host + ':' + str(port) + ' succeeded, found ' + str(len(nodes)) + " nodes.")
+				return nodes
+			except socket.error, (err_num, message):
+				logging.warn('Metadata bootstrap from ' + host + ':' + str(port) + " failed: " + message)
+			finally:
+				self._close_socket(connection)
 		raise VoldemortException('All bootstrap attempts failed')
 		
     
@@ -227,8 +230,8 @@ class StoreClient:
 		while failures < num_nodes:
 			try:
 				return apply(fun, args)
-			except socket.error, exp:
-				logging.warn('Error while performing ' + fun.__name__ + ' on node ' + str(self.node_id) + ': ' + str(exp))
+			except socket.error, (err_num, message):
+				logging.warn('Error while performing ' + fun.__name__ + ' on node ' + str(self.node_id) + ': ' + message)
 				self._reconnect()
 				failures += 1
 		raise VoldemortException('All nodes are down, ' + fun.__name__ + ' failed.')
