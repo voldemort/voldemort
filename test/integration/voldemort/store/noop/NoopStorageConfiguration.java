@@ -20,6 +20,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Props;
 
 /**
  * A storage engine that does nothing.  To use :
@@ -37,11 +38,21 @@ public class NoopStorageConfiguration implements StorageConfiguration {
 
     public static final String TYPE_NAME = "noop";
 
-    @SuppressWarnings("unused")
-    public NoopStorageConfiguration(VoldemortConfig config) {}
+    /*
+     *  property for store.properties to set value reflect (return data sent to it)
+     *  is a boolean so set to true if you want this
+     */
+    public static final String REFLECT_PROPERTY="noop.reflect";
+
+    protected boolean reflect;
+
+    public NoopStorageConfiguration(VoldemortConfig config) {
+
+        reflect = config.getAllProps().getBoolean(REFLECT_PROPERTY, false);
+    }
 
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        return new NoopStorageEngine(name, false);
+        return new NoopStorageEngine(name, reflect);
     }
 
     public String getType() {

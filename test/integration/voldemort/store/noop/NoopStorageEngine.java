@@ -51,6 +51,7 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public NoopStorageEngine(String name, boolean reflect) {
         this.name = name;
+        this.dataReflect = reflect;
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
