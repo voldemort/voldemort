@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 
 
 /**
@@ -42,11 +43,13 @@ import java.util.HashMap;
 public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     protected String name;
+    protected boolean dataReflect;
+    protected ByteArray key;
     protected Versioned<byte[]> value;
     protected List<Versioned<byte[]>> dataList = new MyList();
     protected Map<ByteArray, List<Versioned<byte[]>>> dataMap = new MyMap();
 
-    public NoopStorageEngine(String name) {
+    public NoopStorageEngine(String name, boolean reflect) {
         this.name = name;
     }
 
@@ -64,7 +67,10 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
 
-        this.value = value;
+        if (dataReflect) {
+            this.key = key;
+            this.value = value;
+        }
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {

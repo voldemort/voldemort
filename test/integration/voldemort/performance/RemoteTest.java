@@ -216,8 +216,14 @@ public class RemoteTest {
                         public void run() {
                             try {
                                 Versioned<String> v = store.get(keyProvider2.next());
-                                if (!v.getValue().equals(value)) {
-                                    throw new Exception("value returned isn't same as set value");
+                                
+                                if (v == null) {
+                                    throw new Exception("value returned is null");
+                                }
+
+                                if (!value.equals(v.getValue())) {
+                                    throw new Exception("value returned isn't same as set value.  My val size = "
+                                            + value.length() + " ret size = " + v.getValue().length());
                                 }
                                 
                             } catch(Exception e) {
