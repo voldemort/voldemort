@@ -66,28 +66,28 @@ int main(int argc, char** argv) {
         // using the SocketStoreClientFactory which will connect to a
         // Voldemort cluster over TCP.
         SocketStoreClientFactory factory(config);
-    
+
+#if 0
+        auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
+
+        // Get a value
+        auto_ptr<VersionedValue> value(client->get(&key));
+        
+        cout << "Value: " << value->getValue() << endl;
+        
+        // Modify the value
+        value->setValue(new string("world!"));
+
+        // update the value
+        client->put(&key, value.get());
+#endif
+
         auto_ptr<Store> rawStore(factory.getRawStore(storeName));
     
         doGet(rawStore.get(), "hello");
         doGet(rawStore.get(), "hello1");
         doGet(rawStore.get(), "hello2");
-
     } catch (VoldemortException& v) {
         cerr << "Voldemort Error: " << v.what() << endl;
     }
-#if 0
-    auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
-
-    // Get a value
-    auto_ptr<VersionedValue> value(client->get(&key));
-
-    cout << "Value: " << value->getValue() << endl;
-
-    // Modify the value
-    value->setValue(new string("world!"));
-
-    // update the value
-    client->put(&key, value.get());
-#endif
 }

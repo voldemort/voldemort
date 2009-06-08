@@ -17,30 +17,165 @@
  * the License.
  */
 
+#include <voldemort/VoldemortException.h>
 #include <voldemort/SocketStoreClientFactory.h>
 #include "SocketStore.h"
+#include "RoutedStore.h"
+#include "RequestFormat.h"
+#include "Cluster.h"
 #include <iostream>
-#include <boost/bind.hpp>
+#include <exception>
+#include <ctype.h>
 
 namespace Voldemort {
 
 using namespace boost;
-using asio::ip::tcp;
+using namespace std;
+
+static const string METADATA_STORE_NAME("metadata");
+static const string CLUSTER_KEY("cluster.xml");
+static const string STORES_KEY("stores.xml");
+static const string ROLLBACK_CLUSTER_KEY("rollback.cluster.xml");
 
 class SocketStoreClientFactoryImpl {
 public:
     SocketStoreClientFactoryImpl(ClientConfig& conf);
     ~SocketStoreClientFactoryImpl();
 
+    /** 
+     * Get a raw socket store object
+     */
+    Store* getStore(const string& storeName,
+                    const string& host,
+                    int port,
+                    RequestFormat::RequestFormatType type);
+    
+    /**
+     * Retrieve the given metadata key using the bootstrap list
+     */
+    VersionedValue bootstrapMetadata(const string& key);
+    Store* getStore(string& key);
+
     shared_ptr<ClientConfig> config;
     shared_ptr<ConnectionPool> connPool;
+    RequestFormat::RequestFormatType requestFormatType;
 };
 
 SocketStoreClientFactoryImpl::SocketStoreClientFactoryImpl(ClientConfig& conf) 
-    : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)) {
+    : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)),
+      requestFormatType(RequestFormat::PROTOCOL_BUFFERS) {
 }
+
 SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
 
+}
+
+Store* SocketStoreClientFactoryImpl::getStore(const string& storeName,
+                                              const string& host,
+                                              int port,
+                                              RequestFormat::RequestFormatType type) {
+    return new SocketStore(storeName,
+                           host,
+                           port,
+                           config,
+                           connPool,
+                           type);
+}
+
+#define THROW_BOOTSTRAP \
+    throw VoldemortException("Invalid bootstrap URL " + url + \
+                             ": Expected tcp://host:port");
+#define EXPECT_C(char, next) \
+    if (tolower(*it) != char) \
+        THROW_BOOTSTRAP; \
+    state = next;
+
+static void parseBootstrapUrl(const string& url, string& host, int& port) {
+    static const int STATE_T = 0;
+    static const int STATE_C = 1;
+    static const int STATE_P = 2;
+    static const int STATE_COL1 = 3;
+    static const int STATE_SL1 = 4;
+    static const int STATE_SL2 = 5;
+    static const int STATE_HOSTSTRING = 6;
+    static const int STATE_PORTSTRING = 7;
+
+    stringstream hostStr, portStr;
+    int state = STATE_T;
+
+    string::const_iterator it;
+    for (it = url.begin(); it != url.end(); ++it) {
+        switch(state) {
+        case STATE_T:
+            EXPECT_C('t', STATE_C);
+            break;
+        case STATE_C:
+            EXPECT_C('c', STATE_P);
+            break;
+        case STATE_P:
+            EXPECT_C('p', STATE_COL1);
+            break;
+        case STATE_COL1:
+            EXPECT_C(':', STATE_SL1);
+            break;
+        case STATE_SL1:
+            EXPECT_C('/', STATE_SL2);
+            break;
+        case STATE_SL2:
+            EXPECT_C('/', STATE_HOSTSTRING);
+            break;
+        case STATE_HOSTSTRING:
+            if (isalnum(*it)) 
+                hostStr << *it;
+            else if (*it == ':') 
+                state = STATE_PORTSTRING;
+            else
+                THROW_BOOTSTRAP;
+            break;
+        case STATE_PORTSTRING:
+            if (isdigit(*it)) 
+                portStr << *it;
+            else
+                THROW_BOOTSTRAP;
+            break;
+        }
+    }
+
+    if (hostStr.str().length() == 0)
+        THROW_BOOTSTRAP;
+    if (portStr.str().length() == 0)
+        THROW_BOOTSTRAP;
+
+    host = hostStr.str();
+    portStr >> port;
+    if (port == 0)
+        THROW_BOOTSTRAP;
+}
+
+VersionedValue SocketStoreClientFactoryImpl::bootstrapMetadata(const string& key) {
+    std::list<std::string>* boots = config->getBootstrapUrls();
+    std::list<std::string>::const_iterator it;
+    for (it = boots->begin(); it != boots->end(); ++it) {
+        try {
+            string host;
+            int port;
+            parseBootstrapUrl(*it, host, port);
+
+            auto_ptr<Store> store(getStore(METADATA_STORE_NAME,
+                                           host,
+                                           port,
+                                           requestFormatType));
+
+            auto_ptr<std::list<VersionedValue> > vvs(store->get(key));
+            if (vvs->size() == 1) {
+                return vvs->front();
+            }
+        } catch (std::exception& e) {
+            cerr << "Warning: Could not bootstrap " << *it << ":"
+                 << e.what() << endl;
+        }
+    }
+    throw VoldemortException("No available boostrap servers found!");
 }
 
 SocketStoreClientFactory::SocketStoreClientFactory(ClientConfig& conf) {
@@ -55,16 +190,38 @@ SocketStoreClientFactory::~SocketStoreClientFactory() {
 
 StoreClient* SocketStoreClientFactory::getStoreClient(std::string& storeName) {
 
+
+
+    return NULL;
 }
 
 Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
-    std::string host("localhost");
-    return new SocketStore(storeName,
-                           host,
-                           6666,
+    VersionedValue clustervv = pimpl_->bootstrapMetadata(CLUSTER_KEY);
+    const std::string* clusterXml = clustervv.getValue();
+    shared_ptr<Cluster> cluster(new Cluster(*clusterXml));
+
+    shared_ptr<std::map<int, shared_ptr<Store> > > 
+        clusterMap(new std::map<int, shared_ptr<Store> >());
+
+    const std::map<int, boost::shared_ptr<Node> >* nodeMap = cluster->getNodeMap();
+    std::map<int, boost::shared_ptr<Node> >::const_iterator it;
+    for (it = nodeMap->begin(); it != nodeMap->end(); ++it) {
+        shared_ptr<Store> store(pimpl_->getStore(storeName,
+                                                 it->second->getHost(),
+                                                 it->second->getSocketPort(),
+                                                 pimpl_->requestFormatType));
+        (*clusterMap)[it->second->getId()] = store;
+    }
+
+    VersionedValue storevv = pimpl_->bootstrapMetadata(STORES_KEY);
+    const std::string* storesXml = storevv.getValue();
+
+    /* XXX - TODO Add inconsistency resolver */
+
+    return new RoutedStore(storeName,
                            pimpl_->config,
-                           pimpl_->connPool,
-                           RequestFormat::PROTOCOL_BUFFERS);
+                           cluster,
+                           clusterMap);
 }
 
 } /* namespace Voldemort */

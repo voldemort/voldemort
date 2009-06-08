@@ -29,8 +29,8 @@ namespace Voldemort {
 using namespace boost;
 using asio::ip::tcp;
 
-SocketStore::SocketStore(std::string& storeName,
-                         std::string& storeHost,
+SocketStore::SocketStore(const std::string& storeName,
+                         const std::string& storeHost,
                          int storePort,
                          shared_ptr<ClientConfig>& conf,
                          shared_ptr<ConnectionPool>& pool,

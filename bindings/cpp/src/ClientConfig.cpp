@@ -76,4 +76,12 @@ int ClientConfig::getMaxTotalConnections() {
     return pimpl_->maxTotalConnections;
 }
 
+long ClientConfig::getConnectionTimeoutMs() {
+    return pimpl_->connectionTimeoutMs;
+}
+
+long ClientConfig::getSocketTimeoutMs() {
+    return pimpl_->socketTimeoutMs;
+}
+
 } /* namespace Voldemort */

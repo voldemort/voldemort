@@ -53,10 +53,10 @@ public:
      * @param conf the client config object
      * @param pool the connection pool for connecting to the
      * servers
-     * @param requestFormat the request format type
+     * @param requestFormatType the request format type
      */
-    SocketStore(std::string& storeName,
-                std::string& storeHost,
+    SocketStore(const std::string& storeName,
+                const std::string& storeHost,
                 int storePort,
                 shared_ptr<ClientConfig>& conf,
                 shared_ptr<ConnectionPool>& pool,

@@ -72,21 +72,21 @@ AC_SUBST([pkgtgz], ['${PACKAGE_TARNAME}-${PACKAGE_VERSION}-${SDK_BVERSION}-${hos
 AC_ARG_WITH(pkgtgz,
             AC_HELP_STRING([--with-pkgtarball], 
                            [binary tarball file [[name-VERSION-HOST.tgz]]]),
-	    [pkgtgz=${withval}],
-	    [])
+            [pkgtgz=${withval}],
+            [])
 # control whether to generate a debug build or a regular build
 AC_SUBST([tgztarget], ['install-strip'])
 AC_ARG_ENABLE([debugtgz],
-	      AC_HELP_STRING([--enable-debugtgz], 
-	      		     [Generate a tgz package with debug symbols]), 
-	      [tgztarget='install'], [])
+              AC_HELP_STRING([--enable-debugtgz], 
+                             [Generate a tgz package with debug symbols]), 
+              [tgztarget='install'], [])
 
 # Modify the release/build version
 AC_ARG_WITH(buildversion,
             AC_HELP_STRING([--with-buildversion], 
                            [Version number of build]),
-	    [sdk_bversion=${withval}],
-	    [sdk_bversion=0])
+            [sdk_bversion=${withval}],
+            [sdk_bversion=0])
 
 # ---------------------------------------------------------------
 # Environment introspection
@@ -138,9 +138,14 @@ fi
 
 # Check for protocol buffers library
 AC_CHECK_HEADER(google/protobuf/message.h, [], 
-		AC_MSG_ERROR([Could not include protocol buffers headers]))
+                AC_MSG_ERROR([Could not include protocol buffers headers]))
 AC_CHECK_LIB(protobuf, main, [], 
-		       AC_MSG_ERROR([Could not link protocol buffers library]), [])
+             AC_MSG_ERROR([Could not link protocol buffers library]), [])
+
+AC_CHECK_HEADER(expat.h, [], 
+                AC_MSG_ERROR([Could not include expat header]))
+AC_CHECK_LIB(expat, XML_ParserCreate, [], 
+             AC_MSG_ERROR([Could not link expat library]), [])
 
 # Older versions of autoconf don't define docdir
 if test x$docdir = x; then
@@ -156,19 +161,19 @@ AC_DEFINE_UNQUOTED(SDK_IVERSION, [sdk_iversion], [Incremental version])
 AC_SUBST(SDK_BVERSION, [${sdk_bversion}])
 AC_DEFINE_UNQUOTED(SDK_BVERSION, [${sdk_bversion}], [Build version])
 AC_DEFINE_UNQUOTED(SDK_FULL_VERSION, ["sdk_pversion.sdk_sversion.sdk_iversion-${sdk_bversion}"], 
-				     [Full version])
+                                     [Full version])
 
 # ---------------------------------------------------------------
 # Output
 
 AC_CONFIG_FILES([\
-	Makefile \
-	src/Makefile \
-	utils/Makefile \
-	test/Makefile \
-	voldemort.pc \
-	doc/Doxyfile \
-	doc/Doxyfile-internal \
+        Makefile \
+        src/Makefile \
+        utils/Makefile \
+        test/Makefile \
+        voldemort.pc \
+        doc/Doxyfile \
+        doc/Doxyfile-internal \
 ])
 AC_OUTPUT
 

@@ -44,7 +44,7 @@ Connection::Connection(string& hostName,
                                        asio::placeholders::error,
                                        asio::placeholders::iterator));
     
-    wait_for_operation(5000L);
+    wait_for_operation(conf->getConnectionTimeoutMs());
 }
 
 Connection::~Connection() {
@@ -126,7 +126,7 @@ size_t Connection::read_some(char* buffer, size_t bufferLen) {
                            boost::bind(&Connection::handle_data_op, this,
                                        asio::placeholders::error,
                                        asio::placeholders::bytes_transferred));
-    wait_for_operation(1000);
+    wait_for_operation(config->getSocketTimeoutMs());
     return bytesTransferred;
 }
 
@@ -143,7 +143,7 @@ size_t Connection::write(const char* buffer, size_t bufferLen) {
                       boost::bind(&Connection::handle_data_op, this,
                                   asio::placeholders::error,
                                   asio::placeholders::bytes_transferred));
-    wait_for_operation(1000);
+    wait_for_operation(config->getSocketTimeoutMs());
     return bytesTransferred;
 }
 

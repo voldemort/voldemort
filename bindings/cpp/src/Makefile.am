@@ -30,6 +30,8 @@ libvoldemort_la_SOURCES = \
 	include/ProtocolBuffersRequestFormat.h \
 	include/Connection.h \
 	include/ConnectionPool.h \
+	include/Cluster.h \
+	include/RoutedStore.h \
 	DefaultStoreClient.cpp \
 	VersionedValue.cpp \
 	VectorClock.cpp \
@@ -41,6 +43,8 @@ libvoldemort_la_SOURCES = \
 	ProtocolBuffersRequestFormat.cpp \
 	Connection.cpp \
 	ConnectionPool.cpp \
+	Cluster.cpp \
+	RoutedStore.cpp \
 	voldemort-client.pb.cc \
 	voldemort-client.pb.h 
 

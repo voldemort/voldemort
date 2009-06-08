@@ -47,7 +47,6 @@ public:
      * ClientConfig and @ref RequestFormat objects.
      * 
      * @param config the client config
-     * @param 
      */
     explicit ConnectionPool(shared_ptr<ClientConfig>& config);
 
@@ -67,8 +66,7 @@ public:
      * number of connections has been returned, the pool will block
      * the thread until one is available.
      * 
-     * @param host the host name
-     * @param port the port number
+     * @param conn the connection to check in
      * @return a shared pointer to the connection
      */
     void checkin(shared_ptr<Connection>& conn);

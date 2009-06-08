@@ -64,7 +64,7 @@ public:
      * Get a stream object for this connection that supports
      * appropriate buffering and timeouts.
      *
-     * @param the stream
+     * @return the stream
      */
     std::iostream& get_io_stream();
 
@@ -147,11 +147,33 @@ class ConnectionBuffer
     : public std::basic_streambuf<char>
 {
 public:
+    /**
+     * Create a new connection buffer object connected to the given
+     * @ref Connection.
+     */
     explicit ConnectionBuffer(Connection& con);
     virtual ~ConnectionBuffer();
 
+    /**
+     * Implementation of basic_streambuf::overflow
+     * 
+     * @param c the overflow character
+     * @return status information
+     */
     virtual traits_type::int_type overflow(traits_type::int_type c = EOF);
+
+    /**
+     * Implementation of basic_streambuf::underflow
+     * 
+     * @return status information
+     */
     virtual traits_type::int_type underflow();
+
+    /**
+     * Implementation of basic_streambuf::sync
+     *
+     * @return status information
+     */
     virtual int sync();
 
 private:

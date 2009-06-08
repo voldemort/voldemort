@@ -74,6 +74,22 @@ class ClientConfig
      */
     int getMaxTotalConnections();
 
+    /**
+     * Get the number of milliseconds to wait for a connection to
+     * start before timing out.
+     * 
+     * @return the value
+     */
+    long getConnectionTimeoutMs();
+
+    /**
+     * Get the number of milliseconds to wait for on reading or
+     * writing to a socket before timing out.
+     * 
+     * @return the value
+     */
+    long getSocketTimeoutMs();
+
  private:
     /** Internal implementation details for ClientConfig */
     ClientConfigImpl* pimpl_;
