@@ -139,6 +139,15 @@ public class RemoteTest {
         final String value = new String(TestUtils.randomBytes(valueSize));
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
+        /*
+         *   send the store a value and then delete it - useful for the NOOP store which will then use that value for
+         *   other queries
+         */
+
+        String key = new KeyProvider(startNum, keys).next();        
+        store.put(key, new Versioned<String>(value));
+        store.delete(key);
+
          for (int loopCount=0; loopCount < numIterations; loopCount++) {
 
              System.out.println("======================= iteration = " + loopCount + " ======================================");
@@ -206,7 +215,17 @@ public class RemoteTest {
 
                         public void run() {
                             try {
-                                store.get(keyProvider2.next());
+                                Versioned<String> v = store.get(keyProvider2.next());
+                                
+                                if (v == null) {
+                                    throw new Exception("value returned is null");
+                                }
+
+                                if (!value.equals(v.getValue())) {
+                                    throw new Exception("value returned isn't same as set value.  My val size = "
+                                            + value.length() + " ret size = " + v.getValue().length());
+                                }
+                                
                             } catch(Exception e) {
                                 e.printStackTrace();
                             } finally {
