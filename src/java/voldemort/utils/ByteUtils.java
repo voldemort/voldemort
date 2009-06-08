@@ -21,6 +21,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -411,4 +412,29 @@ public class ByteUtils {
         }
         return (b1.length - b2.length) / (Math.max(1, Math.abs(b1.length - b2.length)));
     }
+
+    /**
+     * If we have no more room in the current buffer, then double our capacity
+     * and copy the current buffer to the new one.
+     * <p/>
+     * Note: the new buffer is allocated using allocateDirect.
+     * 
+     * @param buffer The buffer from which to copy the contents
+     * @param newCapacity The new capacity size
+     */
+
+    public static ByteBuffer expand(ByteBuffer buffer, int newCapacity) {
+        if(newCapacity < buffer.capacity())
+            throw new IllegalArgumentException("newCapacity (" + newCapacity
+                                               + ") must be larger than existing capacity ("
+                                               + buffer.capacity() + ")");
+
+        ByteBuffer newBuffer = ByteBuffer.allocateDirect(newCapacity);
+        int position = buffer.position();
+        buffer.rewind();
+        newBuffer.put(buffer);
+        newBuffer.position(position);
+        return newBuffer;
+    }
+
 }

@@ -118,7 +118,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     public boolean isCompleteRequest(ByteBuffer buffer) {
-        throw new Error("NYI");
+        throw new UnsupportedOperationException();
     }
 
     private byte[] readKey(DataInputStream inputStream) throws IOException {

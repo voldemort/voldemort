@@ -3,7 +3,6 @@ package voldemort.server.protocol.vold;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +10,7 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
+import voldemort.server.ByteBufferBackedInputStream;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.server.protocol.RequestHandler;
@@ -58,27 +58,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
     }
 
     public boolean isCompleteRequest(final ByteBuffer buffer) {
-        DataInputStream inputStream = new DataInputStream(new InputStream() {
-
-            @Override
-            public synchronized int read() throws IOException {
-                if(!buffer.hasRemaining())
-                    return -1;
-
-                return buffer.get();
-            }
-
-            @Override
-            public synchronized int read(byte[] bytes, int off, int len) throws IOException {
-                if(!buffer.hasRemaining())
-                    return -1;
-
-                len = Math.min(len, buffer.remaining());
-                buffer.get(bytes, off, len);
-                return len;
-            }
-
-        });
+        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
 
         try {
             byte opCode = buffer.get();
@@ -91,7 +71,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
             switch(opCode) {
                 case VoldemortOpCode.GET_OP_CODE:
-                    // Again, we read the key just to skip the bytes.
+                    // Read the key just to skip the bytes.
                     readKey(inputStream);
                     break;
                 case VoldemortOpCode.GET_ALL_OP_CODE:

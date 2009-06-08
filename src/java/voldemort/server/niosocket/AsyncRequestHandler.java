@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009 Mustard Grain, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -20,8 +20,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -30,15 +28,20 @@ import java.nio.channels.SocketChannel;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.server.ByteBufferBackedInputStream;
+import voldemort.server.ByteBufferBackedOutputStream;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.utils.ByteUtils;
 
 /**
  * AsyncRequestHandler manages a Selector, SocketChannel, and RequestHandler
  * implementation. At the point that the run method is invoked, the Selector
  * with which the (socket) Channel has been registered has notified us that the
- * socket has data to read. The implementation basically wraps the Channel in
- * InputStream and OutputStream objects required by the RequestHandler
- * interface.
+ * socket has data to read or write.
+ * <p/>
+ * The bulk of the complexity in this class surrounds partial reads and writes,
+ * as well as determining when all the data needed for the request has been
+ * read.
  * 
  * @author Kirk True
  * 
@@ -53,13 +56,13 @@ public class AsyncRequestHandler implements Runnable {
 
     private final RequestHandler requestHandler;
 
-    private ByteBuffer inputBuffer;
+    private final int socketBufferSize;
 
-    private ByteBuffer outputBuffer;
+    private final int resizeThreshold;
 
-    private final DataInputStream inputStream;
+    private final ByteBufferBackedInputStream inputStream;
 
-    private final DataOutputStream outputStream;
+    private final ByteBufferBackedOutputStream outputStream;
 
     private final Logger logger = Logger.getLogger(getClass());
 
@@ -70,12 +73,11 @@ public class AsyncRequestHandler implements Runnable {
         this.selector = selector;
         this.socketChannel = socketChannel;
         this.requestHandler = requestHandler;
+        this.socketBufferSize = socketBufferSize;
+        this.resizeThreshold = socketBufferSize * 2;
 
-        inputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
-        outputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
-
-        inputStream = new DataInputStream(new ByteBufferBackedInputStream());
-        outputStream = new DataOutputStream(new ByteBufferBackedOutputStream());
+        inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocateDirect(socketBufferSize));
+        outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocateDirect(socketBufferSize));
 
         if(logger.isInfoEnabled())
             logger.info("Accepting remote connection from "
@@ -107,8 +109,14 @@ public class AsyncRequestHandler implements Runnable {
         }
     }
 
+    int getPort() {
+        return socketChannel.socket().getPort();
+    }
+
     private void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
+
+        ByteBuffer inputBuffer = inputStream.getBuffer();
 
         if((count = socketChannel.read(inputBuffer)) == -1)
             throw new EOFException();
@@ -135,50 +143,55 @@ public class AsyncRequestHandler implements Runnable {
                 logger.debug("Starting execution for "
                              + socketChannel.socket().getRemoteSocketAddress());
 
-            requestHandler.handleRequest(inputStream, outputStream);
+            requestHandler.handleRequest(new DataInputStream(inputStream),
+                                         new DataOutputStream(outputStream));
 
             if(logger.isDebugEnabled())
                 logger.debug("Finished execution for "
                              + socketChannel.socket().getRemoteSocketAddress());
 
-            // We're done with the input buffer, so clear it out for the
-            // next request...
-            inputBuffer.clear();
+            // We've written to the buffer in the handleRequest invocation, so
+            // we're done with the input and can reset/resize, flip the output
+            // buffer, and let the Selector know we're ready to write.
+            if(inputBuffer.capacity() >= resizeThreshold) {
+                inputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
+                inputStream.setBuffer(inputBuffer);
+            }
 
-            // We've written to the buffer in the handleRequest
-            // invocation, so now flip the output buffer.
-            outputBuffer.flip();
-
-            // We've got our output buffer ready, so let's let the
-            // Selector know.
+            outputStream.getBuffer().flip();
             selectionKey.interestOps(SelectionKey.OP_WRITE);
         } else {
             inputBuffer.position(position);
             inputBuffer.limit(inputBuffer.capacity());
 
-            if(!inputBuffer.hasRemaining())
-                inputBuffer = expand(inputBuffer, inputBuffer.capacity() * 2);
+            if(!inputBuffer.hasRemaining()) {
+                // We haven't read all the data needed for the request AND we
+                // don't have enough data in our buffer. So expand it. Note:
+                // doubling the current buffer size is arbitrary.
+                inputBuffer = ByteUtils.expand(inputBuffer, inputBuffer.capacity() * 2);
+                inputStream.setBuffer(inputBuffer);
+            }
         }
     }
 
     private void write(SelectionKey selectionKey) throws IOException {
+        ByteBuffer outputBuffer = outputStream.getBuffer();
+
         // Write what we can now...
         socketChannel.write(outputBuffer);
 
         if(!outputBuffer.hasRemaining()) {
             // If we don't have anything else to write, that means we're done
-            // with the request! So clear the output buffer so that we're ready
-            // for the next one.
-            outputBuffer.clear();
+            // with the request! So clear the buffers (resizing if necessary)
+            // and signal the Selector that we're ready to take the next
+            // request.
+            if(outputBuffer.capacity() >= resizeThreshold) {
+                outputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
+                outputStream.setBuffer(outputBuffer);
+            }
 
-            // The request is (finally) done, so let's signal the
-            // Selector that we're ready to take the next request.
             selectionKey.interestOps(SelectionKey.OP_READ);
         }
-    }
-
-    int getPort() {
-        return socketChannel.socket().getPort();
     }
 
     private void close(SelectionKey selectionKey) {
@@ -202,100 +215,6 @@ public class AsyncRequestHandler implements Runnable {
 
         selectionKey.attach(null);
         selectionKey.cancel();
-    }
-
-    /**
-     * If we have no more room in the current buffer, then double our capacity
-     * and copy the current buffer to the new one.
-     */
-
-    private ByteBuffer expand(ByteBuffer buffer, int newCapacity) {
-        int currentCapacity = buffer.capacity();
-
-        if(logger.isTraceEnabled()) {
-            String direction = null;
-
-            if(buffer == inputBuffer)
-                direction = "reading";
-            else if(buffer == outputBuffer)
-                direction = "writing";
-
-            logger.trace("The buffer used for " + direction + " data for "
-                         + socketChannel.socket().getRemoteSocketAddress()
-                         + " requires we increase our internal buffer from " + currentCapacity
-                         + " to " + newCapacity);
-        }
-
-        ByteBuffer newBuffer = ByteBuffer.allocateDirect(newCapacity);
-
-        int position = buffer.position();
-
-        buffer.rewind();
-        newBuffer.put(buffer);
-        newBuffer.position(position);
-        return newBuffer;
-    }
-
-    class ByteBufferBackedInputStream extends InputStream {
-
-        @Override
-        public int read() throws IOException {
-            if(!inputBuffer.hasRemaining())
-                return -1;
-
-            return inputBuffer.get();
-        }
-
-        @Override
-        public int read(byte[] bytes, int off, int len) throws IOException {
-            if(!inputBuffer.hasRemaining())
-                return -1;
-
-            len = Math.min(len, inputBuffer.remaining());
-            inputBuffer.get(bytes, off, len);
-            return len;
-        }
-
-    }
-
-    class ByteBufferBackedOutputStream extends OutputStream {
-
-        @Override
-        public void write(int b) throws IOException {
-            expandIfNeeded(1);
-            outputBuffer.put((byte) b);
-        }
-
-        @Override
-        public void write(byte[] bytes, int off, int len) throws IOException {
-            expandIfNeeded(len);
-            outputBuffer.put(bytes, off, len);
-        }
-
-        private void expandIfNeeded(int len) {
-            int need = len - outputBuffer.remaining();
-
-            if(need <= 0)
-                return;
-
-            if(logger.isTraceEnabled())
-                logger.trace("The output buffer for "
-                             + socketChannel.socket().getRemoteSocketAddress()
-                             + " has a capacity of " + outputBuffer.capacity() + " bytes with "
-                             + outputBuffer.remaining() + " bytes remaining and is about to write "
-                             + len + " more bytes");
-
-            int newCapacity = outputBuffer.capacity() + need;
-            outputBuffer = expand(outputBuffer, newCapacity);
-
-            if(logger.isTraceEnabled())
-                logger.trace("The output buffer for "
-                             + socketChannel.socket().getRemoteSocketAddress()
-                             + " now has a capacity of " + outputBuffer.capacity() + " bytes with "
-                             + outputBuffer.remaining()
-                             + " bytes remaining, sufficient for writing " + len + " more bytes");
-        }
-
     }
 
 }
