@@ -1,0 +1,7 @@
+Threadpool implementation imported from
+http://threadpool.sourceforge.net/ on June 9, 2009 from version 0.2.5.
+
+Copyright (c) 2005-2007 Philipp Henkel
+
+threadpool is a cross-platform C++ thread pool library and released
+under the Boost Software License.

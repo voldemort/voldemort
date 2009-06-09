@@ -25,11 +25,14 @@ namespace Voldemort {
 
 using namespace boost;
 
+static const bool REPAIR_READS = true;
+
 RoutedStore::RoutedStore(const std::string& storeName,
                          shared_ptr<ClientConfig>& config,
                          shared_ptr<Cluster>& clust,
-                         shared_ptr<std::map<int, shared_ptr<Store> > >& map)
-    : name(storeName), cluster(clust), clusterMap(map) {
+                         shared_ptr<std::map<int, shared_ptr<Store> > >& map,
+                         shared_ptr<threadpool::pool> pool)
+    : name(storeName), cluster(clust), clusterMap(map), threadPool(pool) {
 
 }
 

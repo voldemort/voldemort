@@ -24,9 +24,12 @@
 #include "RequestFormat.h"
 #include "DefaultStoreClient.h"
 #include "Cluster.h"
+
 #include <iostream>
 #include <exception>
 #include <ctype.h>
+
+#include "boost/threadpool.hpp"
 
 namespace Voldemort {
 
@@ -60,11 +63,14 @@ public:
     shared_ptr<ClientConfig> config;
     shared_ptr<ConnectionPool> connPool;
     RequestFormat::RequestFormatType requestFormatType;
+    shared_ptr<threadpool::pool> threadPool;
 };
 
 SocketStoreClientFactoryImpl::SocketStoreClientFactoryImpl(ClientConfig& conf) 
     : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)),
-      requestFormatType(RequestFormat::PROTOCOL_BUFFERS) {
+      requestFormatType(RequestFormat::PROTOCOL_BUFFERS), 
+      threadPool(new threadpool::pool()) {
+    threadPool->size_controller().resize(config->getMaxThreads());
 }
 
 SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
@@ -222,7 +228,8 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
     return new RoutedStore(storeName,
                            pimpl_->config,
                            cluster,
-                           clusterMap);
+                           clusterMap,
+                           pimpl_->threadPool);
 }
 
 } /* namespace Voldemort */

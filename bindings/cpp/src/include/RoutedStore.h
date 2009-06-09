@@ -27,6 +27,7 @@
 #include <map>
 
 #include <boost/shared_ptr.hpp>
+#include "boost/threadpool.hpp"
 
 namespace Voldemort {
 
@@ -48,11 +49,13 @@ public:
      * @param clust the cluster object with which to configure the
      * routed store
      * @param map a mapping from node ID to Store used for routing
+     * @param pool the thread pool to use
      */
     RoutedStore(const std::string& storeName,
                 shared_ptr<ClientConfig>& config,
                 shared_ptr<Cluster>& clust,
-                shared_ptr<std::map<int, shared_ptr<Store> > >& map);
+                shared_ptr<std::map<int, shared_ptr<Store> > >& map,
+                shared_ptr<threadpool::pool> pool);
     virtual ~RoutedStore();
 
     // Store interface 
@@ -69,6 +72,7 @@ private:
     shared_ptr<Cluster> cluster;
     shared_ptr<ClientConfig> clientConfig;
     shared_ptr<std::map<int, shared_ptr<Store> > > clusterMap;
+    shared_ptr<threadpool::pool> threadPool;
 };
 
 } /* namespace Voldemort */

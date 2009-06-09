@@ -37,7 +37,7 @@ class ClientConfigImpl;
  */
 class ClientConfig
 {
- public:
+public:
     ClientConfig();
     /** Copy constructor */
     ClientConfig(const ClientConfig& cc);
@@ -90,7 +90,14 @@ class ClientConfig
      */
     long getSocketTimeoutMs();
 
- private:
+    /**
+     * Get the maximum number of client threads
+     * 
+     * @return the value
+     */
+    int getMaxThreads();
+    
+private:
     /** Internal implementation details for ClientConfig */
     ClientConfigImpl* pimpl_;
 };

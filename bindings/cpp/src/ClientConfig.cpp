@@ -84,4 +84,8 @@ long ClientConfig::getSocketTimeoutMs() {
     return pimpl_->socketTimeoutMs;
 }
 
+int ClientConfig::getMaxThreads() {
+    return pimpl_->maxThreads;
+}
+
 } /* namespace Voldemort */
