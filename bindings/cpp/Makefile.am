@@ -20,16 +20,22 @@ SUBDIRS = src utils test
 
 library_includedir=$(includedir)/$(PACKAGE)
 library_include_HEADERS = \
-	include/voldemort/voldemort.h \
 	include/voldemort/ClientConfig.h \
+	include/voldemort/InconsistentDataException.h \
+	include/voldemort/InsufficientOperationalNodesException.h \
+	include/voldemort/InvalidMetadataException.h \
 	include/voldemort/ObsoleteVersionException.h \
-	include/voldemort/VoldemortException.h \
+	include/voldemort/PersistenceFailureException.h \
 	include/voldemort/SocketStoreClientFactory.h \
 	include/voldemort/StoreClientFactory.h \
 	include/voldemort/StoreClient.h \
 	include/voldemort/Store.h \
+	include/voldemort/StoreOperationFailureException.h \
+	include/voldemort/UnreachableStoreException.h \
 	include/voldemort/VersionedValue.h \
-	include/voldemort/Version.h 
+	include/voldemort/Version.h \
+	include/voldemort/VoldemortException.h \
+	include/voldemort/voldemort.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = voldemort.pc

@@ -32,8 +32,8 @@ VectorClock::VectorClock() {
     struct timeval tv;
 
     gettimeofday(&tv, NULL);
-
-    VectorClock((uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000);
+    timestamp = (uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000;
+    versions = new std::list<std::pair<short, uint64_t> > ();
 }
 
 VectorClock::VectorClock(std::list<std::pair<short, uint64_t> >* versions, uint64_t timestamp) {
@@ -43,6 +43,7 @@ VectorClock::VectorClock(std::list<std::pair<short, uint64_t> >* versions, uint6
 
 VectorClock::~VectorClock() {
     delete versions;
+    versions = NULL;
 }
 
 VectorClock* VectorClock::copy() {
@@ -111,7 +112,7 @@ VectorClock::Occurred VectorClock::compare(VectorClock* v1, VectorClock* v2) {
         return VectorClock::CONCURRENTLY;
 }
 
-std::list<std::pair<short, uint64_t> >* VectorClock::getEntries() {
+const std::list<std::pair<short, uint64_t> >* VectorClock::getEntries() const {
     return versions;
 }
 

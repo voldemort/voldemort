@@ -22,6 +22,8 @@
 #include <voldemort/VersionedValue.h>
 #include <boost/shared_ptr.hpp>
 
+#include "VectorClock.h"
+
 namespace Voldemort {
 
 using namespace boost;
@@ -32,11 +34,17 @@ public:
     VersionedValueImpl(const VersionedValueImpl& v);
     VersionedValueImpl(shared_ptr<const string>& val,
                        shared_ptr<Version>& vers);
+    VersionedValueImpl();
     ~VersionedValueImpl();
 
     shared_ptr<const string> value;
     shared_ptr<Version> version;
 };
+
+VersionedValueImpl::VersionedValueImpl()
+    : value(new string("")), version(new VectorClock()) {
+
+}
 
 VersionedValueImpl::VersionedValueImpl(const VersionedValueImpl& v)
     : value(v.value), version(v.version) {
@@ -53,11 +61,14 @@ VersionedValueImpl::~VersionedValueImpl() {
 
 }
 
+VersionedValue::VersionedValue() {
+    pimpl_ = new VersionedValueImpl();
+}
+
 VersionedValue::VersionedValue(const string* value,
                                Version* version) {
-    shared_ptr<const string> valuep(value);
-    shared_ptr<Version> versionp(version);
- 
+    shared_ptr<const string> valuep(value ? value : new string(""));
+    shared_ptr<Version> versionp(version ? version : new VectorClock());
     pimpl_ = new VersionedValueImpl(valuep, versionp);
 }
 

@@ -67,26 +67,32 @@ int main(int argc, char** argv) {
         // Voldemort cluster over TCP.
         SocketStoreClientFactory factory(config);
 
-#if 0
         auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
 
         // Get a value
-        auto_ptr<VersionedValue> value(client->get(&key));
+        std::string key("hello");
+        std::string key2("keytest");
+        std::string value2("valuetest");
+        client->put(&key2, &value2);
         
-        cout << "Value: " << value->getValue() << endl;
+        VersionedValue value(*client->get(&key));
+        cout << "Value: " << *(value.getValue()) << endl;
         
         // Modify the value
-        value->setValue(new string("world!"));
+        value.setValue(new string("world!"));
 
         // update the value
-        client->put(&key, value.get());
-#endif
+        client->put(&key, &value);
 
+        value = *client->get(&key);
+        cout << "Value: " << *(value.getValue()) << endl;
+#if 0
         auto_ptr<Store> rawStore(factory.getRawStore(storeName));
     
         doGet(rawStore.get(), "hello");
         doGet(rawStore.get(), "hello1");
         doGet(rawStore.get(), "hello2");
+#endif
     } catch (VoldemortException& v) {
         cerr << "Voldemort Error: " << v.what() << endl;
     }

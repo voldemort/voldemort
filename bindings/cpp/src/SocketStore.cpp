@@ -57,7 +57,7 @@ std::list<VersionedValue>* SocketStore::get(const std::string& key) {
     return request->readGetResponse(&sstream);
 }
 
-void SocketStore::put(const std::string& key, VersionedValue& value) {
+void SocketStore::put(const std::string& key, const VersionedValue& value) {
     ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
     std::iostream& sstream = conn->get_io_stream();
 
@@ -65,27 +65,27 @@ void SocketStore::put(const std::string& key, VersionedValue& value) {
                              &name,
                              &key,
                              value.getValue(),
-                             dynamic_cast<VectorClock*>(value.getVersion()),
+                             dynamic_cast<const VectorClock*>(value.getVersion()),
                              false);
     sstream.flush();
     request->readPutResponse(&sstream);
 
 }
 
-bool SocketStore::deleteKey(const std::string& key, Version& version) {
+bool SocketStore::deleteKey(const std::string& key, const Version& version) {
     ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
     std::iostream& sstream = conn->get_io_stream();
 
     request->writeDeleteRequest(&sstream,
                                 &name,
                                 &key,
-                                dynamic_cast<VectorClock*>(&version),
+                                dynamic_cast<const VectorClock*>(&version),
                                 false);
     sstream.flush();
     return request->readDeleteResponse(&sstream);
 }
 
-std::string* SocketStore::getName() {
+const std::string* SocketStore::getName() {
     return &name;
 }
 

@@ -187,6 +187,8 @@ Cluster::Cluster(const std::string clusterXml)
             throw VoldemortException("Failed to parse cluster XML data: " +
                                      std::string(XML_ErrorString(XML_GetErrorCode(parser))));
         }
+        XML_ParserFree(parser);
+        parser = NULL;
     } catch (...) {
         if (parser != NULL) XML_ParserFree(parser);
         throw;

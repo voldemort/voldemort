@@ -17,65 +17,140 @@
  * the License.
  */
 
+#include <voldemort/InconsistentDataException.h>
+#include <voldemort/InvalidMetadataException.h>
 #include "DefaultStoreClient.h"
+#include "VectorClock.h"
+
 #include <iostream>
-#include <boost/array.hpp>
-#include <boost/asio.hpp>
+#include <list>
 
 namespace Voldemort {
 
-DefaultStoreClient::DefaultStoreClient(std::string storeName,
-                                       StoreClientFactory* storeFactory,
-                                       int maxMetadataRefreshAttempts) 
-    : maxMetadataRefreshAttempts_(maxMetadataRefreshAttempts),
-      storeName_(storeName),
-      storeFactory_(storeFactory) {
+using namespace boost;
+using namespace std;
+
+static const int METADATA_REFRESH_ATTEMPTS = 3;
+
+DefaultStoreClient::DefaultStoreClient(shared_ptr<Store>& store,
+                                       shared_ptr<ClientConfig>& config) 
+    : config_(config), store_(store), curValue_() {
 
 }
 
 DefaultStoreClient::~DefaultStoreClient() {
-    if (store_) {
-        delete store_;
+
+}
+
+void DefaultStoreClient::reinit() {
+    /* XXX - TODO */
+    throw VoldemortException("Not implemented");
+}
+
+const std::string* DefaultStoreClient::getValue(const std::string* key) {
+    return getValue(key, NULL);
+}
+
+const std::string* DefaultStoreClient::getValue(const std::string* key,
+                                                const std::string* defaultValue) {
+    const VersionedValue* vv = get(key, NULL);
+    if (vv == NULL)
+        return defaultValue;
+    else
+        return vv->getValue();
+}
+
+const VersionedValue* DefaultStoreClient::get(const std::string* key) {
+    return get(key, NULL);
+}
+
+const VersionedValue* DefaultStoreClient::get(const std::string* key,
+                                              const VersionedValue* defaultValue) {
+    for (int attempts = 0; attempts < METADATA_REFRESH_ATTEMPTS; attempts++) {
+        try {
+            auto_ptr<list<VersionedValue> > items(store_->get(*key));
+            if (items->size() == 0) {
+                if (!defaultValue)
+                    return NULL;
+                curValue_ = *defaultValue;
+            }
+            else if (items->size() == 1)
+                curValue_ = items->front();
+            else
+                throw InconsistentDataException("Unresolved versions returned from get(" +
+                                                *key + ")");
+
+            return &curValue_;
+        } catch (InvalidMetadataException& e) {
+            reinit();
+        }
+    }
+    throw InvalidMetadataException("Exceeded maximum metadata refresh attempts");
+}
+
+void DefaultStoreClient::put(const std::string* key, 
+                             const std::string* value) {
+    const VersionedValue* vv = get(key);
+    if (vv == NULL) {
+        std::string* valuec = NULL;
+        Version* version = NULL;
+        try {
+            version = new VectorClock();
+            valuec = new std::string(*value);
+            curValue_.setVersion(version);
+            version = NULL;
+            curValue_.setValue(valuec);
+            valuec = NULL;
+        } catch (...) {
+            if (version) delete version;
+            if (valuec) delete valuec;
+        }
+    }
+    put(key, &curValue_);
+}
+
+void DefaultStoreClient::put(const std::string* key, 
+                             const VersionedValue* value) 
+    throw(ObsoleteVersionException) {
+    for (int attempts = 0; attempts < METADATA_REFRESH_ATTEMPTS; attempts++) {
+        try {
+            store_->put(*key, *value);
+            return;
+        } catch (InvalidMetadataException& e) {
+            reinit();
+        }
+    }
+    throw InvalidMetadataException("Exceeded maximum metadata refresh attempts");
+}
+
+bool DefaultStoreClient::putifNotObsolete(const std::string* key,
+                                          const VersionedValue* value) {
+    try {
+        put(key, value);
+        return true;
+    } catch (ObsoleteVersionException& e) {
+        return false;
     }
 }
 
-std::string* DefaultStoreClient::getValue(std::string* key) {
-    /* XXX - TODO */
+bool DefaultStoreClient::deleteKey(const std::string* key) {
+    const VersionedValue* vv = get(key);
+    if (vv == NULL)
+        return false;
+    return deleteKey(key, vv->getVersion());
 }
 
-std::string* DefaultStoreClient::getValue(std::string* key,
-                      std::string* defaultValue) {
-    /* XXX - TODO */
-}
+bool DefaultStoreClient::deleteKey(const std::string* key, 
+                                   const Version* version) {
+    for (int attempts = 0; attempts < METADATA_REFRESH_ATTEMPTS; attempts++) {
+        try {
+            return store_->deleteKey(*key, *version);
+        } catch (InvalidMetadataException& e) {
+            reinit();
+        }
+    }
+    throw InvalidMetadataException("Exceeded maximum metadata refresh attempts");
 
-VersionedValue* DefaultStoreClient::get(std::string* key) {
-    /* XXX - TODO */
-}
-
-VersionedValue* DefaultStoreClient::get(std::string* key,
-                                        VersionedValue* defaultValue) {
-    /* XXX - TODO */
-}
-
-void DefaultStoreClient::put(std::string* key, std::string* value) {
-    /* XXX - TODO */
-}
-
-void DefaultStoreClient::put(std::string* key, VersionedValue* value) 
-    throw(ObsoleteVersionException) {
-    /* XXX - TODO */
-}
-
-void DefaultStoreClient::putifNotObsolete(std::string* key, VersionedValue* value) {
-    /* XXX - TODO */
-}
-
-bool DefaultStoreClient::deleteKey(std::string* key) {
-    /* XXX - TODO */
-}
-
-bool DefaultStoreClient::deleteKey(std::string* key, Version* version) {
-    /* XXX - TODO */
 }
 
 } /* namespace Voldemort */

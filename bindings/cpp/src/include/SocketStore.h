@@ -67,10 +67,10 @@ public:
     // Store interface 
     virtual std::list<VersionedValue>* get(const std::string& key);
     virtual void put(const std::string& key,
-                     VersionedValue& value);
+                     const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
-                           Version& version);
-    virtual std::string* getName();
+                           const Version& version);
+    virtual const std::string* getName();
     virtual void close();
 
 private:

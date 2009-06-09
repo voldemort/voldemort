@@ -30,20 +30,25 @@ namespace Voldemort {
 /**
  * The user-facing interface to a Voldemort store. Gives basic
  * put/get/delete plus helper functions.
+ *
+ * This client object should be allocated one-per-thread that will
+ * access it, as it is not threadsafe.
  */
 class StoreClient
 {
 public:
+    virtual ~StoreClient() { };
+    
     /** 
      * Get the value associated with the given key or null if there is
      * no value associated with this key.  
      *
      * @param key The key to retrieve
      * @return The return value.  May be null if no value associated
-     * with this key.  Returned memory is owned by the caller and must
-     * be freed.
+     * with this key.  Returned memory is owned by the StoreClient
+     * object and should not be freed.
      */
-    virtual std::string* getValue(std::string* key) = 0;
+    virtual const std::string* getValue(const std::string* key) = 0;
 
     /** 
      * Get the value associated with the given key or null if there is
@@ -52,10 +57,11 @@ public:
      * @param key The key to retrieve
      * @param defaultValue the default value 
      * @return The return value.  May be null if no value associated
-     * with this key.
+     * with this key.  Returned memory is owned by the StoreClient
+     * object and should not be freed.
      */
-    virtual std::string* getValue(std::string* key,
-                                  std::string* defaultValue) = 0;
+    virtual const std::string* getValue(const std::string* key,
+                                        const std::string* defaultValue) = 0;
 
     /**
      * Get the versioned value associated with the given key or null
@@ -63,9 +69,10 @@ public:
      *
      * @param key the key to get
      * @return the versioned value associated with the key. May be
-     * null if no value associated with this key.
+     * null if no value associated with this key.  Returned memory is
+     * owned by the StoreClient object and should not be freed.
      */
-    virtual VersionedValue* get(std::string* key) = 0;
+    virtual const VersionedValue* get(const std::string* key) = 0;
 
     /**
      * Get the versioned value associated with the given key or the
@@ -75,10 +82,11 @@ public:
      * @param defaultValue The default value to use if no value
      * associated with key
      * @return The versioned value, or the defaultValue if no value is
-     * stored for this key.
+     * stored for this key.  Returned memory is owned by the
+     * StoreClient object and should not be freed.
      */
-    virtual VersionedValue* get(std::string* key,
-                                VersionedValue* defaultValue) = 0;
+    virtual const VersionedValue* get(const std::string* key,
+                                      const VersionedValue* defaultValue) = 0;
 
     /**
      * Associates the given value to the key, clobbering any existing
@@ -87,7 +95,7 @@ public:
      * @param key The key to store
      * @param value The value to store
      */
-    virtual void put(std::string* key, std::string* value) = 0;
+    virtual void put(const std::string* key, const std::string* value) = 0;
 
     /**
      * Put the given Versioned value into the store for the given key
@@ -97,7 +105,7 @@ public:
      * @param key The key to store
      * @param value the versioned value to store
      */
-    virtual void put(std::string* key, VersionedValue* value) 
+    virtual void put(const std::string* key, const VersionedValue* value) 
         throw(ObsoleteVersionException) = 0;
 
     /**
@@ -106,8 +114,10 @@ public:
      *
      * @param key The key to store
      * @param value the versioned value to store.
+     * @return whether the value was updated
      */
-    virtual void putifNotObsolete(std::string* key, VersionedValue* value) = 0;
+    virtual bool putifNotObsolete(const std::string* key, 
+                                  const VersionedValue* value) = 0;
 
     /**
      * Delete any version of the given key which equal to or less than
@@ -116,7 +126,7 @@ public:
      * @param key the key to delete
      * @return true if anything is deleted
      */
-    virtual bool deleteKey(std::string* key) = 0;
+    virtual bool deleteKey(const std::string* key) = 0;
 
     /**
      * Delete the specified version and any prior versions of the
@@ -126,7 +136,8 @@ public:
      * @param version The version of the key 
      * @return true if anything is deleted
      */
-    virtual bool deleteKey(std::string* key, Version* version) = 0;
+    virtual bool deleteKey(const std::string* key, 
+                           const Version* version) = 0;
    
 };
 

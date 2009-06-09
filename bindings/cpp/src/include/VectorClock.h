@@ -58,7 +58,7 @@ class VectorClock: public Version
      */
     VectorClock(std::list<std::pair<short, uint64_t> >* versions, uint64_t timestamp);
 
-    ~VectorClock();
+    virtual ~VectorClock();
 
     /**
      * Virtual copy constructor allocates a new VectorClock object
@@ -92,7 +92,7 @@ class VectorClock: public Version
     /**
      * Get the list of version entries
      */
-    std::list<std::pair<short, uint64_t> >* getEntries();
+    const std::list<std::pair<short, uint64_t> >* getEntries() const;
 
     /**
      * Get the timestamp
@@ -100,6 +100,9 @@ class VectorClock: public Version
     uint64_t getTimestamp();
 
 private:
+    // Disable copy constructor
+    VectorClock(const VectorClock& v) { }
+
     /** 
      * The time of the last update on the server on which the update
      * was performed

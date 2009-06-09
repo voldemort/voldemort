@@ -110,7 +110,7 @@ public:
                                  const std::string* storeName,
                                  const std::string* key,
                                  const std::string* value,
-                                 VectorClock* version,
+                                 const VectorClock* version,
                                  bool shouldReroute) = 0;
     
     /**
@@ -135,7 +135,7 @@ public:
     virtual void writeDeleteRequest(std::ostream* outputStream,
                                     const std::string* storeName,
                                     const std::string* key,
-                                    VectorClock* version,
+                                    const VectorClock* version,
                                     bool shouldReroute) = 0;
     
     /**

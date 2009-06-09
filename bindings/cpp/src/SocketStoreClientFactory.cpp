@@ -22,6 +22,7 @@
 #include "SocketStore.h"
 #include "RoutedStore.h"
 #include "RequestFormat.h"
+#include "DefaultStoreClient.h"
 #include "Cluster.h"
 #include <iostream>
 #include <exception>
@@ -189,10 +190,10 @@ SocketStoreClientFactory::~SocketStoreClientFactory() {
 }
 
 StoreClient* SocketStoreClientFactory::getStoreClient(std::string& storeName) {
+    shared_ptr<Store> store(getRawStore(storeName));
+    return new DefaultStoreClient(store,
+                                  pimpl_->config);
 
-
-
-    return NULL;
 }
 
 Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
@@ -213,8 +214,8 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
         (*clusterMap)[it->second->getId()] = store;
     }
 
-    VersionedValue storevv = pimpl_->bootstrapMetadata(STORES_KEY);
-    const std::string* storesXml = storevv.getValue();
+    //VersionedValue storevv = pimpl_->bootstrapMetadata(STORES_KEY);
+    //const std::string* storesXml = storevv.getValue();
 
     /* XXX - TODO Add inconsistency resolver */
 

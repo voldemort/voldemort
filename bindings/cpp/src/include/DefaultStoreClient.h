@@ -26,8 +26,13 @@
 #include <voldemort/StoreClientFactory.h>
 #include <voldemort/VersionedValue.h>
 #include <voldemort/ObsoleteVersionException.h>
+#include <voldemort/ClientConfig.h>
+
+#include <boost/shared_ptr.hpp>
 
 namespace Voldemort {
+
+using namespace boost;
 
 /**
  * The default @ref StoreClient implementation you get back from a
@@ -39,36 +44,37 @@ public:
     /** 
      * Construct a default store client object
      * 
-     * @param storeName the name of the store
-     * @param storeFactory a pointer to the store factor that created
-     * us
-     * @param maxMetadataRefreshAttempts the maximum number of times
-     * to attempt to obtain metadata
+     * @param store The underlying store object
+     * @param config the @ref ClientConfig object
      */
-    DefaultStoreClient(std::string storeName,
-                       StoreClientFactory* storeFactory,
-                       int maxMetadataRefreshAttempts);
-    ~DefaultStoreClient();
+    DefaultStoreClient(shared_ptr<Store>& store,
+                       shared_ptr<ClientConfig>& config);
+    virtual ~DefaultStoreClient();
+
+    /**
+     * Reinitialize this store client to fetch fresh metadata
+     */
+    virtual void reinit();
 
     // StoreClient interface
-    virtual std::string* getValue(std::string* key);
-    virtual std::string* getValue(std::string* key,
-                                  std::string* defaultValue);
-    virtual VersionedValue* get(std::string* key);
-    virtual VersionedValue* get(std::string* key,
-                                VersionedValue* defaultValue);
-    virtual void put(std::string* key, std::string* value);
-    virtual void put(std::string* key, VersionedValue* value) 
+    virtual const std::string* getValue(const std::string* key);
+    virtual const std::string* getValue(const std::string* key,
+                                        const std::string* defaultValue);
+    virtual const VersionedValue* get(const std::string* key);
+    virtual const VersionedValue* get(const std::string* key,
+                                      const VersionedValue* defaultValue);
+    virtual void put(const std::string* key, const std::string* value);
+    virtual void put(const std::string* key, const VersionedValue* value) 
         throw(ObsoleteVersionException);
-    virtual void putifNotObsolete(std::string* key, VersionedValue* value);
-    virtual bool deleteKey(std::string* key);
-    virtual bool deleteKey(std::string* key, Version* version);
+    virtual bool putifNotObsolete(const std::string* key, const VersionedValue* value);
+    virtual bool deleteKey(const std::string* key);
+    virtual bool deleteKey(const std::string* key, const Version* version);
    
 private:
-    int maxMetadataRefreshAttempts_;
-    std::string storeName_;
-    Store* store_;
-    StoreClientFactory* storeFactory_;
+    shared_ptr<ClientConfig> config_;
+    shared_ptr<Store> store_;
+
+    VersionedValue curValue_;
 };
 
 } /* namespace Voldemort */

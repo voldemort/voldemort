@@ -24,4 +24,12 @@
 
 #include <voldemort/SocketStoreClientFactory.h>
 
+#include <voldemort/InconsistentDataException.h>
+#include <voldemort/InsufficientOperationalNodesException.h>
+#include <voldemort/InvalidMetadataException.h>
+#include <voldemort/ObsoleteVersionException.h>
+#include <voldemort/PersistenceFailureException.h>
+#include <voldemort/StoreOperationFailureException.h>
+#include <voldemort/UnreachableStoreException.h>
+
 #endif /* VOLDEMORT_H */

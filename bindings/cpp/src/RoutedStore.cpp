@@ -43,19 +43,19 @@ std::list<VersionedValue>* RoutedStore::get(const std::string& key) {
     return it->second->get(key);
 }
 
-void RoutedStore::put(const std::string& key, VersionedValue& value) {
+void RoutedStore::put(const std::string& key, const VersionedValue& value) {
     std::map<int, shared_ptr<Store> >::const_iterator it = 
         clusterMap->begin();
     return it->second->put(key, value);
 }
 
-bool RoutedStore::deleteKey(const std::string& key, Version& version) {
+bool RoutedStore::deleteKey(const std::string& key, const Version& version) {
     std::map<int, shared_ptr<Store> >::const_iterator it = 
         clusterMap->begin();
     return it->second->deleteKey(key, version);
 }
 
-std::string* RoutedStore::getName() {
+const std::string* RoutedStore::getName() {
     return &name;
 }
 

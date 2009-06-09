@@ -222,7 +222,7 @@ void VoldemortNativeRequestFormat::writePutRequest(std::ostream* outputStream,
                                                    const std::string* storeName,
                                                    const std::string* key,
                                                    const std::string* value,
-                                                   VectorClock* version,
+                                                   const VectorClock* version,
                                                    bool shouldReroute) {
     throw VoldemortException("Not implemented");
 }
@@ -234,7 +234,7 @@ void VoldemortNativeRequestFormat::readPutResponse(std::istream* inputStream) {
 void VoldemortNativeRequestFormat::writeDeleteRequest(std::ostream* outputStream,
                                                       const std::string* storeName,
                                                       const std::string* key,
-                                                      VectorClock* version,
+                                                      const VectorClock* version,
                                                       bool shouldReroute) {
     throw VoldemortException("Not implemented");
 }

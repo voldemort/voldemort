@@ -46,6 +46,7 @@ public:
     VersionedValue(const std::string* value,
                    Version* version);
     ~VersionedValue();
+    VersionedValue();
 
     /**
      * Copy constructor.  The values contained will be shared between

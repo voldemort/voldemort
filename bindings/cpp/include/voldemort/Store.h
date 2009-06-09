@@ -54,7 +54,7 @@ public:
      * @param value The value to store
      */
     virtual void put(const std::string& key,
-                     VersionedValue& value) = 0;
+                     const VersionedValue& value) = 0;
 
     /**
      * Delete all entries prior to the given version
@@ -64,7 +64,7 @@ public:
      * @return True if anything was deleted
      */
     virtual bool deleteKey(const std::string& key,
-                           Version& version) = 0;
+                           const Version& version) = 0;
 
     /**
      * Get the name for this store.  The memory is owned by the Store
@@ -72,7 +72,7 @@ public:
      * 
      * @returns the name of the store.
      */
-    virtual std::string* getName() = 0;
+    virtual const std::string* getName() = 0;
 
     /** 
      * Close the store

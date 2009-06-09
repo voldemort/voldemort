@@ -44,7 +44,7 @@ public:
      * host.
      *
      * @param storeName the name of the storee
-     * @param config the @ref CLientConfig object
+     * @param config the @ref ClientConfig object
      * @param clust the cluster object with which to configure the
      * routed store
      * @param map a mapping from node ID to Store used for routing
@@ -58,10 +58,10 @@ public:
     // Store interface 
     virtual std::list<VersionedValue>* get(const std::string& key);
     virtual void put(const std::string& key,
-                     VersionedValue& value);
+                     const VersionedValue& value);
     virtual bool deleteKey(const std::string& key,
-                           Version& version);
-    virtual std::string* getName();
+                           const Version& version);
+    virtual const std::string* getName();
     virtual void close();
 
 private:

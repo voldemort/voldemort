@@ -37,6 +37,10 @@ class SocketStoreClientFactoryImpl;
  * stores. The factory abstracts away any connection pools, thread
  * pools, or other details that will be shared by all the individual
  * @ref StoreClient
+ *
+ * You should allocate one master @ref SocketStoreClientFactory for
+ * your program and then use it to allocate each of the @ref
+ * StoreClient objects you need for your threads.
  */
 class SocketStoreClientFactory: public StoreClientFactory
 {

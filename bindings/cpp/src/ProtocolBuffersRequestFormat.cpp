@@ -19,7 +19,13 @@
 
 #include <utility>
 #include <vector>
-#include <voldemort/VoldemortException.h>
+#include <voldemort/InsufficientOperationalNodesException.h>
+#include <voldemort/StoreOperationFailureException.h>
+#include <voldemort/ObsoleteVersionException.h>
+#include <voldemort/UnreachableStoreException.h>
+#include <voldemort/InconsistentDataException.h>
+#include <voldemort/InvalidMetadataException.h>
+#include <voldemort/PersistenceFailureException.h>
 #include "ProtocolBuffersRequestFormat.h"
 #include "voldemort-client.pb.h"
 #include <arpa/inet.h>
@@ -41,9 +47,9 @@ ProtocolBuffersRequestFormat::~ProtocolBuffersRequestFormat() {
 
 }
 
-static void setupVectorClock(voldemort::VectorClock* vvc, VectorClock* vc) {
+static void setupVectorClock(voldemort::VectorClock* vvc, const VectorClock* vc) {
     std::list<std::pair<short, uint64_t> >::const_iterator it;
-    std::list<std::pair<short, uint64_t> >* entries = vc->getEntries();
+    const std::list<std::pair<short, uint64_t> >* entries = vc->getEntries();
 
     for (it = entries->begin(); it != entries->end(); ++it) {
         voldemort::ClockEntry* entry = vvc->add_entries();
@@ -64,7 +70,27 @@ static VectorClock* readVectorClock(const voldemort::VectorClock* vvc) {
 static void throwException(const voldemort::Error& error) {
     /* XXX - TODO map error types to various exception objects derived
        from VoldemortException */
-    throw VoldemortException(error.error_message());
+    switch(error.error_code()) {
+    case 2:
+        throw InsufficientOperationalNodesException(error.error_message());
+    case 3:
+        throw StoreOperationFailureException(error.error_message());
+    case 4:
+        throw ObsoleteVersionException(error.error_message());
+    case 7:
+        throw UnreachableStoreException(error.error_message());
+    case 8:
+        throw InconsistentDataException(error.error_message());
+    case 9:
+        throw InvalidMetadataException(error.error_message());
+    case 10:
+        throw PersistenceFailureException(error.error_message());
+    case 1:
+    case 5:
+    case 6:
+    default:
+        throw VoldemortException(error.error_message());
+    }
 }
 
 static void writeMessageWithLength(std::ostream* outputStream,
@@ -141,7 +167,7 @@ void ProtocolBuffersRequestFormat::writePutRequest(std::ostream* outputStream,
                                                    const std::string* storeName,
                                                    const std::string* key,
                                                    const std::string* value,
-                                                   VectorClock* version,
+                                                   const VectorClock* version,
                                                    bool shouldReroute) {
     voldemort::VoldemortRequest req;
     req.set_type(voldemort::PUT);
@@ -170,7 +196,7 @@ void ProtocolBuffersRequestFormat::readPutResponse(std::istream* inputStream) {
 void ProtocolBuffersRequestFormat::writeDeleteRequest(std::ostream* outputStream,
                                                       const std::string* storeName,
                                                       const std::string* key,
-                                                      VectorClock* version,
+                                                      const VectorClock* version,
                                                       bool shouldReroute) {
     voldemort::VoldemortRequest req;
     req.set_type(voldemort::DELETE);
