@@ -124,7 +124,9 @@ public class AsyncRequestHandler implements Runnable {
         if((count = socketChannel.read(inputBuffer)) == -1)
             throw new EOFException();
 
-        System.out.println("Read " + count + ", input buffer: " + inputBuffer.position());
+        if(logger.isTraceEnabled())
+            logger.trace("Read " + count + "bytes, total: " + inputBuffer.position() + " for "
+                         + socketChannel.socket().getRemoteSocketAddress());
 
         if(count == 0) {
             if(logger.isDebugEnabled())
@@ -185,8 +187,9 @@ public class AsyncRequestHandler implements Runnable {
         // Write what we can now...
         int count = socketChannel.write(outputBuffer);
 
-        System.out.println("wrote " + count + ", position: " + outputBuffer.position()
-                           + ", remaining: " + outputBuffer.remaining());
+        if(logger.isTraceEnabled())
+            logger.trace("Wrote " + count + "bytes, remaining: " + outputBuffer.remaining()
+                         + " for " + socketChannel.socket().getRemoteSocketAddress());
 
         if(outputBuffer.hasRemaining()) {
             selectionKey.interestOps(SelectionKey.OP_WRITE);
