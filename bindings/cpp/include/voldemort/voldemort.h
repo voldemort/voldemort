@@ -24,6 +24,7 @@
 
 #include <voldemort/SocketStoreClientFactory.h>
 
+#include <voldemort/BootstrapFailureException.h>
 #include <voldemort/InconsistentDataException.h>
 #include <voldemort/InsufficientOperationalNodesException.h>
 #include <voldemort/InvalidMetadataException.h>

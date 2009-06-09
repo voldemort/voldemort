@@ -74,6 +74,8 @@ int main(int argc, char** argv) {
         std::string key2("keytest");
         std::string value2("valuetest");
         client->put(&key2, &value2);
+
+        client->deleteKey(&key2);
         
         VersionedValue value(*client->get(&key));
         cout << "Value: " << *(value.getValue()) << endl;
