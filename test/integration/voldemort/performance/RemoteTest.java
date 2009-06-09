@@ -136,7 +136,7 @@ public class RemoteTest {
                                                                                     .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient(storeName);
 
-        final String value = new String(TestUtils.randomBytes(valueSize));
+        final String value = TestUtils.randomLetters(valueSize);
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
         /*
