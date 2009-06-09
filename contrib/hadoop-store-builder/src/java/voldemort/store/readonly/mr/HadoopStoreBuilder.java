@@ -131,8 +131,14 @@ public class HadoopStoreBuilder {
         FileOutputFormat.setOutputPath(conf, tempDir);
 
         try {
+
+            FileSystem fs = outputDir.getFileSystem(conf);
+            if(fs.exists(outputDir)) {
+                throw new IOException("Final output directory already exists.");
+            }
+
             // delete output dir if it already exists
-            FileSystem fs = tempDir.getFileSystem(conf);
+            fs = tempDir.getFileSystem(conf);
             fs.delete(tempDir, true);
 
             long size = sizeOfPath(fs, inputPath);
