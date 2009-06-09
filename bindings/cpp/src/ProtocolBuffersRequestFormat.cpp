@@ -35,9 +35,14 @@ namespace Voldemort {
 
 using namespace google::protobuf::io;
 
-#define READ_INT(inputStream, val)              \
-    inputStream->read((char*)&val, 4);          \
-    val = ntohl(val);
+#define CHECK_STREAM(stream)                                            \
+    if (inputStream->fail())                                            \
+        throw StoreOperationFailureException("Failed to read from input stream");
+
+#define READ_INT(inputStream, val)                                      \
+    inputStream->read((char*)&val, 4);                                  \
+    CHECK_STREAM(inputStream);                                          \
+    val = ntohl(val);                                                   \
 
 ProtocolBuffersRequestFormat::ProtocolBuffersRequestFormat() {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -107,6 +112,7 @@ static void readMessageWithLength(std::istream* inputStream,
     
     std::vector<char> buffer(mLen);
     inputStream->read(&buffer[0], mLen);
+    CHECK_STREAM(inputStream);
 
     message->ParseFromArray((void*)&buffer[0], mLen);
 }

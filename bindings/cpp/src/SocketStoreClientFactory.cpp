@@ -17,7 +17,7 @@
  * the License.
  */
 
-#include <voldemort/VoldemortException.h>
+#include <voldemort/BootstrapFailureException.h>
 #include <voldemort/SocketStoreClientFactory.h>
 #include "SocketStore.h"
 #include "RoutedStore.h"
@@ -58,7 +58,12 @@ public:
      * Retrieve the given metadata key using the bootstrap list
      */
     VersionedValue bootstrapMetadata(const string& key);
-    Store* getStore(string& key);
+
+    Store* getStore(const string& storeName,
+                    const string& host,
+                    int port,
+                    RequestFormat::RequestFormatType type,
+                    bool shouldReroute);
 
     shared_ptr<ClientConfig> config;
     shared_ptr<ConnectionPool> connPool;
@@ -80,13 +85,15 @@ SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
 Store* SocketStoreClientFactoryImpl::getStore(const string& storeName,
                                               const string& host,
                                               int port,
-                                              RequestFormat::RequestFormatType type) {
+                                              RequestFormat::RequestFormatType type,
+                                              bool shouldReroute) {
     return new SocketStore(storeName,
                            host,
                            port,
                            config,
                            connPool,
-                           type);
+                           type,
+                           shouldReroute);
 }
 
 #define THROW_BOOTSTRAP \
@@ -171,18 +178,19 @@ VersionedValue SocketStoreClientFactoryImpl::bootstrapMetadata(const string& key
             auto_ptr<Store> store(getStore(METADATA_STORE_NAME,
                                            host,
                                            port,
-                                           requestFormatType));
+                                           requestFormatType,
+                                           false));
 
             auto_ptr<std::list<VersionedValue> > vvs(store->get(key));
             if (vvs->size() == 1) {
                 return vvs->front();
             }
         } catch (std::exception& e) {
-            cerr << "Warning: Could not bootstrap " << *it << ":"
+            cerr << "Warning: Could not bootstrap '" << *it << "': "
                  << e.what() << endl;
         }
     }
-    throw VoldemortException("No available boostrap servers found!");
+    throw BootstrapFailureException("No available bootstrap servers found!");
 }
 
 SocketStoreClientFactory::SocketStoreClientFactory(ClientConfig& conf) {
@@ -216,7 +224,8 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
         shared_ptr<Store> store(pimpl_->getStore(storeName,
                                                  it->second->getHost(),
                                                  it->second->getSocketPort(),
-                                                 pimpl_->requestFormatType));
+                                                 pimpl_->requestFormatType,
+                                                 true));
         (*clusterMap)[it->second->getId()] = store;
     }
 

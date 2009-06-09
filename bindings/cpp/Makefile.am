@@ -26,6 +26,7 @@ library_include_HEADERS = \
 	include/voldemort/InvalidMetadataException.h \
 	include/voldemort/ObsoleteVersionException.h \
 	include/voldemort/PersistenceFailureException.h \
+	include/voldemort/BootstrapFailureException.h \
 	include/voldemort/SocketStoreClientFactory.h \
 	include/voldemort/StoreClientFactory.h \
 	include/voldemort/StoreClient.h \

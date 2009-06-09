@@ -34,8 +34,9 @@ SocketStore::SocketStore(const std::string& storeName,
                          int storePort,
                          shared_ptr<ClientConfig>& conf,
                          shared_ptr<ConnectionPool>& pool,
-                         RequestFormat::RequestFormatType requestFormatType) 
-    : name(storeName), host(storeHost), port(storePort), 
+                         RequestFormat::RequestFormatType requestFormatType,
+                         bool shouldReroute) 
+    : name(storeName), host(storeHost), port(storePort), reroute(shouldReroute), 
       config(conf), connPool(pool),
       request(RequestFormat::newRequestFormat(requestFormatType)) {
 
@@ -52,7 +53,7 @@ std::list<VersionedValue>* SocketStore::get(const std::string& key) {
     request->writeGetRequest(&sstream,
                              &name,
                              &key,
-                             false);
+                             reroute);
     sstream.flush();
     return request->readGetResponse(&sstream);
 }
@@ -66,7 +67,7 @@ void SocketStore::put(const std::string& key, const VersionedValue& value) {
                              &key,
                              value.getValue(),
                              dynamic_cast<const VectorClock*>(value.getVersion()),
-                             false);
+                             reroute);
     sstream.flush();
     request->readPutResponse(&sstream);
 
@@ -80,7 +81,7 @@ bool SocketStore::deleteKey(const std::string& key, const Version& version) {
                                 &name,
                                 &key,
                                 dynamic_cast<const VectorClock*>(&version),
-                                false);
+                                reroute);
     sstream.flush();
     return request->readDeleteResponse(&sstream);
 }

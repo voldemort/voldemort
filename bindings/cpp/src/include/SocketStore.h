@@ -54,13 +54,16 @@ public:
      * @param pool the connection pool for connecting to the
      * servers
      * @param requestFormatType the request format type
+     * @param shouldReroute whether to enable server routing for
+     * requests from this store
      */
     SocketStore(const std::string& storeName,
                 const std::string& storeHost,
                 int storePort,
                 shared_ptr<ClientConfig>& conf,
                 shared_ptr<ConnectionPool>& pool,
-                RequestFormat::RequestFormatType requestFormatType);
+                RequestFormat::RequestFormatType requestFormatType,
+                bool shouldReroute);
 
     virtual ~SocketStore();
 
@@ -77,6 +80,7 @@ private:
     std::string name;
     std::string host;
     int port;
+    bool reroute;
 
     shared_ptr<ClientConfig> config;
     shared_ptr<ConnectionPool> connPool;
