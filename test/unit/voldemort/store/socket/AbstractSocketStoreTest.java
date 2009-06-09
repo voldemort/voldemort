@@ -29,7 +29,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.server.socket.SocketServer;
+import voldemort.server.AbstractSocketService;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
@@ -50,7 +50,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     }
 
     private int socketPort;
-    private SocketServer socketServer;
+    private AbstractSocketService socketService;
     private SocketStore socketStore;
     private RequestFormatType requestFormatType;
 
@@ -58,11 +58,12 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     protected void setUp() throws Exception {
         super.setUp();
         this.socketPort = ServerTestUtils.findFreePort();
-        socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
-                                                       VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
-                                                       "test",
-                                                       socketPort,
-                                                       requestFormatType);
+        socketService = ServerTestUtils.getSocketService(VoldemortTestConstants.getOneNodeClusterXml(),
+                                                         VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
+                                                         "test",
+                                                         socketPort,
+                                                         requestFormatType);
+        socketService.start();
         socketStore = ServerTestUtils.getSocketStore("test", socketPort, requestFormatType);
     }
 
@@ -74,7 +75,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        socketServer.shutdown();
+        socketService.stop();
         socketStore.close();
     }
 

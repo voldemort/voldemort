@@ -79,10 +79,10 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         SocketAndStreams sands = pool.checkout(destination);
         try {
             requestFormat.writeDeleteRequest(sands.getOutputStream(),
-                                          name,
-                                          key,
-                                          (VectorClock) version,
-                                          reroute);
+                                             name,
+                                             key,
+                                             (VectorClock) version,
+                                             reroute);
             sands.getOutputStream().flush();
             return requestFormat.readDeleteResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -131,11 +131,11 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         SocketAndStreams sands = pool.checkout(destination);
         try {
             requestFormat.writePutRequest(sands.getOutputStream(),
-                                       name,
-                                       key,
-                                       versioned.getValue(),
-                                       (VectorClock) versioned.getVersion(),
-                                       reroute);
+                                          name,
+                                          key,
+                                          versioned.getValue(),
+                                          (VectorClock) versioned.getVersion(),
+                                          reroute);
             sands.getOutputStream().flush();
             requestFormat.readPutResponse(sands.getInputStream());
         } catch(IOException e) {

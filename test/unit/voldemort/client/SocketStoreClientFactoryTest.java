@@ -21,7 +21,7 @@ import java.net.URISyntaxException;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.SerializerFactory;
-import voldemort.server.socket.SocketServer;
+import voldemort.server.AbstractSocketService;
 
 /**
  * @author jay
@@ -29,7 +29,7 @@ import voldemort.server.socket.SocketServer;
  */
 public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
-    private SocketServer server;
+    private AbstractSocketService socketService;
 
     public SocketStoreClientFactoryTest() {
         super();
@@ -38,17 +38,18 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        server = ServerTestUtils.getSocketServer(getClusterXml(),
-                                                 getStoreDefXml(),
-                                                 getValidStoreName(),
-                                                 getLocalNode().getSocketPort(),
-                                                 RequestFormatType.VOLDEMORT);
+        socketService = ServerTestUtils.getSocketService(getClusterXml(),
+                                                         getStoreDefXml(),
+                                                         getValidStoreName(),
+                                                         getLocalNode().getSocketPort(),
+                                                         RequestFormatType.VOLDEMORT);
+        socketService.start();
     }
 
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        server.shutdown();
+        socketService.stop();
     }
 
     @Override

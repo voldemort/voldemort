@@ -35,12 +35,14 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.http.StoreServlet;
+import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.server.socket.SocketServer;
+import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.http.HttpStore;
@@ -77,23 +79,36 @@ public class ServerTestUtils {
         return repository;
     }
 
-    public static SocketServer getSocketServer(String clusterXml,
-                                               String storesXml,
-                                               String storeName,
-                                               int port,
-                                               RequestFormatType type) {
+    public static AbstractSocketService getSocketService(String clusterXml,
+                                                         String storesXml,
+                                                         String storeName,
+                                                         int port,
+                                                         RequestFormatType type) {
         RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
                                                                             clusterXml,
                                                                             storesXml), null, null);
-        SocketServer socketServer = new SocketServer("Socket-Server",
-                                                     port,
-                                                     5,
-                                                     10,
-                                                     10000,
-                                                     factory.getRequestHandler(type));
-        socketServer.start();
-        socketServer.awaitStartupCompletion();
-        return socketServer;
+        return getSocketService(factory.getRequestHandler(type), port, 5, 10, 10000);
+    }
+
+    public static AbstractSocketService getSocketService(RequestHandler requestHandler,
+                                                         int port,
+                                                         int coreConnections,
+                                                         int maxConnections,
+                                                         int bufferSize) {
+        AbstractSocketService socketService = null;
+
+        if(true) {
+            socketService = new NioSocketService(requestHandler, port, bufferSize, coreConnections);
+        } else {
+            socketService = new SocketService(requestHandler,
+                                              port,
+                                              coreConnections,
+                                              maxConnections,
+                                              bufferSize,
+                                              "client-request-service");
+        }
+
+        return socketService;
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
@@ -133,14 +148,14 @@ public class ServerTestUtils {
     }
 
     /**
-     * Return a free port as chosen by new SocketServer(0)
+     * Return a free port as chosen by new ServerSocket(0)
      */
     public static int findFreePort() {
         return findFreePorts(1)[0];
     }
 
     /**
-     * Return an array of free ports as chosen by new SocketServer(0)
+     * Return an array of free ports as chosen by new ServerSocket(0)
      */
     public static int[] findFreePorts(int n) {
         int[] ports = new int[n];

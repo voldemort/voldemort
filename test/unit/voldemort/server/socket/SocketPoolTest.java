@@ -18,6 +18,7 @@ package voldemort.server.socket;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -38,7 +39,7 @@ public class SocketPoolTest extends TestCase {
     private int maxTotalConnections = 2 * maxConnectionsPerNode + 1;
     private SocketPool pool;
     private SocketDestination dest1;
-    private SocketServer server;
+    private AbstractSocketService socketService;
 
     @Override
     public void setUp() {
@@ -51,20 +52,18 @@ public class SocketPoolTest extends TestCase {
         this.dest1 = new SocketDestination("localhost", port);
         VoldemortNativeRequestHandler requestHandler = new VoldemortNativeRequestHandler(new ErrorCodeMapper(),
                                                                                          new StoreRepository());
-        this.server = new SocketServer("test-socket",
-                                       port,
-                                       maxTotalConnections,
-                                       maxTotalConnections + 3,
-                                       10000,
-                                       requestHandler);
-        this.server.start();
-        this.server.awaitStartupCompletion();
+        this.socketService = ServerTestUtils.getSocketService(requestHandler,
+                                                              port,
+                                                              maxTotalConnections,
+                                                              maxTotalConnections + 3,
+                                                              10000);
+        this.socketService.start();
     }
 
     @Override
     public void tearDown() {
         this.pool.close();
-        this.server.shutdown();
+        this.socketService.stop();
     }
 
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {

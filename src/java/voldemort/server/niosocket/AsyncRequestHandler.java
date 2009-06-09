@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -101,6 +102,8 @@ public class AsyncRequestHandler implements Runnable {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn("Unknown state, not readable, writable, or valid...");
             }
+        } catch(CancelledKeyException e) {
+            close(selectionKey);
         } catch(EOFException e) {
             close(selectionKey);
         } catch(Throwable t) {
@@ -120,6 +123,8 @@ public class AsyncRequestHandler implements Runnable {
 
         if((count = socketChannel.read(inputBuffer)) == -1)
             throw new EOFException();
+
+        System.out.println("Read " + count + ", input buffer: " + inputBuffer.position());
 
         if(count == 0) {
             if(logger.isDebugEnabled())
@@ -157,6 +162,7 @@ public class AsyncRequestHandler implements Runnable {
                 inputStream.setBuffer(inputBuffer);
             }
 
+            inputBuffer.clear();
             outputStream.getBuffer().flip();
             selectionKey.interestOps(SelectionKey.OP_WRITE);
         } else {
@@ -177,9 +183,14 @@ public class AsyncRequestHandler implements Runnable {
         ByteBuffer outputBuffer = outputStream.getBuffer();
 
         // Write what we can now...
-        socketChannel.write(outputBuffer);
+        int count = socketChannel.write(outputBuffer);
 
-        if(!outputBuffer.hasRemaining()) {
+        System.out.println("wrote " + count + ", position: " + outputBuffer.position()
+                           + ", remaining: " + outputBuffer.remaining());
+
+        if(outputBuffer.hasRemaining()) {
+            selectionKey.interestOps(SelectionKey.OP_WRITE);
+        } else {
             // If we don't have anything else to write, that means we're done
             // with the request! So clear the buffers (resizing if necessary)
             // and signal the Selector that we're ready to take the next
@@ -189,6 +200,7 @@ public class AsyncRequestHandler implements Runnable {
                 outputStream.setBuffer(outputBuffer);
             }
 
+            outputBuffer.clear();
             selectionKey.interestOps(SelectionKey.OP_READ);
         }
     }
@@ -212,8 +224,13 @@ public class AsyncRequestHandler implements Runnable {
                 logger.warn(ex, ex);
         }
 
-        selectionKey.attach(null);
-        selectionKey.cancel();
+        try {
+            selectionKey.attach(null);
+            selectionKey.cancel();
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e, e);
+        }
     }
 
 }
