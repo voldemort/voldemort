@@ -203,10 +203,10 @@ public class ServerTestUtils {
 
     public static StoreDefinition getStoreDef(String storeName,
                                               int replicationFactor,
-                                              int rreads,
                                               int preads,
-                                              int rwrites,
+                                              int rreads,
                                               int pwrites,
+                                              int rwrites,
                                               String strategyType) {
         SerializerDefinition serDef = new SerializerDefinition("string");
         return new StoreDefinition(storeName,
@@ -216,10 +216,10 @@ public class ServerTestUtils {
                                    RoutingTier.SERVER,
                                    strategyType,
                                    replicationFactor,
-                                   rreads,
                                    preads,
-                                   rwrites,
+                                   rreads,
                                    pwrites,
+                                   rwrites,
                                    1);
     }
 

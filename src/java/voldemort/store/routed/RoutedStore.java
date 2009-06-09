@@ -268,8 +268,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             checkRequiredReads(availableNodes);
             int preferredReads = storeDef.getPreferredReads();
             List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferredReads);
-            List<Node> extraNodes = Lists.newArrayListWithCapacity(availableNodes.size()
-                                                                   - preferredReads);
+            List<Node> extraNodes = Lists.newArrayListWithCapacity(3);
 
             for(Node node: availableNodes) {
                 if(preferredNodes.size() < preferredReads)

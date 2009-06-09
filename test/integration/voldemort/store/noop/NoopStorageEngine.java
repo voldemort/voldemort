@@ -29,19 +29,29 @@ import voldemort.VoldemortException;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 
 
 /**
- *  Implementation of a store that does the least amount possible.
+ *  Implementation of a store that does the least amount possible.  It will
+ *  'reflect' values sent to it so that it can be tested with real values.
+ *  It's being done this way to avoid coupling the engine or it's configuration
+ *  with knowledge of the serializer being used
  *
  */
 public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
-    protected String _name;
-    protected ArrayList<Versioned<byte[]>> _data = new ArrayList<Versioned<byte[]>>(0);
+    protected String name;
+    protected boolean dataReflect;
+    protected ByteArray key;
+    protected Versioned<byte[]> value;
+    protected List<Versioned<byte[]>> dataList = new MyList();
+    protected Map<ByteArray, List<Versioned<byte[]>>> dataMap = new MyMap();
 
-    public NoopStorageEngine(String name) {
-        _name = name;
+    public NoopStorageEngine(String name, boolean reflect) {
+        this.name = name;
+        this.dataReflect = reflect;
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -49,14 +59,19 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        return _data;
+        return dataList;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys) throws VoldemortException {
-        return null;
+        return dataMap;
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+
+        if (dataReflect) {
+            this.key = key;
+            this.value = value;
+        }
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
@@ -64,7 +79,7 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public String getName() {
-        return _name;
+        return name;
     }
 
     public void close() throws VoldemortException {
@@ -72,5 +87,23 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
+    }
+
+    class MyMap extends HashMap<ByteArray, List<Versioned<byte[]>>> {
+
+        public List<Versioned<byte[]>> get(Object key) {
+            return dataList;
+        }
+    }
+
+    class MyList extends ArrayList<Versioned<byte[]>> {
+
+        public Versioned<byte[]> get(int index) {
+            return value;
+        }
+
+        public int size() {
+            return value == null ? 0 : 1;
+        }
     }
 }
