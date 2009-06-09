@@ -22,6 +22,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -102,6 +103,8 @@ public class AsyncRequestHandler implements Runnable {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn("Unknown state, not readable, writable, or valid...");
             }
+        } catch(ClosedByInterruptException e) {
+            close(selectionKey);
         } catch(CancelledKeyException e) {
             close(selectionKey);
         } catch(EOFException e) {
@@ -162,9 +165,10 @@ public class AsyncRequestHandler implements Runnable {
             if(inputBuffer.capacity() >= resizeThreshold) {
                 inputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
                 inputStream.setBuffer(inputBuffer);
+            } else {
+                inputBuffer.clear();
             }
 
-            inputBuffer.clear();
             outputStream.getBuffer().flip();
             selectionKey.interestOps(SelectionKey.OP_WRITE);
         } else {
@@ -191,9 +195,7 @@ public class AsyncRequestHandler implements Runnable {
             logger.trace("Wrote " + count + "bytes, remaining: " + outputBuffer.remaining()
                          + " for " + socketChannel.socket().getRemoteSocketAddress());
 
-        if(outputBuffer.hasRemaining()) {
-            selectionKey.interestOps(SelectionKey.OP_WRITE);
-        } else {
+        if(!outputBuffer.hasRemaining()) {
             // If we don't have anything else to write, that means we're done
             // with the request! So clear the buffers (resizing if necessary)
             // and signal the Selector that we're ready to take the next
@@ -201,9 +203,10 @@ public class AsyncRequestHandler implements Runnable {
             if(outputBuffer.capacity() >= resizeThreshold) {
                 outputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
                 outputStream.setBuffer(outputBuffer);
+            } else {
+                outputBuffer.clear();
             }
 
-            outputBuffer.clear();
             selectionKey.interestOps(SelectionKey.OP_READ);
         }
     }
