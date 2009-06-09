@@ -14,14 +14,13 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort.utils;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import voldemort.annotations.concurrency.NotThreadsafe;
-import voldemort.utils.ByteUtils;
 
 /**
  * ByteBufferBackedOutputStream serves two purposes:
@@ -77,7 +76,7 @@ public class ByteBufferBackedOutputStream extends OutputStream {
             return;
 
         int newCapacity = buffer.capacity() + need;
-        buffer = ByteUtils.expand(buffer, newCapacity);
+        buffer = ByteUtils.expand(buffer, newCapacity * 2);
     }
 
 }

@@ -10,13 +10,13 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
-import voldemort.server.ByteBufferBackedInputStream;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;

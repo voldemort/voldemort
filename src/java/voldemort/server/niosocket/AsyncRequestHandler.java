@@ -28,9 +28,9 @@ import java.nio.channels.SocketChannel;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.server.ByteBufferBackedInputStream;
-import voldemort.server.ByteBufferBackedOutputStream;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.utils.ByteBufferBackedInputStream;
+import voldemort.utils.ByteBufferBackedOutputStream;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -132,9 +132,8 @@ public class AsyncRequestHandler implements Runnable {
         final int position = inputBuffer.position();
 
         inputBuffer.flip();
-        boolean isCompleteRequest = requestHandler.isCompleteRequest(inputBuffer);
 
-        if(isCompleteRequest) {
+        if(requestHandler.isCompleteRequest(inputBuffer)) {
             // If we have the full request, flip the buffer for reading
             // and execute the request
             inputBuffer.rewind();

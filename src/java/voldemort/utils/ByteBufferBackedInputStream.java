@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
