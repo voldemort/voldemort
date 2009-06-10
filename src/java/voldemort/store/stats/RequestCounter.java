@@ -64,16 +64,21 @@ public class RequestCounter {
         Accumulator accum = values.get();
         long now = System.currentTimeMillis();
 
-        if(now - accum.startTimeMS > durationMS) {
-            Accumulator newWithTotal = accum.newWithTotal();
-            values.set(newWithTotal);
+        /*
+         *  if still in the window, just return it
+         */
+        if(now - accum.startTimeMS <= durationMS) {
+            return accum;
+        }
 
-            /*
-             * try to set.  if we fail, then someone else set it, so just keep going
-             */
-            if(values.compareAndSet(accum, newWithTotal)) {
-                return newWithTotal;
-            }
+        /*
+         * try to set.  if we fail, then someone else set it, so just return that new one
+         */
+
+        Accumulator newWithTotal = accum.newWithTotal();
+
+        if(values.compareAndSet(accum, newWithTotal)) {
+            return newWithTotal;
         }
 
         return values.get();
