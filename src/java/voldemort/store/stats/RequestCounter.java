@@ -60,18 +60,23 @@ public class RequestCounter {
     }
 
     private Accumulator getValidAccumulator() {
+
         Accumulator accum = values.get();
         long now = System.currentTimeMillis();
+
         if(now - accum.startTimeMS > durationMS) {
             Accumulator newWithTotal = accum.newWithTotal();
-            while(true) {
-                if(values.compareAndSet(accum, newWithTotal)) {
-                    return newWithTotal;
-                }
+            values.set(newWithTotal);
+
+            /*
+             * try to set.  if we fail, then someone else set it, so just keep going
+             */
+            if(values.compareAndSet(accum, newWithTotal)) {
+                return newWithTotal;
             }
-        } else {
-            return accum;
         }
+
+        return values.get();
     }
 
     /*
