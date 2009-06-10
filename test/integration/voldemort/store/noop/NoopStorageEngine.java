@@ -1,12 +1,12 @@
 /*
  * Copyright 2009 Geir Magnusson Jr.
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,29 +16,27 @@
 
 package voldemort.store.noop;
 
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.versioning.Versioned;
-import voldemort.versioning.Version;
-import voldemort.utils.Pair;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.ByteArray;
-import voldemort.VoldemortException;
-
-import java.util.List;
-import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
+import voldemort.VoldemortException;
+import voldemort.store.NoSuchCapabilityException;
+import voldemort.store.StorageEngine;
+import voldemort.store.StoreCapabilityType;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
 
 /**
- *  Implementation of a store that does the least amount possible.  It will
- *  'reflect' values sent to it so that it can be tested with real values.
- *  It's being done this way to avoid coupling the engine or it's configuration
- *  with knowledge of the serializer being used
- *
+ * Implementation of a store that does the least amount possible. It will
+ * 'reflect' values sent to it so that it can be tested with real values. It's
+ * being done this way to avoid coupling the engine or it's configuration with
+ * knowledge of the serializer being used
+ * 
  */
 public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
@@ -62,13 +60,14 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return dataList;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys) throws VoldemortException {
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
         return dataMap;
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
 
-        if (dataReflect) {
+        if(dataReflect) {
             this.key = key;
             this.value = value;
         }
@@ -82,8 +81,7 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return name;
     }
 
-    public void close() throws VoldemortException {
-    }
+    public void close() throws VoldemortException {}
 
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
@@ -91,6 +89,9 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     class MyMap extends HashMap<ByteArray, List<Versioned<byte[]>>> {
 
+        public static final long serialVersionUID = 1;
+
+        @Override
         public List<Versioned<byte[]>> get(Object key) {
             return dataList;
         }
@@ -98,10 +99,14 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     class MyList extends ArrayList<Versioned<byte[]>> {
 
+        public static final long serialVersionUID = 1;
+
+        @Override
         public Versioned<byte[]> get(int index) {
             return value;
         }
 
+        @Override
         public int size() {
             return value == null ? 0 : 1;
         }

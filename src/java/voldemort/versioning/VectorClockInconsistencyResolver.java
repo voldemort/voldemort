@@ -22,18 +22,14 @@ import java.util.List;
 import com.google.common.collect.Lists;
 
 /**
- * An inconsistency resolver that uses the object VectorClocks when possible and
- * delegates to a user supplied semantic resolver when necessary.
+ * An inconsistency resolver that uses the object VectorClocks leaving only a
+ * set of concurrent versions remaining.
  * 
  * @author jay
  * 
  */
 public class VectorClockInconsistencyResolver<T> implements InconsistencyResolver<Versioned<T>> {
 
-    /**
-     * Combine the two objects by taking the object with the least version. If
-     * both have concurrent versions use the user-supplied conflict resolver.
-     */
     public List<Versioned<T>> resolveConflicts(List<Versioned<T>> items) {
         int size = items.size();
         if(size <= 1)
