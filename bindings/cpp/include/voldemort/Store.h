@@ -22,7 +22,6 @@
 #define STORE_H
 
 #include <voldemort/VersionedValue.h>
-#include <boost/shared_ptr.hpp>
 
 #include <list>
 #include <string>

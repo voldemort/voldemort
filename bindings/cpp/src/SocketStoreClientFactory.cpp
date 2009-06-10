@@ -24,6 +24,9 @@
 #include "RequestFormat.h"
 #include "DefaultStoreClient.h"
 #include "Cluster.h"
+#include "InconsistencyResolvingStore.h"
+#include "TimeBasedInconsistencyResolver.h"
+#include "VectorClockInconsistencyResolver.h"
 
 #include <iostream>
 #include <exception>
@@ -74,8 +77,9 @@ public:
 SocketStoreClientFactoryImpl::SocketStoreClientFactoryImpl(ClientConfig& conf) 
     : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)),
       requestFormatType(RequestFormat::PROTOCOL_BUFFERS), 
-      threadPool(new threadpool::pool()) {
-    threadPool->size_controller().resize(config->getMaxThreads());
+      threadPool() 
+{
+    //threadPool->size_controller().resize(config->getMaxThreads());
 }
 
 SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
@@ -204,13 +208,21 @@ SocketStoreClientFactory::~SocketStoreClientFactory() {
 }
 
 StoreClient* SocketStoreClientFactory::getStoreClient(std::string& storeName) {
-    shared_ptr<Store> store(getRawStore(storeName));
+    shared_ptr<InconsistencyResolver> nullResolver;
+    return getStoreClient(storeName, nullResolver);
+}
+
+StoreClient* SocketStoreClientFactory::
+getStoreClient(std::string& storeName,
+               shared_ptr<InconsistencyResolver>& resolver) {
+    shared_ptr<Store> store(getRawStore(storeName, resolver));
     return new DefaultStoreClient(store,
                                   pimpl_->config);
 
 }
 
-Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
+Store* SocketStoreClientFactory::getRawStore(std::string& storeName,
+                                             shared_ptr<InconsistencyResolver>& resolver) {
     VersionedValue clustervv = pimpl_->bootstrapMetadata(CLUSTER_KEY);
     const std::string* clusterXml = clustervv.getValue();
     shared_ptr<Cluster> cluster(new Cluster(*clusterXml));
@@ -232,13 +244,32 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName) {
     //VersionedValue storevv = pimpl_->bootstrapMetadata(STORES_KEY);
     //const std::string* storesXml = storevv.getValue();
 
-    /* XXX - TODO Add inconsistency resolver */
+    shared_ptr<Store> routedStore(new RoutedStore(storeName,
+                                                  pimpl_->config,
+                                                  cluster,
+                                                  clusterMap,
+                                                  pimpl_->threadPool));
 
-    return new RoutedStore(storeName,
-                           pimpl_->config,
-                           cluster,
-                           clusterMap,
-                           pimpl_->threadPool);
+    /* XXX - TODO Add inconsistency resolver */
+    InconsistencyResolvingStore* conStore = new InconsistencyResolvingStore(routedStore);
+    try {
+        shared_ptr<InconsistencyResolver> 
+            vcResolver(new VectorClockInconsistencyResolver());
+        conStore->addResolver(vcResolver);
+        
+        if (resolver.get()) {
+            conStore->addResolver(resolver);
+        } else {
+            shared_ptr<InconsistencyResolver> 
+                tbResolver(new TimeBasedInconsistencyResolver());
+            conStore->addResolver(tbResolver);
+        }
+    } catch (...) {
+        if (conStore) delete conStore;
+        throw;
+    }
+
+    return conStore;
 }
 
 } /* namespace Voldemort */

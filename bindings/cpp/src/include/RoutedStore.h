@@ -34,15 +34,14 @@ namespace Voldemort {
 using namespace boost;
 
 /**
- * The client implementation of a socket store -- translates each request into a
- * network operation to be handled by the socket server on the other side.
+ * A Store which multiplexes requests to different internal Stores
  */
 class RoutedStore: public Store
 {
 public:
     /**
-     * Construct a new RoutedStore object to connect to the provided
-     * host.
+     * Construct a new RoutedStore object which will route requests to
+     * the given collection of nodes in the cluster.
      *
      * @param storeName the name of the storee
      * @param config the @ref ClientConfig object

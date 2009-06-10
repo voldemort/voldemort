@@ -8,4 +8,4 @@ Description: Project Voldemort C/C++ client library
 Version: @VERSION@
 Libs: -L${libdir} -lvoldemort 
 Libs.private: @LIBS@ @PTHREAD_LIBS@ @BOOST_ASIO_LIB@
-Cflags: -I${includedir} @PTHREAD_CFLAGS@
+Cflags: -I${includedir} @PTHREAD_CFLAGS@ @BOOST_CPPFLAGS@

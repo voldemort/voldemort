@@ -23,9 +23,14 @@
 
 #include <voldemort/StoreClient.h>
 #include <voldemort/Store.h>
+#include <voldemort/InconsistencyResolver.h>
 #include <string>
 
+#include <boost/shared_ptr.hpp>
+
 namespace Voldemort {
+
+using namespace boost;
 
 /**
  * Represents a connection to a Voldemort cluster and can be used to
@@ -42,12 +47,29 @@ public:
     /**
      * Get a @ref StoreClient for the given store.  Returns a newly
      * allocated object which is owned by the caller and must be
-     * freed.
+     * freed.  Use the default inconsistency resolution strategy.
      * 
      * @param storeName the name of the store
      * @return A fully-constructed @ref StoreClient
+     * @see getStoreClient(std::string&, InconsistencyResolver*)
      */
     virtual StoreClient* getStoreClient(std::string& storeName) = 0;
+
+    /**
+     * Get a @ref StoreClient for the given store.  Returns a newly
+     * allocated object which is owned by the caller and must be
+     * freed.
+     * 
+     * @param storeName the name of the store
+     * @param resolver a shared pointer to an @ref
+     * InconsistencyResolver that should be used to resolve
+     * inconsistencies.  May be NULL, in which case a default
+     * time-based resolution scheme will be used.
+     * @return A fully-constructed @ref StoreClient
+     * @see getStoreClient(std::string&)
+     */
+    virtual StoreClient* getStoreClient(std::string& storeName,
+                                        shared_ptr<InconsistencyResolver>& resolver) = 0;
 
     /**
      * Get the underlying store, not the public StoreClient interface.
@@ -55,9 +77,14 @@ public:
      * and must be freed.
      * 
      * @param storeName the name of the store
+     * @param resolver a shared pointer to an @ref
+     * InconsistencyResolver that should be used to resolve
+     * inconsistencies.  May be NULL, in which case a default
+     * time-based resolution scheme will be used.
      * @return the appropriate store
      */
-    virtual Store* getRawStore(std::string& storeName) = 0;
+    virtual Store* getRawStore(std::string& storeName,
+                               shared_ptr<InconsistencyResolver>& resolver) = 0;
    
 };
 

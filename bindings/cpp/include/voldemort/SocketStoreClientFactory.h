@@ -53,9 +53,12 @@ public:
 
     virtual ~SocketStoreClientFactory();
 
+    // StoreClientFactory interface
     virtual StoreClient* getStoreClient(std::string& storeName);
-
-    virtual Store* getRawStore(std::string& storeName);
+    virtual StoreClient* getStoreClient(std::string& storeName,
+                                        shared_ptr<InconsistencyResolver>& resolver);
+    virtual Store* getRawStore(std::string& storeName,
+                               shared_ptr<InconsistencyResolver>& resolver);
 
 private:
     /** Internal implementation details */

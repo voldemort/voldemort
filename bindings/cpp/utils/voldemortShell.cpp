@@ -27,21 +27,6 @@
 using namespace std;
 using namespace Voldemort;
 
-void doGet(Store* rawStore, const std::string& key) {
-    cout << "Getting key \"" << key << "\"" << endl;
-
-    auto_ptr<list<VersionedValue> > values(rawStore->get(key));
-    if (values.get() != NULL) {
-        list<VersionedValue>::const_iterator it;
-        
-        for (it = values->begin(); it != values->end(); ++it) {
-            const char* cstr = it->getValue()->c_str();
-            cout << "  Value: " << cstr << endl;
-            
-        }
-    }
-}
-
 int main(int argc, char** argv) {
     try {
         // Initialize the bootstrap URLs.  This is a list of server URLs
@@ -71,12 +56,6 @@ int main(int argc, char** argv) {
 
         // Get a value
         std::string key("hello");
-        std::string key2("keytest");
-        std::string value2("valuetest");
-        client->put(&key2, &value2);
-
-        client->deleteKey(&key2);
-        
         VersionedValue value(*client->get(&key));
         cout << "Value: " << *(value.getValue()) << endl;
         
@@ -88,13 +67,13 @@ int main(int argc, char** argv) {
 
         value = *client->get(&key);
         cout << "Value: " << *(value.getValue()) << endl;
-#if 0
-        auto_ptr<Store> rawStore(factory.getRawStore(storeName));
-    
-        doGet(rawStore.get(), "hello");
-        doGet(rawStore.get(), "hello1");
-        doGet(rawStore.get(), "hello2");
-#endif
+
+        // Set and then delete a key
+        std::string key2("keytest");
+        std::string value2("valuetest");
+        client->put(&key2, &value2);
+        client->deleteKey(&key2);
+
     } catch (VoldemortException& v) {
         cerr << "Voldemort Error: " << v.what() << endl;
     }

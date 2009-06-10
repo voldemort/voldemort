@@ -32,6 +32,9 @@ libvoldemort_la_SOURCES = \
 	include/ConnectionPool.h \
 	include/Cluster.h \
 	include/RoutedStore.h \
+	include/InconsistencyResolvingStore.h \
+	include/VectorClockInconsistencyResolver.h \
+	include/TimeBasedInconsistencyResolver.h \
 	DefaultStoreClient.cpp \
 	VersionedValue.cpp \
 	VectorClock.cpp \
@@ -45,6 +48,9 @@ libvoldemort_la_SOURCES = \
 	ConnectionPool.cpp \
 	Cluster.cpp \
 	RoutedStore.cpp \
+	InconsistencyResolvingStore.cpp \
+	VectorClockInconsistencyResolver.cpp \
+	TimeBasedInconsistencyResolver.cpp \
 	voldemort-client.pb.cc \
 	voldemort-client.pb.h 
 
