@@ -41,7 +41,7 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {
+public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {
 
     private static final Logger logger = Logger.getLogger(AbstractSocketStoreTest.class);
 

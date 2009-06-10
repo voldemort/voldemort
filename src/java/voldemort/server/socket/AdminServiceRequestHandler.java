@@ -347,7 +347,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             String storesString = inputStream.readUTF();
 
-            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(new String(storesString)));
+            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(storesString));
 
             // update cluster details in metaDataStore
             metadataStore.put(new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8")),

@@ -19,6 +19,7 @@ package voldemort.store.routed;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -410,6 +411,45 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             byte[] value = expectedValues.get(mapEntry.getKey());
             assertEquals(new ByteArray(value), new ByteArray(mapEntry.getValue().get(0).getValue()));
         }
+    }
+
+    /**
+     * One node up, two preferred reads and one required read. See:
+     * 
+     * http://github.com/voldemort/voldemort/issues#issue/18
+     */
+    public void testGetAllWithMorePreferredReadsThanNodes() {
+        Cluster cluster = VoldemortTestConstants.getTwoNodeCluster();
+
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               2,
+                                                               2,
+                                                               1,
+                                                               2,
+                                                               2,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
+                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
+                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+
+        RoutedStore routedStore = new RoutedStore("test",
+                                                  subStores,
+                                                  cluster,
+                                                  storeDef,
+                                                  1,
+                                                  true,
+                                                  1000L);
+
+        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, Versioned.value(aValue));
+        cluster.getNodes().iterator().next().getStatus().setUnavailable();
+        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(Arrays.asList(aKey));
+        assertEquals(1, all.size());
+        assertTrue(Arrays.equals(aValue, all.values().iterator().next().get(0).getValue()));
     }
 
     /**
