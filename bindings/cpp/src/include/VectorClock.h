@@ -25,6 +25,7 @@
 #include <voldemort/Version.h>
 #include <list>
 #include <utility>
+#include <ostream>
 
 namespace Voldemort {
 
@@ -98,6 +99,8 @@ class VectorClock: public Version
      * Get the timestamp
      */
     uint64_t getTimestamp();
+
+    friend std::ostream& operator<<(std::ostream&, const VectorClock& );
 
 private:
     // Disable copy constructor

@@ -41,7 +41,9 @@ class Version
         /** version 1 is before version 2 */
         BEFORE,
         /** version 1 and 2 are concurrent */
-        CONCURRENTLY
+        CONCURRENTLY,
+        /** version 1 and 2 are equal */
+        EQUAL
     };
 
     /**

@@ -74,7 +74,7 @@ VectorClock::Occurred VectorClock::compare(VectorClock* v1, VectorClock* v2) {
         if (ver1.first == ver2.first) {
             if (ver1.second > ver2.second)
                 v1Bigger = true;
-            else
+            else if (ver2.second > ver1.second)
                 v2Bigger = true;
 
             ++it1;
@@ -100,7 +100,7 @@ VectorClock::Occurred VectorClock::compare(VectorClock* v1, VectorClock* v2) {
 
     /* This is the case where they are equal, return BEFORE arbitrarily */
     if(!v1Bigger && !v2Bigger)
-        return VectorClock::BEFORE;
+        return VectorClock::EQUAL;
     /* This is the case where v1 is a successor clock to v2 */
     else if(v1Bigger && !v2Bigger)
         return VectorClock::AFTER;
@@ -118,6 +118,19 @@ const std::list<std::pair<short, uint64_t> >* VectorClock::getEntries() const {
 
 uint64_t VectorClock::getTimestamp() {
     return timestamp;
+}
+
+std::ostream& operator<<(std::ostream& output, const VectorClock& vc) {
+    output << "version(";
+    std::list<std::pair<short, uint64_t> >::const_iterator it;
+    for (it = vc.versions->begin(); it != vc.versions->end(); ++it) {
+        if (it != vc.versions->begin()) 
+            output << ", ";
+        output << it->first << ":" << it->second;
+    }
+    output << ")";
+
+    return output;
 }
 
 } /* namespace Voldemort */

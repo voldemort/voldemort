@@ -17,6 +17,8 @@
  * the License.
  */
 
+#include <iostream>
+
 #include <string.h>
 #include <voldemort/Version.h>
 #include <voldemort/VersionedValue.h>
@@ -33,28 +35,68 @@ static bool compare_clocks(VersionedValue& v1, VersionedValue& v2) {
     VectorClock* vc2 = dynamic_cast<VectorClock*>(v2.getVersion());
 
     Version::Occurred occurred = vc1->compare(vc2);
-    if (occurred == Version::BEFORE)
+
+    //std::cout << *vc1 << " " << occurred << " " << *vc2 << std::endl;
+    if (occurred == Version::BEFORE || occurred == Version::EQUAL) {
         return true;
+    }
 
     return false;
 }
+
+class not_concurrent
+{
+public:
+    not_concurrent(VectorClock* v) : vc(v) { } 
+
+    bool operator() (const VersionedValue& value) {
+        VectorClock* vvc = dynamic_cast<VectorClock*>(value.getVersion());
+        return (Version::CONCURRENTLY != vvc->compare(vc));
+    }
+
+private:
+    VectorClock* vc;
+};
 
 void VectorClockInconsistencyResolver::
 resolveConflicts(std::list<VersionedValue>* items) const {
     if (items->size() <= 1)
         return;
 
-    items->sort(compare_clocks);
+    std::list<VersionedValue>::iterator it;
+    std::list<VersionedValue>::iterator it2;
 
-    VectorClock* lastClock = 
-        dynamic_cast<VectorClock*>(items->back().getVersion());
-    std::list<VersionedValue>::reverse_iterator it;
-    for (it = items->rbegin(); it != items->rend(); ++it) {
-        VectorClock* curClock = 
+    std::list<VersionedValue> newitems;
+    for (it = items->begin(); it != items->end(); ++it) {
+        VectorClock* vc1 = 
             dynamic_cast<VectorClock*>(it->getVersion());
-        if (Version::CONCURRENTLY != curClock->compare(lastClock))
-            items->erase((++it).base());
+        bool found = false;
+        for (it2 = newitems.begin(); it2 != newitems.end(); ++it2) {
+            VectorClock* vc2 = 
+                dynamic_cast<VectorClock*>(it2->getVersion());
+
+            Version::Occurred o = vc1->compare(vc2);
+
+            switch (o) {
+            case Version::AFTER:
+                if (found) {
+                    it2 = newitems.erase(it2);
+                } else {
+                    *it2 = *it;
+                }
+                /* fall through */
+            case Version::BEFORE:
+            case Version::EQUAL:
+                found = true;
+                break;
+            default:
+                break;
+            }
+        }
+        if (!found)
+            newitems.push_back(*it);
     }
+    *items = newitems;
 }
 
 } /* namespace Voldemort */
