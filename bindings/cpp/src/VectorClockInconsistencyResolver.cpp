@@ -30,34 +30,6 @@ namespace Voldemort {
 
 using namespace std;
 
-static bool compare_clocks(VersionedValue& v1, VersionedValue& v2) {
-    VectorClock* vc1 = dynamic_cast<VectorClock*>(v1.getVersion());
-    VectorClock* vc2 = dynamic_cast<VectorClock*>(v2.getVersion());
-
-    Version::Occurred occurred = vc1->compare(vc2);
-
-    //std::cout << *vc1 << " " << occurred << " " << *vc2 << std::endl;
-    if (occurred == Version::BEFORE || occurred == Version::EQUAL) {
-        return true;
-    }
-
-    return false;
-}
-
-class not_concurrent
-{
-public:
-    not_concurrent(VectorClock* v) : vc(v) { } 
-
-    bool operator() (const VersionedValue& value) {
-        VectorClock* vvc = dynamic_cast<VectorClock*>(value.getVersion());
-        return (Version::CONCURRENTLY != vvc->compare(vc));
-    }
-
-private:
-    VectorClock* vc;
-};
-
 void VectorClockInconsistencyResolver::
 resolveConflicts(std::list<VersionedValue>* items) const {
     if (items->size() <= 1)
