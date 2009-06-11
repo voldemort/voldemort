@@ -35,23 +35,28 @@ resolveConflicts(std::list<VersionedValue>* items) const {
 
     // Find the largest timestamp
     uint64_t maxTimestamp = 0;
-    std::list<VersionedValue>::iterator it;
-    for (it = items->begin(); it != items->end(); ++it) {
+    std::list<VersionedValue>::iterator it = items->begin();
+    while (it != items->end()) {
         uint64_t t = dynamic_cast<VectorClock*>(it->getVersion())->getTimestamp();
         if (t > maxTimestamp) {
             maxTimestamp = t;
+            ++it;
         } else {
-            items->erase(it);
+            it = items->erase(it);
         }
     }
     
     // remove everything else.  We arbitrary take the leftmost value
     // if there's more than one value with the same timestamp.
     bool found = false;
-    for (it = items->begin(); it != items->end(); ++it) {
+    it = items->begin();
+    while (it != items->end()) {
         uint64_t t = dynamic_cast<VectorClock*>(it->getVersion())->getTimestamp();
-        if (t < maxTimestamp || (found && t == maxTimestamp))
-            items->erase(it);
+        if (t < maxTimestamp || (found && t == maxTimestamp)) {
+            it = items->erase(it);
+        } else 
+            ++it;
+
         if (t == maxTimestamp)
             found = true;
     }

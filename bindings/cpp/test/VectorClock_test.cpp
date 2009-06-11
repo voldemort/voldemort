@@ -56,6 +56,22 @@ BOOST_AUTO_TEST_CASE( single_addition_test ) {
                 "with a single additional event");
 }
 
+BOOST_AUTO_TEST_CASE( larger_test ) {
+    std::list<std::pair<short, uint64_t> > versions;
+
+    versions.push_back(make_pair((short)1, 2));
+    versions.push_back(make_pair((short)2, 1));
+    VectorClock clock1(&versions, 0L);
+
+    versions.clear();
+    versions.push_back(make_pair((short)1, 1));
+    versions.push_back(make_pair((short)2, 1));
+    versions.push_back(make_pair((short)3, 1));
+    VectorClock clock2(&versions, 0L);
+    BOOST_CHECK_MESSAGE(clock1.compare(&clock2) == Version::CONCURRENTLY,
+                        "Result should be CONCURRENTLY");
+}
+
 BOOST_AUTO_TEST_CASE( different_events_test ) {
     std::list<std::pair<short, uint64_t> > versions;
 

@@ -26,8 +26,8 @@ using namespace std;
 
 #include <boost/test/unit_test.hpp>
 
-struct Fixture {
-    Fixture() {
+struct VectorClockFixture {
+    VectorClockFixture() {
         std::list<std::pair<short, uint64_t> > versions;
         earlier.setVersion(new VectorClock(&versions, 0L));
 
@@ -49,6 +49,13 @@ struct Fixture {
         concurrent.setVersion(new VectorClock(&versions, 0L));
 
         versions.clear();
+        versions.push_back(make_pair((short)1, 1));
+        versions.push_back(make_pair((short)2, 1));
+        versions.push_back(make_pair((short)3, 1));
+        versions.push_back(make_pair((short)4, 1));
+        concurrent2.setVersion(new VectorClock(&versions, 0L));
+
+        versions.clear();
         versions.push_back(make_pair((short)1, 2));
         versions.push_back(make_pair((short)2, 2));
         versions.push_back(make_pair((short)3, 1));
@@ -68,11 +75,12 @@ struct Fixture {
     VersionedValue prior;
     VersionedValue current;
     VersionedValue concurrent;
+    VersionedValue concurrent2;
     VersionedValue much_later;
     VersionedValue earlier;
 };
 
-BOOST_FIXTURE_TEST_SUITE(VectorClockInconsistencyResolver_test, Fixture)
+BOOST_FIXTURE_TEST_SUITE(VectorClockInconsistencyResolver_test, VectorClockFixture)
 
 BOOST_AUTO_TEST_CASE( empty_list_test ) {
     v.resolveConflicts(&items);
@@ -149,6 +157,19 @@ BOOST_AUTO_TEST_CASE( normal_resolve_test3 ) {
     BOOST_CHECK_MESSAGE(items.size() == 1, "Should return just one element");
     BOOST_CHECK_MESSAGE(items.front().getVersion() == later.getVersion(),
                         "'later' element should be returned element");
+}
+
+BOOST_AUTO_TEST_CASE( normal_resolve_larger_concurrent ) {
+    items.clear();
+    items.push_back(concurrent);
+    items.push_back(concurrent2);
+    items.push_back(current);
+    items.push_back(concurrent2);
+    items.push_back(current);
+    items.push_back(concurrent);
+    items.push_back(current);
+    v.resolveConflicts(&items);
+    BOOST_CHECK_MESSAGE(items.size() == 3, "Should return three elements");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

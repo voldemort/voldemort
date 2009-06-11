@@ -43,7 +43,9 @@ resolveConflicts(std::list<VersionedValue>* items) const {
         VectorClock* vc1 = 
             dynamic_cast<VectorClock*>(it->getVersion());
         bool found = false;
-        for (it2 = newitems.begin(); it2 != newitems.end(); ++it2) {
+        it2 = newitems.begin();
+        while (it2 != newitems.end()) {
+            bool advance = true;
             VectorClock* vc2 = 
                 dynamic_cast<VectorClock*>(it2->getVersion());
 
@@ -53,6 +55,7 @@ resolveConflicts(std::list<VersionedValue>* items) const {
             case Version::AFTER:
                 if (found) {
                     it2 = newitems.erase(it2);
+                    advance = false;
                 } else {
                     *it2 = *it;
                 }
@@ -64,6 +67,8 @@ resolveConflicts(std::list<VersionedValue>* items) const {
             default:
                 break;
             }
+            if (advance)
+                ++it2;
         }
         if (!found)
             newitems.push_back(*it);

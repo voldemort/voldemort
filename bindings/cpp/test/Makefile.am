@@ -26,6 +26,7 @@ voldemort_test_SOURCES = \
 	main.cpp \
 	VectorClock_test.cpp \
 	VectorClockInconsistencyResolver_test.cpp \
+	TimeBasedInconsistencyResolver_test.cpp \
 	ProtocolBuffersRequestFormat_test.cpp 
 voldemort_test_LDADD = ../src/libvoldemort.la $(BOOST_UNIT_TEST_FRAMEWORK_LIB)
 
