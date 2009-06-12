@@ -71,8 +71,8 @@ public:
 
 private:
     std::string name;
-    shared_ptr<Cluster> cluster;
     shared_ptr<ClientConfig> clientConfig;
+    shared_ptr<Cluster> cluster;
     shared_ptr<std::map<int, shared_ptr<Store> > > clusterMap;
     shared_ptr<threadpool::pool> threadPool;
     shared_ptr<RoutingStrategy> routingStrategy;

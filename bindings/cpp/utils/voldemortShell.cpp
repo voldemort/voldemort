@@ -34,7 +34,9 @@ int main(int argc, char** argv) {
         // cluster.  You only need one to be able to use the cluster, but
         // more will increase availability when initializing.
         list<string> bootstrapUrls;
-        bootstrapUrls.push_back(string("tcp://localhost:6666"));
+        for (int i = 1; i < argc; i++) {
+            bootstrapUrls.push_back(string(argv[i]));
+        }
 
         // The store name is essentially a namespace on the Voldemort
         // cluster
@@ -53,15 +55,24 @@ int main(int argc, char** argv) {
         SocketStoreClientFactory factory(config);
 
         auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
+        if (!client.get()) {
+            cerr << "Error could not construct client object" << endl;
+        }
 
         // Get a value
         std::string key("hello");
-        VersionedValue value(*client->get(&key));
-        cout << "Value: " << *(value.getValue()) << endl;
+        const VersionedValue* result = client->get(&key);
+        VersionedValue value;
+        if (result) {
+            value = *result;
+            cout << "Value: " << *(value.getValue()) << endl;
+        } else {
+            cout << "Value not set" << endl;
+        }
         
         // Modify the value
         value.setValue(new string("world!"));
-
+            
         // update the value
         client->put(&key, &value);
 

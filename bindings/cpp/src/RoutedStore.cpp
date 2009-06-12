@@ -35,8 +35,8 @@ RoutedStore::RoutedStore(const std::string& storeName,
                          shared_ptr<std::map<int, shared_ptr<Store> > >& map,
                          shared_ptr<threadpool::pool>& pool,
                          shared_ptr<RoutingStrategy>& routingStrat)
-    : name(storeName), cluster(clust), clusterMap(map), threadPool(pool), 
-      routingStrategy(routingStrat) {
+    : name(storeName), clientConfig(config), cluster(clust), clusterMap(map), 
+      threadPool(pool), routingStrategy(routingStrat) {
 
 }
 
@@ -54,6 +54,8 @@ static bool doGetFromStore(const std::string& key,
         node->setAvailable(true);
         return true;
     } catch (UnreachableStoreException& e) {
+        /* XXX - TODO add real logging */
+        std::cerr << "WARNING: Could not read node: " << e.what() << std::endl;
         node->setAvailable(false);
     }
     return false;
@@ -88,7 +90,7 @@ std::list<VersionedValue>* RoutedStore::get(const std::string& key) {
     }
     
     throw InsufficientOperationalNodesException("Could not reach any "
-                                                "node for operation");
+                                                "node for get operation");
 }
 
 static bool doPutFromStore(const std::string& key, 
@@ -133,7 +135,7 @@ void RoutedStore::put(const std::string& key, const VersionedValue& value) {
     }
     
     throw InsufficientOperationalNodesException("Could not reach any "
-                                                "node for operation");
+                                                "node for put operation");
 }
 
 static bool doDeleteFromStore(const std::string& key, 
@@ -180,7 +182,7 @@ bool RoutedStore::deleteKey(const std::string& key, const Version& version) {
     }
     
     throw InsufficientOperationalNodesException("Could not reach any "
-                                                "node for operation");
+                                                "node for delete operation");
 }
 
 const std::string* RoutedStore::getName() {
