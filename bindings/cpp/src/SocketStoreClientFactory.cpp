@@ -27,6 +27,7 @@
 #include "InconsistencyResolvingStore.h"
 #include "TimeBasedInconsistencyResolver.h"
 #include "VectorClockInconsistencyResolver.h"
+#include "RoundRobinRoutingStrategy.h"
 
 #include <iostream>
 #include <exception>
@@ -101,8 +102,8 @@ Store* SocketStoreClientFactoryImpl::getStore(const string& storeName,
 }
 
 #define THROW_BOOTSTRAP \
-    throw VoldemortException("Invalid bootstrap URL " + url + \
-                             ": Expected tcp://host:port");
+    throw BootstrapFailureException("Invalid bootstrap URL " + url + \
+                                    ": Expected tcp://host:port");
 #define EXPECT_C(char, next) \
     if (tolower(*it) != char) \
         THROW_BOOTSTRAP; \
@@ -190,6 +191,7 @@ VersionedValue SocketStoreClientFactoryImpl::bootstrapMetadata(const string& key
                 return vvs->front();
             }
         } catch (std::exception& e) {
+            /* XXX - TODO Need a real logging mechanism */
             cerr << "Warning: Could not bootstrap '" << *it << "': "
                  << e.what() << endl;
         }
@@ -244,13 +246,18 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName,
     //VersionedValue storevv = pimpl_->bootstrapMetadata(STORES_KEY);
     //const std::string* storesXml = storevv.getValue();
 
+    // Routed store 
+    shared_ptr<RoutingStrategy> 
+        routingStrategy(new RoundRobinRoutingStrategy(pimpl_->config, 
+                                                      cluster));
     shared_ptr<Store> routedStore(new RoutedStore(storeName,
                                                   pimpl_->config,
                                                   cluster,
                                                   clusterMap,
-                                                  pimpl_->threadPool));
+                                                  pimpl_->threadPool,
+                                                  routingStrategy));
 
-    /* XXX - TODO Add inconsistency resolver */
+
     InconsistencyResolvingStore* conStore = new InconsistencyResolvingStore(routedStore);
     try {
         shared_ptr<InconsistencyResolver> 

@@ -30,11 +30,14 @@ libvoldemort_la_SOURCES = \
 	include/ProtocolBuffersRequestFormat.h \
 	include/Connection.h \
 	include/ConnectionPool.h \
+	include/Node.h \
 	include/Cluster.h \
 	include/RoutedStore.h \
 	include/InconsistencyResolvingStore.h \
 	include/VectorClockInconsistencyResolver.h \
 	include/TimeBasedInconsistencyResolver.h \
+	include/RoutingStrategy.h \
+	include/RoundRobinRoutingStrategy.h \
 	DefaultStoreClient.cpp \
 	VersionedValue.cpp \
 	VectorClock.cpp \
@@ -46,11 +49,13 @@ libvoldemort_la_SOURCES = \
 	ProtocolBuffersRequestFormat.cpp \
 	Connection.cpp \
 	ConnectionPool.cpp \
+	Node.cpp \
 	Cluster.cpp \
 	RoutedStore.cpp \
 	InconsistencyResolvingStore.cpp \
 	VectorClockInconsistencyResolver.cpp \
 	TimeBasedInconsistencyResolver.cpp \
+	RoundRobinRoutingStrategy.cpp \
 	voldemort-client.pb.cc \
 	voldemort-client.pb.h 
 

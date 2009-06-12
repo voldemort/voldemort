@@ -96,6 +96,14 @@ public:
      * @return the value
      */
     int getMaxThreads();
+
+    /**
+     * Get the number of milliseconds a node will be banned before we
+     * try again to connect to it following a failure.
+     * 
+     * @return the value
+     */
+    int getNodeBannageMs();
     
 private:
     /** Internal implementation details for ClientConfig */

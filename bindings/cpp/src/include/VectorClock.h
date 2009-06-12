@@ -100,7 +100,15 @@ class VectorClock: public Version
      */
     uint64_t getTimestamp();
 
-    friend std::ostream& operator<<(std::ostream&, const VectorClock& );
+    /** 
+     * Stream insertion operator for cluster 
+     *
+     * @param output the stream
+     * @param vc the @ref VectorClock object
+     * @return the stream
+     */
+    friend std::ostream& operator<<(std::ostream& output, 
+                                    const VectorClock& vc);
 
 private:
     // Disable copy constructor

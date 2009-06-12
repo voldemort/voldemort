@@ -21,6 +21,8 @@
 #ifndef CLUSTER_H
 #define CLUSTER_H
 
+#include "Node.h"
+
 #include <string>
 #include <map>
 #include <list>
@@ -33,78 +35,6 @@ namespace Voldemort {
 using namespace boost;
 
 class Cluster;
- 
-/**
- * Represent a Voldemort node configuration
- */
-class Node
-{
-public:
-    /**
-     * Construct a new Node object
-     *
-     * @param id the node ID
-     * @param host the hostname for the node
-     * @param httpPort the HTTP port for the node
-     * @param socketPort the socket port for the node
-     * @param adminPort the admin port for the node
-     * @param partitions the list of partitions hosted on the node
-     */
-    Node(int id,
-         std::string& host,
-         int httpPort,
-         int socketPort,
-         int adminPort,
-         shared_ptr<std::list<int> >& partitions);
-    Node();
-    ~Node() {}
-
-    /**
-     * Get the Node ID for this node
-     * 
-     * @return the node ID
-     */
-    int getId() { return id_; }
-
-    /**
-     * Get the host name for this node
-     * 
-     * @return the host name
-     */
-    const std::string& getHost() { return host_; }
-
-    /**
-     * Get the HTTP port for this node
-     * 
-     * @return the HTTP port
-     */
-    int getHttpPort() { return httpPort_; }
-
-    /**
-     * Get the socket port for this node
-     * 
-     * @return the socket port
-     */
-    int getSocketPort() { return socketPort_; }
-
-    /**
-     * Get the admin port for this node
-     * 
-     * @return the admin port
-     */
-    int getAdminPort() { return adminPort_; }
-
-
-private:
-    friend class Cluster;
-
-    int id_;
-    std::string host_;
-    int httpPort_;
-    int socketPort_;
-    int adminPort_;
-    shared_ptr<std::list<int> > partitions_;
-};
 
 /**
  * Represent a Voldemort cluster configuration
@@ -136,12 +66,26 @@ public:
     int getNodeCount() { return nodesById.size(); }
 
     /**
+     * Type used for node map
+     */
+    typedef std::map<int, boost::shared_ptr<Node> > nodeMap;
+
+    /**
      * Get the node map
      * 
      * @return the node map
      */
-    const std::map<int, boost::shared_ptr<Node> >* getNodeMap() 
+    const nodeMap* getNodeMap() 
     { return &nodesById; }
+
+    /** 
+     * Stream insertion operator for cluster 
+     *
+     * @param output the stream
+     * @param cluster the cluster object
+     * @return the stream
+     */
+    friend std::ostream& operator<<(std::ostream& output, const Cluster& cluster);
 
 private:
     static void startElement(void* data, const XML_Char*el, const XML_Char **attr);

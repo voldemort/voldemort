@@ -1,6 +1,6 @@
 /* -*- C++ -*-; c-basic-offset: 4; indent-tabs-mode: nil */
 /*
- * Implementation for Cluster class.
+ * Implementation for Node class.
  * 
  * Copyright (c) 2009 Webroot Software, Inc.
  *
@@ -17,10 +17,8 @@
  * the License.
  */
 
-#include "Cluster.h"
-#include <voldemort/VoldemortException.h>
-#include <iostream>
-#include <string.h>
+#include "Node.h"
+#include <sys/time.h>
 
 namespace Voldemort {
 
@@ -33,13 +31,40 @@ Node::Node(int id,
            int adminPort,
            shared_ptr<std::list<int> >& partitions) 
     : id_(id), host_(host), httpPort_(httpPort), socketPort_(socketPort),
-      adminPort_(adminPort), partitions_(partitions) {
+      adminPort_(adminPort), partitions_(partitions), 
+      isAvailable_(true), lastChecked_(0) {
 
 }
 
 Node::Node()
   : id_(-1), httpPort_(0), socketPort_(0), 
-    adminPort_(0), partitions_(new std::list<int>) {
+    adminPort_(0), partitions_(new std::list<int>), 
+    isAvailable_(true), lastChecked_(0) {
+}
+
+void Node::setAvailable(bool avail) {
+    isAvailable_ = true;
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    lastChecked_ = (uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000;
+}
+
+uint64_t Node::getMsSinceLastChecked() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t time = (uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000;
+    return (time - lastChecked_);
+}
+
+bool Node::isAvailable(uint64_t timeout) {
+    return (isAvailable_ ||
+            getMsSinceLastChecked() > timeout);
+}
+
+std::ostream& operator<<(std::ostream& output, const Node& node) {
+    output << "Node" << node.id_;
+    return output;
 }
 
 } /* namespace Voldemort */

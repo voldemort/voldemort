@@ -19,7 +19,7 @@
 
 #include "SocketStore.h"
 #include "ConnectionPool.h"
-#include "voldemort/VoldemortException.h"
+#include "voldemort/UnreachableStoreException.h"
 
 #include <sstream>
 #include <boost/bind.hpp>
@@ -47,43 +47,57 @@ SocketStore::~SocketStore() {
 }
 
 std::list<VersionedValue>* SocketStore::get(const std::string& key) {
-    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
-    std::iostream& sstream = conn->get_io_stream();
-
-    request->writeGetRequest(&sstream,
-                             &name,
-                             &key,
-                             reroute);
-    sstream.flush();
-    return request->readGetResponse(&sstream);
+    try {
+        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        std::iostream& sstream = conn->get_io_stream();
+        
+        request->writeGetRequest(&sstream,
+                                 &name,
+                                 &key,
+                                 reroute);
+        sstream.flush();
+        return request->readGetResponse(&sstream);
+    } catch (VoldemortException& e) {
+        throw UnreachableStoreException(std::string("Failure to get ") + host + 
+                                        std::string(": ") + e.what());
+    }
 }
 
 void SocketStore::put(const std::string& key, const VersionedValue& value) {
-    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
-    std::iostream& sstream = conn->get_io_stream();
+    try {
+        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        std::iostream& sstream = conn->get_io_stream();
 
-    request->writePutRequest(&sstream,
-                             &name,
-                             &key,
-                             value.getValue(),
-                             dynamic_cast<const VectorClock*>(value.getVersion()),
-                             reroute);
-    sstream.flush();
-    request->readPutResponse(&sstream);
-
+        request->writePutRequest(&sstream,
+                                 &name,
+                                 &key,
+                                 value.getValue(),
+                                 dynamic_cast<const VectorClock*>(value.getVersion()),
+                                 reroute);
+        sstream.flush();
+        request->readPutResponse(&sstream);
+    } catch (VoldemortException& e) {
+        throw UnreachableStoreException(std::string("Failure to put ") + host + 
+                                        std::string(": ") + e.what());
+    }
 }
 
 bool SocketStore::deleteKey(const std::string& key, const Version& version) {
-    ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
-    std::iostream& sstream = conn->get_io_stream();
+    try {
+        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        std::iostream& sstream = conn->get_io_stream();
 
-    request->writeDeleteRequest(&sstream,
-                                &name,
-                                &key,
-                                dynamic_cast<const VectorClock*>(&version),
-                                reroute);
-    sstream.flush();
-    return request->readDeleteResponse(&sstream);
+        request->writeDeleteRequest(&sstream,
+                                    &name,
+                                    &key,
+                                    dynamic_cast<const VectorClock*>(&version),
+                                    reroute);
+        sstream.flush();
+        return request->readDeleteResponse(&sstream);
+    } catch (VoldemortException& e) {
+        throw UnreachableStoreException(std::string("Failure to delete ") + host + 
+                                        std::string(": ") + e.what());
+    }
 }
 
 const std::string* SocketStore::getName() {

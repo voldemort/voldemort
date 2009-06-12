@@ -25,14 +25,13 @@ class ClientConfigImpl {
 public:
     int maxConnectionsPerNode;
     int maxTotalConnections;
-    int maxThreads;
-    int maxQueuedRequests;
-    long threadIdleMs;
+    //    int maxThreads;
+    //    int maxQueuedRequests;
+    //    long threadIdleMs;
     long connectionTimeoutMs;
     long socketTimeoutMs;
     long routingTimeoutMs;
-    long defaultNodeBannageMs;
-    int socketBufferSize;
+    long nodeBannageMs;
     std::list<std::string>* bootstrapUrls;
 };
 
@@ -40,14 +39,13 @@ ClientConfig::ClientConfig() {
     pimpl_ = new ClientConfigImpl();
     pimpl_->maxConnectionsPerNode = 0;
     pimpl_->maxTotalConnections = 500;
-    pimpl_->maxThreads = 5;
-    pimpl_->maxQueuedRequests = 500;
-    pimpl_->threadIdleMs = 100000;
+    //    pimpl_->maxThreads = 5;
+    //    pimpl_->maxQueuedRequests = 500;
+    //    pimpl_->threadIdleMs = 100000;
     pimpl_->connectionTimeoutMs = 500;
     pimpl_->socketTimeoutMs = 5000;
     pimpl_->routingTimeoutMs = 15000;
-    pimpl_->defaultNodeBannageMs = 30000;
-    pimpl_->socketBufferSize = 64 * 1024;
+    pimpl_->nodeBannageMs = 30000;
     pimpl_->bootstrapUrls = NULL;
 }
 
@@ -84,8 +82,14 @@ long ClientConfig::getSocketTimeoutMs() {
     return pimpl_->socketTimeoutMs;
 }
 
+#if 0
 int ClientConfig::getMaxThreads() {
     return pimpl_->maxThreads;
+}
+#endif
+
+int ClientConfig::getNodeBannageMs() {
+    return pimpl_->nodeBannageMs;
 }
 
 } /* namespace Voldemort */

@@ -94,6 +94,54 @@ public:
      */
     int getAdminPort() { return adminPort_; }
 
+    /**
+     * Return whether the node is current available in the node list.
+     *
+     * @return true if the node is available
+     */
+    bool isAvailable() { return isAvailable_; }
+
+    /**
+     * Return whether the node is current available in the node list,
+     * or if its unavailable but the timeout period specified has
+     * elapsed.
+     *
+     * @return true if the node is available
+     */
+    bool isAvailable(uint64_t timeout);
+
+    /**
+     * Set whether the node is available
+     * 
+     * @param avail true if the node is available, false otherwise
+     */
+    void setAvailable(bool avail);
+
+    /**
+     * Get the system time in milliseconds when this node was last
+     * checked.
+     *
+     * @return the time in milliseconds
+     */
+    uint64_t getLastChecked() { return lastChecked_; }
+
+    /**
+     * Get the number of milliseconds since the last time this node
+     * was checked for availability.
+     *
+     * @return the number of milliseconds since we last checked for
+     * this node.
+     */
+    uint64_t getMsSinceLastChecked();
+
+    /** 
+     * Stream insertion operator for cluster 
+     *
+     * @param output the stream
+     * @param node the node object
+     * @return the stream
+     */
+    friend std::ostream& operator<<(std::ostream& output, const Node& node);
 
 private:
     friend class Cluster;
@@ -104,6 +152,10 @@ private:
     int socketPort_;
     int adminPort_;
     shared_ptr<std::list<int> > partitions_;
+
+    /* Node status */
+    bool isAvailable_;
+    uint64_t lastChecked_;
 };
 
 

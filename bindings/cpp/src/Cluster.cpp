@@ -39,22 +39,6 @@ enum STATE {
     STATE_PARTITIONS
 };
 
-Node::Node(int id,
-           std::string& host,
-           int httpPort,
-           int socketPort,
-           int adminPort,
-           shared_ptr<std::list<int> >& partitions) 
-    : id_(id), host_(host), httpPort_(httpPort), socketPort_(socketPort),
-      adminPort_(adminPort), partitions_(partitions) {
-
-}
-
-Node::Node()
-  : id_(-1), httpPort_(0), socketPort_(0), 
-    adminPort_(0), partitions_(new std::list<int>) {
-}
-
 void Cluster::startElement(void* data, const XML_Char*el, const XML_Char **attr) {
     Cluster* cl = (Cluster*) data;
 
@@ -200,6 +184,17 @@ boost::shared_ptr<Node>& Cluster::getNodeById(int nodeId) {
         return nodesById[nodeId];
     else 
         throw VoldemortException("Invalid node ID: " + nodeId);
+}
+
+std::ostream& operator<<(std::ostream& output, const Cluster& cluster) {
+    output << "Cluster('" << cluster.name <<  "', [";
+    std::map<int, boost::shared_ptr<Node> >::const_iterator it;
+    for (it = cluster.nodesById.begin(); it != cluster.nodesById.end(); ++it) {
+        if (it != cluster.nodesById.begin()) output << ", ";
+        output << *(it->second);
+    }
+    output << "])";
+    return output;
 }
 
 } /* namespace Voldemort */
