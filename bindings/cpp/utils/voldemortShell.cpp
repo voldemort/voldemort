@@ -23,11 +23,71 @@
 #include <list>
 #include <memory>
 #include <iostream>
+#include <map>
+#include <sstream>
+#include <algorithm>
+#include <iterator>
+#include <vector>
 
 using namespace std;
 using namespace Voldemort;
 
+typedef bool (*command)(StoreClient* client, const vector<string>& tokens);
+
+bool getCommand(StoreClient* client, const vector<string>& tokens) {
+    if (tokens.size() < 2) {
+        cerr << "Usage: get {list of keys}" << endl;
+        return true;
+    }
+    
+    for (unsigned int i = 1; i < tokens.size(); i++) {
+        const VersionedValue* result = client->get(&tokens[i]);
+        cout << tokens[i] << ": ";
+        if (result) {
+            cout << *(result->getValue()) << " " << *(result->getVersion());
+        } else {
+            cout << "null";
+        }
+        cout << endl;
+    }
+    return true;
+}
+
+bool putCommand(StoreClient* client, const vector<string>& tokens) {
+    if (tokens.size() < 3) {
+        cerr << "Usage: put key value" << endl;
+        return true;
+    }
+    
+    client->put(&tokens[1], &tokens[2]);
+    return true;
+}
+
+bool deleteCommand(StoreClient* client, const vector<string>& tokens) {
+    if (tokens.size() < 2) {
+        cerr << "Usage: delete {list of keys}" << endl;
+        return true;
+    }
+    
+    for (unsigned int i = 1; i < tokens.size(); i++) {
+        cout << tokens[i] << ": "
+             << client->deleteKey(&tokens[i]) << endl;
+    }
+    return true;
+}
+
+bool quitCommand(StoreClient* client, const vector<string>& tokens) {
+    return false;
+}
+
 int main(int argc, char** argv) {
+    map<string, command> comMap; 
+    comMap[string("get")] = getCommand;
+    comMap[string("put")] = putCommand;
+    comMap[string("delete")] = deleteCommand;
+    comMap[string("exit")] = quitCommand;
+    comMap[string("quit")] = quitCommand;
+
     try {
         // Initialize the bootstrap URLs.  This is a list of server URLs
         // in the cluster that we use to download metadata for the
@@ -53,39 +113,68 @@ int main(int argc, char** argv) {
         // using the SocketStoreClientFactory which will connect to a
         // Voldemort cluster over TCP.
         SocketStoreClientFactory factory(config);
-
         auto_ptr<StoreClient> client(factory.getStoreClient(storeName));
-        if (!client.get()) {
-            cerr << "Error could not construct client object" << endl;
-        }
 
-        // Get a value
-        std::string key("hello");
-        const VersionedValue* result = client->get(&key);
-        VersionedValue value;
-        if (result) {
-            value = *result;
-            cout << "Value: " << *(value.getValue()) << endl;
-        } else {
-            cout << "Value not set" << endl;
-        }
+        while (!cin.eof()) {
+            try {
+                string line;
+                cerr << "> ";
+
+                getline (cin, line);
+                if (cin.eof()) {
+                    cerr << endl;
+                    break;
+                }
+
+                istringstream iss(line);
+                vector<string> tokens;
+                copy(istream_iterator<string>(iss),
+                     istream_iterator<string>(),
+                     back_inserter<vector<string> >(tokens));
+
+                map<string, command>::iterator it;
+                if (tokens.size() > 0) 
+                    it = comMap.find(tokens[0]);
+                if (it == comMap.end()) {
+                    cerr << "Error: unrecognized command" << endl;
+                } else if (!(it)->second(client.get(), tokens))
+                    break;
+#if 0
+                // Get a value
+                std::string key("hello");
+                const VersionedValue* result = client->get(&key);
+                VersionedValue value;
+                if (result) {
+                    value = *result;
+                    cout << "Value: " << *(value.getValue()) << endl;
+                } else {
+                    cout << "Value not set" << endl;
+                }
         
-        // Modify the value
-        value.setValue(new string("world!"));
+                // Modify the value
+                value.setValue(new string("world!"));
             
-        // update the value
-        client->put(&key, &value);
+                // update the value
+                client->put(&key, &value);
 
-        value = *client->get(&key);
-        cout << "Value: " << *(value.getValue()) << endl;
+                value = *client->get(&key);
+                cout << "Value: " << *(value.getValue()) << endl;
 
-        // Set and then delete a key
-        std::string key2("keytest");
-        std::string value2("valuetest");
-        client->put(&key2, &value2);
-        client->deleteKey(&key2);
+                // Set and then delete a key
+                std::string key2("keytest");
+                std::string value2("valuetest");
+                client->put(&key2, &value2);
+                client->deleteKey(&key2);
 
-    } catch (VoldemortException& v) {
-        cerr << "Voldemort Error: " << v.what() << endl;
+#endif
+            } catch (VoldemortException& v) {
+                cerr << "Error: " << v.what() << endl;
+            }
+        }
+
+    } catch (std::exception& e) {
+        cerr << "Error while initializing: " << e.what() << endl;
+        exit(1);
     }
+
 }

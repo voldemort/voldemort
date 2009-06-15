@@ -21,6 +21,8 @@
 #ifndef VERSION_H
 #define VERSION_H
 
+#include <ostream>
+
 namespace Voldemort {
 
 /** 
@@ -60,6 +62,27 @@ class Version
      * @return one of the Occurred values
      */
     virtual Occurred compare(Version* v) { throw "Pure abstract class"; }
+
+    /**
+     * Output a string version of the version object to the provided
+     * stream.
+     *
+     * @param output the output stream to write to
+     */
+    virtual void toStream(std::ostream& output) const = 0;
+
+    /** 
+     * Stream insertion operator for Version 
+     *
+     * @param output the stream
+     * @param ver the @ref Version object
+     * @return the stream
+     */
+    friend std::ostream& operator<<(std::ostream& output, 
+                                    const Version& ver) {
+        ver.toStream(output);
+        return output;
+    }
 };
 
 } /* namespace Voldemort */

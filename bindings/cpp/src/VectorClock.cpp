@@ -46,11 +46,11 @@ VectorClock::~VectorClock() {
     versions = NULL;
 }
 
-VectorClock* VectorClock::copy() {
+VectorClock* VectorClock::copy() const{
     return new VectorClock(versions, timestamp);
 }
 
-VectorClock::Occurred VectorClock::compare(Version* v) {
+VectorClock::Occurred VectorClock::compare(Version* v) const {
     VectorClock* vc = dynamic_cast<VectorClock*>(v);
     if (vc)
         return compare(this, vc);
@@ -58,7 +58,8 @@ VectorClock::Occurred VectorClock::compare(Version* v) {
     throw std::invalid_argument("Could not cast Version to VectorClock");
 }
 
-VectorClock::Occurred VectorClock::compare(VectorClock* v1, VectorClock* v2) {
+VectorClock::Occurred VectorClock::compare(const VectorClock* v1, 
+                                           const VectorClock* v2) {
     // We do two checks: v1 <= v2 and v2 <= v1 if both are true then
     bool v1Bigger = false;
     bool v2Bigger = false;
@@ -120,17 +121,15 @@ uint64_t VectorClock::getTimestamp() {
     return timestamp;
 }
 
-std::ostream& operator<<(std::ostream& output, const VectorClock& vc) {
+void VectorClock::toStream(std::ostream& output) const {
     output << "version(";
     std::list<std::pair<short, uint64_t> >::const_iterator it;
-    for (it = vc.versions->begin(); it != vc.versions->end(); ++it) {
-        if (it != vc.versions->begin()) 
+    for (it = versions->begin(); it != versions->end(); ++it) {
+        if (it != versions->begin()) 
             output << ", ";
         output << it->first << ":" << it->second;
     }
     output << ")";
-
-    return output;
 }
 
 } /* namespace Voldemort */

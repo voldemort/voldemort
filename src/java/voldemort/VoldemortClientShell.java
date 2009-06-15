@@ -67,7 +67,7 @@ public class VoldemortClientShell {
         }
 
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)
-                                                                                    .setRequestFormatType(RequestFormatType.VOLDEMORT));
+                                                                                    .setRequestFormatType(RequestFormatType.PROTOCOL_BUFFERS));
         DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);

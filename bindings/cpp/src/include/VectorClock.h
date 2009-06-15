@@ -62,19 +62,9 @@ class VectorClock: public Version
     virtual ~VectorClock();
 
     /**
-     * Virtual copy constructor allocates a new VectorClock object
-     * containing the same information as this one.
+     * Get the list of version entries
      */
-    virtual VectorClock* copy();
-
-    /**
-     * Return whether or not the given vectorClock preceeded this one,
-     * succeeded it, or is concurrant with it
-     *
-     * @param v The other vectorClock
-     * @return one of the Occurred values
-     */
-    virtual Occurred compare(Version* v);
+    const std::list<std::pair<short, uint64_t> >* getEntries() const;
 
     /**
      * Compare two VectorClocks, the outcomes will be one of the
@@ -88,27 +78,17 @@ class VectorClock: public Version
      * @param v2 The second VectorClock
      * @return one of the Occurred values
      */
-    static Occurred compare(VectorClock* v1, VectorClock* v2);
-
-    /**
-     * Get the list of version entries
-     */
-    const std::list<std::pair<short, uint64_t> >* getEntries() const;
+    static Occurred compare(const VectorClock* v1, const VectorClock* v2);
 
     /**
      * Get the timestamp
      */
     uint64_t getTimestamp();
 
-    /** 
-     * Stream insertion operator for cluster 
-     *
-     * @param output the stream
-     * @param vc the @ref VectorClock object
-     * @return the stream
-     */
-    friend std::ostream& operator<<(std::ostream& output, 
-                                    const VectorClock& vc);
+    // Version interface
+    virtual VectorClock* copy() const;
+    virtual Occurred compare(Version* v) const;
+    virtual void toStream(std::ostream& output) const;
 
 private:
     // Disable copy constructor

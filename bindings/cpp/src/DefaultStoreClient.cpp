@@ -104,7 +104,11 @@ void DefaultStoreClient::put(const std::string* key,
         } catch (...) {
             if (version) delete version;
             if (valuec) delete valuec;
+            throw;
         }
+    } else {
+        curValue_ = *vv;
+        curValue_.setValue(new std::string(*value));
     }
     put(key, &curValue_);
 }
