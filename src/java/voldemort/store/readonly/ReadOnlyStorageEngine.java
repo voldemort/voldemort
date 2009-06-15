@@ -18,7 +18,9 @@ package voldemort.store.readonly;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -330,13 +332,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private byte[] readValue(int chunk, int valueLocation) {
-        MappedByteBuffer data = fileSet.checkoutDataFile(chunk);
+        FileChannel data = fileSet.checkoutDataFile(chunk);
         try {
-            data.position(valueLocation);
-            int size = data.getInt();
-            byte[] value = new byte[size];
-            data.get(value);
-            return value;
+            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+            data.read(sizeBuffer, valueLocation);
+            sizeBuffer.position(0);
+            int size = sizeBuffer.getInt();
+            ByteBuffer valueBuffer = ByteBuffer.allocate(size);
+            data.read(valueBuffer, valueLocation + 4);
+            return valueBuffer.array();
+        } catch(IOException e) {
+            throw new VoldemortException(e);
         } finally {
             fileSet.checkinDataFile(data, chunk);
         }

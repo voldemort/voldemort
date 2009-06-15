@@ -16,13 +16,26 @@
 
 package voldemort.performance;
 
+import static java.util.Arrays.asList;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+
 import org.apache.commons.dbcp.BasicDataSource;
+
+import voldemort.utils.CmdUtils;
+import voldemort.utils.Utils;
+
+import com.google.common.base.Join;
 
 /**
  * A simple MySQL benchmark
@@ -33,33 +46,80 @@ import org.apache.commons.dbcp.BasicDataSource;
 public class MysqlBench {
 
     private final DataSource dataSource;
+    private final String table;
+    private final String requestFile;
     private final int numRequests;
     private final int numThreads;
-
-    private static void croak(String message) {
-        System.err.println(message);
-        System.err.println("USAGE: java MysqlBench jdbc-url db-user db-password num-requests num-threads");
-        System.exit(1);
-    }
+    private final boolean doReads;
+    private final boolean doWrites;
 
     public static void main(String[] args) throws Exception {
-        if(args.length != 5)
-            croak("Invalid number of command line arguments: expected 5 but got " + args.length
-                  + ".");
-        String jdbcUrl = args[0];
-        String user = args[1];
-        String password = args[2];
-        int numRequests = Integer.parseInt(args[3]);
-        int numThreads = Integer.parseInt(args[4]);
-        MysqlBench bench = new MysqlBench(numThreads, numRequests, jdbcUrl, user, password);
+        OptionParser parser = new OptionParser();
+        parser.accepts("help", "print usage information");
+        parser.acceptsAll(asList("r", "reads"), "Enable reads.");
+        parser.acceptsAll(asList("w", "writes"), "Enable writes.");
+        parser.acceptsAll(asList("d", "deletes"), "Enable deletes.");
+        parser.accepts("table", "Table name").withRequiredArg();
+        parser.accepts("db", "Database name").withRequiredArg();
+        parser.acceptsAll(asList("u", "user"), "DB username.").withRequiredArg();
+        parser.acceptsAll(asList("P", "password"), "DB password").withRequiredArg();
+        parser.acceptsAll(asList("p", "port"), "DB port").withRequiredArg();
+        parser.acceptsAll(asList("h", "host"), "DB host").withRequiredArg();
+        parser.accepts("requests").withRequiredArg().ofType(Integer.class);
+        parser.accepts("request-file").withRequiredArg();
+        parser.accepts("threads").withRequiredArg().ofType(Integer.class);
+        OptionSet options = parser.parse(args);
+
+        if(options.has("help")) {
+            parser.printHelpOn(System.out);
+            System.exit(0);
+        }
+
+        Set<String> missing = CmdUtils.missing(options, "table", "requests", "db");
+        if(missing.size() > 0)
+            Utils.croak("Missing required arguments: " + Join.join(", ", missing));
+
+        String host = CmdUtils.valueOf(options, "host", "localhost");
+        String table = (String) options.valueOf("table");
+        int port = CmdUtils.valueOf(options, "port", 3306);
+        String database = (String) options.valueOf("db");
+        String jdbcUrl = "jdbc:mysql://" + host + ":" + port + "/" + database;
+        String user = CmdUtils.valueOf(options, "user", "root");
+        String password = CmdUtils.valueOf(options, "password", "");
+        String requestFile = (String) options.valueOf("request-file");
+        int numRequests = (Integer) options.valueOf("requests");
+        int numThreads = CmdUtils.valueOf(options, "threads", 10);
+        boolean doReads = false;
+        boolean doWrites = false;
+        if(options.has("reads") || options.has("writes")) {
+            doReads = options.has("reads");
+            doWrites = options.has("writes");
+        } else {
+            doReads = true;
+            doWrites = true;
+        }
+        MysqlBench bench = new MysqlBench(table,
+                                          numThreads,
+                                          numRequests,
+                                          jdbcUrl,
+                                          user,
+                                          password,
+                                          requestFile,
+                                          doReads,
+                                          doWrites);
         bench.benchmark();
     }
 
-    public MysqlBench(int numThreads,
+    public MysqlBench(String table,
+                      int numThreads,
                       int numRequests,
                       String connectionString,
                       String username,
-                      String password) {
+                      String password,
+                      String requestFile,
+                      boolean doReads,
+                      boolean doWrites) {
+        this.table = table;
         this.numThreads = numThreads;
         this.numRequests = numRequests;
         BasicDataSource ds = new BasicDataSource();
@@ -67,12 +127,16 @@ public class MysqlBench {
         ds.setUsername(username);
         ds.setPassword(password);
         ds.setUrl(connectionString);
+        this.requestFile = requestFile;
         this.dataSource = ds;
+        this.doReads = doReads;
+        this.doWrites = doWrites;
     }
 
     private void upsert(String key, String value) throws Exception {
         Connection conn = dataSource.getConnection();
-        String upsert = "insert into test_table (key_, value_) values (?, ?) on duplicate key update value_ = ?";
+        String upsert = "insert into " + table
+                        + " (key_, val_) values (?, ?) on duplicate key update val_ = ?";
         PreparedStatement stmt = conn.prepareStatement(upsert);
         try {
             stmt.setString(1, key);
@@ -91,7 +155,7 @@ public class MysqlBench {
 
     private void deleteAll() throws Exception {
         Connection conn = dataSource.getConnection();
-        String delete = "delete from test_table";
+        String delete = "delete from " + table;
         PreparedStatement stmt = conn.prepareStatement(delete);
         try {
             stmt.executeUpdate();
@@ -107,7 +171,7 @@ public class MysqlBench {
 
     private String select(String key) throws Exception {
         Connection conn = dataSource.getConnection();
-        String upsert = "select value_ from test_table where key_ = ?";
+        String upsert = "select val_ from " + table + " where key_ = ?";
         PreparedStatement stmt = conn.prepareStatement(upsert);
         ResultSet results = null;
         try {
@@ -128,31 +192,47 @@ public class MysqlBench {
     }
 
     public void benchmark() throws Exception {
-        System.out.println("WRITE TEST");
-        PerformanceTest writeTest = new PerformanceTest() {
+        if(doWrites) {
+            deleteAll();
+            System.out.println("WRITE TEST");
+            PerformanceTest writeTest = new PerformanceTest() {
 
-            @Override
-            public void doOperation(int index) throws Exception {
-                upsert(Integer.toString(index), Integer.toString(index));
+                @Override
+                public void doOperation(int index) throws Exception {
+                    upsert(Integer.toString(index), Integer.toString(index));
+                }
+            };
+            writeTest.run(numRequests, numThreads);
+            writeTest.printStats();
+
+            System.out.println();
+        }
+
+        if(doReads) {
+            System.out.println("READ TEST");
+
+            PerformanceTest readTest;
+            if(this.requestFile == null) {
+                readTest = new PerformanceTest() {
+
+                    @Override
+                    public void doOperation(int index) throws Exception {
+                        select(Integer.toString(index));
+                    }
+                };
+            } else {
+                final BufferedReader reader = new BufferedReader(new FileReader(requestFile),
+                                                                 1024 * 1024);
+                readTest = new PerformanceTest() {
+
+                    @Override
+                    public void doOperation(int index) throws Exception {
+                        select(reader.readLine().trim());
+                    }
+                };
             }
-        };
-        writeTest.run(numRequests, numThreads);
-        writeTest.printStats();
-
-        System.out.println();
-
-        System.out.println("READ TEST");
-        PerformanceTest readTest = new PerformanceTest() {
-
-            @Override
-            public void doOperation(int index) throws Exception {
-                select(Integer.toString(index));
-            }
-        };
-        readTest.run(numRequests, numThreads);
-        readTest.printStats();
-
-        deleteAll();
+            readTest.run(numRequests, numThreads);
+            readTest.printStats();
+        }
     }
-
 }

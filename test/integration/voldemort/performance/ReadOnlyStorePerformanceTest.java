@@ -96,6 +96,7 @@ public class ReadOnlyStorePerformanceTest {
             requestGenerator = new Runnable() {
 
                 public void run() {
+                    System.out.println("Generating random requests.");
                     Random random = new Random();
                     try {
                         while(true)
@@ -110,8 +111,9 @@ public class ReadOnlyStorePerformanceTest {
 
                 public void run() {
                     try {
+                        System.out.println("Using request file to generate requests.");
                         BufferedReader reader = new BufferedReader(new FileReader(inputFile),
-                                                                   100000);
+                                                                   1000000);
                         while(true) {
                             String line = reader.readLine();
                             if(line == null)
