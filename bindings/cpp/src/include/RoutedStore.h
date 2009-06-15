@@ -28,7 +28,6 @@
 #include <map>
 
 #include <boost/shared_ptr.hpp>
-#include "boost/threadpool.hpp"
 
 namespace Voldemort {
 
@@ -56,7 +55,6 @@ public:
                 shared_ptr<ClientConfig>& config,
                 shared_ptr<Cluster>& clust,
                 shared_ptr<std::map<int, shared_ptr<Store> > >& map,
-                shared_ptr<threadpool::pool>& pool,
                 shared_ptr<RoutingStrategy>& routingStrat);
     virtual ~RoutedStore();
 
@@ -74,7 +72,6 @@ private:
     shared_ptr<ClientConfig> clientConfig;
     shared_ptr<Cluster> cluster;
     shared_ptr<std::map<int, shared_ptr<Store> > > clusterMap;
-    shared_ptr<threadpool::pool> threadPool;
     shared_ptr<RoutingStrategy> routingStrategy;
 };
 

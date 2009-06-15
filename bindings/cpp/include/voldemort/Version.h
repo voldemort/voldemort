@@ -52,7 +52,7 @@ class Version
      * Virtual copy constructor allocates a new Version object
      * containing the same information as this one.
      */
-    virtual Version* copy() { throw "Pure abstract class"; }
+    virtual Version* copy() const = 0;
 
     /**
      * Return whether or not the given version preceeded this one,
@@ -61,7 +61,7 @@ class Version
      * @param v The other version
      * @return one of the Occurred values
      */
-    virtual Occurred compare(Version* v) { throw "Pure abstract class"; }
+    virtual Occurred compare(const Version* v) const = 0;
 
     /**
      * Output a string version of the version object to the provided

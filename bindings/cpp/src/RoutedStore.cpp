@@ -33,10 +33,9 @@ RoutedStore::RoutedStore(const std::string& storeName,
                          shared_ptr<ClientConfig>& config,
                          shared_ptr<Cluster>& clust,
                          shared_ptr<std::map<int, shared_ptr<Store> > >& map,
-                         shared_ptr<threadpool::pool>& pool,
                          shared_ptr<RoutingStrategy>& routingStrat)
     : name(storeName), clientConfig(config), cluster(clust), clusterMap(map), 
-      threadPool(pool), routingStrategy(routingStrat) {
+      routingStrategy(routingStrat) {
 
 }
 

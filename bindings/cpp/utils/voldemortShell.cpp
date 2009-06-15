@@ -139,34 +139,7 @@ int main(int argc, char** argv) {
                     cerr << "Error: unrecognized command" << endl;
                 } else if (!(it)->second(client.get(), tokens))
                     break;
-#if 0
-                // Get a value
-                std::string key("hello");
-                const VersionedValue* result = client->get(&key);
-                VersionedValue value;
-                if (result) {
-                    value = *result;
-                    cout << "Value: " << *(value.getValue()) << endl;
-                } else {
-                    cout << "Value not set" << endl;
-                }
-        
-                // Modify the value
-                value.setValue(new string("world!"));
-            
-                // update the value
-                client->put(&key, &value);
 
-                value = *client->get(&key);
-                cout << "Value: " << *(value.getValue()) << endl;
-
-                // Set and then delete a key
-                std::string key2("keytest");
-                std::string value2("valuetest");
-                client->put(&key2, &value2);
-                client->deleteKey(&key2);
-
-#endif
             } catch (VoldemortException& v) {
                 cerr << "Error: " << v.what() << endl;
             }

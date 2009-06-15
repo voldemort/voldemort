@@ -33,8 +33,6 @@
 #include <exception>
 #include <ctype.h>
 
-#include "boost/threadpool.hpp"
-
 namespace Voldemort {
 
 using namespace boost;
@@ -72,15 +70,13 @@ public:
     shared_ptr<ClientConfig> config;
     shared_ptr<ConnectionPool> connPool;
     RequestFormat::RequestFormatType requestFormatType;
-    shared_ptr<threadpool::pool> threadPool;
 };
 
 SocketStoreClientFactoryImpl::SocketStoreClientFactoryImpl(ClientConfig& conf) 
     : config(new ClientConfig(conf)), connPool(new ConnectionPool(config)),
-      requestFormatType(RequestFormat::PROTOCOL_BUFFERS), 
-      threadPool() 
+      requestFormatType(RequestFormat::PROTOCOL_BUFFERS)
 {
-    //threadPool->size_controller().resize(config->getMaxThreads());
+
 }
 
 SocketStoreClientFactoryImpl::~SocketStoreClientFactoryImpl() {
@@ -254,7 +250,6 @@ Store* SocketStoreClientFactory::getRawStore(std::string& storeName,
                                                   pimpl_->config,
                                                   cluster,
                                                   clusterMap,
-                                                  pimpl_->threadPool,
                                                   routingStrategy));
 
 

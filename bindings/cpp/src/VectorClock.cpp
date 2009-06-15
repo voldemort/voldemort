@@ -50,8 +50,8 @@ VectorClock* VectorClock::copy() const{
     return new VectorClock(versions, timestamp);
 }
 
-VectorClock::Occurred VectorClock::compare(Version* v) const {
-    VectorClock* vc = dynamic_cast<VectorClock*>(v);
+VectorClock::Occurred VectorClock::compare(const Version* v) const {
+    const VectorClock* vc = dynamic_cast<const VectorClock*>(v);
     if (vc)
         return compare(this, vc);
 

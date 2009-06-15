@@ -87,7 +87,7 @@ class VectorClock: public Version
 
     // Version interface
     virtual VectorClock* copy() const;
-    virtual Occurred compare(Version* v) const;
+    virtual Occurred compare(const Version* v) const;
     virtual void toStream(std::ostream& output) const;
 
 private:

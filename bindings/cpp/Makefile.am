@@ -22,6 +22,7 @@ library_includedir=$(includedir)/$(PACKAGE)
 library_include_HEADERS = \
 	include/voldemort/ClientConfig.h \
 	include/voldemort/InconsistentDataException.h \
+	include/voldemort/InconsistencyResolver.h \
 	include/voldemort/InsufficientOperationalNodesException.h \
 	include/voldemort/InvalidMetadataException.h \
 	include/voldemort/ObsoleteVersionException.h \
