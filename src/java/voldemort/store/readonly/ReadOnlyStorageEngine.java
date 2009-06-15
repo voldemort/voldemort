@@ -332,19 +332,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private byte[] readValue(int chunk, int valueLocation) {
-        FileChannel data = fileSet.checkoutDataFile(chunk);
+        FileChannel dataFile = fileSet.getDataFile(chunk);
         try {
             ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-            data.read(sizeBuffer, valueLocation);
-            sizeBuffer.position(0);
-            int size = sizeBuffer.getInt();
+            dataFile.read(sizeBuffer, valueLocation);
+            int size = sizeBuffer.getInt(0);
             ByteBuffer valueBuffer = ByteBuffer.allocate(size);
-            data.read(valueBuffer, valueLocation + 4);
+            dataFile.read(valueBuffer, valueLocation + 4);
             return valueBuffer.array();
         } catch(IOException e) {
             throw new VoldemortException(e);
-        } finally {
-            fileSet.checkinDataFile(data, chunk);
         }
     }
 
@@ -390,17 +387,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Read the key, potentially from the cache
      */
     private byte[] readKey(MappedByteBuffer index, int indexByteOffset, byte[] foundKey) {
-        readFrom(index, indexByteOffset, foundKey);
+        index.position(indexByteOffset);
+        index.get(foundKey);
         return foundKey;
-    }
-
-    /*
-     * Seek to the given object and read into the buffer exactly buffer.length
-     * bytes
-     */
-    private static void readFrom(MappedByteBuffer file, int indexByteOffset, byte[] buffer) {
-        file.position(indexByteOffset);
-        file.get(buffer);
     }
 
     /**

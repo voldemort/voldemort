@@ -18,6 +18,12 @@ import voldemort.VoldemortException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.utils.Utils;
 
+/**
+ * A set of chunked data and index files for a read-only store
+ * 
+ * @author jay
+ * 
+ */
 public class ChunkedFileSet {
 
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
@@ -29,7 +35,7 @@ public class ChunkedFileSet {
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
     private final List<BlockingQueue<MappedByteBuffer>> indexFiles;
-    private final List<BlockingQueue<FileChannel>> dataFiles;
+    private final List<FileChannel> dataFiles;
 
     public ChunkedFileSet(File directory, int numBuffersPerChunk, long bufferWaitTimeoutMs) {
         this.baseDir = directory;
@@ -41,7 +47,7 @@ public class ChunkedFileSet {
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
         this.indexFiles = new ArrayList<BlockingQueue<MappedByteBuffer>>();
-        this.dataFiles = new ArrayList<BlockingQueue<FileChannel>>();
+        this.dataFiles = new ArrayList<FileChannel>();
 
         // if the directory is empty create empty files
         if(baseDir.list() != null && baseDir.list().length == 0) {
@@ -64,19 +70,25 @@ public class ChunkedFileSet {
             else if(index.exists() ^ data.exists())
                 throw new VoldemortException("One of the following does not exist: "
                                              + index.toString() + " and " + data.toString() + ".");
+
+            /* Deal with file sizes */
             long indexLength = index.length();
             long dataLength = data.length();
             validateFileSizes(indexLength, dataLength);
             indexFileSizes.add((int) indexLength);
             dataFileSizes.add((int) dataLength);
+
+            /* Add the file channel for data */
+            dataFiles.add(openChannel(data));
+
+            /*
+             * Add multiple MappedByteBuffers for the index since we cannot
+             * share handles
+             */
             BlockingQueue<MappedByteBuffer> indexFds = new ArrayBlockingQueue<MappedByteBuffer>(numBuffersPerChunk);
-            BlockingQueue<FileChannel> dataFds = new ArrayBlockingQueue<FileChannel>(numBuffersPerChunk);
-            for(int i = 0; i < numBuffersPerChunk; i++) {
+            for(int i = 0; i < numBuffersPerChunk; i++)
                 indexFds.add(mapFile(index));
-                dataFds.add(openChannel(data));
-            }
             indexFiles.add(indexFds);
-            dataFiles.add(dataFds);
             chunkId++;
         }
         if(chunkId == 0)
@@ -103,7 +115,7 @@ public class ChunkedFileSet {
         for(int chunk = 0; chunk < this.numChunks; chunk++) {
             for(int i = 0; i < this.numBuffersPerChunk; i++) {
                 checkoutIndexFile(chunk);
-                FileChannel channel = checkoutDataFile(chunk);
+                FileChannel channel = getDataFile(chunk);
                 try {
                     channel.close();
                 } catch(IOException e) {
@@ -144,16 +156,12 @@ public class ChunkedFileSet {
         return checkout(indexFiles.get(chunk));
     }
 
-    public void checkinIndexFile(MappedByteBuffer mmap, int chunk) {
-        checkin(mmap, indexFiles.get(chunk));
+    public void checkinIndexFile(MappedByteBuffer file, int chunk) {
+        checkin(file, indexFiles.get(chunk));
     }
 
-    public FileChannel checkoutDataFile(int chunk) {
-        return checkout(dataFiles.get(chunk));
-    }
-
-    public void checkinDataFile(FileChannel channel, int chunk) {
-        checkin(channel, dataFiles.get(chunk));
+    public FileChannel getDataFile(int chunk) {
+        return dataFiles.get(chunk);
     }
 
     public int getIndexFileSize(int chunk) {
