@@ -81,6 +81,12 @@ bool quitCommand(StoreClient* client, const vector<string>& tokens) {
 }
 
 int main(int argc, char** argv) {
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << "{bootstrap URLs list}" << endl
+             << "   URLs of the form tcp://host:port" << endl;
+        exit(1);
+    }
+
     map<string, command> comMap; 
     comMap[string("get")] = getCommand;
     comMap[string("put")] = putCommand;

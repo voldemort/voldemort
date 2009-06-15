@@ -205,13 +205,13 @@ SocketStoreClientFactory::~SocketStoreClientFactory() {
         delete pimpl_;
 }
 
-StoreClient* SocketStoreClientFactory::getStoreClient(std::string& storeName) {
+StoreClient* SocketStoreClientFactory::getStoreClient(const std::string& storeName) {
     shared_ptr<InconsistencyResolver> nullResolver;
     return getStoreClient(storeName, nullResolver);
 }
 
 StoreClient* SocketStoreClientFactory::
-getStoreClient(std::string& storeName,
+getStoreClient(const std::string& storeName,
                shared_ptr<InconsistencyResolver>& resolver) {
     shared_ptr<Store> store(getRawStore(storeName, resolver));
     return new DefaultStoreClient(store,
@@ -219,7 +219,7 @@ getStoreClient(std::string& storeName,
 
 }
 
-Store* SocketStoreClientFactory::getRawStore(std::string& storeName,
+Store* SocketStoreClientFactory::getRawStore(const std::string& storeName,
                                              shared_ptr<InconsistencyResolver>& resolver) {
     VersionedValue clustervv = pimpl_->bootstrapMetadata(CLUSTER_KEY);
     const std::string* clusterXml = clustervv.getValue();

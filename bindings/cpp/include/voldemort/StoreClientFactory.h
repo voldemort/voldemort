@@ -53,7 +53,7 @@ public:
      * @return A fully-constructed @ref StoreClient
      * @see getStoreClient(std::string&, InconsistencyResolver*)
      */
-    virtual StoreClient* getStoreClient(std::string& storeName) = 0;
+    virtual StoreClient* getStoreClient(const std::string& storeName) = 0;
 
     /**
      * Get a @ref StoreClient for the given store.  Returns a newly
@@ -68,7 +68,7 @@ public:
      * @return A fully-constructed @ref StoreClient
      * @see getStoreClient(std::string&)
      */
-    virtual StoreClient* getStoreClient(std::string& storeName,
+    virtual StoreClient* getStoreClient(const std::string& storeName,
                                         shared_ptr<InconsistencyResolver>& resolver) = 0;
 
     /**
@@ -83,7 +83,7 @@ public:
      * time-based resolution scheme will be used.
      * @return the appropriate store
      */
-    virtual Store* getRawStore(std::string& storeName,
+    virtual Store* getRawStore(const std::string& storeName,
                                shared_ptr<InconsistencyResolver>& resolver) = 0;
    
 };
