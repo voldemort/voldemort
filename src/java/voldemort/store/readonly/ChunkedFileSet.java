@@ -12,11 +12,21 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.utils.Utils;
 
+/**
+ * A set of chunked data and index files for a read-only store
+ * 
+ * @author jay
+ * 
+ */
 public class ChunkedFileSet {
+
+    private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
     private final int numChunks;
     private final int numBuffersPerChunk;
@@ -25,7 +35,7 @@ public class ChunkedFileSet {
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
     private final List<BlockingQueue<MappedByteBuffer>> indexFiles;
-    private final List<BlockingQueue<MappedByteBuffer>> dataFiles;
+    private final List<FileChannel> dataFiles;
 
     public ChunkedFileSet(File directory, int numBuffersPerChunk, long bufferWaitTimeoutMs) {
         this.baseDir = directory;
@@ -37,13 +47,14 @@ public class ChunkedFileSet {
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
         this.indexFiles = new ArrayList<BlockingQueue<MappedByteBuffer>>();
-        this.dataFiles = new ArrayList<BlockingQueue<MappedByteBuffer>>();
+        this.dataFiles = new ArrayList<FileChannel>();
 
         // if the directory is empty create empty files
         if(baseDir.list() != null && baseDir.list().length == 0) {
             try {
                 new File(baseDir, "0.index").createNewFile();
                 new File(baseDir, "0.data").createNewFile();
+                logger.info("No index or data files found, creating empty files 0.index and 0.data.");
             } catch(IOException e) {
                 throw new VoldemortException("Error creating empty read-only files.", e);
             }
@@ -59,19 +70,25 @@ public class ChunkedFileSet {
             else if(index.exists() ^ data.exists())
                 throw new VoldemortException("One of the following does not exist: "
                                              + index.toString() + " and " + data.toString() + ".");
+
+            /* Deal with file sizes */
             long indexLength = index.length();
             long dataLength = data.length();
             validateFileSizes(indexLength, dataLength);
             indexFileSizes.add((int) indexLength);
             dataFileSizes.add((int) dataLength);
+
+            /* Add the file channel for data */
+            dataFiles.add(openChannel(data));
+
+            /*
+             * Add multiple MappedByteBuffers for the index since we cannot
+             * share handles
+             */
             BlockingQueue<MappedByteBuffer> indexFds = new ArrayBlockingQueue<MappedByteBuffer>(numBuffersPerChunk);
-            BlockingQueue<MappedByteBuffer> dataFds = new ArrayBlockingQueue<MappedByteBuffer>(numBuffersPerChunk);
-            for(int i = 0; i < numBuffersPerChunk; i++) {
+            for(int i = 0; i < numBuffersPerChunk; i++)
                 indexFds.add(mapFile(index));
-                dataFds.add(mapFile(data));
-            }
             indexFiles.add(indexFds);
-            dataFiles.add(dataFds);
             chunkId++;
         }
         if(chunkId == 0)
@@ -98,8 +115,21 @@ public class ChunkedFileSet {
         for(int chunk = 0; chunk < this.numChunks; chunk++) {
             for(int i = 0; i < this.numBuffersPerChunk; i++) {
                 checkoutIndexFile(chunk);
-                checkoutDataFile(chunk);
+                FileChannel channel = getDataFile(chunk);
+                try {
+                    channel.close();
+                } catch(IOException e) {
+                    logger.error("Error while closing file.", e);
+                }
             }
+        }
+    }
+
+    private FileChannel openChannel(File file) {
+        try {
+            return new FileInputStream(file).getChannel();
+        } catch(IOException e) {
+            throw new VoldemortException(e);
         }
     }
 
@@ -123,19 +153,15 @@ public class ChunkedFileSet {
     }
 
     public MappedByteBuffer checkoutIndexFile(int chunk) {
-        return checkoutFile(indexFiles.get(chunk));
+        return checkout(indexFiles.get(chunk));
     }
 
-    public void checkinIndexFile(MappedByteBuffer mmap, int chunk) {
-        checkinFile(mmap, indexFiles.get(chunk));
+    public void checkinIndexFile(MappedByteBuffer file, int chunk) {
+        checkin(file, indexFiles.get(chunk));
     }
 
-    public MappedByteBuffer checkoutDataFile(int chunk) {
-        return checkoutFile(dataFiles.get(chunk));
-    }
-
-    public void checkinDataFile(MappedByteBuffer mmap, int chunk) {
-        checkinFile(mmap, dataFiles.get(chunk));
+    public FileChannel getDataFile(int chunk) {
+        return dataFiles.get(chunk);
     }
 
     public int getIndexFileSize(int chunk) {
@@ -146,22 +172,22 @@ public class ChunkedFileSet {
         return this.indexFileSizes.get(chunk);
     }
 
-    private void checkinFile(MappedByteBuffer map, BlockingQueue<MappedByteBuffer> mmaps) {
+    private <T> void checkin(T item, BlockingQueue<T> items) {
         try {
-            mmaps.put(map);
+            items.put(item);
         } catch(InterruptedException e) {
             throw new VoldemortException("Interrupted while waiting for file to checking.");
         }
     }
 
-    private MappedByteBuffer checkoutFile(BlockingQueue<MappedByteBuffer> mmaps) {
+    private <T> T checkout(BlockingQueue<T> pool) {
         try {
-            MappedByteBuffer map = mmaps.poll(bufferWaitTimeoutMs, TimeUnit.MILLISECONDS);
-            if(map == null)
+            T item = pool.poll(bufferWaitTimeoutMs, TimeUnit.MILLISECONDS);
+            if(item == null)
                 throw new VoldemortException("Timeout after waiting for " + bufferWaitTimeoutMs
                                              + " ms to acquire file descriptor");
             else
-                return map;
+                return item;
         } catch(InterruptedException e) {
             throw new PersistenceFailureException("Interrupted while waiting for file descriptor.",
                                                   e);
