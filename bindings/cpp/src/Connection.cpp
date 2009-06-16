@@ -24,6 +24,10 @@
 #include <boost/bind.hpp>
 #include <boost/utility/base_from_member.hpp>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <cerrno>
+
 namespace Voldemort {
 
 using namespace std;
@@ -107,6 +111,19 @@ void Connection::handle_connect(const system::error_code& err,
     if (!err) {
         op_complete = true;
         active = true;
+
+        /* We're done with ASIO now, since it performs really poorly
+           for reading/writing.  Set socket to blocking mode with
+           timeouts. */
+        int sock = socket.native();
+        fcntl(sock, F_SETFL, 0);
+
+        struct timeval tv;
+        long to = config->getSocketTimeoutMs();
+        tv.tv_sec = to/1000;
+        tv.tv_usec = (to - tv.tv_sec*1000) * 1000;
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     } else if (endpoint_iterator != tcp::resolver::iterator()) {
         // The connection failed. Try the next endpoint in the list.
         socket.close();
@@ -122,12 +139,26 @@ void Connection::handle_connect(const system::error_code& err,
 }
 
 size_t Connection::read_some(char* buffer, size_t bufferLen) {
+#if 0
     socket.async_read_some(asio::buffer(buffer, bufferLen),
                            boost::bind(&Connection::handle_data_op, this,
                                        asio::placeholders::error,
                                        asio::placeholders::bytes_transferred));
     wait_for_operation(config->getSocketTimeoutMs());
     return bytesTransferred;
+#endif
+
+    int sock = socket.native();
+    ssize_t bytes;
+
+    do {
+        bytes = recv(sock, buffer, bufferLen, MSG_NOSIGNAL);
+    } while (bytes < 0 && errno == EAGAIN);
+
+    if (bytes < 0) {
+        throw VoldemortException("read failed");
+    }
+    return (size_t)bytes;
 }
 
 void Connection::handle_data_op(const system::error_code& err,
@@ -138,13 +169,25 @@ void Connection::handle_data_op(const system::error_code& err,
 }
 
 size_t Connection::write(const char* buffer, size_t bufferLen) {
+#if 0
     asio::async_write(socket,
                       asio::buffer(buffer, bufferLen),
                       boost::bind(&Connection::handle_data_op, this,
                                   asio::placeholders::error,
                                   asio::placeholders::bytes_transferred));
     wait_for_operation(config->getSocketTimeoutMs());
+
     return bytesTransferred;
+#endif
+
+    int sock = socket.native();
+    ssize_t bytes = send(sock, buffer, bufferLen, MSG_NOSIGNAL);
+    if (bytes < 0) {
+        throw VoldemortException("write failed");
+    }
+
+    return (size_t)bytes;
+
 }
 
 void Connection::close() {

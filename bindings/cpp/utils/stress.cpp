@@ -31,7 +31,7 @@ using namespace Voldemort;
 using namespace std;
 using namespace boost;
 
-const int STRESS_THREADS = 4;
+const int STRESS_THREADS = 10;
 const string STORE_NAME("test");
 const string KEY("hello");
 
@@ -46,7 +46,11 @@ public:
 
     void operator()() {
         while (continueStress) {
-            client->get(&KEY);
+            try {
+                client->get(&KEY);
+            } catch (VoldemortException& e) {
+                cerr << e.what() << endl;
+            }
             count += 1;
         }
     }

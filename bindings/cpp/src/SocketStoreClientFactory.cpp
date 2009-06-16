@@ -140,7 +140,7 @@ static void parseBootstrapUrl(const string& url, string& host, int& port) {
             EXPECT_C('/', STATE_HOSTSTRING);
             break;
         case STATE_HOSTSTRING:
-            if (isalnum(*it)) 
+            if (isalnum(*it) || *it == '.' || *it == '-') 
                 hostStr << *it;
             else if (*it == ':') 
                 state = STATE_PORTSTRING;
