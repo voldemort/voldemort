@@ -105,8 +105,7 @@ public:
      * @param key The key to store
      * @param value the versioned value to store
      */
-    virtual void put(const std::string* key, const VersionedValue* value) 
-        throw(ObsoleteVersionException) = 0;
+    virtual void put(const std::string* key, const VersionedValue* value) = 0;
 
     /**
      * Put the versioned value to the key, ignoring any

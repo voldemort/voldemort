@@ -114,8 +114,7 @@ void DefaultStoreClient::put(const std::string* key,
 }
 
 void DefaultStoreClient::put(const std::string* key, 
-                             const VersionedValue* value) 
-    throw(ObsoleteVersionException) {
+                             const VersionedValue* value) {
     for (int attempts = 0; attempts < METADATA_REFRESH_ATTEMPTS; attempts++) {
         try {
             store_->put(*key, *value);

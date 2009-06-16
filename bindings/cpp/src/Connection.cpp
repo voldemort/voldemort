@@ -18,7 +18,7 @@
  */
 
 #include "Connection.h"
-#include <voldemort/VoldemortException.h>
+#include <voldemort/UnreachableStoreException.h>
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/bind.hpp>
@@ -60,7 +60,7 @@ Connection::~Connection() {
 void Connection::check_error(const system::error_code& err) {
     if (err) {
         active = false;
-        throw VoldemortException(err.message());
+        throw UnreachableStoreException(err.message());
     } 
 }
 
@@ -81,7 +81,7 @@ void Connection::wait_for_operation(long millis)
             timer.cancel();
         } else if (op_timeout) {
             close();
-            throw VoldemortException("Network operation timeout");
+            throw UnreachableStoreException("Network operation timeout");
         }
     }
 
@@ -156,7 +156,7 @@ size_t Connection::read_some(char* buffer, size_t bufferLen) {
     } while (bytes < 0 && errno == EAGAIN);
 
     if (bytes < 0) {
-        throw VoldemortException("read failed");
+        throw UnreachableStoreException("read failed");
     }
     return (size_t)bytes;
 }
@@ -183,7 +183,7 @@ size_t Connection::write(const char* buffer, size_t bufferLen) {
     int sock = socket.native();
     ssize_t bytes = send(sock, buffer, bufferLen, MSG_NOSIGNAL);
     if (bytes < 0) {
-        throw VoldemortException("write failed");
+        throw UnreachableStoreException("write failed");
     }
 
     return (size_t)bytes;

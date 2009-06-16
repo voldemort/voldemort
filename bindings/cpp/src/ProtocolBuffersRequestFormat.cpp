@@ -72,8 +72,6 @@ static VectorClock* readVectorClock(const voldemort::VectorClock* vvc) {
     return new VectorClock(&entries, (uint64_t)vvc->timestamp());
 }
 
-/* TODO map error types to various exception objects derived
-   from VoldemortException */
 static void throwException(const voldemort::Error& error) {
     switch(error.error_code()) {
     case 2:

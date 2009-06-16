@@ -64,8 +64,7 @@ public:
     virtual const VersionedValue* get(const std::string* key,
                                       const VersionedValue* defaultValue);
     virtual void put(const std::string* key, const std::string* value);
-    virtual void put(const std::string* key, const VersionedValue* value) 
-        throw(ObsoleteVersionException);
+    virtual void put(const std::string* key, const VersionedValue* value);
     virtual bool putifNotObsolete(const std::string* key, const VersionedValue* value);
     virtual bool deleteKey(const std::string* key);
     virtual bool deleteKey(const std::string* key, const Version* version);

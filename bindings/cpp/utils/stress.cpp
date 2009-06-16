@@ -22,6 +22,7 @@
 #include <time.h>
 #include <memory>
 #include <vector>
+#include <sstream>
 
 #include <voldemort/voldemort.h>
 #include <boost/thread/thread.hpp>
@@ -34,13 +35,14 @@ using namespace boost;
 const int STRESS_THREADS = 10;
 const string STORE_NAME("test");
 const string KEY("hello");
+const string VALUE("world");
 
 volatile int continueStress = 1;
 
 class stresser
 {
 public:
-    stresser(shared_ptr<StoreClient>& client_,
+    stresser(StoreClient* client_,
              int& count_) 
         : client(client_), count(count_) { }
 
@@ -48,14 +50,20 @@ public:
         while (continueStress) {
             try {
                 client->get(&KEY);
+#if 0
+                stringstream str;
+                str << KEY << count << "_" << client;
+                string key(str.str());
+                client->put(&key, &VALUE);
+                count += 1;
+#endif
             } catch (VoldemortException& e) {
                 cerr << e.what() << endl;
             }
-            count += 1;
         }
     }
 
-    shared_ptr<StoreClient> client;
+    StoreClient* client;
     int& count;
 };
 
@@ -97,10 +105,14 @@ int main(int argc, char** argv) {
         // Voldemort cluster over TCP.
         SocketStoreClientFactory factory(config);
 
-        vector<shared_ptr<StoreClient> > clients(STRESS_THREADS);
+        vector<shared_ptr<StoreClient> > clients;
         for (int i = 0; i < STRESS_THREADS; i++) {
             shared_ptr<StoreClient> client(factory.getStoreClient(STORE_NAME));
-            clients[i] = client;
+            if (!client.get()) {
+                cerr << "Count not initialize client " << i << endl;
+                exit(1);
+            }
+            clients.push_back(client);
         }        
         int counts[STRESS_THREADS];
         memset(counts, 0, sizeof(int) * STRESS_THREADS);
@@ -112,7 +124,7 @@ int main(int argc, char** argv) {
         gettimeofday(&starttime, NULL);
         thread_group group;
         for (int i = 0; i < STRESS_THREADS; i++) {
-            group.create_thread(stresser(clients[i], counts[i]));
+            group.create_thread(stresser(clients.at(i).get(), counts[i]));
         }
 
         signal(SIGINT, handleSig);

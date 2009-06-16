@@ -101,6 +101,8 @@ static bool doPutFromStore(const std::string& key,
         node->setAvailable(true);
         return true;
     } catch (UnreachableStoreException& e) {
+        cerr << "Setting node unavailable " << node->getId()
+             << "because " << e.what() << endl;
         node->setAvailable(false);
     }
     return false;

@@ -57,7 +57,7 @@ std::list<VersionedValue>* SocketStore::get(const std::string& key) {
                                  reroute);
         sstream.flush();
         return request->readGetResponse(&sstream);
-    } catch (VoldemortException& e) {
+    } catch (UnreachableStoreException& e) {
         throw UnreachableStoreException(std::string("Failure to get ") + host + 
                                         std::string(": ") + e.what());
     }
@@ -76,7 +76,7 @@ void SocketStore::put(const std::string& key, const VersionedValue& value) {
                                  reroute);
         sstream.flush();
         request->readPutResponse(&sstream);
-    } catch (VoldemortException& e) {
+    } catch (UnreachableStoreException& e) {
         throw UnreachableStoreException(std::string("Failure to put ") + host + 
                                         std::string(": ") + e.what());
     }
@@ -94,7 +94,7 @@ bool SocketStore::deleteKey(const std::string& key, const Version& version) {
                                     reroute);
         sstream.flush();
         return request->readDeleteResponse(&sstream);
-    } catch (VoldemortException& e) {
+    } catch (UnreachableStoreException& e) {
         throw UnreachableStoreException(std::string("Failure to delete ") + host + 
                                         std::string(": ") + e.what());
     }
