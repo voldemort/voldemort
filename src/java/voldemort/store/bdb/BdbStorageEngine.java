@@ -53,6 +53,7 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
+import com.sleepycat.je.EnvironmentConfig;
 
 /**
  * A store that uses BDB for persistence
@@ -80,6 +81,18 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.environment = environment;
         this.serializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
         this.isOpen = new AtomicBoolean(true);
+
+        try {
+            logger.info("    BDB[" + name + "] : cache size = " + environment.getConfig().getCacheSize());
+            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_THREADS + " = "
+                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_THREADS));
+            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION + " = "
+                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
+            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.LOG_FILE_MAX + " = "
+                    + environment.getConfig().getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
+        } catch (DatabaseException e) {
+            logger.error("Error getting config inforation for BDB at startup", e);
+        }
     }
 
     public String getName() {

@@ -18,7 +18,9 @@ package voldemort.store.readonly;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -330,15 +332,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private byte[] readValue(int chunk, int valueLocation) {
-        MappedByteBuffer data = fileSet.checkoutDataFile(chunk);
+        FileChannel dataFile = fileSet.getDataFile(chunk);
         try {
-            data.position(valueLocation);
-            int size = data.getInt();
-            byte[] value = new byte[size];
-            data.get(value);
-            return value;
-        } finally {
-            fileSet.checkinDataFile(data, chunk);
+            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+            dataFile.read(sizeBuffer, valueLocation);
+            int size = sizeBuffer.getInt(0);
+            ByteBuffer valueBuffer = ByteBuffer.allocate(size);
+            dataFile.read(valueBuffer, valueLocation + 4);
+            return valueBuffer.array();
+        } catch(IOException e) {
+            throw new VoldemortException(e);
         }
     }
 
@@ -384,17 +387,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Read the key, potentially from the cache
      */
     private byte[] readKey(MappedByteBuffer index, int indexByteOffset, byte[] foundKey) {
-        readFrom(index, indexByteOffset, foundKey);
+        index.position(indexByteOffset);
+        index.get(foundKey);
         return foundKey;
-    }
-
-    /*
-     * Seek to the given object and read into the buffer exactly buffer.length
-     * bytes
-     */
-    private static void readFrom(MappedByteBuffer file, int indexByteOffset, byte[] buffer) {
-        file.position(indexByteOffset);
-        file.get(buffer);
     }
 
     /**
