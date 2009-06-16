@@ -49,8 +49,10 @@ public:
     void operator()() {
         while (continueStress) {
             try {
+                // Simple GET
                 client->get(&KEY);
 #if 0
+                // This does an implicit GET followed by a PUT
                 stringstream str;
                 str << KEY << count << "_" << client;
                 string key(str.str());

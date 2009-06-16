@@ -215,7 +215,9 @@ getStoreClient(const std::string& storeName,
                shared_ptr<InconsistencyResolver>& resolver) {
     shared_ptr<Store> store(getRawStore(storeName, resolver));
     return new DefaultStoreClient(store,
-                                  pimpl_->config);
+                                  resolver,
+                                  pimpl_->config,
+                                  this);
 
 }
 

@@ -45,10 +45,14 @@ public:
      * Construct a default store client object
      * 
      * @param store The underlying store object
+     * @param resolver The inconsistency resolver
      * @param config the @ref ClientConfig object
+     * @param factory the store client factory that created us
      */
     DefaultStoreClient(shared_ptr<Store>& store,
-                       shared_ptr<ClientConfig>& config);
+                       shared_ptr<InconsistencyResolver>& resolver,
+                       shared_ptr<ClientConfig>& config,
+                       StoreClientFactory* factory);
     virtual ~DefaultStoreClient();
 
     /**
@@ -71,7 +75,9 @@ public:
    
 private:
     shared_ptr<ClientConfig> config_;
+    shared_ptr<InconsistencyResolver> resolver_;
     shared_ptr<Store> store_;
+    StoreClientFactory* factory_;
 
     VersionedValue curValue_;
 };

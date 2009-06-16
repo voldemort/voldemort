@@ -33,8 +33,11 @@ using namespace std;
 static const int METADATA_REFRESH_ATTEMPTS = 3;
 
 DefaultStoreClient::DefaultStoreClient(shared_ptr<Store>& store,
-                                       shared_ptr<ClientConfig>& config) 
-    : config_(config), store_(store), curValue_() {
+                                       shared_ptr<InconsistencyResolver>& resolver,
+                                       shared_ptr<ClientConfig>& config,
+                                       StoreClientFactory* factory) 
+    : config_(config), resolver_(resolver),
+      store_(store), factory_(factory), curValue_() {
 
 }
 
@@ -43,8 +46,9 @@ DefaultStoreClient::~DefaultStoreClient() {
 }
 
 void DefaultStoreClient::reinit() {
-    /* XXX - TODO */
-    throw VoldemortException("Not implemented");
+    shared_ptr<Store> 
+        nstore(factory_->getRawStore(*(store_->getName()), resolver_));
+    store_ = nstore;
 }
 
 const std::string* DefaultStoreClient::getValue(const std::string* key) {

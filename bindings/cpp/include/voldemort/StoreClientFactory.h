@@ -58,7 +58,8 @@ public:
     /**
      * Get a @ref StoreClient for the given store.  Returns a newly
      * allocated object which is owned by the caller and must be
-     * freed.
+     * freed.  Note that you must keep around the store client factory
+     * object until you're done with the store client.
      * 
      * @param storeName the name of the store
      * @param resolver a shared pointer to an @ref
