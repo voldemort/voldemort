@@ -83,7 +83,7 @@ class VectorClock: public Version
     /**
      * Get the timestamp
      */
-    uint64_t getTimestamp();
+    uint64_t getTimestamp() const;
 
     // Version interface
     virtual VectorClock* copy() const;

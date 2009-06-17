@@ -117,7 +117,7 @@ const std::list<std::pair<short, uint64_t> >* VectorClock::getEntries() const {
     return versions;
 }
 
-uint64_t VectorClock::getTimestamp() {
+uint64_t VectorClock::getTimestamp() const {
     return timestamp;
 }
 

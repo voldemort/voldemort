@@ -18,7 +18,8 @@
 
 AM_CPPFLAGS = -I$(top_srcdir)/include 
 
-bin_PROGRAMS = voldemortShell stress
+bin_PROGRAMS = voldemortShell
+noinst_PROGRAMS = stress
 
 voldemortShell_SOURCES = voldemortShell.cpp
 voldemortShell_LDADD = ../src/libvoldemort.la
