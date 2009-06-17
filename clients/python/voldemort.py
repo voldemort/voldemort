@@ -337,7 +337,15 @@ class StoreClient:
 		if not version:
 			version = self._fetch_version(key)
 		return self._execute_request(self._put, [key, value, version])
-    
+		
+		
+	def maybe_put(self, key, value, version = None):
+		"""Execute a put request using the given key and value. If the version being put is obsolete, 
+		   no modification will be made and this function will return None. Otherwise it will return the new version."""
+		try:
+			return self.put(key, value, version)
+		except:
+			return None
     
 	def _delete(self, key, version):
 		req = protocol.VoldemortRequest()
