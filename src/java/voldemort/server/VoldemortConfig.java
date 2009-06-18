@@ -66,6 +66,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbBtreeFanout;
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
+    private boolean bdbOneEnvPerStore;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -152,6 +153,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
+        this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -717,6 +719,14 @@ public class VoldemortConfig implements Serializable {
         this.bdbSortedDuplicates = enable;
     }
 
+    public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {
+        this.bdbOneEnvPerStore = bdbOneEnvPerStore;
+    }
+
+    public boolean isBdbOneEnvPerStore() {
+        return bdbOneEnvPerStore;
+    }
+
     public int getSocketBufferSize() {
         return socketBufferSize;
     }
@@ -768,5 +778,4 @@ public class VoldemortConfig implements Serializable {
     public void setNumCleanupPermits(int numCleanupPermits) {
         this.numCleanupPermits = numCleanupPermits;
     }
-
 }
