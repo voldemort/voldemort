@@ -43,7 +43,7 @@ Node::Node()
 }
 
 void Node::setAvailable(bool avail) {
-    isAvailable_ = true;
+    isAvailable_ = avail;
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -59,7 +59,7 @@ uint64_t Node::getMsSinceLastChecked() {
 
 bool Node::isAvailable(uint64_t timeout) {
     return (isAvailable_ ||
-            getMsSinceLastChecked() > timeout);
+            (getMsSinceLastChecked() > timeout));
 }
 
 std::ostream& operator<<(std::ostream& output, const Node& node) {
