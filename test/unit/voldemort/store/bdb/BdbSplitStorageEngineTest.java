@@ -46,8 +46,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
     private File bdbMasterDir;
     private BdbStorageConfiguration bdbStorage;
 
-    // Berkeley DB keeps growing cache till 500MB
-    private static long CACHE_SIZE = 500 * 1000 * 1000;
+    private static long CACHE_SIZE = (long) Math.min(Runtime.getRuntime().maxMemory() * 0.95,
+                                                     500 * 1000 * 1000);
 
     @Override
     protected void setUp() throws Exception {
