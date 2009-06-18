@@ -46,7 +46,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
     private File bdbMasterDir;
     private BdbStorageConfiguration bdbStorage;
 
-    private static long CACHE_SIZE = (long) Math.min(Runtime.getRuntime().maxMemory() * 0.95,
+    private static long CACHE_SIZE = (long) Math.min(Runtime.getRuntime().maxMemory() * 0.30,
                                                      500 * 1000 * 1000);
 
     @Override
@@ -139,8 +139,6 @@ public class BdbSplitStorageEngineTest extends TestCase {
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
         environmentConfig.setSharedCache(false);
-
-        // set cache size to 95 % of max memory available
         environmentConfig.setCacheSize(CACHE_SIZE);
 
         DatabaseConfig databaseConfig = new DatabaseConfig();
