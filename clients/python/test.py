@@ -21,6 +21,7 @@ if __name__ == '__main__':
 	pairs = [("a1", "1"), ("a2", "2"), ("a3", "3"), ("a4", "4")]
 	for k, v in pairs:
 		s.put(k, v)
+		
 	vals = s.get_all([k for k, v in pairs])
 	for k, v in pairs:
 		assert vals[k][0][0] == v 
