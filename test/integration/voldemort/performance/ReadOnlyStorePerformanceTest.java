@@ -42,7 +42,7 @@ import voldemort.utils.CmdUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Join;
+import com.google.common.base.Joiner;
 
 public class ReadOnlyStorePerformanceTest {
 
@@ -66,7 +66,7 @@ public class ReadOnlyStorePerformanceTest {
 
         Set<String> missing = CmdUtils.missing(options, "requests", "store-dir");
         if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Join.join(", ", missing));
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
         }

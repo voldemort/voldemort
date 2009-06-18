@@ -51,7 +51,7 @@ import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.base.Join;
+import com.google.common.base.Joiner;
 import com.google.common.collect.AbstractIterator;
 
 /**
@@ -154,7 +154,7 @@ public class JsonStoreBuilder {
                                                "input",
                                                "output");
         if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Join.join(", ", missing));
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
         }
