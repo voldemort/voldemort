@@ -55,6 +55,11 @@ public:
     ~Connection();
 
     /**
+     * Connect to the remote host
+     */
+    void connect();
+
+    /**
      * Close the underlying connection.  After calling this the
      * Connection object cannot be used.
      */
@@ -117,8 +122,10 @@ private:
 
     void handle_resolve(const system::error_code& err,
                         tcp::resolver::iterator endpoint_iterator);
+#if 0
     void handle_data_op(const system::error_code& err,
                         size_t transferred);
+#endif
     void check_error(const system::error_code& err);
 
     shared_ptr<ClientConfig> config;

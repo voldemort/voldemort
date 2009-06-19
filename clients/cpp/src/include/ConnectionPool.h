@@ -79,8 +79,10 @@ private:
     typedef map<size_t, conn_entry> host_entry;
     typedef shared_ptr<host_entry> host_entry_ptr;
     typedef map<string, host_entry_ptr> conn_pool;
+    typedef map<string, int> conn_pool_ready_count;
     conn_pool pool;
 
+    conn_pool_ready_count ready_count;
     int totalConnections;
 
     mutex poolMutex;
