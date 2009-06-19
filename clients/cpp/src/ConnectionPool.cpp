@@ -119,8 +119,10 @@ void ConnectionPool::checkin(shared_ptr<Connection>& conn) {
         lock_guard<mutex> guard(poolMutex);
 
         host_entry_ptr& hep = pool[hostKey];
+        int& host_ready_count = ready_count[hostKey];
         if (!hep.get()) {
             hep = host_entry_ptr(new host_entry());
+            host_ready_count = 0;
         }
 
         conn_entry& ce = (*hep)[(size_t)conn.get()];
@@ -130,7 +132,7 @@ void ConnectionPool::checkin(shared_ptr<Connection>& conn) {
             totalConnections -= 1;
             //cout << "Destroying connection " << hostKey << endl;
         } else {
-            ready_count[hostKey] += 1;
+            host_ready_count += 1;
             ce.first = STATUS_READY;
         }
     }
