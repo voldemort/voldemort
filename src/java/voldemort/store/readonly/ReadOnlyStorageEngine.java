@@ -178,7 +178,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             // copy in new files
             logger.info("Setting primary files for store '" + getName() + "' to "
                         + newStoreDirectory);
-            success = newDataDir.renameTo(new File(storeDir, "version-0"));
+            File destDir = new File(storeDir, "version-0");
+            success = newDataDir.renameTo(destDir);
 
             // open the new store
             if(success) {
@@ -188,6 +189,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     logger.error(e);
                     success = false;
                 }
+            } else {
+                logger.error("Renaming " + newDataDir.getAbsolutePath() + " to "
+                             + destDir.getAbsolutePath() + " failed!");
             }
         } finally {
             try {
@@ -196,7 +200,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     rollback();
             } finally {
                 fileModificationLock.writeLock().unlock();
-                logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
+                if(success)
+                    logger.info("Swap operation completed successfully on store " + getName()
+                                + ", releasing lock.");
+                else
+                    logger.error("Swap operation failed.");
             }
         }
         // okay we have released the lock and the store is now open again, it is
