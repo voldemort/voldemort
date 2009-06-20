@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -35,6 +36,8 @@ import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.EnvironmentStats;
+import com.sleepycat.je.StatsConfig;
 
 /**
  * The configuration that is shared between berkeley db instances. This includes
@@ -113,6 +116,21 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     public String getType() {
         return TYPE_NAME;
+    }
+
+    public EnvironmentStats getEnvStats() {
+        try {
+            StatsConfig config = new StatsConfig();
+            config.setFast(true);
+            return environment.getStats(config);
+        } catch(DatabaseException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    @JmxGetter(name = "stats", description = "A variety of stats about this BDB environment.")
+    public String getEnvStatsAsString() {
+        return getEnvStats().toString();
     }
 
     public void close() {

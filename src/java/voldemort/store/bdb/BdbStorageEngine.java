@@ -27,6 +27,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.VersionedSerializer;
 import voldemort.store.NoSuchCapabilityException;
@@ -49,11 +50,13 @@ import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.StatsConfig;
 import com.sleepycat.je.Transaction;
-import com.sleepycat.je.EnvironmentConfig;
 
 /**
  * A store that uses BDB for persistence
@@ -83,14 +86,20 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.isOpen = new AtomicBoolean(true);
 
         try {
-            logger.info("    BDB[" + name + "] : cache size = " + environment.getConfig().getCacheSize());
+            logger.info("    BDB[" + name + "] : cache size = "
+                        + environment.getConfig().getCacheSize());
             logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_THREADS + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_THREADS));
-            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
+                        + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_THREADS));
+            logger.info("    BDB["
+                        + name
+                        + "] : "
+                        + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION
+                        + " = "
+                        + environment.getConfig()
+                                     .getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
             logger.info("    BDB[" + name + "] : " + EnvironmentConfig.LOG_FILE_MAX + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
-        } catch (DatabaseException e) {
+                        + environment.getConfig().getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
+        } catch(DatabaseException e) {
             logger.error("Error getting config inforation for BDB at startup", e);
         }
     }
@@ -322,7 +331,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private void attemptAbort(Transaction transaction) {
         try {
-            transaction.abort();
+            if(transaction != null)
+                transaction.abort();
         } catch(Exception e) {
             logger.error("Abort failed!", e);
         }
@@ -336,6 +346,21 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             attemptAbort(transaction);
             throw new PersistenceFailureException(e);
         }
+    }
+
+    public DatabaseStats getStats() {
+        try {
+            StatsConfig config = new StatsConfig();
+            config.setFast(true);
+            return this.bdbDatabase.getStats(config);
+        } catch(DatabaseException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    @JmxGetter(name = "stats", description = "A variety of stats about the BDB for this store.")
+    public String getStatsAsString() {
+        return getStats().toString();
     }
 
     private static class BdbStoreIterator implements

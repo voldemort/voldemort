@@ -154,6 +154,11 @@ public class SocketPool {
         return this.pool.getNumIdle();
     }
 
+    @JmxGetter(name = "numberOfTotalConnections", description = "The total number of connections, whether active or idle.")
+    public int getTotalNumberOfConnections() {
+        return this.pool.getNumActive() + this.pool.getNumIdle();
+    }
+
     @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
     public double getAvgWaitTimeMs() {
         return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;

@@ -114,14 +114,16 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.getCoreThreads(),
                                            voldemortConfig.getMaxThreads(),
                                            voldemortConfig.getSocketBufferSize(),
-                                           "client-request-service"));
+                                           "client-request-server",
+                                           voldemortConfig.isJmxEnabled()));
         if(voldemortConfig.isAdminServerEnabled())
             services.add(new SocketService(requestHandlerFactory.getRequestHandler(RequestFormatType.ADMIN_HANDLER),
                                            identityNode.getAdminPort(),
                                            voldemortConfig.getAdminCoreThreads(),
                                            voldemortConfig.getAdminMaxThreads(),
                                            voldemortConfig.getAdminSocketBufferSize(),
-                                           "admin-service"));
+                                           "admin-server",
+                                           voldemortConfig.isJmxEnabled()));
 
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this,
@@ -134,7 +136,7 @@ public class VoldemortServer extends AbstractService {
 
     @Override
     protected void startInner() throws VoldemortException {
-        logger.info("Starting all services: " + services.size());
+        logger.info("Starting " + services.size() + " services.");
         long start = System.currentTimeMillis();
         for(VoldemortService service: services)
             service.start();
