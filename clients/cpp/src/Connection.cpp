@@ -40,15 +40,6 @@ Connection::Connection(string& hostName,
     : config(conf), host(hostName), port(portNum), io_service(), 
       resolver(io_service), timer(io_service), socket(io_service), 
       connbuf(NULL), connstream(NULL), active(false) {
-    // Start an asynchronous resolve to translate the server and service names
-    // into a list of endpoints.
-    tcp::resolver::query query(host, port);
-    resolver.async_resolve(query,
-                           boost::bind(&Connection::handle_resolve, this,
-                                       asio::placeholders::error,
-                                       asio::placeholders::iterator));
-    
-    wait_for_operation(conf->getConnectionTimeoutMs());
 }
 
 Connection::~Connection() {
@@ -57,16 +48,24 @@ Connection::~Connection() {
     if (connbuf) delete connbuf;
 }
 
+void Connection::connect() {
+    // Start an asynchronous resolve to translate the server and service names
+    // into a list of endpoints.
+    tcp::resolver::query query(host, port);
+    resolver.async_resolve(query,
+                           boost::bind(&Connection::handle_resolve, this,
+                                       asio::placeholders::error,
+                                       asio::placeholders::iterator));
+    
+    wait_for_operation(config->getConnectionTimeoutMs());
+}
+
 void Connection::check_error(const system::error_code& err) {
     if (err) {
         active = false;
         throw UnreachableStoreException(err.message());
     } 
 }
-
-static void set_result(optional<system::error_code>* a, system::error_code b) {
-    a->reset(b);
-} 
 
 void Connection::wait_for_operation(long millis)
 {
@@ -161,12 +160,14 @@ size_t Connection::read_some(char* buffer, size_t bufferLen) {
     return (size_t)bytes;
 }
 
+#if 0
 void Connection::handle_data_op(const system::error_code& err,
                                 size_t transferred) {
     check_error(err);
     bytesTransferred = transferred;
     op_complete = true;
 }
+#endif
 
 size_t Connection::write(const char* buffer, size_t bufferLen) {
 #if 0

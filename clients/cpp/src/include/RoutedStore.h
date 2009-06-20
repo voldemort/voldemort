@@ -48,7 +48,6 @@ public:
      * @param clust the cluster object with which to configure the
      * routed store
      * @param map a mapping from node ID to Store used for routing
-     * @param pool the thread pool to use
      * @param routingStrat the routing strategy to use
      */
     RoutedStore(const std::string& storeName,

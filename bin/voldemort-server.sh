@@ -34,6 +34,11 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
+for file in $base_dir/contrib/hadoop-store-builder/lib/*.jar;
+do
+  CLASSPATH=$CLASSPATH:$file
+done
+
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 if [ -z $VOLD_OPTS ]; then

@@ -61,6 +61,8 @@ static void setupVectorClock(voldemort::VectorClock* vvc, const VectorClock* vc)
         entry->set_node_id((*it).first);
         entry->set_version((*it).second);
     }
+
+    vvc->set_timestamp(vc->getTimestamp());
 }
 
 static VectorClock* readVectorClock(const voldemort::VectorClock* vvc) {

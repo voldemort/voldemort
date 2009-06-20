@@ -45,52 +45,66 @@ shared_ptr<Connection>& ConnectionPool::checkout(string& host, int port) {
     stringstream hostKey;
     hostKey << host << ":" << port;
 
-    host_entry_ptr& hep = pool[hostKey.str()];
+    shared_ptr<Connection>* connRet = NULL;
 
-    {
-        lock_guard<mutex> guard(poolMutex);
-
-        if (!hep.get()) {
-            hep = host_entry_ptr(new host_entry());
-        }
-
-        // Search for an active connection to try 
-        host_entry::iterator heit;
-        for (heit = hep->begin(); heit != hep->end(); ++heit) {
-            if (heit->second.first == STATUS_READY) {
-                heit->second.first = STATUS_CHECKED_OUT;
-                return heit->second.second;
-            }
-        }
-    }
-
-    // Fall back to creating a new connection
     {
         // Ensure that we don't have too many connections in the pool
         unique_lock<mutex> lock(poolMutex);
 
-        while (((clientConfig->getMaxConnectionsPerNode() > 0) && 
-                (hep->size() >= (size_t)clientConfig->getMaxConnectionsPerNode())) ||
-               ((clientConfig->getMaxTotalConnections() > 0) &&
-                (totalConnections >= clientConfig->getMaxTotalConnections()))) {
+        host_entry_ptr& hep = pool[hostKey.str()];
+        int& host_ready_count = ready_count[hostKey.str()];
+
+        if (!hep.get()) {
+            hep = host_entry_ptr(new host_entry());
+            host_ready_count = 0;
+        }
+
+        while ((host_ready_count == 0) &&
+               (((clientConfig->getMaxConnectionsPerNode() > 0) && 
+                 (hep->size() >= (size_t)clientConfig->getMaxConnectionsPerNode())) ||
+                ((clientConfig->getMaxTotalConnections() > 0) &&
+                 (totalConnections >= clientConfig->getMaxTotalConnections())))) {
             checkinCond.wait(lock);
         }
+
+        // Search for a ready connection to try
+        if (host_ready_count > 0) {
+            host_entry::iterator heit;
+            for (heit = hep->begin(); heit != hep->end(); ++heit) {
+                if (heit->second.first == STATUS_READY) {
+                    heit->second.first = STATUS_CHECKED_OUT;
+                    host_ready_count -= 1;
+                    return heit->second.second;
+                }
+            }
+        }
+
+        // Otherwise fall back to creating a new connection
+
+        // Reserve a spot in the pool
+        stringstream portStr;
+        portStr << port;
+        std::string portString = portStr.str();
+        //cout << "Creating connection " << hostKey.str() << endl;
+        shared_ptr<Connection> conn(new Connection(host, portString, 
+                                                   clientConfig));
+        (*hep)[(size_t)conn.get()] = make_pair((int)STATUS_UNINIT, conn);
+        totalConnections += 1;
+        connRet = &(((*hep)[(size_t)conn.get()]).second);
     }
 
-    stringstream portStr;
-    portStr << port;
-    std::string portString = portStr.str();
-    //    cout << "Allocating new Connection " << hostKey.str() << endl;
+    // Connect to the remote host
+    try {
+        (*connRet)->connect();
+    } catch (...) {
+        checkin(*connRet);
+        throw;
+    }
 
-    shared_ptr<Connection> conn(new Connection(host, portString, 
-                                               clientConfig));
-    shared_ptr<Connection>* connRet = NULL;
     {
-       lock_guard<mutex> guard(poolMutex);
-
-       (*hep)[(size_t)conn.get()] = make_pair((int)STATUS_CHECKED_OUT, conn);
-       totalConnections += 1;
-       connRet = &(((*hep)[(size_t)conn.get()]).second);
+        lock_guard<mutex> guard(poolMutex);
+        (*pool[hostKey.str()])[(size_t)connRet->get()].first =
+            (int)STATUS_CHECKED_OUT;
     }
 
     return *connRet;
@@ -113,7 +127,10 @@ void ConnectionPool::checkin(shared_ptr<Connection>& conn) {
         if (ce.first != STATUS_CHECKED_OUT || !conn->is_active()) {
             /* Something horrible has happened to our connection */
             hep->erase((size_t)conn.get());
+            totalConnections -= 1;
+            //cout << "Destroying connection " << hostKey << endl;
         } else {
+            ready_count[hostKey] += 1;
             ce.first = STATUS_READY;
         }
     }

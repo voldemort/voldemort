@@ -25,9 +25,6 @@ class ClientConfigImpl {
 public:
     int maxConnectionsPerNode;
     int maxTotalConnections;
-    //    int maxThreads;
-    //    int maxQueuedRequests;
-    //    long threadIdleMs;
     long connectionTimeoutMs;
     long socketTimeoutMs;
     long routingTimeoutMs;
@@ -39,9 +36,6 @@ ClientConfig::ClientConfig() {
     pimpl_ = new ClientConfigImpl();
     pimpl_->maxConnectionsPerNode = 0;
     pimpl_->maxTotalConnections = 500;
-    //    pimpl_->maxThreads = 5;
-    //    pimpl_->maxQueuedRequests = 500;
-    //    pimpl_->threadIdleMs = 100000;
     pimpl_->connectionTimeoutMs = 500;
     pimpl_->socketTimeoutMs = 5000;
     pimpl_->routingTimeoutMs = 15000;
@@ -70,26 +64,45 @@ int ClientConfig::getMaxConnectionsPerNode() {
     return pimpl_->maxConnectionsPerNode;
 }
 
+ClientConfig* ClientConfig::setMaxConnectionsPerNode(int val) {
+    pimpl_->maxConnectionsPerNode = val;
+    return this;
+}
+
 int ClientConfig::getMaxTotalConnections() {
     return pimpl_->maxTotalConnections;
+}
+
+ClientConfig* ClientConfig::setMaxTotalConnections(int val) {
+    pimpl_->maxTotalConnections = val;
+    return this;
 }
 
 long ClientConfig::getConnectionTimeoutMs() {
     return pimpl_->connectionTimeoutMs;
 }
 
+ClientConfig* ClientConfig::setConnectionTimeoutMs(long val) {
+    pimpl_->connectionTimeoutMs = val;
+    return this;
+}
+
 long ClientConfig::getSocketTimeoutMs() {
     return pimpl_->socketTimeoutMs;
 }
 
-#if 0
-int ClientConfig::getMaxThreads() {
-    return pimpl_->maxThreads;
+ClientConfig* ClientConfig::setSocketTimeoutMs(long val) {
+    pimpl_->socketTimeoutMs = val;
+    return this;
 }
-#endif
 
-int ClientConfig::getNodeBannageMs() {
+long ClientConfig::getNodeBannageMs() {
     return pimpl_->nodeBannageMs;
+}
+
+ClientConfig* ClientConfig::setNodeBannageMs(long val) {
+    pimpl_->nodeBannageMs = val;
+    return this;
 }
 
 } /* namespace Voldemort */

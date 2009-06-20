@@ -68,11 +68,27 @@ public:
     int getMaxConnectionsPerNode();
 
     /**
-     * Get the maximum number of allowed connections per node
+     * Set the maximum number of allowed connections per node
+     * 
+     * @param val the value
+     * @return a pointer to this object useful for chaining
+     */
+    ClientConfig* setMaxConnectionsPerNode(int val);
+
+    /**
+     * Get the maximum number of allowed connections total
      * 
      * @return the value
      */
     int getMaxTotalConnections();
+
+    /**
+     * Set the maximum number of allowed connections total
+     * 
+     * @param val the value
+     * @return a pointer to this object useful for chaining
+     */
+    ClientConfig* setMaxTotalConnections(int val);
 
     /**
      * Get the number of milliseconds to wait for a connection to
@@ -83,6 +99,15 @@ public:
     long getConnectionTimeoutMs();
 
     /**
+     * Set the number of milliseconds to wait for a connection to
+     * start before timing out.
+     * 
+     * @param val the value
+     * @return a pointer to this object useful for chaining
+     */
+    ClientConfig* setConnectionTimeoutMs(long val);
+
+    /**
      * Get the number of milliseconds to wait for on reading or
      * writing to a socket before timing out.
      * 
@@ -91,11 +116,13 @@ public:
     long getSocketTimeoutMs();
 
     /**
-     * Get the maximum number of client threads
+     * Set the number of milliseconds to wait for on reading or
+     * writing to a socket before timing out.
      * 
-     * @return the value
+     * @param val the value
+     * @return a pointer to this object useful for chaining
      */
-    int getMaxThreads();
+    ClientConfig* setSocketTimeoutMs(long val);
 
     /**
      * Get the number of milliseconds a node will be banned before we
@@ -103,7 +130,16 @@ public:
      * 
      * @return the value
      */
-    int getNodeBannageMs();
+    long getNodeBannageMs();
+
+    /**
+     * Set the number of milliseconds a node will be banned before we
+     * try again to connect to it following a failure.
+     * 
+     * @param val the value
+     * @return a pointer to this object useful for chaining
+     */
+    ClientConfig* setNodeBannageMs(long val);
     
 private:
     /** Internal implementation details for ClientConfig */
