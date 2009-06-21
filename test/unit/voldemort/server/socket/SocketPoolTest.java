@@ -52,8 +52,7 @@ public class SocketPoolTest extends TestCase {
         RequestHandlerFactory handlerFactory = new RequestHandlerFactory(new StoreRepository(),
                                                                          null,
                                                                          null);
-        this.server = new SocketServer("test-socket",
-                                       port,
+        this.server = new SocketServer(port,
                                        maxTotalConnections,
                                        maxTotalConnections + 3,
                                        10000,

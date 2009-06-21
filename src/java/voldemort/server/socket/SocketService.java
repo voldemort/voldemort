@@ -45,8 +45,7 @@ public class SocketService extends AbstractService implements VoldemortService {
                          String serviceName,
                          boolean enableJmx) {
         super(ServiceType.SOCKET);
-        this.server = new SocketServer(serviceName,
-                                       port,
+        this.server = new SocketServer(port,
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,

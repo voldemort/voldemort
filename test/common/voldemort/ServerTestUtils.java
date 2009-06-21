@@ -85,7 +85,7 @@ public class ServerTestUtils {
         RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
                                                                             clusterXml,
                                                                             storesXml), null, null);
-        SocketServer socketServer = new SocketServer("Socket-Server", port, 5, 10, 10000, factory);
+        SocketServer socketServer = new SocketServer(port, 5, 10, 10000, factory);
         socketServer.start();
         socketServer.awaitStartupCompletion();
         return socketServer;

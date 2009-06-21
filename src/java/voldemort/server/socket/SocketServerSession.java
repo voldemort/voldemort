@@ -57,7 +57,7 @@ public class SocketServerSession implements Runnable {
             RequestFormatType protocol = negotiateProtocol(inputStream, outputStream);
             RequestHandler handler = handlerFactory.getRequestHandler(protocol);
             logger.info("Client " + socket.getRemoteSocketAddress()
-                        + " connected successfully with protocol " + protocol);
+                        + " connected successfully with protocol " + protocol.getCode());
 
             while(!isInterrupted()) {
                 handler.handleRequest(inputStream, outputStream);

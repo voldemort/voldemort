@@ -22,13 +22,13 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
@@ -49,25 +49,21 @@ public class SocketServer extends Thread {
     static final Logger logger = Logger.getLogger(SocketServer.class.getName());
 
     private final ThreadPoolExecutor threadPool;
-    private final Random random = new Random();
     private final int port;
     private final ThreadGroup threadGroup;
     private final CountDownLatch isStarted = new CountDownLatch(1);
     private final int socketBufferSize;
     private final RequestHandlerFactory handlerFactory;
     private final int maxThreads;
-    private final String serverName;
     private final StatusManager statusManager;
 
     private ServerSocket serverSocket = null;
 
-    public SocketServer(String serverName,
-                        int port,
+    public SocketServer(int port,
                         int defaultThreads,
                         int maxThreads,
                         int socketBufferSize,
                         RequestHandlerFactory handlerFactory) {
-        this.serverName = serverName;
         this.port = port;
         this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
@@ -85,8 +81,10 @@ public class SocketServer extends Thread {
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
 
+        private AtomicLong threadIdSequence = new AtomicLong(0);
+
         public Thread newThread(Runnable r) {
-            String name = getThreadName("handler");
+            String name = "voldemort-server-" + threadIdSequence.getAndIncrement();
             Thread t = new Thread(threadGroup, r, name);
             t.setDaemon(true);
             return t;
@@ -117,8 +115,7 @@ public class SocketServer extends Thread {
 
     @Override
     public void run() {
-        logger.info("Starting voldemort socket server(" + serverName + ") on port " + port
-                    + " using request handler " + handlerFactory.getClass());
+        logger.info("Starting voldemort socket server on port " + port);
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
@@ -162,8 +159,7 @@ public class SocketServer extends Thread {
     }
 
     public void shutdown() {
-        logger.info("Shutting down voldemort socket server(" + serverName + ") on port " + port
-                    + ".");
+        logger.info("Shutting down voldemort socket server.");
         try {
             serverSocket.close();
         } catch(IOException e) {
@@ -183,7 +179,7 @@ public class SocketServer extends Thread {
             if(!serverSocket.isClosed())
                 serverSocket.close();
         } catch(IOException e) {
-            logger.warn("Exception while closing server socket in " + serverName + ": ", e);
+            logger.warn("Exception while closing server socket: ", e);
         }
     }
 
@@ -213,10 +209,6 @@ public class SocketServer extends Thread {
         } catch(InterruptedException e) {
             // this is okay, if we are interrupted we can stop waiting
         }
-    }
-
-    private String getThreadName(String baseName) {
-        return baseName + random.nextInt(1000000);
     }
 
     public StatusManager getStatusManager() {

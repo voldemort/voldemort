@@ -99,7 +99,7 @@ public class RemoteStoreComparisonTest {
                                                         socketPool,
                                                         false);
         RequestHandlerFactory factory = new RequestHandlerFactory(repository, null, null);
-        SocketServer socketServer = new SocketServer("Socket-Server", 6666, 50, 50, 1000, factory);
+        SocketServer socketServer = new SocketServer(6666, 50, 50, 1000, factory);
         socketServer.start();
         socketServer.awaitStartupCompletion();
 
