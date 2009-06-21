@@ -33,11 +33,13 @@ public class RequestHandlerFactory {
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
         switch(type) {
-            case VOLDEMORT:
-                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository);
+            case VOLDEMORT_V0:
+                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 0);
+            case VOLDEMORT_V1:
+                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 1);
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffRequestHandler(new ErrorCodeMapper(), repository);
-            case ADMIN_HANDLER:
+            case ADMIN:
                 return new AdminServiceRequestHandler(new ErrorCodeMapper(),
                                                       repository,
                                                       metadata,

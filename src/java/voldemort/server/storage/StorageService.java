@@ -53,6 +53,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
+import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
@@ -197,10 +198,10 @@ public class StorageService extends AbstractService {
                 store = this.storeRepository.getLocalStore(def.getName());
             } else {
                 store = new SocketStore(def.getName(),
-                                        node.getHost(),
-                                        node.getSocketPort(),
+                                        new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              voldemortConfig.getRequestFormatType()),
                                         socketPool,
-                                        voldemortConfig.getRequestFormatType(),
                                         false);
             }
             this.storeRepository.addNodeStore(node.getId(), store);

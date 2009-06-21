@@ -18,9 +18,9 @@ package voldemort.server.socket;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
-import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
-import voldemort.store.ErrorCodeMapper;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
@@ -48,15 +48,16 @@ public class SocketPoolTest extends TestCase {
                                    1000,
                                    1000,
                                    32 * 1024);
-        this.dest1 = new SocketDestination("localhost", port);
-        VoldemortNativeRequestHandler requestHandler = new VoldemortNativeRequestHandler(new ErrorCodeMapper(),
-                                                                                         new StoreRepository());
+        this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
+        RequestHandlerFactory handlerFactory = new RequestHandlerFactory(new StoreRepository(),
+                                                                         null,
+                                                                         null);
         this.server = new SocketServer("test-socket",
                                        port,
                                        maxTotalConnections,
                                        maxTotalConnections + 3,
                                        10000,
-                                       requestHandler);
+                                       handlerFactory);
         this.server.start();
         this.server.awaitStartupCompletion();
     }
@@ -88,6 +89,14 @@ public class SocketPoolTest extends TestCase {
         pool.checkin(dest1, sas1);
         SocketAndStreams sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
+    }
+
+    public void testVariousProtocols() throws Exception {
+        for(RequestFormatType type: RequestFormatType.values()) {
+            SocketDestination dest = new SocketDestination("localhost", port, type);
+            SocketAndStreams sas = pool.checkout(dest);
+            assertEquals(type, sas.getRequestFormatType());
+        }
     }
 
 }

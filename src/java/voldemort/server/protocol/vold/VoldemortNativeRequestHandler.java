@@ -19,17 +19,32 @@ import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+/**
+ * Server-side request handler for voldemort native client protocol
+ * 
+ * @author jay
+ * 
+ */
 public class VoldemortNativeRequestHandler extends AbstractRequestHandler implements RequestHandler {
 
-    public VoldemortNativeRequestHandler(ErrorCodeMapper errorMapper, StoreRepository repository) {
+    private final int protocolVersion;
+
+    public VoldemortNativeRequestHandler(ErrorCodeMapper errorMapper,
+                                         StoreRepository repository,
+                                         int protocolVersion) {
         super(errorMapper, repository);
+        if(protocolVersion < 0 || protocolVersion > 1)
+            throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
+        this.protocolVersion = protocolVersion;
     }
 
     public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException {
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
-        boolean isRouted = inputStream.readBoolean();
+        boolean isRouted = false;
+        if(protocolVersion > 0)
+            isRouted = inputStream.readBoolean();
         Store<ByteArray, byte[]> store = getStore(storeName, isRouted);
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName

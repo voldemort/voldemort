@@ -105,24 +105,16 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,
                                          storeRepository,
-                                         RequestFormatType.VOLDEMORT,
+                                         RequestFormatType.VOLDEMORT_V1,
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
         if(voldemortConfig.isSocketServerEnabled())
-            services.add(new SocketService(requestHandlerFactory.getRequestHandler(voldemortConfig.getRequestFormatType()),
+            services.add(new SocketService(requestHandlerFactory,
                                            identityNode.getSocketPort(),
                                            voldemortConfig.getCoreThreads(),
                                            voldemortConfig.getMaxThreads(),
                                            voldemortConfig.getSocketBufferSize(),
-                                           "client-request-server",
-                                           voldemortConfig.isJmxEnabled()));
-        if(voldemortConfig.isAdminServerEnabled())
-            services.add(new SocketService(requestHandlerFactory.getRequestHandler(RequestFormatType.ADMIN_HANDLER),
-                                           identityNode.getAdminPort(),
-                                           voldemortConfig.getAdminCoreThreads(),
-                                           voldemortConfig.getAdminMaxThreads(),
-                                           voldemortConfig.getAdminSocketBufferSize(),
-                                           "admin-server",
+                                           "socket-server",
                                            voldemortConfig.isJmxEnabled()));
 
         if(voldemortConfig.isJmxEnabled())

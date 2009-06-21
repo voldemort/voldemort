@@ -22,7 +22,7 @@ import java.util.Map;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -120,13 +120,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
                 // otherwise create a new environment
                 File bdbDir = new File(bdbMasterDir, storeName);
-                if(!bdbDir.exists()) {
-                    logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath()
-                                + "' for store'" + storeName + "'.");
-                    bdbDir.mkdirs();
-                }
+                createBdbDirIfNecessary(bdbDir);
 
                 Environment environment = new Environment(bdbDir, environmentConfig);
+                logger.info("Creating environment for " + storeName + ": ");
+                logEnvironmentConfig(environment.getConfig());
                 environments.put(storeName, environment);
                 return environment;
             } else {
@@ -134,17 +132,32 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                     return environments.get(SHARED_ENV_KEY);
 
                 File bdbDir = new File(bdbMasterDir);
-
-                if(!bdbDir.exists()) {
-                    logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath() + "'.");
-                    bdbDir.mkdirs();
-                }
+                createBdbDirIfNecessary(bdbDir);
 
                 Environment environment = new Environment(bdbDir, environmentConfig);
+                logger.info("Creating shared BDB environment: ");
+                logEnvironmentConfig(environment.getConfig());
                 environments.put(SHARED_ENV_KEY, environment);
                 return environment;
             }
         }
+    }
+
+    private void createBdbDirIfNecessary(File bdbDir) {
+        if(!bdbDir.exists()) {
+            logger.info("Creating BDB data directory '" + bdbDir.getAbsolutePath() + ".");
+            bdbDir.mkdirs();
+        }
+    }
+
+    private void logEnvironmentConfig(EnvironmentConfig config) {
+        logger.info("    BDB cache size = " + config.getCacheSize());
+        logger.info("    BDB " + EnvironmentConfig.CLEANER_THREADS + " = "
+                    + config.getConfigParam(EnvironmentConfig.CLEANER_THREADS));
+        logger.info("    BDB " + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION + " = "
+                    + config.getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
+        logger.info("    BDB " + EnvironmentConfig.LOG_FILE_MAX + " = "
+                    + config.getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
     }
 
     public String getType() {
@@ -162,7 +175,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    @JmxGetter(name = "stats", description = "A variety of stats about one BDB environment.")
+    @JmxOperation(description = "A variety of stats about one BDB environment.")
     public String getEnvStatsAsString(String storeName) throws Exception {
         return getStats(storeName).toString();
     }

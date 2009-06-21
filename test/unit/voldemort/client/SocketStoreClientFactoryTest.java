@@ -19,7 +19,6 @@ package voldemort.client;
 import java.net.URISyntaxException;
 
 import voldemort.ServerTestUtils;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.socket.SocketServer;
 
@@ -41,8 +40,7 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
         server = ServerTestUtils.getSocketServer(getClusterXml(),
                                                  getStoreDefXml(),
                                                  getValidStoreName(),
-                                                 getLocalNode().getSocketPort(),
-                                                 RequestFormatType.VOLDEMORT);
+                                                 getLocalNode().getSocketPort());
     }
 
     @Override

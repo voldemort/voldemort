@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
+import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
@@ -61,10 +62,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                 int port,
                                                 RequestFormatType type) {
         return new SocketStore(Utils.notNull(storeName),
-                               Utils.notNull(host),
-                               port,
+                               new SocketDestination(Utils.notNull(host), port, type),
                                socketPool,
-                               type,
                                RoutingTier.SERVER.equals(routingTier));
     }
 

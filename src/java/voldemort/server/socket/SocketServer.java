@@ -35,7 +35,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 
 /**
  * A simple socket-based server for serving voldemort requests
@@ -54,7 +54,7 @@ public class SocketServer extends Thread {
     private final ThreadGroup threadGroup;
     private final CountDownLatch isStarted = new CountDownLatch(1);
     private final int socketBufferSize;
-    private final RequestHandler requestHandler;
+    private final RequestHandlerFactory handlerFactory;
     private final int maxThreads;
     private final String serverName;
     private final StatusManager statusManager;
@@ -66,12 +66,12 @@ public class SocketServer extends Thread {
                         int defaultThreads,
                         int maxThreads,
                         int socketBufferSize,
-                        RequestHandler requestHandler) {
+                        RequestHandlerFactory handlerFactory) {
         this.serverName = serverName;
         this.port = port;
         this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
-        this.requestHandler = requestHandler;
+        this.handlerFactory = handlerFactory;
         this.maxThreads = maxThreads;
         this.threadPool = new ThreadPoolExecutor(defaultThreads,
                                                  maxThreads,
@@ -97,10 +97,16 @@ public class SocketServer extends Thread {
 
         public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
             SocketServerSession session = (SocketServerSession) r;
-            logger.error("Too many open connections, " + executor.getActiveCount() + " of "
-                         + executor.getLargestPoolSize()
-                         + " threads in use, denying connection from "
-                         + session.getSocket().getRemoteSocketAddress());
+            if(interrupted()) {
+                logger.info("Denying connection from "
+                            + session.getSocket().getRemoteSocketAddress()
+                            + ", server is shutting down.");
+            } else {
+                logger.error("Too many open connections, " + executor.getActiveCount() + " of "
+                             + executor.getLargestPoolSize()
+                             + " threads in use, denying connection from "
+                             + session.getSocket().getRemoteSocketAddress());
+            }
             try {
                 session.getSocket().close();
             } catch(IOException e) {
@@ -112,7 +118,7 @@ public class SocketServer extends Thread {
     @Override
     public void run() {
         logger.info("Starting voldemort socket server(" + serverName + ") on port " + port
-                    + " using request handler " + requestHandler.getClass());
+                    + " using request handler " + handlerFactory.getClass());
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
@@ -121,7 +127,7 @@ public class SocketServer extends Thread {
             while(!isInterrupted() && !serverSocket.isClosed()) {
                 final Socket socket = serverSocket.accept();
                 configureSocket(socket);
-                this.threadPool.execute(new SocketServerSession(socket, requestHandler));
+                this.threadPool.execute(new SocketServerSession(socket, handlerFactory));
             }
         } catch(BindException e) {
             logger.error("Could not bind to port " + port + ".");
@@ -158,11 +164,18 @@ public class SocketServer extends Thread {
     public void shutdown() {
         logger.info("Shutting down voldemort socket server(" + serverName + ") on port " + port
                     + ".");
+        try {
+            serverSocket.close();
+        } catch(IOException e) {
+            logger.error("Error while closing socket server: " + e.getMessage());
+        }
         threadGroup.interrupt();
         interrupt();
         threadPool.shutdownNow();
         try {
-            threadPool.awaitTermination(1, TimeUnit.SECONDS);
+            boolean completed = threadPool.awaitTermination(1, TimeUnit.SECONDS);
+            if(!completed)
+                logger.warn("Timed out waiting for sockets to close.");
         } catch(InterruptedException e) {
             logger.warn("Interrupted while waiting for tasks to complete: ", e);
         }

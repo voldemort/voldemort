@@ -21,7 +21,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.VoldemortService;
-import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.utils.JmxUtils;
 
 /**
@@ -37,7 +37,7 @@ public class SocketService extends AbstractService implements VoldemortService {
     private final SocketServer server;
     private final boolean enableJmx;
 
-    public SocketService(RequestHandler requestHandler,
+    public SocketService(RequestHandlerFactory requestHandlerFactory,
                          int port,
                          int coreConnections,
                          int maxConnections,
@@ -50,7 +50,7 @@ public class SocketService extends AbstractService implements VoldemortService {
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
-                                       requestHandler);
+                                       requestHandlerFactory);
         this.serviceName = serviceName;
         this.enableJmx = enableJmx;
     }

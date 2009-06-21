@@ -32,7 +32,6 @@ import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.json.EndOfFileException;

@@ -108,8 +108,8 @@ public class ConsistentRoutingStrategyTest extends TestCase {
             tags.add(i);
 
         for(int i = 0; i < numNodes; i++)
-            nodes.add(new Node(i, "host", 8080, 6666, 7777, tags.subList(tagsPerNode * i,
-                                                                         tagsPerNode * (i + 1))));
+            nodes.add(new Node(i, "host", 8080, 6666, tags.subList(tagsPerNode * i, tagsPerNode
+                                                                                    * (i + 1))));
 
         // use a seed so that this test is repeatable
         Random random = new Random(2158745224L);
@@ -183,7 +183,7 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         List<Integer> list = new ArrayList<Integer>(tags.length);
         for(int tag: tags)
             list.add(tag);
-        return new Node(id, "localhost", 8080, 6666, 7777, list, new NodeStatus(time));
+        return new Node(id, "localhost", 8080, 6666, list, new NodeStatus(time));
     }
 
 }
