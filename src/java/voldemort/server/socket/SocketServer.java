@@ -189,7 +189,7 @@ public class SocketServer extends Thread {
         return this.threadPool.getActiveCount();
     }
 
-    @JmxGetter(name = "remainingThreads", description = "The number of additional threads that can be allocated before reaching the maximum.")
+    @JmxGetter(name = "remainingThreadCapacity", description = "The number of additional threads that can be allocated before reaching the maximum.")
     public int getRemainingThreads() {
         return getMaxThreads() - getCurrentThreads();
     }
