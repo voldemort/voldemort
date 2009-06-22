@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -31,12 +32,20 @@ public class SocketServerSession implements Runnable {
 
     private final Logger logger = Logger.getLogger(SocketServerSession.class);
 
+    private final Map<Long, SocketServerSession> activeSessions;
+    private final long sessionId;
     private final Socket socket;
     private final RequestHandlerFactory handlerFactory;
+    private volatile boolean isClosed = false;
 
-    public SocketServerSession(Socket socket, RequestHandlerFactory handlerFactory) {
+    public SocketServerSession(Map<Long, SocketServerSession> activeSessions,
+                               Socket socket,
+                               RequestHandlerFactory handlerFactory,
+                               long id) {
+        this.activeSessions = activeSessions;
         this.socket = socket;
         this.handlerFactory = handlerFactory;
+        this.sessionId = id;
     }
 
     public Socket getSocket() {
@@ -49,6 +58,7 @@ public class SocketServerSession implements Runnable {
 
     public void run() {
         try {
+            activeSessions.put(sessionId, this);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream(),
                                                                                       64000));
             DataOutputStream outputStream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
@@ -59,20 +69,26 @@ public class SocketServerSession implements Runnable {
             logger.info("Client " + socket.getRemoteSocketAddress()
                         + " connected successfully with protocol " + protocol.getCode());
 
-            while(!isInterrupted()) {
+            while(!isInterrupted() && !socket.isClosed() && !isClosed) {
                 handler.handleRequest(inputStream, outputStream);
                 outputStream.flush();
             }
+            if(isInterrupted())
+                logger.info(Thread.currentThread().getName()
+                            + " has been interrupted, closing session.");
         } catch(EOFException e) {
             logger.info("Client " + socket.getRemoteSocketAddress() + " disconnected.");
         } catch(IOException e) {
-            logger.error(e);
+            if(!isClosed)
+                logger.error(e);
         } finally {
             try {
                 socket.close();
             } catch(Exception e) {
                 logger.error("Error while closing socket", e);
             }
+            // now remove ourselves from the set of active sessions
+            this.activeSessions.remove(sessionId);
         }
     }
 
@@ -97,5 +113,10 @@ public class SocketServerSession implements Runnable {
                         + RequestFormatType.VOLDEMORT_V0.getDisplayName());
         }
         return requestFormat;
+    }
+
+    public void close() throws IOException {
+        this.isClosed = true;
+        this.socket.close();
     }
 }

@@ -22,6 +22,9 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
@@ -35,6 +38,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.protocol.RequestHandlerFactory;
 
 /**
@@ -56,6 +60,8 @@ public class SocketServer extends Thread {
     private final RequestHandlerFactory handlerFactory;
     private final int maxThreads;
     private final StatusManager statusManager;
+    private final AtomicLong sessionIdSequence;
+    private final ConcurrentMap<Long, SocketServerSession> activeSessions;
 
     private ServerSocket serverSocket = null;
 
@@ -77,6 +83,8 @@ public class SocketServer extends Thread {
                                                  threadFactory,
                                                  rejectedExecutionHandler);
         this.statusManager = new StatusManager(this.threadPool);
+        this.sessionIdSequence = new AtomicLong(0);
+        this.activeSessions = new ConcurrentHashMap<Long, SocketServerSession>();
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
@@ -124,7 +132,11 @@ public class SocketServer extends Thread {
             while(!isInterrupted() && !serverSocket.isClosed()) {
                 final Socket socket = serverSocket.accept();
                 configureSocket(socket);
-                this.threadPool.execute(new SocketServerSession(socket, handlerFactory));
+                long sessionId = this.sessionIdSequence.getAndIncrement();
+                this.threadPool.execute(new SocketServerSession(activeSessions,
+                                                                socket,
+                                                                handlerFactory,
+                                                                sessionId));
             }
         } catch(BindException e) {
             logger.error("Could not bind to port " + port + ".");
@@ -160,26 +172,40 @@ public class SocketServer extends Thread {
 
     public void shutdown() {
         logger.info("Shutting down voldemort socket server.");
-        try {
-            serverSocket.close();
-        } catch(IOException e) {
-            logger.error("Error while closing socket server: " + e.getMessage());
-        }
-        threadGroup.interrupt();
+
+        // first shut down the acceptor to stop new connections
         interrupt();
-        threadPool.shutdownNow();
-        try {
-            boolean completed = threadPool.awaitTermination(1, TimeUnit.SECONDS);
-            if(!completed)
-                logger.warn("Timed out waiting for sockets to close.");
-        } catch(InterruptedException e) {
-            logger.warn("Interrupted while waiting for tasks to complete: ", e);
-        }
         try {
             if(!serverSocket.isClosed())
                 serverSocket.close();
         } catch(IOException e) {
-            logger.warn("Exception while closing server socket: ", e);
+            logger.error("Error while closing socket server: " + e.getMessage());
+        }
+
+        // now kill all the active sessions
+        threadPool.shutdownNow();
+        killActiveSessions();
+
+        try {
+            boolean completed = threadPool.awaitTermination(5, TimeUnit.SECONDS);
+            if(!completed)
+                logger.warn("Timed out waiting for threadpool to close.");
+        } catch(InterruptedException e) {
+            logger.warn("Interrupted while waiting for socket server shutdown to complete: ", e);
+        }
+    }
+
+    @JmxOperation(description = "Kill all the active sessions.")
+    public void killActiveSessions() {
+        // loop through and close the socket of all the active sessions
+        logger.info("Killing all active sessions.");
+        for(Map.Entry<Long, SocketServerSession> entry: activeSessions.entrySet()) {
+            try {
+                logger.debug("Closing session " + entry.getKey());
+                entry.getValue().close();
+            } catch(IOException e) {
+                logger.warn("Error while closing session socket: ", e);
+            }
         }
     }
 
