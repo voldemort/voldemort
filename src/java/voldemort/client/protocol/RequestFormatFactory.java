@@ -16,6 +16,8 @@
 
 package voldemort.client.protocol;
 
+import java.util.EnumMap;
+
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.ProtoBuffClientRequestFormat;
 import voldemort.client.protocol.vold.VoldemortNativeClientRequestFormat;
@@ -29,15 +31,21 @@ import voldemort.client.protocol.vold.VoldemortNativeClientRequestFormat;
  */
 public class RequestFormatFactory {
 
+    private EnumMap<RequestFormatType, RequestFormat> typeToInstance;
+
+    public RequestFormatFactory() {
+        this.typeToInstance = new EnumMap<RequestFormatType, RequestFormat>(RequestFormatType.class);
+        this.typeToInstance.put(RequestFormatType.VOLDEMORT_V1,
+                                new VoldemortNativeClientRequestFormat());
+        this.typeToInstance.put(RequestFormatType.PROTOCOL_BUFFERS,
+                                new ProtoBuffClientRequestFormat());
+    }
+
     public RequestFormat getRequestFormat(RequestFormatType type) {
-        switch(type) {
-            case VOLDEMORT:
-                return new VoldemortNativeClientRequestFormat();
-            case PROTOCOL_BUFFERS:
-                return new ProtoBuffClientRequestFormat();
-            default:
-                throw new VoldemortException("Unknown wire format " + type);
-        }
+        RequestFormat format = this.typeToInstance.get(type);
+        if(type == null)
+            throw new VoldemortException("Unknown wire format " + type);
+        return format;
     }
 
 }

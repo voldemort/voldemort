@@ -45,7 +45,7 @@ public class ClientConfig {
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
-    private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT;
+    private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
 
@@ -253,7 +253,8 @@ public class ClientConfig {
 
     /**
      * Set the tier at which routing occurs. Client-side routing occurs on the
-     * client, and server-side routing on the server.
+     * client, and server-side routing on the server. This is not yet used, as
+     * the java client only supports client-side routing.
      * 
      * @param routingTier The routing tier to use for routing requests
      */

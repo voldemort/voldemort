@@ -26,7 +26,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -57,16 +56,11 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     private final RequestFormat requestFormat;
     private final boolean reroute;
 
-    public SocketStore(String name,
-                       String host,
-                       int port,
-                       SocketPool socketPool,
-                       RequestFormatType requestFormatType,
-                       boolean reroute) {
+    public SocketStore(String name, SocketDestination dest, SocketPool socketPool, boolean reroute) {
         this.name = Utils.notNull(name);
         this.pool = Utils.notNull(socketPool);
-        this.destination = new SocketDestination(Utils.notNull(host), port);
-        this.requestFormat = requestFormatFactory.getRequestFormat(requestFormatType);
+        this.destination = dest;
+        this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
         this.reroute = reroute;
     }
 
@@ -79,10 +73,10 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         SocketAndStreams sands = pool.checkout(destination);
         try {
             requestFormat.writeDeleteRequest(sands.getOutputStream(),
-                                          name,
-                                          key,
-                                          (VectorClock) version,
-                                          reroute);
+                                             name,
+                                             key,
+                                             (VectorClock) version,
+                                             reroute);
             sands.getOutputStream().flush();
             return requestFormat.readDeleteResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -131,11 +125,11 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         SocketAndStreams sands = pool.checkout(destination);
         try {
             requestFormat.writePutRequest(sands.getOutputStream(),
-                                       name,
-                                       key,
-                                       versioned.getValue(),
-                                       (VectorClock) versioned.getVersion(),
-                                       reroute);
+                                          name,
+                                          key,
+                                          versioned.getValue(),
+                                          (VectorClock) versioned.getVersion(),
+                                          reroute);
             sands.getOutputStream().flush();
             requestFormat.readPutResponse(sands.getInputStream());
         } catch(IOException e) {

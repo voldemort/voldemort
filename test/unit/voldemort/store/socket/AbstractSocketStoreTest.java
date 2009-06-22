@@ -61,8 +61,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         socketServer = ServerTestUtils.getSocketServer(VoldemortTestConstants.getOneNodeClusterXml(),
                                                        VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                        "test",
-                                                       socketPort,
-                                                       requestFormatType);
+                                                       socketPort);
         socketStore = ServerTestUtils.getSocketStore("test", socketPort, requestFormatType);
     }
 

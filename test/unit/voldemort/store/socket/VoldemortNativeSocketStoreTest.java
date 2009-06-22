@@ -11,7 +11,7 @@ import voldemort.client.protocol.RequestFormatType;
 public class VoldemortNativeSocketStoreTest extends AbstractSocketStoreTest {
 
     public VoldemortNativeSocketStoreTest() {
-        super(RequestFormatType.VOLDEMORT);
+        super(RequestFormatType.VOLDEMORT_V1);
     }
 
 }

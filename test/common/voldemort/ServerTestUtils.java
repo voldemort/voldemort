@@ -47,6 +47,7 @@ import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
@@ -80,29 +81,26 @@ public class ServerTestUtils {
     public static SocketServer getSocketServer(String clusterXml,
                                                String storesXml,
                                                String storeName,
-                                               int port,
-                                               RequestFormatType type) {
+                                               int port) {
         RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
                                                                             clusterXml,
                                                                             storesXml), null, null);
-        SocketServer socketServer = new SocketServer("Socket-Server",
-                                                     port,
-                                                     5,
-                                                     10,
-                                                     10000,
-                                                     factory.getRequestHandler(type));
+        SocketServer socketServer = new SocketServer(port, 5, 10, 10000, factory);
         socketServer.start();
         socketServer.awaitStartupCompletion();
         return socketServer;
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
-        return getSocketStore(storeName, port, RequestFormatType.VOLDEMORT);
+        return getSocketStore(storeName, port, RequestFormatType.VOLDEMORT_V1);
     }
 
     public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
         SocketPool socketPool = new SocketPool(1, 2, 10000, 100000, 32 * 1024);
-        return new SocketStore(storeName, "localhost", port, socketPool, type, false);
+        return new SocketStore(storeName,
+                               new SocketDestination("localhost", port, type),
+                               socketPool,
+                               false);
     }
 
     public static Context getJettyServer(String clusterXml,
@@ -164,22 +162,22 @@ public class ServerTestUtils {
     }
 
     public static Cluster getLocalCluster(int numberOfNodes) {
-        return getLocalCluster(numberOfNodes, findFreePorts(3 * numberOfNodes));
+        return getLocalCluster(numberOfNodes, findFreePorts(2 * numberOfNodes));
     }
 
     public static Cluster getLocalCluster(int numberOfNodes, int[] ports) {
-        if(3 * numberOfNodes != ports.length)
+        if(2 * numberOfNodes != ports.length)
             throw new IllegalArgumentException(3 * numberOfNodes + " ports required but only "
                                                + ports.length + " given.");
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numberOfNodes; i++)
-            nodes.add(new Node(i,
-                               "localhost",
-                               ports[3 * i],
-                               ports[3 * i + 1],
-                               ports[3 * i + 2],
-                               ImmutableList.of(i)));
+            nodes.add(new Node(i, "localhost", ports[2 * i], ports[2 * i + 1], ImmutableList.of(i)));
         return new Cluster("test-cluster", nodes);
+    }
+
+    public static Node getLocalNode(int nodeId, List<Integer> partitions) {
+        int[] ports = findFreePorts(2);
+        return new Node(nodeId, "localhost", ports[0], ports[1], partitions);
     }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {

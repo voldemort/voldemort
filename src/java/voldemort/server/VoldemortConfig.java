@@ -219,8 +219,8 @@ public class VoldemortConfig implements Serializable {
         this.allProps = props;
 
         String requestFormatName = props.getString("request.format",
-                                                   RequestFormatType.VOLDEMORT.getName());
-        this.requestFormatType = RequestFormatType.fromName(requestFormatName);
+                                                   RequestFormatType.VOLDEMORT_V1.getCode());
+        this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
         validateParams();
     }

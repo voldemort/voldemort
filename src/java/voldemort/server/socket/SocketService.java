@@ -21,7 +21,8 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.VoldemortService;
-import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.utils.JmxUtils;
 
 /**
  * The VoldemortService that loads up the socket server
@@ -32,27 +33,33 @@ import voldemort.server.protocol.RequestHandler;
 @JmxManaged(description = "A server that handles remote operations on stores via tcp/ip.")
 public class SocketService extends AbstractService implements VoldemortService {
 
+    private final String serviceName;
     private final SocketServer server;
+    private final boolean enableJmx;
 
-    public SocketService(RequestHandler requestHandler,
+    public SocketService(RequestHandlerFactory requestHandlerFactory,
                          int port,
                          int coreConnections,
                          int maxConnections,
                          int socketBufferSize,
-                         String serviceName) {
+                         String serviceName,
+                         boolean enableJmx) {
         super(ServiceType.SOCKET);
-        this.server = new SocketServer(serviceName,
-                                       port,
+        this.server = new SocketServer(port,
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
-                                       requestHandler);
+                                       requestHandlerFactory);
+        this.serviceName = serviceName;
+        this.enableJmx = enableJmx;
     }
 
     @Override
     protected void startInner() {
         this.server.start();
         this.server.awaitStartupCompletion();
+        if(enableJmx)
+            JmxUtils.registerMbean(serviceName, server);
     }
 
     @Override

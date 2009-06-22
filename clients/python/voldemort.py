@@ -103,6 +103,19 @@ class StoreClient:
 		self.reconnect_interval = reconnect_interval
 		self.open = True
 		
+	def _make_connection(self, host, port):
+		protocol = 'pb0'
+		logging.debug('Attempting to connect to ' + host + ':' + str(port))
+		connection = socket.socket()
+		connection.connect((host, port))
+		logging.debug('Connection succeeded, negotiating protocol')
+		connection.send(protocol)
+		resp = connection.recv(2)
+		if resp != 'ok':
+			raise VoldemortException('Server does not understand the protocol ' + protocol)
+		logging.debug('Protocol negotiation suceeded')
+		return connection
+		
 	
 	## Connect to a the next available node in the cluster
 	## returns a tuple of (node_id, connection)
@@ -115,10 +128,7 @@ class StoreClient:
 			new_node = self.nodes[new_node_id]
 			connection = None
 			try:
-				logging.debug('Attempting to connect to node ' + str(new_node_id))
-				connection = socket.socket()
-				connection.connect((new_node.host, new_node.socket_port))
-				logging.debug('Connection succeeded')
+				connection = self._make_connection(new_node.host, new_node.socket_port)
 				self.request_count = 0
 				return new_node_id, connection
 			except socket.error, (err_num, message):
@@ -160,7 +170,6 @@ class StoreClient:
 		size_bytes = connection.recv(4)
 		size = struct.unpack('>i', size_bytes)
 		return connection.recv(size[0])
-			
 	
 	## Bootstrap cluster metadata from a list of urls of nodes in the cluster. 
 	## The urls are tuples in the form (host, port).
@@ -169,9 +178,9 @@ class StoreClient:
 		random.shuffle(bootstrap_urls)
 		for host, port in bootstrap_urls:
 			logging.debug('Attempting to bootstrap metadata from ' + host + ':' + str(port))
+			connection = None
 			try:
-				connection = socket.socket()
-				connection.connect((host, port))
+				connection = self._make_connection(host, port)
 				cluster_xmls = self._get_with_connection(connection, 'metadata', 'cluster.xml', should_route = False)
 				if len(cluster_xmls) != 1:
 					raise VoldemortException('Expected exactly one version of the metadata but found ' + str(cluster_xmls))

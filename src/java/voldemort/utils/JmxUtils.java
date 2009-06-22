@@ -17,6 +17,7 @@
 package voldemort.utils;
 
 import java.lang.annotation.Annotation;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -289,6 +290,25 @@ public class JmxUtils {
         } catch(NotCompliantMBeanException e) {
             throw new VoldemortException(e);
         }
+    }
+
+    /**
+     * Register the given object under the package name of the object's class
+     * with the given type name.
+     * 
+     * this method using the platform mbean server as returned by
+     * ManagementFactory.getPlatformMBeanServer()
+     * 
+     * @param typeName The name of the type to register
+     * @param obj The object to register as an mbean
+     */
+    public static void registerMbean(String typeName, Object obj) {
+        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+        ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(obj.getClass()),
+                                                    typeName);
+        if(mbeanServer.isRegistered(name))
+            JmxUtils.unregisterMbean(mbeanServer, name);
+        JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(obj), name);
     }
 
     /**
