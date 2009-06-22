@@ -68,6 +68,7 @@ public:
                                     const VectorClock* version,
                                     bool shouldReroute);
     virtual bool readDeleteResponse(std::istream* inputStream);
+    virtual const std::string& getNegotiationString();
 };
 
 } /* namespace Voldemort */

@@ -48,7 +48,10 @@ SocketStore::~SocketStore() {
 
 std::list<VersionedValue>* SocketStore::get(const std::string& key) {
     try {
-        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        ConnectionPoolSentinel 
+            conn(connPool->checkout(host, port, 
+                                    request->getNegotiationString()), 
+                 connPool);
         std::iostream& sstream = conn->get_io_stream();
         
         request->writeGetRequest(&sstream,
@@ -65,7 +68,10 @@ std::list<VersionedValue>* SocketStore::get(const std::string& key) {
 
 void SocketStore::put(const std::string& key, const VersionedValue& value) {
     try {
-        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        ConnectionPoolSentinel 
+            conn(connPool->checkout(host, port, 
+                                    request->getNegotiationString()), 
+                 connPool);
         std::iostream& sstream = conn->get_io_stream();
 
         request->writePutRequest(&sstream,
@@ -84,7 +90,10 @@ void SocketStore::put(const std::string& key, const VersionedValue& value) {
 
 bool SocketStore::deleteKey(const std::string& key, const Version& version) {
     try {
-        ConnectionPoolSentinel conn(connPool->checkout(host, port), connPool);
+        ConnectionPoolSentinel 
+            conn(connPool->checkout(host, port, 
+                                    request->getNegotiationString()), 
+                 connPool);
         std::iostream& sstream = conn->get_io_stream();
 
         request->writeDeleteRequest(&sstream,

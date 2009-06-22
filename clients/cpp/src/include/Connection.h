@@ -48,9 +48,11 @@ public:
      * 
      * @param hostName the host to connect to
      * @param portNum the port to connect to
+     * @param negString the protocol negotiation string
      * @param conf the client config object */
-    Connection(std::string& hostName,
-               std::string& portNum,
+    Connection(const std::string& hostName,
+               const std::string& portNum,
+               const std::string& negString,
                shared_ptr<ClientConfig>& conf);
     ~Connection();
 
@@ -132,6 +134,7 @@ private:
 
     std::string host;
     std::string port;
+    std::string negotiationString;
 
     asio::io_service io_service;
     tcp::resolver resolver;

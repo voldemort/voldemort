@@ -34,12 +34,13 @@ using namespace std;
 using namespace boost;
 using asio::ip::tcp;
 
-Connection::Connection(string& hostName,
-                       string& portNum,
+Connection::Connection(const string& hostName,
+                       const string& portNum,
+                       const string& negString,
                        shared_ptr<ClientConfig>& conf)
-    : config(conf), host(hostName), port(portNum), io_service(), 
-      resolver(io_service), timer(io_service), socket(io_service), 
-      connbuf(NULL), connstream(NULL), active(false) {
+    : config(conf), host(hostName), port(portNum), negotiationString(negString),
+      io_service(), resolver(io_service), timer(io_service), 
+      socket(io_service), connbuf(NULL), connstream(NULL), active(false) {
 }
 
 Connection::~Connection() {
@@ -123,6 +124,19 @@ void Connection::handle_connect(const system::error_code& err,
         tv.tv_usec = (to - tv.tv_sec*1000) * 1000;
         setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
         setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        /* Negotiate protocol for the open connection */
+        write(negotiationString.c_str(), negotiationString.length());
+        char res_buffer[2];
+        size_t got = 0;
+        while (got < 2) {
+            got += read_some(res_buffer, 2-got);
+        }
+        if (res_buffer[0] != 'o' || res_buffer[1] != 'k') {
+            throw UnreachableStoreException("Failed to negotiate "
+                                            "protocol with server");
+        }
+
     } else if (endpoint_iterator != tcp::resolver::iterator()) {
         // The connection failed. Try the next endpoint in the list.
         socket.close();

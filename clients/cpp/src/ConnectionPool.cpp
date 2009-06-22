@@ -41,7 +41,8 @@ ConnectionPool::ConnectionPool(shared_ptr<ClientConfig>& config)
 
 }
 
-shared_ptr<Connection>& ConnectionPool::checkout(string& host, int port) {
+shared_ptr<Connection>& ConnectionPool::checkout(const string& host, int port, 
+                                                 const string& negString) {
     stringstream hostKey;
     hostKey << host << ":" << port;
 
@@ -86,7 +87,7 @@ shared_ptr<Connection>& ConnectionPool::checkout(string& host, int port) {
         portStr << port;
         std::string portString = portStr.str();
         //cout << "Creating connection " << hostKey.str() << endl;
-        shared_ptr<Connection> conn(new Connection(host, portString, 
+        shared_ptr<Connection> conn(new Connection(host, portString, negString,
                                                    clientConfig));
         (*hep)[(size_t)conn.get()] = make_pair((int)STATUS_UNINIT, conn);
         totalConnections += 1;

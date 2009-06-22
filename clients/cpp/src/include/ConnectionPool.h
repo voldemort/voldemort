@@ -57,9 +57,11 @@ public:
      * 
      * @param host the host name
      * @param port the port number
+     * @param negString the protocol negotiation string
      * @return a shared pointer to the connection
      */
-    shared_ptr<Connection>& checkout(string& host, int port);
+    shared_ptr<Connection>& checkout(const string& host, int port,
+                                     const string& negString);
 
     /**
      * Get a connection for the given host and port.  If the maximum
