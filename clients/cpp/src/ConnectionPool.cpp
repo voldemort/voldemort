@@ -17,6 +17,7 @@
  * the License.
  */
 
+#include <voldemort/UnreachableStoreException.h>
 #include "ConnectionPool.h"
 
 #include <sstream>
@@ -59,13 +60,20 @@ shared_ptr<Connection>& ConnectionPool::checkout(const string& host, int port,
             hep = host_entry_ptr(new host_entry());
             host_ready_count = 0;
         }
+        
+        system_time const timeout =
+            get_system_time() +
+            posix_time::milliseconds(clientConfig->getConnectionTimeoutMs());
 
         while ((host_ready_count == 0) &&
                (((clientConfig->getMaxConnectionsPerNode() > 0) && 
                  (hep->size() >= (size_t)clientConfig->getMaxConnectionsPerNode())) ||
                 ((clientConfig->getMaxTotalConnections() > 0) &&
                  (totalConnections >= clientConfig->getMaxTotalConnections())))) {
-            checkinCond.wait(lock);
+            if (!checkinCond.timed_wait(lock, timeout)) {
+                throw VoldemortException("Timed out waiting "
+                                         "for pooled connection");
+            }
         }
 
         // Search for a ready connection to try
