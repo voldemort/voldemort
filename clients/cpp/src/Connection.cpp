@@ -109,9 +109,6 @@ void Connection::handle_resolve(const system::error_code& err,
 void Connection::handle_connect(const system::error_code& err,
                                 tcp::resolver::iterator endpoint_iterator) {
     if (!err) {
-        op_complete = true;
-        active = true;
-
         /* We're done with ASIO now, since it performs really poorly
            for reading/writing.  Set socket to blocking mode with
            timeouts. */
@@ -137,6 +134,8 @@ void Connection::handle_connect(const system::error_code& err,
                                             "protocol with server");
         }
 
+        op_complete = true;
+        active = true;
     } else if (endpoint_iterator != tcp::resolver::iterator()) {
         // The connection failed. Try the next endpoint in the list.
         socket.close();
@@ -169,6 +168,7 @@ size_t Connection::read_some(char* buffer, size_t bufferLen) {
     } while (bytes < 0 && errno == EAGAIN);
 
     if (bytes < 0) {
+        active = false;
         throw UnreachableStoreException("read failed");
     }
     return (size_t)bytes;
@@ -198,6 +198,7 @@ size_t Connection::write(const char* buffer, size_t bufferLen) {
     int sock = socket.native();
     ssize_t bytes = send(sock, buffer, bufferLen, MSG_NOSIGNAL);
     if (bytes < 0) {
+        active = false;
         throw UnreachableStoreException("write failed");
     }
 
