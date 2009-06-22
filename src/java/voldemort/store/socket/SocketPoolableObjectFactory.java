@@ -84,7 +84,7 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
         socket.setSendBufferSize(this.socketBufferSize);
         socket.setTcpNoDelay(true);
         socket.setSoTimeout(soTimeoutMs);
-        socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
+        socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()), soTimeoutMs);
 
         recordSocketCreation(dest, socket);
 

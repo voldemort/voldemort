@@ -79,11 +79,13 @@ public class SocketServerSession implements Runnable {
         } catch(EOFException e) {
             logger.info("Client " + socket.getRemoteSocketAddress() + " disconnected.");
         } catch(IOException e) {
+            // if this is an unexpected
             if(!isClosed)
                 logger.error(e);
         } finally {
             try {
-                socket.close();
+                if(!socket.isClosed())
+                    socket.close();
             } catch(Exception e) {
                 logger.error("Error while closing socket", e);
             }
