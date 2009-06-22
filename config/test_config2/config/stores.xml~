@@ -1,0 +1,20 @@
+<stores>
+    <!-- Note that "test" store requires 2 reads and writes,
+         so to use this store you must have both nodes started and running -->
+    <store>
+        <name>test</name>
+        <persistence>pausable</persistence>
+        <routing>client</routing>
+        <replication-factor>2</replication-factor>
+        <required-reads>2</required-reads>
+        <required-writes>2</required-writes>
+        <key-serializer>
+            <type>string</type>
+            <schema-info>UTF-8</schema-info>
+        </key-serializer>
+        <value-serializer>
+            <type>string</type>
+            <schema-info>UTF-8</schema-info>
+        </value-serializer>
+    </store>
+</stores>

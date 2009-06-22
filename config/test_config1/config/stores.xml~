@@ -3,7 +3,7 @@
      so to use this store you must have both nodes started and running -->
   <store>
     <name>test</name>
-    <persistence>bdb</persistence>
+    <persistence>pausable</persistence>
     <routing>client</routing>
     <replication-factor>2</replication-factor>
     <required-reads>2</required-reads>
