@@ -253,7 +253,8 @@ public class ClientConfig {
 
     /**
      * Set the tier at which routing occurs. Client-side routing occurs on the
-     * client, and server-side routing on the server.
+     * client, and server-side routing on the server. This is not yet used, as
+     * the java client only supports client-side routing.
      * 
      * @param routingTier The routing tier to use for routing requests
      */
