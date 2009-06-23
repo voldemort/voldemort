@@ -277,6 +277,15 @@ public class StorageService extends AbstractService {
                 lastException = e;
             }
         }
+        /* This will also close the storage engines */
+        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllStorageEngines()) {
+            logger.info("Closing storage engine for " + store.getName());
+            try {
+                store.close();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
         logger.info("All stores closed.");
 
         /* Close slop store if necessary */
