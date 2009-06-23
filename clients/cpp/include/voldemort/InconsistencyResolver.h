@@ -42,7 +42,7 @@ public:
     /**
      * Resolve conflicts in the given list of items and modify the
      * list to contain the resolved set of items.  Note that data in a
-     * @ref VersionedValue is shared via reference couting on
+     * @ref VersionedValue is shared via reference counting on
      * copy/assignment, so copying it is an inexpensive operation.
      * 
      * @param items the list of items to resolve

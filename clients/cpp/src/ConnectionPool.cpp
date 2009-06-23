@@ -146,7 +146,7 @@ void ConnectionPool::checkin(shared_ptr<Connection>& conn) {
         }
     }
 
-    checkinCond.notify_one();
+    checkinCond.notify_all();
 }
 
 } /* namespace Voldemort */
