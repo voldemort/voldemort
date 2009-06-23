@@ -18,7 +18,8 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * A storage engine that can be paused via JMX to simulate a failure for testing
+ * A storage engine that can be paused via JMX to simulate a failure for
+ * testing. While paused all operations on the store will block indefinitely.
  * 
  * @author jay
  * 
