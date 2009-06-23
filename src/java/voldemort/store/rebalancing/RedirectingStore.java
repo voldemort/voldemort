@@ -23,7 +23,6 @@ import voldemort.client.AdminClient;
 import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortMetadata.ServerState;
 import voldemort.store.DelegatingStore;
-import voldemort.store.InvalidMetadataCheckingStoreTest;
 import voldemort.store.Store;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
@@ -31,7 +30,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**
- * The RedirectingStore extends {@link InvalidMetadataCheckingStoreTest}
+ * The RedirectingStore extends {@link DelegatingStore}
  * <p>
  * if current server_state is {@link ServerState#REBALANCING_STEALER_STATE} <br>
  * then
