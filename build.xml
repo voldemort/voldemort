@@ -15,6 +15,12 @@
     <pathelement path="${classes.dir}" />
   </path>
 
+<!-- set the build number based on environment variable, otherwise blank -->
+  <property environment="env" description="System environment variables (including those set by Hudson)"/>
+  <condition property="curr.release" value="${curr.release.base}-build-${env.BUILD_NUMBER}" else="${curr.release.base}">
+       <isset property="env.BUILD_NUMBER" />
+  </condition>
+
   <path id="contrib-classpath">
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
