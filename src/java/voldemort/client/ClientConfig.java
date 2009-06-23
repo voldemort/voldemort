@@ -98,6 +98,10 @@ public class ClientConfig {
         return this;
     }
 
+    public ClientConfig setSocketTimeoutMs(int socketTimeoutMs) {
+        return setSocketTimeout(socketTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
     public int getRoutingTimeout(TimeUnit unit) {
         return toInt(unit.convert(routingTimeoutMs, TimeUnit.MILLISECONDS));
     }
@@ -115,6 +119,10 @@ public class ClientConfig {
         return this;
     }
 
+    public ClientConfig setRoutingTimeoutMs(int routingTimeoutMs) {
+        return setRoutingTimeout(routingTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
     public int getNodeBannagePeriod(TimeUnit unit) {
         return toInt(unit.convert(defaultNodeBannageMs, TimeUnit.MILLISECONDS));
     }
@@ -128,6 +136,10 @@ public class ClientConfig {
     public ClientConfig setNodeBannagePeriod(int nodeBannagePeriod, TimeUnit unit) {
         this.defaultNodeBannageMs = unit.toMillis(nodeBannagePeriod);
         return this;
+    }
+
+    public ClientConfig setNodeBannagePeriodMs(int nodeBannagePeriodMs) {
+        return setNodeBannagePeriodMs(nodeBannagePeriodMs);
     }
 
     public int getConnectionTimeout(TimeUnit unit) {
@@ -146,6 +158,10 @@ public class ClientConfig {
         return this;
     }
 
+    public ClientConfig setConnectionTimeoutMs(int connectionTimeoutMs) {
+        return setConnectionTimeout(connectionTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
     public int getThreadIdleTime(TimeUnit unit) {
         return toInt(unit.convert(threadIdleMs, TimeUnit.MILLISECONDS));
     }
@@ -158,6 +174,10 @@ public class ClientConfig {
     public ClientConfig setThreadIdleTime(long threadIdleTime, TimeUnit unit) {
         this.threadIdleMs = unit.toMillis(threadIdleTime);
         return this;
+    }
+
+    public ClientConfig setThreadIdleTimeMs(long threadIdleTimeMs) {
+        return setThreadIdleTime(threadIdleTimeMs, TimeUnit.MILLISECONDS);
     }
 
     public int getMaxQueuedRequests() {
