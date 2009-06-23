@@ -50,8 +50,8 @@ public class JsonTypeDefinition implements Serializable {
     private Object type;
 
     public JsonTypeDefinition(Object type) {
-        this.type = type;
-        validate(type);
+        this.type = validate(type);
+
     }
 
     public static JsonTypeDefinition fromJson(String typeSig) {
@@ -165,20 +165,26 @@ public class JsonTypeDefinition implements Serializable {
         validate(getType());
     }
 
-    private void validate(Object type) {
+    private Object validate(Object type) {
         if(type == null) {
             throw new IllegalArgumentException("Type or subtype cannot be null.");
         } else if(type instanceof List<?>) {
             List<?> l = (List<?>) type;
             if(l.size() != 1)
                 throw new IllegalArgumentException("Lists in type definition must have length exactly one.");
-            validate(l.get(0));
+            return Arrays.asList(validate(l.get(0)));
         } else if(type instanceof Map<?, ?>) {
-            Map<?, ?> m = (Map<?, ?>) type;
-            for(Map.Entry<?, ?> entry: m.entrySet())
-                validate(entry.getValue());
+            Map<String, ?> m = (Map<String, ?>) type;
+            // bbansal: sort keys here for consistent with fromJson()
+            Map<String, Object> newM = new LinkedHashMap<String, Object>(m.size());
+            List<String> keys = new ArrayList<String>((m.keySet()));
+            Collections.sort(keys);
+            for(String key: keys)
+                newM.put(key, validate(m.get(key)));
+            return newM;
         } else if(type instanceof JsonTypes) {
             // this is good
+            return type;
         } else {
             throw new IllegalArgumentException("Unknown type in json type definition: " + type
                                                + " of class " + type.getClass().getName());
