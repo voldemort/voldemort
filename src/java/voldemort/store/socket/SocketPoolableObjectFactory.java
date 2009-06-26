@@ -16,6 +16,9 @@
 
 package voldemort.store.socket;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
@@ -23,6 +26,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.pool.KeyedPoolableObjectFactory;
 import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
+import voldemort.client.protocol.RequestFormatType;
+import voldemort.utils.ByteUtils;
 
 /**
  * A Factory for creating sockets
@@ -36,8 +43,8 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
 
     private final int soTimeoutMs;
     private final int socketBufferSize;
-    public final AtomicInteger created;
-    public final AtomicInteger destroyed;
+    private final AtomicInteger created;
+    private final AtomicInteger destroyed;
 
     public SocketPoolableObjectFactory(int soTimeoutMs, int socketBufferSize) {
         this.soTimeoutMs = soTimeoutMs;
@@ -77,18 +84,40 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
         socket.setSendBufferSize(this.socketBufferSize);
         socket.setTcpNoDelay(true);
         socket.setSoTimeout(soTimeoutMs);
-        socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
+        socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()), soTimeoutMs);
 
         recordSocketCreation(dest, socket);
 
-        return new SocketAndStreams(socket);
+        SocketAndStreams sands = new SocketAndStreams(socket, dest.getRequestFormatType());
+        negotiateProtocol(sands, dest.getRequestFormatType());
+
+        return sands;
+    }
+
+    private void negotiateProtocol(SocketAndStreams socket, RequestFormatType type)
+            throws IOException {
+        OutputStream outputStream = socket.getOutputStream();
+        byte[] proposal = ByteUtils.getBytes(type.getCode(), "UTF-8");
+        outputStream.write(proposal);
+        outputStream.flush();
+        DataInputStream inputStream = socket.getInputStream();
+        byte[] responseBytes = new byte[2];
+        inputStream.readFully(responseBytes);
+        String response = ByteUtils.getString(responseBytes, "UTF-8");
+        if(response.equals("ok"))
+            return;
+        else if(response.equals("no"))
+            throw new VoldemortException(type.getDisplayName()
+                                         + " is not an acceptable protcol for the server.");
+        else
+            throw new VoldemortException("Unknown server response: " + response);
     }
 
     /* Log relevant socket creation details */
     private void recordSocketCreation(SocketDestination dest, Socket socket) throws SocketException {
         int numCreated = created.incrementAndGet();
         logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
-                     + dest.getPort());
+                     + dest.getPort() + " using protocol " + dest.getRequestFormatType().getCode());
 
         // check buffer sizes--you often don't get out what you put in!
         int sendBufferSize = socket.getSendBufferSize();

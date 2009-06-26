@@ -23,25 +23,32 @@ package voldemort.client.protocol;
  * 
  */
 public enum RequestFormatType {
-    VOLDEMORT("vold"),
-    PROTOCOL_BUFFERS("pb"),
-    ADMIN_HANDLER("admin");
+    VOLDEMORT_V0("vp0", "voldemort-native-v0"),
+    VOLDEMORT_V1("vp1", "voldemort-native-v1"),
+    PROTOCOL_BUFFERS("pb0", "protocol-buffers-v0"),
+    ADMIN("ad0", "admin-v0");
 
-    private final String name;
+    private final String code;
+    private final String displayName;
 
-    private RequestFormatType(String name) {
-        this.name = name;
+    private RequestFormatType(String code, String display) {
+        this.code = code;
+        this.displayName = display;
     }
 
-    public String getName() {
-        return name;
+    public String getCode() {
+        return code;
     }
 
-    public static RequestFormatType fromName(String name) {
+    public String getDisplayName() {
+        return this.displayName;
+    }
+
+    public static RequestFormatType fromCode(String code) {
         for(RequestFormatType type: RequestFormatType.values())
-            if(type.getName().equals(name))
+            if(type.getCode().equals(code))
                 return type;
-        throw new IllegalArgumentException("No wire format '" + name + "' was found");
+        throw new IllegalArgumentException("No request format '" + code + "' was found");
     }
 
 }

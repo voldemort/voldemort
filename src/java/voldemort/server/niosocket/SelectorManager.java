@@ -27,7 +27,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 
 public class SelectorManager implements Runnable {
 
@@ -35,16 +35,17 @@ public class SelectorManager implements Runnable {
 
     private final BlockingQueue<SocketChannel> socketChannelQueue;
 
-    private final RequestHandler requestHandler;
+    private final RequestHandlerFactory requestHandlerFactory;
 
     private final int socketBufferSize;
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public SelectorManager(RequestHandler requestHandler, int socketBufferSize) throws IOException {
+    public SelectorManager(RequestHandlerFactory requestHandlerFactory, int socketBufferSize)
+                                                                                             throws IOException {
         this.selector = Selector.open();
         this.socketChannelQueue = new LinkedBlockingDeque<SocketChannel>();
-        this.requestHandler = requestHandler;
+        this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
     }
 
@@ -129,7 +130,7 @@ public class SelectorManager implements Runnable {
                     socketChannel.configureBlocking(false);
                     AsyncRequestHandler attachment = new AsyncRequestHandler(selector,
                                                                              socketChannel,
-                                                                             requestHandler,
+                                                                             requestHandlerFactory,
                                                                              socketBufferSize);
                     socketChannel.register(selector, SelectionKey.OP_READ, attachment);
                 } catch(Exception e) {

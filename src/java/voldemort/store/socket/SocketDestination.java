@@ -16,12 +16,13 @@
 
 package voldemort.store.socket;
 
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
 
 /**
- * A host + port
+ * A host + port + protocol
  * 
  * @author jay
  * 
@@ -30,10 +31,12 @@ public class SocketDestination {
 
     private final String host;
     private final int port;
+    private final RequestFormatType requestFormatType;
 
-    public SocketDestination(String host, int port) {
+    public SocketDestination(String host, int port, RequestFormatType requestFormatType) {
         this.host = Utils.notNull(host);
         this.port = Utils.notNull(port);
+        this.requestFormatType = Utils.notNull(requestFormatType);
     }
 
     public String getHost() {
@@ -42,6 +45,10 @@ public class SocketDestination {
 
     public int getPort() {
         return port;
+    }
+
+    public RequestFormatType getRequestFormatType() {
+        return requestFormatType;
     }
 
     @Override
@@ -53,17 +60,18 @@ public class SocketDestination {
             return false;
 
         SocketDestination d = (SocketDestination) obj;
-        return getHost().equals(d.getHost()) && getPort() == d.getPort();
+        return getHost().equals(d.getHost()) && getPort() == d.getPort()
+               && getRequestFormatType().equals(d.getRequestFormatType());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(host, port);
+        return Objects.hashCode(host, port, requestFormatType);
     }
 
     @Override
     public String toString() {
-        return host + ":" + port;
+        return host + ":" + port + "(" + requestFormatType.getCode() + ")";
     }
 
 }

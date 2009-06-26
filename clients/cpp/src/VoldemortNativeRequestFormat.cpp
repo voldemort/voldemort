@@ -243,4 +243,9 @@ bool VoldemortNativeRequestFormat::readDeleteResponse(std::istream* inputStream)
     throw VoldemortException("Not implemented");
 }
 
+const std::string& VoldemortNativeRequestFormat::getNegotiationString() {
+    static const std::string VOLDEMORT_NEG_STRING("vp0");
+    return VOLDEMORT_NEG_STRING;
+}
+
 } /* namespace Voldemort */

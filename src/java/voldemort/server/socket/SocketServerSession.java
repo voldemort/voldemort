@@ -6,18 +6,46 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Map;
 
+import org.apache.log4j.Logger;
+
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.utils.ByteUtils;
 
+/**
+ * Represents a session of interaction between the server and the client. This
+ * begins with protocol negotiation and then a seriest of client requests
+ * followed by server responses. The negotiation is handled by the session
+ * object, which will choose an appropriate request handler to handle the actual
+ * request/response.
+ * 
+ * @author jay
+ * 
+ */
 public class SocketServerSession implements Runnable {
 
-    private final Socket socket;
-    private final RequestHandler requestHandler;
+    private final Logger logger = Logger.getLogger(SocketServerSession.class);
 
-    public SocketServerSession(Socket socket, RequestHandler requestHandler) {
+    private final Map<Long, SocketServerSession> activeSessions;
+    private final long sessionId;
+    private final Socket socket;
+    private final RequestHandlerFactory handlerFactory;
+    private volatile boolean isClosed = false;
+
+    public SocketServerSession(Map<Long, SocketServerSession> activeSessions,
+                               Socket socket,
+                               RequestHandlerFactory handlerFactory,
+                               long id) {
+        this.activeSessions = activeSessions;
         this.socket = socket;
-        this.requestHandler = requestHandler;
+        this.handlerFactory = handlerFactory;
+        this.sessionId = id;
     }
 
     public Socket getSocket() {
@@ -30,25 +58,67 @@ public class SocketServerSession implements Runnable {
 
     public void run() {
         try {
-            SocketServer.logger.info("Client " + socket.getRemoteSocketAddress() + " connected.");
+            activeSessions.put(sessionId, this);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream(),
                                                                                       64000));
             DataOutputStream outputStream = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(),
                                                                                           64000));
-            while(!isInterrupted()) {
-                requestHandler.handleRequest(inputStream, outputStream);
+
+            RequestFormatType protocol = negotiateProtocol(inputStream, outputStream);
+            RequestHandler handler = handlerFactory.getRequestHandler(protocol);
+            logger.info("Client " + socket.getRemoteSocketAddress()
+                        + " connected successfully with protocol " + protocol.getCode());
+
+            while(!isInterrupted() && !socket.isClosed() && !isClosed) {
+                handler.handleRequest(inputStream, outputStream);
                 outputStream.flush();
             }
+            if(isInterrupted())
+                logger.info(Thread.currentThread().getName()
+                            + " has been interrupted, closing session.");
         } catch(EOFException e) {
-            SocketServer.logger.info("Client " + socket.getRemoteSocketAddress() + " disconnected.");
+            logger.info("Client " + socket.getRemoteSocketAddress() + " disconnected.");
         } catch(IOException e) {
-            SocketServer.logger.error(e);
+            // if this is an unexpected
+            if(!isClosed)
+                logger.error(e);
         } finally {
             try {
-                socket.close();
+                if(!socket.isClosed())
+                    socket.close();
             } catch(Exception e) {
-                SocketServer.logger.error("Error while closing socket", e);
+                logger.error("Error while closing socket", e);
             }
+            // now remove ourselves from the set of active sessions
+            this.activeSessions.remove(sessionId);
         }
+    }
+
+    private RequestFormatType negotiateProtocol(InputStream input, OutputStream output)
+            throws IOException {
+        input.mark(3);
+        byte[] protoBytes = new byte[3];
+        ByteUtils.read(input, protoBytes);
+        RequestFormatType requestFormat;
+        try {
+            String proto = ByteUtils.getString(protoBytes, "UTF-8");
+            requestFormat = RequestFormatType.fromCode(proto);
+            output.write(ByteUtils.getBytes("ok", "UTF-8"));
+            output.flush();
+        } catch(IllegalArgumentException e) {
+            // okay we got some nonsense. For backwards compatibility,
+            // assume this is an old client who does not know how to negotiate
+            requestFormat = RequestFormatType.VOLDEMORT_V0;
+            // reset input stream so we don't interfere with request format
+            input.reset();
+            logger.info("No protocol proposal given, assuming "
+                        + RequestFormatType.VOLDEMORT_V0.getDisplayName());
+        }
+        return requestFormat;
+    }
+
+    public void close() throws IOException {
+        this.isClosed = true;
+        this.socket.close();
     }
 }

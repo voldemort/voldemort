@@ -18,11 +18,14 @@ package voldemort.client;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
+import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
 /**
@@ -41,13 +44,90 @@ public class ClientConfig {
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile long routingTimeoutMs = 15000;
-    private volatile long defaultNodeBannageMs = 30000;
+    private volatile long nodeBannageMs = 30000;
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
-    private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT;
+    private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
+
+    public ClientConfig() {}
+
+    /* Propery names for propery-based configuration */
+
+    public static final String MAX_CONNECTIONS_PER_NODE_PROPERTY = "max_connections";
+    public static final String MAX_TOTAL_CONNECTIONS_PROPERTY = "max_total_connections";
+    public static final String MAX_THREADS_PROPERTY = "max_threads";
+    public static final String MAX_QUEUED_REQUESTS_PROPERTY = "max_queued_requests";
+    public static final String THREAD_IDLE_MS_PROPERTY = "thread_idle_ms";
+    public static final String CONNECTION_TIMEOUT_MS_PROPERTY = "connection_timeout_ms";
+    public static final String SOCKET_TIMEOUT_MS_PROPERTY = "socket_timeout_ms";
+    public static final String ROUTING_TIMEOUT_MS_PROPERTY = "routing_timeout_ms";
+    public static final String NODE_BANNAGE_MS_PROPERTY = "node_bannage_ms";
+    public static final String SOCKET_BUFFER_SIZE_PROPERTY = "socket_buffer_size";
+    public static final String SERIALIZER_FACTORY_CLASS_PROPERTY = "serializer_factory_class";
+    public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
+    public static final String REQUEST_FORMAT_PROPERTY = "request_format";
+    public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
+
+    /**
+     * Initiate the client config from a set of properties. This is useful for
+     * wiring from Spring or for externalizing client properties to a properties
+     * file
+     * 
+     * @param properties The properties to use
+     */
+    public ClientConfig(Properties properties) {
+        Props props = new Props(properties);
+        if(props.containsKey(MAX_CONNECTIONS_PER_NODE_PROPERTY))
+            this.setMaxConnectionsPerNode(props.getInt(MAX_CONNECTIONS_PER_NODE_PROPERTY));
+
+        if(props.containsKey(MAX_TOTAL_CONNECTIONS_PROPERTY))
+            this.setMaxTotalConnections(props.getInt(MAX_TOTAL_CONNECTIONS_PROPERTY));
+
+        if(props.containsKey(MAX_THREADS_PROPERTY))
+            this.setMaxThreads(props.getInt(MAX_THREADS_PROPERTY));
+
+        if(props.containsKey(MAX_QUEUED_REQUESTS_PROPERTY))
+            this.setMaxQueuedRequests(props.getInt(MAX_QUEUED_REQUESTS_PROPERTY));
+
+        if(props.containsKey(THREAD_IDLE_MS_PROPERTY))
+            this.setThreadIdleTime(props.getLong(THREAD_IDLE_MS_PROPERTY), TimeUnit.MILLISECONDS);
+
+        if(props.containsKey(CONNECTION_TIMEOUT_MS_PROPERTY))
+            this.setConnectionTimeout(props.getInt(CONNECTION_TIMEOUT_MS_PROPERTY),
+                                      TimeUnit.MILLISECONDS);
+
+        if(props.containsKey(SOCKET_TIMEOUT_MS_PROPERTY))
+            this.setSocketTimeout(props.getInt(SOCKET_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
+
+        if(props.containsKey(ROUTING_TIMEOUT_MS_PROPERTY))
+            this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
+
+        if(props.containsKey(NODE_BANNAGE_MS_PROPERTY))
+            this.setNodeBannagePeriod(props.getInt(NODE_BANNAGE_MS_PROPERTY), TimeUnit.MILLISECONDS);
+
+        if(props.containsKey(SOCKET_BUFFER_SIZE_PROPERTY))
+            this.setSocketBufferSize(props.getInt(SOCKET_BUFFER_SIZE_PROPERTY));
+
+        if(props.containsKey(SERIALIZER_FACTORY_CLASS_PROPERTY)) {
+            Class<?> factoryClass = ReflectUtils.loadClass(props.getString(SERIALIZER_FACTORY_CLASS_PROPERTY));
+            SerializerFactory factory = (SerializerFactory) ReflectUtils.callConstructor(factoryClass,
+                                                                                         new Object[] {});
+            this.setSerializerFactory(factory);
+        }
+
+        if(props.containsKey(BOOTSTRAP_URLS_PROPERTY))
+            this.setBootstrapUrls(props.getList(BOOTSTRAP_URLS_PROPERTY));
+
+        if(props.containsKey(REQUEST_FORMAT_PROPERTY))
+            this.setRequestFormatType(RequestFormatType.fromCode(props.getString(REQUEST_FORMAT_PROPERTY)));
+
+        if(props.containsKey(ENABLE_JMX_PROPERTY))
+            this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
+
+    }
 
     public int getMaxConnectionsPerNode() {
         return maxConnectionsPerNode;
@@ -116,7 +196,7 @@ public class ClientConfig {
     }
 
     public int getNodeBannagePeriod(TimeUnit unit) {
-        return toInt(unit.convert(defaultNodeBannageMs, TimeUnit.MILLISECONDS));
+        return toInt(unit.convert(nodeBannageMs, TimeUnit.MILLISECONDS));
     }
 
     /**
@@ -126,7 +206,7 @@ public class ClientConfig {
      * @param unit The time unit of the given value
      */
     public ClientConfig setNodeBannagePeriod(int nodeBannagePeriod, TimeUnit unit) {
-        this.defaultNodeBannageMs = unit.toMillis(nodeBannagePeriod);
+        this.nodeBannageMs = unit.toMillis(nodeBannagePeriod);
         return this;
     }
 
@@ -253,7 +333,8 @@ public class ClientConfig {
 
     /**
      * Set the tier at which routing occurs. Client-side routing occurs on the
-     * client, and server-side routing on the server.
+     * client, and server-side routing on the server. This is not yet used, as
+     * the java client only supports client-side routing.
      * 
      * @param routingTier The routing tier to use for routing requests
      */

@@ -36,13 +36,13 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
-import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.utils.DaemonThreadFactory;
 
 @JmxManaged(description = "A server that handles remote operations on stores via TCP/IP.")
 public class NioSocketService extends AbstractSocketService {
 
-    private final RequestHandler requestHandler;
+    private final RequestHandlerFactory requestHandlerFactory;
 
     private final int port;
 
@@ -60,12 +60,12 @@ public class NioSocketService extends AbstractSocketService {
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public NioSocketService(RequestHandler requestHandler,
+    public NioSocketService(RequestHandlerFactory requestHandlerFactory,
                             int port,
                             int socketBufferSize,
                             int selectors) {
         super(ServiceType.SOCKET);
-        this.requestHandler = requestHandler;
+        this.requestHandlerFactory = requestHandlerFactory;
         this.port = port;
         this.socketBufferSize = socketBufferSize;
 
@@ -85,7 +85,7 @@ public class NioSocketService extends AbstractSocketService {
     protected void startInner() {
         try {
             for(int i = 0; i < selectorManagers.length; i++) {
-                selectorManagers[i] = new SelectorManager(requestHandler, socketBufferSize);
+                selectorManagers[i] = new SelectorManager(requestHandlerFactory, socketBufferSize);
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 

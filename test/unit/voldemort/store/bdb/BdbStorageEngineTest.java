@@ -82,19 +82,6 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         return store;
     }
 
-    public void testMakeKey(byte[] key, VectorClock clock) {
-        byte[] keyBytes = BdbStorageEngine.makeKey(key, clock);
-        assertTrue("Invalid key returned",
-                   TestUtils.bytesEqual(key, BdbStorageEngine.getObjKey(keyBytes)));
-        assertEquals("Invalid clock returned", clock, BdbStorageEngine.getVersion(keyBytes));
-    }
-
-    public void testMakeKey() {
-        testMakeKey("".getBytes(), TestUtils.getClock());
-        testMakeKey("abc".getBytes(), null);
-        testMakeKey("hello-there".getBytes(), TestUtils.getClock(1, 1, 2, 3, 4));
-    }
-
     public void testPersistence() throws Exception {
         this.store.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
         this.store.close();

@@ -16,8 +16,6 @@
 
 package voldemort.store.bdb;
 
-import static voldemort.utils.Utils.assertNotNull;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +25,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.VersionedSerializer;
 import voldemort.store.NoSuchCapabilityException;
@@ -39,6 +38,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -49,11 +49,12 @@ import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.StatsConfig;
 import com.sleepycat.je.Transaction;
-import com.sleepycat.je.EnvironmentConfig;
 
 /**
  * A store that uses BDB for persistence
@@ -73,26 +74,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final AtomicBoolean isOpen;
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
-        assertNotNull("The store name cannot be null.", name);
-        assertNotNull("The database cannot be null.", database);
-        assertNotNull("The environment cannot be null.", environment);
-        this.name = name;
-        this.bdbDatabase = database;
-        this.environment = environment;
+        this.name = Utils.notNull(name);
+        this.bdbDatabase = Utils.notNull(database);
+        this.environment = Utils.notNull(environment);
         this.serializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
         this.isOpen = new AtomicBoolean(true);
-
-        try {
-            logger.info("    BDB[" + name + "] : cache size = " + environment.getConfig().getCacheSize());
-            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_THREADS + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_THREADS));
-            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
-            logger.info("    BDB[" + name + "] : " + EnvironmentConfig.LOG_FILE_MAX + " = "
-                    + environment.getConfig().getConfigParam(EnvironmentConfig.LOG_FILE_MAX));
-        } catch (DatabaseException e) {
-            logger.error("Error getting config inforation for BDB at startup", e);
-        }
     }
 
     public String getName() {
@@ -104,55 +90,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             Cursor cursor = bdbDatabase.openCursor(null, null);
             return new BdbStoreIterator(cursor);
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException(e);
-        }
-    }
-
-    static byte[] makeKey(byte[] key, Version version) {
-        VectorClock clock = (VectorClock) version;
-        int clockSize = clock == null ? 0 : clock.sizeInBytes();
-        byte[] keyBytes = new byte[2 + key.length + clockSize];
-        ByteUtils.writeShort(keyBytes, (short) key.length, 0);
-        System.arraycopy(key, 0, keyBytes, 2, key.length);
-        if(clock != null)
-            System.arraycopy(clock.toBytes(), 0, keyBytes, key.length + 2, clockSize);
-        return keyBytes;
-    }
-
-    static byte[] getObjKey(byte[] bytes) {
-        short size = ByteUtils.readShort(bytes, 0);
-        byte[] dest = new byte[size];
-        if(size > 0)
-            System.arraycopy(bytes, 2, dest, 0, size);
-        return dest;
-    }
-
-    static VectorClock getVersion(byte[] bytes) {
-        short size = ByteUtils.readShort(bytes, 0);
-        if(size >= bytes.length - 2)
-            return null;
-        else
-            return new VectorClock(ByteUtils.copy(bytes, size + 2, bytes.length));
-    }
-
-    static boolean isPrefix(byte[] prefix, byte[] complete) {
-        if(prefix.length > complete.length)
-            return false;
-
-        for(int i = 0; i < prefix.length; i++)
-            if(complete[i] != prefix[i])
-                return false;
-
-        return true;
-    }
-
-    private static void attemptClose(Cursor cursor) {
-        try {
-            if(cursor != null)
-                cursor.close();
-        } catch(DatabaseException e) {
-            logger.error("Error closing cursor.", e);
-            throw new PersistenceFailureException(e.getMessage(), e);
         }
     }
 
@@ -169,6 +108,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             cursor = bdbDatabase.openCursor(null, null);
             return get(cursor, key, lockMode);
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             attemptClose(cursor);
@@ -188,6 +128,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     result.put(key, values);
             }
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             attemptClose(cursor);
@@ -251,6 +192,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             succeeded = true;
 
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             attemptClose(cursor);
@@ -284,6 +226,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
             return deletedSomething;
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             try {
@@ -316,13 +259,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             if(this.isOpen.compareAndSet(true, false))
                 this.bdbDatabase.close();
         } catch(DatabaseException e) {
+            logger.error(e);
             throw new PersistenceFailureException("Shutdown failed.", e);
         }
     }
 
     private void attemptAbort(Transaction transaction) {
         try {
-            transaction.abort();
+            if(transaction != null)
+                transaction.abort();
         } catch(Exception e) {
             logger.error("Abort failed!", e);
         }
@@ -336,6 +281,32 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             attemptAbort(transaction);
             throw new PersistenceFailureException(e);
         }
+    }
+
+    private static void attemptClose(Cursor cursor) {
+        try {
+            if(cursor != null)
+                cursor.close();
+        } catch(DatabaseException e) {
+            logger.error("Error closing cursor.", e);
+            throw new PersistenceFailureException(e.getMessage(), e);
+        }
+    }
+
+    public DatabaseStats getStats() {
+        try {
+            StatsConfig config = new StatsConfig();
+            config.setFast(true);
+            return this.bdbDatabase.getStats(config);
+        } catch(DatabaseException e) {
+            logger.error(e);
+            throw new VoldemortException(e);
+        }
+    }
+
+    @JmxGetter(name = "stats", description = "A variety of stats about the BDB for this store.")
+    public String getStatsAsString() {
+        return getStats().toString();
     }
 
     private static class BdbStoreIterator implements
@@ -353,6 +324,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             try {
                 cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             } catch(DatabaseException e) {
+                logger.error(e);
                 throw new PersistenceFailureException(e);
             }
             current = getPair(keyEntry, valueEntry);
@@ -384,6 +356,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             try {
                 cursor.getNext(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             } catch(DatabaseException e) {
+                logger.error(e);
                 throw new PersistenceFailureException(e);
             }
             Pair<ByteArray, Versioned<byte[]>> previous = current;
@@ -404,6 +377,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 cursor.close();
                 isOpen = false;
             } catch(DatabaseException e) {
+                logger.error(e);
                 throw new PersistenceFailureException(e);
             }
         }

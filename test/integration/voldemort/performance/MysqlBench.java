@@ -35,7 +35,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
 
-import com.google.common.base.Join;
+import com.google.common.base.Joiner;
 
 /**
  * A simple MySQL benchmark
@@ -77,7 +77,7 @@ public class MysqlBench {
 
         Set<String> missing = CmdUtils.missing(options, "table", "requests", "db");
         if(missing.size() > 0)
-            Utils.croak("Missing required arguments: " + Join.join(", ", missing));
+            Utils.croak("Missing required arguments: " + Joiner.on(", ").join(missing));
 
         String host = CmdUtils.valueOf(options, "host", "localhost");
         String table = (String) options.valueOf("table");

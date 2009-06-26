@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
@@ -37,7 +38,9 @@ public abstract class AbstractRequestFormatTest extends TestCase {
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
         this.clientWireFormat = new RequestFormatFactory().getRequestFormat(type);
-        this.serverWireFormat = new RequestHandlerFactory(repository, null, null).getRequestHandler(type);
+        this.serverWireFormat = new RequestHandlerFactory(repository,
+                                                          null,
+                                                          ServerTestUtils.getVoldemortConfig()).getRequestHandler(type);
     }
 
     public void testNullKeys() throws Exception {

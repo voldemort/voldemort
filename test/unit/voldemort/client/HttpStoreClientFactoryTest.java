@@ -41,11 +41,11 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
         context = ServerTestUtils.getJettyServer(getClusterXml(),
                                                  getStoreDefXml(),
                                                  getValidStoreName(),
-                                                 RequestFormatType.VOLDEMORT,
+                                                 RequestFormatType.VOLDEMORT_V1,
                                                  getLocalNode().getHttpPort());
         server = context.getServer();
         httpStore = ServerTestUtils.getHttpStore(getValidStoreName(),
-                                                 RequestFormatType.VOLDEMORT,
+                                                 RequestFormatType.VOLDEMORT_V1,
                                                  getLocalNode().getHttpPort());
         url = getLocalNode().getHttpUrl().toString();
     }

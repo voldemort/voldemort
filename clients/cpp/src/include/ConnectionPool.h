@@ -57,9 +57,11 @@ public:
      * 
      * @param host the host name
      * @param port the port number
+     * @param negString the protocol negotiation string
      * @return a shared pointer to the connection
      */
-    shared_ptr<Connection>& checkout(string& host, int port);
+    shared_ptr<Connection>& checkout(const string& host, int port,
+                                     const string& negString);
 
     /**
      * Get a connection for the given host and port.  If the maximum
@@ -79,8 +81,10 @@ private:
     typedef map<size_t, conn_entry> host_entry;
     typedef shared_ptr<host_entry> host_entry_ptr;
     typedef map<string, host_entry_ptr> conn_pool;
+    typedef map<string, int> conn_pool_ready_count;
     conn_pool pool;
 
+    conn_pool_ready_count ready_count;
     int totalConnections;
 
     mutex poolMutex;

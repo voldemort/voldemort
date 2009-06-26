@@ -26,6 +26,7 @@ import java.util.Map;
 
 import junit.framework.TestCase;
 import voldemort.serialization.SerializationException;
+import voldemort.serialization.Serializer;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -89,6 +90,52 @@ public class JsonTypeSerializerTest extends TestCase {
         assertInvalidTypeDef("[1234]");
         assertInvalidTypeDef("abc");
         assertInvalidTypeDef(quote("abc"));
+    }
+
+    public void testMapTypeKeyOrder() {
+        String typeSig = "{\"name\":\"string\", \"color\":\"string\", \"age\":\"int32\"}";
+        Object data = ImmutableMap.of("name", "xxx", "color", "yyy", "age", 28);
+
+        Serializer outOfOrderSerializer = new JsonTypeSerializer(new JsonTypeDefinition(ImmutableMap.of("name",
+                                                                                                        JsonTypes.STRING,
+                                                                                                        "color",
+                                                                                                        JsonTypes.STRING,
+                                                                                                        "age",
+                                                                                                        JsonTypes.INT32)));
+        assertEquals("Key order in Map should not matter while serializing/deserializing",
+                     data,
+                     outOfOrderSerializer.toObject(getSerializer(typeSig).toBytes(data)));
+
+        outOfOrderSerializer = new JsonTypeSerializer(new JsonTypeDefinition(ImmutableMap.of("color",
+                                                                                             JsonTypes.STRING,
+                                                                                             "age",
+                                                                                             JsonTypes.INT32,
+                                                                                             "name",
+                                                                                             JsonTypes.STRING)));
+        assertEquals("Key order in Map should not matter while serializing/deserializing",
+                     data,
+                     outOfOrderSerializer.toObject(getSerializer(typeSig).toBytes(data)));
+
+        outOfOrderSerializer = new JsonTypeSerializer(new JsonTypeDefinition(ImmutableMap.of("age",
+                                                                                             JsonTypes.INT32,
+                                                                                             "name",
+                                                                                             JsonTypes.STRING,
+                                                                                             "color",
+                                                                                             JsonTypes.STRING)));
+        assertEquals("Key order in Map should not matter while serializing/deserializing",
+                     data,
+                     outOfOrderSerializer.toObject(getSerializer(typeSig).toBytes(data)));
+
+        outOfOrderSerializer = new JsonTypeSerializer(new JsonTypeDefinition(ImmutableMap.of("color",
+                                                                                             JsonTypes.STRING,
+                                                                                             "name",
+                                                                                             JsonTypes.STRING,
+                                                                                             "age",
+                                                                                             JsonTypes.INT32)));
+        assertEquals("Key order in Map should not matter while serializing/deserializing",
+                     data,
+                     outOfOrderSerializer.toObject(getSerializer(typeSig).toBytes(data)));
+
     }
 
     public void testToObjectIsInverseOfToBytes() {

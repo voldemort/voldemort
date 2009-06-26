@@ -15,6 +15,12 @@
     <pathelement path="${classes.dir}" />
   </path>
 
+<!-- set the build number based on environment variable, otherwise blank -->
+  <property environment="env" description="System environment variables (including those set by Hudson)"/>
+  <condition property="curr.release.snapshot" value="${curr.release.base}-snapshot-${env.BUILD_NUMBER}" else="${curr.release.base}">
+       <isset property="env.BUILD_NUMBER" />
+  </condition>
+
   <path id="contrib-classpath">
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
@@ -204,7 +210,12 @@
     </junitreport>
   </target>
   
-  <target name="release" depends="all" description="Create a release zip file with everything pre-built.">
+  
+  <macrodef name="create-release-artifacts">
+    <attribute name="version" />
+    <sequential>
+    <property name="curr.release" value="@{version}"/>
+    <antcall target="all"/>
     <zip destfile="${dist.dir}/${name}-${curr.release}.zip">
       <zipfileset dir="." prefix="voldemort-${curr.release}" filemode="755" includes="bin/*"/>
       <zipfileset dir="." prefix="voldemort-${curr.release}" includes="**">
@@ -220,6 +231,15 @@
         <exclude name="bin/*"/>
       </tarfileset>
     </tar>
+    </sequential>
+  </macrodef>
+
+  <target name="snapshot"  description="Create a release-snapshot zip file with everything pre-built.">
+    <create-release-artifacts version="${curr.release.snapshot}" />
+  </target>
+  
+  <target name="release" description="Create a release zip file with everything pre-built.">
+    <create-release-artifacts version="${curr.release.base}" />
   </target>
   
   <target name="hadoop-benchmark-jar" depends="build, contrib-build" 

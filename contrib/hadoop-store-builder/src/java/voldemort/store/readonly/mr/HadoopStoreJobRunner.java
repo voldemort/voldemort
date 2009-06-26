@@ -33,7 +33,7 @@ import voldemort.utils.ReflectUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.base.Join;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 
 /**
@@ -97,7 +97,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                "storename",
                                                "chunksize");
         if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Join.join(", ", missing) + "\n");
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing) + "\n");
             printUsage(parser, null);
             System.exit(1);
         }

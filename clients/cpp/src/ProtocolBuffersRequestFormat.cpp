@@ -226,4 +226,9 @@ bool ProtocolBuffersRequestFormat::readDeleteResponse(std::istream* inputStream)
     return res.success();
 }
 
+const std::string& ProtocolBuffersRequestFormat::getNegotiationString() {
+    static const std::string PROTOCOL_BUFFERS_NEG_STRING("pb0");
+    return PROTOCOL_BUFFERS_NEG_STRING;
+}
+
 } /* namespace Voldemort */

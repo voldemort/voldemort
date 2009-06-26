@@ -30,7 +30,9 @@ import java.nio.channels.SocketChannel;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteBufferBackedOutputStream;
 import voldemort.utils.ByteUtils;
@@ -56,7 +58,7 @@ public class AsyncRequestHandler implements Runnable {
 
     private final SocketChannel socketChannel;
 
-    private final RequestHandler requestHandler;
+    private final RequestHandlerFactory requestHandlerFactory;
 
     private final int socketBufferSize;
 
@@ -66,20 +68,22 @@ public class AsyncRequestHandler implements Runnable {
 
     private final ByteBufferBackedOutputStream outputStream;
 
+    private RequestHandler requestHandler;
+
     private final Logger logger = Logger.getLogger(getClass());
 
     public AsyncRequestHandler(Selector selector,
                                SocketChannel socketChannel,
-                               RequestHandler requestHandler,
+                               RequestHandlerFactory requestHandlerFactory,
                                int socketBufferSize) {
         this.selector = selector;
         this.socketChannel = socketChannel;
-        this.requestHandler = requestHandler;
+        this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2;
 
-        inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocateDirect(socketBufferSize));
-        outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocateDirect(socketBufferSize));
+        inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize));
+        outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
 
         if(logger.isInfoEnabled())
             logger.info("Accepting remote connection from "
@@ -143,7 +147,14 @@ public class AsyncRequestHandler implements Runnable {
 
         inputBuffer.flip();
 
-        if(requestHandler.isCompleteRequest(inputBuffer)) {
+        // We have to do this on the first request.
+        if(requestHandler == null) {
+            if(!initRequestHandler(selectionKey)) {
+                return;
+            }
+        }
+
+        if(requestHandler != null && requestHandler.isCompleteRequest(inputBuffer)) {
             // If we have the full request, flip the buffer for reading
             // and execute the request
             inputBuffer.rewind();
@@ -163,7 +174,7 @@ public class AsyncRequestHandler implements Runnable {
             // we're done with the input and can reset/resize, flip the output
             // buffer, and let the Selector know we're ready to write.
             if(inputBuffer.capacity() >= resizeThreshold) {
-                inputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
+                inputBuffer = ByteBuffer.allocate(socketBufferSize);
                 inputStream.setBuffer(inputBuffer);
             } else {
                 inputBuffer.clear();
@@ -201,7 +212,7 @@ public class AsyncRequestHandler implements Runnable {
             // and signal the Selector that we're ready to take the next
             // request.
             if(outputBuffer.capacity() >= resizeThreshold) {
-                outputBuffer = ByteBuffer.allocateDirect(socketBufferSize);
+                outputBuffer = ByteBuffer.allocate(socketBufferSize);
                 outputStream.setBuffer(outputBuffer);
             } else {
                 outputBuffer.clear();
@@ -236,6 +247,49 @@ public class AsyncRequestHandler implements Runnable {
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
+        }
+    }
+
+    /**
+     * Returns true if the request should continue.
+     * 
+     * @return
+     */
+
+    private boolean initRequestHandler(SelectionKey selectionKey) {
+        ByteBuffer inputBuffer = inputStream.getBuffer();
+        int remaining = inputBuffer.remaining();
+
+        // Don't have enough bytes to determine the protocol yet...
+        if(remaining < 3)
+            return true;
+
+        byte[] protoBytes = { inputBuffer.get(0), inputBuffer.get(1), inputBuffer.get(2) };
+
+        try {
+            String proto = ByteUtils.getString(protoBytes, "UTF-8");
+            RequestFormatType requestFormatType = RequestFormatType.fromCode(proto);
+            requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
+
+            // The protocol negotiation is a meta request, so respond by
+            // sticking the bytes in the output buffer, signaling the Selector,
+            // and returning false to denote no further processing is needed.
+            outputStream.getBuffer().put(ByteUtils.getBytes("ok", "UTF-8"));
+            outputStream.getBuffer().flip();
+            selectionKey.interestOps(SelectionKey.OP_WRITE);
+
+            return false;
+        } catch(IllegalArgumentException e) {
+            // okay we got some nonsense. For backwards compatibility,
+            // assume this is an old client who does not know how to negotiate
+            RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V0;
+            requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
+
+            if(logger.isInfoEnabled())
+                logger.info("No protocol proposal given, assuming "
+                            + requestFormatType.getDisplayName());
+
+            return true;
         }
     }
 

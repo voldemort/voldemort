@@ -44,8 +44,10 @@ public:
      * of these will be necessarily implemented by the C++ client.
      */
     enum RequestFormatType {
-        /** The Voldemort native protocol */
+        /** The Version 0 native protocol */
         VOLDEMORT,
+        /** The Version 1 native protocol */
+        VOLDEMORT_V1,
         /** Protocol buffers */
         PROTOCOL_BUFFERS,
         /** Admin request handler protocol */
@@ -153,6 +155,13 @@ public:
      * @return a newly-alloced RequestFormat object
      */
     static RequestFormat* newRequestFormat(RequestFormatType type);
+
+    /** 
+     * Get the protocol negotiation string for the request format
+     * 
+     * @return the string for negotiating the protocol with the server
+     */
+    virtual const std::string& getNegotiationString() = 0;
 };
 
 } /* namespace Voldemort */

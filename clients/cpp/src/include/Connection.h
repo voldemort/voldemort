@@ -48,11 +48,18 @@ public:
      * 
      * @param hostName the host to connect to
      * @param portNum the port to connect to
+     * @param negString the protocol negotiation string
      * @param conf the client config object */
-    Connection(std::string& hostName,
-               std::string& portNum,
+    Connection(const std::string& hostName,
+               const std::string& portNum,
+               const std::string& negString,
                shared_ptr<ClientConfig>& conf);
     ~Connection();
+
+    /**
+     * Connect to the remote host
+     */
+    void connect();
 
     /**
      * Close the underlying connection.  After calling this the
@@ -117,14 +124,17 @@ private:
 
     void handle_resolve(const system::error_code& err,
                         tcp::resolver::iterator endpoint_iterator);
+#if 0
     void handle_data_op(const system::error_code& err,
                         size_t transferred);
+#endif
     void check_error(const system::error_code& err);
 
     shared_ptr<ClientConfig> config;
 
     std::string host;
     std::string port;
+    std::string negotiationString;
 
     asio::io_service io_service;
     tcp::resolver resolver;
