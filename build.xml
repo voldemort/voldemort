@@ -18,8 +18,14 @@
 <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
   <condition property="curr.release.snapshot" value="${curr.release.base}-snapshot-${env.BUILD_NUMBER}" else="${curr.release.base}">
-       <isset property="env.BUILD_NUMBER" />
+       <and>
+          <isset property="env.BUILD_NUMBER" />
+          <not>
+              <equals arg1="" arg2="${env.BUILD_NUMBER}" trim="yes"/>
+          </not> 
+       </and>
   </condition>
+
 
   <path id="contrib-classpath">
     <fileset dir="${dist.dir}">
