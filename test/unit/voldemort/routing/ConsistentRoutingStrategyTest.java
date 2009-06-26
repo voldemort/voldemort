@@ -122,8 +122,8 @@ public class ConsistentRoutingStrategyTest extends TestCase {
             assertEquals(tagsPerNode, router.getPartitionsByNode(n).size());
 
         // do some requests and test the load balancing
-        Multiset<Integer> masters = new HashMultiset<Integer>();
-        Multiset<Integer> counts = new HashMultiset<Integer>();
+        Multiset<Integer> masters = HashMultiset.create();
+        Multiset<Integer> counts = HashMultiset.create();
         byte[] key = new byte[16];
         for(int i = 0; i < numRequests; i++) {
             random.nextBytes(key);
