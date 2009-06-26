@@ -82,7 +82,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             inputStream.readUTF();
 
             // Read the 'is routed' flag in, but just to skip the byte.
-            buffer.get();
+            if(protocolVersion > 0)
+                buffer.get();
 
             switch(opCode) {
                 case VoldemortOpCode.GET_OP_CODE:

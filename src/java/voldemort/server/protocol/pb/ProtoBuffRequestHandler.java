@@ -65,6 +65,9 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
     }
 
     public boolean isCompleteRequest(ByteBuffer buffer) {
+        if(buffer.remaining() < 4)
+            return false;
+
         int size = buffer.getInt();
         return buffer.remaining() == size;
     }
