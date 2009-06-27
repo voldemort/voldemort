@@ -417,7 +417,7 @@ public class ByteUtils {
      * If we have no more room in the current buffer, then double our capacity
      * and copy the current buffer to the new one.
      * <p/>
-     * Note: the new buffer is allocated using allocateDirect.
+     * Note: the new buffer is allocated using ByteBuffer.allocate.
      * 
      * @param buffer The buffer from which to copy the contents
      * @param newCapacity The new capacity size
@@ -429,7 +429,7 @@ public class ByteUtils {
                                                + ") must be larger than existing capacity ("
                                                + buffer.capacity() + ")");
 
-        ByteBuffer newBuffer = ByteBuffer.allocateDirect(newCapacity);
+        ByteBuffer newBuffer = ByteBuffer.allocate(newCapacity);
         int position = buffer.position();
         buffer.rewind();
         newBuffer.put(buffer);

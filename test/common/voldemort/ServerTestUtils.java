@@ -110,7 +110,9 @@ public class ServerTestUtils {
             socketService = new NioSocketService(requestHandlerFactory,
                                                  port,
                                                  bufferSize,
-                                                 coreConnections);
+                                                 coreConnections,
+                                                 "client-request-service",
+                                                 false);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,

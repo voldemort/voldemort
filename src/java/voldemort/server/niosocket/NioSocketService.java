@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc
+ * Copyright 2009 Mustard Grain, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -31,28 +31,42 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.utils.DaemonThreadFactory;
 
-@JmxManaged(description = "A server that handles remote operations on stores via TCP/IP.")
+/**
+ * NioSocketService is an NIO-based socket service, comparable to the
+ * blocking-IO-based socket service.
+ * <p/>
+ * The NIO server is enabled in the server.properties file by setting the
+ * "enable.nio.connector" property to "true". If you want to adjust the number
+ * of SelectorManager instances that are used, change "nio.connector.selectors"
+ * to a positive integer value. Otherwise, the number of selectors will be equal
+ * to the number of CPUs visible to the JVM.
+ * <p/>
+ * This code uses the NIO APIs directly. It would be a good idea to consider
+ * some of the NIO frameworks to handle this more cleanly, efficiently, and to
+ * handle corner cases.
+ * 
+ * @author Kirk True
+ * 
+ * @see voldemort.server.socket.SocketService
+ */
+
 public class NioSocketService extends AbstractSocketService {
 
     private final RequestHandlerFactory requestHandlerFactory;
-
-    private final int port;
-
-    private final int socketBufferSize;
 
     private ServerSocketChannel serverSocketChannel;
 
     private final SelectorManager[] selectorManagers;
 
     private final ExecutorService selectorManagerThreadPool;
+
+    private final int socketBufferSize;
 
     private final StatusManager statusManager;
 
@@ -63,10 +77,11 @@ public class NioSocketService extends AbstractSocketService {
     public NioSocketService(RequestHandlerFactory requestHandlerFactory,
                             int port,
                             int socketBufferSize,
-                            int selectors) {
-        super(ServiceType.SOCKET);
+                            int selectors,
+                            String serviceName,
+                            boolean enableJmx) {
+        super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.requestHandlerFactory = requestHandlerFactory;
-        this.port = port;
         this.socketBufferSize = socketBufferSize;
 
         try {
@@ -79,6 +94,11 @@ public class NioSocketService extends AbstractSocketService {
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
                                                                       new DaemonThreadFactory("voldemort-niosocket-server"));
         this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
+    }
+
+    @Override
+    public StatusManager getStatusManager() {
+        return statusManager;
     }
 
     @Override
@@ -100,6 +120,8 @@ public class NioSocketService extends AbstractSocketService {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(e.getMessage(), e);
         }
+
+        enableJmx(this);
     }
 
     @Override
@@ -146,17 +168,6 @@ public class NioSocketService extends AbstractSocketService {
         }
     }
 
-    @Override
-    @JmxGetter(name = "port", description = "The port on which the server is accepting connections.")
-    public int getPort() {
-        return port;
-    }
-
-    @Override
-    public StatusManager getStatusManager() {
-        return statusManager;
-    }
-
     private class Acceptor implements Runnable {
 
         private InetSocketAddress endpoint;
@@ -189,7 +200,7 @@ public class NioSocketService extends AbstractSocketService {
                     // If you're *really* interested...
                     if(logger.isTraceEnabled())
                         logger.trace(e.getMessage(), e);
-                } catch(IOException e) {
+                } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e.getMessage(), e);
                 }

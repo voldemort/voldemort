@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc
+ * Copyright 2009 Mustard Grain, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -80,7 +80,7 @@ public class AsyncRequestHandler implements Runnable {
         this.socketChannel = socketChannel;
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
-        this.resizeThreshold = socketBufferSize * 2;
+        this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
 
         inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize));
         outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
@@ -271,7 +271,12 @@ public class AsyncRequestHandler implements Runnable {
             RequestFormatType requestFormatType = RequestFormatType.fromCode(proto);
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 
-            // The protocol negotiation is a meta request, so respond by
+            if(logger.isInfoEnabled())
+                logger.info("Protocol negotiated for "
+                            + socketChannel.socket().getRemoteSocketAddress() + ": "
+                            + requestFormatType.getDisplayName());
+
+            // The protocol negotiation is the first request, so respond by
             // sticking the bytes in the output buffer, signaling the Selector,
             // and returning false to denote no further processing is needed.
             outputStream.getBuffer().put(ByteUtils.getBytes("ok", "UTF-8"));
@@ -286,7 +291,8 @@ public class AsyncRequestHandler implements Runnable {
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 
             if(logger.isInfoEnabled())
-                logger.info("No protocol proposal given, assuming "
+                logger.info("No protocol proposal given for "
+                            + socketChannel.socket().getRemoteSocketAddress() + ", assuming "
                             + requestFormatType.getDisplayName());
 
             return true;

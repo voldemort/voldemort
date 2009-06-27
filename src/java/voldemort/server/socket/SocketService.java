@@ -16,26 +16,20 @@
 
 package voldemort.server.socket;
 
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.utils.JmxUtils;
 
 /**
  * The VoldemortService that loads up the socket server
  * 
  * @author jay
- * 
  */
-@JmxManaged(description = "A server that handles remote operations on stores via tcp/ip.")
+
 public class SocketService extends AbstractSocketService {
 
-    private final String serviceName;
     private final SocketServer server;
-    private final boolean enableJmx;
 
     public SocketService(RequestHandlerFactory requestHandlerFactory,
                          int port,
@@ -44,22 +38,25 @@ public class SocketService extends AbstractSocketService {
                          int socketBufferSize,
                          String serviceName,
                          boolean enableJmx) {
-        super(ServiceType.SOCKET);
+        super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.server = new SocketServer(port,
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
                                        requestHandlerFactory);
-        this.serviceName = serviceName;
-        this.enableJmx = enableJmx;
+    }
+
+    @Override
+    public StatusManager getStatusManager() {
+        return server.getStatusManager();
     }
 
     @Override
     protected void startInner() {
         this.server.start();
         this.server.awaitStartupCompletion();
-        if(enableJmx)
-            JmxUtils.registerMbean(serviceName, server);
+
+        enableJmx(server);
     }
 
     @Override
@@ -67,14 +64,4 @@ public class SocketService extends AbstractSocketService {
         this.server.shutdown();
     }
 
-    @Override
-    @JmxGetter(name = "port", description = "The port on which the server is accepting connections.")
-    public int getPort() {
-        return server.getPort();
-    }
-
-    @Override
-    public StatusManager getStatusManager() {
-        return server.getStatusManager();
-    }
 }

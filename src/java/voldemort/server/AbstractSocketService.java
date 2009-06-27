@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2009 Mustard Grain, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,20 +16,63 @@
 
 package voldemort.server;
 
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.utils.JmxUtils;
+
 /**
- * AbstractSocketService for different implementations.
+ * AbstractSocketService abstracts the different implementations so that we can
+ * use this common super class by various callers.
  * 
- * @author jay
- * 
+ * @author Kirk True
  */
+
+@JmxManaged(description = "A server that handles remote operations on stores via TCP/IP.")
 public abstract class AbstractSocketService extends AbstractService implements VoldemortService {
 
-    public AbstractSocketService(ServiceType type) {
+    protected final int port;
+
+    protected final String serviceName;
+
+    protected final boolean enableJmx;
+
+    public AbstractSocketService(ServiceType type, int port, String serviceName, boolean enableJmx) {
         super(type);
+        this.port = port;
+        this.serviceName = serviceName;
+        this.enableJmx = enableJmx;
     }
 
-    public abstract int getPort();
+    /**
+     * Simply retrieves the port on which this service is listening for incoming
+     * requests.
+     * 
+     * @return Port number
+     */
+
+    @JmxGetter(name = "port", description = "The port on which the server is accepting connections.")
+    public final int getPort() {
+        return port;
+    }
+
+    /**
+     * Returns a StatusManager instance for use with status reporting tools.
+     * 
+     * @return StatusManager
+     */
 
     public abstract StatusManager getStatusManager();
+
+    /**
+     * If JMX is enabled, will register the given object under the service name
+     * with which this class was created.
+     * 
+     * @param obj Object to register as an MBean
+     */
+
+    protected void enableJmx(Object obj) {
+        if(enableJmx)
+            JmxUtils.registerMbean(serviceName, obj);
+    }
 
 }
