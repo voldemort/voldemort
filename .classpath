@@ -37,7 +37,7 @@
 	<classpathentry kind="lib" path="lib/servlet-api-2.5.jar"/>
 	<classpathentry kind="lib" path="lib/xercesImpl-2.9.1.jar"/>
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
-	<classpathentry kind="lib" path="lib/commons-pool-1.5.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-pool-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0-rc2.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
