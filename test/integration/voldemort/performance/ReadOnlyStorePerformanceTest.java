@@ -16,75 +16,131 @@
 
 package voldemort.performance;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.serialization.DefaultSerializerFactory;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.serialization.Serializer;
-import voldemort.server.VoldemortConfig;
+import voldemort.serialization.json.JsonTypeDefinition;
+import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
-import voldemort.store.StoreUtils;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Props;
-import voldemort.utils.Utils;
+import voldemort.utils.CmdUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
-import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.base.Joiner;
 
 public class ReadOnlyStorePerformanceTest {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
-        if(args.length != 4)
-            Utils.croak("USAGE: java " + ReadOnlyStorePerformanceTest.class.getName()
-                        + " num-threads num-requests server-properties-file storeName");
-        int numThreads = Integer.parseInt(args[0]);
-        int numRequests = Integer.parseInt(args[1]);
-        String serverPropsFile = args[2];
-        String storeName = args[3];
+        OptionParser parser = new OptionParser();
+        parser.accepts("help", "print usage information");
+        parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
+        parser.accepts("requests", "[REQUIRED] number of requests")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("store-dir", "[REQUIRED] store directory")
+              .withRequiredArg()
+              .describedAs("directory");
+        parser.accepts("request-file", "file get request ids from").withRequiredArg();
+        OptionSet options = parser.parse(args);
 
-        final VoldemortConfig voldemortConfig = new VoldemortConfig(new Props(new File(serverPropsFile)));
-        final Store<ByteArray, byte[]> store = new ReadOnlyStorageConfiguration(voldemortConfig).getStore(storeName);
-        File storeFile = new File(voldemortConfig.getMetadataDirectory() + File.separatorChar
-                                  + "stores.xml");
-        final List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new java.io.FileReader(storeFile));
+        if(options.has("help")) {
+            parser.printHelpOn(System.out);
+            System.exit(0);
+        }
+
+        Set<String> missing = CmdUtils.missing(options, "requests", "store-dir");
+        if(missing.size() > 0) {
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
+            parser.printHelpOn(System.err);
+            System.exit(1);
+        }
+
+        final int numThreads = CmdUtils.valueOf(options, "threads", 10);
+        final int numRequests = (Integer) options.valueOf("requests");
+        final String inputFile = (String) options.valueOf("request-file");
+        String storeDir = (String) options.valueOf("store-dir");
+
+        final Store<ByteArray, byte[]> store = new ReadOnlyStorageEngine("test",
+                                                                         new File(storeDir),
+                                                                         0,
+                                                                         numThreads,
+                                                                         10000L);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);
         final AtomicInteger totalResults = new AtomicInteger(0);
 
-        int storeIndex = -1;
-        boolean found = false;
-        for(StoreDefinition def: storeDefs) {
-            storeIndex++;
-            if(def.getName().equals(storeName)) {
-                found = true;
-                break;
-            }
+        final BlockingQueue<String> requestIds = new ArrayBlockingQueue<String>(20000);
+        final Executor executor = Executors.newFixedThreadPool(1);
+
+        // if they have given us a file make a request generator that reads from
+        // it, otherwise just generate random values
+        Runnable requestGenerator;
+        if(inputFile == null) {
+            requestGenerator = new Runnable() {
+
+                public void run() {
+                    System.out.println("Generating random requests.");
+                    Random random = new Random();
+                    try {
+                        while(true)
+                            requestIds.put(Integer.toString(random.nextInt(numRequests)));
+                    } catch(InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+        } else {
+            requestGenerator = new Runnable() {
+
+                public void run() {
+                    try {
+                        System.out.println("Using request file to generate requests.");
+                        BufferedReader reader = new BufferedReader(new FileReader(inputFile),
+                                                                   1000000);
+                        while(true) {
+                            String line = reader.readLine();
+                            if(line == null)
+                                return;
+                            requestIds.put(line.trim());
+                        }
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
         }
+        executor.execute(requestGenerator);
 
-        if(!found) {
-            Utils.croak("Store should be present in StoreList");
-        }
-
-        final Serializer<Integer> keySerializer = StoreUtils.unsafeGetSerializer(new DefaultSerializerFactory(),
-                                                                                 storeDefs.get(storeIndex)
-                                                                                          .getKeySerializer());
-
+        final Serializer<Object> keySerializer = new JsonTypeSerializer(JsonTypeDefinition.fromJson("'string'"),
+                                                                        true);
+        final AtomicInteger current = new AtomicInteger();
         PerformanceTest readWriteTest = new PerformanceTest() {
-
-            private final int MaxMemberID = (35 * 1000 * 1000);
 
             @Override
             public void doOperation(int index) throws Exception {
                 try {
-                    Integer memberId = new Integer((int) (Math.random() * MaxMemberID));
                     totalResults.incrementAndGet();
-                    List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(memberId)));
+                    int curr = current.getAndIncrement();
+                    List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(requestIds.take())));
+                    if(curr % 10000 == 0)
+                        System.out.println(curr);
 
                     if(results.size() == 0)
                         nullResults.incrementAndGet();
@@ -96,8 +152,9 @@ public class ReadOnlyStorePerformanceTest {
         };
         readWriteTest.run(numRequests, numThreads);
         System.out.println("Random Access Read Only store Results:");
-        System.out.println("null Reads ratio:" + (nullResults.doubleValue())
+        System.out.println("Null reads ratio:" + (nullResults.doubleValue())
                            / totalResults.doubleValue());
         readWriteTest.printStats();
+        System.exit(0);
     }
 }

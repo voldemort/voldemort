@@ -18,7 +18,9 @@ package voldemort.store.readonly;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -139,8 +141,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void close() throws VoldemortException {
         logger.debug("Close called for read-only store.");
         this.fileModificationLock.writeLock().lock();
-        if(!isOpen)
+        if(!isOpen) {
+            fileModificationLock.writeLock().unlock();
             throw new IllegalStateException("Attempt to close non-open store.");
+        }
         try {
             this.isOpen = false;
             fileSet.close();
@@ -174,7 +178,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             // copy in new files
             logger.info("Setting primary files for store '" + getName() + "' to "
                         + newStoreDirectory);
-            success = newDataDir.renameTo(new File(storeDir, "version-0"));
+            File destDir = new File(storeDir, "version-0");
+            success = newDataDir.renameTo(destDir);
 
             // open the new store
             if(success) {
@@ -184,6 +189,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     logger.error(e);
                     success = false;
                 }
+            } else {
+                logger.error("Renaming " + newDataDir.getAbsolutePath() + " to "
+                             + destDir.getAbsolutePath() + " failed!");
             }
         } finally {
             try {
@@ -192,7 +200,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     rollback();
             } finally {
                 fileModificationLock.writeLock().unlock();
-                logger.info("Swap operation completed on '" + getName() + "', releasing lock.");
+                if(success)
+                    logger.info("Swap operation completed successfully on store " + getName()
+                                + ", releasing lock.");
+                else
+                    logger.error("Swap operation failed.");
             }
         }
         // okay we have released the lock and the store is now open again, it is
@@ -328,15 +340,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private byte[] readValue(int chunk, int valueLocation) {
-        MappedByteBuffer data = fileSet.checkoutDataFile(chunk);
+        FileChannel dataFile = fileSet.getDataFile(chunk);
         try {
-            data.position(valueLocation);
-            int size = data.getInt();
-            byte[] value = new byte[size];
-            data.get(value);
-            return value;
-        } finally {
-            fileSet.checkinDataFile(data, chunk);
+            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+            dataFile.read(sizeBuffer, valueLocation);
+            int size = sizeBuffer.getInt(0);
+            ByteBuffer valueBuffer = ByteBuffer.allocate(size);
+            dataFile.read(valueBuffer, valueLocation + 4);
+            return valueBuffer.array();
+        } catch(IOException e) {
+            throw new VoldemortException(e);
         }
     }
 
@@ -382,17 +395,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Read the key, potentially from the cache
      */
     private byte[] readKey(MappedByteBuffer index, int indexByteOffset, byte[] foundKey) {
-        readFrom(index, indexByteOffset, foundKey);
+        index.position(indexByteOffset);
+        index.get(foundKey);
         return foundKey;
-    }
-
-    /*
-     * Seek to the given object and read into the buffer exactly buffer.length
-     * bytes
-     */
-    private static void readFrom(MappedByteBuffer file, int indexByteOffset, byte[] buffer) {
-        file.position(indexByteOffset);
-        file.get(buffer);
     }
 
     /**

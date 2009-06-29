@@ -36,6 +36,7 @@ import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
@@ -92,18 +93,13 @@ public class RemoteStoreComparisonTest {
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         SocketPool socketPool = new SocketPool(10, 10, 1000, 1000, 32 * 1024);
         final SocketStore socketStore = new SocketStore(storeName,
-                                                        "localhost",
-                                                        6666,
+                                                        new SocketDestination("localhost",
+                                                                              6666,
+                                                                              RequestFormatType.VOLDEMORT_V1),
                                                         socketPool,
-                                                        RequestFormatType.VOLDEMORT,
                                                         false);
         RequestHandlerFactory factory = new RequestHandlerFactory(repository, null, null);
-        SocketServer socketServer = new SocketServer("Socket-Server",
-                                                     6666,
-                                                     50,
-                                                     50,
-                                                     1000,
-                                                     factory.getRequestHandler(RequestFormatType.VOLDEMORT));
+        SocketServer socketServer = new SocketServer(6666, 50, 50, 1000, factory);
         socketServer.start();
         socketServer.awaitStartupCompletion();
 
@@ -148,7 +144,7 @@ public class RemoteStoreComparisonTest {
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         HttpService httpService = new HttpService(null,
                                                   repository,
-                                                  RequestFormatType.VOLDEMORT,
+                                                  RequestFormatType.VOLDEMORT_V0,
                                                   numThreads,
                                                   8080);
         httpService.start();
@@ -171,7 +167,7 @@ public class RemoteStoreComparisonTest {
                                                   "localhost",
                                                   8080,
                                                   httpClient,
-                                                  new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT),
+                                                  new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V0),
                                                   false);
         Thread.sleep(400);
 

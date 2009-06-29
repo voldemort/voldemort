@@ -327,7 +327,7 @@ public class TestUtils {
             for(int p = 0; p < partitionMap[i].length; p++) {
                 partitionList.add(partitionMap[i][p]);
             }
-            nodes.add(new Node(i, "localhost", 8880 + i, 6666 + i, 7777 + i, partitionList));
+            nodes.add(new Node(i, "localhost", 8880 + i, 6666 + i, partitionList));
         }
 
         return nodes;

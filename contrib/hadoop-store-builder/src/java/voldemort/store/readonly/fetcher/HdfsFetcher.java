@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -97,6 +99,9 @@ public class HdfsFetcher implements FileFetcher {
             dest.mkdirs();
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
+                // sort the files so that index files come last. Maybe
+                // this will help keep them cached until the swap
+                Arrays.sort(statuses, new IndexFileLastComparator());
                 for(FileStatus status: statuses) {
                     if(!status.getPath().getName().startsWith(".")) {
                         fetch(fs,
@@ -168,6 +173,27 @@ public class HdfsFetcher implements FileFetcher {
         public long getBytesCopied() {
             return bytesCopied;
         }
+    }
+
+    /**
+     * A comparator that sorts index files last. This is a heuristic for
+     * retaining the index file in page cache until the swap occurs
+     * 
+     */
+    static class IndexFileLastComparator implements Comparator<FileStatus> {
+
+        public int compare(FileStatus fs1, FileStatus fs2) {
+            // directories before files
+            if(fs1.isDir())
+                return fs2.isDir() ? 0 : -1;
+            // index files after all other files
+            else if(fs1.getPath().getName().endsWith(".index"))
+                return fs2.getPath().getName().endsWith(".index") ? 0 : 1;
+            // everything else is equivalent
+            else
+                return 0;
+        }
+
     }
 
     /*

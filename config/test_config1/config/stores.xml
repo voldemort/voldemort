@@ -9,12 +9,10 @@
     <required-reads>2</required-reads>
     <required-writes>2</required-writes>
     <key-serializer>
-      <type>json</type>
-      <schema-info>"int32"</schema-info>
+      <type>string</type>
     </key-serializer>
     <value-serializer>
-      <type>json</type>
-      <schema-info>{"a":"int32"}</schema-info>
+      <type>string</type>
     </value-serializer>
     <retention-days>1</retention-days>
   </store>

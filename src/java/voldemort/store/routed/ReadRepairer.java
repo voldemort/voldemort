@@ -60,7 +60,7 @@ public class ReadRepairer<K, V> {
         // A Map of Version=>NodeValues that contains the current best estimate
         // of the set of current versions
         // and the nodes containing them
-        Multimap<Version, NodeValue<K, V>> concurrents = new HashMultimap<Version, NodeValue<K, V>>();
+        Multimap<Version, NodeValue<K, V>> concurrents = HashMultimap.create();
         concurrents.put(nodeValues.get(0).getVersion(), nodeValues.get(0));
 
         // check each value against the current set of most current versions

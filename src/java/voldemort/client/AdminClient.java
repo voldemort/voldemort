@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.VoldemortOpCode;
@@ -94,7 +95,9 @@ public class AdminClient {
     public void updateClusterMetadata(int nodeId, Cluster cluster, String cluster_key)
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
@@ -125,7 +128,9 @@ public class AdminClient {
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
 
-        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
@@ -161,7 +166,8 @@ public class AdminClient {
             throws VoldemortException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                    node.getAdminPort());
+                                                                    node.getSocketPort(),
+                                                                    RequestFormatType.ADMIN);
         final SocketAndStreams sands = pool.checkout(destination);
         try {
             // get these partitions from the node for store
@@ -236,7 +242,9 @@ public class AdminClient {
             throws VoldemortException, IOException {
         Node node = metadata.getCurrentCluster().getNodeById(nodeId);
 
-        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
         DataInputStream inputStream = sands.getInputStream();
@@ -286,7 +294,9 @@ public class AdminClient {
     public void changeServerState(int nodeId, VoldemortMetadata.ServerState state) {
         Cluster currentCluster = metadata.getCurrentCluster();
         Node node = currentCluster.getNodeById(nodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();
@@ -351,7 +361,8 @@ public class AdminClient {
     public List<Versioned<byte[]>> redirectGet(int redirectedNodeId, String storeName, ByteArray key) {
         Node redirectedNode = metadata.getCurrentCluster().getNodeById(redirectedNodeId);
         SocketDestination destination = new SocketDestination(redirectedNode.getHost(),
-                                                              redirectedNode.getAdminPort());
+                                                              redirectedNode.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();

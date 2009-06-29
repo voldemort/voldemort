@@ -51,21 +51,13 @@ public class RedirectingStoreTest extends TestCase {
     @Override
     public void setUp() throws IOException {
         // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(3);
-        Node node0 = new Node(0,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 0, 1 }));
+        int[] ports = ServerTestUtils.findFreePorts(2);
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 0,
+                1 }));
 
-        ports = ServerTestUtils.findFreePorts(3);
-        Node node1 = new Node(1,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 2, 3 }));
+        ports = ServerTestUtils.findFreePorts(2);
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 2,
+                3 }));
 
         cluster = new Cluster("admin-service-test", Arrays.asList(new Node[] { node0, node1 }));
 
@@ -93,6 +85,13 @@ public class RedirectingStoreTest extends TestCase {
         server1.stop();
     }
 
+    private RebalancingStore getRebalancingStore(VoldemortMetadata metadata) {
+        return new RebalancingStore(0,
+                                    server0.getStoreRepository().getLocalStore(storeName),
+                                    metadata,
+                                    new SocketPool(100, 100, 2000, 1000, 10000));
+    }
+
     public void testProxyGet() {
         // enter bunch of data into server1
         for(int i = 100; i <= 1000; i++) {
@@ -112,15 +111,7 @@ public class RedirectingStoreTest extends TestCase {
         metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RedirectingStore rebalancingStore = new RedirectingStore(0,
-                                                                 server0.getStoreRepository()
-                                                                        .getStorageEngine(storeName),
-                                                                 metadata,
-                                                                 new SocketPool(100,
-                                                                                100,
-                                                                                2000,
-                                                                                1000,
-                                                                                10000));
+        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
 
         // for Normal server state no values are expected
         for(int i = 100; i <= 1000; i++) {
@@ -181,15 +172,7 @@ public class RedirectingStoreTest extends TestCase {
         metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RedirectingStore rebalancingStore = new RedirectingStore(0,
-                                                                 server0.getStoreRepository()
-                                                                        .getStorageEngine(storeName),
-                                                                 metadata,
-                                                                 new SocketPool(100,
-                                                                                100,
-                                                                                2000,
-                                                                                1000,
-                                                                                10000));
+        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
 
         // we should see obsolete version exception if try to insert with same
         // version

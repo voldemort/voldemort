@@ -28,16 +28,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
-
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientThreadPool;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
@@ -60,15 +57,18 @@ import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
+import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.versioning.VectorClockInconsistencyResolver;
 
 /**
  * The service responsible for managing all storage types
@@ -119,6 +119,10 @@ public class StorageService extends AbstractService {
                                                                                                      new Object[] { voldemortConfig });
             logger.info("Initializing " + configuration.getType() + " storage engine.");
             storageConfigs.put(configuration.getType(), configuration);
+
+            if(voldemortConfig.isJmxEnabled())
+                JmxUtils.registerMbean(configuration.getType() + "StorageConfiguration",
+                                       configuration);
         } catch(IllegalStateException e) {
             logger.error("Error loading storage configuration '" + configClassName + "'.", e);
         }
@@ -218,25 +222,27 @@ public class StorageService extends AbstractService {
                 store = this.storeRepository.getLocalStore(def.getName());
             } else {
                 store = new SocketStore(def.getName(),
-                                        node.getHost(),
-                                        node.getSocketPort(),
+                                        new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              voldemortConfig.getRequestFormatType()),
                                         socketPool,
-                                        RequestFormatType.VOLDEMORT,
                                         false);
             }
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
 
-        RoutedStore routedStore = new RoutedStore(def.getName(),
-                                                  nodeStores,
-                                                  cluster,
-                                                  def,
-                                                  true,
-                                                  this.clientThreadPool,
-                                                  voldemortConfig.getRoutingTimeoutMs(),
-                                                  voldemortConfig.getClientNodeBannageMs(),
-                                                  SystemTime.INSTANCE);
+        Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
+                                                               nodeStores,
+                                                               cluster,
+                                                               def,
+                                                               true,
+                                                               this.clientThreadPool,
+                                                               voldemortConfig.getRoutingTimeoutMs(),
+                                                               voldemortConfig.getClientNodeBannageMs(),
+                                                               SystemTime.INSTANCE);
+        routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                         new VectorClockInconsistencyResolver<byte[]>());
         this.storeRepository.addRoutedStore(routedStore);
     }
 
@@ -289,6 +295,15 @@ public class StorageService extends AbstractService {
         /* This will also close the node stores including local stores */
         for(Store<ByteArray, byte[]> store: this.storeRepository.getAllRoutedStores()) {
             logger.info("Closing routed store for " + store.getName());
+            try {
+                store.close();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
+        /* This will also close the storage engines */
+        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllStorageEngines()) {
+            logger.info("Closing storage engine for " + store.getName());
             try {
                 store.close();
             } catch(Exception e) {

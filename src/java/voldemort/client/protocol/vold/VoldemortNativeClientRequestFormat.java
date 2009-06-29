@@ -42,7 +42,7 @@ import voldemort.versioning.Versioned;
  */
 public class VoldemortNativeClientRequestFormat implements RequestFormat {
 
-    public final ErrorCodeMapper mapper;
+    private final ErrorCodeMapper mapper;
 
     public VoldemortNativeClientRequestFormat() {
         this.mapper = new ErrorCodeMapper();

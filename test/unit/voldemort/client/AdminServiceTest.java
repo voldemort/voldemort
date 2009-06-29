@@ -45,6 +45,8 @@ import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * @author bbansal
  * 
@@ -61,21 +63,13 @@ public class AdminServiceTest extends TestCase {
     @Override
     public void setUp() throws IOException {
         // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(3);
-        Node node0 = new Node(0,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 0, 1 }));
+        int[] ports = ServerTestUtils.findFreePorts(2);
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 0,
+                1 }));
 
-        ports = ServerTestUtils.findFreePorts(3);
-        Node node1 = new Node(1,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 2, 3 }));
+        ports = ServerTestUtils.findFreePorts(2);
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 2,
+                3 }));
 
         cluster = new Cluster("admin-service-test", Arrays.asList(new Node[] { node0, node1 }));
         config = ServerTestUtils.createServerConfig(0,
@@ -91,22 +85,21 @@ public class AdminServiceTest extends TestCase {
         server.stop();
     }
 
+    private AdminClient getAdminClient() {
+        return new AdminClient(server.getIdentityNode(),
+                               server.getVoldemortMetadata(),
+                               new SocketPool(100, 100, 2000, 1000, 10000));
+    }
+
     public void testUpdateCluster() {
 
         Cluster cluster = server.getVoldemortMetadata().getCurrentCluster();
-
-        // add node 3 and partition 4,5 to cluster.
-        ArrayList<Integer> partitionList = new ArrayList<Integer>();
-        partitionList.add(4);
-        partitionList.add(5);
         ArrayList<Node> nodes = new ArrayList<Node>(cluster.getNodes());
-        nodes.add(new Node(3, "localhost", 8883, 6668, 7778, partitionList));
+        nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         // update VoldemortServer cluster.xml
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
 
         client.updateClusterMetadata(server.getIdentityNode().getId(),
                                      updatedCluster,
@@ -120,17 +113,12 @@ public class AdminServiceTest extends TestCase {
         Cluster cluster = server.getVoldemortMetadata().getCurrentCluster();
 
         // add node 3 and partition 4,5 to cluster.
-        ArrayList<Integer> partitionList = new ArrayList<Integer>();
-        partitionList.add(4);
-        partitionList.add(5);
         ArrayList<Node> nodes = new ArrayList<Node>(cluster.getNodes());
-        nodes.add(new Node(3, "localhost", 8883, 6668, 7778, partitionList));
+        nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         // update VoldemortServer cluster.xml
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
 
         client.updateClusterMetadata(server.getIdentityNode().getId(),
                                      updatedCluster,
@@ -164,9 +152,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // update server stores info
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
 
         client.updateStoresMetadata(server.getIdentityNode().getId(), storesList);
 
@@ -196,9 +182,7 @@ public class AdminServiceTest extends TestCase {
                                                                                      .getValue()));
 
         // update server stores info
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
 
         assertEquals("ForcedGet should match put value",
                      new String(value),
@@ -209,9 +193,7 @@ public class AdminServiceTest extends TestCase {
 
     public void testStateTransitions() {
         // change to REBALANCING STATE
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
         client.changeServerState(server.getIdentityNode().getId(),
                                  VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
 
@@ -292,9 +274,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Get a single partition here
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
+        AdminClient client = getAdminClient();
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionEntries(0,
                                                                                                   storeName,
                                                                                                   Arrays.asList(new Integer[] { 0 }));
@@ -344,10 +324,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Write
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
-
+        AdminClient client = getAdminClient();
         client.updatePartitionEntries(0, storeName, entryList.iterator());
 
         for(int i = 100; i <= 104; i++) {

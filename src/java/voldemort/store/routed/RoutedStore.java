@@ -51,6 +51,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -222,7 +223,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
                     if(!acquired)
                         logger.warn("Delete operation timed out waiting for operation " + i
-                                    + "to complete after waiting " + timeoutMs + " ms.");
+                                    + " to complete after waiting " + timeoutMs + " ms.");
                     // okay, at least the required number of operations have
                     // completed, were they successful?
                     if(successes.get() >= attempts)
@@ -268,8 +269,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             checkRequiredReads(availableNodes);
             int preferredReads = storeDef.getPreferredReads();
             List<Node> preferredNodes = Lists.newArrayListWithCapacity(preferredReads);
-            List<Node> extraNodes = Lists.newArrayListWithCapacity(availableNodes.size()
-                                                                   - preferredReads);
+            List<Node> extraNodes = Lists.newArrayListWithCapacity(3);
 
             for(Node node: availableNodes) {
                 if(preferredNodes.size() < preferredReads)
@@ -451,6 +451,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
                 public void run() {
                     try {
+                        if(logger.isTraceEnabled())
+                            logger.trace("Attempting get operation on node " + node.getId()
+                                         + " for key '" + ByteUtils.toHexString(key.get()) + "'.");
                         List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
                         retrieved.addAll(fetched);
                         if(repairReads) {
@@ -788,7 +791,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    private class GetAllResult {
+    private static class GetAllResult {
 
         final GetAllCallable callable;
         final Map<ByteArray, List<Versioned<byte[]>>> retrieved;

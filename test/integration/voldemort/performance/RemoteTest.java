@@ -18,7 +18,6 @@ package voldemort.performance;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -76,10 +75,16 @@ public class RemoteTest {
         parser.accepts("w", "execute write operations");
         parser.accepts("d", "execute delete operations");
         parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
-        parser.accepts("start-key-index", "starting point when using int keys")
+        parser.accepts("start-key-index", "starting point when using int keys. Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("value-size", "size in bytes for random value")
+        parser.accepts("value-size", "size in bytes for random value.  Default = 1024")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("iterations", "number of times to repeat the test  Default = 1")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("threads", "max number concurrent worker threads  Default = " + MAX_WORKERS)
               .withRequiredArg()
               .ofType(Integer.class);
 
@@ -98,6 +103,8 @@ public class RemoteTest {
 
         Integer startNum = CmdUtils.valueOf(options, "start-key-index", 0);
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
+        Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
+        Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
 
         if(options.has("request-file")) {
             keys = loadKeys((String) options.valueOf("request-file"));
@@ -117,97 +124,127 @@ public class RemoteTest {
             ops = "rwd";
         }
 
-        System.err.println("Bootstraping cluster data.");
+        System.out.println("operations : " + ops);
+        System.out.println("value size : " + valueSize);
+        System.out.println("start index : " + startNum);
+        System.out.println("iterations : " + numIterations);
+        System.out.println("threads : " + numThreads);
+
+        System.out.println("Bootstraping cluster data.");
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
-                                                                                    .setMaxConnectionsPerNode(MAX_WORKERS)
+                                                                                    .setMaxConnectionsPerNode(numThreads)
                                                                                     .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient(storeName);
 
-        final String value = new String(TestUtils.randomBytes(valueSize));
-        ExecutorService service = Executors.newFixedThreadPool(MAX_WORKERS);
+        final String value = TestUtils.randomLetters(valueSize);
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
-        if(ops.contains("d")) {
-            System.err.println("Beginning delete test.");
-            final AtomicInteger successes = new AtomicInteger(0);
-            final KeyProvider keyProvider0 = new KeyProvider(startNum, keys);
-            final CountDownLatch latch0 = new CountDownLatch(numRequests);
-            long start = System.currentTimeMillis();
-            for(int i = 0; i < numRequests; i++) {
-                service.execute(new Runnable() {
+        /*
+         *   send the store a value and then delete it - useful for the NOOP store which will then use that value for
+         *   other queries
+         */
 
-                    public void run() {
-                        try {
-                            store.delete(keyProvider0.next());
-                            successes.getAndIncrement();
-                        } catch(Exception e) {
-                            e.printStackTrace();
-                        } finally {
-                            latch0.countDown();
+        String key = new KeyProvider(startNum, keys).next();        
+        store.put(key, new Versioned<String>(value));
+        store.delete(key);
+
+         for (int loopCount=0; loopCount < numIterations; loopCount++) {
+
+             System.out.println("======================= iteration = " + loopCount + " ======================================");
+     
+            if(ops.contains("d")) {
+                System.out.println("Beginning delete test.");
+                final AtomicInteger successes = new AtomicInteger(0);
+                final KeyProvider keyProvider0 = new KeyProvider(startNum, keys);
+                final CountDownLatch latch0 = new CountDownLatch(numRequests);
+                long start = System.currentTimeMillis();
+                for(int i = 0; i < numRequests; i++) {
+                    service.execute(new Runnable() {
+
+                        public void run() {
+                            try {
+                                store.delete(keyProvider0.next());
+                                successes.getAndIncrement();
+                            } catch(Exception e) {
+                                e.printStackTrace();
+                            } finally {
+                                latch0.countDown();
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                latch0.await();
+                long deleteTime = System.currentTimeMillis() - start;
+                System.out.println("Throughput: " + (numRequests / (float) deleteTime * 1000)
+                                   + " deletes/sec.");
+                System.out.println(successes.get() + " things deleted.");
             }
-            latch0.await();
-            long deleteTime = System.currentTimeMillis() - start;
-            System.out.println("Throughput: " + (numRequests / (float) deleteTime * 1000)
-                               + " deletes/sec.");
-            System.out.println(successes.get() + " things deleted.");
-        }
 
-        if(ops.contains("w")) {
-            System.err.println("Beginning write test.");
-            final KeyProvider keyProvider1 = new KeyProvider(startNum, keys);
-            final CountDownLatch latch1 = new CountDownLatch(numRequests);
-            long start = System.currentTimeMillis();
-            for(int i = 0; i < numRequests; i++) {
-                service.execute(new Runnable() {
+            if(ops.contains("w")) {
+                System.out.println("Beginning write test.");
+                final KeyProvider keyProvider1 = new KeyProvider(startNum, keys);
+                final CountDownLatch latch1 = new CountDownLatch(numRequests);
+                long start = System.currentTimeMillis();
+                for(int i = 0; i < numRequests; i++) {
+                    service.execute(new Runnable() {
 
-                    public void run() {
-                        try {
-                            store.put(keyProvider1.next(), new Versioned<String>(value));
-                        } catch(Exception e) {
-                            e.printStackTrace();
-                        } finally {
-                            latch1.countDown();
+                        public void run() {
+                            try {
+                                store.put(keyProvider1.next(), new Versioned<String>(value));
+                            } catch(Exception e) {
+                                e.printStackTrace();
+                            } finally {
+                                latch1.countDown();
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                latch1.await();
+                long writeTime = System.currentTimeMillis() - start;
+                System.out.println("Throughput: " + (numRequests / (float) writeTime * 1000)
+                                   + " writes/sec.");
             }
-            latch1.await();
-            long writeTime = System.currentTimeMillis() - start;
-            System.out.println("Throughput: " + (numRequests / (float) writeTime * 1000)
-                               + " writes/sec.");
-        }
 
-        if(ops.contains("r")) {
-            System.err.println("Beginning read test.");
-            final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
-            final CountDownLatch latch2 = new CountDownLatch(numRequests);
-            long start = System.currentTimeMillis();
-            for(int i = 0; i < numRequests; i++) {
-                service.execute(new Runnable() {
+            if(ops.contains("r")) {
+                System.out.println("Beginning read test.");
+                final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
+                final CountDownLatch latch2 = new CountDownLatch(numRequests);
+                long start = System.currentTimeMillis();
+                for(int i = 0; i < numRequests; i++) {
+                    service.execute(new Runnable() {
 
-                    public void run() {
-                        try {
-                            store.get(keyProvider2.next());
-                        } catch(Exception e) {
-                            e.printStackTrace();
-                        } finally {
-                            latch2.countDown();
+                        public void run() {
+                            try {
+                                Versioned<String> v = store.get(keyProvider2.next());
+                                
+                                if (v == null) {
+                                    throw new Exception("value returned is null");
+                                }
+
+                                if (!value.equals(v.getValue())) {
+                                    throw new Exception("value returned isn't same as set value.  My val size = "
+                                            + value.length() + " ret size = " + v.getValue().length());
+                                }
+                                
+                            } catch(Exception e) {
+                                e.printStackTrace();
+                            } finally {
+                                latch2.countDown();
+                            }
                         }
-                    }
-                });
+                    });
+                }
+                latch2.await();
+                long readTime = System.currentTimeMillis() - start;
+                System.out.println("Throughput: " + (numRequests / (float) readTime * 1000.0)
+                                   + " reads/sec.");
             }
-            latch2.await();
-            long readTime = System.currentTimeMillis() - start;
-            System.out.println("Throughput: " + (numRequests / (float) readTime * 1000.0)
-                               + " reads/sec.");
         }
 
         System.exit(0);
     }
 
-    public static List<String> loadKeys(String path) throws FileNotFoundException, IOException {
+    public static List<String> loadKeys(String path) throws IOException {
 
         List<String> targets = new ArrayList<String>();
         File file = new File(path);
@@ -215,7 +252,7 @@ public class RemoteTest {
 
         try {
             reader = new BufferedReader(new FileReader(file));
-            String text = null;
+            String text;
             while((text = reader.readLine()) != null) {
                 targets.add(text);
             }

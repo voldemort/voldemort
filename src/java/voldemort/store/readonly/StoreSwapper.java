@@ -32,7 +32,7 @@ import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
 import voldemort.xml.ClusterMapper;
 
-import com.google.common.base.Join;
+import com.google.common.base.Joiner;
 
 /**
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
@@ -166,7 +166,7 @@ public class StoreSwapper {
 
         Set<String> missing = CmdUtils.missing(options, "cluster", "name", "file");
         if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Join.join(", ", missing));
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
         }

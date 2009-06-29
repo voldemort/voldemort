@@ -55,17 +55,17 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         context = ServerTestUtils.getJettyServer(new ClusterMapper().writeCluster(cluster),
                                                  VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                  "users",
-                                                 RequestFormatType.VOLDEMORT,
+                                                 RequestFormatType.VOLDEMORT_V1,
                                                  node.getHttpPort());
         server = context.getServer();
         httpStore = ServerTestUtils.getHttpStore("users",
-                                                 RequestFormatType.VOLDEMORT,
+                                                 RequestFormatType.VOLDEMORT_V1,
                                                  node.getHttpPort());
     }
 
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
         ByteArray key = new ByteArray("test".getBytes());
-        RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT);
+        RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
         HttpStore badUrlHttpStore = new HttpStore("test",
                                                   url,
                                                   port,
