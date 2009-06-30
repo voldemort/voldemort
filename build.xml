@@ -17,7 +17,7 @@
 
 <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
-  <condition property="curr.release.snapshot" value="${curr.release.base}-snapshot-${env.BUILD_NUMBER}" else="${curr.release.base}">
+  <condition property="curr.release.snapshot" value="${curr.release}-snapshot-${env.BUILD_NUMBER}" else="${curr.release}">
        <and>
           <isset property="env.BUILD_NUMBER" />
           <not>
@@ -25,7 +25,6 @@
           </not> 
        </and>
   </condition>
-
 
   <path id="contrib-classpath">
     <fileset dir="${dist.dir}">
@@ -220,18 +219,17 @@
   <macrodef name="create-release-artifacts">
     <attribute name="version" />
     <sequential>
-    <property name="curr.release" value="@{version}"/>
     <antcall target="all"/>
-    <zip destfile="${dist.dir}/${name}-${curr.release}.zip">
-      <zipfileset dir="." prefix="voldemort-${curr.release}" filemode="755" includes="bin/*"/>
-      <zipfileset dir="." prefix="voldemort-${curr.release}" includes="**">
+    <zip destfile="${dist.dir}/${name}-@{version}.zip">
+      <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
+      <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
         <exclude name="${dist.dir}/*classes"/>
         <exclude name="bin/*"/>
       </zipfileset>
     </zip>
-    <tar destfile="${dist.dir}/${name}-${curr.release}.tar.gz" compression="gzip" longfile="gnu">
-      <tarfileset dir="." prefix="voldemort-${curr.release}" filemode="755" includes="bin/*"/>
-      <tarfileset dir="." prefix="voldemort-${curr.release}" includes="**">
+    <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
+      <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
+      <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
         <exclude name="${dist.dir}/*classes"/>
         <exclude name="${dist.dir}/*.zip"/>
         <exclude name="bin/*"/>
@@ -245,7 +243,7 @@
   </target>
   
   <target name="release" description="Create a release zip file with everything pre-built.">
-    <create-release-artifacts version="${curr.release.base}" />
+    <create-release-artifacts version="${curr.release}" />
   </target>
   
   <target name="hadoop-benchmark-jar" depends="build, contrib-build" 
