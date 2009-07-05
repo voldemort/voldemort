@@ -86,4 +86,14 @@ public class VectorClockInconsistencyResolverTest extends TestCase {
                                                                 concurrent,
                                                                 current)).size());
     }
+
+    @SuppressWarnings("unchecked")
+    public void testResolveConcurrentPairWithLater() {
+        Versioned<String> later2 = getVersioned(1, 2, 3, 3, 4, 4);
+        List<Versioned<String>> resolved = resolver.resolveConflicts(Arrays.asList(concurrent,
+                                                                                   concurrent2,
+                                                                                   later2));
+        assertEquals(1, resolved.size());
+        assertEquals(later2, resolved.get(0));
+    }
 }
