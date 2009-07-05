@@ -20,6 +20,8 @@ import static voldemort.TestUtils.getClock;
 import junit.framework.TestCase;
 import voldemort.TestUtils;
 
+import com.google.common.collect.Lists;
+
 /**
  * VectorClock tests
  * 
@@ -67,6 +69,19 @@ public class VectorClockTest extends TestCase {
                      getClock(1, 1, 1, 2, 2, 3, 4, 5));
         assertEquals(getClock(2, 3, 5).merge(getClock(1, 2, 2, 4, 7)),
                      getClock(1, 2, 2, 3, 4, 5, 7));
+    }
+
+    /**
+     * See gihub issue #25: Incorrect coersion of version to short before
+     * passing to ClockEntry constructor
+     */
+    public void testMergeWithLargeVersion() {
+        VectorClock clock1 = getClock(1);
+        VectorClock clock2 = new VectorClock(Lists.newArrayList(new ClockEntry((short) 1,
+                                                                               Short.MAX_VALUE + 1)),
+                                             System.currentTimeMillis());
+        VectorClock mergedClock = clock1.merge(clock2);
+        assertEquals(mergedClock.getMaxVersion(), Short.MAX_VALUE + 1);
     }
 
     public void testSerialization() {
