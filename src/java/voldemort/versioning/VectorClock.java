@@ -232,8 +232,7 @@ public class VectorClock implements Version, Serializable {
     public long getMaxVersion() {
         long max = -1;
         for(ClockEntry entry: versions)
-            if(entry.getVersion() > max)
-                max = entry.getVersion();
+            max = Math.max(entry.getVersion(), max);
         return max;
     }
 
