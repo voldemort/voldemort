@@ -581,6 +581,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     public void put(final ByteArray key, final Versioned<byte[]> versioned)
             throws VoldemortException {
+        long start = System.currentTimeMillis();
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
 
@@ -669,9 +670,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
         for(int i = 0; i < blockCount; i++) {
             try {
-                boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
-                if(!acquired)
+                long delta = System.currentTimeMillis() - start;
+                long timeout = timeoutMs - delta;
+                boolean acquired = (timeout > 0) ? semaphore.tryAcquire(timeout, TimeUnit.MILLISECONDS) : false;
+                if(!acquired) {
                     logger.warn("Timed out waiting for put to succeed.");
+                    break;
+                }
                 // okay, at least the required number of operations have
                 // completed, were they successful?
                 if(successes.get() >= this.storeDef.getPreferredWrites())
