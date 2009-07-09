@@ -54,7 +54,7 @@ public class BlockingKeyedResourcePool<K, V> {
 
         // get a valid resource
         V resource = getResource(key, config.getBorrowTimeout(), config.getReturnTimeoutUnit());
-        while(!objectFactory.validateObject(key, resource)) {
+        while(!objectFactory.validate(key, resource)) {
             // destroy bad resource
             cleanDestroyResource(key, resource);
             // try get new resource with updated timeout.
@@ -66,7 +66,7 @@ public class BlockingKeyedResourcePool<K, V> {
         }
 
         // activate the resource and return.
-        return objectFactory.activateObject(key, resource);
+        return objectFactory.activate(key, resource);
     }
 
     /**
@@ -88,7 +88,7 @@ public class BlockingKeyedResourcePool<K, V> {
 
     private void cleanDestroyResource(K key, V resource) throws Exception {
         try {
-            objectFactory.destroyObject(key, resource);
+            objectFactory.destroy(key, resource);
         } catch(Exception e) {
             // TODO: LOW : should we propagate this back to Client ??
             logger.error("Exception while destorying invalid resource:", e);
@@ -124,7 +124,7 @@ public class BlockingKeyedResourcePool<K, V> {
         if(null == resource) {
             // need to grow pool
             if(resourceSizeMap.get(key).incrementAndGet() <= config.getDefaultPoolSize()) {
-                return objectFactory.createObject(key);
+                return objectFactory.create(key);
             } else {
                 resourceSizeMap.get(key).decrementAndGet();
                 return null;
@@ -136,7 +136,7 @@ public class BlockingKeyedResourcePool<K, V> {
 
     public void returnResource(K key, V resource) throws Exception {
         if(resourceQueueMap.containsKey(key)) {
-            resource = objectFactory.passivateObject(key, resource);
+            resource = objectFactory.passivate(key, resource);
 
             if(isRunningState.get()) {
                 // Running state add resource back to queue

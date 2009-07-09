@@ -8,13 +8,13 @@ package voldemort.utils.socketpool;
  */
 public interface PoolableObjectFactory<K, V> {
 
-    V createObject(Object K) throws Exception;
+    V create(K key) throws Exception;
 
-    void destroyObject(K key, V obj) throws Exception;
+    void destroy(K key, V obj) throws Exception;
 
-    boolean validateObject(K key, V value) throws Exception;
+    boolean validate(K key, V value) throws Exception;
 
-    V activateObject(K key, V value) throws Exception;
+    V activate(K key, V value) throws Exception;
 
-    V passivateObject(K key, V value) throws Exception;
+    V passivate(K key, V value) throws Exception;
 }
