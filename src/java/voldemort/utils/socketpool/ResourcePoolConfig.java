@@ -15,6 +15,7 @@ public class ResourcePoolConfig {
     private TimeUnit borrowTimeoutUnit = TimeUnit.MILLISECONDS;
     private long returnTimeout = 10;
     private TimeUnit returnTimeoutUnit = TimeUnit.MILLISECONDS;
+    private int maxBorrowTries = 5;
 
     public int getDefaultPoolSize() {
         return defaultPoolSize;
@@ -54,5 +55,13 @@ public class ResourcePoolConfig {
 
     public long getReturnTimeout() {
         return this.returnTimeout;
+    }
+
+    public void setMaxBorrowTries(int maxBorrowTries) {
+        this.maxBorrowTries = maxBorrowTries;
+    }
+
+    public int getMaxBorrowTries() {
+        return maxBorrowTries;
     }
 }

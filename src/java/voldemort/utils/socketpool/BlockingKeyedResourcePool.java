@@ -28,8 +28,6 @@ public class BlockingKeyedResourcePool<K, V> {
         final AtomicInteger size = new AtomicInteger(0);
 
         public Resources(int defaultPoolSize) {
-            // TODO I (ijuma) am not convinced that we need a fair queue. Also,
-            // LinkedBlockingQueue may be better
             queue = new ArrayBlockingQueue<V>(defaultPoolSize, true);
         }
     }
@@ -69,20 +67,29 @@ public class BlockingKeyedResourcePool<K, V> {
         }
 
         // get a valid resource
+        int numTries = 0;
         V resource = getResource(key,
                                  resources,
                                  config.getBorrowTimeout(),
-                                 config.getReturnTimeoutUnit());
+                                 config.getBorrowTimeoutUnit());
         while(!objectFactory.validate(key, resource)) {
             // destroy bad resource
+            logger.warn("resource validate() failed for resource:" + resource);
             cleanDestroyResource(key, resources, resource);
-            // try get new resource with updated timeout.
-            resource = getResource(key,
-                                   resources,
-                                   computeNewTimeout(startTime,
-                                                     config.getBorrowTimeout(),
-                                                     config.getBorrowTimeoutUnit()),
-                                   config.getBorrowTimeoutUnit());
+
+            // try get new resource with updated timeout
+            if(++numTries < config.getMaxBorrowTries()) {
+                logger.info("trying getResource()" + numTries + " time for key:" + key);
+                resource = getResource(key,
+                                       resources,
+                                       computeNewTimeout(startTime,
+                                                         config.getBorrowTimeout(),
+                                                         config.getBorrowTimeoutUnit()),
+                                       config.getBorrowTimeoutUnit());
+            } else {
+                throw new RuntimeException("Failed to get Resource within "
+                                           + config.getMaxBorrowTries() + " tries..");
+            }
         }
 
         // activate the resource and return.
@@ -110,7 +117,6 @@ public class BlockingKeyedResourcePool<K, V> {
         try {
             objectFactory.destroy(key, resource);
         } catch(Exception e) {
-            // TODO: LOW : should we propagate this back to Client ??
             logger.error("Exception while destorying invalid resource:", e);
             resource = null;
         } finally {
@@ -169,6 +175,8 @@ public class BlockingKeyedResourcePool<K, V> {
                 // clean the resource
                 cleanDestroyResource(key, resources, resource);
             }
+        } else {
+            logger.error("returnResource() called with invalid key:" + key);
         }
     }
 
