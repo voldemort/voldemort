@@ -39,6 +39,6 @@
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.1.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0-rc2.jar"/>
-	<classpathentry kind="lib" path="lib/jline-0.9.94.jar" sourcepath="lib/jline-0.9.94.zip"/>
+	<classpathentry kind="lib" path="lib/jline-0.9.94.jar" />
 	<classpathentry kind="output" path="classes"/>
 </classpath>
