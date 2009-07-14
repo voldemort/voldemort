@@ -7,9 +7,11 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.commons.cli2.validation.InvalidArgumentException;
 import org.apache.log4j.Logger;
 
 /**
@@ -49,7 +51,7 @@ public class BlockingKeyedResourcePool<K, V> {
 
     public V borrowResource(K key) throws Exception {
         if(!isRunningState.get()) {
-            throw new RuntimeException("IllegalState: Cannot borrow when resource pool is closing down.");
+            throw new IllegalStateException("IllegalState: Cannot borrow when resource pool is closing down.");
         }
 
         long startTime = System.currentTimeMillis();
@@ -87,7 +89,7 @@ public class BlockingKeyedResourcePool<K, V> {
                                                          config.getBorrowTimeoutUnit()),
                                        config.getBorrowTimeoutUnit());
             } else {
-                throw new RuntimeException("Failed to get Resource within "
+                throw new TimeoutException("Failed to get Resource within "
                                            + config.getMaxBorrowTries() + " tries..");
             }
         }
@@ -133,7 +135,12 @@ public class BlockingKeyedResourcePool<K, V> {
                 return resource;
         }
         // pool has reached max size, do blocking get()
-        return resources.queue.poll(timeout, timeunit);
+        V resource = resources.queue.poll(timeout, timeunit);
+        if(null != resource)
+            return resource;
+        else {
+            throw new TimeoutException("Timeout while blocked on free resource for key:" + key);
+        }
     }
 
     /**
@@ -176,7 +183,7 @@ public class BlockingKeyedResourcePool<K, V> {
                 cleanDestroyResource(key, resources, resource);
             }
         } else {
-            logger.error("returnResource() called with invalid key:" + key);
+            throw new InvalidArgumentException("returnResource() called with invalid key:" + key);
         }
     }
 
