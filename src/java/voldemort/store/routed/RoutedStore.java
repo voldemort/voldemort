@@ -304,7 +304,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
 
         // A list of thrown exceptions, indicating the number of failures
-        List<Exception> failures = Lists.newArrayList();
+        List<Throwable> failures = Lists.newArrayList();
         List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
 
         Map<ByteArray, MutableInt> keyToSuccessCount = Maps.newHashMap();
@@ -357,11 +357,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
             } catch(ExecutionException e) {
-                // TODO We catch all Exception and subclasses inside
-                // the Callable as get() does. That means that Error
-                // subclasses or classes
-                // that extends Throwable directly escape. What to do about
-                // those?
+                // We catch all Throwables apart from Error in the callable, so
+                // the else part
+                // should never happen
                 if(e.getCause() instanceof Error)
                     throw (Error) e.getCause();
                 else
@@ -704,7 +702,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         return !node.getStatus().isUnavailable(this.nodeBannageMs);
     }
 
-    private void markUnavailable(Node node, Exception e) {
+    private void markUnavailable(Node node, UnreachableStoreException e) {
         logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
                     + " marking as unavailable for " + this.nodeBannageMs + " ms.", e);
         logger.debug(e);
@@ -775,7 +773,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         public GetAllResult call() {
             Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
-            Exception exception = null;
+            Throwable exception = null;
             List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
             try {
                 retrieved = innerStores.get(node.getId()).getAll(nodeKeys);
@@ -790,7 +788,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(UnreachableStoreException e) {
                 exception = e;
                 markUnavailable(node, e);
-            } catch(Exception e) {
+            } catch(Throwable e) {
+                if(e instanceof Error)
+                    throw (Error) e;
                 exception = e;
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
             }
@@ -802,13 +802,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         final GetAllCallable callable;
         final Map<ByteArray, List<Versioned<byte[]>>> retrieved;
-        final Exception exception;
+        /* Note that this can never be an Error subclass */
+        final Throwable exception;
         final List<NodeValue<ByteArray, byte[]>> nodeValues;
 
         private GetAllResult(GetAllCallable callable,
                              Map<ByteArray, List<Versioned<byte[]>>> retrieved,
                              List<NodeValue<ByteArray, byte[]>> nodeValues,
-                             Exception exception) {
+                             Throwable exception) {
             this.callable = callable;
             this.exception = exception;
             this.retrieved = retrieved;
