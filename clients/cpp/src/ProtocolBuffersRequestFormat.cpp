@@ -105,24 +105,25 @@ static void throwException(const voldemort::Error& error) {
 
 static void writeMessageWithLength(std::ostream* outputStream,
                                    google::protobuf::Message* message) {
-    //uint32_t mLen = htonl(message->ByteSize());
-    OstreamOutputStream zos(outputStream);
-    CodedOutputStream os(&zos);
+    uint32_t mLen = htonl(message->ByteSize());
+    //OstreamOutputStream zos(outputStream);
+    //CodedOutputStream os(&zos);
 
-    os.WriteVarint32(message->ByteSize());
-    //outputStream->write((char*)&mLen, 4);
-    message->SerializeToCodedStream(&os);
+    //os.WriteVarint32(message->ByteSize());
+    outputStream->write((char*)&mLen, 4);
+    message->SerializeToOstream(outputStream);
+    //message->SerializeToCodedStream(&os);
     CHECK_STREAM_OUT(outputStream);
 }
 
 static void readMessageWithLength(std::istream* inputStream,
                                   google::protobuf::Message* message) {
     uint32_t mLen;
-    //READ_INT(inputStream, mLen);
+    READ_INT(inputStream, mLen);
 
-    IstreamInputStream zis(inputStream);
-    CodedInputStream cis(&zis);
-    cis.ReadVarint32(&mLen);
+    //IstreamInputStream zis(inputStream);
+    //CodedInputStream cis(&zis);
+    //cis.ReadVarint32(&mLen);
     //
     std::vector<char> buffer(mLen);
     inputStream->read(&buffer[0], mLen);
