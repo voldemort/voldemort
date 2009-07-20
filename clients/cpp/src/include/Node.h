@@ -27,6 +27,7 @@
 #include <boost/shared_ptr.hpp>
 #include <expat.h>
 #include <sstream>
+#include <stdint.h>
 
 namespace Voldemort {
    
