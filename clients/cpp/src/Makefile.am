@@ -21,6 +21,23 @@ AM_CPPFLAGS = $(BOOST_CPPFLAGS) \
 
 lib_LTLIBRARIES = libvoldemort.la
 
+EXTRA_DIST = \
+	voldemort-client.proto
+
+PROTOBUF_FILES = \
+	voldemort-client.pb.cc \
+	voldemort-client.pb.h 
+
+voldemort-client.pb.h: voldemort-client.proto
+	$(PROTOC_BIN) --cpp_out=. voldemort-client.proto
+
+voldemort-client.pb.cc: voldemort-client.pb.h
+
+BUILT_SOURCES = $(PROTOBUF_FILES)
+
+clean-local: 
+	rm -rf $(PROTOBUF_FILES)
+
 libvoldemort_la_SOURCES = \
 	include/VectorClock.h \
 	include/SocketStore.h \
@@ -56,8 +73,7 @@ libvoldemort_la_SOURCES = \
 	VectorClockInconsistencyResolver.cpp \
 	TimeBasedInconsistencyResolver.cpp \
 	RoundRobinRoutingStrategy.cpp \
-	voldemort-client.pb.cc \
-	voldemort-client.pb.h 
+	$(PROTOBUF_FILES)
 
 libvoldemort_la_LDFLAGS = $(BOOST_LDFLAGS) \
 	-version-info $(VERSION_INFO)
