@@ -105,31 +105,25 @@ static void throwException(const voldemort::Error& error) {
 
 static void writeMessageWithLength(std::ostream* outputStream,
                                    google::protobuf::Message* message) {
-    uint32_t mLen = htonl(message->ByteSize());
-    //OstreamOutputStream zos(outputStream);
-    //CodedOutputStream os(&zos);
 
-    //os.WriteVarint32(message->ByteSize());
-    outputStream->write((char*)&mLen, 4);
-    message->SerializeToOstream(outputStream);
-    //message->SerializeToCodedStream(&os);
+    uint32_t messageSize = message->ByteSize();
+    OstreamOutputStream zos(outputStream);
+    CodedOutputStream cos(&zos);
+    cos.WriteVarint32(messageSize);
+    message->SerializeToCodedStream(&cos);
     CHECK_STREAM_OUT(outputStream);
 }
 
 static void readMessageWithLength(std::istream* inputStream,
                                   google::protobuf::Message* message) {
     uint32_t mLen;
-    READ_INT(inputStream, mLen);
-
-    //IstreamInputStream zis(inputStream);
-    //CodedInputStream cis(&zis);
-    //cis.ReadVarint32(&mLen);
-    //
-    std::vector<char> buffer(mLen);
-    inputStream->read(&buffer[0], mLen);
-    CHECK_STREAM(inputStream);
-
-    message->ParseFromArray((void*)&buffer[0], mLen);
+    IstreamInputStream zis(inputStream);
+    CodedInputStream cis(&zis);
+    cis.ReadVarint32(&mLen);
+    cis.PushLimit(mLen);
+    message->ParseFromCodedStream(&cis);
+    //For some reason ReadVarint32 causes inputStream->fail() to return true
+    //CHECK_STREAM(inputStream);
 }
 
 void ProtocolBuffersRequestFormat::writeGetRequest(std::ostream* outputStream,

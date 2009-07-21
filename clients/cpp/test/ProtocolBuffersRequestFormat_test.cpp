@@ -29,6 +29,7 @@ using namespace google::protobuf::io;
 #include <sstream>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <arpa/inet.h>
+#include <google/protobuf/io/coded_stream.h>
 
 BOOST_AUTO_TEST_SUITE(ProtocolBuffersRequestFormat_test)
 
@@ -39,12 +40,11 @@ BOOST_AUTO_TEST_SUITE(ProtocolBuffersRequestFormat_test)
 static void readMessageWithLength(std::istream* inputStream,
                                   google::protobuf::Message* message) {
     uint32_t mLen;
-    READ_INT(inputStream, mLen);
-
-    IstreamInputStream isis(inputStream);
-    LimitingInputStream lis(&isis, (uint64_t)mLen);
-
-    message->ParseFromZeroCopyStream(&lis);
+    IstreamInputStream zis(inputStream);
+    CodedInputStream cis(&zis);
+    cis.ReadVarint32(&mLen);
+    cis.PushLimit(mLen);
+    message->ParseFromCodedStream(&cis);
 }
 
 BOOST_AUTO_TEST_CASE( get_req_test ) {
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( get_res_test ) {
     ProtocolBuffersRequestFormat rf;
 
     stringstream streamwithlen;
-    streamwithlen.write("\x00\x00\x00\x18\x0a\x16\x0a\x05\x77\x6f\x72\x6c\x64\x12\x0d\x0a\x04\x08\x00\x10\x01\x10\xf8\x9d\xe2\x88\x9b\x24", 0x18+4);
+    streamwithlen.write("\x18\x0a\x16\x0a\x05\x77\x6f\x72\x6c\x64\x12\x0d\x0a\x04\x08\x00\x10\x01\x10\xf8\x9d\xe2\x88\x9b\x24", 0x18+1);
     streamwithlen << "Some more gibberish";
 
     auto_ptr<std::list<VersionedValue> > vv(rf.readGetResponse(&streamwithlen));
