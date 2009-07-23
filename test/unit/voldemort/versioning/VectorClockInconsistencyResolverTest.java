@@ -30,6 +30,7 @@ public class VectorClockInconsistencyResolverTest extends TestCase {
     private Versioned<String> prior;
     private Versioned<String> current;
     private Versioned<String> concurrent;
+    private Versioned<String> concurrent2;
 
     @Override
     public void setUp() {
@@ -37,6 +38,7 @@ public class VectorClockInconsistencyResolverTest extends TestCase {
         current = getVersioned(1, 1, 2, 3);
         prior = getVersioned(1, 2, 3);
         concurrent = getVersioned(1, 2, 3, 3);
+        concurrent2 = getVersioned(1, 2, 3, 4);
         later = getVersioned(1, 1, 2, 2, 3);
     }
 
@@ -72,5 +74,26 @@ public class VectorClockInconsistencyResolverTest extends TestCase {
         assertEquals(2, resolved.size());
         assertTrue("Version not found", resolved.contains(current));
         assertTrue("Version not found", resolved.contains(concurrent));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testResolveLargerConcurrent() {
+        assertEquals(3, resolver.resolveConflicts(Arrays.asList(concurrent,
+                                                                concurrent2,
+                                                                current,
+                                                                concurrent2,
+                                                                current,
+                                                                concurrent,
+                                                                current)).size());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testResolveConcurrentPairWithLater() {
+        Versioned<String> later2 = getVersioned(1, 2, 3, 3, 4, 4);
+        List<Versioned<String>> resolved = resolver.resolveConflicts(Arrays.asList(concurrent,
+                                                                                   concurrent2,
+                                                                                   later2));
+        assertEquals(1, resolved.size());
+        assertEquals(later2, resolved.get(0));
     }
 }

@@ -506,7 +506,7 @@ AC_DEFUN([AX_BOOST_ASIO],
 			AC_DEFINE(HAVE_BOOST_ASIO,,[define if the Boost::ASIO library is available])
 			BN=boost_system
             if test "x$ax_boost_user_asio_lib" = "x"; then
-				for ax_lib in $BN $BN-mt $BN-$CC $BN-$CC-mt $BN-$CC-mt-s $BN-$CC-s \
+				for ax_lib in $BN-mt $BN $BN-$CC $BN-$CC-mt $BN-$CC-mt-s $BN-$CC-s \
                               lib$BN lib$BN-$CC lib$BN-$CC-mt lib$BN-$CC-mt-s lib$BN-$CC-s \
                               $BN-mgw $BN-mgw $BN-mgw-mt $BN-mgw-mt-s $BN-mgw-s ; do
 				    AC_CHECK_LIB($ax_lib, main, [BOOST_ASIO_LIB="-l$ax_lib" AC_SUBST(BOOST_ASIO_LIB) link_thread="yes" break],

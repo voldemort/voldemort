@@ -15,7 +15,7 @@
     <pathelement path="${classes.dir}" />
   </path>
 
-<!-- set the build number based on environment variable, otherwise blank -->
+  <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
   <condition property="curr.release.snapshot" value="${curr.release}-snapshot-${env.BUILD_NUMBER}" else="${curr.release}">
        <and>
@@ -88,6 +88,12 @@
     <replace-dir dir="${testclasses.dir}" />
     <copy todir="${testclasses.dir}">
       <fileset dir="${commontestsrc.dir}">
+        <exclude name="**/*.java" />
+        <exclude name="**/*.html" />
+      </fileset>
+    </copy>
+    <copy todir="${testclasses.dir}">
+      <fileset dir="${unittestsrc.dir}">
         <exclude name="**/*.java" />
         <exclude name="**/*.html" />
       </fileset>

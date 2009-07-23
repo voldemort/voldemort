@@ -31,6 +31,9 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 
 /**
@@ -92,16 +95,16 @@ public class ProtoUtils {
         return ByteString.copyFrom(array.get());
     }
 
-    public static void writeWithSize(DataOutputStream output, Message message) throws IOException {
-        byte[] bytes = message.toByteArray();
-        output.writeInt(bytes.length);
-        output.write(bytes);
+    public static void writeMessage(DataOutputStream output, Message message) throws IOException {
+        CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+        codedOut.writeMessageNoTag(message);
+        codedOut.flush();
     }
 
-    public static byte[] readWithSize(DataInputStream input) throws IOException {
-        int size = input.readInt();
-        byte[] bytes = new byte[size];
-        input.readFully(bytes);
-        return bytes;
+    public static <T extends Message.Builder> T readToBuilder(DataInputStream input, T builder)
+            throws IOException {
+        CodedInputStream codedIn = CodedInputStream.newInstance(input);
+        codedIn.readMessage(builder, ExtensionRegistry.getEmptyRegistry());
+        return builder;
     }
 }

@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.versioning.Version;
@@ -46,6 +47,16 @@ public class SleepyStore<K, V> extends DelegatingStore<K, V> {
         try {
             Thread.sleep(sleepTimeMs);
             return getInnerStore().get(key);
+        } catch(InterruptedException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    @Override
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+        try {
+            Thread.sleep(sleepTimeMs);
+            return getInnerStore().getAll(keys);
         } catch(InterruptedException e) {
             throw new VoldemortException(e);
         }

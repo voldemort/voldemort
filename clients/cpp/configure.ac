@@ -140,6 +140,10 @@ AC_CHECK_HEADER(google/protobuf/message.h, [],
                 AC_MSG_ERROR([Could not include protocol buffers headers]))
 AC_CHECK_LIB(protobuf, main, [], 
              AC_MSG_ERROR([Could not link protocol buffers library]), [])
+AC_PATH_PROG(PROTOC_BIN, protoc, [])
+if test x$PROTOC_BIN = x; then
+   AC_MSG_ERROR([Could not find protocol buffers compiler protoc])
+fi
 
 AC_CHECK_HEADER(expat.h, [], 
                 AC_MSG_ERROR([Could not include expat header]))

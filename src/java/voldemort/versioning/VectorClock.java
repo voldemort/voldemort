@@ -169,12 +169,12 @@ public class VectorClock implements Version, Serializable {
         if(found) {
             versions.set(index, versions.get(index).incremented());
         } else if(index < versions.size() - 1) {
-            versions.add(index, new ClockEntry((short) node, (short) 1));
+            versions.add(index, new ClockEntry((short) node, 1));
         } else {
             // we don't already have a version for this, so add it
             if(versions.size() > MAX_NUMBER_OF_VERSIONS)
                 throw new IllegalStateException("Vector clock is full!");
-            versions.add(index, new ClockEntry((short) node, (short) 1));
+            versions.add(index, new ClockEntry((short) node, 1));
         }
 
     }
@@ -232,8 +232,7 @@ public class VectorClock implements Version, Serializable {
     public long getMaxVersion() {
         long max = -1;
         for(ClockEntry entry: versions)
-            if(entry.getVersion() > max)
-                max = entry.getVersion();
+            max = Math.max(entry.getVersion(), max);
         return max;
     }
 
@@ -245,9 +244,8 @@ public class VectorClock implements Version, Serializable {
             ClockEntry v1 = this.versions.get(i);
             ClockEntry v2 = clock.versions.get(j);
             if(v1.getNodeId() == v2.getNodeId()) {
-                newClock.versions.add(new ClockEntry(v1.getNodeId(),
-                                                     (short) Math.max(v1.getVersion(),
-                                                                      v2.getVersion())));
+                newClock.versions.add(new ClockEntry(v1.getNodeId(), Math.max(v1.getVersion(),
+                                                                              v2.getVersion())));
                 i++;
                 j++;
             } else if(v1.getNodeId() < v2.getNodeId()) {

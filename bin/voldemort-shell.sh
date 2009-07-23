@@ -24,4 +24,4 @@ fi
 
 base_dir=$(dirname $0)/..
 
-$base_dir/bin/run-class.sh voldemort.VoldemortClientShell $@
+$base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.VoldemortClientShell $@

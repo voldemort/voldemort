@@ -75,9 +75,22 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         }
     }
 
+    /**
+     * A modified version of abs that always returns a non-negative value.
+     * Math.abs returns Integer.MIN_VALUE if a == Integer.MIN_VALUE and this
+     * method returns Integer.MAX_VALUE in that case.
+     */
+    private static int abs(int a) {
+        if(a >= 0)
+            return a;
+        else if(a != Integer.MIN_VALUE)
+            return -a;
+        return Integer.MAX_VALUE;
+    }
+
     public List<Node> routeRequest(byte[] key) {
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
-        int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
+        int index = abs(hash.hash(key)) % this.partitionToNode.length;
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
             if(!preferenceList.contains(partitionToNode[index]))

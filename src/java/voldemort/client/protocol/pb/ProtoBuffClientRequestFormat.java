@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.client.protocol.RequestFormat;
+import voldemort.client.protocol.pb.VProto.DeleteResponse;
+import voldemort.client.protocol.pb.VProto.GetAllResponse;
+import voldemort.client.protocol.pb.VProto.GetResponse;
+import voldemort.client.protocol.pb.VProto.PutResponse;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
@@ -53,19 +57,20 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                    VectorClock version,
                                    boolean shouldReroute) throws IOException {
         StoreUtils.assertValidKey(key);
-        ProtoUtils.writeWithSize(output,
-                                 VProto.VoldemortRequest.newBuilder()
-                                                        .setType(RequestType.DELETE)
-                                                        .setStore(storeName)
-                                                        .setShouldRoute(shouldReroute)
-                                                        .setDelete(VProto.DeleteRequest.newBuilder()
-                                                                                       .setKey(ByteString.copyFrom(key.get()))
-                                                                                       .setVersion(ProtoUtils.encodeClock(version)))
-                                                        .build());
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.DELETE)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(shouldReroute)
+                                                       .setDelete(VProto.DeleteRequest.newBuilder()
+                                                                                      .setKey(ByteString.copyFrom(key.get()))
+                                                                                      .setVersion(ProtoUtils.encodeClock(version)))
+                                                       .build());
     }
 
     public boolean readDeleteResponse(DataInputStream input) throws IOException {
-        VProto.DeleteResponse response = VProto.DeleteResponse.parseFrom(ProtoUtils.readWithSize(input));
+        DeleteResponse.Builder response = ProtoUtils.readToBuilder(input,
+                                                                   DeleteResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
         return response.getSuccess();
@@ -76,18 +81,18 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                 ByteArray key,
                                 boolean shouldReroute) throws IOException {
         StoreUtils.assertValidKey(key);
-        ProtoUtils.writeWithSize(output,
-                                 VProto.VoldemortRequest.newBuilder()
-                                                        .setType(RequestType.GET)
-                                                        .setStore(storeName)
-                                                        .setShouldRoute(shouldReroute)
-                                                        .setGet(VProto.GetRequest.newBuilder()
-                                                                                 .setKey(ByteString.copyFrom(key.get())))
-                                                        .build());
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.GET)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(shouldReroute)
+                                                       .setGet(VProto.GetRequest.newBuilder()
+                                                                                .setKey(ByteString.copyFrom(key.get())))
+                                                       .build());
     }
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream input) throws IOException {
-        VProto.GetResponse response = VProto.GetResponse.parseFrom(ProtoUtils.readWithSize(input));
+        GetResponse.Builder response = ProtoUtils.readToBuilder(input, GetResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
         return ProtoUtils.decodeVersions(response.getVersionedList());
@@ -102,17 +107,18 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         for(ByteArray key: keys)
             req.addKeys(ByteString.copyFrom(key.get()));
 
-        ProtoUtils.writeWithSize(output, VProto.VoldemortRequest.newBuilder()
-                                                                .setType(RequestType.GET_ALL)
-                                                                .setStore(storeName)
-                                                                .setShouldRoute(shouldReroute)
-                                                                .setGetAll(req)
-                                                                .build());
+        ProtoUtils.writeMessage(output, VProto.VoldemortRequest.newBuilder()
+                                                               .setType(RequestType.GET_ALL)
+                                                               .setStore(storeName)
+                                                               .setShouldRoute(shouldReroute)
+                                                               .setGetAll(req)
+                                                               .build());
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream input)
             throws IOException {
-        VProto.GetAllResponse response = VProto.GetAllResponse.parseFrom(ProtoUtils.readWithSize(input));
+        GetAllResponse.Builder response = ProtoUtils.readToBuilder(input,
+                                                                   GetAllResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
         Map<ByteArray, List<Versioned<byte[]>>> vals = new HashMap<ByteArray, List<Versioned<byte[]>>>(response.getValuesCount());
@@ -134,16 +140,16 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                          .setVersioned(VProto.Versioned.newBuilder()
                                                                                        .setValue(ByteString.copyFrom(value))
                                                                                        .setVersion(ProtoUtils.encodeClock(version)));
-        ProtoUtils.writeWithSize(output, VProto.VoldemortRequest.newBuilder()
-                                                                .setType(RequestType.PUT)
-                                                                .setStore(storeName)
-                                                                .setShouldRoute(shouldReroute)
-                                                                .setPut(req)
-                                                                .build());
+        ProtoUtils.writeMessage(output, VProto.VoldemortRequest.newBuilder()
+                                                               .setType(RequestType.PUT)
+                                                               .setStore(storeName)
+                                                               .setShouldRoute(shouldReroute)
+                                                               .setPut(req)
+                                                               .build());
     }
 
     public void readPutResponse(DataInputStream input) throws IOException {
-        VProto.PutResponse response = VProto.PutResponse.parseFrom(ProtoUtils.readWithSize(input));
+        PutResponse.Builder response = ProtoUtils.readToBuilder(input, PutResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
     }

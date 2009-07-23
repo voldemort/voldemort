@@ -29,9 +29,9 @@ public class InsufficientOperationalNodesException extends StoreOperationFailure
 
     private static final long serialVersionUID = 1L;
 
-    private Collection<? extends Exception> causes;
+    private Collection<? extends Throwable> causes;
 
-    public InsufficientOperationalNodesException(String s, Exception e) {
+    public InsufficientOperationalNodesException(String s, Throwable e) {
         super(s, e);
         causes = Collections.singleton(e);
     }
@@ -41,22 +41,22 @@ public class InsufficientOperationalNodesException extends StoreOperationFailure
         causes = Collections.emptyList();
     }
 
-    public InsufficientOperationalNodesException(Exception e) {
+    public InsufficientOperationalNodesException(Throwable e) {
         super(e);
         causes = Collections.singleton(e);
     }
 
-    public InsufficientOperationalNodesException(Collection<? extends Exception> failures) {
+    public InsufficientOperationalNodesException(Collection<? extends Throwable> failures) {
         this("Insufficient operational nodes to immediately satisfy request.", failures);
     }
 
     public InsufficientOperationalNodesException(String message,
-                                                 Collection<? extends Exception> failures) {
+                                                 Collection<? extends Throwable> failures) {
         super(message, failures.size() > 0 ? failures.iterator().next() : null);
         this.causes = failures;
     }
 
-    public Collection<? extends Exception> getCauses() {
+    public Collection<? extends Throwable> getCauses() {
         return this.causes;
     }
 

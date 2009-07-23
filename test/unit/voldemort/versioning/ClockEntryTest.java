@@ -25,23 +25,23 @@ import junit.framework.TestCase;
 public class ClockEntryTest extends TestCase {
 
     public void testEquality() {
-        ClockEntry v1 = new ClockEntry((short) 0, (short) 1);
-        ClockEntry v2 = new ClockEntry((short) 0, (short) 1);
+        ClockEntry v1 = new ClockEntry((short) 0, 1);
+        ClockEntry v2 = new ClockEntry((short) 0, 1);
         assertTrue(v1.equals(v1));
         assertTrue(!v1.equals(null));
         assertEquals(v1, v2);
 
-        v1 = new ClockEntry((short) 0, (short) 1);
-        v2 = new ClockEntry((short) 0, (short) 2);
+        v1 = new ClockEntry((short) 0, 1);
+        v2 = new ClockEntry((short) 0, 2);
         assertTrue(!v1.equals(v2));
 
-        v1 = new ClockEntry(Short.MAX_VALUE, (short) 256);
-        v2 = new ClockEntry(Short.MAX_VALUE, (short) 256);
+        v1 = new ClockEntry(Short.MAX_VALUE, 256);
+        v2 = new ClockEntry(Short.MAX_VALUE, 256);
         assertEquals(v1, v2);
     }
 
     public void testIncrement() {
-        ClockEntry v = new ClockEntry((short) 0, (short) 1);
+        ClockEntry v = new ClockEntry((short) 0, 1);
         assertEquals(v.getNodeId(), 0);
         assertEquals(v.getVersion(), 1);
         ClockEntry v2 = v.incremented();
