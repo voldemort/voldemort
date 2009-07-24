@@ -52,8 +52,8 @@ public class SocketPool {
                       int soTimeoutMs,
                       int socketBufferSize) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
-                                                            .setPoolSize(maxConnectionsPerNode)
-                                                            .setMaximumInvalidResourceCreationLimit(maxConnectionsPerNode)
+                                                            .setMaxPoolSize(maxConnectionsPerNode)
+                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
         this.socketFactory = new SocketResourceFactory(soTimeoutMs, socketBufferSize);

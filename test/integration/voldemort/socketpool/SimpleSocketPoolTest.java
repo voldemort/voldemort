@@ -12,7 +12,7 @@ public class SimpleSocketPoolTest extends TestCase {
     public void testPoolLimitNoTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(1000,
                                                                               TimeUnit.MILLISECONDS)
-                                                                  .setPoolSize(20);
+                                                                  .setMaxPoolSize(20);
 
         ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {
@@ -36,7 +36,7 @@ public class SimpleSocketPoolTest extends TestCase {
     public void testPoolLimitSomeTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
                                                                               TimeUnit.MILLISECONDS)
-                                                                  .setPoolSize(20);
+                                                                  .setMaxPoolSize(20);
 
         ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {
@@ -60,7 +60,7 @@ public class SimpleSocketPoolTest extends TestCase {
     public void testNoTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(100,
                                                                               TimeUnit.MILLISECONDS)
-                                                                  .setPoolSize(20);
+                                                                  .setMaxPoolSize(20);
 
         ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {

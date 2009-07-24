@@ -1,7 +1,5 @@
 package voldemort.utils.pool;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,6 +11,7 @@ public class KeyedResourcePoolTest extends TestCase {
 
     private static int POOL_SIZE = 5;
     private static long TIMEOUT_MS = 100;
+    private static int MAX_ATTEMPTS = 10;
 
     private TestResourceFactory factory;
     private KeyedResourcePool<String, TestResource> pool;
@@ -20,9 +19,10 @@ public class KeyedResourcePoolTest extends TestCase {
     @Override
     public void setUp() {
         factory = new TestResourceFactory();
-        ResourcePoolConfig config = new ResourcePoolConfig();
-        config.setPoolSize(POOL_SIZE);
-        config.setTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        ResourcePoolConfig config = new ResourcePoolConfig().setMaxPoolSize(POOL_SIZE)
+                                                            .setTimeout(TIMEOUT_MS,
+                                                                        TimeUnit.MILLISECONDS)
+                                                            .setMaxInvalidAttempts(MAX_ATTEMPTS);
         this.pool = new KeyedResourcePool<String, TestResource>(factory, config);
     }
 
@@ -46,6 +46,42 @@ public class KeyedResourcePoolTest extends TestCase {
         }
     }
 
+    public void testExceptions() throws Exception {
+        // we should start with an empty pool
+        assertEquals(0, this.pool.getTotalResourceCount());
+
+        Exception toThrow = new Exception("An exception!");
+
+        // test exception on destroy
+        TestResource checkedOut = this.pool.checkout("a");
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(0, this.pool.getCheckedInResourceCount());
+        this.factory.setDestroyException(toThrow);
+        try {
+            this.pool.checkin("a", checkedOut);
+            // checking out again should force destroy
+            this.pool.checkout("a");
+            assertTrue(checkedOut.isDestroyed());
+        } catch(Exception caught) {
+            fail("No exception expected.");
+        }
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(0, this.pool.getCheckedInResourceCount());
+
+        this.factory.setCreateException(toThrow);
+        try {
+            this.pool.checkout("b");
+            fail("Excpected exception!");
+        } catch(Exception caught) {
+            assertEquals("The exception thrown by the factory should propage to the caller.",
+                         toThrow,
+                         caught);
+        }
+        // failed checkout shouldn't effect count
+        assertEquals(1, this.pool.getTotalResourceCount());
+        assertEquals(0, this.pool.getCheckedInResourceCount());
+    }
+
     public void testInvalidIsDestroyed() throws Exception {
         TestResource r1 = this.pool.checkout("a");
         r1.invalidate();
@@ -55,45 +91,14 @@ public class KeyedResourcePoolTest extends TestCase {
         assertTrue("Invalid objects should be destroyed.", r1.isDestroyed());
     }
 
-    public void testMultithreaded() throws Exception {
-        int numThreads = POOL_SIZE * 2;
-        final String[] keys = new String[numThreads * 2];
-        for(int i = 0; i < keys.length; i++)
-            keys[i] = Integer.toString(i);
-
-        final AtomicInteger totalExecutions = new AtomicInteger(0);
-        final AtomicInteger destroyed = new AtomicInteger(0);
-        final AtomicBoolean isStopped = new AtomicBoolean(false);
-        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-        for(int i = 0; i < numThreads; i++) {
-            executor.execute(new Runnable() {
-
-                public void run() {
-                    while(!isStopped.get()) {
-                        int curr = totalExecutions.getAndIncrement();
-                        String key = keys[curr % keys.length];
-                        try {
-                            TestResource r = pool.checkout(key);
-                            assertTrue(r.isValid());
-                            if(curr % 10021 == 0) {
-                                r.invalidate();
-                                destroyed.getAndIncrement();
-                            }
-                            pool.checkin(key, r);
-                        } catch(Exception e) {
-                            fail("Unexpected exception: " + e);
-                        }
-                    }
-                }
-            });
+    public void testMaxInvalidCreations() throws Exception {
+        this.factory.setCreatedValid(false);
+        try {
+            this.pool.checkout("a");
+            fail("Exceeded max failed attempts without exception.");
+        } catch(ExcessiveInvalidResourcesException e) {
+            // this is expected
         }
-        Thread.sleep(1000);
-        isStopped.set(true);
-        Thread.sleep(200);
-        executor.shutdownNow();
-        assertTrue(executor.awaitTermination(100, TimeUnit.MILLISECONDS));
-        pool.close();
-        assertEquals(factory.getCreated(), factory.getDestroyed());
     }
 
     private static class TestResource {
@@ -143,13 +148,22 @@ public class KeyedResourcePoolTest extends TestCase {
 
         private final AtomicInteger created = new AtomicInteger(0);
         private final AtomicInteger destroyed = new AtomicInteger(0);
+        private Exception createException;
+        private Exception destroyException;
+        private boolean isCreatedValid = true;
 
         public TestResource create(String key) throws Exception {
+            if(createException != null)
+                throw createException;
             TestResource r = new TestResource(Integer.toString(created.getAndIncrement()));
+            if(!isCreatedValid)
+                r.invalidate();
             return r;
         }
 
         public void destroy(String key, TestResource obj) throws Exception {
+            if(destroyException != null)
+                throw destroyException;
             destroyed.incrementAndGet();
             obj.destroy();
         }
@@ -164,6 +178,18 @@ public class KeyedResourcePoolTest extends TestCase {
 
         public int getDestroyed() {
             return this.destroyed.get();
+        }
+
+        public void setDestroyException(Exception e) {
+            this.destroyException = e;
+        }
+
+        public void setCreateException(Exception e) {
+            this.createException = e;
+        }
+
+        public void setCreatedValid(boolean isValid) {
+            this.isCreatedValid = isValid;
         }
 
     }

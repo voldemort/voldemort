@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 public class ResourcePoolConfig {
 
     /* Note: if you change the defaults you must update the javadoc as well. */
-    private int poolSize = 100;
+    private int poolMaxSize = 20;
     private long timeoutNs = Long.MAX_VALUE;
     private int maxInvalidResourceCreations = Integer.MAX_VALUE;
     private boolean isFair = true;
@@ -23,21 +23,21 @@ public class ResourcePoolConfig {
     /**
      * Get the size of the pool
      */
-    public int getPoolSize() {
-        return poolSize;
+    public int getMaxPoolSize() {
+        return poolMaxSize;
     }
 
     /**
      * The size of the pool to maintain for each key.
      * 
-     * The default pool size is 100
+     * The default pool size is 20
      * 
      * @param poolSize The desired per-key pool size
      */
-    public ResourcePoolConfig setPoolSize(int poolSize) {
+    public ResourcePoolConfig setMaxPoolSize(int poolSize) {
         if(poolSize <= 0)
             throw new IllegalArgumentException("Pool size must be a positive number.");
-        this.poolSize = poolSize;
+        this.poolMaxSize = poolSize;
         return this;
     }
 
@@ -74,7 +74,7 @@ public class ResourcePoolConfig {
      * 
      * @param limit The desired limit
      */
-    public ResourcePoolConfig setMaximumInvalidResourceCreationLimit(int limit) {
+    public ResourcePoolConfig setMaxInvalidAttempts(int limit) {
         if(limit <= 0)
             throw new IllegalArgumentException("Limit must be a positive number.");
         this.maxInvalidResourceCreations = limit;

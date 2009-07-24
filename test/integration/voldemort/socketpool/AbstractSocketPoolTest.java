@@ -50,9 +50,9 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                         // Size
                         assertEquals("resources In Hand(" + resourceInHand.get(key).get()
                                              + ") should be less than equal to pool size("
-                                             + config.getPoolSize() + ")",
+                                             + config.getMaxPoolSize() + ")",
                                      true,
-                                     resourceInHand.get(key).get() <= config.getPoolSize());
+                                     resourceInHand.get(key).get() <= config.getMaxPoolSize());
 
                         // do something
                         doSomethingWithResource(key, resource);
@@ -65,8 +65,8 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                     } catch(TimeoutException e) {
                         // only if alloted resources are same as pool size
                         assertEquals("resources In Hand(" + resourceInHand.get(key).get()
-                                     + ") should be same as  pool size(" + config.getPoolSize()
-                                     + ")", config.getPoolSize(), resourceInHand.get(key).get());
+                                     + ") should be same as  pool size(" + config.getMaxPoolSize()
+                                     + ")", config.getMaxPoolSize(), resourceInHand.get(key).get());
                         ++testStats.timeoutRequests;
                         System.out.println("saw timeout !!");
                         return;

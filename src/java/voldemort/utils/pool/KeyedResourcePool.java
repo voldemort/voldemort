@@ -31,14 +31,14 @@ public class KeyedResourcePool<K, V> {
     private final ConcurrentMap<K, Pool<V>> resourcesMap;
     private final AtomicBoolean isOpen = new AtomicBoolean(true);
     private final long timeoutNs;
-    private final int poolSize;
+    private final int poolMaxSize;
     private final int maxCreateAttempts;
     private final boolean isFair;
 
     public KeyedResourcePool(ResourceFactory<K, V> objectFactory, ResourcePoolConfig config) {
         this.objectFactory = Utils.notNull(objectFactory);
         this.timeoutNs = Utils.notNull(config).getTimeout(TimeUnit.NANOSECONDS);
-        this.poolSize = config.getPoolSize();
+        this.poolMaxSize = config.getMaxPoolSize();
         this.maxCreateAttempts = config.getMaximumInvalidResourceCreationLimit();
         this.resourcesMap = new ConcurrentHashMap<K, Pool<V>>();
         this.isFair = config.isFair();
@@ -94,7 +94,7 @@ public class KeyedResourcePool<K, V> {
         V resource = null;
         try {
             int attempts = 0;
-            do {
+            for(; attempts < this.maxCreateAttempts; attempts++) {
                 checkNotClosed();
                 long timeRemainingNs = this.timeoutNs - (System.nanoTime() - startNs);
                 if(timeRemainingNs < 0)
@@ -103,13 +103,14 @@ public class KeyedResourcePool<K, V> {
                 resource = checkoutOrCreateResource(key, resources, timeRemainingNs);
                 if(objectFactory.validate(key, resource))
                     return resource;
-            } while(++attempts < this.maxCreateAttempts);
+                else
+                    destroyResource(key, resources, resource);
+            }
+            throw new ExcessiveInvalidResourcesException(attempts);
         } catch(Exception e) {
             destroyResource(key, resources, resource);
             throw e;
         }
-
-        return resource;
     }
 
     /*
@@ -124,12 +125,11 @@ public class KeyedResourcePool<K, V> {
         if(resource != null)
             return resource;
 
-        // okay the queue is empty, maybe we have room to create a new resource
-        resource = attemptCreate(key, pool);
-        if(resource != null)
-            return resource;
+        // okay the queue is empty, maybe we have room to expand a bit?
+        if(pool.size.get() < this.poolMaxSize)
+            attemptGrow(key, pool);
 
-        // pool has reached max size, block for next available resource
+        // now block for next available resource
         resource = pool.blockingGet(timeoutNs);
         if(resource == null)
             throw new TimeoutException("Timed out wait for resource after "
@@ -139,28 +139,23 @@ public class KeyedResourcePool<K, V> {
     }
 
     /*
-     * Attempt to create a new object in the pool if there is room. Return the
-     * object if created, else null.
+     * Attempt to create a new object and add it to the pool--this only happens
+     * if there is room for the new object.
      */
-    private V attemptCreate(K key, Pool<V> pool) throws Exception {
-        V resource = null;
-        // do a sanity check on the size
-        if(pool.size.get() < this.poolSize) {
-            // now attempt to increment, and if the incremented value is less
-            // than the pool size then create a new resource
-            if(pool.size.incrementAndGet() <= this.poolSize) {
-                try {
-                    resource = objectFactory.create(key);
-                } catch(Exception e) {
-                    pool.size.decrementAndGet();
-                    throw e;
-                }
-            } else {
+    private void attemptGrow(K key, Pool<V> pool) throws Exception {
+        // attempt to increment, and if the incremented value is less
+        // than the pool size then create a new resource
+        if(pool.size.incrementAndGet() <= this.poolMaxSize) {
+            try {
+                V resource = objectFactory.create(key);
+                pool.nonBlockingPut(resource);
+            } catch(Exception e) {
                 pool.size.decrementAndGet();
+                throw e;
             }
+        } else {
+            pool.size.decrementAndGet();
         }
-
-        return resource;
     }
 
     /*
@@ -169,7 +164,7 @@ public class KeyedResourcePool<K, V> {
     private Pool<V> getResourcePoolForKey(K key) {
         Pool<V> pool = resourcesMap.get(key);
         if(pool == null) {
-            pool = new Pool<V>(this.poolSize, this.isFair);
+            pool = new Pool<V>(this.poolMaxSize, this.isFair);
             resourcesMap.putIfAbsent(key, pool);
             pool = resourcesMap.get(key);
         }
