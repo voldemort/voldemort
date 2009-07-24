@@ -9,13 +9,13 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
-import voldemort.utils.socketpool.BlockingKeyedResourcePool;
-import voldemort.utils.socketpool.PoolableObjectFactory;
-import voldemort.utils.socketpool.ResourcePoolConfig;
+import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.ResourceFactory;
+import voldemort.utils.pool.ResourcePoolConfig;
 
 public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
 
-    protected class TestStats {
+    protected static class TestStats {
 
         public int timeoutRequests;
 
@@ -24,13 +24,12 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
         }
     }
 
-    public TestStats startTest(final PoolableObjectFactory<K, V> factory,
+    public TestStats startTest(final ResourceFactory<K, V> factory,
                                final ResourcePoolConfig config,
                                int nThreads,
                                int nRequests) throws Exception {
 
-        final BlockingKeyedResourcePool<K, V> pool = new BlockingKeyedResourcePool<K, V>(factory,
-                                                                                         config);
+        final KeyedResourcePool<K, V> pool = new KeyedResourcePool<K, V>(factory, config);
         final ConcurrentHashMap<K, AtomicInteger> resourceInHand = new ConcurrentHashMap<K, AtomicInteger>();
         ExecutorService executor = Executors.newFixedThreadPool(nThreads);
         final TestStats testStats = new TestStats();
@@ -43,7 +42,7 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                 public void run() {
                     try {
                         // borrow resource
-                        V resource = pool.borrowResource(key);
+                        V resource = pool.checkout(key);
                         resourceInHand.get(key).incrementAndGet();
                         System.out.println("Borrowing of " + key + " completed at " + new Date());
 
@@ -51,25 +50,23 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                         // Size
                         assertEquals("resources In Hand(" + resourceInHand.get(key).get()
                                              + ") should be less than equal to pool size("
-                                             + config.getDefaultPoolSize() + ")",
+                                             + config.getPoolSize() + ")",
                                      true,
-                                     resourceInHand.get(key).get() <= config.getDefaultPoolSize());
+                                     resourceInHand.get(key).get() <= config.getPoolSize());
 
                         // do something
                         doSomethingWithResource(key, resource);
 
                         // return
-                        pool.returnResource(key, resource);
+                        pool.checkin(key, resource);
                         resourceInHand.get(key).decrementAndGet();
                         System.out.println("return completed" + key + " resource:" + resource
                                            + " at " + new Date());
                     } catch(TimeoutException e) {
                         // only if alloted resources are same as pool size
                         assertEquals("resources In Hand(" + resourceInHand.get(key).get()
-                                             + ") should be same as  pool size("
-                                             + config.getDefaultPoolSize() + ")",
-                                     config.getDefaultPoolSize(),
-                                     resourceInHand.get(key).get());
+                                     + ") should be same as  pool size(" + config.getPoolSize()
+                                     + ")", config.getPoolSize(), resourceInHand.get(key).get());
                         ++testStats.timeoutRequests;
                         System.out.println("saw timeout !!");
                         return;
@@ -81,7 +78,7 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
         }
 
         executor.shutdown();
-        executor.awaitTermination(5, TimeUnit.MINUTES);
+        executor.awaitTermination(5 * 60, TimeUnit.SECONDS);
         return testStats;
     }
 

@@ -4,18 +4,17 @@ import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
-import voldemort.utils.socketpool.PoolableObjectFactory;
-import voldemort.utils.socketpool.ResourcePoolConfig;
+import voldemort.utils.pool.ResourceFactory;
+import voldemort.utils.pool.ResourcePoolConfig;
 
 public class SimpleSocketPoolTest extends TestCase {
 
     public void testPoolLimitNoTimeout() throws Exception {
-        final ResourcePoolConfig config = new ResourcePoolConfig();
-        config.setBorrowTimeout(1000);
-        config.setBorrowTimeoutUnit(TimeUnit.MILLISECONDS);
-        config.setDefaultPoolSize(20);
+        final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(1000,
+                                                                              TimeUnit.MILLISECONDS)
+                                                                  .setPoolSize(20);
 
-        PoolableObjectFactory<String, String> factory = PoolableObjectFactoryFactory.getBasicPoolFactory();
+        ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {
 
             @Override
@@ -35,12 +34,11 @@ public class SimpleSocketPoolTest extends TestCase {
     }
 
     public void testPoolLimitSomeTimeout() throws Exception {
-        final ResourcePoolConfig config = new ResourcePoolConfig();
-        config.setBorrowTimeout(50);
-        config.setBorrowTimeoutUnit(TimeUnit.MILLISECONDS);
-        config.setDefaultPoolSize(20);
+        final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
+                                                                              TimeUnit.MILLISECONDS)
+                                                                  .setPoolSize(20);
 
-        PoolableObjectFactory<String, String> factory = PoolableObjectFactoryFactory.getBasicPoolFactory();
+        ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {
 
             @Override
@@ -60,12 +58,11 @@ public class SimpleSocketPoolTest extends TestCase {
     }
 
     public void testNoTimeout() throws Exception {
-        final ResourcePoolConfig config = new ResourcePoolConfig();
-        config.setBorrowTimeout(100);
-        config.setBorrowTimeoutUnit(TimeUnit.MILLISECONDS);
-        config.setDefaultPoolSize(20);
+        final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(100,
+                                                                              TimeUnit.MILLISECONDS)
+                                                                  .setPoolSize(20);
 
-        PoolableObjectFactory<String, String> factory = PoolableObjectFactoryFactory.getBasicPoolFactory();
+        ResourceFactory<String, String> factory = ResourcePoolTestUtils.getBasicPoolFactory();
         final AbstractSocketPoolTest<String, String> test = new AbstractSocketPoolTest<String, String>() {
 
             @Override

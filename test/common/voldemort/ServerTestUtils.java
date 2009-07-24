@@ -96,7 +96,7 @@ public class ServerTestUtils {
     }
 
     public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
-        SocketPool socketPool = new SocketPool(1, 2, 10000, 100000, 32 * 1024);
+        SocketPool socketPool = new SocketPool(2, 10000, 100000, 32 * 1024);
         return new SocketStore(storeName,
                                new SocketDestination("localhost", port, type),
                                socketPool,

@@ -222,6 +222,19 @@ public class TestUtils {
     }
 
     /**
+     * Compute the mean of the given values
+     * 
+     * @param values The values
+     * @return The mean
+     */
+    public static double mean(long[] values) {
+        double total = 0.0;
+        for(int i = 0; i < values.length; i++)
+            total += values[i];
+        return total / values.length;
+    }
+
+    /**
      * Create a temporary directory in the directory given by java.io.tmpdir
      * 
      * @return The directory created.
