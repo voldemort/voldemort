@@ -23,12 +23,9 @@ public class ProtocolBuffersRequestFormatTest extends AbstractRequestFormatTest 
      */
     public void testReadGetResponse() throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        short[] shorts = new short[] { 0x18, 0x0a, 0x16, 0x0a, 0x05, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-                0x12, 0x0d, 0x0a, 0x04, 0x08, 0x00, 0x10, 0x01, 0x10, 0xf8, 0x9d, 0xe2, 0x88, 0x9b,
-                0x24 };
-        byte[] bytes = new byte[shorts.length];
-        for(int i = 0; i < shorts.length; i++)
-            bytes[i] = (byte) shorts[i];
+        byte[] bytes = new byte[] { 0x0, 0x0, 0x0, 0x18, 0x0a, 0x16, 0x0a, 0x05, 0x77, 0x6f, 0x72,
+                0x6c, 0x64, 0x12, 0x0d, 0x0a, 0x04, 0x08, 0x00, 0x10, 0x01, 0x10, (byte) 0xf8,
+                (byte) 0x9d, (byte) 0xe2, (byte) 0x88, (byte) 0x9b, (byte) 0x24 };
         out.write(bytes);
         ProtoBuffClientRequestFormat requestFormat = new ProtoBuffClientRequestFormat();
         List<Versioned<byte[]>> getResponse = requestFormat.readGetResponse(new DataInputStream(new ByteArrayInputStream(out.toByteArray())));

@@ -33,7 +33,6 @@ import voldemort.versioning.Versioned;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
-import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 
 /**
@@ -96,15 +95,23 @@ public class ProtoUtils {
     }
 
     public static void writeMessage(DataOutputStream output, Message message) throws IOException {
+        /*
+         * We don't use varints here because the c++ version of the protocol
+         * buffer classes seem to be buggy requesting more data than necessary
+         * from the underlying stream causing it to block forever
+         */
+        output.writeInt(message.getSerializedSize());
         CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
-        codedOut.writeMessageNoTag(message);
+        message.writeTo(codedOut);
         codedOut.flush();
     }
 
     public static <T extends Message.Builder> T readToBuilder(DataInputStream input, T builder)
             throws IOException {
+        int size = input.readInt();
         CodedInputStream codedIn = CodedInputStream.newInstance(input);
-        codedIn.readMessage(builder, ExtensionRegistry.getEmptyRegistry());
+        codedIn.pushLimit(size);
+        builder.mergeFrom(codedIn);
         return builder;
     }
 }
