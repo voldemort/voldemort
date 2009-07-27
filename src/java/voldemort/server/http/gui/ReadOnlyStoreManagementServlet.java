@@ -66,9 +66,25 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private VelocityEngine velocityEngine;
     private FileFetcher fileFetcher;
 
+    public ReadOnlyStoreManagementServlet() {}
+
     public ReadOnlyStoreManagementServlet(VoldemortServer server, VelocityEngine engine) {
         this.stores = getReadOnlyStores(server);
         this.velocityEngine = Utils.notNull(engine);
+        setFetcherClass(server);
+    }
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        VoldemortServer server = (VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY);
+
+        this.stores = getReadOnlyStores(server);
+        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
+        setFetcherClass(server);
+    }
+
+    private void setFetcherClass(VoldemortServer server) {
         String className = server.getVoldemortConfig()
                                  .getAllProps()
                                  .getString("file.fetcher.class", null);
@@ -86,13 +102,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                 throw new VoldemortException("Error loading file fetcher class " + className, e);
             }
         }
-    }
-
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        this.stores = getReadOnlyStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
-        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
     private List<ReadOnlyStorageEngine> getReadOnlyStores(VoldemortServer server) {
