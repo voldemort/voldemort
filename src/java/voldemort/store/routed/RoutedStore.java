@@ -313,12 +313,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         List<Future<GetAllResult>> futures;
         try {
             // TODO What to do about timeouts? They should be longer as getAll
-            // is
-            // likely to
+            // is likely to
             // take longer. At the moment, it's just timeoutMs * 3, but should
-            // this
-            // be based
-            // on the number of the keys?
+            // this be based on the number of the keys?
             futures = executor.invokeAll(callables, timeoutMs * 3, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
@@ -441,7 +438,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         // Do the preferred number of reads in parallel
         int attempts = Math.min(this.storeDef.getPreferredReads(), nodes.size());
         int nodeIndex = 0;
-        List<GetCallable> callables = Lists.newArrayListWithCapacity(attempts);
+        List<Callable<GetResult>> callables = Lists.newArrayListWithCapacity(attempts);
         for(; nodeIndex < attempts; nodeIndex++) {
             final Node node = nodes.get(nodeIndex);
             callables.add(new GetCallable(node, key));
