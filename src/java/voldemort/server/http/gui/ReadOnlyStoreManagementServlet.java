@@ -116,7 +116,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
         Map<String, Object> params = Maps.newHashMap();
         params.put("stores", stores);
@@ -124,8 +124,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
+            IOException {
         try {
             String operation = getRequired(req, "operation").toLowerCase();
             if("swap".equals(operation)) {
