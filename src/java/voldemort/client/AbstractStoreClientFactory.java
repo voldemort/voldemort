@@ -245,9 +245,15 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected void registerJmx(ObjectName name, Object object) {
         if(this.isJmxEnabled) {
-            if(mbeanServer.isRegistered(name))
-                JmxUtils.unregisterMbean(mbeanServer, name);
-            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
+            synchronized(mbeanServer) {
+                try {
+                    if(mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+                    JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
+                } catch(Exception e) {
+                    logger.error("Error while registering mbean: ", e);
+                }
+            }
         }
     }
 
