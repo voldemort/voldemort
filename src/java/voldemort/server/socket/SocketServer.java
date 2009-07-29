@@ -39,6 +39,7 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
 
 /**

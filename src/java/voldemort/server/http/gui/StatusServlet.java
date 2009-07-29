@@ -15,10 +15,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import voldemort.VoldemortException;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
-import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.stats.RequestCounter;
 import voldemort.store.stats.StatTrackingStore;
@@ -46,14 +46,14 @@ public class StatusServlet extends HttpServlet {
 
     private VoldemortServer server;
     private VelocityEngine velocityEngine;
-    private SocketService socketService;
+    private AbstractSocketService abstractSocketService;
 
     private String myMachine;
 
     public StatusServlet(VoldemortServer server, VelocityEngine engine) {
         this.server = Utils.notNull(server);
         this.velocityEngine = Utils.notNull(engine);
-        this.socketService = (SocketService) server.getService(ServiceType.SOCKET);
+        this.abstractSocketService = (AbstractSocketService) server.getService(ServiceType.SOCKET);
         try {
             this.myMachine = InetAddress.getLocalHost().getHostName();
         } catch(UnknownHostException e) {
@@ -112,7 +112,7 @@ public class StatusServlet extends HttpServlet {
             }
 
             Map<String, Object> params = Maps.newHashMap();
-            params.put("status", socketService.getStatusManager());
+            params.put("status", abstractSocketService.getStatusManager());
             params.put("counters", Tracked.values());
             params.put("stores", stores);
             params.put("refresh", refreshTime);
@@ -136,15 +136,15 @@ public class StatusServlet extends HttpServlet {
         sb.append("\",");
 
         sb.append("\n  \"uptime\": \"");
-        sb.append(socketService.getStatusManager().getFormattedUptime());
+        sb.append(abstractSocketService.getStatusManager().getFormattedUptime());
         sb.append("\",");
 
         sb.append("\n  \"num_workers\": ");
-        sb.append(socketService.getStatusManager().getActiveWorkersCount());
+        sb.append(abstractSocketService.getStatusManager().getActiveWorkersCount());
         sb.append(",");
 
         sb.append("\n  \"pool_size\": ");
-        sb.append(socketService.getStatusManager().getWorkerPoolSize());
+        sb.append(abstractSocketService.getStatusManager().getWorkerPoolSize());
         sb.append(",");
 
         sb.append("\n  \"stores\": {");

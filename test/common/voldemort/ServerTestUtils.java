@@ -35,12 +35,14 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.http.StoreServlet;
+import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.server.socket.SocketServer;
+import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.http.HttpStore;
@@ -78,17 +80,50 @@ public class ServerTestUtils {
         return repository;
     }
 
-    public static SocketServer getSocketServer(String clusterXml,
-                                               String storesXml,
-                                               String storeName,
-                                               int port) {
+    public static VoldemortConfig getVoldemortConfig() {
+        File temp = TestUtils.createTempDir();
+        VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
+        new File(config.getMetadataDirectory()).mkdir();
+        return config;
+    }
+
+    public static AbstractSocketService getSocketService(String clusterXml,
+                                                         String storesXml,
+                                                         String storeName,
+                                                         int port) {
         RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
                                                                             clusterXml,
-                                                                            storesXml), null, null);
-        SocketServer socketServer = new SocketServer(port, 5, 10, 10000, factory);
-        socketServer.start();
-        socketServer.awaitStartupCompletion();
-        return socketServer;
+                                                                            storesXml),
+                                                                  null,
+                                                                  getVoldemortConfig());
+        return getSocketService(factory, port, 5, 10, 10000);
+    }
+
+    public static AbstractSocketService getSocketService(RequestHandlerFactory requestHandlerFactory,
+                                                         int port,
+                                                         int coreConnections,
+                                                         int maxConnections,
+                                                         int bufferSize) {
+        AbstractSocketService socketService = null;
+
+        if(true) {
+            socketService = new NioSocketService(requestHandlerFactory,
+                                                 port,
+                                                 bufferSize,
+                                                 coreConnections,
+                                                 "client-request-service",
+                                                 false);
+        } else {
+            socketService = new SocketService(requestHandlerFactory,
+                                              port,
+                                              coreConnections,
+                                              maxConnections,
+                                              bufferSize,
+                                              "client-request-service",
+                                              false);
+        }
+
+        return socketService;
     }
 
     public static SocketStore getSocketStore(String storeName, int port) {
@@ -115,7 +150,7 @@ public class ServerTestUtils {
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
 
-        RequestHandler handler = new RequestHandlerFactory(repository, null, null).getRequestHandler(requestFormat);
+        RequestHandler handler = new RequestHandlerFactory(repository, null, getVoldemortConfig()).getRequestHandler(requestFormat);
         context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
         server.start();
         return context;
@@ -131,14 +166,14 @@ public class ServerTestUtils {
     }
 
     /**
-     * Return a free port as chosen by new SocketServer(0)
+     * Return a free port as chosen by new ServerSocket(0)
      */
     public static int findFreePort() {
         return findFreePorts(1)[0];
     }
 
     /**
-     * Return an array of free ports as chosen by new SocketServer(0)
+     * Return an array of free ports as chosen by new ServerSocket(0)
      */
     public static int[] findFreePorts(int n) {
         int[] ports = new int[n];

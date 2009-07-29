@@ -3,6 +3,7 @@ package voldemort.server.protocol.vold;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import voldemort.server.protocol.RequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -68,6 +70,62 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             }
         }
         outputStream.flush();
+    }
+
+    public boolean isCompleteRequest(final ByteBuffer buffer) {
+        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+
+        try {
+            byte opCode = buffer.get();
+
+            // Read the store name in, but just to skip the bytes.
+            inputStream.readUTF();
+
+            // Read the 'is routed' flag in, but just to skip the byte.
+            if(protocolVersion > 0)
+                buffer.get();
+
+            switch(opCode) {
+                case VoldemortOpCode.GET_OP_CODE:
+                    // Read the key just to skip the bytes.
+                    readKey(inputStream);
+                    break;
+                case VoldemortOpCode.GET_ALL_OP_CODE:
+                    int numKeys = inputStream.readInt();
+
+                    // Read the keys to skip the bytes.
+                    for(int i = 0; i < numKeys; i++)
+                        readKey(inputStream);
+
+                    break;
+                case VoldemortOpCode.PUT_OP_CODE:
+                    readKey(inputStream);
+
+                    int dataSize = inputStream.readInt();
+
+                    // Here we skip over the data (without reading it in) and
+                    // move our position to just past it.
+                    buffer.position(buffer.position() + dataSize);
+                    break;
+                case VoldemortOpCode.DELETE_OP_CODE:
+                    readKey(inputStream);
+
+                    int versionSize = inputStream.readShort();
+
+                    // Here we skip over the version (without reading it in) and
+                    // move our position to just past it.
+                    buffer.position(buffer.position() + versionSize);
+                    break;
+                default:
+                    // Do nothing, let the request handler address this...
+            }
+
+            // If there aren't any remaining, we've "consumed" all the bytes and
+            // thus have a complete request...
+            return !buffer.hasRemaining();
+        } catch(Throwable t) {
+            return false;
+        }
     }
 
     private ByteArray readKey(DataInputStream inputStream) throws IOException {
