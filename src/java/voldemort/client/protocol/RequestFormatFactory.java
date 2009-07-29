@@ -30,7 +30,7 @@ public class RequestFormatFactory {
 
     public RequestFormatFactory() {}
 
-    public synchronized RequestFormat getRequestFormat(RequestFormatType type) {
+    public RequestFormat getRequestFormat(RequestFormatType type) {
         switch(type) {
             case VOLDEMORT_V1:
                 return new VoldemortNativeClientRequestFormat();
