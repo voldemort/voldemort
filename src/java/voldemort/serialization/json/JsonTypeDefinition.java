@@ -174,6 +174,7 @@ public class JsonTypeDefinition implements Serializable {
                 throw new IllegalArgumentException("Lists in type definition must have length exactly one.");
             return Arrays.asList(createValidType(l.get(0)));
         } else if(type instanceof Map<?, ?>) {
+            @SuppressWarnings("unchecked")
             Map<String, ?> m = (Map<String, ?>) type;
             // bbansal: sort keys here for consistent with fromJson()
             Map<String, Object> newM = new LinkedHashMap<String, Object>(m.size());
