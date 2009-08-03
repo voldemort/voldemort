@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -66,6 +67,8 @@ import com.google.common.collect.Maps;
  */
 public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
+    private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
+
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
     public static final int DEFAULT_NODE_BANNAGE_MS = 10000;
 
@@ -81,6 +84,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
+    private final int jmxId;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -96,7 +100,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
         else
             this.mbeanServer = null;
-        registerJmx(JmxUtils.createObjectName(threadPool.getClass()), threadPool);
+        this.jmxId = jmxIdCounter.getAndIncrement();
+        registerThreadPoolJmx(threadPool);
+    }
+
+    private void registerThreadPoolJmx(ExecutorService threadPool) {
+        try {
+            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                  JmxUtils.getClassName(threadPool.getClass())
+                                                          + jmxId), threadPool);
+        } catch(Exception e) {
+            logger.error("Error registering threadpool jmx: ", e);
+        }
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -147,8 +162,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         if(isJmxEnabled) {
             store = new StatTrackingStore(store);
-            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                  store.getName()), store);
+            try {
+                registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                      store.getName() + jmxId), store);
+            } catch(Exception e) {
+                logger.error("Error in JMX registration: ", e);
+            }
         }
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
@@ -247,6 +266,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(this.isJmxEnabled) {
             synchronized(mbeanServer) {
                 try {
+
                     if(mbeanServer.isRegistered(name))
                         JmxUtils.unregisterMbean(mbeanServer, name);
                     JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
