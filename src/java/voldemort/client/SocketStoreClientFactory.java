@@ -49,7 +49,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super(config);
         this.routingTier = config.getRoutingTier();
         this.socketPool = new SocketPool(config.getMaxConnectionsPerNode(),
-                                         config.getMaxTotalConnections(),
                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketBufferSize());
