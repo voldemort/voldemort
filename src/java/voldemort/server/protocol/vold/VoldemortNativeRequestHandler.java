@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.server.StoreRepository;
@@ -28,6 +30,8 @@ import voldemort.versioning.Versioned;
  * 
  */
 public class VoldemortNativeRequestHandler extends AbstractRequestHandler implements RequestHandler {
+
+    private final Logger logger = Logger.getLogger(VoldemortNativeRequestHandler.class);
 
     private final int protocolVersion;
 
@@ -72,18 +76,23 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         outputStream.flush();
     }
 
+    /**
+     * This is pretty ugly. We end up mimicking the request logic here, so this
+     * needs to stay in sync with handleRequest.
+     */
+
     public boolean isCompleteRequest(final ByteBuffer buffer) {
         DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
 
         try {
-            byte opCode = buffer.get();
+            byte opCode = inputStream.readByte();
 
             // Read the store name in, but just to skip the bytes.
             inputStream.readUTF();
 
             // Read the 'is routed' flag in, but just to skip the byte.
             if(protocolVersion > 0)
-                buffer.get();
+                inputStream.readBoolean();
 
             switch(opCode) {
                 case VoldemortOpCode.GET_OP_CODE:
@@ -123,7 +132,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             // If there aren't any remaining, we've "consumed" all the bytes and
             // thus have a complete request...
             return !buffer.hasRemaining();
-        } catch(Throwable t) {
+        } catch(Exception e) {
+            // This could also occur if the various methods we call into
+            // re-throw a corrupted value error as some other type of exception.
+            // For example, updating the position on a buffer past its limit
+            // throws an InvalidArgumentException.
+            if(logger.isDebugEnabled())
+                logger.debug("Probable partial read occurred causing exception", e);
+
             return false;
         }
     }
