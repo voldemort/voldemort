@@ -43,7 +43,6 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
-import voldemort.store.pausable.PausableStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
@@ -533,8 +532,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                       new InMemoryStorageEngine<ByteArray, byte[]>("test"));
         subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
                       new FailingStore<ByteArray, byte[]>("test"));
-        final PausableStorageEngine<ByteArray, byte[]> pausableStore = new PausableStorageEngine<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(), pausableStore);
+        /*
+         * The bug would only show itself if the second successful required
+         * write was slow (but still within the timeout).
+         */
+        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
+                      new SleepyStore<ByteArray, byte[]>(100,
+                                                         new InMemoryStorageEngine<ByteArray, byte[]>("test")));
 
         RoutedStore routedStore = new RoutedStore("test",
                                                   subStores,
@@ -546,21 +550,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
-        /*
-         * We pause the third attempted node for a short period of time because
-         * the bug would only show itself if the second successful required
-         * write was slow (but still within the timeout).
-         */
-        pausableStore.pause();
-        new Thread(new Runnable() {
-
-            public void run() {
-                try {
-                    Thread.sleep(100);
-                } catch(InterruptedException e) {}
-                pausableStore.unpause();
-            }
-        }).start();
         store.put(aKey, new Versioned<byte[]>(aValue));
     }
 
