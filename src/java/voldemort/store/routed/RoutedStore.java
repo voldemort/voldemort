@@ -655,7 +655,51 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // Block until we get enough completions
         int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
-        for(int i = 0; i < blockCount; i++) {
+        boolean noTimeout = blockOnPut(startNs,
+                                       semaphore,
+                                       0,
+                                       blockCount,
+                                       successes,
+                                       storeDef.getPreferredWrites());
+
+        if(successes.get() < storeDef.getRequiredWrites()) {
+            /*
+             * We don't have enough required writes, but we haven't timed out
+             * yet, so block a little more if there are healthy nodes that can
+             * help us achieve our target.
+             */
+            if(noTimeout) {
+                int startingIndex = blockCount - 1;
+                blockCount = Math.max(storeDef.getPreferredWrites() - 1, attempts);
+                blockOnPut(startNs,
+                           semaphore,
+                           startingIndex,
+                           blockCount,
+                           successes,
+                           storeDef.getRequiredWrites());
+            }
+            if(successes.get() < storeDef.getRequiredWrites())
+                throw new InsufficientOperationalNodesException(successes.get()
+                                                                + " writes succeeded, but "
+                                                                + this.storeDef.getRequiredWrites()
+                                                                + " are required.", failures);
+        }
+
+        // Okay looks like it worked, increment the version for the caller
+        VectorClock versionedClock = (VectorClock) versioned.getVersion();
+        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
+    }
+
+    /**
+     * @return false if the operation timed out, true otherwise.
+     */
+    private boolean blockOnPut(long startNs,
+                               Semaphore semaphore,
+                               int startingIndex,
+                               int blockCount,
+                               AtomicInteger successes,
+                               int successesRequired) {
+        for(int i = startingIndex; i < blockCount; i++) {
             try {
                 long ellapsedNs = System.nanoTime() - startNs;
                 long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
@@ -664,27 +708,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 if(!acquiredPermit) {
                     logger.warn("Timed out waiting for put # " + (i + 1) + " of " + blockCount
                                 + " to succeed.");
-                    break;
+                    return false;
                 }
-                // okay, at least the required number of operations have
-                // completed, were they successful?
-                if(successes.get() >= this.storeDef.getPreferredWrites())
+                if(successes.get() >= successesRequired)
                     break;
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException("Put operation interrupted", e);
             }
         }
-
-        if(successes.get() < storeDef.getRequiredWrites()) {
-            throw new InsufficientOperationalNodesException(successes.get()
-                                                            + " writes succeeded, but "
-                                                            + this.storeDef.getRequiredWrites()
-                                                            + " are required.", failures);
-        }
-
-        // Okay looks like it worked, increment the version for the caller
-        VectorClock versionedClock = (VectorClock) versioned.getVersion();
-        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
+        return true;
     }
 
     private boolean isAvailable(Node node) {
