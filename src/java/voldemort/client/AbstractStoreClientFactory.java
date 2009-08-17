@@ -34,10 +34,14 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressingStore;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
@@ -151,6 +155,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                   store.getName()), store);
         }
 
+        if(storeDef.getKeySerializer().hasCompression()
+           || storeDef.getValueSerializer().hasCompression()) {
+            store = new CompressingStore(store,
+                                         getCompressionStrategy(storeDef.getKeySerializer()),
+                                         getCompressionStrategy(storeDef.getValueSerializer()));
+        }
+
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
         Store<K, V> serializedStore = new SerializingStore<K, V>(store,
@@ -165,6 +176,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                 new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                   secondaryResolver));
         return serializedStore;
+    }
+
+    private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
+        return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {

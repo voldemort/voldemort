@@ -37,16 +37,17 @@
 		</xs:all>
 	</xs:complexType>
 
-	<!-- A value serializer -->
+	<!-- A key or value serializer -->
 	<xs:complexType name="serializer">
 		<xs:sequence>
 			<xs:element name="type" type="xs:token" />
 			<xs:element name="schema-info" type="schema-info"
 				minOccurs="0" maxOccurs="255" />
+      <xs:element name="compression" type="compression" minOccurs="0" maxOccurs="1" />
 		</xs:sequence>
 	</xs:complexType>
 
-	<!-- Schema info for a value serializer. Values can be versioned. -->
+	<!-- Schema info for a key or value serializer. Values can be versioned. -->
 	<xs:complexType name="schema-info">
 		<xs:simpleContent>
 			<xs:extension base="xs:string">
@@ -58,6 +59,13 @@
 			</xs:extension>
 		</xs:simpleContent>
 	</xs:complexType>
+
+  <xs:complexType name="compression">
+    <xs:sequence>
+      <xs:element name="type" type="xs:token"/>
+      <xs:element name="options" type="xs:token" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
 
 	<xs:simpleType name="no-version">
 		<xs:restriction base="xs:string">

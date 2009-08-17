@@ -43,6 +43,7 @@ import org.xml.sax.SAXException;
 
 import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 
@@ -62,6 +63,9 @@ public class StoreDefinitionsMapper {
     public final static String STORE_VALUE_SERIALIZER_ELMT = "value-serializer";
     public final static String STORE_SERIALIZATION_TYPE_ELMT = "type";
     public final static String STORE_SERIALIZATION_META_ELMT = "schema-info";
+    public final static String STORE_COMPRESSION_ELMT = "compression";
+    public final static String STORE_COMPRESSION_TYPE_ELMT = "type";
+    public final static String STORE_COMPRESSION_OPTIONS_ELMT = "options";
     public final static String STORE_ROUTING_TIER_ELMT = "routing";
     public final static String STORE_REPLICATION_FACTOR_ELMT = "replication-factor";
     public final static String STORE_REQUIRED_WRITES_ELMT = "required-writes";
@@ -199,7 +203,12 @@ public class StoreDefinitionsMapper {
         if(!hasVersion && schemaInfosByVersion.size() > 1)
             throw new IllegalArgumentException("Specified multiple schemas AND version=none, which is not permitted.");
 
-        return new SerializerDefinition(name, schemaInfosByVersion, hasVersion);
+        Element compressionElmt = elmt.getChild(STORE_COMPRESSION_ELMT);
+        Compression compression = null;
+        if(compressionElmt != null)
+            compression = new Compression(compressionElmt.getChildText("type"),
+                                          compressionElmt.getChildText("options"));
+        return new SerializerDefinition(name, schemaInfosByVersion, hasVersion, compression);
     }
 
     public String writeStoreList(List<StoreDefinition> stores) {
@@ -256,6 +265,20 @@ public class StoreDefinitionsMapper {
                 parent.addContent(schemaElmt);
             }
         }
-    }
 
+        if(def.hasCompression()) {
+            Compression compression = def.getCompression();
+            Element compressionElmt = new Element(STORE_COMPRESSION_ELMT);
+            Element type = new Element(STORE_COMPRESSION_TYPE_ELMT);
+            type.setText(compression.getType());
+            compressionElmt.addContent(type);
+            String optionsText = compression.getOptions();
+            if(optionsText != null) {
+                Element options = new Element(STORE_COMPRESSION_OPTIONS_ELMT);
+                options.setText(optionsText);
+                compressionElmt.addContent(options);
+            }
+            parent.addContent(compressionElmt);
+        }
+    }
 }

@@ -71,6 +71,13 @@ public class StoreDefinitionMapperTest extends TestCase {
         assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
     }
 
+    public void testCompressedStore() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getCompressedStoreDefinitionsXml()));
+        String written = mapper.writeStoreList(storeDefs);
+        assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
+    }
+
     private void assertEqual(List<StoreDefinition> l1, List<StoreDefinition> l2) {
         assertEquals(l1.size(), l2.size());
         for(int i = 0; i < l1.size(); i++) {

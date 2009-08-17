@@ -86,4 +86,7 @@ public class VoldemortTestConstants {
         }
     }
 
+    public static String getCompressedStoreDefinitionsXml() {
+        return readString("config/compressed-store.xml");
+    }
 }
