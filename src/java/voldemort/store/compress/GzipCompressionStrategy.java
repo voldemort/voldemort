@@ -8,6 +8,12 @@ import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.io.IOUtils;
 
+/**
+ * Implementation of CompressionStrategy for the gzip format.
+ */
+/*
+ * In the future we may want to support different compression levels.
+ */
 public class GzipCompressionStrategy implements CompressionStrategy {
 
     public byte[] deflate(byte[] data) throws IOException {

@@ -34,6 +34,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
+ * A Store Decorator that compresses keys and values as it stores them and
+ * uncompresses them as it reads them based on the CompressionStrategy objects
+ * provided. A {@link NoopCompressionStrategy} can be used if no compression is
+ * desired for either keys or values.
+ * 
+ * @see CompressionStrategy
+ * @see NoopCompressionStrategy
+ * @see GzipCompressionStrategy
  */
 public class CompressingStore implements Store<ByteArray, byte[]> {
 
