@@ -25,7 +25,10 @@ public class GzipCompressionStrategy implements CompressionStrategy {
     }
 
     public byte[] inflate(byte[] data) throws IOException {
-        return IOUtils.toByteArray(new GZIPInputStream(new ByteArrayInputStream(data)));
+        GZIPInputStream is = new GZIPInputStream(new ByteArrayInputStream(data));
+        byte[] inflated = IOUtils.toByteArray(is);
+        is.close();
+        return inflated;
     }
 
     public String getType() {
