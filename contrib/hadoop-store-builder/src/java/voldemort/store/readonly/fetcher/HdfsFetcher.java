@@ -60,7 +60,7 @@ public class HdfsFetcher implements FileFetcher {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
                                                            : null,
              new File(props.getString("hdfs.fetcher.tmp.dir", DEFAULT_TEMP_DIR)),
-             props.getInt("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
+             (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
         logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
                     + " and throttle rate " + maxBytesPerSecond);
     }
