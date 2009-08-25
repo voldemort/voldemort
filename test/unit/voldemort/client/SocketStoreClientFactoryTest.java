@@ -17,6 +17,8 @@
 package voldemort.client;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 import voldemort.ServerTestUtils;
 import voldemort.serialization.SerializerFactory;
@@ -70,6 +72,13 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     protected String getValidScheme() {
         return SocketStoreClientFactory.URL_SCHEME;
+    }
+
+    public void testTwoFactories() throws Exception {
+        /* Test that two factories can be hosted on the same jvm */
+        List<StoreClientFactory> factories = new ArrayList<StoreClientFactory>();
+        factories.add(getFactory(getValidBootstrapUrl()));
+        factories.add(getFactory(getValidBootstrapUrl()));
     }
 
 }

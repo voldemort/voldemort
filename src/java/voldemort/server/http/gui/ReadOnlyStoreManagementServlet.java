@@ -88,12 +88,12 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         String className = server.getVoldemortConfig()
                                  .getAllProps()
                                  .getString("file.fetcher.class", null);
-        if(className == null) {
+        if(className == null || className.trim().length() == 0) {
             this.fileFetcher = null;
         } else {
             try {
                 logger.info("Loading fetcher " + className);
-                Class<?> cls = Class.forName(className);
+                Class<?> cls = Class.forName(className.trim());
                 this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
                                                                               new Class<?>[] { Props.class },
                                                                               new Object[] { server.getVoldemortConfig()
