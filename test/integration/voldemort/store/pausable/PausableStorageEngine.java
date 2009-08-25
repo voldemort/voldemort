@@ -2,8 +2,6 @@ package voldemort.store.pausable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.log4j.Logger;
 
@@ -18,8 +16,9 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * A storage engine that can be paused via JMX to simulate a failure for
- * testing. While paused all operations on the store will block indefinitely.
+ * A storage engine that can be paused to simulate a failure for testing. While
+ * paused all operations on the store will block indefinitely. The methods to
+ * pause and unpause are also exposed through JMX.
  * 
  * @author jay
  * 
@@ -31,12 +30,12 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
     private static final Logger logger = Logger.getLogger(PausableStorageEngine.class);
 
     private final InMemoryStorageEngine<K, V> inner;
-    private final ReadWriteLock lock;
+    private final Object condition = new Object();
+    private volatile boolean paused;
 
     public PausableStorageEngine(InMemoryStorageEngine<K, V> inner) {
         super();
         this.inner = inner;
-        this.lock = new ReentrantReadWriteLock();
     }
 
     public void close() throws VoldemortException {
@@ -44,39 +43,35 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
     }
 
     public boolean delete(K key, Version version) {
-        try {
-            lock.readLock().lock();
-            return inner.delete(key);
-        } finally {
-            lock.readLock().unlock();
+        blockIfNecessary();
+        return inner.delete(key);
+    }
+
+    private void blockIfNecessary() {
+        synchronized(condition) {
+            while(paused) {
+                try {
+                    condition.wait();
+                } catch(InterruptedException e) {
+                    throw new VoldemortException("Pausable store interrupted while paused.");
+                }
+            }
         }
     }
 
     public List<Versioned<V>> get(K key) {
-        try {
-            lock.readLock().lock();
-            return inner.get(key);
-        } finally {
-            lock.readLock().unlock();
-        }
+        blockIfNecessary();
+        return inner.get(key);
     }
 
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) {
-        try {
-            lock.readLock().lock();
-            return inner.getAll(keys);
-        } finally {
-            lock.readLock().unlock();
-        }
+        blockIfNecessary();
+        return inner.getAll(keys);
     }
 
     public void put(K key, Versioned<V> value) {
-        try {
-            lock.readLock().lock();
-            inner.put(key, value);
-        } finally {
-            lock.readLock().unlock();
-        }
+        blockIfNecessary();
+        inner.put(key, value);
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
@@ -94,13 +89,16 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
     @JmxOperation(description = "Pause all operations on the storage engine.")
     public void pause() {
         logger.info("Pausing store '" + getName() + "'.");
-        this.lock.writeLock().lock();
+        paused = true;
     }
 
     @JmxOperation(description = "Unpause the storage engine.")
     public void unpause() {
         logger.info("Unpausing store '" + getName() + "'.");
-        this.lock.writeLock().unlock();
+        paused = false;
+        synchronized(condition) {
+            condition.notifyAll();
+        }
     }
 
 }

@@ -36,12 +36,14 @@ public class SerializerDefinition {
     private final Integer currentSchemaVersion;
     private final boolean hasVersion;
     private final Map<Integer, String> schemaInfoByVersion;
+    private final Compression compression;
 
     public SerializerDefinition(String name) {
         super();
         this.name = Utils.notNull(name);
         this.currentSchemaVersion = -1;
         this.schemaInfoByVersion = new HashMap<Integer, String>();
+        compression = null;
         this.hasVersion = true;
     }
 
@@ -51,13 +53,18 @@ public class SerializerDefinition {
         this.currentSchemaVersion = 0;
         this.schemaInfoByVersion = new HashMap<Integer, String>();
         this.schemaInfoByVersion.put(0, schemaInfo);
+        compression = null;
         this.hasVersion = true;
     }
 
-    public SerializerDefinition(String name, Map<Integer, String> schemaInfos, boolean hasVersion) {
+    public SerializerDefinition(String name,
+                                Map<Integer, String> schemaInfos,
+                                boolean hasVersion,
+                                Compression compression) {
         super();
         this.name = Utils.notNull(name);
         this.schemaInfoByVersion = new HashMap<Integer, String>();
+        this.compression = compression;
         this.hasVersion = hasVersion;
         if(!hasVersion) {
             this.currentSchemaVersion = 0;
@@ -115,6 +122,14 @@ public class SerializerDefinition {
         return this.hasVersion;
     }
 
+    public boolean hasCompression() {
+        return compression != null;
+    }
+
+    public Compression getCompression() {
+        return compression;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if(obj == this)
@@ -126,12 +141,13 @@ public class SerializerDefinition {
         SerializerDefinition s = (SerializerDefinition) obj;
         return Objects.equal(getName(), s.getName())
                && Objects.equal(this.schemaInfoByVersion, s.schemaInfoByVersion)
+               && Objects.equal(this.compression, s.compression)
                && this.hasVersion == s.hasVersion();
     }
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(new Object[] { name, this.schemaInfoByVersion });
+        return Arrays.hashCode(new Object[] { name, this.schemaInfoByVersion, compression,
+                hasVersion });
     }
-
 }

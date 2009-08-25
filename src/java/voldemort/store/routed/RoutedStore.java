@@ -19,7 +19,6 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -585,7 +584,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         final AtomicInteger successes = new AtomicInteger(0);
 
         // A list of thrown exceptions, indicating the number of failures
-        final Map<Integer, Exception> failures = Collections.synchronizedMap(new HashMap<Integer, Exception>(1));
+        final List<Exception> failures = Collections.synchronizedList(new ArrayList<Exception>(1));
 
         // If requiredWrites > 0 then do a single blocking write to the first
         // live node in the preference list if this node throws an
@@ -604,13 +603,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 break;
             } catch(UnreachableStoreException e) {
                 markUnavailable(current, e);
-                failures.put(current.getId(), e);
+                failures.add(e);
             } catch(ObsoleteVersionException e) {
                 // if this version is obsolete on the master, then bail out
                 // of this operation
                 throw e;
             } catch(Exception e) {
-                failures.put(currentNode, e);
+                failures.add(e);
             }
         }
 
@@ -641,11 +640,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         node.getStatus().setAvailable();
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
-                        failures.put(node.getId(), e);
+                        failures.add(e);
                     } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
                                     + ")", e);
-                        failures.put(node.getId(), e);
+                        failures.add(e);
                     } finally {
                         // signal that the operation is complete
                         semaphore.release();
@@ -656,7 +655,51 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // Block until we get enough completions
         int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
-        for(int i = 0; i < blockCount; i++) {
+        boolean noTimeout = blockOnPut(startNs,
+                                       semaphore,
+                                       0,
+                                       blockCount,
+                                       successes,
+                                       storeDef.getPreferredWrites());
+
+        if(successes.get() < storeDef.getRequiredWrites()) {
+            /*
+             * We don't have enough required writes, but we haven't timed out
+             * yet, so block a little more if there are healthy nodes that can
+             * help us achieve our target.
+             */
+            if(noTimeout) {
+                int startingIndex = blockCount - 1;
+                blockCount = Math.max(storeDef.getPreferredWrites() - 1, attempts);
+                blockOnPut(startNs,
+                           semaphore,
+                           startingIndex,
+                           blockCount,
+                           successes,
+                           storeDef.getRequiredWrites());
+            }
+            if(successes.get() < storeDef.getRequiredWrites())
+                throw new InsufficientOperationalNodesException(successes.get()
+                                                                + " writes succeeded, but "
+                                                                + this.storeDef.getRequiredWrites()
+                                                                + " are required.", failures);
+        }
+
+        // Okay looks like it worked, increment the version for the caller
+        VectorClock versionedClock = (VectorClock) versioned.getVersion();
+        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
+    }
+
+    /**
+     * @return false if the operation timed out, true otherwise.
+     */
+    private boolean blockOnPut(long startNs,
+                               Semaphore semaphore,
+                               int startingIndex,
+                               int blockCount,
+                               AtomicInteger successes,
+                               int successesRequired) {
+        for(int i = startingIndex; i < blockCount; i++) {
             try {
                 long ellapsedNs = System.nanoTime() - startNs;
                 long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
@@ -665,27 +708,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 if(!acquiredPermit) {
                     logger.warn("Timed out waiting for put # " + (i + 1) + " of " + blockCount
                                 + " to succeed.");
-                    break;
+                    return false;
                 }
-                // okay, at least the required number of operations have
-                // completed, were they successful?
-                if(successes.get() >= this.storeDef.getPreferredWrites())
+                if(successes.get() >= successesRequired)
                     break;
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException("Put operation interrupted", e);
             }
         }
-
-        if(successes.get() < storeDef.getRequiredWrites()) {
-            throw new InsufficientOperationalNodesException(successes.get()
-                                                            + " writes succeeded, but "
-                                                            + this.storeDef.getRequiredWrites()
-                                                            + " are required.", failures.values());
-        }
-
-        // Okay looks like it worked, increment the version for the caller
-        VectorClock versionedClock = (VectorClock) versioned.getVersion();
-        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
+        return true;
     }
 
     private boolean isAvailable(Node node) {

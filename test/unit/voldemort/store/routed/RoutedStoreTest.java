@@ -509,6 +509,50 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
+    /**
+     * See issue #134: RoutedStore put() doesn't wait for enough attempts to
+     * succeed
+     * 
+     * This issue would only happen with one node down and another that was slow
+     * to respond.
+     */
+    public void testPutWithOneNodeDownAndOneNodeSlow() {
+        Cluster cluster = VoldemortTestConstants.getThreeNodeCluster();
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               3,
+                                                               2,
+                                                               2,
+                                                               2,
+                                                               2,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        /* The key used causes the nodes selected for writing to be [2, 0, 1] */
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        subStores.put(Iterables.get(cluster.getNodes(), 2).getId(),
+                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
+                      new FailingStore<ByteArray, byte[]>("test"));
+        /*
+         * The bug would only show itself if the second successful required
+         * write was slow (but still within the timeout).
+         */
+        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
+                      new SleepyStore<ByteArray, byte[]>(100,
+                                                         new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+
+        RoutedStore routedStore = new RoutedStore("test",
+                                                  subStores,
+                                                  cluster,
+                                                  storeDef,
+                                                  1,
+                                                  true,
+                                                  1000L);
+
+        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, new Versioned<byte[]>(aValue));
+    }
+
     public void testPutTimeout() {
         int timeout = 50;
         StoreDefinition definition = new StoreDefinition("test",

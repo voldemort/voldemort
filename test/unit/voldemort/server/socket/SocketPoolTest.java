@@ -19,7 +19,6 @@ package voldemort.server.socket;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketAndStreams;
@@ -36,35 +35,27 @@ public class SocketPoolTest extends TestCase {
 
     private int port;
     private int maxConnectionsPerNode = 3;
-    private int maxTotalConnections = 2 * maxConnectionsPerNode + 1;
     private SocketPool pool;
     private SocketDestination dest1;
-    private AbstractSocketService socketService;
+    private SocketServer server;
 
     @Override
     public void setUp() {
         this.port = ServerTestUtils.findFreePort();
-        this.pool = new SocketPool(maxConnectionsPerNode,
-                                   maxTotalConnections,
-                                   1000,
-                                   1000,
-                                   32 * 1024);
+        this.pool = new SocketPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = new RequestHandlerFactory(new StoreRepository(),
                                                                          null,
-                                                                         ServerTestUtils.getVoldemortConfig());
-        this.socketService = ServerTestUtils.getSocketService(handlerFactory,
-                                                              port,
-                                                              maxTotalConnections,
-                                                              maxTotalConnections + 3,
-                                                              10000);
-        this.socketService.start();
+                                                                         null);
+        this.server = new SocketServer(port, 10, 10 + 3, 10000, handlerFactory);
+        this.server.start();
+        this.server.awaitStartupCompletion();
     }
 
     @Override
     public void tearDown() {
         this.pool.close();
-        this.socketService.stop();
+        this.server.shutdown();
     }
 
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {

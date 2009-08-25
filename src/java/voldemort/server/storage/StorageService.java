@@ -101,7 +101,6 @@ public class StorageService extends AbstractService {
                                                      config.getClientThreadIdleMs(),
                                                      config.getClientMaxQueuedRequests());
         this.socketPool = new SocketPool(config.getClientMaxConnectionsPerNode(),
-                                         config.getClientMaxTotalConnections(),
                                          config.getClientConnectionTimeoutMs(),
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());

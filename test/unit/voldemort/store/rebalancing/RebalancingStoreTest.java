@@ -89,7 +89,7 @@ public class RebalancingStoreTest extends TestCase {
         return new RebalancingStore(0,
                                     server0.getStoreRepository().getLocalStore(storeName),
                                     metadata,
-                                    new SocketPool(100, 100, 2000, 1000, 10000));
+                                    new SocketPool(100, 2000, 1000, 10000));
     }
 
     public void testProxyGet() {

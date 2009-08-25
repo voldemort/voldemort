@@ -21,8 +21,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -95,7 +95,7 @@ public class SelectorManager implements Runnable {
 
     private final Selector selector;
 
-    private final BlockingQueue<SocketChannel> socketChannelQueue;
+    private final Queue<SocketChannel> socketChannelQueue;
 
     private final RequestHandlerFactory requestHandlerFactory;
 
@@ -106,7 +106,7 @@ public class SelectorManager implements Runnable {
     public SelectorManager(RequestHandlerFactory requestHandlerFactory, int socketBufferSize)
                                                                                              throws IOException {
         this.selector = Selector.open();
-        this.socketChannelQueue = new LinkedBlockingQueue<SocketChannel>();
+        this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
     }

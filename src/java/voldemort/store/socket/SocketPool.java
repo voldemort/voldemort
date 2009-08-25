@@ -16,18 +16,18 @@
 
 package voldemort.store.socket;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.commons.pool.KeyedObjectPool;
-import org.apache.commons.pool.impl.GenericKeyedObjectPool;
-import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxSetter;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.Time;
+import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.ResourcePoolConfig;
 
 /**
  * A pool of sockets keyed off the socket destination. This wrapper just
@@ -40,30 +40,25 @@ import voldemort.utils.Time;
 @JmxManaged(description = "Voldemort socket pool.")
 public class SocketPool {
 
-    private static final Logger logger = Logger.getLogger(SocketPool.class);
-    private static int WAIT_MONITORING_INTERVAL = 10000;
-
+    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
     private final AtomicInteger checkouts;
     private final AtomicLong waitNs;
     private final AtomicLong avgWaitNs;
-    private final KeyedObjectPool pool;
-    private final SocketPoolableObjectFactory objFactory;
+    private final KeyedResourcePool<SocketDestination, SocketAndStreams> pool;
+    private final SocketResourceFactory socketFactory;
 
     public SocketPool(int maxConnectionsPerNode,
-                      int maxTotalConnections,
                       int connectionTimeoutMs,
                       int soTimeoutMs,
                       int socketBufferSize) {
-        GenericKeyedObjectPool.Config config = new GenericKeyedObjectPool.Config();
-        config.maxActive = maxConnectionsPerNode;
-        config.maxTotal = maxTotalConnections;
-        config.maxIdle = maxTotalConnections;
-        config.maxWait = connectionTimeoutMs;
-        config.testOnBorrow = true;
-        config.testOnReturn = true;
-        config.whenExhaustedAction = GenericKeyedObjectPool.WHEN_EXHAUSTED_BLOCK;
-        this.objFactory = new SocketPoolableObjectFactory(soTimeoutMs, socketBufferSize);
-        this.pool = new GenericKeyedObjectPool(objFactory, config);
+        ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
+                                                            .setMaxPoolSize(maxConnectionsPerNode)
+                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
+                                                            .setTimeout(connectionTimeoutMs,
+                                                                        TimeUnit.MILLISECONDS);
+        this.socketFactory = new SocketResourceFactory(soTimeoutMs, socketBufferSize);
+        this.pool = new KeyedResourcePool<SocketDestination, SocketAndStreams>(socketFactory,
+                                                                               config);
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
         this.avgWaitNs = new AtomicLong(0);
@@ -79,7 +74,7 @@ public class SocketPool {
         try {
             // time checkout
             long start = System.nanoTime();
-            SocketAndStreams sas = (SocketAndStreams) pool.borrowObject(destination);
+            SocketAndStreams sas = pool.checkout(destination);
             updateStats(System.nanoTime() - start);
 
             return sas;
@@ -94,7 +89,8 @@ public class SocketPool {
         int count = checkouts.getAndIncrement();
 
         // reset reporting inverval if we have used up the current interval
-        if(count % WAIT_MONITORING_INTERVAL == WAIT_MONITORING_INTERVAL - 1) {
+        int interval = this.monitoringInterval.get();
+        if(count % interval == interval - 1) {
             // harmless race condition:
             waitNs.set(0);
             checkouts.set(0);
@@ -110,15 +106,10 @@ public class SocketPool {
      */
     public void checkin(SocketDestination destination, SocketAndStreams socket) {
         try {
-            pool.returnObject(destination, socket);
+            pool.checkin(destination, socket);
         } catch(Exception e) {
-            try {
-                pool.invalidateObject(destination, socket);
-            } catch(Exception e2) {
-                logger.error("Error while destroying socket:", e2);
-            }
-            throw new UnreachableStoreException("Failure while checking out socket for "
-                                                + destination + ": ", e);
+            throw new VoldemortException("Failure while checking in socket for " + destination
+                                         + ": ", e);
         }
     }
 
@@ -126,42 +117,39 @@ public class SocketPool {
      * Close the socket pool
      */
     public void close() {
-        try {
-            pool.clear();
-            pool.close();
-        } catch(Exception e) {
-            throw new VoldemortException(e);
-        }
+        pool.close();
     }
 
-    @JmxGetter(name = "socketsCreated", description = "The number of sockets created by this pool.")
+    @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")
     public int getNumberSocketsCreated() {
-        return this.objFactory.getNumberCreated();
+        return this.socketFactory.getNumberCreated();
     }
 
-    @JmxGetter(name = "socketsDestroyed", description = "The number of sockets destroyed by this pool.")
+    @JmxGetter(name = "socketsDestroyed", description = "The total number of sockets destroyed by this pool.")
     public int getNumberSocketsDestroyed() {
-        return this.objFactory.getNumberDestroyed();
+        return this.socketFactory.getNumberDestroyed();
     }
 
-    @JmxGetter(name = "numberOfActiveConnections", description = "The number of active connections.")
+    @JmxGetter(name = "numberOfConnections", description = "The number of active connections.")
     public int getNumberOfActiveConnections() {
-        return this.pool.getNumActive();
+        return this.pool.getTotalResourceCount();
     }
 
     @JmxGetter(name = "numberOfIdleConnections", description = "The number of active connections.")
-    public int getNumberOfIdleConnections() {
-        return this.pool.getNumIdle();
-    }
-
-    @JmxGetter(name = "numberOfTotalConnections", description = "The total number of connections, whether active or idle.")
-    public int getTotalNumberOfConnections() {
-        return this.pool.getNumActive() + this.pool.getNumIdle();
+    public int getNumberOfCheckedInConnections() {
+        return this.pool.getCheckedInResourceCount();
     }
 
     @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
     public double getAvgWaitTimeMs() {
         return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;
+    }
+
+    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
+    public void setMonitoringInterval(int count) {
+        if(count <= 0)
+            throw new IllegalArgumentException("Monitoring interval must be a positive number.");
+        this.monitoringInterval.set(count);
     }
 
 }

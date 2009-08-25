@@ -87,7 +87,7 @@ public class AdminServiceTest extends TestCase {
     private AdminClient getAdminClient() {
         return new AdminClient(server.getIdentityNode(),
                                server.getVoldemortMetadata(),
-                               new SocketPool(100, 100, 2000, 1000, 10000));
+                               new SocketPool(100, 2000, 1000, 10000));
     }
 
     public void testUpdateCluster() {
