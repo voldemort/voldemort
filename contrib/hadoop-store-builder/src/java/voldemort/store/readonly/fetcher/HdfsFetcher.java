@@ -62,7 +62,7 @@ public class HdfsFetcher implements FileFetcher {
              new File(props.getString("hdfs.fetcher.tmp.dir", DEFAULT_TEMP_DIR)),
              (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
         logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
-                    + " and throttle rate " + maxBytesPerSecond);
+                    + " and throttle rate " + maxBytesPerSecond + " and buffer size " + bufferSize);
     }
 
     public HdfsFetcher() {
