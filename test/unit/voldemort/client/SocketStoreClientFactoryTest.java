@@ -20,7 +20,10 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
+import junit.framework.Test;
 import voldemort.ServerTestUtils;
+import voldemort.SocketServiceTestCase;
+import voldemort.TestUtils;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.AbstractSocketService;
 
@@ -28,9 +31,20 @@ import voldemort.server.AbstractSocketService;
  * @author jay
  * 
  */
-public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
+public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest implements
+        SocketServiceTestCase {
 
     private AbstractSocketService socketService;
+
+    private boolean useNio;
+
+    public static Test suite() {
+        return TestUtils.createSocketServiceTestCaseSuite(SocketStoreClientFactoryTest.class);
+    }
+
+    public void setUseNio(boolean useNio) {
+        this.useNio = useNio;
+    }
 
     public SocketStoreClientFactoryTest() {
         super();
@@ -39,7 +53,8 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        socketService = ServerTestUtils.getSocketService(getClusterXml(),
+        socketService = ServerTestUtils.getSocketService(useNio,
+                                                         getClusterXml(),
                                                          getStoreDefXml(),
                                                          getValidStoreName(),
                                                          getLocalNode().getSocketPort());

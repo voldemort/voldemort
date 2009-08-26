@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +34,9 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import junit.framework.AssertionFailedError;
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -383,4 +388,52 @@ public class TestUtils {
             throw new IllegalStateException(e);
         }
     }
+
+    /**
+     * createSocketServiceTestCaseSuite is used for tests that use a
+     * SocketService. Rather than hard-coding the NIO or BIO service, we
+     * actually test each method once with each.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this method assumes the incoming class implements
+     * SocketServiceTestCase.
+     * 
+     * @param testCaseClass
+     * 
+     * @return TestSuite that can be returned directly from the static "suite"
+     *         method
+     */
+
+    public static TestSuite createSocketServiceTestCaseSuite(Class<? extends TestCase> testCaseClass) {
+        TestSuite testSuite = new TestSuite();
+
+        for(boolean useNio: new boolean[] { true, false }) {
+            for(Method method: testCaseClass.getMethods()) {
+                if(!isTestMethod(method))
+                    continue;
+
+                // Set the appropriate implementation and add it to our suite.
+                Test test = TestSuite.createTest(testCaseClass, method.getName());
+                ((SocketServiceTestCase) test).setUseNio(useNio);
+                testSuite.addTest(test);
+            }
+        }
+
+        return testSuite;
+    }
+
+    public static boolean isTestMethod(Method method) {
+        if(!method.getName().startsWith("test"))
+            return false;
+
+        if(!Modifier.isPublic(method.getModifiers()))
+            return false;
+
+        if(method.getParameterTypes().length != 0)
+            return false;
+
+        return true;
+    }
+
 }

@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import org.apache.log4j.Logger;
 
 import voldemort.ServerTestUtils;
+import voldemort.SocketServiceTestCase;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.protocol.RequestFormatType;
@@ -41,7 +42,8 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {
+public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest implements
+        SocketServiceTestCase {
 
     private static final Logger logger = Logger.getLogger(AbstractSocketStoreTest.class);
 
@@ -53,12 +55,18 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     private AbstractSocketService socketService;
     private SocketStore socketStore;
     private RequestFormatType requestFormatType;
+    private boolean useNio;
+
+    public void setUseNio(boolean useNio) {
+        this.useNio = useNio;
+    }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         this.socketPort = ServerTestUtils.findFreePort();
-        socketService = ServerTestUtils.getSocketService(VoldemortTestConstants.getOneNodeClusterXml(),
+        socketService = ServerTestUtils.getSocketService(useNio,
+                                                         VoldemortTestConstants.getOneNodeClusterXml(),
                                                          VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                          "test",
                                                          socketPort);
