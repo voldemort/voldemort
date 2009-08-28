@@ -39,6 +39,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.InsufficientOperationalNodesException;
@@ -69,7 +70,6 @@ import com.google.common.collect.Maps;
  */
 public class RoutedStore implements Store<ByteArray, byte[]> {
 
-    private static final long NODE_BANNAGE_MS = 10000L;
     private static final Logger logger = Logger.getLogger(RoutedStore.class.getName());
 
     private final String name;
@@ -78,11 +78,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private final boolean repairReads;
     private final ReadRepairer<ByteArray, byte[]> readRepairer;
     private final long timeoutMs;
-    private final long nodeBannageMs;
     private final Time time;
     private final Cluster cluster;
     private final StoreDefinition storeDef;
-
+    private final NodeAvailabilityDetector nodeAvailabilityDetector;
     private final RoutingStrategy routingStrategy;
 
     /**
@@ -103,7 +102,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                        StoreDefinition storeDef,
                        int numberOfThreads,
                        boolean repairReads,
-                       long timeoutMs) {
+                       long timeoutMs,
+                       NodeAvailabilityDetector nodeAvailabilityDetector) {
         this(name,
              innerStores,
              cluster,
@@ -111,7 +111,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
              repairReads,
              Executors.newFixedThreadPool(numberOfThreads),
              timeoutMs,
-             NODE_BANNAGE_MS,
+             nodeAvailabilityDetector,
              SystemTime.INSTANCE);
     }
 
@@ -134,7 +134,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                        boolean repairReads,
                        ExecutorService threadPool,
                        long timeoutMs,
-                       long nodeBannageMs,
+                       NodeAvailabilityDetector nodeAvailabilityDetector,
                        Time time) {
         if(storeDef.getRequiredReads() < 1)
             throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
@@ -155,12 +155,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.executor = threadPool;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
         this.timeoutMs = timeoutMs;
-        this.nodeBannageMs = nodeBannageMs;
         this.time = Utils.notNull(time);
         this.cluster = cluster;
         this.storeDef = storeDef;
-
+        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
         this.routingStrategy = new RoutingStrategyFactory(this.cluster).getRoutingStrategy(storeDef);
+
+        nodeAvailabilityDetector.setStores(innerStores);
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
@@ -196,10 +197,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         boolean deleted = innerStores.get(node.getId()).delete(key, version);
                         successes.incrementAndGet();
                         deletedSomething.compareAndSet(false, deleted);
-                        node.getStatus().setAvailable();
+                        nodeAvailabilityDetector.recordSuccess(node);
                     } catch(UnreachableStoreException e) {
                         failures.add(e);
-                        markUnavailable(node, e);
+                        nodeAvailabilityDetector.recordException(node, e);
                     } catch(Exception e) {
                         failures.add(e);
                         logger.warn("Error in DELETE on node " + node.getId() + "("
@@ -297,7 +298,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         for(Map.Entry<Node, List<ByteArray>> entry: nodeToKeysMap.entrySet()) {
             final Node node = entry.getKey();
             final Collection<ByteArray> nodeKeys = entry.getValue();
-            if(isAvailable(node))
+            if(nodeAvailabilityDetector.isAvailable(node))
                 callables.add(new GetAllCallable(node, nodeKeys));
         }
 
@@ -376,13 +377,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                 result.put(key, Lists.newArrayList(values));
                             else
                                 versioneds.addAll(values);
-                            node.getStatus().setAvailable();
+                            nodeAvailabilityDetector.recordSuccess(node);
                             if(++successCount >= storeDef.getPreferredReads())
                                 break;
 
                         } catch(UnreachableStoreException e) {
                             failures.add(e);
-                            markUnavailable(node, e);
+                            nodeAvailabilityDetector.recordException(node, e);
                         } catch(Exception e) {
                             logger.warn("Error in GET_ALL on node " + node.getId() + "("
                                         + node.getHost() + ")", e);
@@ -489,10 +490,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
                 }
                 ++successes;
-                node.getStatus().setAvailable();
+                nodeAvailabilityDetector.recordSuccess(node);
             } catch(UnreachableStoreException e) {
                 failures.add(e);
-                markUnavailable(node, e);
+                nodeAvailabilityDetector.recordException(node, e);
             } catch(Exception e) {
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
                 failures.add(e);
@@ -598,11 +599,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 versionedCopy = incremented(versioned, current.getId());
                 innerStores.get(current.getId()).put(key, versionedCopy);
                 successes.getAndIncrement();
-                current.getStatus().setAvailable();
+                nodeAvailabilityDetector.recordSuccess(current);
                 master = current;
                 break;
             } catch(UnreachableStoreException e) {
-                markUnavailable(current, e);
+                nodeAvailabilityDetector.recordException(current, e);
                 failures.add(e);
             } catch(ObsoleteVersionException e) {
                 // if this version is obsolete on the master, then bail out
@@ -637,9 +638,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     try {
                         innerStores.get(node.getId()).put(key, finalVersionedCopy);
                         successes.incrementAndGet();
-                        node.getStatus().setAvailable();
+                        nodeAvailabilityDetector.recordSuccess(node);
                     } catch(UnreachableStoreException e) {
-                        markUnavailable(node, e);
+                        nodeAvailabilityDetector.recordException(node, e);
                         failures.add(e);
                     } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
@@ -719,17 +720,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         return true;
     }
 
-    private boolean isAvailable(Node node) {
-        return !node.getStatus().isUnavailable(this.nodeBannageMs);
-    }
-
-    private void markUnavailable(Node node, UnreachableStoreException e) {
-        logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                    + " marking as unavailable for " + this.nodeBannageMs + " ms.", e);
-        logger.debug(e);
-        node.getStatus().setUnavailable();
-    }
-
     private Versioned<byte[]> incremented(Versioned<byte[]> versioned, int nodeId) {
         return new Versioned<byte[]>(versioned.getValue(),
                                      ((VectorClock) versioned.getVersion()).incremented(nodeId,
@@ -739,7 +729,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private List<Node> availableNodes(List<Node> list) {
         List<Node> available = new ArrayList<Node>(list.size());
         for(Node node: list)
-            if(isAvailable(node))
+            if(nodeAvailabilityDetector.isAvailable(node))
                 available.add(node);
         return available;
     }
@@ -805,10 +795,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     for(Versioned<byte[]> f: fetched)
                         nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
                 }
-                node.getStatus().setAvailable();
+                nodeAvailabilityDetector.recordSuccess(node);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                markUnavailable(node, e);
+                nodeAvailabilityDetector.recordException(node, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;
@@ -857,10 +847,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                             nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, v));
                     }
                 }
-                node.getStatus().setAvailable();
+                nodeAvailabilityDetector.recordSuccess(node);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                markUnavailable(node, e);
+                nodeAvailabilityDetector.recordException(node, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;

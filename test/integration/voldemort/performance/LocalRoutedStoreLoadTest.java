@@ -27,6 +27,7 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
@@ -38,6 +39,7 @@ import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -53,11 +55,18 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                          + File.separator
                                                                          + "/cluster.xml"));
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
-        StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
+        VoldemortConfig voldemortConfig = new VoldemortConfig(propsA);
+        StorageConfiguration conf = new BdbStorageConfiguration(voldemortConfig);
         for(Node node: cluster.getNodes())
             clientMapping.put(node.getId(), conf.getStore("test" + node.getId()));
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
+
+        Class<?> factoryClass = ReflectUtils.loadClass(voldemortConfig.getNodeAvailabilityDetector());
+        NodeAvailabilityDetector nodeAvailabilityDetector = (NodeAvailabilityDetector) ReflectUtils.callConstructor(factoryClass,
+                                                                                                                    new Object[] {});
+        nodeAvailabilityDetector.setNodeBannageMs(voldemortConfig.getClientNodeBannageMs());
+
         Store<ByteArray, byte[]> store = new RoutedStore("test",
                                                          clientMapping,
                                                          cluster,
@@ -70,7 +79,8 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                                      RoutingStrategyType.CONSISTENT_STRATEGY),
                                                          10,
                                                          true,
-                                                         10000L);
+                                                         10000L,
+                                                         nodeAvailabilityDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory

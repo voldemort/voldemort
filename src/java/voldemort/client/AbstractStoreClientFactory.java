@@ -34,6 +34,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -51,6 +52,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
@@ -74,7 +76,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
 
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
-    public static final int DEFAULT_NODE_BANNAGE_MS = 10000;
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
@@ -82,13 +83,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     private final URI[] bootstrapUrls;
     private final int routingTimeoutMs;
-    private final int nodeBannageMs;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
+    private final NodeAvailabilityDetector nodeAvailabilityDetector;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -97,7 +98,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.serializerFactory = config.getSerializerFactory();
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
         this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
-        this.nodeBannageMs = config.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
         if(isJmxEnabled)
@@ -106,6 +106,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.mbeanServer = null;
         this.jmxId = jmxIdCounter.getAndIncrement();
         registerThreadPoolJmx(threadPool);
+
+        Class<?> factoryClass = ReflectUtils.loadClass(config.getNodeAvailabilityDetector());
+        nodeAvailabilityDetector = (NodeAvailabilityDetector) ReflectUtils.callConstructor(factoryClass,
+                                                                                           new Object[] {});
+        nodeAvailabilityDetector.setNodeBannageMs(config.getNodeBannagePeriod(TimeUnit.MILLISECONDS));
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {
@@ -161,7 +166,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          true,
                                                          threadPool,
                                                          routingTimeoutMs,
-                                                         nodeBannageMs,
+                                                         nodeAvailabilityDetector,
                                                          SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
@@ -269,8 +274,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return routingTimeoutMs;
     }
 
-    public long getNodeBannageMs() {
-        return nodeBannageMs;
+    public NodeAvailabilityDetector getNodeAvailabilityDetector() {
+        return nodeAvailabilityDetector;
     }
 
     public SerializerFactory getSerializerFactory() {

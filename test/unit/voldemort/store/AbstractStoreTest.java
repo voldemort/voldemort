@@ -36,7 +36,7 @@ import com.google.common.base.Objects;
 
 public abstract class AbstractStoreTest<K, V> extends TestCase {
 
-    public abstract Store<K, V> getStore();
+    public abstract Store<K, V> getStore() throws Exception;
 
     public abstract List<V> getValues(int numValues);
 
@@ -92,7 +92,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertTrue(collection + " does not contain " + value + ".", found);
     }
 
-    public void testNullKeys() {
+    public void testNullKeys() throws Exception {
         Store<K, V> store = getStore();
         try {
             store.put(null, new Versioned<V>(getValue()));
@@ -135,7 +135,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
     // assertEquals("Returned non-null value.", null, found.get(0).getValue());
     }
 
-    public void testGetAndDeleteNonExistentKey() {
+    public void testGetAndDeleteNonExistentKey() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
         List<Versioned<V>> found = store.get(key);
@@ -163,7 +163,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         }
     }
 
-    public void testFetchedEqualsPut() {
+    public void testFetchedEqualsPut() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
         VectorClock clock = getClock(1, 1, 2, 3, 3, 4);
@@ -176,7 +176,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertTrue("Values not equal!", valuesEqual(versioned.getValue(), found.get(0).getValue()));
     }
 
-    public void testVersionedPut() {
+    public void testVersionedPut() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
         VectorClock clock = getClock(1, 1);
@@ -215,7 +215,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertContains(store.get(key), newest);
     }
 
-    public void testDelete() {
+    public void testDelete() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
         VectorClock c1 = getClock(1, 1);
@@ -266,13 +266,13 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         }
     }
 
-    public void testGetAllWithAbsentKeys() {
+    public void testGetAllWithAbsentKeys() throws Exception {
         Store<K, V> store = getStore();
         Map<K, List<Versioned<V>>> result = store.getAll(getKeys(3));
         assertEquals(0, result.size());
     }
 
-    public void testCloseIsIdempotent() {
+    public void testCloseIsIdempotent() throws Exception {
         Store<K, V> store = getStore();
         store.close();
         // second close is okay, should not throw an exception

@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import junit.framework.Test;
+import voldemort.NodeAvailabilityDetectorTestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -32,6 +34,7 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
@@ -60,11 +63,18 @@ import com.google.common.collect.Maps;
  * @author jay
  * 
  */
-public class RoutedStoreTest extends AbstractByteArrayStoreTest {
+public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
+        NodeAvailabilityDetectorTestCase {
 
     private Cluster cluster;
     private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
+    private Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass;
+    private NodeAvailabilityDetector nodeAvailabilityDetector;
+
+    public static Test suite() {
+        return TestUtils.createNodeAvailabilityDetectorTestSuite(RoutedStoreTest.class);
+    }
 
     @Override
     public void setUp() throws Exception {
@@ -72,8 +82,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         cluster = getNineNodeCluster();
     }
 
+    public void setNodeAvailabilityDetectorClass(Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass) {
+        this.nodeAvailabilityDetectorClass = nodeAvailabilityDetectorClass;
+    }
+
     @Override
-    public Store<ByteArray, byte[]> getStore() {
+    public Store<ByteArray, byte[]> getStore() throws Exception {
         return new InconsistencyResolvingStore<ByteArray, byte[]>(getStore(cluster,
                                                                            cluster.getNumberOfNodes(),
                                                                            cluster.getNumberOfNodes(),
@@ -82,7 +96,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                   new VectorClockInconsistencyResolver<byte[]>());
     }
 
-    private RoutedStore getStore(Cluster cluster, int reads, int writes, int threads, int failing) {
+    private RoutedStore getStore(Cluster cluster, int reads, int writes, int threads, int failing)
+            throws Exception {
         return getStore(cluster,
                         reads,
                         writes,
@@ -100,7 +115,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                  int failing,
                                  int sleepy,
                                  String strategy,
-                                 VoldemortException e) {
+                                 VoldemortException e) throws Exception {
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
         int count = 0;
         for(Node n: cluster.getNodes()) {
@@ -120,6 +135,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
             count += 1;
         }
+
+        setNodeAvailabilityDetector(subStores);
+
         return new RoutedStore("test",
                                subStores,
                                cluster,
@@ -132,7 +150,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                            strategy),
                                threads,
                                true,
-                               1000L);
+                               1000L,
+                               nodeAvailabilityDetector);
     }
 
     private int countOccurances(RoutedStore routedStore, ByteArray key, Versioned<byte[]> value) {
@@ -165,7 +184,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                    + value + "', but found " + count + ".", expected <= count);
     }
 
-    public void testBasicOperations(int reads, int writes, int failures, int threads) {
+    private void testBasicOperations(int reads, int writes, int failures, int threads)
+            throws Exception {
         RoutedStore routedStore = getStore(cluster, reads, writes, threads, failures);
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
@@ -182,19 +202,20 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertTrue(!routedStore.delete(aKey, versioned.getVersion()));
     }
 
-    public void testBasicOperationsSingleThreaded() {
+    public void testBasicOperationsSingleThreaded() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes(), cluster.getNumberOfNodes(), 0, 1);
     }
 
-    public void testBasicOperationsMultiThreaded() {
+    public void testBasicOperationsMultiThreaded() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes(), cluster.getNumberOfNodes(), 0, 4);
     }
 
-    public void testBasicOperationsMultiThreadedWithFailures() {
+    public void testBasicOperationsMultiThreadedWithFailures() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes() - 2, cluster.getNumberOfNodes() - 2, 2, 4);
     }
 
-    public void testBasicOperationFailure(int reads, int writes, int failures, int threads) {
+    private void testBasicOperationFailure(int reads, int writes, int failures, int threads)
+            throws Exception {
         VectorClock clock = getClock(1);
         Versioned<byte[]> versioned = new Versioned<byte[]>(aValue, clock);
         RoutedStore routedStore = getStore(cluster,
@@ -225,14 +246,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
-    public void testBasicOperationFailureMultiThreaded() {
+    public void testBasicOperationFailureMultiThreaded() throws Exception {
         testBasicOperationFailure(cluster.getNumberOfNodes() - 2,
                                   cluster.getNumberOfNodes() - 2,
                                   4,
                                   4);
     }
 
-    public void testPutIncrementsVersion() {
+    public void testPutIncrementsVersion() throws Exception {
         Store<ByteArray, byte[]> store = getStore();
         VectorClock clock = new VectorClock();
         VectorClock copy = clock.clone();
@@ -248,11 +269,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     // write me
     }
 
-    public void testOnlyNodeFailuresDisableNode() {
-        Cluster cluster;
-
+    public void testOnlyNodeFailuresDisableNode() throws Exception {
         // test put
         cluster = getNineNodeCluster();
+
         Store<ByteArray, byte[]> s1 = getStore(cluster,
                                                1,
                                                9,
@@ -266,9 +286,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 9);
+        assertOperationalNodes(9);
 
         cluster = getNineNodeCluster();
+
         Store<ByteArray, byte[]> s2 = getStore(cluster,
                                                1,
                                                9,
@@ -282,10 +303,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 0);
+        assertOperationalNodes(0);
 
         // test get
         cluster = getNineNodeCluster();
+
         s1 = getStore(cluster,
                       1,
                       9,
@@ -299,9 +321,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 9);
+        assertOperationalNodes(9);
 
         cluster = getNineNodeCluster();
+
         s2 = getStore(cluster,
                       1,
                       9,
@@ -315,10 +338,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 0);
+        assertOperationalNodes(0);
 
         // test delete
         cluster = getNineNodeCluster();
+
         s1 = getStore(cluster,
                       1,
                       9,
@@ -332,9 +356,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 9);
+        assertOperationalNodes(9);
 
         cluster = getNineNodeCluster();
+
         s2 = getStore(cluster,
                       1,
                       9,
@@ -348,14 +373,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
-        assertOperationalNodes(cluster, 0);
+        assertOperationalNodes(0);
     }
 
     /**
      * Tests that getAll works correctly with a node down in a two node cluster.
      */
-    public void testGetAllWithNodeDown() {
-        Cluster cluster = VoldemortTestConstants.getTwoNodeCluster();
+    public void testGetAllWithNodeDown() throws Exception {
+        cluster = VoldemortTestConstants.getTwoNodeCluster();
 
         RoutedStore routedStore = getStore(cluster, 1, 2, 1, 0);
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
@@ -369,7 +394,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             expectedValues.put(key, value);
         }
 
-        cluster.getNodes().iterator().next().getStatus().setUnavailable();
+        nodeAvailabilityDetector.recordException(cluster.getNodes().iterator().next(), null);
 
         Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet());
         assertEquals(expectedValues.size(), all.size());
@@ -379,8 +404,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
-    public void testGetAllWithFailingStore() {
-        Cluster cluster = VoldemortTestConstants.getTwoNodeCluster();
+    public void testGetAllWithFailingStore() throws Exception {
+        cluster = VoldemortTestConstants.getTwoNodeCluster();
 
         StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
                                                                2,
@@ -396,13 +421,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
                       new FailingReadsStore<ByteArray, byte[]>("test"));
 
+        setNodeAvailabilityDetector(subStores);
+
         RoutedStore routedStore = new RoutedStore("test",
                                                   subStores,
                                                   cluster,
                                                   storeDef,
                                                   1,
                                                   true,
-                                                  1000L);
+                                                  1000L,
+                                                  nodeAvailabilityDetector);
 
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
@@ -428,8 +456,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
      * 
      * http://github.com/voldemort/voldemort/issues#issue/18
      */
-    public void testGetAllWithMorePreferredReadsThanNodes() {
-        Cluster cluster = VoldemortTestConstants.getTwoNodeCluster();
+    public void testGetAllWithMorePreferredReadsThanNodes() throws Exception {
+        cluster = VoldemortTestConstants.getTwoNodeCluster();
 
         StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
                                                                2,
@@ -445,18 +473,20 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
                       new InMemoryStorageEngine<ByteArray, byte[]>("test"));
 
+        setNodeAvailabilityDetector(subStores);
         RoutedStore routedStore = new RoutedStore("test",
                                                   subStores,
                                                   cluster,
                                                   storeDef,
                                                   1,
                                                   true,
-                                                  1000L);
+                                                  1000L,
+                                                  nodeAvailabilityDetector);
 
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
         store.put(aKey, Versioned.value(aValue));
-        cluster.getNodes().iterator().next().getStatus().setUnavailable();
+        nodeAvailabilityDetector.recordException(cluster.getNodes().iterator().next(), null);
         Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(Arrays.asList(aKey));
         assertEquals(1, all.size());
         assertTrue(Arrays.equals(aValue, all.values().iterator().next().get(0).getValue()));
@@ -466,16 +496,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
      * See Issue #89: Sequential retrieval in RoutedStore.get doesn't consider
      * repairReads.
      */
-    public void testReadRepairWithFailures() throws InterruptedException {
-        Cluster cluster = getNineNodeCluster();
-        // Disable node 1 so that the first put also goes to the last node
-        Iterables.get(cluster.getNodes(), 1).getStatus().setUnavailable();
+    public void testReadRepairWithFailures() throws Exception {
+        cluster = getNineNodeCluster();
 
         RoutedStore routedStore = getStore(cluster,
                                            cluster.getNumberOfNodes() - 1,
                                            cluster.getNumberOfNodes() - 1,
                                            1,
                                            0);
+        // Disable node 1 so that the first put also goes to the last node
+        nodeAvailabilityDetector.recordException(Iterables.get(cluster.getNodes(), 1), null);
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
         store.put(aKey, new Versioned<byte[]>(aValue));
@@ -484,16 +514,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         // Disable the last node and enable node 1 to prevent the last node from
         // getting the new version
-        Iterables.getLast(cluster.getNodes()).getStatus().setUnavailable();
-        Iterables.get(cluster.getNodes(), 1).getStatus().setAvailable();
+        nodeAvailabilityDetector.recordException(Iterables.getLast(cluster.getNodes()), null);
+        nodeAvailabilityDetector.recordSuccess(Iterables.get(cluster.getNodes(), 1));
         VectorClock clock = getClock(1);
         store.put(aKey, new Versioned<byte[]>(anotherValue, clock));
 
         // Enable last node and disable node 1, the following get should cause a
         // read repair on the last node in the code path that is only executed
         // if there are failures.
-        Iterables.get(cluster.getNodes(), 1).getStatus().setUnavailable();
-        Iterables.getLast(cluster.getNodes()).getStatus().setAvailable();
+        nodeAvailabilityDetector.recordException(Iterables.get(cluster.getNodes(), 1), null);
+        nodeAvailabilityDetector.recordSuccess(Iterables.getLast(cluster.getNodes()));
         List<Versioned<byte[]>> versioneds = store.get(aKey);
         assertEquals(1, versioneds.size());
         assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
@@ -516,8 +546,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
      * This issue would only happen with one node down and another that was slow
      * to respond.
      */
-    public void testPutWithOneNodeDownAndOneNodeSlow() {
-        Cluster cluster = VoldemortTestConstants.getThreeNodeCluster();
+    public void testPutWithOneNodeDownAndOneNodeSlow() throws Exception {
+        cluster = VoldemortTestConstants.getThreeNodeCluster();
         StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
                                                                3,
                                                                2,
@@ -539,21 +569,22 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
                       new SleepyStore<ByteArray, byte[]>(100,
                                                          new InMemoryStorageEngine<ByteArray, byte[]>("test")));
-
+        setNodeAvailabilityDetector(subStores);
         RoutedStore routedStore = new RoutedStore("test",
                                                   subStores,
                                                   cluster,
                                                   storeDef,
                                                   1,
                                                   true,
-                                                  1000L);
+                                                  1000L,
+                                                  nodeAvailabilityDetector);
 
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
         store.put(aKey, new Versioned<byte[]>(aValue));
     }
 
-    public void testPutTimeout() {
+    public void testPutTimeout() throws Exception {
         int timeout = 50;
         StoreDefinition definition = new StoreDefinition("test",
                                                          "foo",
@@ -580,13 +611,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             nodes.add(new Node(i, "none", 0, 0, partitions));
         }
 
+        setNodeAvailabilityDetector(stores);
+
         RoutedStore routedStore = new RoutedStore("test",
                                                   stores,
                                                   new Cluster("test", nodes),
                                                   definition,
                                                   3,
                                                   false,
-                                                  timeout);
+                                                  timeout,
+                                                  nodeAvailabilityDetector);
 
         long start = System.currentTimeMillis();
         try {
@@ -599,12 +633,19 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
-    public void assertOperationalNodes(Cluster cluster, int expected) {
+    public void assertOperationalNodes(int expected) {
         int found = 0;
         for(Node n: cluster.getNodes())
-            if(n.getStatus().isAvailable())
+            if(nodeAvailabilityDetector.isAvailable(n))
                 found++;
         assertEquals("Number of operational nodes not what was expected.", expected, found);
+    }
+
+    private void setNodeAvailabilityDetector(Map<Integer, Store<ByteArray, byte[]>> subStores)
+            throws Exception {
+        nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
+        nodeAvailabilityDetector.setNodeBannageMs(10000);
+        nodeAvailabilityDetector.setStores(subStores);
     }
 
 }

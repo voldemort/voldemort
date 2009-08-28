@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.nodeavailabilitydetector.BannageTimeNodeAvailabilityDetector;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -125,6 +126,7 @@ public class VoldemortConfig implements Serializable {
 
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
+    private String nodeAvailabilityDetector;
 
     public VoldemortConfig(int nodeId, String voldemortHome) {
         this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
@@ -228,6 +230,9 @@ public class VoldemortConfig implements Serializable {
         String requestFormatName = props.getString("request.format",
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
+
+        this.nodeAvailabilityDetector = props.getString("node.availability.detector",
+                                                        BannageTimeNodeAvailabilityDetector.class.getName());
 
         validateParams();
     }
@@ -801,4 +806,13 @@ public class VoldemortConfig implements Serializable {
     public void setNumCleanupPermits(int numCleanupPermits) {
         this.numCleanupPermits = numCleanupPermits;
     }
+
+    public String getNodeAvailabilityDetector() {
+        return nodeAvailabilityDetector;
+    }
+
+    public void setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
+        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+    }
+
 }

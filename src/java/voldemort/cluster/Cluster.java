@@ -24,13 +24,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.management.MBeanOperationInfo;
-
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxOperation;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Sets;
@@ -94,15 +91,6 @@ public class Cluster implements Serializable {
     @JmxGetter(name = "numberOfNodes", description = "The number of nodes in the cluster.")
     public int getNumberOfNodes() {
         return nodesById.size();
-    }
-
-    @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The time since last marked unavailable")
-    public int getNumberOfAvailableNodes(long time) {
-        int available = 0;
-        for(Node node: this.nodesById.values())
-            if(!node.getStatus().isUnavailable(time))
-                available += 1;
-        return available;
     }
 
     public int getNumberOfPartitions() {

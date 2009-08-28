@@ -41,23 +41,12 @@ public class Node implements Serializable {
     private final int httpPort;
     private final int socketPort;
     private final List<Integer> partitions;
-    private final NodeStatus status;
 
     public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, partitions, new NodeStatus());
-    }
-
-    public Node(int id,
-                String host,
-                int httpPort,
-                int socketPort,
-                List<Integer> partitions,
-                NodeStatus status) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
-        this.status = status;
         this.partitions = ImmutableList.copyOf(partitions);
     }
 
@@ -75,10 +64,6 @@ public class Node implements Serializable {
 
     public int getId() {
         return id;
-    }
-
-    public NodeStatus getStatus() {
-        return status;
     }
 
     public List<Integer> getPartitionIds() {

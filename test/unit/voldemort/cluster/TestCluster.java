@@ -16,48 +16,47 @@
 
 package voldemort.cluster;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import junit.framework.Test;
 import junit.framework.TestCase;
-import voldemort.MockTime;
+import voldemort.NodeAvailabilityDetectorTestCase;
+import voldemort.TestUtils;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 
 import com.google.common.collect.ImmutableList;
 
-public class TestCluster extends TestCase {
+public class TestCluster extends TestCase implements NodeAvailabilityDetectorTestCase {
 
     private String clusterName = "test";
-    private MockTime time = new MockTime();
     private List<Node> nodes;
     private Cluster cluster;
+    private Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass;
+    private NodeAvailabilityDetector nodeAvailabilityDetector;
+
+    public static Test suite() {
+        return TestUtils.createNodeAvailabilityDetectorTestSuite(TestCluster.class);
+    }
 
     @Override
-    public void setUp() {
-        this.nodes = ImmutableList.of(new Node(1,
-                                               "test1",
-                                               1,
-                                               1,
-                                               ImmutableList.of(1, 2, 3),
-                                               new NodeStatus(time)),
-                                      new Node(2,
-                                               "test1",
-                                               2,
-                                               2,
-                                               ImmutableList.of(3, 5, 6),
-                                               new NodeStatus(time)),
-                                      new Node(3,
-                                               "test1",
-                                               3,
-                                               3,
-                                               ImmutableList.of(7, 8, 9),
-                                               new NodeStatus(time)),
-                                      new Node(4,
-                                               "test1",
-                                               4,
-                                               4,
-                                               ImmutableList.of(10, 11, 12),
-                                               new NodeStatus(time)));
+    public void setUp() throws Exception {
+        this.nodes = ImmutableList.of(new Node(1, "test1", 1, 1, ImmutableList.of(1, 2, 3)),
+                                      new Node(2, "test1", 2, 2, ImmutableList.of(3, 5, 6)),
+                                      new Node(3, "test1", 3, 3, ImmutableList.of(7, 8, 9)),
+                                      new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
+
+        nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
+        nodeAvailabilityDetector.setNodeBannageMs(10000);
+        nodeAvailabilityDetector.setStores(new HashMap<Integer, Store<ByteArray, byte[]>>());
+    }
+
+    public void setNodeAvailabilityDetectorClass(Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass) {
+        this.nodeAvailabilityDetectorClass = nodeAvailabilityDetectorClass;
     }
 
     public void testBasics() {
@@ -68,38 +67,25 @@ public class TestCluster extends TestCase {
     }
 
     public void testStatusBeginsAsAvailable() {
-        for(Node n: cluster.getNodes()) {
-            assertTrue("Node " + n.getId() + " is not available.", n.getStatus().isAvailable());
-            assertFalse("Node " + n.getId() + " is not available.", n.getStatus().isUnavailable());
-        }
+        for(Node n: cluster.getNodes())
+            assertTrue("Node " + n.getId() + " is not available.",
+                       nodeAvailabilityDetector.isAvailable(n));
     }
 
     public void testUnavailability() {
         Node n = cluster.getNodeById(1);
-        NodeStatus status = n.getStatus();
 
         // begins available
-        assertTrue(status.isAvailable());
-        assertFalse(status.isUnavailable());
+        assertTrue(nodeAvailabilityDetector.isAvailable(n));
 
         // if set unavailable, is unavailable
-        status.setUnavailable();
-        assertFalse(status.isAvailable());
-        assertTrue(status.isUnavailable());
-        assertTrue(status.isUnavailable(10));
-
-        // after 11 ms of no ops, still unavailable, but not
-        // if checked with expiration
-        time.addMilliseconds(11);
-        assertTrue(status.isUnavailable());
-        assertFalse(status.isAvailable());
-        assertFalse(status.isUnavailable(10));
+        nodeAvailabilityDetector.recordException(n, null);
+        assertFalse(nodeAvailabilityDetector.isAvailable(n));
 
         // if we set it back to available then it is available again
-        status.setAvailable();
-        assertTrue(status.isAvailable());
-        assertFalse(status.isUnavailable());
-        assertFalse(status.isUnavailable(10));
+        nodeAvailabilityDetector.recordSuccess(n);
+
+        assertTrue(nodeAvailabilityDetector.isAvailable(n));
     }
 
 }

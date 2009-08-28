@@ -22,6 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.nodeavailabilitydetector.BannageTimeNodeAvailabilityDetector;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.Props;
@@ -51,6 +52,7 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
+    private String nodeAvailabilityDetector = BannageTimeNodeAvailabilityDetector.class.getName();
 
     public ClientConfig() {}
 
@@ -70,6 +72,7 @@ public class ClientConfig {
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
+    public static final String NODE_AVAILABILITY_DETECTOR_PROPERTY = "node_availability_detector";
 
     /**
      * Initiate the client config from a set of properties. This is useful for
@@ -127,6 +130,8 @@ public class ClientConfig {
         if(props.containsKey(ENABLE_JMX_PROPERTY))
             this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
 
+        if(props.containsKey(NODE_AVAILABILITY_DETECTOR_PROPERTY))
+            this.setNodeAvailabilityDetector(props.getString(NODE_AVAILABILITY_DETECTOR_PROPERTY));
     }
 
     public int getMaxConnectionsPerNode() {
@@ -374,4 +379,13 @@ public class ClientConfig {
         this.enableJmx = enableJmx;
         return this;
     }
+
+    public String getNodeAvailabilityDetector() {
+        return nodeAvailabilityDetector;
+    }
+
+    public void setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
+        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+    }
+
 }

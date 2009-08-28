@@ -24,13 +24,10 @@ import java.util.List;
 import java.util.Random;
 
 import junit.framework.TestCase;
-import voldemort.MockTime;
 import voldemort.cluster.Node;
-import voldemort.cluster.NodeStatus;
 import voldemort.utils.ConstantHashFunction;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
-import voldemort.utils.Time;
 import cern.jet.random.ChiSquare;
 import cern.jet.random.engine.MersenneTwister;
 
@@ -41,7 +38,6 @@ import com.google.common.collect.Multiset;
 public class ConsistentRoutingStrategyTest extends TestCase {
 
     private final byte[] key = new byte[0];
-    private final Time time = new MockTime(0);
 
     private List<Node> getTestNodes() {
         return ImmutableList.of(node(0, 2, 7, 14),
@@ -183,7 +179,7 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         List<Integer> list = new ArrayList<Integer>(tags.length);
         for(int tag: tags)
             list.add(tag);
-        return new Node(id, "localhost", 8080, 6666, list, new NodeStatus(time));
+        return new Node(id, "localhost", 8080, 6666, list);
     }
 
 }
