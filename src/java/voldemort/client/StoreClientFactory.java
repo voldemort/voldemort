@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -77,5 +78,14 @@ public interface StoreClientFactory {
      * Close the store client
      */
     public void close();
+
+    /**
+     * Returns the NodeAvailabilityDetector specific to the cluster against
+     * which this client factory is based.
+     * 
+     * @return NodeAvailabilityDetector
+     */
+
+    public NodeAvailabilityDetector getNodeAvailabilityDetector();
 
 }

@@ -199,6 +199,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializedStore;
     }
 
+    public NodeAvailabilityDetector getNodeAvailabilityDetector() {
+        return nodeAvailabilityDetector;
+    }
+
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
@@ -269,10 +273,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public long getRoutingTimeoutMs() {
         return routingTimeoutMs;
-    }
-
-    public NodeAvailabilityDetector getNodeAvailabilityDetector() {
-        return nodeAvailabilityDetector;
     }
 
     public SerializerFactory getSerializerFactory() {

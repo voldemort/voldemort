@@ -31,6 +31,7 @@ import java.util.Set;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.serialization.SerializationException;
@@ -66,7 +67,7 @@ public class VoldemortClientShell {
         }
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl);
-        SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
+        StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
         DefaultStoreClient<Object, Object> client = null;
         try {

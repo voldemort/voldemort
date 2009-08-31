@@ -33,8 +33,8 @@ public class NodeAvailabilityDetectorUtils {
                       config.getNodeBannagePeriod(TimeUnit.MILLISECONDS));
     }
 
-    public static NodeAvailabilityDetector create(String nodeAvailabilityDetectorClassName,
-                                                  long nodeBannageMillis) {
+    private static NodeAvailabilityDetector create(String nodeAvailabilityDetectorClassName,
+                                                   long nodeBannageMillis) {
         Class<?> clazz = ReflectUtils.loadClass(nodeAvailabilityDetectorClassName);
         NodeAvailabilityDetector nad = (NodeAvailabilityDetector) ReflectUtils.callConstructor(clazz,
                                                                                                new Object[] {});

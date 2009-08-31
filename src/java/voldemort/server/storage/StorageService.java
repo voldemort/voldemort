@@ -36,7 +36,6 @@ import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -87,16 +86,19 @@ public class StorageService extends AbstractService {
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
+    private final NodeAvailabilityDetector nodeAvailabilityDetector;
 
     public StorageService(StoreRepository storeRepository,
                           VoldemortMetadata metadata,
                           SchedulerService scheduler,
-                          VoldemortConfig config) {
+                          VoldemortConfig config,
+                          NodeAvailabilityDetector nodeAvailabilityDetector) {
         super(ServiceType.STORAGE);
         this.voldemortConfig = config;
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
+        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
         this.cleanupPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
@@ -208,8 +210,6 @@ public class StorageService extends AbstractService {
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
-
-        NodeAvailabilityDetector nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(voldemortConfig);
 
         Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
                                                                nodeStores,
