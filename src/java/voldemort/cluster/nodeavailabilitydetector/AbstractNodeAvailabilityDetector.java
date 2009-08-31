@@ -36,7 +36,7 @@ public abstract class AbstractNodeAvailabilityDetector implements NodeAvailabili
 
     protected Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    protected long nodeBannageMs;
+    protected long nodeBannagePeriod;
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
@@ -58,12 +58,12 @@ public abstract class AbstractNodeAvailabilityDetector implements NodeAvailabili
         this.stores = stores;
     }
 
-    public long getNodeBannageMs() {
-        return nodeBannageMs;
+    public long getNodeBannagePeriod() {
+        return nodeBannagePeriod;
     }
 
-    public void setNodeBannageMs(long nodeBannageMs) {
-        this.nodeBannageMs = nodeBannageMs;
+    public void setNodeBannagePeriod(long nodeBannagePeriod) {
+        this.nodeBannagePeriod = nodeBannagePeriod;
     }
 
     @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of available nodes")

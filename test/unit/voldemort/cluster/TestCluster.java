@@ -51,7 +51,7 @@ public class TestCluster extends TestCase implements NodeAvailabilityDetectorTes
         this.cluster = new Cluster(clusterName, nodes);
 
         nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
-        nodeAvailabilityDetector.setNodeBannageMs(10000);
+        nodeAvailabilityDetector.setNodeBannagePeriod(10000);
         nodeAvailabilityDetector.setStores(new HashMap<Integer, Store<ByteArray, byte[]>>());
     }
 

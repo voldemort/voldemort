@@ -36,8 +36,8 @@ public interface NodeAvailabilityDetector {
 
     public void setStores(Map<Integer, Store<ByteArray, byte[]>> stores);
 
-    public long getNodeBannageMs();
+    public long getNodeBannagePeriod();
 
-    public void setNodeBannageMs(long nodeBannageMs);
+    public void setNodeBannagePeriod(long nodeBannagePeriod);
 
 }

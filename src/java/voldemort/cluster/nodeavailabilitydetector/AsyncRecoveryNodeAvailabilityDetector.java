@@ -72,7 +72,7 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
 
         while(!Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(nodeBannageMs);
+                Thread.sleep(nodeBannagePeriod);
             } catch(InterruptedException e) {
                 break;
             }

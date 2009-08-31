@@ -35,6 +35,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -52,7 +53,6 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
@@ -107,10 +107,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         registerThreadPoolJmx(threadPool);
 
-        Class<?> factoryClass = ReflectUtils.loadClass(config.getNodeAvailabilityDetector());
-        nodeAvailabilityDetector = (NodeAvailabilityDetector) ReflectUtils.callConstructor(factoryClass,
-                                                                                           new Object[] {});
-        nodeAvailabilityDetector.setNodeBannageMs(config.getNodeBannagePeriod(TimeUnit.MILLISECONDS));
+        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(config);
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {

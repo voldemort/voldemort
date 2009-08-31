@@ -644,7 +644,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
     private void setNodeAvailabilityDetector(Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
         nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
-        nodeAvailabilityDetector.setNodeBannageMs(10000);
+        nodeAvailabilityDetector.setNodeBannagePeriod(10000);
         nodeAvailabilityDetector.setStores(subStores);
     }
 

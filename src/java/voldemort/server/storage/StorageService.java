@@ -36,6 +36,7 @@ import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -208,10 +209,7 @@ public class StorageService extends AbstractService {
             nodeStores.put(node.getId(), store);
         }
 
-        Class<?> factoryClass = ReflectUtils.loadClass(voldemortConfig.getNodeAvailabilityDetector());
-        NodeAvailabilityDetector nodeAvailabilityDetector = (NodeAvailabilityDetector) ReflectUtils.callConstructor(factoryClass,
-                                                                                                                    new Object[] {});
-        nodeAvailabilityDetector.setNodeBannageMs(voldemortConfig.getClientNodeBannageMs());
+        NodeAvailabilityDetector nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(voldemortConfig);
 
         Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
                                                                nodeStores,

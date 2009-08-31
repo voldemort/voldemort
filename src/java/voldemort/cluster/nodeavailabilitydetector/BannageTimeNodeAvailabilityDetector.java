@@ -18,16 +18,15 @@ package voldemort.cluster.nodeavailabilitydetector;
 
 import voldemort.cluster.Node;
 
-public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilityDetector implements
-        NodeAvailabilityDetector {
+public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilityDetector {
 
     public boolean isAvailable(Node node) {
-        return !getNodeStatus(node).isUnavailable(nodeBannageMs);
+        return !getNodeStatus(node).isUnavailable(nodeBannagePeriod);
     }
 
     public void recordException(Node node, Exception e) {
         logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                    + " marking as unavailable for " + nodeBannageMs + " ms.", e);
+                    + " marking as unavailable for " + nodeBannagePeriod + " ms.", e);
         logger.debug(e);
 
         getNodeStatus(node).setUnavailable();
