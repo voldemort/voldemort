@@ -92,12 +92,16 @@ public class JmxService extends AbstractService {
 
     private void registerBean(Object o, ObjectName name) {
         synchronized(registeredBeans) {
-            if(mbeanServer.isRegistered(name)) {
-                logger.warn("Overwriting mbean " + name);
-                JmxUtils.unregisterMbean(mbeanServer, name);
+            try {
+                if(mbeanServer.isRegistered(name)) {
+                    logger.warn("Overwriting mbean " + name);
+                    JmxUtils.unregisterMbean(mbeanServer, name);
+                }
+                JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(o), name);
+                this.registeredBeans.add(name);
+            } catch(Exception e) {
+                logger.error("Error registering bean with name '" + name + "':", e);
             }
-            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(o), name);
-            this.registeredBeans.add(name);
         }
     }
 

@@ -31,6 +31,8 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 
 /**
@@ -92,16 +94,24 @@ public class ProtoUtils {
         return ByteString.copyFrom(array.get());
     }
 
-    public static void writeWithSize(DataOutputStream output, Message message) throws IOException {
-        byte[] bytes = message.toByteArray();
-        output.writeInt(bytes.length);
-        output.write(bytes);
+    public static void writeMessage(DataOutputStream output, Message message) throws IOException {
+        /*
+         * We don't use varints here because the c++ version of the protocol
+         * buffer classes seem to be buggy requesting more data than necessary
+         * from the underlying stream causing it to block forever
+         */
+        output.writeInt(message.getSerializedSize());
+        CodedOutputStream codedOut = CodedOutputStream.newInstance(output);
+        message.writeTo(codedOut);
+        codedOut.flush();
     }
 
-    public static byte[] readWithSize(DataInputStream input) throws IOException {
+    public static <T extends Message.Builder> T readToBuilder(DataInputStream input, T builder)
+            throws IOException {
         int size = input.readInt();
-        byte[] bytes = new byte[size];
-        input.readFully(bytes);
-        return bytes;
+        CodedInputStream codedIn = CodedInputStream.newInstance(input);
+        codedIn.pushLimit(size);
+        builder.mergeFrom(codedIn);
+        return builder;
     }
 }

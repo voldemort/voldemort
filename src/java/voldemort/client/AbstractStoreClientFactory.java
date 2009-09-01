@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -34,10 +35,14 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressingStore;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
@@ -66,6 +71,8 @@ import com.google.common.collect.Maps;
  */
 public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
+    private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
+
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
     public static final int DEFAULT_NODE_BANNAGE_MS = 10000;
 
@@ -81,6 +88,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
+    private final int jmxId;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -96,7 +104,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
         else
             this.mbeanServer = null;
-        registerJmx(JmxUtils.createObjectName(threadPool.getClass()), threadPool);
+        this.jmxId = jmxIdCounter.getAndIncrement();
+        registerThreadPoolJmx(threadPool);
+    }
+
+    private void registerThreadPoolJmx(ExecutorService threadPool) {
+        try {
+            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                  JmxUtils.getClassName(threadPool.getClass())
+                                                          + jmxId), threadPool);
+        } catch(Exception e) {
+            logger.error("Error registering threadpool jmx: ", e);
+        }
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -147,8 +166,19 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         if(isJmxEnabled) {
             store = new StatTrackingStore(store);
-            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                  store.getName()), store);
+            try {
+                registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                      store.getName() + jmxId), store);
+            } catch(Exception e) {
+                logger.error("Error in JMX registration: ", e);
+            }
+        }
+
+        if(storeDef.getKeySerializer().hasCompression()
+           || storeDef.getValueSerializer().hasCompression()) {
+            store = new CompressingStore(store,
+                                         getCompressionStrategy(storeDef.getKeySerializer()),
+                                         getCompressionStrategy(storeDef.getValueSerializer()));
         }
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
@@ -165,6 +195,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                 new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                   secondaryResolver));
         return serializedStore;
+    }
+
+    private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
+        return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {
@@ -245,9 +279,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected void registerJmx(ObjectName name, Object object) {
         if(this.isJmxEnabled) {
-            if(mbeanServer.isRegistered(name))
-                JmxUtils.unregisterMbean(mbeanServer, name);
-            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
+            synchronized(mbeanServer) {
+                try {
+
+                    if(mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+                    JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
+                } catch(Exception e) {
+                    logger.error("Error while registering mbean: ", e);
+                }
+            }
         }
     }
 

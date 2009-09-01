@@ -30,6 +30,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.DefaultRebalanceClient;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.cluster.Cluster;
@@ -74,21 +75,13 @@ public class RebalancingClientTest extends TestCase {
     @Override
     public void setUp() throws IOException {
         // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(3);
-        Node node0 = new Node(0,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 0, 1 }));
+        int[] ports = ServerTestUtils.findFreePorts(2);
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 0,
+                1 }));
 
         ports = ServerTestUtils.findFreePorts(3);
-        Node node1 = new Node(1,
-                              "localhost",
-                              ports[0],
-                              ports[1],
-                              ports[2],
-                              Arrays.asList(new Integer[] { 2, 3 }));
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 2,
+                3 }));
 
         Cluster cluster = new Cluster("rebalancing-client-test", Arrays.asList(new Node[] { node0,
                 node1 }));
@@ -112,7 +105,7 @@ public class RebalancingClientTest extends TestCase {
         // create RebalanceClient with high timeouts
         rebalanceClient = new DefaultRebalanceClient(0,
                                                      server0.getVoldemortMetadata(),
-                                                     new SocketPool(1, 2, 20000, 10000, 32 * 1024));
+                                                     new SocketPool(1, 2, 20000, 10000));
     }
 
     @Override
@@ -197,13 +190,12 @@ public class RebalancingClientTest extends TestCase {
                                                              node0.getHost(),
                                                              node0.getHttpPort(),
                                                              node0.getSocketPort(),
-                                                             node0.getAdminPort(),
+
                                                              Arrays.asList(0, 1, 2)),
                                                     new Node(node1.getId(),
                                                              node1.getHost(),
                                                              node1.getHttpPort(),
                                                              node1.getSocketPort(),
-                                                             node1.getAdminPort(),
                                                              Arrays.asList(3)) }));
 
         // do steal partitions
@@ -249,13 +241,12 @@ public class RebalancingClientTest extends TestCase {
                                                              node0.getHost(),
                                                              node0.getHttpPort(),
                                                              node0.getSocketPort(),
-                                                             node0.getAdminPort(),
+
                                                              Arrays.asList(0)),
                                                     new Node(node1.getId(),
                                                              node1.getHost(),
                                                              node1.getHttpPort(),
                                                              node1.getSocketPort(),
-                                                             node1.getAdminPort(),
                                                              Arrays.asList(1, 2, 3)) }));
 
         // do donate partitions
@@ -293,13 +284,12 @@ public class RebalancingClientTest extends TestCase {
                                                                    node0.getHost(),
                                                                    node0.getHttpPort(),
                                                                    node0.getSocketPort(),
-                                                                   node0.getAdminPort(),
+
                                                                    Arrays.asList(0, 1, 2)),
                                                           new Node(node1.getId(),
                                                                    node1.getHost(),
                                                                    node1.getHttpPort(),
                                                                    node1.getSocketPort(),
-                                                                   node1.getAdminPort(),
                                                                    Arrays.asList(3)) }));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -340,13 +330,12 @@ public class RebalancingClientTest extends TestCase {
                                                                    node0.getHost(),
                                                                    node0.getHttpPort(),
                                                                    node0.getSocketPort(),
-                                                                   node0.getAdminPort(),
+
                                                                    Arrays.asList(0)),
                                                           new Node(node1.getId(),
                                                                    node1.getHost(),
                                                                    node1.getHttpPort(),
                                                                    node1.getSocketPort(),
-                                                                   node1.getAdminPort(),
                                                                    Arrays.asList(1, 2, 3)) }));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -388,13 +377,12 @@ public class RebalancingClientTest extends TestCase {
                                                                    node0.getHost(),
                                                                    node0.getHttpPort(),
                                                                    node0.getSocketPort(),
-                                                                   node0.getAdminPort(),
+
                                                                    Arrays.asList(0, 1, 2)),
                                                           new Node(node1.getId(),
                                                                    node1.getHost(),
                                                                    node1.getHttpPort(),
                                                                    node1.getSocketPort(),
-                                                                   node1.getAdminPort(),
                                                                    Arrays.asList(3)) }));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -449,13 +437,12 @@ public class RebalancingClientTest extends TestCase {
                                                                    node0.getHost(),
                                                                    node0.getHttpPort(),
                                                                    node0.getSocketPort(),
-                                                                   node0.getAdminPort(),
+
                                                                    Arrays.asList(0)),
                                                           new Node(node1.getId(),
                                                                    node1.getHost(),
                                                                    node1.getHttpPort(),
                                                                    node1.getSocketPort(),
-                                                                   node1.getAdminPort(),
                                                                    Arrays.asList(1, 2, 3)) }));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -505,13 +492,12 @@ public class RebalancingClientTest extends TestCase {
                                                                     node0.getHost(),
                                                                     node0.getHttpPort(),
                                                                     node0.getSocketPort(),
-                                                                    node0.getAdminPort(),
+
                                                                     Arrays.asList(0, 1, 2)),
                                                            new Node(node1.getId(),
                                                                     node1.getHost(),
                                                                     node1.getHttpPort(),
                                                                     node1.getSocketPort(),
-                                                                    node1.getAdminPort(),
                                                                     Arrays.asList(3)) }));
 
         final Cluster targetCluster2 = new Cluster("rebalancing-client-test-donate",
@@ -520,13 +506,13 @@ public class RebalancingClientTest extends TestCase {
                                                                     node0.getHost(),
                                                                     node0.getHttpPort(),
                                                                     node0.getSocketPort(),
-                                                                    node0.getAdminPort(),
+
                                                                     Arrays.asList(0)),
                                                            new Node(node1.getId(),
                                                                     node1.getHost(),
                                                                     node1.getHttpPort(),
                                                                     node1.getSocketPort(),
-                                                                    node1.getAdminPort(),
+
                                                                     Arrays.asList(1, 2, 3)) }));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -575,7 +561,7 @@ public class RebalancingClientTest extends TestCase {
         SocketStore socketStore = ServerTestUtils.getSocketStore(storeName,
                                                                  server.getIdentityNode()
                                                                        .getSocketPort(),
-                                                                 10000);
+                                                                 RequestFormatType.VOLDEMORT_V0);
         for(Entry<ByteArray, byte[]> entry: keyValMap.entrySet()) {
             int keyPartition = routingStrategy.getPartitionList(entry.getKey().get()).get(0);
             if(checkPartitionsList.contains(keyPartition)) {
@@ -596,7 +582,7 @@ public class RebalancingClientTest extends TestCase {
         SocketStore socketStore = ServerTestUtils.getSocketStore(storeName,
                                                                  server.getIdentityNode()
                                                                        .getSocketPort(),
-                                                                 10000);
+                                                                 RequestFormatType.VOLDEMORT_V1);
         for(Entry<ByteArray, byte[]> entry: keyValMap.entrySet()) {
             int keyPartition = routingStrategy.getPartitionList(entry.getKey().get()).get(0);
             if(checkPartitionsList.contains(keyPartition)) {

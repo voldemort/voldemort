@@ -5,8 +5,6 @@
 #  echo "USAGE: $0 "
 #done
 
-EC2_COMMANDS_PATH=
-
 CLUSTER_SIZE=4
 INSTANCE_SIZE=m1.large
 GROUP_NAME=vold-bench

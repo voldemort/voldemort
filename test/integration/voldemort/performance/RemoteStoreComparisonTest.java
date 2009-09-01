@@ -26,13 +26,14 @@ import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.http.HttpService;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.server.socket.SocketServer;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -91,17 +92,22 @@ public class RemoteStoreComparisonTest {
         String storeName = "test";
         StoreRepository repository = new StoreRepository();
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
-        SocketPool socketPool = new SocketPool(10, 10, 1000, 1000, 32 * 1024);
+        SocketPool socketPool = new SocketPool(10, 1000, 1000, 32 * 1024);
         final SocketStore socketStore = new SocketStore(storeName,
                                                         new SocketDestination("localhost",
                                                                               6666,
                                                                               RequestFormatType.VOLDEMORT_V1),
                                                         socketPool,
                                                         false);
-        RequestHandlerFactory factory = new RequestHandlerFactory(repository, null, null);
-        SocketServer socketServer = new SocketServer(6666, 50, 50, 1000, factory);
-        socketServer.start();
-        socketServer.awaitStartupCompletion();
+        RequestHandlerFactory factory = new RequestHandlerFactory(repository,
+                                                                  null,
+                                                                  ServerTestUtils.getVoldemortConfig());
+        AbstractSocketService socketService = ServerTestUtils.getSocketService(factory,
+                                                                               6666,
+                                                                               50,
+                                                                               50,
+                                                                               1000);
+        socketService.start();
 
         PerformanceTest socketWriteTest = new PerformanceTest() {
 
@@ -138,7 +144,7 @@ public class RemoteStoreComparisonTest {
 
         socketStore.close();
         socketPool.close();
-        socketServer.shutdown();
+        socketService.stop();
 
         /*** Do HTTP tests ***/
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));

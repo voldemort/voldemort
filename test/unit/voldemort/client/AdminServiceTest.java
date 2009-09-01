@@ -28,6 +28,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -38,7 +39,6 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -85,12 +85,6 @@ public class AdminServiceTest extends TestCase {
         server.stop();
     }
 
-    private AdminClient getAdminClient() {
-        return new AdminClient(server.getIdentityNode(),
-                               server.getVoldemortMetadata(),
-                               new SocketPool(100, 100, 2000, 1000, 10000));
-    }
-
     public void testUpdateCluster() {
 
         Cluster cluster = server.getVoldemortMetadata().getCurrentCluster();
@@ -99,7 +93,7 @@ public class AdminServiceTest extends TestCase {
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         // update VoldemortServer cluster.xml
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
 
         client.updateClusterMetadata(server.getIdentityNode().getId(),
                                      updatedCluster,
@@ -107,6 +101,11 @@ public class AdminServiceTest extends TestCase {
 
         assertEquals("Cluster should match", updatedCluster, server.getVoldemortMetadata()
                                                                    .getCurrentCluster());
+    }
+
+    private AdminClientRequestFormat getAdminClient() {
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(),
+                                              server.getVoldemortMetadata());
     }
 
     public void testUpdateOldCluster() {
@@ -118,7 +117,7 @@ public class AdminServiceTest extends TestCase {
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         // update VoldemortServer cluster.xml
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
 
         client.updateClusterMetadata(server.getIdentityNode().getId(),
                                      updatedCluster,
@@ -152,7 +151,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // update server stores info
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
 
         client.updateStoresMetadata(server.getIdentityNode().getId(), storesList);
 
@@ -182,7 +181,7 @@ public class AdminServiceTest extends TestCase {
                                                                                      .getValue()));
 
         // update server stores info
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
 
         assertEquals("ForcedGet should match put value",
                      new String(value),
@@ -193,7 +192,7 @@ public class AdminServiceTest extends TestCase {
 
     public void testStateTransitions() {
         // change to REBALANCING STATE
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
         client.changeServerState(server.getIdentityNode().getId(),
                                  VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
 
@@ -239,27 +238,6 @@ public class AdminServiceTest extends TestCase {
                      state);
     }
 
-    public void testSetStealPartitionList() {
-        AdminClient client = new AdminClient(server.getIdentityNode(),
-                                             server.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 2000, 1000, 10000));
-
-        client.setStealInfo(server.getIdentityNode().getId(), 1, Arrays.asList(5, 6, 7));
-
-        assertEquals("donorNodeId should be set", 1, server.getVoldemortMetadata()
-                                                           .getDonorNode()
-                                                           .getId());
-        assertEquals("StealList should be changed on server",
-                     Arrays.asList(5, 6, 7),
-                     server.getVoldemortMetadata().getCurrentPartitionStealList());
-
-        client.setStealInfo(server.getIdentityNode().getId(), 1, new ArrayList<Integer>());
-
-        assertEquals("StealList should be changed on server for empty list",
-                     new ArrayList<Integer>(),
-                     server.getVoldemortMetadata().getCurrentPartitionStealList());
-    }
-
     public void testFetchAsStream() {
         // user store should be present
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
@@ -274,7 +252,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Get a single partition here
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionEntries(0,
                                                                                                   storeName,
                                                                                                   Arrays.asList(new Integer[] { 0 }));
@@ -324,7 +302,7 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Write
-        AdminClient client = getAdminClient();
+        AdminClientRequestFormat client = getAdminClient();
         client.updatePartitionEntries(0, storeName, entryList.iterator());
 
         for(int i = 100; i <= 104; i++) {
@@ -377,9 +355,8 @@ public class AdminServiceTest extends TestCase {
         }
 
         // use pipeGetAndPutStream to add values to server2
-        AdminClient client = new AdminClient(server2.getIdentityNode(),
-                                             server2.getVoldemortMetadata(),
-                                             new SocketPool(100, 100, 20000, 10000, 10000));
+        AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
+                                                                         server2.getVoldemortMetadata());
 
         List<Integer> stealList = new ArrayList<Integer>();
         stealList.add(0);

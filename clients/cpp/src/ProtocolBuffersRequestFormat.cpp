@@ -30,14 +30,19 @@
 #include "voldemort-client.pb.h"
 #include <arpa/inet.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/io/coded_stream.h>
 
 namespace Voldemort {
 
 using namespace google::protobuf::io;
 
 #define CHECK_STREAM(stream)                                            \
-    if (inputStream->fail())                                            \
+    if (stream->fail())                                                 \
         throw StoreOperationFailureException("Failed to read from input stream");
+
+#define CHECK_STREAM_OUT(stream)                                        \
+    if (stream->fail())                                                 \
+        throw StoreOperationFailureException("Failed to write to output stream");
 
 #define READ_INT(inputStream, val)                                      \
     inputStream->read((char*)&val, 4);                                  \
@@ -101,15 +106,25 @@ static void throwException(const voldemort::Error& error) {
 static void writeMessageWithLength(std::ostream* outputStream,
                                    google::protobuf::Message* message) {
     uint32_t mLen = htonl(message->ByteSize());
+    //OstreamOutputStream zos(outputStream);
+    //CodedOutputStream os(&zos);
+
+    //os.WriteVarint32(message->ByteSize());
     outputStream->write((char*)&mLen, 4);
     message->SerializeToOstream(outputStream);
+    //message->SerializeToCodedStream(&os);
+    CHECK_STREAM_OUT(outputStream);
 }
 
 static void readMessageWithLength(std::istream* inputStream,
                                   google::protobuf::Message* message) {
     uint32_t mLen;
     READ_INT(inputStream, mLen);
-    
+
+    //IstreamInputStream zis(inputStream);
+    //CodedInputStream cis(&zis);
+    //cis.ReadVarint32(&mLen);
+    //
     std::vector<char> buffer(mLen);
     inputStream->read(&buffer[0], mLen);
     CHECK_STREAM(inputStream);

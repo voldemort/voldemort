@@ -19,13 +19,11 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -304,7 +302,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
 
         // A list of thrown exceptions, indicating the number of failures
-        List<Exception> failures = Lists.newArrayList();
+        List<Throwable> failures = Lists.newArrayList();
         List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
 
         Map<ByteArray, MutableInt> keyToSuccessCount = Maps.newHashMap();
@@ -314,12 +312,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         List<Future<GetAllResult>> futures;
         try {
             // TODO What to do about timeouts? They should be longer as getAll
-            // is
-            // likely to
+            // is likely to
             // take longer. At the moment, it's just timeoutMs * 3, but should
-            // this
-            // be based
-            // on the number of the keys?
+            // this be based on the number of the keys?
             futures = executor.invokeAll(callables, timeoutMs * 3, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
@@ -357,11 +352,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException("getAll operation interrupted.", e);
             } catch(ExecutionException e) {
-                // TODO We catch all Exception and subclasses inside
-                // the Callable as get() does. That means that Error
-                // subclasses or classes
-                // that extends Throwable directly escape. What to do about
-                // those?
+                // We catch all Throwables apart from Error in the callable, so
+                // the else part
+                // should never happen
                 if(e.getCause() instanceof Error)
                     throw (Error) e.getCause();
                 else
@@ -433,64 +426,60 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         // quickly fail if there aren't enough nodes to meet the requirement
         checkRequiredReads(nodes);
 
-        final List<Versioned<byte[]>> retrieved = Collections.synchronizedList(new ArrayList<Versioned<byte[]>>());
-        final List<NodeValue<ByteArray, byte[]>> nodeValues = Collections.synchronizedList(new ArrayList<NodeValue<ByteArray, byte[]>>());
+        final List<Versioned<byte[]>> retrieved = Lists.newArrayList();
+        final List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
 
         // A count of the number of successful operations
-        final AtomicInteger successes = new AtomicInteger();
+        int successes = 0;
         // A list of thrown exceptions, indicating the number of failures
-        final List<Exception> failures = Collections.synchronizedList(new LinkedList<Exception>());
+        final List<Throwable> failures = Lists.newArrayListWithCapacity(3);
 
         // Do the preferred number of reads in parallel
         int attempts = Math.min(this.storeDef.getPreferredReads(), nodes.size());
-        final CountDownLatch latch = new CountDownLatch(attempts);
         int nodeIndex = 0;
+        List<Callable<GetResult>> callables = Lists.newArrayListWithCapacity(attempts);
         for(; nodeIndex < attempts; nodeIndex++) {
             final Node node = nodes.get(nodeIndex);
-            this.executor.execute(new Runnable() {
-
-                public void run() {
-                    try {
-                        if(logger.isTraceEnabled())
-                            logger.trace("Attempting get operation on node " + node.getId()
-                                         + " for key '" + ByteUtils.toHexString(key.get()) + "'.");
-                        List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
-                        retrieved.addAll(fetched);
-                        if(repairReads) {
-                            for(Versioned<byte[]> f: fetched)
-                                nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(),
-                                                                                key,
-                                                                                f));
-                        }
-                        successes.incrementAndGet();
-                        node.getStatus().setAvailable();
-                    } catch(UnreachableStoreException e) {
-                        failures.add(e);
-                        markUnavailable(node, e);
-                    } catch(Exception e) {
-                        logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost()
-                                    + ")", e);
-                        failures.add(e);
-                    } finally {
-                        // signal that the operation is complete
-                        latch.countDown();
-                    }
-                }
-            });
+            callables.add(new GetCallable(node, key));
         }
 
-        // Wait for those operations to complete or timeout
+        List<Future<GetResult>> futures;
         try {
-            boolean succeeded = latch.await(timeoutMs, TimeUnit.MILLISECONDS);
-            if(!succeeded)
-                logger.warn("Get operation timed out after " + timeoutMs + " ms.");
+            futures = executor.invokeAll(callables, timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             throw new InsufficientOperationalNodesException("Get operation interrupted!", e);
         }
 
+        for(Future<GetResult> f: futures) {
+            if(f.isCancelled()) {
+                logger.warn("Get operation timed out after " + timeoutMs + " ms.");
+                continue;
+            }
+            try {
+                GetResult getResult = f.get();
+                if(getResult.exception != null) {
+                    failures.add(getResult.exception);
+                    continue;
+                }
+                ++successes;
+                nodeValues.addAll(getResult.nodeValues);
+                retrieved.addAll(getResult.retrieved);
+            } catch(InterruptedException e) {
+                throw new InsufficientOperationalNodesException("Get operation interrupted!", e);
+            } catch(ExecutionException e) {
+                // We catch all Throwable subclasses apart from Error in the
+                // callable, so the else
+                // part should never happen.
+                if(e.getCause() instanceof Error)
+                    throw (Error) e.getCause();
+                else
+                    logger.error(e.getMessage(), e);
+            }
+        }
+
         // Now if we had any failures we will be short a few reads. Do serial
         // reads to make up for these.
-        while(successes.get() < this.storeDef.getPreferredReads() && nodeIndex < nodes.size()) {
+        while(successes < this.storeDef.getPreferredReads() && nodeIndex < nodes.size()) {
             Node node = nodes.get(nodeIndex);
             try {
                 List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
@@ -499,7 +488,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     for(Versioned<byte[]> f: fetched)
                         nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
                 }
-                successes.incrementAndGet();
+                ++successes;
                 node.getStatus().setAvailable();
             } catch(UnreachableStoreException e) {
                 failures.add(e);
@@ -518,14 +507,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(repairReads && retrieved.size() > 1)
             repairReads(nodeValues);
 
-        if(successes.get() >= this.storeDef.getRequiredReads())
+        if(successes >= this.storeDef.getRequiredReads())
             return retrieved;
         else
             throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
-                                                                    + " reads required, but "
-                                                                    + successes.get()
-                                                                    + " succeeded.",
-                                                            failures);
+                                                            + " reads required, but " + successes
+                                                            + " succeeded.", failures);
     }
 
     private void repairReads(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
@@ -581,6 +568,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     public void put(final ByteArray key, final Versioned<byte[]> versioned)
             throws VoldemortException {
+        long startNs = System.nanoTime();
         StoreUtils.assertValidKey(key);
         final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
 
@@ -596,7 +584,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         final AtomicInteger successes = new AtomicInteger(0);
 
         // A list of thrown exceptions, indicating the number of failures
-        final Map<Integer, Exception> failures = Collections.synchronizedMap(new HashMap<Integer, Exception>(1));
+        final List<Exception> failures = Collections.synchronizedList(new ArrayList<Exception>(1));
 
         // If requiredWrites > 0 then do a single blocking write to the first
         // live node in the preference list if this node throws an
@@ -615,13 +603,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 break;
             } catch(UnreachableStoreException e) {
                 markUnavailable(current, e);
-                failures.put(current.getId(), e);
+                failures.add(e);
             } catch(ObsoleteVersionException e) {
                 // if this version is obsolete on the master, then bail out
                 // of this operation
                 throw e;
             } catch(Exception e) {
-                failures.put(currentNode, e);
+                failures.add(e);
             }
         }
 
@@ -652,11 +640,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         node.getStatus().setAvailable();
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
-                        failures.put(node.getId(), e);
+                        failures.add(e);
                     } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
                                     + ")", e);
-                        failures.put(node.getId(), e);
+                        failures.add(e);
                     } finally {
                         // signal that the operation is complete
                         semaphore.release();
@@ -667,25 +655,34 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // Block until we get enough completions
         int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
-        for(int i = 0; i < blockCount; i++) {
-            try {
-                boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
-                if(!acquired)
-                    logger.warn("Timed out waiting for put to succeed.");
-                // okay, at least the required number of operations have
-                // completed, were they successful?
-                if(successes.get() >= this.storeDef.getPreferredWrites())
-                    break;
-            } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException("Put operation interrupted", e);
-            }
-        }
+        boolean noTimeout = blockOnPut(startNs,
+                                       semaphore,
+                                       0,
+                                       blockCount,
+                                       successes,
+                                       storeDef.getPreferredWrites());
 
         if(successes.get() < storeDef.getRequiredWrites()) {
-            throw new InsufficientOperationalNodesException(successes.get()
-                                                            + " writes succeeded, but "
-                                                            + this.storeDef.getRequiredWrites()
-                                                            + " are required.", failures.values());
+            /*
+             * We don't have enough required writes, but we haven't timed out
+             * yet, so block a little more if there are healthy nodes that can
+             * help us achieve our target.
+             */
+            if(noTimeout) {
+                int startingIndex = blockCount - 1;
+                blockCount = Math.max(storeDef.getPreferredWrites() - 1, attempts);
+                blockOnPut(startNs,
+                           semaphore,
+                           startingIndex,
+                           blockCount,
+                           successes,
+                           storeDef.getRequiredWrites());
+            }
+            if(successes.get() < storeDef.getRequiredWrites())
+                throw new InsufficientOperationalNodesException(successes.get()
+                                                                + " writes succeeded, but "
+                                                                + this.storeDef.getRequiredWrites()
+                                                                + " are required.", failures);
         }
 
         // Okay looks like it worked, increment the version for the caller
@@ -693,11 +690,40 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
     }
 
+    /**
+     * @return false if the operation timed out, true otherwise.
+     */
+    private boolean blockOnPut(long startNs,
+                               Semaphore semaphore,
+                               int startingIndex,
+                               int blockCount,
+                               AtomicInteger successes,
+                               int successesRequired) {
+        for(int i = startingIndex; i < blockCount; i++) {
+            try {
+                long ellapsedNs = System.nanoTime() - startNs;
+                long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+                boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
+                                                              TimeUnit.NANOSECONDS);
+                if(!acquiredPermit) {
+                    logger.warn("Timed out waiting for put # " + (i + 1) + " of " + blockCount
+                                + " to succeed.");
+                    return false;
+                }
+                if(successes.get() >= successesRequired)
+                    break;
+            } catch(InterruptedException e) {
+                throw new InsufficientOperationalNodesException("Put operation interrupted", e);
+            }
+        }
+        return true;
+    }
+
     private boolean isAvailable(Node node) {
         return !node.getStatus().isUnavailable(this.nodeBannageMs);
     }
 
-    private void markUnavailable(Node node, Exception e) {
+    private void markUnavailable(Node node, UnreachableStoreException e) {
         logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
                     + " marking as unavailable for " + this.nodeBannageMs + " ms.", e);
         logger.debug(e);
@@ -756,6 +782,58 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
     }
 
+    private final class GetCallable implements Callable<GetResult> {
+
+        private final Node node;
+        private final ByteArray key;
+
+        public GetCallable(Node node, ByteArray key) {
+            this.node = node;
+            this.key = key;
+        }
+
+        public GetResult call() throws Exception {
+            List<Versioned<byte[]>> fetched = Collections.emptyList();
+            List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
+            Throwable exception = null;
+            try {
+                if(logger.isTraceEnabled())
+                    logger.trace("Attempting get operation on node " + node.getId() + " for key '"
+                                 + ByteUtils.toHexString(key.get()) + "'.");
+                fetched = innerStores.get(node.getId()).get(key);
+                if(repairReads) {
+                    for(Versioned<byte[]> f: fetched)
+                        nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                }
+                node.getStatus().setAvailable();
+            } catch(UnreachableStoreException e) {
+                exception = e;
+                markUnavailable(node, e);
+            } catch(Throwable e) {
+                if(e instanceof Error)
+                    throw (Error) e;
+                logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
+                exception = e;
+            }
+            return new GetResult(fetched, nodeValues, exception);
+        }
+    }
+
+    private final static class GetResult {
+
+        final List<Versioned<byte[]>> retrieved;
+        final List<NodeValue<ByteArray, byte[]>> nodeValues;
+        final Throwable exception;
+
+        public GetResult(List<Versioned<byte[]>> retrieved,
+                         List<NodeValue<ByteArray, byte[]>> nodeValues,
+                         Throwable exception) {
+            this.retrieved = retrieved;
+            this.nodeValues = nodeValues;
+            this.exception = exception;
+        }
+    }
+
     private final class GetAllCallable implements Callable<GetAllResult> {
 
         private final Node node;
@@ -768,7 +846,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         public GetAllResult call() {
             Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
-            Exception exception = null;
+            Throwable exception = null;
             List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
             try {
                 retrieved = innerStores.get(node.getId()).getAll(nodeKeys);
@@ -783,7 +861,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(UnreachableStoreException e) {
                 exception = e;
                 markUnavailable(node, e);
-            } catch(Exception e) {
+            } catch(Throwable e) {
+                if(e instanceof Error)
+                    throw (Error) e;
                 exception = e;
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
             }
@@ -795,13 +875,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         final GetAllCallable callable;
         final Map<ByteArray, List<Versioned<byte[]>>> retrieved;
-        final Exception exception;
+        /* Note that this can never be an Error subclass */
+        final Throwable exception;
         final List<NodeValue<ByteArray, byte[]>> nodeValues;
 
         private GetAllResult(GetAllCallable callable,
                              Map<ByteArray, List<Versioned<byte[]>>> retrieved,
                              List<NodeValue<ByteArray, byte[]>> nodeValues,
-                             Exception exception) {
+                             Throwable exception) {
             this.callable = callable;
             this.exception = exception;
             this.retrieved = retrieved;

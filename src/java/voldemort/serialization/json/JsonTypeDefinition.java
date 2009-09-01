@@ -51,6 +51,7 @@ public class JsonTypeDefinition implements Serializable {
 
     public JsonTypeDefinition(Object type) {
         this.type = createValidType(type);
+
     }
 
     public static JsonTypeDefinition fromJson(String typeSig) {
@@ -171,12 +172,9 @@ public class JsonTypeDefinition implements Serializable {
             List<?> l = (List<?>) type;
             if(l.size() != 1)
                 throw new IllegalArgumentException("Lists in type definition must have length exactly one.");
-            return validate(l.get(0));
-        } else if(type instanceof Map<?, ?>) {
-            Map<String, ?> m = (Map<String, ?>) type;
-
             return Arrays.asList(createValidType(l.get(0)));
         } else if(type instanceof Map<?, ?>) {
+            @SuppressWarnings("unchecked")
             Map<String, ?> m = (Map<String, ?>) type;
             // bbansal: sort keys here for consistent with fromJson()
             Map<String, Object> newM = new LinkedHashMap<String, Object>(m.size());

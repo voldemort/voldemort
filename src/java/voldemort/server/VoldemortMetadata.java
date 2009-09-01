@@ -31,7 +31,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 
 /**
- * One place to hold it all :) keeps current metadata about voldemort cluster
+ * Keeps non-persistent current metadata about voldemort cluster. <br>
+ * 
  * 
  * @author bbansal
  * 

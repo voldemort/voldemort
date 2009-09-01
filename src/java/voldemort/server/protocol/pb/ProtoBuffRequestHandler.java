@@ -3,6 +3,7 @@ package voldemort.server.protocol.pb;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.RequestType;
+import voldemort.client.protocol.pb.VProto.VoldemortRequest;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -35,7 +37,8 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
 
     public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException {
-        VProto.VoldemortRequest request = VProto.VoldemortRequest.parseFrom(ProtoUtils.readWithSize(inputStream));
+        VoldemortRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
+                                                                    VoldemortRequest.newBuilder());
         boolean shouldRoute = request.getShouldRoute();
         String storeName = request.getStore();
         Store<ByteArray, byte[]> store = getStore(storeName, shouldRoute);
@@ -60,7 +63,15 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                     throw new VoldemortException("Unknown operation " + request.getType());
             }
         }
-        ProtoUtils.writeWithSize(outputStream, response);
+        ProtoUtils.writeMessage(outputStream, response);
+    }
+
+    public boolean isCompleteRequest(ByteBuffer buffer) {
+        if(buffer.remaining() < 4)
+            return false;
+
+        int size = buffer.getInt();
+        return buffer.remaining() == size;
     }
 
     private VProto.GetResponse handleGet(VProto.GetRequest request, Store<ByteArray, byte[]> store) {

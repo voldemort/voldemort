@@ -19,7 +19,9 @@ package voldemort.store.routed;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,9 +29,11 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.FailingReadsStore;
 import voldemort.store.FailingStore;
@@ -260,7 +264,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s1.put(aKey, new Versioned<byte[]>(aValue));
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 9);
 
         cluster = getNineNodeCluster();
@@ -275,7 +280,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s2.put(aKey, new Versioned<byte[]>(aValue));
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 0);
 
         // test get
@@ -291,7 +297,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s1.get(aKey);
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 9);
 
         cluster = getNineNodeCluster();
@@ -306,7 +313,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s2.get(aKey);
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 0);
 
         // test delete
@@ -322,7 +330,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s1.delete(aKey, new VectorClock());
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 9);
 
         cluster = getNineNodeCluster();
@@ -337,7 +346,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             s2.delete(aKey, new VectorClock());
             fail("Failure is expected");
-        } catch(InsufficientOperationalNodesException e) { /* expected */}
+        } catch(InsufficientOperationalNodesException e) { /* expected */
+        }
         assertOperationalNodes(cluster, 0);
     }
 
@@ -496,6 +506,96 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             assertEquals(1, versioneds.size());
             assertEquals(new ByteArray(anotherValue), new ByteArray(innerVersioneds.get(0)
                                                                                    .getValue()));
+        }
+    }
+
+    /**
+     * See issue #134: RoutedStore put() doesn't wait for enough attempts to
+     * succeed
+     * 
+     * This issue would only happen with one node down and another that was slow
+     * to respond.
+     */
+    public void testPutWithOneNodeDownAndOneNodeSlow() {
+        Cluster cluster = VoldemortTestConstants.getThreeNodeCluster();
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               3,
+                                                               2,
+                                                               2,
+                                                               2,
+                                                               2,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        /* The key used causes the nodes selected for writing to be [2, 0, 1] */
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        subStores.put(Iterables.get(cluster.getNodes(), 2).getId(),
+                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
+                      new FailingStore<ByteArray, byte[]>("test"));
+        /*
+         * The bug would only show itself if the second successful required
+         * write was slow (but still within the timeout).
+         */
+        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
+                      new SleepyStore<ByteArray, byte[]>(100,
+                                                         new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+
+        RoutedStore routedStore = new RoutedStore("test",
+                                                  subStores,
+                                                  cluster,
+                                                  storeDef,
+                                                  1,
+                                                  true,
+                                                  1000L);
+
+        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, new Versioned<byte[]>(aValue));
+    }
+
+    public void testPutTimeout() {
+        int timeout = 50;
+        StoreDefinition definition = new StoreDefinition("test",
+                                                         "foo",
+                                                         new SerializerDefinition("test"),
+                                                         new SerializerDefinition("test"),
+                                                         RoutingTier.CLIENT,
+                                                         RoutingStrategyType.CONSISTENT_STRATEGY,
+                                                         3,
+                                                         3,
+                                                         3,
+                                                         3,
+                                                         3,
+                                                         0);
+        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        List<Node> nodes = new ArrayList<Node>();
+        int totalDelay = 0;
+        for(int i = 0; i < 3; i++) {
+            int delay = 4 + i * timeout;
+            totalDelay += delay;
+            stores.put(i,
+                       new SleepyStore<ByteArray, byte[]>(delay,
+                                                          new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+            List<Integer> partitions = Arrays.asList(i);
+            nodes.add(new Node(i, "none", 0, 0, partitions));
+        }
+
+        RoutedStore routedStore = new RoutedStore("test",
+                                                  stores,
+                                                  new Cluster("test", nodes),
+                                                  definition,
+                                                  3,
+                                                  false,
+                                                  timeout);
+
+        long start = System.currentTimeMillis();
+        try {
+            routedStore.put(new ByteArray("test".getBytes()),
+                            new Versioned<byte[]>(new byte[] { 1 }));
+            fail("Should have thrown");
+        } catch(InsufficientOperationalNodesException e) {
+            long elapsed = System.currentTimeMillis() - start;
+            assertTrue(elapsed + " < " + totalDelay, elapsed < totalDelay);
         }
     }
 

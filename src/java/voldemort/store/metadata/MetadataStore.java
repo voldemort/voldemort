@@ -52,10 +52,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
     public static final String ROLLBACK_CLUSTER_KEY = "rollback.cluster.xml";
-    public static final Set<String> KNOWN_KEYS = ImmutableSet.of(METADATA_STORE_NAME,
-                                                                 CLUSTER_KEY,
-                                                                 STORES_KEY,
-                                                                 ROLLBACK_CLUSTER_KEY);
+
+    public static final Set<String> PERSISTED_KEYS = ImmutableSet.of(METADATA_STORE_NAME,
+                                                                     CLUSTER_KEY,
+                                                                     STORES_KEY,
+                                                                     ROLLBACK_CLUSTER_KEY);
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();

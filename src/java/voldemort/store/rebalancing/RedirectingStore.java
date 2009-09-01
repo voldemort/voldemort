@@ -19,7 +19,7 @@ package voldemort.store.rebalancing;
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.client.AdminClient;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortMetadata.ServerState;
 import voldemort.store.DelegatingStore;
@@ -47,7 +47,7 @@ import voldemort.versioning.Versioned;
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
-    private final AdminClient adminClient;
+    private final AdminClientRequestFormat adminClient;
     private final VoldemortMetadata metadata;
 
     public RedirectingStore(int node,
@@ -55,7 +55,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
                             VoldemortMetadata metadata,
                             SocketPool socketPool) {
         super(innerStore);
-        this.adminClient = new AdminClient(metadata.getCurrentCluster().getNodeById(node),
+        this.adminClient = new AdminClientRequestFormat(metadata.getCurrentCluster().getNodeById(node),
                                            metadata,
                                            socketPool);
         this.metadata = metadata;

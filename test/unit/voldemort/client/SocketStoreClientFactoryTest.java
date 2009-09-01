@@ -17,10 +17,12 @@
 package voldemort.client;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 import voldemort.ServerTestUtils;
 import voldemort.serialization.SerializerFactory;
-import voldemort.server.socket.SocketServer;
+import voldemort.server.AbstractSocketService;
 
 /**
  * @author jay
@@ -28,7 +30,7 @@ import voldemort.server.socket.SocketServer;
  */
 public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
-    private SocketServer server;
+    private AbstractSocketService socketService;
 
     public SocketStoreClientFactoryTest() {
         super();
@@ -37,16 +39,17 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        server = ServerTestUtils.getSocketServer(getClusterXml(),
-                                                 getStoreDefXml(),
-                                                 getValidStoreName(),
-                                                 getLocalNode().getSocketPort());
+        socketService = ServerTestUtils.getSocketService(getClusterXml(),
+                                                         getStoreDefXml(),
+                                                         getValidStoreName(),
+                                                         getLocalNode().getSocketPort());
+        socketService.start();
     }
 
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        server.shutdown();
+        socketService.stop();
     }
 
     @Override
@@ -69,6 +72,13 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     protected String getValidScheme() {
         return SocketStoreClientFactory.URL_SCHEME;
+    }
+
+    public void testTwoFactories() throws Exception {
+        /* Test that two factories can be hosted on the same jvm */
+        List<StoreClientFactory> factories = new ArrayList<StoreClientFactory>();
+        factories.add(getFactory(getValidBootstrapUrl()));
+        factories.add(getFactory(getValidBootstrapUrl()));
     }
 
 }

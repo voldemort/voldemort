@@ -16,8 +16,8 @@
 
 package voldemort.versioning;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 
 import com.google.common.collect.Lists;
 
@@ -35,19 +35,25 @@ public class VectorClockInconsistencyResolver<T> implements InconsistencyResolve
         if(size <= 1)
             return items;
 
-        Collections.sort(items, new Versioned.HappenedBeforeComparator<T>());
-        List<Versioned<T>> concurrent = Lists.newArrayList();
-        Versioned<T> last = items.get(items.size() - 1);
-        concurrent.add(last);
-        for(int i = items.size() - 2; i >= 0; i--) {
-            Versioned<T> curr = items.get(i);
-            if(curr.getVersion().compare(last.getVersion()) == Occured.CONCURRENTLY)
-                concurrent.add(curr);
-            else
-                break;
+        List<Versioned<T>> newItems = Lists.newArrayList();
+        for(Versioned<T> v1: items) {
+            boolean found = false;
+            for(ListIterator<Versioned<T>> it2 = newItems.listIterator(); it2.hasNext();) {
+                Versioned<T> v2 = it2.next();
+                Occured compare = v1.getVersion().compare(v2.getVersion());
+                if(compare == Occured.AFTER) {
+                    if(found)
+                        it2.remove();
+                    else
+                        it2.set(v1);
+                }
+                if(compare != Occured.CONCURRENTLY)
+                    found = true;
+            }
+            if(!found)
+                newItems.add(v1);
         }
-
-        return concurrent;
+        return newItems;
     }
 
 }

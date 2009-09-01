@@ -22,6 +22,7 @@ import java.util.Arrays;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortMetadata;
@@ -85,11 +86,14 @@ public class RedirectingStoreTest extends TestCase {
         server1.stop();
     }
 
-    private RebalancingStore getRebalancingStore(VoldemortMetadata metadata) {
-        return new RebalancingStore(0,
-                                    server0.getStoreRepository().getLocalStore(storeName),
+    private RedirectingStore getRedirectingStore(VoldemortMetadata metadata) {
+        return new RedirectingStore(0,
+                                    ServerTestUtils.getSocketStore(storeName,
+                                                                   server0.getIdentityNode()
+                                                                          .getSocketPort(),
+                                                                   RequestFormatType.VOLDEMORT_V1),
                                     metadata,
-                                    new SocketPool(100, 100, 2000, 1000, 10000));
+                                    new SocketPool(100, 2000, 1000, 10000));
     }
 
     public void testProxyGet() {
@@ -111,7 +115,7 @@ public class RedirectingStoreTest extends TestCase {
         metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
+        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // for Normal server state no values are expected
         for(int i = 100; i <= 1000; i++) {
@@ -123,7 +127,7 @@ public class RedirectingStoreTest extends TestCase {
                || metadata.getRoutingStrategy(storeName)
                           .getPartitionList(key.get())
                           .contains(new Integer(3))) {
-                assertEquals("proxyGet should return emptys list", 0, rebalancingStore.get(key)
+                assertEquals("proxyGet should return emptys list", 0, RedirectingStore.get(key)
                                                                                       .size());
             }
         }
@@ -140,7 +144,7 @@ public class RedirectingStoreTest extends TestCase {
                           .contains(new Integer(3))) {
                 assertEquals("proxyGet should return actual value",
                              "value-" + i,
-                             new String(rebalancingStore.get(key).get(0).getValue()));
+                             new String(RedirectingStore.get(key).get(0).getValue()));
             }
         }
     }
@@ -172,7 +176,7 @@ public class RedirectingStoreTest extends TestCase {
         metadata.setDonorNode(1);
         metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
+        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // we should see obsolete version exception if try to insert with same
         // version
@@ -187,7 +191,7 @@ public class RedirectingStoreTest extends TestCase {
                           .getPartitionList(key.get())
                           .contains(new Integer(3))) {
                 try {
-                    rebalancingStore.put(key, rebalancingStore.get(key).get(0));
+                    RedirectingStore.put(key, RedirectingStore.get(key).get(0));
                     fail("put should throw ObsoleteVersionException before hitting this");
                 } catch(ObsoleteVersionException e) {
                     // ignore

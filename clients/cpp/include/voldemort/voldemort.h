@@ -30,14 +30,6 @@
  * not directly support the serialization features of the Voldemort
  * server (though it's possible to do so externally).
  *
- * In order to connect to a server, it must be configured to use
- * Protocol Buffers as its request format.  To do this, add
- * @code
- * request.format=pb
- * @endcode
- * to the server.properties file for all the Voldemort nodes in the
- * cluster.
- *
  * <h2>Example</h2>
  * @code
  * #include <string>

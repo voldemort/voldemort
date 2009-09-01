@@ -66,18 +66,34 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private VelocityEngine velocityEngine;
     private FileFetcher fileFetcher;
 
+    public ReadOnlyStoreManagementServlet() {}
+
     public ReadOnlyStoreManagementServlet(VoldemortServer server, VelocityEngine engine) {
         this.stores = getReadOnlyStores(server);
         this.velocityEngine = Utils.notNull(engine);
+        setFetcherClass(server);
+    }
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        VoldemortServer server = (VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY);
+
+        this.stores = getReadOnlyStores(server);
+        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
+        setFetcherClass(server);
+    }
+
+    private void setFetcherClass(VoldemortServer server) {
         String className = server.getVoldemortConfig()
                                  .getAllProps()
                                  .getString("file.fetcher.class", null);
-        if(className == null) {
+        if(className == null || className.trim().length() == 0) {
             this.fileFetcher = null;
         } else {
             try {
                 logger.info("Loading fetcher " + className);
-                Class<?> cls = Class.forName(className);
+                Class<?> cls = Class.forName(className.trim());
                 this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
                                                                               new Class<?>[] { Props.class },
                                                                               new Object[] { server.getVoldemortConfig()
@@ -86,13 +102,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                 throw new VoldemortException("Error loading file fetcher class " + className, e);
             }
         }
-    }
-
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        this.stores = getReadOnlyStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
-        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
     private List<ReadOnlyStorageEngine> getReadOnlyStores(VoldemortServer server) {
@@ -107,7 +116,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
         Map<String, Object> params = Maps.newHashMap();
         params.put("stores", stores);
@@ -115,8 +124,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
+            IOException {
         try {
             String operation = getRequired(req, "operation").toLowerCase();
             if("swap".equals(operation)) {

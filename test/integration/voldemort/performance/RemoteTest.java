@@ -131,7 +131,8 @@ public class RemoteTest {
         System.out.println("threads : " + numThreads);
 
         System.out.println("Bootstraping cluster data.");
-        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(20)
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(numThreads)
+                                                                                    .setMaxTotalConnections(numThreads)
                                                                                     .setMaxConnectionsPerNode(numThreads)
                                                                                     .setBootstrapUrls(url));
         final StoreClient<String, String> store = factory.getStoreClient(storeName);
@@ -145,6 +146,10 @@ public class RemoteTest {
          */
 
         String key = new KeyProvider(startNum, keys).next();        
+
+        // We need to delete just in case there's an existing value there that
+        // would otherwise cause the test run to bomb out.
+        store.delete(key);
         store.put(key, new Versioned<String>(value));
         store.delete(key);
 

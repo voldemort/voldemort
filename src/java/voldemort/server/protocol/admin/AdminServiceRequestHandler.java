@@ -14,14 +14,15 @@
  * the License.
  */
 
-package voldemort.server.socket;
+package voldemort.server.protocol.admin;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -40,6 +41,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.IoThrottler;
@@ -104,11 +106,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case VoldemortOpCode.SERVER_STATE_CHANGE_OP_CODE:
                 handleServerStateChangeRequest(inputStream, outputStream);
                 break;
-
-            case VoldemortOpCode.SET_STEAL_INFO_OP_CODE:
-                handleSetStealInfoRequest(inputStream, outputStream);
-                break;
-
             case VoldemortOpCode.REDIRECT_GET_OP_CODE:
                 engine = readStorageEngine(inputStream, outputStream);
                 byte[] key = readKey(inputStream);
@@ -120,6 +117,93 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
 
         outputStream.flush();
+    }
+
+    /**
+     * This is pretty ugly. We end up mimicking the request logic here, so this
+     * needs to stay in sync with handleRequest.
+     */
+
+    public boolean isCompleteRequest(final ByteBuffer buffer) {
+        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+        DataOutputStream outputStream = new DataOutputStream(new ByteArrayOutputStream());
+
+        try {
+            byte opCode = inputStream.readByte();
+            StorageEngine<ByteArray, byte[]> engine;
+
+            switch(opCode) {
+                case VoldemortOpCode.GET_PARTITION_AS_STREAM_OP_CODE:
+                    engine = readStorageEngine(inputStream, outputStream);
+
+                    if(engine != null) {
+                        int partitionSize = inputStream.readInt();
+
+                        for(int i = 0; i < partitionSize; i++)
+                            inputStream.readInt();
+                    }
+
+                    break;
+                case VoldemortOpCode.PUT_ENTRIES_AS_STREAM_OP_CODE:
+                    engine = readStorageEngine(inputStream, outputStream);
+
+                    if(engine != null) {
+                        int keySize = inputStream.readInt();
+
+                        while(keySize != -1) {
+                            buffer.position(buffer.position() + keySize);
+                            int valueSize = inputStream.readInt();
+                            buffer.position(buffer.position() + valueSize);
+
+                            keySize = inputStream.readInt();
+                        }
+                    }
+
+                    break;
+                case VoldemortOpCode.UPDATE_METADATA_OP_CODE:
+                    String keyString = inputStream.readUTF();
+
+                    if(keyString.equals(MetadataStore.CLUSTER_KEY)
+                       || keyString.equals(MetadataStore.ROLLBACK_CLUSTER_KEY)) {
+                        // Read the clusterString but just to skip the bytes...
+                        inputStream.readUTF();
+                    } else if(keyString.equals(MetadataStore.STORES_KEY)) {
+                        // Read the storesString but just to skip the bytes...
+                        inputStream.readUTF();
+                    }
+
+                    break;
+                case VoldemortOpCode.SERVER_STATE_CHANGE_OP_CODE:
+                    // Read the new server state, but again, just to skip the
+                    // bytes...
+                    inputStream.readUTF();
+
+                    break;
+                case VoldemortOpCode.REDIRECT_GET_OP_CODE:
+                    engine = readStorageEngine(inputStream, outputStream);
+
+                    // Read the key to skip the bytes...
+                    if(engine != null)
+                        readKey(inputStream);
+
+                    break;
+                default:
+                    // Do nothing, let the request handler address this...
+            }
+
+            // If there aren't any remaining, we've "consumed" all the bytes and
+            // thus have a complete request...
+            return !buffer.hasRemaining();
+        } catch(Exception e) {
+            // This could also occur if the various methods we call into
+            // re-throw a corrupted value error as some other type of exception.
+            // For example, updating the position on a buffer past its limit
+            // throws an InvalidArgumentException.
+            if(logger.isDebugEnabled())
+                logger.debug("Probable partial read occurred causing exception", e);
+
+            return false;
+        }
     }
 
     private byte[] readKey(DataInputStream inputStream) throws IOException {
@@ -185,18 +269,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 engine.put(new ByteArray(key), versionedValue);
 
-                outputStream.writeShort(0); // send no Exception
-                outputStream.flush();
-
                 if(throttler != null) {
-                    throttler.maybeThrottle(key.length + clock.sizeInBytes() + value.length + 1);
+                    throttler.maybeThrottle(key.length + clock.sizeInBytes() + value.length);
                 }
+
+                outputStream.writeShort(0);
+                outputStream.flush();
 
                 keySize = inputStream.readInt(); // read next KeySize
             }
             // all puts are handled.
             outputStream.writeShort(0);
-            outputStream.flush();
         } catch(VoldemortException e) {
             writeException(outputStream, e);
         }
@@ -330,7 +413,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 metadata.setRollbackCluster(updatedCluster);
             }
             outputStream.writeShort(0);
-            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -369,7 +451,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             metadata.setStoreDefMap(storeDefs);
             metadata.reinitRoutingStrategies();
             outputStream.writeShort(0);
-            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -384,27 +465,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             metadata.setServerState(newState);
 
             outputStream.writeShort(0);
-            outputStream.flush();
-        } catch(VoldemortException e) {
-            e.printStackTrace();
-            writeException(outputStream, e);
-            return;
-        }
-
-    }
-
-    private void handleSetStealInfoRequest(DataInputStream inputStream,
-                                           DataOutputStream outputStream) throws IOException {
-        try {
-            List<Integer> stealPartitionList = new ArrayList<Integer>();
-            metadata.setDonorNode(inputStream.readInt());
-            int size = inputStream.readInt();
-            for(int i = 0; i < size; i++) {
-                stealPartitionList.add(new Integer(inputStream.readInt()));
-            }
-            metadata.setCurrentPartitionStealList(stealPartitionList);
-            outputStream.writeShort(0);
-            outputStream.flush();
         } catch(VoldemortException e) {
             e.printStackTrace();
             writeException(outputStream, e);
@@ -441,14 +501,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
             outputStream.write(clock);
             outputStream.write(value);
         }
-        outputStream.flush();
     }
 
     private void writeException(DataOutputStream stream, VoldemortException e) throws IOException {
         short code = errorMapper.getCode(e);
         stream.writeShort(code);
         stream.writeUTF(e.getMessage());
-        stream.flush();
     }
 
     private boolean validPartition(byte[] key, int[] partitionList, RoutingStrategy routingStrategy) {

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.client;
+package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -55,16 +55,18 @@ import com.google.common.collect.AbstractIterator;
  * 
  * @author bbansal
  */
-public class AdminClient {
+public class AdminClientRequestFormat {
 
-    private static final Logger logger = Logger.getLogger(AdminClient.class);
+    private static final Logger logger = Logger.getLogger(AdminClientRequestFormat.class);
     private final ErrorCodeMapper errorCodeMapper = new ErrorCodeMapper();
 
     private final Node currentNode;
     private final SocketPool pool;
     private final VoldemortMetadata metadata;
 
-    public AdminClient(Node currentNode, VoldemortMetadata metadata, SocketPool socketPool) {
+    public AdminClientRequestFormat(Node currentNode,
+                                    VoldemortMetadata metadata,
+                                    SocketPool socketPool) {
         this.currentNode = currentNode;
         this.metadata = metadata;
         this.pool = socketPool;
@@ -324,7 +326,9 @@ public class AdminClient {
     public void setStealInfo(int stealerNodeId, int donorNodeId, List<Integer> stealPartitionList) {
         Cluster currentCluster = metadata.getCurrentCluster();
         Node node = currentCluster.getNodeById(stealerNodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(), node.getAdminPort());
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
             DataOutputStream outputStream = sands.getOutputStream();

@@ -169,6 +169,10 @@ class StoreClient:
 	def _receive_response(self, connection):
 		size_bytes = connection.recv(4)
 		size = struct.unpack('>i', size_bytes)
+
+		if not size[0]:
+			return ''
+
 		return connection.recv(size[0])
 	
 	## Bootstrap cluster metadata from a list of urls of nodes in the cluster. 

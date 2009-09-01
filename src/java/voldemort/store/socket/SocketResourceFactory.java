@@ -24,12 +24,12 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.pool.KeyedPoolableObjectFactory;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.pool.ResourceFactory;
 
 /**
  * A Factory for creating sockets
@@ -37,36 +37,26 @@ import voldemort.utils.ByteUtils;
  * @author jay
  * 
  */
-public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
+public class SocketResourceFactory implements ResourceFactory<SocketDestination, SocketAndStreams> {
 
-    public static final Logger logger = Logger.getLogger(SocketPoolableObjectFactory.class);
+    public static final Logger logger = Logger.getLogger(SocketResourceFactory.class);
 
     private final int soTimeoutMs;
     private final int socketBufferSize;
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
 
-    public SocketPoolableObjectFactory(int soTimeoutMs, int socketBufferSize) {
+    public SocketResourceFactory(int soTimeoutMs, int socketBufferSize) {
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
     }
 
-    public void activateObject(Object key, Object value) throws Exception {
-    // nothing to see here
-    }
-
-    public void passivateObject(Object key, Object value) throws Exception {
-    // nothing to see here
-    }
-
     /**
      * Close the socket
      */
-    public void destroyObject(Object key, Object value) throws Exception {
-        SocketDestination dest = (SocketDestination) key;
-        SocketAndStreams sands = (SocketAndStreams) value;
+    public void destroy(SocketDestination dest, SocketAndStreams sands) throws Exception {
         sands.getSocket().close();
         int numDestroyed = destroyed.incrementAndGet();
         if(logger.isDebugEnabled())
@@ -77,8 +67,7 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
     /**
      * Create a socket for the given host/port
      */
-    public Object makeObject(Object key) throws Exception {
-        SocketDestination dest = (SocketDestination) key;
+    public SocketAndStreams create(SocketDestination dest) throws Exception {
         Socket socket = new Socket();
         socket.setReceiveBufferSize(this.socketBufferSize);
         socket.setSendBufferSize(this.socketBufferSize);
@@ -130,8 +119,7 @@ public class SocketPoolableObjectFactory implements KeyedPoolableObjectFactory {
                          + " bytes but actual size is " + sendBufferSize + " bytes.");
     }
 
-    public boolean validateObject(Object key, Object value) {
-        SocketAndStreams sands = (SocketAndStreams) value;
+    public boolean validate(SocketDestination dest, SocketAndStreams sands) {
         Socket s = sands.getSocket();
         boolean isValid = !s.isClosed() && s.isBound() && s.isConnected();
         if(!isValid && logger.isDebugEnabled())

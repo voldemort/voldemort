@@ -6,7 +6,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.AdminClient;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortMetadata;
@@ -22,7 +22,7 @@ import voldemort.store.socket.SocketPool;
 public class DefaultRebalanceClient implements RebalanceClient {
 
     private static final Logger logger = Logger.getLogger(DefaultRebalanceClient.class);
-    private final AdminClient adminClient;
+    private final AdminClientRequestFormat adminClient;
 
     /**
      * 
@@ -34,7 +34,7 @@ public class DefaultRebalanceClient implements RebalanceClient {
     public DefaultRebalanceClient(int connectedNodeId,
                                   VoldemortMetadata metadata,
                                   SocketPool socketPool) {
-        adminClient = new AdminClient(metadata.getCurrentCluster().getNodeById(connectedNodeId),
+        adminClient = new AdminClientRequestFormat(metadata.getCurrentCluster().getNodeById(connectedNodeId),
                                       metadata,
                                       socketPool);
     }
