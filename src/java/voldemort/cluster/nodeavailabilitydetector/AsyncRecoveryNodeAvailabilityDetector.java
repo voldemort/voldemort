@@ -62,9 +62,6 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
         }
 
         getNodeStatus(node).setAvailable();
-
-        if(logger.isInfoEnabled())
-            logger.info(node + " now available");
     }
 
     public void run() {
@@ -107,11 +104,16 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
                     store.get(key);
 
                     recordSuccess(node);
+
+                    if(logger.isInfoEnabled())
+                        logger.info(node + " now available");
                 } catch(UnreachableStoreException e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(node + " still unavailable");
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.ERROR))
+                        logger.error(node + " unavailable due to error", e);
                 }
-
             }
         }
     }

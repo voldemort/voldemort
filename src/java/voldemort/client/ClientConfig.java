@@ -384,8 +384,9 @@ public class ClientConfig {
         return nodeAvailabilityDetector;
     }
 
-    public void setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
+    public ClientConfig setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
         this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+        return this;
     }
 
 }

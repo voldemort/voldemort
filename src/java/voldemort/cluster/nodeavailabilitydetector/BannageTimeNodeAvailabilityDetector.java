@@ -16,6 +16,8 @@
 
 package voldemort.cluster.nodeavailabilitydetector;
 
+import org.apache.log4j.Level;
+
 import voldemort.cluster.Node;
 
 public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilityDetector {
@@ -25,11 +27,14 @@ public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilit
     }
 
     public void recordException(Node node, Exception e) {
-        logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                    + " marking as unavailable for " + nodeBannagePeriod + " ms.", e);
-        logger.debug(e);
-
         getNodeStatus(node).setUnavailable();
+
+        if(logger.isEnabledFor(Level.WARN))
+            logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
+                        + " marking as unavailable for " + nodeBannagePeriod + " ms.", e);
+
+        if(logger.isDebugEnabled())
+            logger.debug(e);
     }
 
     public void recordSuccess(Node node) {
