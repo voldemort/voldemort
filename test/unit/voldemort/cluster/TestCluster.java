@@ -16,7 +16,6 @@
 
 package voldemort.cluster;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -24,9 +23,9 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import voldemort.NodeAvailabilityDetectorTestCase;
 import voldemort.TestUtils;
+import voldemort.cluster.nodeavailabilitydetector.BasicNodeAvailabilityDetectorConfig;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.store.Store;
-import voldemort.utils.ByteArray;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 
 import com.google.common.collect.ImmutableList;
 
@@ -50,9 +49,8 @@ public class TestCluster extends TestCase implements NodeAvailabilityDetectorTes
                                       new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
 
-        nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
-        nodeAvailabilityDetector.setNodeBannagePeriod(10000);
-        nodeAvailabilityDetector.setStores(new HashMap<Integer, Store<ByteArray, byte[]>>());
+        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new BasicNodeAvailabilityDetectorConfig(nodeAvailabilityDetectorClass.getName(),
+                                                                                                                10000));
     }
 
     public void setNodeAvailabilityDetectorClass(Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass) {

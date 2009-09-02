@@ -31,7 +31,8 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
 
     private final Set<Node> unavailableNodes;
 
-    public AsyncRecoveryNodeAvailabilityDetector() {
+    public AsyncRecoveryNodeAvailabilityDetector(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
+        super(nodeAvailabilityDetectorConfig);
         unavailableNodes = new HashSet<Node>();
 
         Thread t = new Thread(this);
@@ -69,7 +70,7 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
 
         while(!Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(nodeBannagePeriod);
+                Thread.sleep(nodeAvailabilityDetectorConfig.getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }
@@ -80,18 +81,11 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
                 unavailableNodesCopy.addAll(unavailableNodes);
             }
 
-            if(getStores() == null) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Stores not yet set; cannot determine node availability");
-
-                continue;
-            }
-
             for(Node node: unavailableNodesCopy) {
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node);
 
-                Store<ByteArray, byte[]> store = stores.get(node.getId());
+                Store<ByteArray, byte[]> store = nodeAvailabilityDetectorConfig.getStore(node);
 
                 if(store == null) {
                     if(logger.isEnabledFor(Level.WARN))

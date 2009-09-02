@@ -35,7 +35,6 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -90,8 +89,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final MBeanServer mbeanServer;
     private final int jmxId;
     private final NodeAvailabilityDetector nodeAvailabilityDetector;
+    protected final ClientConfig config;
 
     public AbstractStoreClientFactory(ClientConfig config) {
+        this.config = config;
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
                                                config.getThreadIdleTime(TimeUnit.MILLISECONDS),
                                                config.getMaxQueuedRequests());
@@ -107,7 +108,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         registerThreadPoolJmx(threadPool);
 
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(config);
+        nodeAvailabilityDetector = initNodeAvailabilityDetector();
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {
@@ -262,6 +263,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          String host,
                                                          int port,
                                                          RequestFormatType type);
+
+    protected abstract NodeAvailabilityDetector initNodeAvailabilityDetector();
 
     protected abstract int getPort(Node node);
 

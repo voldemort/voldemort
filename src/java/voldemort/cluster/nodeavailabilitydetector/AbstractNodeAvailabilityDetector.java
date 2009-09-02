@@ -28,42 +28,23 @@ import org.apache.log4j.Logger;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
-import voldemort.store.Store;
-import voldemort.utils.ByteArray;
 
 @JmxManaged(description = "Detects the availability of the physical servers on which a Voldemort cluster runs")
 public abstract class AbstractNodeAvailabilityDetector implements NodeAvailabilityDetector {
 
-    protected Map<Integer, Store<ByteArray, byte[]>> stores;
-
-    protected long nodeBannagePeriod;
+    protected final NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig;
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
-    protected AbstractNodeAvailabilityDetector() {
+    protected AbstractNodeAvailabilityDetector(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
+        this.nodeAvailabilityDetectorConfig = nodeAvailabilityDetectorConfig;
         nodeStatusMap = new HashMap<Node, NodeStatus>();
     }
 
     public long getLastChecked(Node node) {
         return getNodeStatus(node).getLastCheckedMs();
-    }
-
-    public Map<Integer, Store<ByteArray, byte[]>> getStores() {
-        return stores;
-    }
-
-    public void setStores(Map<Integer, Store<ByteArray, byte[]>> stores) {
-        this.stores = stores;
-    }
-
-    public long getNodeBannagePeriod() {
-        return nodeBannagePeriod;
-    }
-
-    public void setNodeBannagePeriod(long nodeBannagePeriod) {
-        this.nodeBannagePeriod = nodeBannagePeriod;
     }
 
     @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of available nodes")

@@ -21,7 +21,11 @@ import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.ClientNodeAvailabilityDetectorConfig;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
@@ -64,6 +68,21 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                new SocketDestination(Utils.notNull(host), port, type),
                                socketPool,
                                RoutingTier.SERVER.equals(routingTier));
+    }
+
+    @Override
+    protected NodeAvailabilityDetector initNodeAvailabilityDetector() {
+        return NodeAvailabilityDetectorUtils.create(new ClientNodeAvailabilityDetectorConfig(config) {
+
+            @Override
+            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+                return SocketStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
+                                                              node.getHost(),
+                                                              node.getSocketPort(),
+                                                              config.getRequestFormatType());
+            }
+
+        });
     }
 
     @Override

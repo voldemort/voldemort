@@ -4,12 +4,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -39,7 +37,7 @@ public class StaticStoreClientFactory implements StoreClientFactory {
             throw new IllegalArgumentException("Must provide at least one store.");
         this.stores = Arrays.asList(stores);
         current = new AtomicInteger(0);
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new ClientConfig());
+        nodeAvailabilityDetector = new NoopNodeAvailabilityDetector();
     }
 
     @SuppressWarnings("unchecked")

@@ -14,18 +14,23 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort;
 
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 
-public interface NodeAvailabilityDetector {
+public class NoopNodeAvailabilityDetector implements NodeAvailabilityDetector {
 
-    public boolean isAvailable(Node node);
+    public long getLastChecked(Node node) {
+        return -1;
+    }
 
-    public long getLastChecked(Node node);
+    public boolean isAvailable(Node node) {
+        return false;
+    }
 
-    public void recordException(Node node, Exception e);
+    public void recordException(Node node, Exception e) {}
 
-    public void recordSuccess(Node node);
+    public void recordSuccess(Node node) {}
 
 }

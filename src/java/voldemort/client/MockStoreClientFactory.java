@@ -16,8 +16,8 @@
 
 package voldemort.client;
 
+import voldemort.NoopNodeAvailabilityDetector;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -60,7 +60,7 @@ public class MockStoreClientFactory implements StoreClientFactory {
         this.keySerializer = keySerializer;
         this.valueSerializer = valueSerializer;
         this.time = time;
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new ClientConfig());
+        nodeAvailabilityDetector = new NoopNodeAvailabilityDetector();
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {

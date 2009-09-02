@@ -32,8 +32,12 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.ClientNodeAvailabilityDetectorConfig;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
 /**
@@ -90,6 +94,21 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                              httpClient,
                              requestFormatFactory.getRequestFormat(type),
                              reroute);
+    }
+
+    @Override
+    protected NodeAvailabilityDetector initNodeAvailabilityDetector() {
+        return NodeAvailabilityDetectorUtils.create(new ClientNodeAvailabilityDetectorConfig(config) {
+
+            @Override
+            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+                return HttpStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
+                                                            node.getHost(),
+                                                            node.getHttpPort(),
+                                                            config.getRequestFormatType());
+            }
+
+        });
     }
 
     @Override

@@ -22,8 +22,12 @@ import voldemort.cluster.Node;
 
 public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilityDetector {
 
+    public BannageTimeNodeAvailabilityDetector(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
+        super(nodeAvailabilityDetectorConfig);
+    }
+
     public boolean isAvailable(Node node) {
-        return !getNodeStatus(node).isUnavailable(nodeBannagePeriod);
+        return !getNodeStatus(node).isUnavailable(nodeAvailabilityDetectorConfig.getNodeBannagePeriod());
     }
 
     public void recordException(Node node, Exception e) {
@@ -31,7 +35,8 @@ public class BannageTimeNodeAvailabilityDetector extends AbstractNodeAvailabilit
 
         if(logger.isEnabledFor(Level.WARN))
             logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                        + " marking as unavailable for " + nodeBannagePeriod + " ms.", e);
+                        + " marking as unavailable for "
+                        + nodeAvailabilityDetectorConfig.getNodeBannagePeriod() + " ms.", e);
 
         if(logger.isDebugEnabled())
             logger.debug(e);

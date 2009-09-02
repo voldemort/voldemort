@@ -34,7 +34,9 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.nodeavailabilitydetector.BasicNodeAvailabilityDetectorConfig;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
@@ -641,11 +643,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
         assertEquals("Number of operational nodes not what was expected.", expected, found);
     }
 
-    private void setNodeAvailabilityDetector(Map<Integer, Store<ByteArray, byte[]>> subStores)
+    private void setNodeAvailabilityDetector(final Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
-        nodeAvailabilityDetector = nodeAvailabilityDetectorClass.newInstance();
-        nodeAvailabilityDetector.setNodeBannagePeriod(10000);
-        nodeAvailabilityDetector.setStores(subStores);
+        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new BasicNodeAvailabilityDetectorConfig(nodeAvailabilityDetectorClass.getName(),
+                                                                                                                10000,
+                                                                                                                subStores));
     }
-
 }

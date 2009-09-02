@@ -16,15 +16,16 @@
 
 package voldemort.cluster.nodeavailabilitydetector;
 
-import voldemort.utils.ReflectUtils;
+import voldemort.cluster.Node;
+import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 
-public class NodeAvailabilityDetectorUtils {
+public interface NodeAvailabilityDetectorConfig {
 
-    public static NodeAvailabilityDetector create(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
-        Class<?> clazz = ReflectUtils.loadClass(nodeAvailabilityDetectorConfig.getImplementationClassName());
-        NodeAvailabilityDetector nad = (NodeAvailabilityDetector) ReflectUtils.callConstructor(clazz,
-                                                                                               new Object[] { nodeAvailabilityDetectorConfig });
-        return nad;
-    }
+    public String getImplementationClassName();
+
+    public long getNodeBannagePeriod();
+
+    public Store<ByteArray, byte[]> getStore(Node node);
 
 }
