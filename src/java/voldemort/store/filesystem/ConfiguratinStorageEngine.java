@@ -42,19 +42,36 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class FilesystemStorageEngine implements StorageEngine<String, String> {
+/**
+ * A FileSystem based Storage Engine to persist configuration metadata.<br>
+ * Writes a File with 'key' as exact filename and keeps version in
+ * .version/'key' file <br>
+ * Keeps a backup in '.bak' directory for rollback or backup purposes.
+ * 
+ * @author bbansal
+ * 
+ */
+public class ConfiguratinStorageEngine implements StorageEngine<String, String> {
 
     private final String name;
     private final File directory;
+    private final File versionDirectory;
+    private final File backupDirectory;
 
-    private static final Logger logger = Logger.getLogger(FilesystemStorageEngine.class);
+    private static final Logger logger = Logger.getLogger(ConfiguratinStorageEngine.class);
 
-    public FilesystemStorageEngine(String name, String directory) {
+    public ConfiguratinStorageEngine(String name, String directory) {
         this.name = name;
         this.directory = new File(directory);
         if(!this.directory.exists() && this.directory.canRead())
             throw new IllegalArgumentException("Directory " + this.directory.getAbsolutePath()
                                                + " does not exist or can not be read.");
+        this.versionDirectory = new File(this.directory, ".version");
+        this.backupDirectory = new File(this.directory, ".bak");
+
+        // create version and backup directory if not exist.
+        this.versionDirectory.mkdirs();
+        this.backupDirectory.mkdirs();
     }
 
     public ClosableIterator<Pair<String, Versioned<String>>> entries() {
@@ -205,7 +222,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         }
 
         public Pair<String, Versioned<String>> next() {
-            synchronized(FilesystemStorageEngine.this) {
+            synchronized(ConfiguratinStorageEngine.this) {
                 while(true) {
                     if(!hasNext())
                         throw new NoSuchElementException("No more elements in iterator!");

@@ -30,14 +30,13 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
-import voldemort.store.filesystem.FilesystemStorageEngine;
+import voldemort.store.filesystem.ConfiguratinStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
-import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.utils.WriteThroughCache;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -46,25 +45,37 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
+/**
+ * MetadataStore maintains metadata for Voldemort Server. <br>
+ * Metadata is persisted as string for ease of readability.Metadata Store keeps
+ * a write-through-cache for performance.
+ * 
+ * @author bbansal
+ * 
+ */
 public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
-    public static final String ROLLBACK_CLUSTER_KEY = "rollback.cluster.xml";
+    public static final String SERVER_STATE_KEY = "server.state";
+    public static final String REBALANCING_PROXY_DEST = "rebalancing.proxy.dest";
+    public static final String ROLLBACK_CLUSTER_KEY = null;
 
-    public static final Set<String> PERSISTED_KEYS = ImmutableSet.of(METADATA_STORE_NAME,
-                                                                     CLUSTER_KEY,
-                                                                     STORES_KEY,
-                                                                     ROLLBACK_CLUSTER_KEY);
+    public static final Set<String> KNOWN_KEYS = ImmutableSet.of(CLUSTER_KEY,
+                                                                 STORES_KEY,
+                                                                 SERVER_STATE_KEY,
+                                                                 REBALANCING_PROXY_DEST);
+
+    private final Store<String, String> innerStore;
+    public final MetadataCache metadataCache = new MetadataCache();
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
-    private final Store<String, String> innerStore;
-
     public MetadataStore(Store<String, String> innerStore) {
         this.innerStore = innerStore;
+        init();
     }
 
     public static MetadataStore readFromDirectory(File dir) {
@@ -74,8 +85,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(dir.listFiles() == null)
             throw new IllegalArgumentException("No configuration found in " + dir.getAbsolutePath()
                                                + ".");
-        Store<String, String> innerStore = new FilesystemStorageEngine(MetadataStore.METADATA_STORE_NAME,
-                                                                       dir.getAbsolutePath());
+        Store<String, String> innerStore = new ConfiguratinStorageEngine(MetadataStore.METADATA_STORE_NAME,
+                                                                         dir.getAbsolutePath());
         return new MetadataStore(innerStore);
     }
 
@@ -84,37 +95,38 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * Store the new metadata, and apply any changes made by adding or deleting
-     * stores
+     * Initializes the metadataCache for MetadataStore
+     */
+    private void init() {
+        for(String key: KNOWN_KEYS) {
+            metadataCache.get(key);
+        }
+    }
+
+    /**
+     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
+     * @param value: versioned byte[] eg. UTF bytes for cluster xml definitions
+     * @return void
+     * @throws VoldemortException
      */
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        synchronized(this) {
-            String keyStr = ByteUtils.getString(key.get(), "UTF-8");
-            String valueStr = ByteUtils.getString(value.getValue(), "UTF-8");
-            Versioned<String> newVersioned = new Versioned<String>(valueStr, value.getVersion());
-            if(STORES_KEY.equals(keyStr)) {
-                List<Versioned<String>> current = innerStore.get(keyStr);
-                if(current.size() == 0) {
-                    // There are no current stores, so whatever they put is fine
-                    innerStore.put(keyStr, newVersioned);
-                } else if(current.size() == 1) {
-                    // Okay there are current stores, so process the change
-                    // JK: this shouldn't be necessary, right? The inner store
-                    // should do this...
-                    Versioned<String> versioned = current.get(0);
-                    if(versioned.getVersion().compare(value.getVersion()) != Occured.BEFORE)
-                        throw new ObsoleteVersionException("Attempt to put out of date store metadata!");
-                    // handleStoreChange(storeMapper.readStoreList(new
-                    // StringReader(valueStr)));
-                    innerStore.put(keyStr, newVersioned);
-                } else {
-                    throw new VoldemortException("Inconsistent metadata: " + current);
-                }
-            } else if(CLUSTER_KEY.equals(keyStr)) {
-                innerStore.put(keyStr, newVersioned);
+        String keyStr = ByteUtils.getString(key.get(), "UTF-8");
+        String valueStr = ByteUtils.getString(value.getValue(), "UTF-8");
+        Version version = value.getVersion();
+
+        if(KNOWN_KEYS.contains(keyStr)) {
+            if(CLUSTER_KEY.equals(keyStr)) {
+                metadataCache.put(keyStr,
+                                  new Versioned<Object>(clusterMapper.readCluster(new StringReader(valueStr)),
+                                                        version));
+            } else if(STORES_KEY.equals(keyStr)) {
+                metadataCache.put(keyStr,
+                                  new Versioned<Object>(storeMapper.readStoreList(new StringReader(valueStr)),
+                                                        version));
+            } else if(SERVER_STATE_KEY.equals(keyStr) || REBALANCING_PROXY_DEST.equals(keyStr)) {
+                metadataCache.put(keyStr, new Versioned<Object>(valueStr, version));
             } else {
-                // default put case
-                innerStore.put(keyStr, newVersioned);
+                throw new VoldemortException("Unhandled Key:" + keyStr + " for MetadataStore put()");
             }
         }
     }
@@ -127,11 +139,29 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new NoSuchCapabilityException(capability, getName());
     }
 
+    /**
+     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
+     * @return List of values (only 1 for Metadata) versioned byte[] eg. UTF
+     *         bytes for cluster xml definitions
+     * @throws VoldemortException
+     */
     public List<Versioned<byte[]>> get(byte[] key) throws VoldemortException {
+        String keyString = ByteUtils.getString(key, "UTF-8");
+        String valueString;
+
+        if(CLUSTER_KEY.equals(keyString)) {
+            valueString = clusterMapper.writeCluster(getCluster());
+        } else if(STORES_KEY.equals(keyString)) {
+            valueString = storeMapper.writeStoreList(getStores());
+        } else if(SERVER_STATE_KEY.equals(keyString) || REBALANCING_PROXY_DEST.equals(keyString)) {
+            valueString = metadataCache.get(keyString).getValue().toString();
+        } else {
+            throw new VoldemortException("Unhandled key:" + keyString + " for get() method.");
+        }
+
         List<Versioned<byte[]>> values = Lists.newArrayList();
-        for(Versioned<String> versioned: innerStore.get(ByteUtils.getString(key, "UTF-8")))
-            values.add(new Versioned<byte[]>(ByteUtils.getBytes(versioned.getValue(), "UTF-8"),
-                                             versioned.getVersion()));
+        values.add(new Versioned<byte[]>(ByteUtils.getBytes(valueString, "UTF-8"),
+                                         metadataCache.get(keyString).getVersion()));
         return values;
     }
 
@@ -140,47 +170,22 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public Cluster getCluster() {
-        return clusterMapper.readCluster(new StringReader(getSingleValue(get(new ByteArray(ByteUtils.getBytes(CLUSTER_KEY,
-                                                                                                              "UTF-8"))))));
-    }
-
-    /**
-     * returns null if no rollBackCluster entry found.
-     * 
-     * @return
-     */
-    public Cluster getRollBackCluster() {
-        List<Versioned<byte[]>> values = get(new ByteArray(ByteUtils.getBytes(ROLLBACK_CLUSTER_KEY,
-                                                                              "UTF-8")));
-
-        if(values.size() > 0) {
-            return clusterMapper.readCluster(new StringReader(getSingleValue(values)));
-        }
-
-        return null;
+        return (Cluster) metadataCache.get(CLUSTER_KEY).getValue();
     }
 
     public List<StoreDefinition> getStores() {
-        return storeMapper.readStoreList(new StringReader(getSingleValue(get(new ByteArray(ByteUtils.getBytes(STORES_KEY,
-                                                                                                              "UTF-8"))))));
+        return (List<StoreDefinition>) metadataCache.get(STORES_KEY).getValue();
     }
 
     public StoreDefinition getStore(String storeName) {
-        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(getSingleValue(get(new ByteArray(ByteUtils.getBytes(STORES_KEY,
-                                                                                                                                         "UTF-8"))))));
+        List<StoreDefinition> storeDefs = getStores();
         for(StoreDefinition storeDef: storeDefs) {
-            if(storeName.equals(storeDef.getName()))
+            if(storeDef.getName().equals(storeName)) {
                 return storeDef;
+            }
         }
 
         throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
-    }
-
-    public String getSingleValue(List<Versioned<byte[]>> found) {
-        if(found.size() != 1)
-            throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "
-                                         + found.size());
-        return ByteUtils.getString(found.get(0).getValue(), "UTF-8");
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -195,5 +200,70 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.getAll(this, keys);
+    }
+
+    public class MetadataCache extends WriteThroughCache<String, Versioned<Object>> {
+
+        /**
+         * ReadBack function to initialize from innerStore
+         */
+        @Override
+        public Versioned<Object> readBack(String key) {
+            if(CLUSTER_KEY.equals(key)) {
+                Versioned<String> versionClusterString = getInnerValue(CLUSTER_KEY, true);
+                Cluster cluster = clusterMapper.readCluster(new StringReader(versionClusterString.getValue()));
+                return new Versioned<Object>(cluster, versionClusterString.getVersion());
+            } else if(STORES_KEY.equals(key)) {
+                Versioned<String> versionStoresString = getInnerValue(STORES_KEY, true);
+                List<StoreDefinition> stores = storeMapper.readStoreList(new StringReader(versionStoresString.getValue()));
+                return new Versioned<Object>(stores, versionStoresString.getVersion());
+            } else if(SERVER_STATE_KEY.equals(key) || REBALANCING_PROXY_DEST.equals(key)) {
+                Versioned<String> value = getInnerValue(key, false);
+                return new Versioned<Object>(value.getValue(), value.getVersion());
+            }
+
+            throw new VoldemortException("Unsupported key in readBack:" + key);
+        }
+
+        /**
+         * WriteBack function to update the innerStore.
+         */
+        @Override
+        public void writeBack(String key, Versioned<Object> value) {
+            if(CLUSTER_KEY.equals(key)) {
+                String clusterString = clusterMapper.writeCluster((Cluster) value.getValue());
+                innerStore.put(key, new Versioned<String>(clusterString, value.getVersion()));
+            } else if(STORES_KEY.equals(key)) {
+                String storesString = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
+                innerStore.put(key, new Versioned<String>(storesString, value.getVersion()));
+            } else if(SERVER_STATE_KEY.equals(key) || REBALANCING_PROXY_DEST.equals(key)) {
+                innerStore.put(key, new Versioned<String>(value.getValue().toString(),
+                                                          value.getVersion()));
+            }
+
+            throw new VoldemortException("Unsupported key in writeBack:" + key);
+        }
+
+        public Versioned<String> getInnerValue(String key, boolean required)
+                throws VoldemortException {
+            List<Versioned<String>> values = innerStore.get(key);
+
+            if(values.size() > 1)
+                throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "
+                                             + values.size() + " for key:" + key);
+            if(values.size() > 0) {
+                return values.get(0);
+            } else {
+                if(required)
+                    throw new VoldemortException("No metadata found for required key:" + key);
+            }
+
+            return null;
+        }
+    }
+
+    public Cluster getRollBackCluster() {
+        // TODO remove this method entirely
+        return null;
     }
 }
