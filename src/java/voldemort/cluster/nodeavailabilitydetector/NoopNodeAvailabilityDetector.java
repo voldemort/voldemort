@@ -14,10 +14,9 @@
  * the License.
  */
 
-package voldemort;
+package voldemort.cluster.nodeavailabilitydetector;
 
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 
 public class NoopNodeAvailabilityDetector implements NodeAvailabilityDetector {
 

@@ -16,8 +16,8 @@
 
 package voldemort.client;
 
-import voldemort.NoopNodeAvailabilityDetector;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NoopNodeAvailabilityDetector;
 import voldemort.serialization.Serializer;
 import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;

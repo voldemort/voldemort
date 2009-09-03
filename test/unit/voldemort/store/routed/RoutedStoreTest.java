@@ -34,7 +34,6 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.BasicNodeAvailabilityDetectorConfig;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
@@ -645,8 +644,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
 
     private void setNodeAvailabilityDetector(final Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new BasicNodeAvailabilityDetectorConfig(nodeAvailabilityDetectorClass.getName(),
-                                                                                                                10000,
-                                                                                                                subStores));
+        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(nodeAvailabilityDetectorClass.getName(),
+                                                                        10000,
+                                                                        subStores);
     }
 }

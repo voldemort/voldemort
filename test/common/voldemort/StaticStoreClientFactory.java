@@ -8,6 +8,7 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.nodeavailabilitydetector.NoopNodeAvailabilityDetector;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;

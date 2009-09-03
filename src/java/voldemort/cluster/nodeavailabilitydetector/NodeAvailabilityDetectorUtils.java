@@ -16,13 +16,44 @@
 
 package voldemort.cluster.nodeavailabilitydetector;
 
+import java.util.Map;
+
+import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
+import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ReflectUtils;
 
+import com.google.common.collect.Maps;
+
 public class NodeAvailabilityDetectorUtils {
+
+    public static NodeAvailabilityDetector create(String implementationClassName,
+                                                  long nodeBannagePeriod) {
+        Map<Integer, Store<ByteArray, byte[]>> stores = Maps.newHashMap();
+        return create(implementationClassName, nodeBannagePeriod, stores);
+    }
+
+    public static NodeAvailabilityDetector create(String implementationClassName,
+                                                  long nodeBannagePeriod,
+                                                  Map<Integer, Store<ByteArray, byte[]>> stores) {
+        NodeAvailabilityDetectorConfig config = new BasicNodeAvailabilityDetectorConfig(implementationClassName,
+                                                                                        nodeBannagePeriod,
+                                                                                        stores);
+        return create(config);
+    }
+
+    public static NodeAvailabilityDetector create(VoldemortConfig voldemortConfig,
+                                                  StoreRepository storeRepository) {
+        NodeAvailabilityDetectorConfig config = new ServerNodeAvailabilityDetectorConfig(voldemortConfig,
+                                                                                         storeRepository);
+        return create(config);
+    }
 
     public static NodeAvailabilityDetector create(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
         Class<?> clazz = ReflectUtils.loadClass(nodeAvailabilityDetectorConfig.getImplementationClassName());
         NodeAvailabilityDetector nad = (NodeAvailabilityDetector) ReflectUtils.callConstructor(clazz,
+                                                                                               new Class[] { NodeAvailabilityDetectorConfig.class },
                                                                                                new Object[] { nodeAvailabilityDetectorConfig });
         return nad;
     }

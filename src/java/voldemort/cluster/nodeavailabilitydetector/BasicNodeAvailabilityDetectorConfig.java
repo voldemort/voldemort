@@ -22,8 +22,6 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
-import com.google.common.collect.Maps;
-
 public class BasicNodeAvailabilityDetectorConfig implements NodeAvailabilityDetectorConfig {
 
     private final String implementationClassName;
@@ -31,13 +29,6 @@ public class BasicNodeAvailabilityDetectorConfig implements NodeAvailabilityDete
     private final long nodeBannagePeriod;
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
-
-    public BasicNodeAvailabilityDetectorConfig(String implementationClassName,
-                                               long nodeBannagePeriod) {
-        this.implementationClassName = implementationClassName;
-        this.nodeBannagePeriod = nodeBannagePeriod;
-        this.stores = Maps.newHashMap();
-    }
 
     public BasicNodeAvailabilityDetectorConfig(String implementationClassName,
                                                long nodeBannagePeriod,

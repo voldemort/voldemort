@@ -23,7 +23,6 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import voldemort.NodeAvailabilityDetectorTestCase;
 import voldemort.TestUtils;
-import voldemort.cluster.nodeavailabilitydetector.BasicNodeAvailabilityDetectorConfig;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
 import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
 
@@ -49,8 +48,8 @@ public class TestCluster extends TestCase implements NodeAvailabilityDetectorTes
                                       new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
 
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(new BasicNodeAvailabilityDetectorConfig(nodeAvailabilityDetectorClass.getName(),
-                                                                                                                10000));
+        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(nodeAvailabilityDetectorClass.getName(),
+                                                                        10000);
     }
 
     public void setNodeAvailabilityDetectorClass(Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass) {
