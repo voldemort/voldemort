@@ -97,7 +97,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected FailureDetector initFailureDetector() {
+    protected FailureDetector initFailureDetector(final ClientConfig config) {
         return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config) {
 
             @Override

@@ -89,10 +89,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final MBeanServer mbeanServer;
     private final int jmxId;
     private final FailureDetector failureDetector;
-    protected final ClientConfig config;
 
     public AbstractStoreClientFactory(ClientConfig config) {
-        this.config = config;
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
                                                config.getThreadIdleTime(TimeUnit.MILLISECONDS),
                                                config.getMaxQueuedRequests());
@@ -108,7 +106,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         registerThreadPoolJmx(threadPool);
 
-        failureDetector = initFailureDetector();
+        failureDetector = initFailureDetector(config);
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {
@@ -264,7 +262,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          int port,
                                                          RequestFormatType type);
 
-    protected abstract FailureDetector initFailureDetector();
+    protected abstract FailureDetector initFailureDetector(ClientConfig config);
 
     protected abstract int getPort(Node node);
 
