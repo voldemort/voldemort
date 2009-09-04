@@ -16,38 +16,16 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.Map;
-
-import voldemort.server.StoreRepository;
-import voldemort.server.VoldemortConfig;
-import voldemort.store.Store;
-import voldemort.utils.ByteArray;
 import voldemort.utils.ReflectUtils;
 
-import com.google.common.collect.Maps;
+/**
+ * FailureDetectorUtils serves as a factory for creating a FailureDetector
+ * implementation.
+ * 
+ * @author Kirk True
+ */
 
 public class FailureDetectorUtils {
-
-    public static FailureDetector create(String implementationClassName, long nodeBannagePeriod) {
-        Map<Integer, Store<ByteArray, byte[]>> stores = Maps.newHashMap();
-        return create(implementationClassName, nodeBannagePeriod, stores);
-    }
-
-    public static FailureDetector create(String implementationClassName,
-                                         long nodeBannagePeriod,
-                                         Map<Integer, Store<ByteArray, byte[]>> stores) {
-        FailureDetectorConfig config = new BasicFailureDetectorConfig(implementationClassName,
-                                                                      nodeBannagePeriod,
-                                                                      stores);
-        return create(config);
-    }
-
-    public static FailureDetector create(VoldemortConfig voldemortConfig,
-                                         StoreRepository storeRepository) {
-        FailureDetectorConfig config = new ServerFailureDetectorConfig(voldemortConfig,
-                                                                       storeRepository);
-        return create(config);
-    }
 
     public static FailureDetector create(FailureDetectorConfig failureDetectorConfig) {
         Class<?> clazz = ReflectUtils.loadClass(failureDetectorConfig.getImplementationClassName());

@@ -26,6 +26,11 @@ import voldemort.store.routed.RoutedStore;
  * 
  * <p/>
  * 
+ * A FailureDetector is specific to a given cluster and as such there should
+ * only be one instance per cluster per JVM.
+ * 
+ * <p/>
+ * 
  * Implementations can differ dramatically in how they approach the problem of
  * determining node availability. Some implementations may rely heavily on
  * invocations of recordException and recordSuccess to determine availability.

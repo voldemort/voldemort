@@ -34,7 +34,9 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
@@ -64,8 +66,7 @@ import com.google.common.collect.Maps;
  * @author jay
  * 
  */
-public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
-        FailureDetectorTestCase {
+public class RoutedStoreTest extends AbstractByteArrayStoreTest implements FailureDetectorTestCase {
 
     private Cluster cluster;
     private final ByteArray aKey = TestUtils.toByteArray("jay");
@@ -644,8 +645,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements
 
     private void setFailureDetector(final Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
-        failureDetector = FailureDetectorUtils.create(failureDetectorClass.getName(),
-                                                                        10000,
-                                                                        subStores);
+        FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
+                                                                      10000,
+                                                                      subStores);
+        failureDetector = FailureDetectorUtils.create(config);
     }
 }

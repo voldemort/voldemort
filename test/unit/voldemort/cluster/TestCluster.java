@@ -16,6 +16,7 @@
 
 package voldemort.cluster;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -23,8 +24,12 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import voldemort.FailureDetectorTestCase;
 import voldemort.TestUtils;
+import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.store.Store;
+import voldemort.utils.ByteArray;
 
 import com.google.common.collect.ImmutableList;
 
@@ -48,8 +53,10 @@ public class TestCluster extends TestCase implements FailureDetectorTestCase {
                                       new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
 
-        failureDetector = FailureDetectorUtils.create(failureDetectorClass.getName(),
-                                                                        10000);
+        FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
+                                                                      10000,
+                                                                      new HashMap<Integer, Store<ByteArray, byte[]>>());
+        failureDetector = FailureDetectorUtils.create(config);
     }
 
     public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
@@ -65,8 +72,7 @@ public class TestCluster extends TestCase implements FailureDetectorTestCase {
 
     public void testStatusBeginsAsAvailable() {
         for(Node n: cluster.getNodes())
-            assertTrue("Node " + n.getId() + " is not available.",
-                       failureDetector.isAvailable(n));
+            assertTrue("Node " + n.getId() + " is not available.", failureDetector.isAvailable(n));
     }
 
     public void testUnavailability() {
