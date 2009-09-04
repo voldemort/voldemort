@@ -22,6 +22,14 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
+/**
+ * BasicFailureDetectorConfig simply holds all the data that was available to it
+ * upon construction. It is often used for testing rather than for server or
+ * client configuration.
+ * 
+ * @author Kirk True
+ */
+
 public class BasicFailureDetectorConfig implements FailureDetectorConfig {
 
     private final String implementationClassName;

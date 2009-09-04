@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import voldemort.cluster.Node;
@@ -25,7 +26,14 @@ import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
-import com.google.common.collect.Maps;
+/**
+ * ServerFailureDetectorConfig is used to retrieve configuration data for a
+ * server environment. The node->store mapping is not known at the early point
+ * in the client lifecycle that it can be provided, so it is performed on
+ * demand.
+ * 
+ * @author Kirk True
+ */
 
 public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
@@ -39,7 +47,7 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
                                        StoreRepository storeRepository) {
         this.voldemortConfig = voldemortConfig;
         this.storeRepository = storeRepository;
-        stores = Maps.newHashMap();
+        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
     public String getImplementationClassName() {

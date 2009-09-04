@@ -16,15 +16,27 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.ClientConfig;
+import voldemort.client.HttpStoreClientFactory;
+import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
-import com.google.common.collect.Maps;
+/**
+ * ClientFailureDetectorConfig is used to retrieve configuration data for a
+ * client environment. The node->store mapping is not known at the early point
+ * in the client lifecycle that it can be provided, so it is performed on
+ * demand. This class is abstract due to needing to be implemented differently
+ * by the known store client implementations {@link SocketStoreClientFactory}
+ * and {@link HttpStoreClientFactory}.
+ * 
+ * @author Kirk True
+ */
 
 public abstract class ClientFailureDetectorConfig implements FailureDetectorConfig {
 
@@ -34,7 +46,7 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
 
     protected ClientFailureDetectorConfig(ClientConfig clientConfig) {
         this.clientConfig = clientConfig;
-        stores = Maps.newHashMap();
+        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
     public String getImplementationClassName() {

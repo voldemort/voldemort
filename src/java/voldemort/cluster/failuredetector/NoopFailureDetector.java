@@ -18,6 +18,13 @@ package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
 
+/**
+ * NoopFailureDetector is used for testing classes which don't actually need a
+ * working FailureDetector ;)
+ * 
+ * @author Kirk True
+ */
+
 public class NoopFailureDetector implements FailureDetector {
 
     public long getLastChecked(Node node) {

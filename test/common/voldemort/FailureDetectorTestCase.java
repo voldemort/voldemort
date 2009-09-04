@@ -51,11 +51,8 @@ import voldemort.cluster.failuredetector.FailureDetector;
  *     public void setUp() throws Exception {
  *         super.setUp();
  * 
- *         Map&lt;Integer, Store&lt;ByteArray, byte[]&gt;&gt; stores = . . .
- * 
- *         failureDetector = failureDetectorClass.newInstance(); 
- *         failureDetector.setNodeBannageMs(10000);
- *         failureDetector.setStores(subStores);
+ *         FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(), . . .);
+ *         failureDetector = FailureDetectorUtils.create(config);
  *     }
  * 
  *     public void testSomething() throws Exception {
