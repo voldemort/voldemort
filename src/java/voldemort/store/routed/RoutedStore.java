@@ -813,7 +813,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                  + ByteUtils.toHexString(key.get()) + "'.");
                 fetched = innerStores.get(node.getId()).get(key);
                 if(repairReads) {
-                    if(fetched.size() == 0) {
+                    if(fetched.isEmpty()) {
                         nodeValues.add(nullValue(node, key));
                     } else {
                         for(Versioned<byte[]> f: fetched) {
