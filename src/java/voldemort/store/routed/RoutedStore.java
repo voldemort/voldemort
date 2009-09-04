@@ -509,7 +509,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             logger.trace("GET retrieved the following node values: " + formatNodeValues(nodeValues));
 
         // if we have multiple values, do any necessary repairs
-        if(repairReads && retrieved.size() > 1)
+        if(repairReads && nodeValues.size() > 1)
             repairReads(nodeValues);
 
         if(successes >= this.storeDef.getRequiredReads())
