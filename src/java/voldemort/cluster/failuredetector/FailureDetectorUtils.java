@@ -45,7 +45,7 @@ public class FailureDetectorUtils {
     public static FailureDetector create(VoldemortConfig voldemortConfig,
                                          StoreRepository storeRepository) {
         FailureDetectorConfig config = new ServerFailureDetectorConfig(voldemortConfig,
-                                                                                storeRepository);
+                                                                       storeRepository);
         return create(config);
     }
 

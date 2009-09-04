@@ -16,15 +16,59 @@
 
 package voldemort.cluster.failuredetector;
 
+import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
+/**
+ * FailureDetectorConfig abstracts away the complexities of configuring the
+ * FailureDetector implementation between server, client, and testing
+ * environments.
+ * 
+ * <p/>
+ * 
+ * Not all data provided by the FailureDetectorConfig need be used by all
+ * FailureDetector implementations.
+ * 
+ * @author Kirk True
+ */
+
 public interface FailureDetectorConfig {
+
+    /**
+     * Returns the fully-qualified class name of the FailureDetector
+     * implementation.
+     * 
+     * @return Class name to instantiate for the FailureDetector
+     */
 
     public String getImplementationClassName();
 
+    /**
+     * Returns the node bannage period (in milliseconds) as defined by the
+     * client or server configuration. Some FailureDetector implementations wait
+     * for a specified period of time before attempting to access the node again
+     * once it has become unavailable.
+     * 
+     * @return Period of bannage of a node, in milliseconds
+     * 
+     * @see VoldemortConfig#getClientNodeBannageMs
+     * @see ClientConfig#getNodeBannagePeriod
+     */
+
     public long getNodeBannagePeriod();
+
+    /**
+     * Returns a Store for this node. This is used by some FailureDetector
+     * implementations to attempt contact with the node before marking said node
+     * as available.
+     * 
+     * @param node Node to access
+     * 
+     * @return Store to access to determine node availability
+     */
 
     public Store<ByteArray, byte[]> getStore(Node node);
 
