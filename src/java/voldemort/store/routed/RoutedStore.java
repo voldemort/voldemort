@@ -485,8 +485,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
                 retrieved.addAll(fetched);
                 if(repairReads) {
-                    for(Versioned<byte[]> f: fetched)
-                        nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                    if(fetched.size() == 0) {
+                        nodeValues.add(nullValue(node, key));
+                    } else {
+                        for(Versioned<byte[]> f: fetched) {
+                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                        }
+                    }
                 }
                 ++successes;
                 node.getStatus().setAvailable();
@@ -513,6 +518,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
                                                             + " reads required, but " + successes
                                                             + " succeeded.", failures);
+    }
+
+    private NodeValue<ByteArray, byte[]> nullValue(Node node, ByteArray key) {
+        return new NodeValue<ByteArray, byte[]>(node.getId(),
+                                                key,
+                                                new Versioned<byte[]>(null, new VectorClock(0)));
     }
 
     private void repairReads(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
@@ -802,8 +813,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                  + ByteUtils.toHexString(key.get()) + "'.");
                 fetched = innerStores.get(node.getId()).get(key);
                 if(repairReads) {
-                    for(Versioned<byte[]> f: fetched)
-                        nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                    if(fetched.size() == 0) {
+                        nodeValues.add(nullValue(node, key));
+                    } else {
+                        for(Versioned<byte[]> f: fetched) {
+                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+                        }
+                    }
                 }
                 node.getStatus().setAvailable();
             } catch(UnreachableStoreException e) {
