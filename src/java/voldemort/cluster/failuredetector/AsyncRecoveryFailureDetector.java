@@ -26,17 +26,43 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 
+/**
+ * AsyncRecoveryFailureDetector detects failures and then attempts to contact
+ * the failing node's Store to determine availability.
+ * 
+ * <p/>
+ * 
+ * When a node does go down, attempts to access the remote Store for that node
+ * may take several seconds. Rather than cause the thread to block, we perform
+ * this check in a background thread.
+ * 
+ * @author Kirk True
+ */
+
 public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
+    /**
+     * A set of nodes that have been marked as unavailable. As nodes go offline
+     * and callers report such via recordException, they are added to this set.
+     * When a node becomes available via the check in the thread, they are
+     * removed.
+     */
+
     private final Set<Node> unavailableNodes;
+
+    /**
+     * Thread that checks availability of the nodes in the unavailableNodes set.
+     */
+
+    private final Thread recoveryThread;
 
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
         unavailableNodes = new HashSet<Node>();
 
-        Thread t = new Thread(this);
-        t.setDaemon(true);
-        t.start();
+        recoveryThread = new Thread(this);
+        recoveryThread.setDaemon(true);
+        recoveryThread.start();
     }
 
     @Override
@@ -58,26 +84,13 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     }
 
     public void recordSuccess(Node node) {
-        boolean wasRemoved = false;
-
-        synchronized(unavailableNodes) {
-            wasRemoved = unavailableNodes.remove(node);
-        }
-
-        setAvailable(node);
-
-        if(wasRemoved) {
-            if(logger.isInfoEnabled())
-                logger.info(node + " now available");
-        }
+    // Do nothing. Nodes only become available in our thread...
     }
 
     public void run() {
         ByteArray key = new ByteArray((byte) 1);
 
         while(!Thread.currentThread().isInterrupted()) {
-            System.out.println("Sleeping for " + failureDetectorConfig.getNodeBannagePeriod());
-
             try {
                 Thread.sleep(failureDetectorConfig.getNodeBannagePeriod());
             } catch(InterruptedException e) {
@@ -106,7 +119,11 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 try {
                     store.get(key);
 
-                    recordSuccess(node);
+                    synchronized(unavailableNodes) {
+                        unavailableNodes.remove(node);
+                    }
+
+                    setAvailable(node);
 
                     if(logger.isInfoEnabled())
                         logger.info(node + " now available");

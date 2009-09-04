@@ -41,7 +41,7 @@ import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
-import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -412,7 +412,7 @@ public class TestUtils {
         TestSuite testSuite = new TestSuite();
 
         List<Class<?>> classes = new ArrayList<Class<?>>();
-        classes.add(BannageTimeFailureDetector.class);
+        classes.add(BannagePeriodFailureDetector.class);
         classes.add(AsyncRecoveryFailureDetector.class);
 
         for(Class<?> failureDetectorClass: classes) {

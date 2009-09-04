@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -232,7 +232,7 @@ public class VoldemortConfig implements Serializable {
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
         this.failureDetector = props.getString("node.availability.detector",
-                                                        BannageTimeFailureDetector.class.getName());
+                                                        BannagePeriodFailureDetector.class.getName());
 
         validateParams();
     }

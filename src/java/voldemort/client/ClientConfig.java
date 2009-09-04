@@ -22,7 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.Props;
@@ -52,7 +52,7 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
-    private String failureDetector = BannageTimeFailureDetector.class.getName();
+    private String failureDetector = BannagePeriodFailureDetector.class.getName();
 
     public ClientConfig() {}
 
