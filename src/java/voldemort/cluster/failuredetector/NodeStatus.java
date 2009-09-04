@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import java.io.Serializable;
 import java.util.Date;

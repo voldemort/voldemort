@@ -21,23 +21,23 @@ import java.util.List;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
-import voldemort.NodeAvailabilityDetectorTestCase;
+import voldemort.FailureDetectorTestCase;
 import voldemort.TestUtils;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 
 import com.google.common.collect.ImmutableList;
 
-public class TestCluster extends TestCase implements NodeAvailabilityDetectorTestCase {
+public class TestCluster extends TestCase implements FailureDetectorTestCase {
 
     private String clusterName = "test";
     private List<Node> nodes;
     private Cluster cluster;
-    private Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass;
-    private NodeAvailabilityDetector nodeAvailabilityDetector;
+    private Class<FailureDetector> failureDetectorClass;
+    private FailureDetector failureDetector;
 
     public static Test suite() {
-        return TestUtils.createNodeAvailabilityDetectorTestSuite(TestCluster.class);
+        return TestUtils.createFailureDetectorTestSuite(TestCluster.class);
     }
 
     @Override
@@ -48,12 +48,12 @@ public class TestCluster extends TestCase implements NodeAvailabilityDetectorTes
                                       new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
 
-        nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(nodeAvailabilityDetectorClass.getName(),
+        failureDetector = FailureDetectorUtils.create(failureDetectorClass.getName(),
                                                                         10000);
     }
 
-    public void setNodeAvailabilityDetectorClass(Class<NodeAvailabilityDetector> nodeAvailabilityDetectorClass) {
-        this.nodeAvailabilityDetectorClass = nodeAvailabilityDetectorClass;
+    public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
+        this.failureDetectorClass = failureDetectorClass;
     }
 
     public void testBasics() {
@@ -66,23 +66,23 @@ public class TestCluster extends TestCase implements NodeAvailabilityDetectorTes
     public void testStatusBeginsAsAvailable() {
         for(Node n: cluster.getNodes())
             assertTrue("Node " + n.getId() + " is not available.",
-                       nodeAvailabilityDetector.isAvailable(n));
+                       failureDetector.isAvailable(n));
     }
 
     public void testUnavailability() {
         Node n = cluster.getNodeById(1);
 
         // begins available
-        assertTrue(nodeAvailabilityDetector.isAvailable(n));
+        assertTrue(failureDetector.isAvailable(n));
 
         // if set unavailable, is unavailable
-        nodeAvailabilityDetector.recordException(n, null);
-        assertFalse(nodeAvailabilityDetector.isAvailable(n));
+        failureDetector.recordException(n, null);
+        assertFalse(failureDetector.isAvailable(n));
 
         // if we set it back to available then it is available again
-        nodeAvailabilityDetector.recordSuccess(n);
+        failureDetector.recordSuccess(n);
 
-        assertTrue(nodeAvailabilityDetector.isAvailable(n));
+        assertTrue(failureDetector.isAvailable(n));
     }
 
 }

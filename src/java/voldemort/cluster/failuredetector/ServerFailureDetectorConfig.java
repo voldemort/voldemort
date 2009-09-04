@@ -14,36 +14,40 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
+import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
 import com.google.common.collect.Maps;
 
-public abstract class ClientNodeAvailabilityDetectorConfig implements
-        NodeAvailabilityDetectorConfig {
+public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
-    protected final ClientConfig clientConfig;
+    private final VoldemortConfig voldemortConfig;
 
-    protected final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final StoreRepository storeRepository;
 
-    protected ClientNodeAvailabilityDetectorConfig(ClientConfig clientConfig) {
-        this.clientConfig = clientConfig;
+    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+
+    public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
+                                       StoreRepository storeRepository) {
+        this.voldemortConfig = voldemortConfig;
+        this.storeRepository = storeRepository;
         stores = Maps.newHashMap();
     }
 
     public String getImplementationClassName() {
-        return clientConfig.getNodeAvailabilityDetector();
+        return voldemortConfig.getFailureDetector();
     }
 
     public long getNodeBannagePeriod() {
-        return clientConfig.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
+        return voldemortConfig.getClientNodeBannageMs();
     }
 
     public Store<ByteArray, byte[]> getStore(Node node) {
@@ -51,14 +55,17 @@ public abstract class ClientNodeAvailabilityDetectorConfig implements
             Store<ByteArray, byte[]> store = stores.get(node.getId());
 
             if(store == null) {
-                store = getStoreInternal(node);
+                if(node.getId() == voldemortConfig.getNodeId())
+                    store = storeRepository.getLocalStore(MetadataStore.METADATA_STORE_NAME);
+                else
+                    store = storeRepository.getNodeStore(MetadataStore.METADATA_STORE_NAME,
+                                                         node.getId());
+
                 stores.put(node.getId(), store);
             }
 
             return store;
         }
     }
-
-    protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);
 
 }

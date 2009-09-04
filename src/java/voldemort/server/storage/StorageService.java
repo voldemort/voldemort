@@ -35,7 +35,7 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -86,19 +86,19 @@ public class StorageService extends AbstractService {
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
-    private final NodeAvailabilityDetector nodeAvailabilityDetector;
+    private final FailureDetector failureDetector;
 
     public StorageService(StoreRepository storeRepository,
                           VoldemortMetadata metadata,
                           SchedulerService scheduler,
                           VoldemortConfig config,
-                          NodeAvailabilityDetector nodeAvailabilityDetector) {
+                          FailureDetector failureDetector) {
         super(ServiceType.STORAGE);
         this.voldemortConfig = config;
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+        this.failureDetector = failureDetector;
         this.cleanupPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
@@ -218,7 +218,7 @@ public class StorageService extends AbstractService {
                                                                true,
                                                                this.clientThreadPool,
                                                                voldemortConfig.getRoutingTimeoutMs(),
-                                                               nodeAvailabilityDetector,
+                                                               failureDetector,
                                                                SystemTime.INSTANCE);
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                          new VectorClockInconsistencyResolver<byte[]>());

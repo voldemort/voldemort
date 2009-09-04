@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,13 +26,12 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 
-public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabilityDetector
-        implements Runnable {
+public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
     private final Set<Node> unavailableNodes;
 
-    public AsyncRecoveryNodeAvailabilityDetector(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
-        super(nodeAvailabilityDetectorConfig);
+    public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
+        super(failureDetectorConfig);
         unavailableNodes = new HashSet<Node>();
 
         Thread t = new Thread(this);
@@ -40,6 +39,7 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
         t.start();
     }
 
+    @Override
     public boolean isAvailable(Node node) {
         synchronized(unavailableNodes) {
             return !unavailableNodes.contains(node);
@@ -51,26 +51,35 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
             unavailableNodes.add(node);
         }
 
-        getNodeStatus(node).setUnavailable();
+        setUnavailable(node);
 
         if(logger.isInfoEnabled())
             logger.info(node + " now unavailable");
     }
 
     public void recordSuccess(Node node) {
+        boolean wasRemoved = false;
+
         synchronized(unavailableNodes) {
-            unavailableNodes.remove(node);
+            wasRemoved = unavailableNodes.remove(node);
         }
 
-        getNodeStatus(node).setAvailable();
+        setAvailable(node);
+
+        if(wasRemoved) {
+            if(logger.isInfoEnabled())
+                logger.info(node + " now available");
+        }
     }
 
     public void run() {
         ByteArray key = new ByteArray((byte) 1);
 
         while(!Thread.currentThread().isInterrupted()) {
+            System.out.println("Sleeping for " + failureDetectorConfig.getNodeBannagePeriod());
+
             try {
-                Thread.sleep(nodeAvailabilityDetectorConfig.getNodeBannagePeriod());
+                Thread.sleep(failureDetectorConfig.getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }
@@ -82,10 +91,10 @@ public class AsyncRecoveryNodeAvailabilityDetector extends AbstractNodeAvailabil
             }
 
             for(Node node: unavailableNodesCopy) {
-                if(logger.isDebugEnabled())
-                    logger.debug("Checking previously unavailable node " + node);
+                if(logger.isInfoEnabled())
+                    logger.info("Checking previously unavailable node " + node);
 
-                Store<ByteArray, byte[]> store = nodeAvailabilityDetectorConfig.getStore(node);
+                Store<ByteArray, byte[]> store = failureDetectorConfig.getStore(node);
 
                 if(store == null) {
                     if(logger.isEnabledFor(Level.WARN))

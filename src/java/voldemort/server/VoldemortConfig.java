@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.nodeavailabilitydetector.BannageTimeNodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -126,7 +126,7 @@ public class VoldemortConfig implements Serializable {
 
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
-    private String nodeAvailabilityDetector;
+    private String failureDetector;
 
     public VoldemortConfig(int nodeId, String voldemortHome) {
         this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
@@ -231,8 +231,8 @@ public class VoldemortConfig implements Serializable {
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
-        this.nodeAvailabilityDetector = props.getString("node.availability.detector",
-                                                        BannageTimeNodeAvailabilityDetector.class.getName());
+        this.failureDetector = props.getString("node.availability.detector",
+                                                        BannageTimeFailureDetector.class.getName());
 
         validateParams();
     }
@@ -807,12 +807,12 @@ public class VoldemortConfig implements Serializable {
         this.numCleanupPermits = numCleanupPermits;
     }
 
-    public String getNodeAvailabilityDetector() {
-        return nodeAvailabilityDetector;
+    public String getFailureDetector() {
+        return failureDetector;
     }
 
-    public void setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
-        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+    public void setFailureDetector(String failureDetector) {
+        this.failureDetector = failureDetector;
     }
 
 }

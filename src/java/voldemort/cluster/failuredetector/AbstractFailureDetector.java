@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,17 +29,24 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 
-@JmxManaged(description = "Detects the availability of the physical servers on which a Voldemort cluster runs")
-public abstract class AbstractNodeAvailabilityDetector implements NodeAvailabilityDetector {
+/**
+ * AbstractFailureDetector serves as a building block for FailureDetector
+ * implementations.
+ * 
+ * @author Kirk True
+ */
 
-    protected final NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig;
+@JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
+public abstract class AbstractFailureDetector implements FailureDetector {
+
+    protected final FailureDetectorConfig failureDetectorConfig;
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
-    protected AbstractNodeAvailabilityDetector(NodeAvailabilityDetectorConfig nodeAvailabilityDetectorConfig) {
-        this.nodeAvailabilityDetectorConfig = nodeAvailabilityDetectorConfig;
+    protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
+        this.failureDetectorConfig = failureDetectorConfig;
         nodeStatusMap = new HashMap<Node, NodeStatus>();
     }
 
@@ -64,7 +71,19 @@ public abstract class AbstractNodeAvailabilityDetector implements NodeAvailabili
         return available;
     }
 
-    protected NodeStatus getNodeStatus(Node node) {
+    public boolean isAvailable(Node node) {
+        return !getNodeStatus(node).isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+    }
+
+    protected void setAvailable(Node node) {
+        getNodeStatus(node).setAvailable();
+    }
+
+    protected void setUnavailable(Node node) {
+        getNodeStatus(node).setUnavailable();
+    }
+
+    private NodeStatus getNodeStatus(Node node) {
         synchronized(nodeStatusMap) {
             NodeStatus nodeStatus = nodeStatusMap.get(node);
 

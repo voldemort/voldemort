@@ -28,8 +28,8 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
@@ -103,13 +103,13 @@ public class VoldemortServer extends AbstractService {
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
                                                           SystemTime.INSTANCE);
-        NodeAvailabilityDetector nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(voldemortConfig,
+        FailureDetector failureDetector = FailureDetectorUtils.create(voldemortConfig,
                                                                                                  storeRepository);
         services.add(new StorageService(storeRepository,
                                         metadata,
                                         scheduler,
                                         voldemortConfig,
-                                        nodeAvailabilityDetector));
+                                        failureDetector));
         services.add(scheduler);
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,

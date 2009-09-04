@@ -8,8 +8,8 @@ import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortMetadata;
@@ -48,13 +48,13 @@ public class StorageServiceTest extends TestCase {
                     new Versioned<byte[]>(cluster.toString().getBytes()));
         mdStore.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
                     new Versioned<byte[]>(storeDefs.toString().getBytes()));
-        NodeAvailabilityDetector nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(config,
+        FailureDetector failureDetector = FailureDetectorUtils.create(config,
                                                                                                  storeRepository);
         storage = new StorageService(storeRepository,
                                      new VoldemortMetadata(cluster, storeDefs, 0),
                                      scheduler,
                                      config,
-                                     nodeAvailabilityDetector);
+                                     failureDetector);
         storage.start();
     }
 

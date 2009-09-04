@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import java.util.Map;
 
@@ -22,7 +22,7 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
-public class BasicNodeAvailabilityDetectorConfig implements NodeAvailabilityDetectorConfig {
+public class BasicFailureDetectorConfig implements FailureDetectorConfig {
 
     private final String implementationClassName;
 
@@ -30,9 +30,9 @@ public class BasicNodeAvailabilityDetectorConfig implements NodeAvailabilityDete
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public BasicNodeAvailabilityDetectorConfig(String implementationClassName,
-                                               long nodeBannagePeriod,
-                                               Map<Integer, Store<ByteArray, byte[]>> stores) {
+    public BasicFailureDetectorConfig(String implementationClassName,
+                                      long nodeBannagePeriod,
+                                      Map<Integer, Store<ByteArray, byte[]>> stores) {
         this.implementationClassName = implementationClassName;
         this.nodeBannagePeriod = nodeBannagePeriod;
         this.stores = stores;

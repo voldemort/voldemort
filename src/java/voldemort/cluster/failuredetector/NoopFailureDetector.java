@@ -14,11 +14,11 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
 
-public class NoopNodeAvailabilityDetector implements NodeAvailabilityDetector {
+public class NoopFailureDetector implements FailureDetector {
 
     public long getLastChecked(Node node) {
         return -1;

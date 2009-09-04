@@ -40,9 +40,9 @@ import junit.framework.TestSuite;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.AsyncRecoveryNodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.BannageTimeNodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
+import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
@@ -392,14 +392,14 @@ public class TestUtils {
     }
 
     /**
-     * createNodeAvailabilityDetectorTestSuite is used for tests that use a
-     * NodeAvailabilityDetector. Rather than hard-coding the implementation, we
-     * actually test each method once with each.
+     * createFailureDetectorTestSuite is used for tests that use a
+     * FailureDetector. Rather than hard-coding the implementation, we actually
+     * test each method once with each.
      * 
      * <p/>
      * 
      * <b>Note</b>: this method assumes the incoming class implements
-     * NodeAvailabilityDetectorTestCase.
+     * FailureDetectorTestCase.
      * 
      * @param testCaseClass
      * 
@@ -408,14 +408,14 @@ public class TestUtils {
      */
 
     @SuppressWarnings("unchecked")
-    public static TestSuite createNodeAvailabilityDetectorTestSuite(Class<? extends TestCase> testCaseClass) {
+    public static TestSuite createFailureDetectorTestSuite(Class<? extends TestCase> testCaseClass) {
         TestSuite testSuite = new TestSuite();
 
         List<Class<?>> classes = new ArrayList<Class<?>>();
-        classes.add(BannageTimeNodeAvailabilityDetector.class);
-        classes.add(AsyncRecoveryNodeAvailabilityDetector.class);
+        classes.add(BannageTimeFailureDetector.class);
+        classes.add(AsyncRecoveryFailureDetector.class);
 
-        for(Class<?> nodeAvailabilityDetectorClass: classes) {
+        for(Class<?> failureDetectorClass: classes) {
             try {
                 for(Method method: testCaseClass.getMethods()) {
                     if(!isTestMethod(method))
@@ -424,9 +424,9 @@ public class TestUtils {
                     // Set the appropriate implementation and add it to our
                     // suite. Sorry, but I'm not sure why I can't get the
                     // generics to work correctly here using Class<? extends
-                    // NodeAvailabilityDetector> :(
+                    // FailureDetector> :(
                     Test test = TestSuite.createTest(testCaseClass, method.getName());
-                    ((NodeAvailabilityDetectorTestCase) test).setNodeAvailabilityDetectorClass((Class<NodeAvailabilityDetector>) nodeAvailabilityDetectorClass);
+                    ((FailureDetectorTestCase) test).setFailureDetectorClass((Class<FailureDetector>) failureDetectorClass);
                     testSuite.addTest(test);
                 }
             } catch(Exception e) {

@@ -27,8 +27,8 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
@@ -62,7 +62,7 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
 
-        NodeAvailabilityDetector nodeAvailabilityDetector = NodeAvailabilityDetectorUtils.create(voldemortConfig.getNodeAvailabilityDetector(),
+        FailureDetector failureDetector = FailureDetectorUtils.create(voldemortConfig.getFailureDetector(),
                                                                                                  voldemortConfig.getClientNodeBannageMs(),
                                                                                                  clientMapping);
 
@@ -79,7 +79,7 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                          10,
                                                          true,
                                                          10000L,
-                                                         nodeAvailabilityDetector);
+                                                         failureDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory

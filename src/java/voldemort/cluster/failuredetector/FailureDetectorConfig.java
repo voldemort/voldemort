@@ -14,13 +14,13 @@
  * the License.
  */
 
-package voldemort.cluster.nodeavailabilitydetector;
+package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
-public interface NodeAvailabilityDetectorConfig {
+public interface FailureDetectorConfig {
 
     public String getImplementationClassName();
 

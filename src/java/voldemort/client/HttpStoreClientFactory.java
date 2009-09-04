@@ -32,9 +32,9 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.ClientNodeAvailabilityDetectorConfig;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetectorUtils;
+import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.metadata.MetadataStore;
@@ -97,8 +97,8 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected NodeAvailabilityDetector initNodeAvailabilityDetector() {
-        return NodeAvailabilityDetectorUtils.create(new ClientNodeAvailabilityDetectorConfig(config) {
+    protected FailureDetector initFailureDetector() {
+        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config) {
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {

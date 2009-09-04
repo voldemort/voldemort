@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
-import voldemort.cluster.nodeavailabilitydetector.NoopNodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -31,14 +31,14 @@ public class StaticStoreClientFactory implements StoreClientFactory {
 
     private final AtomicInteger current;
     private final List<Store<?, ?>> stores;
-    private final NodeAvailabilityDetector nodeAvailabilityDetector;
+    private final FailureDetector failureDetector;
 
     public StaticStoreClientFactory(Store<?, ?>... stores) {
         if(stores.length < 1)
             throw new IllegalArgumentException("Must provide at least one store.");
         this.stores = Arrays.asList(stores);
         current = new AtomicInteger(0);
-        nodeAvailabilityDetector = new NoopNodeAvailabilityDetector();
+        failureDetector = new NoopFailureDetector();
     }
 
     @SuppressWarnings("unchecked")
@@ -63,8 +63,8 @@ public class StaticStoreClientFactory implements StoreClientFactory {
             store.close();
     }
 
-    public NodeAvailabilityDetector getNodeAvailabilityDetector() {
-        return nodeAvailabilityDetector;
+    public FailureDetector getFailureDetector() {
+        return failureDetector;
     }
 
 }

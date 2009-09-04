@@ -34,7 +34,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -88,7 +88,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
-    private final NodeAvailabilityDetector nodeAvailabilityDetector;
+    private final FailureDetector failureDetector;
     protected final ClientConfig config;
 
     public AbstractStoreClientFactory(ClientConfig config) {
@@ -108,7 +108,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         registerThreadPoolJmx(threadPool);
 
-        nodeAvailabilityDetector = initNodeAvailabilityDetector();
+        failureDetector = initFailureDetector();
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {
@@ -164,7 +164,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          true,
                                                          threadPool,
                                                          routingTimeoutMs,
-                                                         nodeAvailabilityDetector,
+                                                         failureDetector,
                                                          SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
@@ -200,8 +200,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializedStore;
     }
 
-    public NodeAvailabilityDetector getNodeAvailabilityDetector() {
-        return nodeAvailabilityDetector;
+    public FailureDetector getFailureDetector() {
+        return failureDetector;
     }
 
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
@@ -264,7 +264,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          int port,
                                                          RequestFormatType type);
 
-    protected abstract NodeAvailabilityDetector initNodeAvailabilityDetector();
+    protected abstract FailureDetector initFailureDetector();
 
     protected abstract int getPort(Node node);
 

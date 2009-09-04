@@ -33,7 +33,7 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
-import voldemort.cluster.nodeavailabilitydetector.NodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
@@ -111,7 +111,7 @@ public class VoldemortClientShell {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("locate".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
                     printNodeList(client.getResponsibleNodes(key),
-                                  factory.getNodeAvailabilityDetector());
+                                  factory.getFailureDetector());
                 } else if(line.startsWith("help")) {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");
@@ -146,7 +146,7 @@ public class VoldemortClientShell {
     }
 
     private static void printNodeList(List<Node> nodes,
-                                      NodeAvailabilityDetector nodeAvailabilityDetector) {
+                                      FailureDetector failureDetector) {
         if(nodes.size() > 0) {
             for(int i = 0; i < nodes.size(); i++) {
                 Node node = nodes.get(i);
@@ -154,8 +154,8 @@ public class VoldemortClientShell {
                 System.out.println("host:  " + node.getHost());
                 System.out.println("port: " + node.getSocketPort());
                 System.out.println("available: "
-                                   + (nodeAvailabilityDetector.isAvailable(node) ? "yes" : "no"));
-                System.out.println("last checked: " + nodeAvailabilityDetector.getLastChecked(node)
+                                   + (failureDetector.isAvailable(node) ? "yes" : "no"));
+                System.out.println("last checked: " + failureDetector.getLastChecked(node)
                                    + " ms ago");
                 System.out.println();
             }

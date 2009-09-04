@@ -22,7 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.nodeavailabilitydetector.BannageTimeNodeAvailabilityDetector;
+import voldemort.cluster.failuredetector.BannageTimeFailureDetector;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.Props;
@@ -52,7 +52,7 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
-    private String nodeAvailabilityDetector = BannageTimeNodeAvailabilityDetector.class.getName();
+    private String failureDetector = BannageTimeFailureDetector.class.getName();
 
     public ClientConfig() {}
 
@@ -131,7 +131,7 @@ public class ClientConfig {
             this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
 
         if(props.containsKey(NODE_AVAILABILITY_DETECTOR_PROPERTY))
-            this.setNodeAvailabilityDetector(props.getString(NODE_AVAILABILITY_DETECTOR_PROPERTY));
+            this.setFailureDetector(props.getString(NODE_AVAILABILITY_DETECTOR_PROPERTY));
     }
 
     public int getMaxConnectionsPerNode() {
@@ -380,12 +380,12 @@ public class ClientConfig {
         return this;
     }
 
-    public String getNodeAvailabilityDetector() {
-        return nodeAvailabilityDetector;
+    public String getFailureDetector() {
+        return failureDetector;
     }
 
-    public ClientConfig setNodeAvailabilityDetector(String nodeAvailabilityDetector) {
-        this.nodeAvailabilityDetector = nodeAvailabilityDetector;
+    public ClientConfig setFailureDetector(String failureDetector) {
+        this.failureDetector = failureDetector;
         return this;
     }
 
