@@ -69,7 +69,7 @@ public class HttpService extends AbstractService {
         this.server = server;
         this.velocityEngine = new VelocityEngine(VoldemortServletContextListener.VOLDEMORT_TEMPLATE_DIR);
         this.requestHandler = new RequestHandlerFactory(storeRepository,
-                                                        server.getVoldemortMetadata(),
+                                                        server.getMetadataStore(),
                                                         server.getVoldemortConfig()).getRequestHandler(requestType);
     }
 

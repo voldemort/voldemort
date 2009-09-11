@@ -31,7 +31,7 @@ import org.mortbay.jetty.servlet.ServletHolder;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -39,7 +39,6 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.http.StoreServlet;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
@@ -73,7 +72,8 @@ public class ServerTestUtils {
         Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
-        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"));
+        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"),
+                                                   0);
         metadata.put(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()),
                      new Versioned<byte[]>(clusterXml.getBytes()));
         metadata.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
@@ -297,10 +297,11 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static AdminClientRequestFormat getAdminClient(Node identityNode,
-                                                          VoldemortMetadata voldemortMetadata) {
-        return new AdminClientRequestFormat(identityNode,
-                                            voldemortMetadata,
-                                            new SocketPool(2, 10000, 100000, 32 * 1024));
+    public static NativeAdminClientRequestFormat getAdminClient(Node identityNode,
+                                                                MetadataStore MetadataStore) {
+        return new NativeAdminClientRequestFormat(MetadataStore, new SocketPool(2,
+                                                                                10000,
+                                                                                100000,
+                                                                                32 * 1024));
     }
 }

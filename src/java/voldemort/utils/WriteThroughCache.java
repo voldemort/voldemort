@@ -38,12 +38,11 @@ public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {
      * get() calls the readBack function if the value is not in HashMap
      * otherwise serve copy from hash directly.
      */
+    @SuppressWarnings("unchecked")
     @Override
-    public V get(Object key) {
+    synchronized public V get(Object key) {
         if(!this.containsKey(key)) {
-            synchronized(this) {
-                this.put((K) key, readBack((K) key));
-            }
+            this.put((K) key, readBack((K) key));
         }
 
         return this.get(key);
@@ -53,19 +52,17 @@ public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {
      * Updates the value in HashMap and writeBack as Atomic step
      */
     @Override
-    public V put(K key, V value) {
-        synchronized(this) {
-            V oldValue = this.get(key);
-            try {
-                this.put(key, value);
-                writeBack(key, value);
-                return oldValue;
-            } catch(Exception e) {
-                this.put(key, oldValue);
-                writeBack(key, oldValue);
-                throw new VoldemortException("Failed to put(" + key + ", " + value
-                                             + ") in write through cache", e);
-            }
+    synchronized public V put(K key, V value) {
+        V oldValue = this.get(key);
+        try {
+            this.put(key, value);
+            writeBack(key, value);
+            return oldValue;
+        } catch(Exception e) {
+            this.put(key, oldValue);
+            writeBack(key, oldValue);
+            throw new VoldemortException("Failed to put(" + key + ", " + value
+                                         + ") in write through cache", e);
         }
     }
 }

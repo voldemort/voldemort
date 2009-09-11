@@ -27,14 +27,12 @@ import java.util.Set;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -85,58 +83,36 @@ public class AdminServiceTest extends TestCase {
         server.stop();
     }
 
-    public void testUpdateCluster() {
+    public void testUpdateClusterMetadata() {
 
-        Cluster cluster = server.getVoldemortMetadata().getCurrentCluster();
+        Cluster cluster = server.getMetadataStore().getCluster();
         ArrayList<Node> nodes = new ArrayList<Node>(cluster.getNodes());
         nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         // update VoldemortServer cluster.xml
-        AdminClientRequestFormat client = getAdminClient();
+        NativeAdminClientRequestFormat client = getAdminClient();
 
-        client.updateClusterMetadata(server.getIdentityNode().getId(),
-                                     updatedCluster,
-                                     MetadataStore.CLUSTER_KEY);
+        client.updateClusterMetadata(server.getIdentityNode().getId(), updatedCluster);
 
-        assertEquals("Cluster should match", updatedCluster, server.getVoldemortMetadata()
-                                                                   .getCurrentCluster());
+        assertEquals("Cluster should match", updatedCluster, server.getMetadataStore().getCluster());
+        assertEquals("AdminClient.getMetdata() should match",
+                     client.getClusterMetadata(server.getIdentityNode().getId()),
+                     updatedCluster);
     }
 
-    private AdminClientRequestFormat getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(),
-                                              server.getVoldemortMetadata());
-    }
-
-    public void testUpdateOldCluster() {
-        Cluster cluster = server.getVoldemortMetadata().getCurrentCluster();
-
-        // add node 3 and partition 4,5 to cluster.
-        ArrayList<Node> nodes = new ArrayList<Node>(cluster.getNodes());
-        nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
-        Cluster updatedCluster = new Cluster("new-cluster", nodes);
-
-        // update VoldemortServer cluster.xml
-        AdminClientRequestFormat client = getAdminClient();
-
-        client.updateClusterMetadata(server.getIdentityNode().getId(),
-                                     updatedCluster,
-                                     MetadataStore.ROLLBACK_CLUSTER_KEY);
-
-        Cluster metaCluster = server.getVoldemortMetadata().getRollbackCluster();
-        assertEquals("Cluster should match", updatedCluster, metaCluster);
-
+    private NativeAdminClientRequestFormat getAdminClient() {
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
     }
 
     public void testUpdateStores() {
-        List<StoreDefinition> storesList = new ArrayList<StoreDefinition>(server.getVoldemortMetadata()
-                                                                                .getStoreDefs()
-                                                                                .values());
+        List<StoreDefinition> storesList = new ArrayList<StoreDefinition>(server.getMetadataStore()
+                                                                                .getStores());
 
         // user store should be present
         assertNotSame("StoreDefinition for 'users' should not be nul ",
                       null,
-                      server.getVoldemortMetadata().getStoreDef("users"));
+                      server.getMetadataStore().getStore("users"));
 
         // remove store users from storesList and update store info.
         int id = -1;
@@ -151,12 +127,12 @@ public class AdminServiceTest extends TestCase {
         }
 
         // update server stores info
-        AdminClientRequestFormat client = getAdminClient();
+        NativeAdminClientRequestFormat client = getAdminClient();
 
         client.updateStoresMetadata(server.getIdentityNode().getId(), storesList);
 
         boolean foundUserStore = false;
-        for(StoreDefinition def: server.getVoldemortMetadata().getStoreDefs().values()) {
+        for(StoreDefinition def: server.getMetadataStore().getStores()) {
             if(def.getName().equals("users")) {
                 foundUserStore = true;
             }
@@ -181,7 +157,7 @@ public class AdminServiceTest extends TestCase {
                                                                                      .getValue()));
 
         // update server stores info
-        AdminClientRequestFormat client = getAdminClient();
+        NativeAdminClientRequestFormat client = getAdminClient();
 
         assertEquals("ForcedGet should match put value",
                      new String(value),
@@ -192,49 +168,40 @@ public class AdminServiceTest extends TestCase {
 
     public void testStateTransitions() {
         // change to REBALANCING STATE
-        AdminClientRequestFormat client = getAdminClient();
-        client.changeServerState(server.getIdentityNode().getId(),
-                                 VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        NativeAdminClientRequestFormat client = getAdminClient();
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.REBALANCING_STEALER_STATE);
 
-        VoldemortMetadata.ServerState state = server.getVoldemortMetadata().getServerState();
+        MetadataStore.ServerState state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE,
+                     MetadataStore.ServerState.REBALANCING_STEALER_STATE,
                      state);
 
         // change back to NORMAL state
-        client.changeServerState(server.getIdentityNode().getId(),
-                                 VoldemortMetadata.ServerState.NORMAL_STATE);
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.NORMAL_STATE);
 
-        state = server.getVoldemortMetadata().getServerState();
+        state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     VoldemortMetadata.ServerState.NORMAL_STATE,
+                     MetadataStore.ServerState.NORMAL_STATE,
                      state);
 
         // lets revert back to REBALANCING STATE AND CHECK
-        client.changeServerState(server.getIdentityNode().getId(),
-                                 VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE);
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.REBALANCING_DONOR_STATE);
 
-        state = server.getVoldemortMetadata().getServerState();
+        state = server.getMetadataStore().getServerState();
 
         assertEquals("State should be changed correctly to rebalancing state",
-                     VoldemortMetadata.ServerState.REBALANCING_DONOR_STATE,
+                     MetadataStore.ServerState.REBALANCING_DONOR_STATE,
                      state);
 
-        // we should not be able to change it to REBALANCING_STEALER_STATE
-        try {
-            client.changeServerState(server.getIdentityNode().getId(),
-                                     VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
-            fail("We should not be able to change state from DONATE to Stealer");
-        } catch(VoldemortException e) {
-            // ignore this
-        }
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.NORMAL_STATE);
 
-        client.changeServerState(server.getIdentityNode().getId(),
-                                 VoldemortMetadata.ServerState.NORMAL_STATE);
-
-        state = server.getVoldemortMetadata().getServerState();
+        state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     VoldemortMetadata.ServerState.NORMAL_STATE,
+                     MetadataStore.ServerState.NORMAL_STATE,
                      state);
     }
 
@@ -252,15 +219,16 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Get a single partition here
-        AdminClientRequestFormat client = getAdminClient();
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.fetchPartitionEntries(0,
-                                                                                                  storeName,
-                                                                                                  Arrays.asList(new Integer[] { 0 }));
+        NativeAdminClientRequestFormat client = getAdminClient();
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.doFetchPartitionEntries(0,
+                                                                                                    storeName,
+                                                                                                    Arrays.asList(new Integer[] { 0 }));
 
-        StoreDefinition storeDef = server.getVoldemortMetadata().getStoreDef(storeName);
+        StoreDefinition storeDef = server.getMetadataStore().getStore(storeName);
         assertNotSame("StoreDefinition for 'users' should not be nul ", null, storeDef);
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory(server.getVoldemortMetadata()
-                                                                           .getCurrentCluster()).getRoutingStrategy(storeDef);
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                             server.getMetadataStore()
+                                                                                                   .getCluster());
         // assert all entries are right partitions
         while(entryIterator.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
@@ -268,8 +236,8 @@ public class AdminServiceTest extends TestCase {
         }
 
         // check for two partitions
-        entryIterator = client.fetchPartitionEntries(0, storeName, Arrays.asList(new Integer[] { 0,
-                1 }));
+        entryIterator = client.doFetchPartitionEntries(0, storeName, Arrays.asList(new Integer[] {
+                0, 1 }));
         // assert right partitions returned and both are returned
         Set<Integer> partitionSet2 = new HashSet<Integer>();
         while(entryIterator.hasNext()) {
@@ -284,7 +252,7 @@ public class AdminServiceTest extends TestCase {
                              && partitionSet2.contains(new Integer(1)));
     }
 
-    public void testUpdateAsStream() throws IOException {
+    public void testUpdateAsStream() {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
@@ -302,8 +270,8 @@ public class AdminServiceTest extends TestCase {
         }
 
         // Write
-        AdminClientRequestFormat client = getAdminClient();
-        client.updatePartitionEntries(0, storeName, entryList.iterator());
+        NativeAdminClientRequestFormat client = getAdminClient();
+        client.doUpdatePartitionEntries(0, storeName, entryList.iterator());
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
@@ -355,8 +323,8 @@ public class AdminServiceTest extends TestCase {
         }
 
         // use pipeGetAndPutStream to add values to server2
-        AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
-                                                                         server2.getVoldemortMetadata());
+        NativeAdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
+                                                                               server2.getMetadataStore());
 
         List<Integer> stealList = new ArrayList<Integer>();
         stealList.add(0);
@@ -368,10 +336,11 @@ public class AdminServiceTest extends TestCase {
         Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store2);
 
-        StoreDefinition storeDef = server.getVoldemortMetadata().getStoreDef(storeName);
+        StoreDefinition storeDef = server.getMetadataStore().getStore(storeName);
         assertNotSame("StoreDefinition for 'users' should not be nul ", null, storeDef);
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory(server.getVoldemortMetadata()
-                                                                           .getCurrentCluster()).getRoutingStrategy(storeDef);
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                             server.getMetadataStore()
+                                                                                                   .getCluster());
 
         int checked = 0;
         int matched = 0;

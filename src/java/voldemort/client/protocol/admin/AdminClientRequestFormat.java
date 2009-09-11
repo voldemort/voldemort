@@ -16,29 +16,18 @@
 
 package voldemort.client.protocol.admin;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.Socket;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.serialization.VoldemortOpCode;
-import voldemort.server.VoldemortMetadata;
-import voldemort.server.VoldemortMetadata.ServerState;
-import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketAndStreams;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
+import voldemort.store.metadata.MetadataStore.ServerState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -47,114 +36,62 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.collect.AbstractIterator;
-
 /**
- * The client implementation for Admin Client hides socket level details from
- * user.
+ * Abstract class for AdminClientRequestFormat. defines helper functions and
+ * abstract functions need to be extended by different clients.
  * 
  * @author bbansal
  */
-public class AdminClientRequestFormat {
+public abstract class AdminClientRequestFormat {
 
-    private static final Logger logger = Logger.getLogger(AdminClientRequestFormat.class);
-    private final ErrorCodeMapper errorCodeMapper = new ErrorCodeMapper();
+    private static final ClusterMapper clusterMapper = new ClusterMapper();
+    private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
-    private final Node currentNode;
-    private final SocketPool pool;
-    private final VoldemortMetadata metadata;
+    private final MetadataStore metadata;
 
-    public AdminClientRequestFormat(Node currentNode,
-                                    VoldemortMetadata metadata,
-                                    SocketPool socketPool) {
-        this.currentNode = currentNode;
+    public AdminClientRequestFormat(MetadataStore metadata) {
         this.metadata = metadata;
-        this.pool = socketPool;
     }
 
-    public void close() throws VoldemortException {
-    // don't close the socket pool, it is shared
-    }
-
-    public Node getConnectedNode() {
-        return currentNode;
-    }
-
-    public VoldemortMetadata getMetadata() {
-        return metadata;
-    }
+    /* Abstract functions need to be overwritten */
 
     /**
-     * Updates cluster information at (remote) node with given nodeId for
-     * cluster_keys {@link MetadataStore#CLUSTER_KEY} OR
-     * {@link MetadataStore#ROLLBACK_CLUSTER_KEY}
-     * 
-     * @param nodeId
-     * @param cluster
-     * @param cluster_key
-     * @throws VoldemortException
-     */
-    public void updateClusterMetadata(int nodeId, Cluster cluster, String cluster_key)
-            throws VoldemortException {
-        Node node = metadata.getCurrentCluster().getNodeById(nodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.UPDATE_METADATA_OP_CODE);
-            outputStream.writeUTF(cluster_key);
-            String clusterString = new ClusterMapper().writeCluster(cluster);
-            outputStream.writeUTF(clusterString);
-            outputStream.flush();
-
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
-
-    /**
-     * Updates Store informations at (remote) node.
+     * Updates Metadata at (remote) Node
      * 
      * @param nodeId
      * @param storesList
      * @throws VoldemortException
      */
-    public void updateStoresMetadata(int nodeId, List<StoreDefinition> storesList)
-            throws VoldemortException {
-        Node node = metadata.getCurrentCluster().getNodeById(nodeId);
-
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.UPDATE_METADATA_OP_CODE);
-            outputStream.writeUTF(MetadataStore.STORES_KEY);
-            String storeDefString = new StoreDefinitionsMapper().writeStoreList(storesList);
-            outputStream.writeUTF(storeDefString);
-            outputStream.flush();
-
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
+    public abstract void doUpdateRemoteMetadata(int remoteNodeId,
+                                                ByteArray key,
+                                                Versioned<byte[]> value);
 
     /**
-     * Fetch all {key, value} tuples from (remote) node with given nodeId,
-     * storeName and partitionList
+     * Get Metadata from (remote) Node
+     * 
+     * @param nodeId
+     * @param storesList
+     * @throws VoldemortException
+     */
+    public abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
+
+    /**
+     * provides a mechanism to do forcedGet on (remote) store, Overrides all
+     * security checks and return the value. queries the raw storageEngine at
+     * server end to return the value
+     * 
+     * @param proxyDestNodeId
+     * @param storeName
+     * @param key
+     * @return List<Versioned <byte[]>>
+     */
+    public abstract List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId,
+                                                          String storeName,
+                                                          ByteArray key);
+
+    /**
+     * streaming API to get all entries belonging to any of the partition in the
+     * input List.
      * 
      * @param nodeId
      * @param storeName
@@ -162,71 +99,9 @@ public class AdminClientRequestFormat {
      * @return
      * @throws VoldemortException
      */
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
-                                                                              String storeName,
-                                                                              List<Integer> partitionList)
-            throws VoldemortException {
-        Node node = metadata.getCurrentCluster().getNodeById(nodeId);
-        final SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                    node.getSocketPort(),
-                                                                    RequestFormatType.ADMIN);
-        final SocketAndStreams sands = pool.checkout(destination);
-        try {
-            // get these partitions from the node for store
-            DataOutputStream getOutputStream = sands.getOutputStream();
-
-            // send request for get Partition List
-            getOutputStream.writeByte(VoldemortOpCode.GET_PARTITION_AS_STREAM_OP_CODE);
-            getOutputStream.writeUTF(storeName);
-            getOutputStream.writeInt(partitionList.size());
-            for(Integer p: partitionList) {
-                getOutputStream.writeInt(p.intValue());
-            }
-            getOutputStream.flush();
-
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        }
-
-        // read values
-        final DataInputStream inputStream = sands.getInputStream();
-
-        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-
-            @Override
-            protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
-                try {
-                    checkException(inputStream);
-
-                    int keySize = inputStream.readInt();
-                    if(keySize == -1) {
-                        pool.checkin(destination, sands);
-                        return endOfData();
-                    } else {
-                        byte[] key = new byte[keySize];
-                        ByteUtils.read(inputStream, key);
-
-                        int valueSize = inputStream.readInt();
-                        byte[] value = new byte[valueSize];
-                        ByteUtils.read(inputStream, value);
-
-                        VectorClock clock = new VectorClock(value);
-                        Versioned<byte[]> versionedValue = new Versioned<byte[]>(ByteUtils.copy(value,
-                                                                                                clock.sizeInBytes(),
-                                                                                                value.length),
-                                                                                 clock);
-                        return Pair.create(new ByteArray(key), versionedValue);
-                    }
-
-                } catch(IOException e) {
-                    close(sands.getSocket());
-                    pool.checkin(destination, sands);
-                    throw new VoldemortException(e);
-                }
-            }
-        };
-    }
+    public abstract Iterator<Pair<ByteArray, Versioned<byte[]>>> doFetchPartitionEntries(int nodeId,
+                                                                                         String storeName,
+                                                                                         List<Integer> partitionList);
 
     /**
      * update Entries at (remote) node with all entries in iterator for passed
@@ -238,198 +113,167 @@ public class AdminClientRequestFormat {
      * @throws VoldemortException
      * @throws IOException
      */
-    public void updatePartitionEntries(int nodeId,
-                                       String storeName,
-                                       Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator)
-            throws VoldemortException, IOException {
-        Node node = metadata.getCurrentCluster().getNodeById(nodeId);
-
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        DataOutputStream outputStream = sands.getOutputStream();
-        DataInputStream inputStream = sands.getInputStream();
-
-        try {
-            // send request for put partitions
-            outputStream.writeByte(VoldemortOpCode.PUT_ENTRIES_AS_STREAM_OP_CODE);
-            outputStream.writeUTF(storeName);
-            outputStream.flush();
-
-            while(entryIterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
-                outputStream.writeInt(entry.getFirst().length());
-                outputStream.write(entry.getFirst().get());
-
-                Versioned<byte[]> value = entry.getSecond();
-                VectorClock clock = (VectorClock) value.getVersion();
-                outputStream.writeInt(value.getValue().length + clock.sizeInBytes());
-                outputStream.write(clock.toBytes());
-                outputStream.write(value.getValue());
-
-                outputStream.flush();
-
-                checkException(inputStream);
-            }
-            outputStream.writeInt(-1);
-            outputStream.flush();
-
-            // read values
-
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            // check for Exception after each entry
-            checkException(inputStream);
-            pool.checkin(destination, sands);
-        }
-    }
+    public abstract void doUpdatePartitionEntries(int nodeId,
+                                                  String storeName,
+                                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator);
 
     /**
-     * changes {@link ServerState} for (remote) node with given nodeId
+     * Delete all Entries at (remote) node for partitions in partitionList
      * 
      * @param nodeId
-     * @param state
-     */
-    public void changeServerState(int nodeId, VoldemortMetadata.ServerState state) {
-        Cluster currentCluster = metadata.getCurrentCluster();
-        Node node = currentCluster.getNodeById(nodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.SERVER_STATE_CHANGE_OP_CODE);
-            outputStream.writeUTF(state.toString());
-            outputStream.flush();
-
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
-
-    /**
-     * set given partitionStealList on given nodeid
-     * 
-     * @param stealerNodeId
-     * @param donorNodeId
-     * @param stealPartitionList
-     */
-    public void setStealInfo(int stealerNodeId, int donorNodeId, List<Integer> stealPartitionList) {
-        Cluster currentCluster = metadata.getCurrentCluster();
-        Node node = currentCluster.getNodeById(stealerNodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.SET_STEAL_INFO_OP_CODE);
-            // write donorNodeId
-            outputStream.writeInt(donorNodeId);
-            // write list size
-            outputStream.writeInt(stealPartitionList.size());
-            for(Integer partition: stealPartitionList) {
-                outputStream.writeInt(partition);
-            }
-            outputStream.flush();
-
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
-
-    /**
-     * provides a mechanism to do forcedGet on (remote) store, Overrides all
-     * security checks and return the value. queries the raw storageEngine at
-     * server end to return the value
-     * 
-     * @param redirectedNodeId
      * @param storeName
-     * @param key
-     * @return
-     */
-    public List<Versioned<byte[]>> redirectGet(int redirectedNodeId, String storeName, ByteArray key) {
-        Node redirectedNode = metadata.getCurrentCluster().getNodeById(redirectedNodeId);
-        SocketDestination destination = new SocketDestination(redirectedNode.getHost(),
-                                                              redirectedNode.getSocketPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.REDIRECT_GET_OP_CODE);
-            outputStream.writeUTF(storeName);
-            outputStream.writeInt(key.length());
-            outputStream.write(key.get());
-            outputStream.flush();
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-            int resultSize = inputStream.readInt();
-            List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(resultSize);
-            for(int i = 0; i < resultSize; i++) {
-                int valueSize = inputStream.readInt();
-                byte[] bytes = new byte[valueSize];
-                ByteUtils.read(inputStream, bytes);
-                VectorClock clock = new VectorClock(bytes);
-                results.add(new Versioned<byte[]>(ByteUtils.copy(bytes,
-                                                                 clock.sizeInBytes(),
-                                                                 bytes.length), clock));
-            }
-            return results;
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
-
-    /**
-     * Provides a wrapper to start fetching from donorNodeId and updating
-     * stealerNodeId as Stream for given storeName and partitionList
-     * 
-     * @param donorNodeId
-     * @param stealerNodeId
-     * @param storeName
-     * @param stealList
+     * @param partitionList
+     * @throws VoldemortException
      * @throws IOException
+     */
+    public abstract int doDeletePartitionEntries(int nodeId,
+                                                 String storeName,
+                                                 List<Integer> partitionList);
+
+    /* helper functions */
+
+    public Node getConnectedNode() {
+        return metadata.getCluster().getNodeById(metadata.getNodeId());
+    }
+
+    public MetadataStore getMetadata() {
+        return metadata;
+    }
+
+    /* get/update cluster metadata */
+    public void updateClusterMetadata(int nodeId, Cluster cluster) throws VoldemortException {
+        // get current version.
+        VectorClock oldClock = (VectorClock) getClusterMetadata(nodeId).getVersion();
+
+        doUpdateRemoteMetadata(nodeId,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.CLUSTER_KEY, "UTF-8")),
+                               new Versioned<byte[]>(ByteUtils.getBytes(clusterMapper.writeCluster(cluster),
+                                                                        "UTF-8"),
+                                                     oldClock.incremented(nodeId, 1)));
+    }
+
+    public Versioned<Cluster> getClusterMetadata(int nodeId) throws VoldemortException {
+        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.CLUSTER_KEY,
+                                                                                       "UTF-8")));
+        Cluster cluster = clusterMapper.readCluster(new StringReader(ByteUtils.getString(value.getValue(),
+                                                                                         "UTF-8")));
+        return new Versioned<Cluster>(cluster, value.getVersion());
+
+    }
+
+    /* get/update Store metadata */
+    public void updateStoresMetadata(int nodeId, List<StoreDefinition> storesList)
+            throws VoldemortException {
+        // get current version.
+        VectorClock oldClock = (VectorClock) getStoresMetadata(nodeId).getVersion();
+
+        doUpdateRemoteMetadata(nodeId,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8")),
+                               new Versioned<byte[]>(ByteUtils.getBytes(storeMapper.writeStoreList(storesList),
+                                                                        "UTF-8"),
+                                                     oldClock.incremented(nodeId, 1)));
+    }
+
+    public Versioned<List<StoreDefinition>> getStoresMetadata(int nodeId) throws VoldemortException {
+        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY,
+                                                                                       "UTF-8")));
+        List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(ByteUtils.getString(value.getValue(),
+                                                                                                         "UTF-8")));
+        return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
+    }
+
+    /* get/update Server state metadata */
+    public void updateServerState(int nodeId, MetadataStore.ServerState state) {
+        VectorClock oldClock = (VectorClock) getServerState(nodeId).getVersion();
+
+        doUpdateRemoteMetadata(nodeId,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
+                                                                "UTF-8")),
+                               new Versioned<byte[]>(ByteUtils.getBytes(state.toString(), "UTF-8"),
+                                                     oldClock.incremented(nodeId, 1)));
+    }
+
+    public Versioned<ServerState> getServerState(int nodeId) {
+        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
+                                                                                       "UTF-8")));
+        return new Versioned<ServerState>(ServerState.valueOf(ByteUtils.getString(value.getValue(),
+                                                                                  "UTF-8")),
+                                          value.getVersion());
+    }
+
+    /* get/update Proxy Destination Node while rebalancing */
+    public void updateRebalancingProxyDest(int rebalancingNodeId, int proxyDestNodeId) {
+        VectorClock oldClock = (VectorClock) getRebalancingProxyDest(rebalancingNodeId).getVersion();
+
+        doUpdateRemoteMetadata(rebalancingNodeId,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST,
+                                                                "UTF-8")),
+                               new Versioned<byte[]>(ByteUtils.getBytes("" + proxyDestNodeId,
+                                                                        "UTF-8"),
+                                                     oldClock.incremented(rebalancingNodeId, 1)));
+    }
+
+    public Versioned<Integer> getRebalancingProxyDest(int rebalancingNodeId) {
+        Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST,
+                                                                                       "UTF-8")));
+        return new Versioned<Integer>(Integer.parseInt(ByteUtils.getString(value.getValue(),
+                                                                           "UTF-8")),
+                                      value.getVersion());
+    }
+
+    /* get/update Rebalancing partition list */
+    public void updateRebalancingPartitionList(int rebalancingNodeId, List<Integer> partitionList) {
+        StringBuilder partitionListString = new StringBuilder();
+        for(int i = 0; i < partitionList.size(); i++) {
+            partitionListString.append("" + partitionList.get(i));
+            if(i < partitionList.size() - 1) {
+                partitionListString.append(",");
+            }
+        }
+
+        VectorClock oldClock = (VectorClock) getRebalancingPartitionList(rebalancingNodeId).getVersion();
+
+        doUpdateRemoteMetadata(rebalancingNodeId,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST,
+                                                                "UTF-8")),
+                               new Versioned<byte[]>(ByteUtils.getBytes(partitionListString.toString(),
+                                                                        "UTF-8"),
+                                                     oldClock.incremented(rebalancingNodeId, 1)));
+    }
+
+    public Versioned<List<Integer>> getRebalancingPartitionList(int rebalancingNodeId) {
+        Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST,
+                                                                                       "UTF-8")));
+        String[] partitionList = ByteUtils.getString(value.getValue(), "UTF-8").split(",");
+        List<Integer> list = new ArrayList<Integer>();
+        for(int i = 0; i < partitionList.length; i++) {
+            list.add(Integer.parseInt(partitionList[i]));
+        }
+
+        return new Versioned<List<Integer>>(list, value.getVersion());
+    }
+
+    /* redirectGet() while proxy mode. */
+    public List<Versioned<byte[]>> redirectGet(int redirectedNodeId, String storeName, ByteArray key) {
+        return doRedirectGet(redirectedNodeId, storeName, key);
+    }
+
+    /* Streaming APIs */
+
+    /**
+     * Pipe fetch from donorNode and update stealerNode in streaming mode.
      */
     public void fetchAndUpdateStreams(int donorNodeId,
                                       int stealerNodeId,
                                       String storeName,
-                                      List<Integer> stealList) throws IOException {
-        updatePartitionEntries(stealerNodeId, storeName, fetchPartitionEntries(donorNodeId,
-                                                                               storeName,
-                                                                               stealList));
+                                      List<Integer> stealList) {
+        doUpdatePartitionEntries(stealerNodeId, storeName, doFetchPartitionEntries(donorNodeId,
+                                                                                   storeName,
+                                                                                   stealList));
     }
-
-    private void checkException(DataInputStream inputStream) throws IOException {
-        short retCode = inputStream.readShort();
-        if(retCode != 0) {
-            String error = inputStream.readUTF();
-            throw errorCodeMapper.getError(retCode, error);
-        }
-    }
-
-    private void close(Socket socket) {
-        try {
-            socket.close();
-        } catch(IOException e) {
-            logger.warn("Failed to close socket");
-        }
-    }
-
 }

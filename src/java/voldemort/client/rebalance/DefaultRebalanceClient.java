@@ -6,11 +6,9 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.VoldemortMetadata;
-import voldemort.server.VoldemortMetadata.ServerState;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 
@@ -22,7 +20,7 @@ import voldemort.store.socket.SocketPool;
 public class DefaultRebalanceClient implements RebalanceClient {
 
     private static final Logger logger = Logger.getLogger(DefaultRebalanceClient.class);
-    private final AdminClientRequestFormat adminClient;
+    private final NativeAdminClientRequestFormat adminClient;
 
     /**
      * 
@@ -31,12 +29,8 @@ public class DefaultRebalanceClient implements RebalanceClient {
      * @param socketPool: socket Timeout should be kept high as streaming is
      *        throttled by server min 10 sec +
      */
-    public DefaultRebalanceClient(int connectedNodeId,
-                                  VoldemortMetadata metadata,
-                                  SocketPool socketPool) {
-        adminClient = new AdminClientRequestFormat(metadata.getCurrentCluster().getNodeById(connectedNodeId),
-                                      metadata,
-                                      socketPool);
+    public DefaultRebalanceClient(int connectedNodeId, MetadataStore metadata, SocketPool socketPool) {
+        adminClient = new NativeAdminClientRequestFormat(metadata, socketPool);
     }
 
     public void stealPartitions(int stealerNodeID, String storeName, Cluster currentCluster) {
@@ -53,16 +47,11 @@ public class DefaultRebalanceClient implements RebalanceClient {
         if(stealerNode != null) {
             try {
                 // Set stealerNode state
-                adminClient.changeServerState(stealerNodeID, ServerState.REBALANCING_STEALER_STATE);
+                adminClient.updateServerState(stealerNodeID,
+                                              MetadataStore.ServerState.REBALANCING_STEALER_STATE);
 
-                // stealerNode saves original cluster for rollback
-                adminClient.updateClusterMetadata(stealerNodeID,
-                                                  currentCluster,
-                                                  MetadataStore.ROLLBACK_CLUSTER_KEY);
                 // stealer node sets targetCluster as currentCluster
-                adminClient.updateClusterMetadata(stealerNodeID,
-                                                  targetCluster,
-                                                  MetadataStore.CLUSTER_KEY);
+                adminClient.updateClusterMetadata(stealerNodeID, targetCluster);
 
                 // start stealing from all nodes one-by-one
                 for(Node donorNode: currentCluster.getNodes()) {
@@ -77,33 +66,30 @@ public class DefaultRebalanceClient implements RebalanceClient {
                             logger.info("stealing partitions from " + donorNode.getId());
 
                             // change state for donorNode
-                            adminClient.changeServerState(donorNode.getId(),
-                                                          ServerState.REBALANCING_DONOR_STATE);
+                            adminClient.updateServerState(donorNode.getId(),
+                                                          MetadataStore.ServerState.REBALANCING_DONOR_STATE);
 
                             // donorNode sets new cluster
-                            adminClient.updateClusterMetadata(donorNode.getId(),
-                                                              targetCluster,
-                                                              MetadataStore.CLUSTER_KEY);
+                            adminClient.updateClusterMetadata(donorNode.getId(), targetCluster);
 
                             adminClient.fetchAndUpdateStreams(donorNode.getId(),
                                                               stealerNodeID,
                                                               storeName,
                                                               stealList);
                             // set donorNode back to Normal
-                            adminClient.changeServerState(donorNode.getId(),
-                                                          ServerState.NORMAL_STATE);
+                            adminClient.updateServerState(donorNode.getId(),
+                                                          MetadataStore.ServerState.NORMAL_STATE);
                         }
                     }
                 }
                 // everything kool change stealerState to be normal
-                adminClient.changeServerState(stealerNodeID, ServerState.NORMAL_STATE);
+                adminClient.updateServerState(stealerNodeID, MetadataStore.ServerState.NORMAL_STATE);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {
-                    adminClient.changeServerState(node.getId(), ServerState.NORMAL_STATE);
-                    adminClient.updateClusterMetadata(node.getId(),
-                                                      currentCluster,
-                                                      MetadataStore.CLUSTER_KEY);
+                    adminClient.updateServerState(node.getId(),
+                                                  MetadataStore.ServerState.NORMAL_STATE);
+                    adminClient.updateClusterMetadata(node.getId(), currentCluster);
                 }
                 throw new VoldemortException("Steal Partitions for " + stealerNodeID + " failed", e);
             }
@@ -144,16 +130,11 @@ public class DefaultRebalanceClient implements RebalanceClient {
         if(donorNode != null) {
             try {
                 // Set donorNode state
-                adminClient.changeServerState(donorNodeId, ServerState.REBALANCING_DONOR_STATE);
+                adminClient.updateServerState(donorNodeId,
+                                              MetadataStore.ServerState.REBALANCING_DONOR_STATE);
 
-                // donorNode saves original cluster for rollback
-                adminClient.updateClusterMetadata(donorNodeId,
-                                                  currentCluster,
-                                                  MetadataStore.ROLLBACK_CLUSTER_KEY);
                 // donorNode sets targetCluster as currentCluster
-                adminClient.updateClusterMetadata(donorNodeId,
-                                                  targetCluster,
-                                                  MetadataStore.CLUSTER_KEY);
+                adminClient.updateClusterMetadata(donorNodeId, targetCluster);
 
                 // start stealing from all nodes one-by-one
                 for(Node destNode: currentCluster.getNodes()) {
@@ -168,33 +149,30 @@ public class DefaultRebalanceClient implements RebalanceClient {
                             logger.info("donating partitions to " + destNode.getId());
 
                             // change state for destNode
-                            adminClient.changeServerState(destNode.getId(),
-                                                          ServerState.REBALANCING_STEALER_STATE);
+                            adminClient.updateServerState(destNode.getId(),
+                                                          MetadataStore.ServerState.REBALANCING_STEALER_STATE);
 
                             // destNode sets new cluster
-                            adminClient.updateClusterMetadata(destNode.getId(),
-                                                              targetCluster,
-                                                              MetadataStore.CLUSTER_KEY);
+                            adminClient.updateClusterMetadata(destNode.getId(), targetCluster);
 
                             adminClient.fetchAndUpdateStreams(donorNode.getId(),
                                                               destNode.getId(),
                                                               storeName,
                                                               donateList);
                             // set destNode back to Normal
-                            adminClient.changeServerState(destNode.getId(),
-                                                          ServerState.NORMAL_STATE);
+                            adminClient.updateServerState(destNode.getId(),
+                                                          MetadataStore.ServerState.NORMAL_STATE);
                         }
                     }
                 }
                 // everything kool change donorNode to be normal
-                adminClient.changeServerState(donorNodeId, ServerState.NORMAL_STATE);
+                adminClient.updateServerState(donorNodeId, MetadataStore.ServerState.NORMAL_STATE);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {
-                    adminClient.changeServerState(node.getId(), ServerState.NORMAL_STATE);
-                    adminClient.updateClusterMetadata(node.getId(),
-                                                      currentCluster,
-                                                      MetadataStore.CLUSTER_KEY);
+                    adminClient.updateServerState(node.getId(),
+                                                  MetadataStore.ServerState.NORMAL_STATE);
+                    adminClient.updateClusterMetadata(node.getId(), currentCluster);
                 }
                 throw new VoldemortException("Donate Partitions for " + donorNodeId + " failed", e);
             }

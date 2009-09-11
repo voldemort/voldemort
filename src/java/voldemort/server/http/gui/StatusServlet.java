@@ -132,7 +132,7 @@ public class StatusServlet extends HttpServlet {
         sb.append("\",");
 
         sb.append("\n  \"node\": \"");
-        sb.append(server.getVoldemortMetadata().getIdentityNode().getId());
+        sb.append(server.getMetadataStore().getNodeId());
         sb.append("\",");
 
         sb.append("\n  \"uptime\": \"");

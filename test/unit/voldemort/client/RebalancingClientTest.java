@@ -104,7 +104,7 @@ public class RebalancingClientTest extends TestCase {
 
         // create RebalanceClient with high timeouts
         rebalanceClient = new DefaultRebalanceClient(0,
-                                                     server0.getVoldemortMetadata(),
+                                                     server0.getMetadataStore(),
                                                      new SocketPool(1, 2, 20000, 10000));
     }
 
@@ -131,10 +131,9 @@ public class RebalancingClientTest extends TestCase {
         // get store Engine for both servers
         Store<ByteArray, byte[]> store0 = server0.getStoreRepository().getStorageEngine(storeName);
         Store<ByteArray, byte[]> store1 = server1.getStoreRepository().getStorageEngine(storeName);
-        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server0.getVoldemortMetadata()
-                                                                               .getCurrentCluster()
-                                                                               .getNodes(),
-                                                                        1);
+        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server0.getMetadataStore()
+                                                                               .getCluster()
+                                                                               .getNodes(), 1);
 
         // enter data into server 1 & 2
         for(int i = 0; i <= total_keys; i++) {
@@ -182,8 +181,8 @@ public class RebalancingClientTest extends TestCase {
         // Lets steal partition 2 from server 1
 
         // step 0. create target cluster Node0 {0, 1, 2} Node 1{3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         Cluster targetCluster = new Cluster("rebalancing-client-test-steal",
                                             Arrays.asList(new Node[] {
                                                     new Node(node0.getId(),
@@ -199,8 +198,10 @@ public class RebalancingClientTest extends TestCase {
                                                              Arrays.asList(3)) }));
 
         // do steal partitions
-        rebalanceClient.stealPartitions(0, storeName, server0.getVoldemortMetadata()
-                                                             .getCurrentCluster(), targetCluster);
+        rebalanceClient.stealPartitions(0,
+                                        storeName,
+                                        server0.getMetadataStore().getCluster(),
+                                        targetCluster);
 
         // check all keys for partition 0,1,2 are present in server0
         checkAllKeysArePresent(server0, Arrays.asList(0, 1, 2), keyValMap);
@@ -233,8 +234,8 @@ public class RebalancingClientTest extends TestCase {
         checkAllKeysArePresent(server1, Arrays.asList(2, 3), keyValMap);
 
         // step 0. create target cluster Node0 {0} Node 1{1,2 3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         Cluster targetCluster = new Cluster("rebalancing-client-test-donate",
                                             Arrays.asList(new Node[] {
                                                     new Node(node0.getId(),
@@ -250,8 +251,10 @@ public class RebalancingClientTest extends TestCase {
                                                              Arrays.asList(1, 2, 3)) }));
 
         // do donate partitions
-        rebalanceClient.donatePartitions(0, storeName, server0.getVoldemortMetadata()
-                                                              .getCurrentCluster(), targetCluster);
+        rebalanceClient.donatePartitions(0,
+                                         storeName,
+                                         server0.getMetadataStore().getCluster(),
+                                         targetCluster);
 
         // check all keys for partition 0 are present in server0
         checkAllKeysArePresent(server0, Arrays.asList(0), keyValMap);
@@ -276,8 +279,8 @@ public class RebalancingClientTest extends TestCase {
         // insert some data into each servers
         final Map<ByteArray, byte[]> keyValMap = populateTestKeys(10000, storeName);
         // step 0. create target cluster Node0 {0, 1, 2} Node 1{3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         final Cluster targetCluster = new Cluster("rebalancing-client-test-steal",
                                                   Arrays.asList(new Node[] {
                                                           new Node(node0.getId(),
@@ -297,10 +300,8 @@ public class RebalancingClientTest extends TestCase {
         executor.execute(new Runnable() {
 
             public void run() {
-                rebalanceClient.stealPartitions(0,
-                                                storeName,
-                                                server0.getVoldemortMetadata().getCurrentCluster(),
-                                                targetCluster);
+                rebalanceClient.stealPartitions(0, storeName, server0.getMetadataStore()
+                                                                     .getCluster(), targetCluster);
             }
         });
         executor.execute(new Runnable() {
@@ -322,8 +323,8 @@ public class RebalancingClientTest extends TestCase {
         final Map<ByteArray, byte[]> keyValMap = populateTestKeys(1000, storeName);
 
         // step 0. create target cluster Node0 {0} Node 1{1,2 3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         final Cluster targetCluster = new Cluster("rebalancing-client-test-donate",
                                                   Arrays.asList(new Node[] {
                                                           new Node(node0.getId(),
@@ -343,10 +344,8 @@ public class RebalancingClientTest extends TestCase {
         executor.execute(new Runnable() {
 
             public void run() {
-                rebalanceClient.donatePartitions(0,
-                                                 storeName,
-                                                 server0.getVoldemortMetadata().getCurrentCluster(),
-                                                 targetCluster);
+                rebalanceClient.donatePartitions(0, storeName, server0.getMetadataStore()
+                                                                      .getCluster(), targetCluster);
             }
         });
         executor.execute(new Runnable() {
@@ -369,8 +368,8 @@ public class RebalancingClientTest extends TestCase {
         // insert some data into each servers
         final Map<ByteArray, byte[]> keyValMap = populateTestKeys(10000, storeName);
         // step 0. create target cluster Node0 {0, 1, 2} Node 1{3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         final Cluster targetCluster = new Cluster("rebalancing-client-test-steal",
                                                   Arrays.asList(new Node[] {
                                                           new Node(node0.getId(),
@@ -393,8 +392,7 @@ public class RebalancingClientTest extends TestCase {
                 try {
                     rebalanceClient.stealPartitions(0,
                                                     storeName,
-                                                    server0.getVoldemortMetadata()
-                                                           .getCurrentCluster(),
+                                                    server0.getMetadataStore().getCluster(),
                                                     targetCluster);
                 } catch(Exception e) {
                     // ignore this
@@ -429,8 +427,8 @@ public class RebalancingClientTest extends TestCase {
         final Map<ByteArray, byte[]> keyValMap = populateTestKeys(1000, storeName);
 
         // step 0. create target cluster Node0 {0} Node 1{1,2 3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         final Cluster targetCluster = new Cluster("rebalancing-client-test-donate",
                                                   Arrays.asList(new Node[] {
                                                           new Node(node0.getId(),
@@ -450,10 +448,8 @@ public class RebalancingClientTest extends TestCase {
         executor.execute(new Runnable() {
 
             public void run() {
-                rebalanceClient.donatePartitions(0,
-                                                 storeName,
-                                                 server0.getVoldemortMetadata().getCurrentCluster(),
-                                                 targetCluster);
+                rebalanceClient.donatePartitions(0, storeName, server0.getMetadataStore()
+                                                                      .getCluster(), targetCluster);
             }
         });
         executor.execute(new Runnable() {
@@ -484,8 +480,8 @@ public class RebalancingClientTest extends TestCase {
         // insert some data into each servers
         final Map<ByteArray, byte[]> keyValMap = populateTestKeys(10000, storeName);
         // step 0. create target cluster Node0 {0, 1, 2} Node 1{3}
-        Node node0 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(0);
-        Node node1 = server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1);
+        Node node0 = server0.getMetadataStore().getCluster().getNodeById(0);
+        Node node1 = server0.getMetadataStore().getCluster().getNodeById(1);
         final Cluster targetCluster1 = new Cluster("rebalancing-client-test-steal",
                                                    Arrays.asList(new Node[] {
                                                            new Node(node0.getId(),
@@ -520,10 +516,8 @@ public class RebalancingClientTest extends TestCase {
         executor.execute(new Runnable() {
 
             public void run() {
-                rebalanceClient.stealPartitions(0,
-                                                storeName,
-                                                server0.getVoldemortMetadata().getCurrentCluster(),
-                                                targetCluster1);
+                rebalanceClient.stealPartitions(0, storeName, server0.getMetadataStore()
+                                                                     .getCluster(), targetCluster1);
             }
         });
         executor.execute(new Runnable() {
@@ -532,8 +526,7 @@ public class RebalancingClientTest extends TestCase {
                 try {
                     rebalanceClient.stealPartitions(0,
                                                     storeName,
-                                                    server0.getVoldemortMetadata()
-                                                           .getCurrentCluster(),
+                                                    server0.getMetadataStore().getCluster(),
                                                     targetCluster2);
                     fail("Should not be able to start multiple rebalancing on one node.");
                 } catch(VoldemortException e) {
@@ -554,10 +547,9 @@ public class RebalancingClientTest extends TestCase {
     private void checkAllKeysArePresent(VoldemortServer server,
                                         List<Integer> checkPartitionsList,
                                         Map<ByteArray, byte[]> keyValMap) {
-        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server.getVoldemortMetadata()
-                                                                              .getCurrentCluster()
-                                                                              .getNodes(),
-                                                                        1);
+        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server.getMetadataStore()
+                                                                              .getCluster()
+                                                                              .getNodes(), 1);
         SocketStore socketStore = ServerTestUtils.getSocketStore(storeName,
                                                                  server.getIdentityNode()
                                                                        .getSocketPort(),
@@ -566,8 +558,10 @@ public class RebalancingClientTest extends TestCase {
             int keyPartition = routingStrategy.getPartitionList(entry.getKey().get()).get(0);
             if(checkPartitionsList.contains(keyPartition)) {
                 assertEquals("Exactly one pair should be present on server:"
-                             + server.getIdentityNode().getId() + " for key in partition:"
-                             + keyPartition, 1, socketStore.get(entry.getKey()).size());
+                                     + server.getIdentityNode() + " for key in partition:"
+                                     + keyPartition,
+                             1,
+                             socketStore.get(entry.getKey()).size());
             }
         }
     }
@@ -575,10 +569,9 @@ public class RebalancingClientTest extends TestCase {
     private void checkNoKeyReturns(VoldemortServer server,
                                    List<Integer> checkPartitionsList,
                                    Map<ByteArray, byte[]> keyValMap) {
-        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server.getVoldemortMetadata()
-                                                                              .getCurrentCluster()
-                                                                              .getNodes(),
-                                                                        1);
+        RoutingStrategy routingStrategy = new ConsistentRoutingStrategy(server.getMetadataStore()
+                                                                              .getCluster()
+                                                                              .getNodes(), 1);
         SocketStore socketStore = ServerTestUtils.getSocketStore(storeName,
                                                                  server.getIdentityNode()
                                                                        .getSocketPort(),

@@ -4,11 +4,11 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortMetadata;
-import voldemort.server.protocol.admin.AdminServiceRequestHandler;
+import voldemort.server.protocol.admin.NativeAdminServiceRequestHandler;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.metadata.MetadataStore;
 
 /**
  * A factory that gets the appropriate request handler for a given
@@ -20,11 +20,11 @@ import voldemort.store.ErrorCodeMapper;
 public class RequestHandlerFactory {
 
     private final StoreRepository repository;
-    private final VoldemortMetadata metadata;
+    private final MetadataStore metadata;
     private final VoldemortConfig voldemortConfig;
 
     public RequestHandlerFactory(StoreRepository repository,
-                                 VoldemortMetadata metadata,
+                                 MetadataStore metadata,
                                  VoldemortConfig voldemortConfig) {
         this.repository = repository;
         this.metadata = metadata;
@@ -40,10 +40,9 @@ public class RequestHandlerFactory {
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffRequestHandler(new ErrorCodeMapper(), repository);
             case ADMIN:
-                return new AdminServiceRequestHandler(new ErrorCodeMapper(),
+                return new NativeAdminServiceRequestHandler(new ErrorCodeMapper(),
                                                       repository,
                                                       metadata,
-                                                      voldemortConfig.getMetadataDirectory(),
                                                       voldemortConfig.getStreamMaxReadBytesPerSec(),
                                                       voldemortConfig.getStreamMaxWriteBytesPerSec());
             default:

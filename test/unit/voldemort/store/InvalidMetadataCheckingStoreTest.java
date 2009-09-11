@@ -24,7 +24,7 @@ import voldemort.TestUtils;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.server.VoldemortMetadata;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
@@ -45,7 +45,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
     }
 
     public void testValidMetaData() {
-        VoldemortMetadata metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
+        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
                 { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
@@ -64,11 +64,11 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
      * consistency
      */
     public void testAddingPartition() {
-        VoldemortMetadata metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
+        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
                 { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
 
-        VoldemortMetadata updatedMetadata = TestUtils.createMetadata(new int[][] {
-                { 0, 1, 2, 3, 11 }, { 4, 5, 6, 7 }, { 8, 9, 10 } }, storeDef);
+        MetadataStore updatedMetadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3, 11 },
+                { 4, 5, 6, 7 }, { 8, 9, 10 } }, storeDef);
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
                                                                               new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
@@ -82,10 +82,10 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
 
     public void testRemovingPartition() {
         boolean sawException = false;
-        VoldemortMetadata metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
+        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
                 { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
 
-        VoldemortMetadata updatedMetadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2 },
+        MetadataStore updatedMetadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2 },
                 { 4, 5, 6, 7, 3 }, { 8, 9, 10, 11 } }, storeDef);
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
@@ -109,12 +109,13 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
         return false;
     }
 
-    private void doOperations(int nodeId, Store<ByteArray, byte[]> store, VoldemortMetadata metadata) {
+    private void doOperations(int nodeId, Store<ByteArray, byte[]> store, MetadataStore metadata) {
         for(int i = 0; i < LOOP_COUNT;) {
             ByteArray key = new ByteArray(ByteUtils.md5(Integer.toString((int) (Math.random() * Integer.MAX_VALUE))
                                                                .getBytes()));
             byte[] value = "value".getBytes();
-            RoutingStrategy routingStrategy = new RoutingStrategyFactory(metadata.getCurrentCluster()).getRoutingStrategy(storeDef);
+            RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                 metadata.getCluster());
 
             if(containsNodeId(routingStrategy.routeRequest(key.get()), nodeId)) {
                 i++; // increment count
@@ -135,4 +136,3 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
 
     }
 }
-

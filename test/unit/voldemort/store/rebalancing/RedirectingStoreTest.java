@@ -23,11 +23,12 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -46,6 +47,7 @@ public class RedirectingStoreTest extends TestCase {
 
     VoldemortServer server0;
     VoldemortServer server1;
+    AdminClientRequestFormat adminClient;
 
     Cluster cluster;
 
@@ -78,6 +80,10 @@ public class RedirectingStoreTest extends TestCase {
                                       cluster);
         server1.start();
 
+        // get adminClient
+        adminClient = ServerTestUtils.getAdminClient(server0.getIdentityNode(),
+                                                     server0.getMetadataStore());
+
     }
 
     @Override
@@ -86,9 +92,8 @@ public class RedirectingStoreTest extends TestCase {
         server1.stop();
     }
 
-    private RedirectingStore getRedirectingStore(VoldemortMetadata metadata) {
-        return new RedirectingStore(0,
-                                    ServerTestUtils.getSocketStore(storeName,
+    private RedirectingStore getRedirectingStore(MetadataStore metadata) {
+        return new RedirectingStore(ServerTestUtils.getSocketStore(storeName,
                                                                    server0.getIdentityNode()
                                                                           .getSocketPort(),
                                                                    RequestFormatType.VOLDEMORT_V1),
@@ -109,11 +114,11 @@ public class RedirectingStoreTest extends TestCase {
                                       new VectorClock().incremented(0, System.currentTimeMillis())));
         }
 
-        VoldemortMetadata metadata = server0.getVoldemortMetadata();
+        MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(1);
-        metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
+        adminClient.updateRebalancingProxyDest(0, 1);
+        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
 
         RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
@@ -132,7 +137,7 @@ public class RedirectingStoreTest extends TestCase {
             }
         }
 
-        metadata.setServerState(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
 
@@ -170,18 +175,18 @@ public class RedirectingStoreTest extends TestCase {
             }
         }
 
-        VoldemortMetadata metadata = server0.getVoldemortMetadata();
+        MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(1);
-        metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
+        adminClient.updateRebalancingProxyDest(0, 1);
+        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
 
         RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // we should see obsolete version exception if try to insert with same
         // version
 
-        metadata.setServerState(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             if(metadata.getRoutingStrategy(storeName)

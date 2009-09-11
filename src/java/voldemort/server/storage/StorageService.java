@@ -28,8 +28,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -43,7 +45,6 @@ import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.InvalidMetadataCheckingStore;
@@ -84,14 +85,14 @@ public class StorageService extends AbstractService {
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
-    private final VoldemortMetadata metadata;
+    private final MetadataStore metadata;
     private final Semaphore cleanupPermits;
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
 
     public StorageService(StoreRepository storeRepository,
-                          VoldemortMetadata metadata,
+                          MetadataStore metadata,
                           SchedulerService scheduler,
                           VoldemortConfig config) {
         super(ServiceType.STORAGE);
@@ -132,7 +133,8 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(voldemortConfig.getMetadataDirectory()));
+        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(voldemortConfig.getMetadataDirectory()),
+                                                                      voldemortConfig.getNodeId());
         registerEngine(metadataStore);
 
         /* Initialize storage configurations */
@@ -148,8 +150,7 @@ public class StorageService extends AbstractService {
                                                                                        new ByteArraySerializer(),
                                                                                        new SlopSerializer()));
         }
-        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefs()
-                                                                                      .values());
+        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStores());
         logger.info("Initializing stores:");
         for(StoreDefinition def: storeDefs) {
             openStore(def);
@@ -164,7 +165,7 @@ public class StorageService extends AbstractService {
         registerEngine(engine);
 
         if(voldemortConfig.isServerRoutingEnabled())
-            registerNodeStores(storeDef, metadata.getCurrentCluster(), voldemortConfig.getNodeId());
+            registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
             scheduleCleanupJob(storeDef, engine);
@@ -176,7 +177,7 @@ public class StorageService extends AbstractService {
      * @param engine Register the storage engine
      */
     public void registerEngine(StorageEngine<ByteArray, byte[]> engine) {
-        Cluster cluster = this.metadata.getCurrentCluster();
+        Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
         /* Now add any store wrappers that are enabled */
@@ -186,15 +187,10 @@ public class StorageService extends AbstractService {
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
         if(voldemortConfig.isMetadataCheckingEnabled())
-            store = new InvalidMetadataCheckingStore(metadata.getIdentityNode().getId(),
-                                                     store,
-                                                     metadata);
+            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(metadata.getIdentityNode().getId(),
-                                         store,
-                                         metadata,
-                                         socketPool);
+            store = new RedirectingStore(store, metadata, socketPool);
 
         if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);
@@ -341,7 +337,7 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(lastException);
     }
 
-    public VoldemortMetadata getMetadataStore() {
+    public MetadataStore getMetadataStore() {
         return this.metadata;
     }
 

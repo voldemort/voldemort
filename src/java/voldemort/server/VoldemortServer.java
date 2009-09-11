@@ -35,12 +35,10 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
+import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
@@ -63,15 +61,15 @@ public class VoldemortServer extends AbstractService {
     private final List<VoldemortService> services;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
-    private VoldemortMetadata metadata;
+    private final MetadataStore metadata;
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.storeRepository = new StoreRepository();
-        this.metadata = new VoldemortMetadata(this.voldemortConfig.getMetadataDirectory(),
-                                              voldemortConfig.getNodeId());
-        this.identityNode = metadata.getCurrentCluster().getNodeById(voldemortConfig.getNodeId());
+        this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
+                                                        voldemortConfig.getNodeId());
+        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
         this.services = createServices();
     }
 
@@ -81,14 +79,11 @@ public class VoldemortServer extends AbstractService {
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
         this.storeRepository = new StoreRepository();
         // update cluster details in metaDataStore
-        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()));
-        metadataStore.put(new ByteArray(ByteUtils.getBytes(MetadataStore.CLUSTER_KEY, "UTF-8")),
-                          new Versioned<byte[]>(ByteUtils.getBytes(new ClusterMapper().writeCluster(cluster),
-                                                                   "UTF-8"),
-                                                new VectorClock()));
-        this.metadata = new VoldemortMetadata(this.voldemortConfig.getMetadataDirectory(),
-                                              this.voldemortConfig.getNodeId());
-        metadata.setCurrentCluster(cluster);
+        ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
+                                                                                        voldemortConfig.getMetadataDirectory());
+        metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
+                                new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
+        this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
         this.services = createServices();
     }
 
@@ -131,10 +126,7 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isJmxEnabled())
-            services.add(new JmxService(this,
-                                        this.metadata.getCurrentCluster(),
-                                        storeRepository,
-                                        services));
+            services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
         return ImmutableList.copyOf(services);
     }
@@ -227,7 +219,7 @@ public class VoldemortServer extends AbstractService {
         return this.storeRepository;
     }
 
-    public VoldemortMetadata getVoldemortMetadata() {
+    public MetadataStore getMetadataStore() {
         return metadata;
     }
 }
