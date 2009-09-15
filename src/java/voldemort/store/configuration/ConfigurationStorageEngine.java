@@ -43,7 +43,15 @@ import voldemort.versioning.Versioned;
  * A FileSystem based Storage Engine to persist configuration metadata.<br>
  * Creates/updates a File of filename 'key' for each key and write value as UTF
  * strings in it, saves version of latest entry in '.version' directory.<br>
- * Keeps a backup copy of key and old version in '.bak' directory
+ * Keeps a backup copy of key and old version in '.bak' directory<br>
+ * This store is limited as for persisting metadata, hence some simplifications
+ * are made.
+ * <ul>
+ * <li>Delete Operation is not permitted.</li>
+ * <li>Iteration over entries is not permitted.</li>
+ * <li>Concurrent Operations are not allowed.</li>
+ * <li>Store keeps a backup file and can be rolled back by copying the file to
+ * master location.</li>
  * 
  * @author bbansal
  * 
@@ -140,6 +148,8 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
                     updateBackup(key);
                 else if(value.getVersion().compare(clock) == Occured.BEFORE) {
                     throw new ObsoleteVersionException("A successor version to this exists.");
+                } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
+                    throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
                 }
             }
         }
@@ -215,7 +225,10 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         try {
             File versionFile = new File(this.versionDirectory, key);
             if(!versionFile.exists()) {
-                return new VectorClock();
+                // bootstrap file save default clock as version.
+                VectorClock clock = new VectorClock();
+                writeVersion(key, clock);
+                return clock;
             } else {
                 // read the version file and return version.
                 String hexCode = FileUtils.readFileToString(versionFile, "UTF-8");

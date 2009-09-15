@@ -214,11 +214,16 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertContains(store.get(key), versioned);
 
         // test that putting a concurrent version succeeds
-        store.put(key, new Versioned<V>(getValue(), getClock(1, 2)));
-        if(!persistLatestValueOnly()) {
+        if(allowConcurrentOperations()) {
+            store.put(key, new Versioned<V>(getValue(), getClock(1, 2)));
             assertEquals(2, store.get(key).size());
         } else {
-            assertEquals(1, store.get(key).size());
+            try {
+                store.put(key, new Versioned<V>(getValue(), getClock(1, 2)));
+                fail();
+            } catch(ObsoleteVersionException e) {
+                // expected
+            }
         }
 
         // test that putting an incremented version succeeds
@@ -296,7 +301,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         valuesEqual(expectedValue, versioneds.get(0).getValue());
     }
 
-    protected boolean persistLatestValueOnly() {
-        return false;
+    protected boolean allowConcurrentOperations() {
+        return true;
     }
 }

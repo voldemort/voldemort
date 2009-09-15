@@ -150,7 +150,7 @@ public class StorageService extends AbstractService {
                                                                                        new ByteArraySerializer(),
                                                                                        new SlopSerializer()));
         }
-        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStores());
+        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
         for(StoreDefinition def: storeDefs) {
             openStore(def);

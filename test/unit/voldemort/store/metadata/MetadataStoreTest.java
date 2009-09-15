@@ -31,14 +31,6 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-/**
- * Metadata Store is a special store with some different assumptions <br>
- * The set of keys it can handle is fixed in {@link MetadataStore#METADATA_KEYS}
- * It throws exception for any other key <br>
- * 
- * @author bbansal
- * 
- */
 public class MetadataStoreTest extends TestCase {
 
     private static int TEST_RUNS = 100;

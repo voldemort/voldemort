@@ -281,9 +281,11 @@ public class ServerTestUtils {
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
         tempDir.mkdirs();
+        tempDir.deleteOnExit();
 
         File tempDir2 = new File(config.getDataDirectory());
         tempDir2.mkdirs();
+        tempDir2.deleteOnExit();
 
         // copy cluster.xml / stores.xml to temp metadata dir.
         if(null != clusterFile)

@@ -75,7 +75,8 @@ public class DefaultRebalanceClient implements RebalanceClient {
                             adminClient.fetchAndUpdateStreams(donorNode.getId(),
                                                               stealerNodeID,
                                                               storeName,
-                                                              stealList);
+                                                              stealList,
+                                                              null);
                             // set donorNode back to Normal
                             adminClient.updateServerState(donorNode.getId(),
                                                           MetadataStore.ServerState.NORMAL_STATE);
@@ -158,7 +159,8 @@ public class DefaultRebalanceClient implements RebalanceClient {
                             adminClient.fetchAndUpdateStreams(donorNode.getId(),
                                                               destNode.getId(),
                                                               storeName,
-                                                              donateList);
+                                                              donateList,
+                                                              null);
                             // set destNode back to Normal
                             adminClient.updateServerState(destNode.getId(),
                                                           MetadataStore.ServerState.NORMAL_STATE);

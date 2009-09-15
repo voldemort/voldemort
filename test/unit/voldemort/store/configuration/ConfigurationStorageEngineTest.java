@@ -97,8 +97,8 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
     }
 
     @Override
-    protected boolean persistLatestValueOnly() {
-        return true;
+    protected boolean allowConcurrentOperations() {
+        return false;
     }
 
     public void testEmacsTempFile() throws IOException {

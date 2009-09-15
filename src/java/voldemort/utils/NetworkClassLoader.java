@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 /**
@@ -39,7 +40,13 @@ public class NetworkClassLoader extends ClassLoader {
     }
 
     public Class<?> loadClass(String className, byte[] classBuffer, int offset, int length) {
-        return super.defineClass(className, classBuffer, offset, length);
+        Class<?> loadedClass = super.findLoadedClass(className);
+
+        if(null == loadedClass) {
+            return loadedClass = super.defineClass(className, classBuffer, offset, length);
+        }
+
+        return loadedClass;
     }
 
     /**
@@ -54,10 +61,14 @@ public class NetworkClassLoader extends ClassLoader {
     public byte[] dumpClass(Class<?> cl) throws IOException {
         // get class fileName
         String filename = cl.getName().replace('.', File.separatorChar) + ".class";
-
-        InputStream in = this.getResourceAsStream(filename);
-        byte[] classBytes = new byte[in.available()];
-        in.read(classBytes);
-        return classBytes;
+        InputStream in = null;
+        try {
+            in = this.getResourceAsStream(filename);
+            byte[] classBytes = IOUtils.toByteArray(in);
+            return classBytes;
+        } finally {
+            if(null != in)
+                in.close();
+        }
     }
 }

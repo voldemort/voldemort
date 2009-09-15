@@ -28,6 +28,8 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.VoldemortFilter;
+import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.cluster.Node;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.store.ErrorCodeMapper;
@@ -37,6 +39,7 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -53,10 +56,13 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     private static final Logger logger = Logger.getLogger(NativeAdminClientRequestFormat.class);
     private final ErrorCodeMapper errorCodeMapper = new ErrorCodeMapper();
     private final SocketPool pool;
+    private final NetworkClassLoader networkClassLoader;
 
     public NativeAdminClientRequestFormat(MetadataStore metadata, SocketPool socketPool) {
         super(metadata);
         this.pool = socketPool;
+        this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
+                                                               .getContextClassLoader());
     }
 
     @Override
@@ -109,7 +115,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
             // read the length of array
             int size = inputStream.readInt();
 
-            if(size == 1) {
+            if(1 == size) {
                 byte[] versionedData = readBytes(inputStream);
                 VectorClock clock = new VectorClock(versionedData);
                 byte[] data = ByteUtils.copy(versionedData,
@@ -174,7 +180,8 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     @Override
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> doFetchPartitionEntries(int nodeId,
                                                                                 String storeName,
-                                                                                List<Integer> partitionList) {
+                                                                                List<Integer> partitionList,
+                                                                                VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getSocketPort(),
@@ -182,16 +189,20 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         final SocketAndStreams sands = pool.checkout(destination);
         try {
             // get these partitions from the node for store
-            DataOutputStream getOutputStream = sands.getOutputStream();
+            DataOutputStream outputStream = sands.getOutputStream();
 
             // send request for get Partition List
-            getOutputStream.writeByte(VoldemortOpCode.GET_PARTITION_AS_STREAM_OP_CODE);
-            getOutputStream.writeUTF(storeName);
-            getOutputStream.writeInt(partitionList.size());
+            outputStream.writeByte(VoldemortOpCode.GET_PARTITION_AS_STREAM_OP_CODE);
+            outputStream.writeUTF(storeName);
+            outputStream.writeInt(partitionList.size());
             for(Integer p: partitionList) {
-                getOutputStream.writeInt(p.intValue());
+                outputStream.writeInt(p.intValue());
             }
-            getOutputStream.flush();
+
+            // send filter class.
+            writeFilterClassToStream(outputStream, filter);
+
+            outputStream.flush();
 
         } catch(IOException e) {
             close(sands.getSocket());
@@ -206,10 +217,9 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
             @Override
             public Pair<ByteArray, Versioned<byte[]>> computeNext() {
                 try {
-                    checkException(inputStream);
-
                     int keySize = inputStream.readInt();
                     if(keySize == -1) {
+                        checkException(inputStream);
                         pool.checkin(destination, sands);
                         return endOfData();
                     } else {
@@ -225,12 +235,14 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
                                                                                                 clock.sizeInBytes(),
                                                                                                 value.length),
                                                                                  clock);
+                        checkException(inputStream);
                         return Pair.create(new ByteArray(key), versionedValue);
                     }
 
                 } catch(IOException e) {
                     close(sands.getSocket());
                     pool.checkin(destination, sands);
+
                     throw new VoldemortException(e);
                 }
             }
@@ -239,7 +251,10 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     }
 
     @Override
-    public int doDeletePartitionEntries(int nodeId, String storeName, List<Integer> partitionList) {
+    public int doDeletePartitionEntries(int nodeId,
+                                        String storeName,
+                                        List<Integer> partitionList,
+                                        VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getSocketPort(),
@@ -247,16 +262,21 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         final SocketAndStreams sands = pool.checkout(destination);
         try {
             // get these partitions from the node for store
-            DataOutputStream getOutputStream = sands.getOutputStream();
+            DataOutputStream outputStream = sands.getOutputStream();
 
             // send request for get Partition List
-            getOutputStream.writeByte(VoldemortOpCode.GET_PARTITION_AS_STREAM_OP_CODE);
-            getOutputStream.writeUTF(storeName);
-            getOutputStream.writeInt(partitionList.size());
+            outputStream.writeByte(VoldemortOpCode.DELETE_PARTITIONS_OP_CODE);
+
+            outputStream.writeUTF(storeName);
+            // write partition List.
+            outputStream.writeInt(partitionList.size());
             for(Integer p: partitionList) {
-                getOutputStream.writeInt(p.intValue());
+                outputStream.writeInt(p.intValue());
             }
-            getOutputStream.flush();
+            // send filter class.
+            writeFilterClassToStream(outputStream, filter);
+
+            outputStream.flush();
 
             // read values
             final DataInputStream inputStream = sands.getInputStream();
@@ -276,9 +296,10 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     @Override
     public void doUpdatePartitionEntries(int nodeId,
                                          String storeName,
-                                         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator) {
+                                         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                         VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
-
+        filter = (null == filter) ? new DefaultVoldemortFilter() : filter;
         SocketDestination destination = new SocketDestination(node.getHost(),
                                                               node.getSocketPort(),
                                                               RequestFormatType.ADMIN);
@@ -290,22 +311,26 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
             // send request for put partitions
             outputStream.writeByte(VoldemortOpCode.PUT_ENTRIES_AS_STREAM_OP_CODE);
             outputStream.writeUTF(storeName);
+
             outputStream.flush();
 
             while(entryIterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
-                outputStream.writeInt(entry.getFirst().length());
-                outputStream.write(entry.getFirst().get());
 
-                Versioned<byte[]> value = entry.getSecond();
-                VectorClock clock = (VectorClock) value.getVersion();
-                outputStream.writeInt(value.getValue().length + clock.sizeInBytes());
-                outputStream.write(clock.toBytes());
-                outputStream.write(value.getValue());
+                if(filter.filter(entry.getFirst(), entry.getSecond())) {
+                    outputStream.writeInt(entry.getFirst().length());
+                    outputStream.write(entry.getFirst().get());
 
-                outputStream.flush();
+                    Versioned<byte[]> value = entry.getSecond();
+                    VectorClock clock = (VectorClock) value.getVersion();
+                    outputStream.writeInt(value.getValue().length + clock.sizeInBytes());
+                    outputStream.write(clock.toBytes());
+                    outputStream.write(value.getValue());
 
-                checkException(inputStream);
+                    outputStream.flush();
+
+                    checkException(inputStream);
+                }
             }
             outputStream.writeInt(-1);
             outputStream.flush();
@@ -333,6 +358,18 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         }
 
         return data;
+    }
+
+    // send the class over wire
+    private void writeFilterClassToStream(DataOutputStream outputStream, Object voldemortFilter)
+            throws IOException {
+        // pass Default Implementation if null.
+        Class cl = (null == voldemortFilter) ? new DefaultVoldemortFilter().getClass()
+                                            : voldemortFilter.getClass();
+        byte[] classBytes = networkClassLoader.dumpClass(cl);
+        outputStream.writeUTF(cl.getName());
+        outputStream.writeInt(classBytes.length);
+        outputStream.write(classBytes);
     }
 
     private void checkException(DataInputStream inputStream) throws IOException {

@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.client.protocol.VoldemortFilter;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -96,12 +97,15 @@ public abstract class AdminClientRequestFormat {
      * @param nodeId
      * @param storeName
      * @param partitionList
+     * @param filterRequest: <imp>Do not fetch entries filtered out (returned
+     *        false) from the {@link VoldemortFilter} implementation</imp>
      * @return
      * @throws VoldemortException
      */
     public abstract Iterator<Pair<ByteArray, Versioned<byte[]>>> doFetchPartitionEntries(int nodeId,
                                                                                          String storeName,
-                                                                                         List<Integer> partitionList);
+                                                                                         List<Integer> partitionList,
+                                                                                         VoldemortFilter filter);
 
     /**
      * update Entries at (remote) node with all entries in iterator for passed
@@ -110,12 +114,15 @@ public abstract class AdminClientRequestFormat {
      * @param nodeId
      * @param storeName
      * @param entryIterator
+     * @param filterRequest: <imp>Do not Update entries filtered out (returned
+     *        false) from the {@link VoldemortFilter} implementation</imp>
      * @throws VoldemortException
      * @throws IOException
      */
     public abstract void doUpdatePartitionEntries(int nodeId,
                                                   String storeName,
-                                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator);
+                                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                                  VoldemortFilter filter);
 
     /**
      * Delete all Entries at (remote) node for partitions in partitionList
@@ -123,12 +130,15 @@ public abstract class AdminClientRequestFormat {
      * @param nodeId
      * @param storeName
      * @param partitionList
+     * @param filterRequest: <imp>Do not Delete entries filtered out (returned
+     *        false) from the {@link VoldemortFilter} implementation</imp>
      * @throws VoldemortException
      * @throws IOException
      */
     public abstract int doDeletePartitionEntries(int nodeId,
                                                  String storeName,
-                                                 List<Integer> partitionList);
+                                                 List<Integer> partitionList,
+                                                 VoldemortFilter filter);
 
     /* helper functions */
 
@@ -271,9 +281,11 @@ public abstract class AdminClientRequestFormat {
     public void fetchAndUpdateStreams(int donorNodeId,
                                       int stealerNodeId,
                                       String storeName,
-                                      List<Integer> stealList) {
+                                      List<Integer> stealList,
+                                      VoldemortFilter filter) {
         doUpdatePartitionEntries(stealerNodeId, storeName, doFetchPartitionEntries(donorNodeId,
                                                                                    storeName,
-                                                                                   stealList));
+                                                                                   stealList,
+                                                                                   filter), null);
     }
 }

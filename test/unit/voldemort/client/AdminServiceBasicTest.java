@@ -40,7 +40,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
@@ -49,7 +48,7 @@ import com.google.common.collect.ImmutableList;
  * @author bbansal
  * 
  */
-public class AdminServiceTest extends TestCase {
+public class AdminServiceBasicTest extends TestCase {
 
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -83,6 +82,19 @@ public class AdminServiceTest extends TestCase {
         server.stop();
     }
 
+    private Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = new HashSet<Pair<ByteArray, Versioned<byte[]>>>();
+
+        for(int i = 0; i <= 1000; i++) {
+            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+            Versioned<byte[]> value = new Versioned<byte[]>(ByteUtils.getBytes("value-" + i,
+                                                                               "UTF-8"));
+            entrySet.add(new Pair<ByteArray, Versioned<byte[]>>(key, value));
+        }
+
+        return entrySet;
+    }
+
     public void testUpdateClusterMetadata() {
 
         Cluster cluster = server.getMetadataStore().getCluster();
@@ -97,7 +109,7 @@ public class AdminServiceTest extends TestCase {
 
         assertEquals("Cluster should match", updatedCluster, server.getMetadataStore().getCluster());
         assertEquals("AdminClient.getMetdata() should match",
-                     client.getClusterMetadata(server.getIdentityNode().getId()),
+                     client.getClusterMetadata(server.getIdentityNode().getId()).getValue(),
                      updatedCluster);
     }
 
@@ -107,12 +119,12 @@ public class AdminServiceTest extends TestCase {
 
     public void testUpdateStores() {
         List<StoreDefinition> storesList = new ArrayList<StoreDefinition>(server.getMetadataStore()
-                                                                                .getStores());
+                                                                                .getStoreDefList());
 
         // user store should be present
         assertNotSame("StoreDefinition for 'users' should not be nul ",
                       null,
-                      server.getMetadataStore().getStore("users"));
+                      server.getMetadataStore().getStoreDef("users"));
 
         // remove store users from storesList and update store info.
         int id = -1;
@@ -132,7 +144,7 @@ public class AdminServiceTest extends TestCase {
         client.updateStoresMetadata(server.getIdentityNode().getId(), storesList);
 
         boolean foundUserStore = false;
-        for(StoreDefinition def: server.getMetadataStore().getStores()) {
+        for(StoreDefinition def: server.getMetadataStore().getStoreDefList()) {
             if(def.getName().equals("users")) {
                 foundUserStore = true;
             }
@@ -210,25 +222,18 @@ public class AdminServiceTest extends TestCase {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
-        // enter keys into server1 (keys 100 -- 1000)
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
-
-            store.put(key, new Versioned<byte[]>(value));
+        for(Pair<ByteArray, Versioned<byte[]>> entry: createEntries()) {
+            store.put(entry.getFirst(), entry.getSecond());
         }
 
         // Get a single partition here
-        NativeAdminClientRequestFormat client = getAdminClient();
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = client.doFetchPartitionEntries(0,
-                                                                                                    storeName,
-                                                                                                    Arrays.asList(new Integer[] { 0 }));
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().doFetchPartitionEntries(0,
+                                                                                                              storeName,
+                                                                                                              Arrays.asList(new Integer[] { 0 }),
+                                                                                                              null);
 
-        StoreDefinition storeDef = server.getMetadataStore().getStore(storeName);
-        assertNotSame("StoreDefinition for 'users' should not be nul ", null, storeDef);
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                             server.getMetadataStore()
-                                                                                                   .getCluster());
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+
         // assert all entries are right partitions
         while(entryIterator.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
@@ -236,8 +241,10 @@ public class AdminServiceTest extends TestCase {
         }
 
         // check for two partitions
-        entryIterator = client.doFetchPartitionEntries(0, storeName, Arrays.asList(new Integer[] {
-                0, 1 }));
+        entryIterator = getAdminClient().doFetchPartitionEntries(0,
+                                                                 storeName,
+                                                                 Arrays.asList(new Integer[] { 0, 1 }),
+                                                                 null);
         // assert right partitions returned and both are returned
         Set<Integer> partitionSet2 = new HashSet<Integer>();
         while(entryIterator.hasNext()) {
@@ -256,22 +263,12 @@ public class AdminServiceTest extends TestCase {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
-        ArrayList<Pair<ByteArray, Versioned<byte[]>>> entryList = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
-
-        // enter keys into server1 (keys 100 -- 1000)
-        for(int i = 100; i <= 104; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
-
-            entryList.add(Pair.create(key,
-                                      Versioned.value(value,
-                                                      new VectorClock().incremented(0,
-                                                                                    System.currentTimeMillis()))));
-        }
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = createEntries().iterator();
 
         // Write
         NativeAdminClientRequestFormat client = getAdminClient();
-        client.doUpdatePartitionEntries(0, storeName, entryList.iterator());
+
+        client.doUpdatePartitionEntries(0, storeName, iterator, null);
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
@@ -282,30 +279,45 @@ public class AdminServiceTest extends TestCase {
         }
     }
 
+    public void testDeleteAsStream() {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store);
+
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+        }
+
+        getAdminClient().doDeletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
+
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            if(routingStrategy.getPartitionList(entry.getFirst().get()).contains(0)
+               || routingStrategy.getPartitionList(entry.getFirst().get()).contains(2)) {
+                assertEquals("store should be missing all 0,2 entries",
+                             0,
+                             store.get(entry.getFirst()).size());
+            } else {
+                assertEquals("store should have all 1,3 entries", 1, store.get(entry.getFirst())
+                                                                          .size());
+                assertEquals("entry should match",
+                             entry.getSecond().getValue(),
+                             store.get(entry.getFirst()).get(0).getValue());
+            }
+        }
+    }
+
     public void testFetchAndUpdate() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
-        // assert server2 is missing all keys
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            assertEquals("Store should return empty result List for all before inserting",
-                         0,
-                         store.get(key).size());
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
         }
 
-        // enter keys into server1 (keys 100 -- 1000)
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
-
-            store.put(key,
-                      new Versioned<byte[]>(value,
-                                            new VectorClock().incremented(0,
-                                                                          System.currentTimeMillis())));
-        }
-
-        // lets make a new server
+        // lets start a new server
         VoldemortConfig config2 = ServerTestUtils.createServerConfig(1,
                                                                      TestUtils.createTempDir()
                                                                               .getAbsolutePath(),
@@ -315,28 +327,26 @@ public class AdminServiceTest extends TestCase {
         server2.start();
 
         // assert server2 is missing all keys
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
             assertEquals("Server2 should return empty result List for all",
                          0,
-                         server2.getStoreRepository().getStorageEngine(storeName).get(key).size());
+                         server2.getStoreRepository()
+                                .getStorageEngine(storeName)
+                                .get(entry.getFirst())
+                                .size());
         }
 
         // use pipeGetAndPutStream to add values to server2
         NativeAdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
                                                                                server2.getMetadataStore());
 
-        List<Integer> stealList = new ArrayList<Integer>();
-        stealList.add(0);
-        stealList.add(1);
-
-        client.fetchAndUpdateStreams(0, 1, storeName, stealList);
+        client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
 
         // assert all partition 0, 1 keys present in server 2
         Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store2);
 
-        StoreDefinition storeDef = server.getMetadataStore().getStore(storeName);
+        StoreDefinition storeDef = server.getMetadataStore().getStoreDef(storeName);
         assertNotSame("StoreDefinition for 'users' should not be nul ", null, storeDef);
         RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                              server.getMetadataStore()

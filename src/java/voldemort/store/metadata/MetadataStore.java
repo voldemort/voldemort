@@ -187,7 +187,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     @SuppressWarnings("unchecked")
-    public List<StoreDefinition> getStores() {
+    public List<StoreDefinition> getStoreDefList() {
         return (List<StoreDefinition>) metadataCache.get(STORES_KEY).getValue();
     }
 
@@ -195,8 +195,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
     }
 
-    public StoreDefinition getStore(String storeName) {
-        List<StoreDefinition> storeDefs = getStores();
+    public StoreDefinition getStoreDef(String storeName) {
+        List<StoreDefinition> storeDefs = getStoreDefList();
         for(StoreDefinition storeDef: storeDefs) {
             if(storeDef.getName().equals(storeName)) {
                 return storeDef;
@@ -207,7 +207,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public ServerState getServerState() {
-        return ServerState.valueOf((String) metadataCache.get(SERVER_STATE_KEY).getValue());
+        return ServerState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
 
     public Node getRebalancingProxyDest() {
@@ -230,7 +230,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private Object updateRoutingStrategies() {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
-        for(StoreDefinition store: getStores()) {
+        for(StoreDefinition store: getStoreDefList()) {
             map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
         }
         return map;
@@ -337,7 +337,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 return get(key);
             } catch(Exception e) {
                 logger.info("Setting default value " + defaultValue.toString() + " for key:" + key);
-                inMemoryHash.put(key, new Versioned<Object>(defaultValue));
+                metadataCache.put(key, new Versioned<Object>(defaultValue));
                 return get(key);
             }
         }
