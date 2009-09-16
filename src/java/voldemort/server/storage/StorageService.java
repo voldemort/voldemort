@@ -36,6 +36,9 @@ import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.cluster.failuredetector.ServerFailureDetectorConfig;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -91,14 +94,12 @@ public class StorageService extends AbstractService {
     public StorageService(StoreRepository storeRepository,
                           VoldemortMetadata metadata,
                           SchedulerService scheduler,
-                          VoldemortConfig config,
-                          FailureDetector failureDetector) {
+                          VoldemortConfig config) {
         super(ServiceType.STORAGE);
         this.voldemortConfig = config;
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        this.failureDetector = failureDetector;
         this.cleanupPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
@@ -108,6 +109,10 @@ public class StorageService extends AbstractService {
                                          config.getClientConnectionTimeoutMs(),
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());
+
+        FailureDetectorConfig failureDetectorConfig = new ServerFailureDetectorConfig(voldemortConfig,
+                                                                                      storeRepository);
+        failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }
 
     private void initStorageConfig(String configClassName) {
@@ -313,6 +318,16 @@ public class StorageService extends AbstractService {
 
         this.clientThreadPool.shutdownNow();
         logger.info("Closed client threadpool.");
+
+        if(this.failureDetector != null) {
+            try {
+                this.failureDetector.destroy();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
+
+        logger.info("Closed failure detector.");
 
         /* If there is an exception, throw it */
         if(lastException instanceof VoldemortException)

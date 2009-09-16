@@ -23,6 +23,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
@@ -48,6 +49,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     private final SocketPool socketPool;
     private final RoutingTier routingTier;
+    private FailureDetectorListener failureDetectorListener;
 
     public SocketStoreClientFactory(ClientConfig config) {
         super(config);
@@ -72,6 +74,22 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     @Override
     protected FailureDetector initFailureDetector(final ClientConfig config) {
+        failureDetectorListener = new FailureDetectorListener() {
+
+            public void nodeOnline(Node node) {
+
+            }
+
+            public void nodeOffline(Node node) {
+                // Kill the socket pool for this node...
+                SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                      node.getSocketPort(),
+                                                                      config.getRequestFormatType());
+                socketPool.close(destination);
+            }
+
+        };
+
         return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config) {
 
             @Override
@@ -82,7 +100,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                               config.getRequestFormatType());
             }
 
-        });
+        }, failureDetectorListener);
     }
 
     @Override
@@ -100,9 +118,13 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                + url.getScheme() + "'.");
     }
 
+    @Override
     public void close() {
         this.socketPool.close();
+        this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
         this.getThreadPool().shutdown();
+
+        super.close();
     }
 
 }

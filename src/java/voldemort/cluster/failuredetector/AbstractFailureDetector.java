@@ -17,12 +17,16 @@
 package voldemort.cluster.failuredetector;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.management.MBeanOperationInfo;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxManaged;
@@ -43,11 +47,14 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
+    protected final Set<FailureDetectorListener> listeners;
+
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         this.failureDetectorConfig = failureDetectorConfig;
         nodeStatusMap = new HashMap<Node, NodeStatus>();
+        listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
     }
 
     public long getLastChecked(Node node) {
@@ -75,12 +82,42 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         return !getNodeStatus(node).isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
     }
 
+    public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
+        listeners.add(failureDetectorListener);
+    }
+
+    public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
+        listeners.remove(failureDetectorListener);
+    }
+
     protected void setAvailable(Node node) {
         getNodeStatus(node).setAvailable();
+
+        Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
+
+        for(FailureDetectorListener fdl: listenersCopy) {
+            try {
+                fdl.nodeOnline(node);
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(e, e);
+            }
+        }
     }
 
     protected void setUnavailable(Node node) {
         getNodeStatus(node).setUnavailable();
+
+        Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
+
+        for(FailureDetectorListener fdl: listenersCopy) {
+            try {
+                fdl.nodeOffline(node);
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(e, e);
+            }
+        }
     }
 
     private NodeStatus getNodeStatus(Node node) {

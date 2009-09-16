@@ -35,4 +35,16 @@ public class FailureDetectorUtils {
         return fd;
     }
 
+    public static FailureDetector create(FailureDetectorConfig failureDetectorConfig,
+                                         FailureDetectorListener... failureDetectorListener) {
+        FailureDetector fd = create(failureDetectorConfig);
+
+        if(failureDetectorListener != null) {
+            for(FailureDetectorListener fdl: failureDetectorListener)
+                fd.addFailureDetectorListener(fdl);
+        }
+
+        return fd;
+    }
+
 }

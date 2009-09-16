@@ -59,6 +59,12 @@ public class TestCluster extends TestCase implements FailureDetectorTestCase {
         failureDetector = FailureDetectorUtils.create(config);
     }
 
+    @Override
+    public void tearDown() throws Exception {
+        if(failureDetector != null)
+            failureDetector.destroy();
+    }
+
     public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
         this.failureDetectorClass = failureDetectorClass;
     }

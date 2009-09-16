@@ -126,8 +126,10 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                + url.getScheme() + "'.");
     }
 
+    @Override
     public void close() {
-    // should timeout connections on its own
+        super.close();
+        // should timeout connections on its own
     }
 
 }

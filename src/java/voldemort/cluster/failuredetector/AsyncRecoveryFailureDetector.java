@@ -56,9 +56,13 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
     private final Thread recoveryThread;
 
+    private volatile boolean isRunning;
+
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
         unavailableNodes = new HashSet<Node>();
+
+        isRunning = true;
 
         recoveryThread = new Thread(this);
         recoveryThread.setDaemon(true);
@@ -87,10 +91,14 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     // Do nothing. Nodes only become available in our thread...
     }
 
+    public void destroy() {
+        isRunning = false;
+    }
+
     public void run() {
         ByteArray key = new ByteArray((byte) 1);
 
-        while(!Thread.currentThread().isInterrupted()) {
+        while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
                 Thread.sleep(failureDetectorConfig.getNodeBannagePeriod());
             } catch(InterruptedException e) {

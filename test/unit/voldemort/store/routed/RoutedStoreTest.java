@@ -84,6 +84,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         cluster = getNineNodeCluster();
     }
 
+    @Override
+    public void tearDown() throws Exception {
+        if(failureDetector != null)
+            failureDetector.destroy();
+    }
+
     public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
         this.failureDetectorClass = failureDetectorClass;
     }
@@ -645,6 +651,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
 
     private void setFailureDetector(final Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
+        // Destroy any previous failure detector before creating the next one
+        // (the final one is destroyed in tearDown).
+        if(failureDetector != null)
+            failureDetector.destroy();
+
         FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
                                                                       10000,
                                                                       subStores);

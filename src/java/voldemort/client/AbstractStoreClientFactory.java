@@ -88,7 +88,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
-    private final FailureDetector failureDetector;
+    protected final FailureDetector failureDetector;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -278,6 +278,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public SerializerFactory getSerializerFactory() {
         return serializerFactory;
+    }
+
+    public void close() {
+        if(failureDetector != null)
+            failureDetector.destroy();
     }
 
     protected void registerJmx(ObjectName name, Object object) {
