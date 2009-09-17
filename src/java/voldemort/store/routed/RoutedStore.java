@@ -371,6 +371,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     for(Node node: extraNodes) {
                         try {
                             List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
+                            fillRepairReadsValues(nodeValues, key, node, values);
                             List<Versioned<byte[]>> versioneds = result.get(key);
                             if(versioneds == null)
                                 result.put(key, Lists.newArrayList(values));
@@ -394,10 +395,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             successCountWrapper.setValue(successCount);
         }
 
-        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: result.entrySet()) {
-            if(repairReads && entry.getValue().size() > 1)
-                repairReads(nodeValues);
-        }
+        repairReads(nodeValues);
 
         for(Map.Entry<ByteArray, MutableInt> mapEntry: keyToSuccessCount.entrySet()) {
             int successCount = mapEntry.getValue().intValue();
@@ -484,15 +482,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 List<Versioned<byte[]>> fetched = innerStores.get(node.getId()).get(key);
                 retrieved.addAll(fetched);
-                if(repairReads) {
-                    if(fetched.size() == 0) {
-                        nodeValues.add(nullValue(node, key));
-                    } else {
-                        for(Versioned<byte[]> f: fetched) {
-                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
-                        }
-                    }
-                }
+                fillRepairReadsValues(nodeValues, key, node, fetched);
                 ++successes;
                 node.getStatus().setAvailable();
             } catch(UnreachableStoreException e) {
@@ -508,9 +498,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(logger.isTraceEnabled())
             logger.trace("GET retrieved the following node values: " + formatNodeValues(nodeValues));
 
-        // if we have multiple values, do any necessary repairs
-        if(repairReads && nodeValues.size() > 1)
-            repairReads(nodeValues);
+        repairReads(nodeValues);
 
         if(successes >= this.storeDef.getRequiredReads())
             return retrieved;
@@ -520,13 +508,28 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                             + " succeeded.", failures);
     }
 
+    private void fillRepairReadsValues(final List<NodeValue<ByteArray, byte[]>> nodeValues,
+                                       final ByteArray key,
+                                       Node node,
+                                       List<Versioned<byte[]>> fetched) {
+        if(repairReads) {
+            if(fetched.size() == 0)
+                nodeValues.add(nullValue(node, key));
+            else {
+                for(Versioned<byte[]> f: fetched)
+                    nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
+            }
+        }
+    }
+
     private NodeValue<ByteArray, byte[]> nullValue(Node node, ByteArray key) {
-        return new NodeValue<ByteArray, byte[]>(node.getId(),
-                                                key,
-                                                new Versioned<byte[]>(null, new VectorClock(0)));
+        return new NodeValue<ByteArray, byte[]>(node.getId(), key, new Versioned<byte[]>(null));
     }
 
     private void repairReads(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
+        if(!repairReads || nodeValues.size() <= 1 || storeDef.getPreferredReads() <= 1)
+            return;
+
         this.executor.execute(new Runnable() {
 
             public void run() {
@@ -812,15 +815,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     logger.trace("Attempting get operation on node " + node.getId() + " for key '"
                                  + ByteUtils.toHexString(key.get()) + "'.");
                 fetched = innerStores.get(node.getId()).get(key);
-                if(repairReads) {
-                    if(fetched.isEmpty()) {
-                        nodeValues.add(nullValue(node, key));
-                    } else {
-                        for(Versioned<byte[]> f: fetched) {
-                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, f));
-                        }
-                    }
-                }
+                fillRepairReadsValues(nodeValues, key, node, fetched);
                 node.getStatus().setAvailable();
             } catch(UnreachableStoreException e) {
                 exception = e;
@@ -867,10 +862,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 retrieved = innerStores.get(node.getId()).getAll(nodeKeys);
                 if(repairReads) {
-                    for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: retrieved.entrySet()) {
-                        ByteArray key = entry.getKey();
-                        for(Versioned<byte[]> v: entry.getValue())
-                            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, v));
+                    for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: retrieved.entrySet())
+                        fillRepairReadsValues(nodeValues, entry.getKey(), node, entry.getValue());
+                    for(ByteArray nodeKey: nodeKeys) {
+                        if(!retrieved.containsKey(nodeKey))
+                            fillRepairReadsValues(nodeValues,
+                                                  nodeKey,
+                                                  node,
+                                                  Collections.<Versioned<byte[]>> emptyList());
                     }
                 }
                 node.getStatus().setAvailable();
