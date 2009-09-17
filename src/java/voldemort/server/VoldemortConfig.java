@@ -67,6 +67,8 @@ public class VoldemortConfig implements Serializable {
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
     private boolean bdbOneEnvPerStore;
+    private int bdbCleanerMinFileUtilization;
+    private int bdbCleanerMinUtilization;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -157,6 +159,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
+        setBdbCleanerMinFileUtilization(props.getInt("bdb.cleaner.minFileUtilization", 5));
+        setBdbCleanerMinUtilization(props.getInt("bdb.cleaner.minUtilization", 50));
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -390,6 +394,56 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbMaxLogFileSize(long bdbMaxLogFileSize) {
         this.bdbMaxLogFileSize = bdbMaxLogFileSize;
+    }
+
+    /**
+     * A log file will be cleaned if its utilization percentage is below this
+     * value, irrespective of total utilization.
+     * 
+     * <ul>
+     * <li>
+     * property: "bdb.cleaner.minFileUtilization"</li>
+     * <li>
+     * default: 5</li>
+     * <li>
+     * minimum: 0</li>
+     * <li>
+     * maximum: 50</li>
+     * </ul>
+     */
+    public int getBdbCleanerMinFileUtilization() {
+        return bdbCleanerMinFileUtilization;
+    }
+
+    public final void setBdbCleanerMinFileUtilization(int minFileUtilization) {
+        if(minFileUtilization < 0 || minFileUtilization > 50)
+            throw new IllegalArgumentException("minFileUtilization should be between 0 and 50 (both inclusive)");
+        this.bdbCleanerMinFileUtilization = minFileUtilization;
+    }
+
+    /**
+     * The cleaner will keep the total disk space utilization percentage above
+     * this value.
+     * 
+     * <ul>
+     * <li>
+     * property: "bdb.cleaner.minUtilization"</li>
+     * <li>
+     * default: 50</li>
+     * <li>
+     * minimum: 0</li>
+     * <li>
+     * maximum: 90</li>
+     * </ul>
+     */
+    public int getBdbCleanerMinUtilization() {
+        return bdbCleanerMinUtilization;
+    }
+
+    public final void setBdbCleanerMinUtilization(int minUtilization) {
+        if(minUtilization < 0 || minUtilization > 90)
+            throw new IllegalArgumentException("minUtilization should be between 0 and 90 (both inclusive)");
+        this.bdbCleanerMinUtilization = minUtilization;
     }
 
     /**
