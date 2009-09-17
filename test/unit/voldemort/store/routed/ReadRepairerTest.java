@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static voldemort.TestUtils.getClock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,14 @@ public class ReadRepairerTest extends TestCase {
         // Last get should have repaired the missing key from node 0 so all
         // stores should now return a value
         assertEquals(3, store.get(key).size());
+
+        ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
+        // Try again, now use getAll to read repair
+        Iterables.get(cluster.getNodes(), 0).getStatus().setUnavailable();
+        store.put(anotherKey, new Versioned<byte[]>(value));
+        Iterables.get(cluster.getNodes(), 0).getStatus().setAvailable();
+        assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
+        assertEquals(3, store.get(anotherKey).size());
     }
 
     /**
