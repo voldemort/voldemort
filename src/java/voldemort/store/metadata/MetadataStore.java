@@ -195,4 +195,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.getAll(this, keys);
     }
+
+    public List<Version> getVersions(ByteArray key) {
+        return StoreUtils.getVersions(get(key));
+    }
 }

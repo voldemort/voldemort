@@ -371,4 +371,8 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
             throw new UnsupportedOperationException();
         }
     }
+
+    public List<Version> getVersions(ByteArray key) {
+        return StoreUtils.getVersions(get(key));
+    }
 }

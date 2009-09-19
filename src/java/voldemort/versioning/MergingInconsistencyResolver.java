@@ -51,4 +51,8 @@ public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Ve
         }
     }
 
+    public boolean requiresValue() {
+        return true;
+    }
+
 }

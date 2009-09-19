@@ -232,4 +232,8 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
             throw new UnsupportedOperationException("No removal y'all.");
         }
     }
+
+    public List<Version> getVersions(String key) {
+        return StoreUtils.getVersions(get(key));
+    }
 }

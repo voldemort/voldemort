@@ -28,6 +28,8 @@ import java.util.List;
  */
 public interface InconsistencyResolver<T> {
 
+    public boolean requiresValue();
+
     /**
      * Take two different versions of an object and combine them into a single
      * version of the object Implementations must maintain the contract that

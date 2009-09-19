@@ -45,4 +45,7 @@ public class TimeBasedInconsistencyResolver<T> implements InconsistencyResolver<
         }
     }
 
+    public boolean requiresValue() {
+        return false;
+    }
 }

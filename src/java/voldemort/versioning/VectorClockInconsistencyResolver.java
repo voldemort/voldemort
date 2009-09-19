@@ -56,4 +56,8 @@ public class VectorClockInconsistencyResolver<T> implements InconsistencyResolve
         return newItems;
     }
 
+    public boolean requiresValue() {
+        return false;
+    }
+
 }

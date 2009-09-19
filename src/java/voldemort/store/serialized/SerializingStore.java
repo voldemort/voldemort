@@ -105,6 +105,10 @@ public class SerializingStore<K, V> implements Store<K, V> {
                                                          value.getVersion()));
     }
 
+    public List<Version> getVersions(K key) {
+        return store.getVersions(keyToBytes(key));
+    }
+
     public void close() {
         store.close();
     }

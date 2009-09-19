@@ -33,4 +33,8 @@ public class FailingInconsistencyResolver<T> implements InconsistencyResolver<T>
             return items;
     }
 
+    public boolean requiresValue() {
+        return false;
+    }
+
 }

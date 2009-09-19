@@ -159,4 +159,20 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             logger.warn("Failed to close socket");
         }
     }
+
+    public List<Version> getVersions(ByteArray key) {
+        StoreUtils.assertValidKey(key);
+        SocketAndStreams sands = pool.checkout(destination);
+        try {
+            requestFormat.writeGetVersionRequest(sands.getOutputStream(), name, key, reroute);
+            sands.getOutputStream().flush();
+            return requestFormat.readGetVersionResponse(sands.getInputStream());
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new UnreachableStoreException("Failure in getVersion on " + destination + ": "
+                                                + e.getMessage(), e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+    }
 }

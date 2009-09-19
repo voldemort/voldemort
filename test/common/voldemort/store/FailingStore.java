@@ -68,6 +68,10 @@ public class FailingStore<K, V> implements Store<K, V> {
         throw exception;
     }
 
+    public java.util.List<Version> getVersions(K key) {
+        throw exception;
+    }
+
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
     }

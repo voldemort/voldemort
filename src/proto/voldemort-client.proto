@@ -38,6 +38,11 @@ message GetResponse {
   optional Error error = 2;
 }
 
+message GetVersionResponse {
+  repeated VectorClock versions = 1;
+  optional Error error = 2;
+}
+
 message GetAllRequest {
   repeated bytes keys = 1;
 }
@@ -71,6 +76,7 @@ enum RequestType {
   GET_ALL = 1;
   PUT = 2;
   DELETE = 3;
+  GET_VERSION = 4;
 }
 
 message VoldemortRequest {

@@ -244,6 +244,22 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertEquals(0, store.get(key).size());
     }
 
+    public void testGetVersions() throws Exception {
+        List<K> keys = getKeys(2);
+        K key = keys.get(0);
+        V value = getValue();
+        Store<K, V> store = getStore();
+        store.put(key, Versioned.value(value));
+        List<Versioned<V>> versioneds = store.get(key);
+        List<Version> versions = store.getVersions(key);
+        assertTrue(versioneds.size() > 0);
+        assertEquals(versioneds.size(), versions.size());
+        for(int i = 0; i < versioneds.size(); i++)
+            assertEquals(versioneds.get(i).getVersion(), versions.get(i));
+
+        assertEquals(0, store.getVersions(keys.get(1)).size());
+    }
+
     public void testGetAll() throws Exception {
         Store<K, V> store = getStore();
         int putCount = 10;

@@ -23,11 +23,15 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.StoreUtils;
 import voldemort.versioning.InconsistencyResolver;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
+
 /**
- * A Store that uses a InconsistencyResolver to eleminate some duplicates
+ * A Store that uses a InconsistencyResolver to eliminate some duplicates.
  * 
  * @author jay
  * 
@@ -45,6 +49,17 @@ public class InconsistencyResolvingStore<K, V> extends DelegatingStore<K, V> {
     @Override
     public List<Versioned<V>> get(K key) throws VoldemortException {
         return resolver.resolveConflicts(super.get(key));
+    }
+
+    @Override
+    public List<Version> getVersions(K key) {
+        if(resolver.requiresValue())
+            throw new UnsupportedOperationException();
+        List<Version> versions = super.getVersions(key);
+        List<Versioned<V>> versioneds = Lists.newArrayList();
+        for(Version v: versions)
+            versioneds.add(Versioned.value((V) null, v));
+        return StoreUtils.getVersions(resolver.resolveConflicts(versioneds));
     }
 
     @Override

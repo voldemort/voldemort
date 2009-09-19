@@ -50,14 +50,13 @@ import com.google.common.collect.Maps;
 @Threadsafe
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
-    private final Versioned<V> NOT_FOUND = new Versioned<V>(null, null);
-
     private final StoreClientFactory storeFactory;
 
     private final int metadataRefreshAttempts;
     private final String storeName;
     private final InconsistencyResolver<Versioned<V>> resolver;
     private volatile Store<K, V> store;
+    private volatile boolean inconsistencyResolverRequiresValue;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
@@ -72,6 +71,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private void reinit() {
         this.store = storeFactory.getRawStore(storeName, resolver);
+        InconsistencyResolver<?> irs = (InconsistencyResolver<?>) store.getCapability(StoreCapabilityType.INCONSISTENCY_RESOLVER);
+        inconsistencyResolverRequiresValue = irs.requiresValue();
     }
 
     public boolean delete(K key) {
@@ -159,10 +160,18 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void put(K key, V value) {
-        Versioned<V> versioned = get(key, NOT_FOUND);
-        if(versioned == NOT_FOUND)
-            versioned = new Versioned<V>(value, new VectorClock());
-        versioned.setObject(value);
+        Versioned<V> versioned;
+        if(inconsistencyResolverRequiresValue) {
+            versioned = get(key);
+            if(versioned == null)
+                versioned = new Versioned<V>(value, new VectorClock());
+            versioned.setObject(value);
+        } else {
+            Version version = getVersion(key);
+            if(version == null)
+                version = new VectorClock();
+            versioned = Versioned.value(value, version);
+        }
         put(key, versioned);
     }
 
@@ -221,4 +230,26 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return strategy.routeRequest(keySerializer.toBytes(key));
     }
 
+    private Version getVersion(K key) {
+        List<Version> versions = getVersions(key);
+        if(versions.size() == 0)
+            return null;
+        else if(versions.size() == 1)
+            return versions.get(0);
+        else
+            throw new InconsistentDataException("Unresolved versions returned from get(" + key
+                                                + ") = " + versions, versions);
+    }
+
+    private List<Version> getVersions(K key) {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                return store.getVersions(key);
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
+        throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                           + " metadata refresh attempts failed.");
+    }
 }
