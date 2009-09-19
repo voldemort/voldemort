@@ -230,6 +230,7 @@ public class ServerTestUtils {
                                          1,
                                          1,
                                          1,
+                                         1,
                                          1));
         return defs;
     }
@@ -253,6 +254,7 @@ public class ServerTestUtils {
                                    rreads,
                                    pwrites,
                                    rwrites,
+                                   1,
                                    1);
     }
 
