@@ -1,7 +1,12 @@
 package voldemort.store.socket;
 
-import junit.framework.Test;
-import voldemort.TestUtils;
+import java.util.Arrays;
+import java.util.Collection;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.client.protocol.RequestFormatType;
 
 /**
@@ -10,14 +15,17 @@ import voldemort.client.protocol.RequestFormatType;
  * @author jay
  * 
  */
+
+@RunWith(Parameterized.class)
 public class ProtocolBuffersSocketStoreTest extends AbstractSocketStoreTest {
 
-    public ProtocolBuffersSocketStoreTest() {
-        super(RequestFormatType.PROTOCOL_BUFFERS);
+    public ProtocolBuffersSocketStoreTest(boolean useNio) {
+        super(RequestFormatType.PROTOCOL_BUFFERS, useNio);
     }
 
-    public static Test suite() {
-        return TestUtils.createSocketServiceTestCaseSuite(ProtocolBuffersSocketStoreTest.class);
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
 }

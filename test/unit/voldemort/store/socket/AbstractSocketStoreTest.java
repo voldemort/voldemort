@@ -24,9 +24,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import org.apache.log4j.Logger;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.SocketServiceTestCase;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.protocol.RequestFormatType;
@@ -42,27 +44,24 @@ import voldemort.versioning.Versioned;
  * @author jay
  * 
  */
-public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest implements
-        SocketServiceTestCase {
+public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {
 
     private static final Logger logger = Logger.getLogger(AbstractSocketStoreTest.class);
 
-    public AbstractSocketStoreTest(RequestFormatType type) {
+    public AbstractSocketStoreTest(RequestFormatType type, boolean useNio) {
         this.requestFormatType = type;
+        this.useNio = useNio;
     }
 
     private int socketPort;
     private AbstractSocketService socketService;
     private SocketStore socketStore;
-    private RequestFormatType requestFormatType;
-    private boolean useNio;
-
-    public void setUseNio(boolean useNio) {
-        this.useNio = useNio;
-    }
+    private final RequestFormatType requestFormatType;
+    private final boolean useNio;
 
     @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         super.setUp();
         this.socketPort = ServerTestUtils.findFreePort();
         socketService = ServerTestUtils.getSocketService(useNio,
@@ -75,17 +74,19 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore() {
-        return socketStore;
-    }
-
-    @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
         socketService.stop();
         socketStore.close();
     }
 
+    @Override
+    public Store<ByteArray, byte[]> getStore() {
+        return socketStore;
+    }
+
+    @Test
     public void testVeryLargeValues() {
         final Store<ByteArray, byte[]> store = getStore();
         byte[] biggie = new byte[1 * 1024 * 1024];
@@ -100,6 +101,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         }
     }
 
+    @Test
     public void testThreadOverload() throws Exception {
         final Store<ByteArray, byte[]> store = getStore();
         int numOps = 100;
@@ -119,6 +121,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         latch.await();
     }
 
+    @Test
     public void testRepeatedClosedConnections() throws Exception {
         for(int i = 0; i < 100; i++) {
             Socket s = new Socket();

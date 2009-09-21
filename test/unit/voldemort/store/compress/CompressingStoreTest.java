@@ -1,9 +1,15 @@
 package voldemort.store.compress;
 
-import junit.framework.Test;
+import java.util.Arrays;
+import java.util.Collection;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.ServerTestUtils;
-import voldemort.SocketServiceTestCase;
-import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -14,23 +20,25 @@ import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 
-public class CompressingStoreTest extends AbstractByteArrayStoreTest implements
-        SocketServiceTestCase {
+@RunWith(Parameterized.class)
+public class CompressingStoreTest extends AbstractByteArrayStoreTest {
 
     private CompressingStore store;
 
-    private boolean useNio;
+    private final boolean useNio;
 
-    public static Test suite() {
-        return TestUtils.createSocketServiceTestCaseSuite(CompressingStoreTest.class);
-    }
-
-    public void setUseNio(boolean useNio) {
+    public CompressingStoreTest(boolean useNio) {
         this.useNio = useNio;
     }
 
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
+
     @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         this.store = new CompressingStore(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
                                           new GzipCompressionStrategy(),
                                           new GzipCompressionStrategy());
@@ -41,6 +49,7 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest implements
         return store;
     }
 
+    @Test
     public void testPutGetWithSocketService() {
         int freePort = ServerTestUtils.findFreePort();
         String clusterXml = VoldemortTestConstants.getOneNodeClusterXml();
