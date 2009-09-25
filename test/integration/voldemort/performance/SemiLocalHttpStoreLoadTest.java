@@ -39,7 +39,7 @@ public class SemiLocalHttpStoreLoadTest extends AbstractLoadTestHarness {
         // serverA.getStoreConfiguration(),
         // "users",
         // new StringSerializer("UTF-8"),
-        // serverA.getIdentityNode().getId(),
+        // serverA.getNodeId(),
         // 20);
     }
 

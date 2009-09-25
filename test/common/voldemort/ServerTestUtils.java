@@ -31,6 +31,7 @@ import org.mortbay.jetty.servlet.ServletHolder;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -71,7 +72,8 @@ public class ServerTestUtils {
         Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
-        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"));
+        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"),
+                                                   0);
         metadata.put(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()),
                      new Versioned<byte[]>(clusterXml.getBytes()));
         metadata.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
@@ -277,13 +279,17 @@ public class ServerTestUtils {
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
+        config.setStreamMaxReadBytesPerSec(10 * 1000);
+        config.setStreamMaxWriteBytesPerSec(10 * 1000);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
         tempDir.mkdirs();
+        tempDir.deleteOnExit();
 
         File tempDir2 = new File(config.getDataDirectory());
         tempDir2.mkdirs();
+        tempDir2.deleteOnExit();
 
         // copy cluster.xml / stores.xml to temp metadata dir.
         if(null != clusterFile)
@@ -295,5 +301,13 @@ public class ServerTestUtils {
                                                              + File.separatorChar + "stores.xml"));
 
         return config;
+    }
+
+    public static NativeAdminClientRequestFormat getAdminClient(Node identityNode,
+                                                                MetadataStore MetadataStore) {
+        return new NativeAdminClientRequestFormat(MetadataStore, new SocketPool(2,
+                                                                                10000,
+                                                                                100000,
+                                                                                32 * 1024));
     }
 }

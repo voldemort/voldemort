@@ -40,15 +40,18 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.server.VoldemortMetadata;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Helper utilities for tests
@@ -305,7 +308,8 @@ public class TestUtils {
                                                        1,
                                                        1,
                                                        1);
-        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
+        RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                    cluster);
 
         // make a temp dir
         File dataDir = new File(baseDir + File.separatorChar + "read-only-temp-index-"
@@ -326,10 +330,18 @@ public class TestUtils {
         return dataDir.getAbsolutePath();
     }
 
-    public static VoldemortMetadata createMetadata(int[][] partitionMap, StoreDefinition storeDef) {
-        return new VoldemortMetadata(new Cluster("test-cluster", createNodes(partitionMap)),
-                                     Arrays.asList(storeDef),
-                                     0);
+    public static MetadataStore createMetadata(int[][] partitionMap, StoreDefinition storeDef) {
+        Store<String, String> innerStore = new InMemoryStorageEngine<String, String>("test-cluster-inner");
+        // write the cluster.xml string to in memory store
+        String clusterxml = new ClusterMapper().writeCluster(new Cluster("test-cluster",
+                                                                         createNodes(partitionMap)));
+        innerStore.put(MetadataStore.CLUSTER_KEY, new Versioned<String>(clusterxml));
+
+        // write the storeDef to innerStorage
+        String storeXml = new StoreDefinitionsMapper().writeStore(storeDef);
+        innerStore.put(MetadataStore.STORES_KEY, new Versioned<String>(storeXml));
+
+        return new MetadataStore(innerStore, 0);
     }
 
     public static List<Node> createNodes(int[][] partitionMap) {

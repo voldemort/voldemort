@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.filesystem;
+package voldemort.store.configuration;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +31,7 @@ import voldemort.store.Store;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class FilesystemStorageEngineTest extends AbstractStoreTest<String, String> {
+public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, String> {
 
     private List<File> tempDirs;
 
@@ -57,12 +57,48 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
     public Store<String, String> getStore() {
         File tempDir = TestUtils.createTempDir();
         tempDirs.add(tempDir);
-        return new FilesystemStorageEngine("test", tempDir.getAbsolutePath());
+        return new ConfigurationStorageEngine("test", tempDir.getAbsolutePath());
     }
 
     @Override
     public List<String> getValues(int numValues) {
         return getStrings(numValues, 8);
+    }
+
+    @Override
+    public void testDelete() {
+        // deletes are not supported for configurationEngine.
+        try {
+            super.testDelete();
+            fail();
+        } catch(Exception e) {
+            // expected
+        }
+    }
+
+    @Override
+    public void testGetAndDeleteNonExistentKey() {
+        try {
+            assertEquals("Size should be 0", 0, getStore().get("unknown_key").size());
+        } catch(Exception e) {
+            fail();
+        }
+    }
+
+    @Override
+    public void testNullKeys() {
+        // insert of null keys should not be allowed
+        try {
+            getStore().put("test.key", new Versioned<String>(null));
+            fail();
+        } catch(Exception e) {
+            // expected
+        }
+    }
+
+    @Override
+    protected boolean allowConcurrentOperations() {
+        return false;
     }
 
     public void testEmacsTempFile() throws IOException {
@@ -82,7 +118,8 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
 
         // do a new put
-        store.put(keyName, new Versioned<String>("testValue1"));
+        VectorClock clock = (VectorClock) store.get(keyName).get(0).getVersion();
+        store.put(keyName, new Versioned<String>("testValue1", clock.incremented(0, 1)));
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
         assertEquals("Value should match.", "testValue1", store.get(keyName).get(0).getValue());
 
@@ -90,9 +127,5 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
         Map<String, List<Versioned<String>>> map = store.getAll(Arrays.asList(keyName));
         assertEquals("Only one file of name key should be present.", 1, map.get(keyName).size());
         assertEquals("Value should match.", "testValue1", map.get(keyName).get(0).getValue());
-
-        // try delete
-        store.delete(keyName, new VectorClock());
-        assertEquals("No file of name key should be present.", 0, store.get(keyName).size());
     }
 }

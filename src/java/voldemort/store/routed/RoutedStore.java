@@ -160,7 +160,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.cluster = cluster;
         this.storeDef = storeDef;
 
-        this.routingStrategy = new RoutingStrategyFactory(this.cluster).getRoutingStrategy(storeDef);
+        this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {

@@ -22,11 +22,13 @@ import java.util.Arrays;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -38,13 +40,14 @@ import voldemort.versioning.Versioned;
  * @author bbansal
  * 
  */
-public class RebalancingStoreTest extends TestCase {
+public class RedirectingStoreTest extends TestCase {
 
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     VoldemortServer server0;
     VoldemortServer server1;
+    AdminClientRequestFormat adminClient;
 
     Cluster cluster;
 
@@ -77,6 +80,10 @@ public class RebalancingStoreTest extends TestCase {
                                       cluster);
         server1.start();
 
+        // get adminClient
+        adminClient = ServerTestUtils.getAdminClient(server0.getIdentityNode(),
+                                                     server0.getMetadataStore());
+
     }
 
     @Override
@@ -85,9 +92,11 @@ public class RebalancingStoreTest extends TestCase {
         server1.stop();
     }
 
-    private RebalancingStore getRebalancingStore(VoldemortMetadata metadata) {
-        return new RebalancingStore(0,
-                                    server0.getStoreRepository().getLocalStore(storeName),
+    private RedirectingStore getRedirectingStore(MetadataStore metadata) {
+        return new RedirectingStore(ServerTestUtils.getSocketStore(storeName,
+                                                                   server0.getIdentityNode()
+                                                                          .getSocketPort(),
+                                                                   RequestFormatType.VOLDEMORT_V1),
                                     metadata,
                                     new SocketPool(100, 2000, 1000, 10000));
     }
@@ -98,19 +107,20 @@ public class RebalancingStoreTest extends TestCase {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
 
-            Store<ByteArray, byte[]> store = server1.getStoreRepository().getLocalStore(storeName);
+            Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                                                    .getStorageEngine(storeName);
             store.put(key,
                       Versioned.value(value,
                                       new VectorClock().incremented(0, System.currentTimeMillis())));
         }
 
-        VoldemortMetadata metadata = server0.getVoldemortMetadata();
+        MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1));
-        metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
+        adminClient.updateRebalancingProxyDest(0, 1);
+        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
+        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // for Normal server state no values are expected
         for(int i = 100; i <= 1000; i++) {
@@ -122,12 +132,12 @@ public class RebalancingStoreTest extends TestCase {
                || metadata.getRoutingStrategy(storeName)
                           .getPartitionList(key.get())
                           .contains(new Integer(3))) {
-                assertEquals("proxyGet should return emptys list", 0, rebalancingStore.get(key)
+                assertEquals("proxyGet should return emptys list", 0, RedirectingStore.get(key)
                                                                                       .size());
             }
         }
 
-        metadata.setServerState(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
 
@@ -139,7 +149,7 @@ public class RebalancingStoreTest extends TestCase {
                           .contains(new Integer(3))) {
                 assertEquals("proxyGet should return actual value",
                              "value-" + i,
-                             new String(rebalancingStore.get(key).get(0).getValue()));
+                             new String(RedirectingStore.get(key).get(0).getValue()));
             }
         }
     }
@@ -150,7 +160,8 @@ public class RebalancingStoreTest extends TestCase {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
 
-            Store<ByteArray, byte[]> store = server1.getStoreRepository().getLocalStore(storeName);
+            Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                                                    .getStorageEngine(storeName);
             store.put(key,
                       Versioned.value(value,
                                       new VectorClock().incremented(0, System.currentTimeMillis())));
@@ -164,18 +175,18 @@ public class RebalancingStoreTest extends TestCase {
             }
         }
 
-        VoldemortMetadata metadata = server0.getVoldemortMetadata();
+        MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        metadata.setDonorNode(server0.getVoldemortMetadata().getCurrentCluster().getNodeById(1));
-        metadata.setCurrentPartitionStealList(Arrays.asList(new Integer[] { 2, 3 }));
+        adminClient.updateRebalancingProxyDest(0, 1);
+        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
 
-        RebalancingStore rebalancingStore = getRebalancingStore(metadata);
+        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // we should see obsolete version exception if try to insert with same
         // version
 
-        metadata.setServerState(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             if(metadata.getRoutingStrategy(storeName)
@@ -185,7 +196,7 @@ public class RebalancingStoreTest extends TestCase {
                           .getPartitionList(key.get())
                           .contains(new Integer(3))) {
                 try {
-                    rebalancingStore.put(key, rebalancingStore.get(key).get(0));
+                    RedirectingStore.put(key, RedirectingStore.get(key).get(0));
                     fail("put should throw ObsoleteVersionException before hitting this");
                 } catch(ObsoleteVersionException e) {
                     // ignore

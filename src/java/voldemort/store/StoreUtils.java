@@ -114,6 +114,14 @@ public class StoreUtils {
         }
     }
 
+    /**
+     * Check if the current node is part of routing request based on cluster.xml
+     * or throw an exception.
+     * 
+     * @param key
+     * @param routingStrategy
+     * @param currentNodeId
+     */
     public static void assertValidMetadata(ByteArray key,
                                            RoutingStrategy routingStrategy,
                                            int currentNodeId) {

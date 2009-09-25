@@ -13,13 +13,9 @@ import voldemort.store.StoreDefinition;
  */
 public class RoutingStrategyFactory {
 
-    private final Cluster cluster;
+    public RoutingStrategyFactory() {}
 
-    public RoutingStrategyFactory(Cluster cluster) {
-        this.cluster = cluster;
-    }
-
-    public RoutingStrategy getRoutingStrategy(StoreDefinition storeDef) {
+    public RoutingStrategy updateRoutingStrategy(StoreDefinition storeDef, Cluster cluster) {
         if(RoutingStrategyType.CONSISTENT_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
             return new ConsistentRoutingStrategy(cluster.getNodes(),
                                                  storeDef.getReplicationFactor());
