@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 
 import junit.framework.TestCase;
+
+import org.junit.Test;
+
 import voldemort.TestUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -92,6 +95,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertTrue(collection + " does not contain " + value + ".", found);
     }
 
+    @Test
     public void testNullKeys() throws Exception {
         Store<K, V> store = getStore();
         try {

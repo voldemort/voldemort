@@ -22,8 +22,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,15 +32,9 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import junit.framework.AssertionFailedError;
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
-import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
-import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
@@ -389,65 +381,6 @@ public class TestUtils {
             /* Should not happen */
             throw new IllegalStateException(e);
         }
-    }
-
-    /**
-     * createFailureDetectorTestSuite is used for tests that use a
-     * FailureDetector. Rather than hard-coding the implementation, we actually
-     * test each method once with each.
-     * 
-     * <p/>
-     * 
-     * <b>Note</b>: this method assumes the incoming class implements
-     * FailureDetectorTestCase.
-     * 
-     * @param testCaseClass
-     * 
-     * @return TestSuite that can be returned directly from the static "suite"
-     *         method
-     */
-
-    @SuppressWarnings("unchecked")
-    public static TestSuite createFailureDetectorTestSuite(Class<? extends TestCase> testCaseClass) {
-        TestSuite testSuite = new TestSuite();
-
-        List<Class<?>> classes = new ArrayList<Class<?>>();
-        classes.add(BannagePeriodFailureDetector.class);
-        classes.add(AsyncRecoveryFailureDetector.class);
-
-        for(Class<?> failureDetectorClass: classes) {
-            try {
-                for(Method method: testCaseClass.getMethods()) {
-                    if(!isTestMethod(method))
-                        continue;
-
-                    // Set the appropriate implementation and add it to our
-                    // suite. Sorry, but I'm not sure why I can't get the
-                    // generics to work correctly here using Class<? extends
-                    // FailureDetector> :(
-                    Test test = TestSuite.createTest(testCaseClass, method.getName());
-                    ((FailureDetectorTestCase) test).setFailureDetectorClass((Class<FailureDetector>) failureDetectorClass);
-                    testSuite.addTest(test);
-                }
-            } catch(Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return testSuite;
-    }
-
-    public static boolean isTestMethod(Method method) {
-        if(!method.getName().startsWith("test"))
-            return false;
-
-        if(!Modifier.isPublic(method.getModifiers()))
-            return false;
-
-        if(method.getParameterTypes().length != 0)
-            return false;
-
-        return true;
     }
 
 }

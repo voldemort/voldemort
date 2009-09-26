@@ -16,59 +16,118 @@
 
 package voldemort.cluster;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
-import junit.framework.Test;
 import junit.framework.TestCase;
-import voldemort.FailureDetectorTestCase;
-import voldemort.TestUtils;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import voldemort.VoldemortException;
+import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
+import voldemort.store.StoreCapabilityType;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
 
-public class TestCluster extends TestCase implements FailureDetectorTestCase {
+@RunWith(Parameterized.class)
+public class TestCluster extends TestCase {
 
+    private static final int BANNAGE_TIME = 1000;
     private String clusterName = "test";
     private List<Node> nodes;
     private Cluster cluster;
-    private Class<FailureDetector> failureDetectorClass;
+    private final Class<FailureDetector> failureDetectorClass;
     private FailureDetector failureDetector;
+    private Time time;
 
-    public static Test suite() {
-        return TestUtils.createFailureDetectorTestSuite(TestCluster.class);
+    public TestCluster(Class<FailureDetector> failureDetectorClass) {
+        this.failureDetectorClass = failureDetectorClass;
     }
 
     @Override
+    @Before
     public void setUp() throws Exception {
         this.nodes = ImmutableList.of(new Node(1, "test1", 1, 1, ImmutableList.of(1, 2, 3)),
                                       new Node(2, "test1", 2, 2, ImmutableList.of(3, 5, 6)),
                                       new Node(3, "test1", 3, 3, ImmutableList.of(7, 8, 9)),
                                       new Node(4, "test1", 4, 4, ImmutableList.of(10, 11, 12)));
         this.cluster = new Cluster(clusterName, nodes);
+        this.time = SystemTime.INSTANCE;
+
+        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+
+        for(Node node: nodes) {
+            stores.put(node.getId(), new Store<ByteArray, byte[]>() {
+
+                public void close() throws VoldemortException {}
+
+                public boolean delete(ByteArray key, Version version) throws VoldemortException {
+                    return false;
+                }
+
+                public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+                    return null;
+                }
+
+                public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+                        throws VoldemortException {
+                    return null;
+                }
+
+                public Object getCapability(StoreCapabilityType capability) {
+                    return null;
+                }
+
+                public String getName() {
+                    return null;
+                }
+
+                public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
+
+            });
+        }
 
         FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                      10000,
-                                                                      new HashMap<Integer, Store<ByteArray, byte[]>>());
+                                                                      BANNAGE_TIME,
+                                                                      stores,
+                                                                      time);
         failureDetector = FailureDetectorUtils.create(config);
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         if(failureDetector != null)
             failureDetector.destroy();
     }
 
-    public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
-        this.failureDetectorClass = failureDetectorClass;
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { AsyncRecoveryFailureDetector.class },
+                { BannagePeriodFailureDetector.class } });
     }
 
+    @Test
     public void testBasics() {
         assertEquals(nodes.size(), cluster.getNumberOfNodes());
         assertEquals(new HashSet<Node>(nodes), new HashSet<Node>(cluster.getNodes()));
@@ -76,12 +135,14 @@ public class TestCluster extends TestCase implements FailureDetectorTestCase {
         assertEquals(nodes.get(0), cluster.getNodeById(1));
     }
 
+    @Test
     public void testStatusBeginsAsAvailable() {
         for(Node n: cluster.getNodes())
             assertTrue("Node " + n.getId() + " is not available.", failureDetector.isAvailable(n));
     }
 
-    public void testUnavailability() {
+    @Test
+    public void testUnavailability() throws Exception {
         Node n = cluster.getNodeById(1);
 
         // begins available
@@ -89,10 +150,15 @@ public class TestCluster extends TestCase implements FailureDetectorTestCase {
 
         // if set unavailable, is unavailable
         failureDetector.recordException(n, null);
+
         assertFalse(failureDetector.isAvailable(n));
 
         // if we set it back to available then it is available again
         failureDetector.recordSuccess(n);
+
+        // Some implementations require a sleep time, so let's wait a little
+        // before checking.
+        time.sleep(BANNAGE_TIME * 2);
 
         assertTrue(failureDetector.isAvailable(n));
     }

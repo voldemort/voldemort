@@ -60,6 +60,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
+
         unavailableNodes = new HashSet<Node>();
 
         isRunning = true;
@@ -100,7 +101,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
-                Thread.sleep(failureDetectorConfig.getNodeBannagePeriod());
+                failureDetectorConfig.getTime().sleep(failureDetectorConfig.getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }

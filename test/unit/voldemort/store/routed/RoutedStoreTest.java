@@ -21,12 +21,19 @@ import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import junit.framework.Test;
-import voldemort.FailureDetectorTestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -34,6 +41,8 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
@@ -51,6 +60,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -66,32 +76,39 @@ import com.google.common.collect.Maps;
  * @author jay
  * 
  */
-public class RoutedStoreTest extends AbstractByteArrayStoreTest implements FailureDetectorTestCase {
+@RunWith(Parameterized.class)
+public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     private Cluster cluster;
+    private Time time;
     private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
-    private Class<FailureDetector> failureDetectorClass;
+    private final Class<FailureDetector> failureDetectorClass;
     private FailureDetector failureDetector;
 
-    public static Test suite() {
-        return TestUtils.createFailureDetectorTestSuite(RoutedStoreTest.class);
+    public RoutedStoreTest(Class<FailureDetector> failureDetectorClass) {
+        this.failureDetectorClass = failureDetectorClass;
     }
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         cluster = getNineNodeCluster();
+        time = new MockTime();
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         if(failureDetector != null)
             failureDetector.destroy();
     }
 
-    public void setFailureDetectorClass(Class<FailureDetector> failureDetectorClass) {
-        this.failureDetectorClass = failureDetectorClass;
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { AsyncRecoveryFailureDetector.class },
+                { BannagePeriodFailureDetector.class } });
     }
 
     @Override
@@ -210,14 +227,17 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         assertTrue(!routedStore.delete(aKey, versioned.getVersion()));
     }
 
+    @Test
     public void testBasicOperationsSingleThreaded() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes(), cluster.getNumberOfNodes(), 0, 1);
     }
 
+    @Test
     public void testBasicOperationsMultiThreaded() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes(), cluster.getNumberOfNodes(), 0, 4);
     }
 
+    @Test
     public void testBasicOperationsMultiThreadedWithFailures() throws Exception {
         testBasicOperations(cluster.getNumberOfNodes() - 2, cluster.getNumberOfNodes() - 2, 2, 4);
     }
@@ -254,6 +274,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         }
     }
 
+    @Test
     public void testBasicOperationFailureMultiThreaded() throws Exception {
         testBasicOperationFailure(cluster.getNumberOfNodes() - 2,
                                   cluster.getNumberOfNodes() - 2,
@@ -261,6 +282,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
                                   4);
     }
 
+    @Test
     public void testPutIncrementsVersion() throws Exception {
         Store<ByteArray, byte[]> store = getStore();
         VectorClock clock = new VectorClock();
@@ -273,10 +295,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
                      copy.compare(found.get(0).getVersion()));
     }
 
+    @Test
     public void testObsoleteMasterFails() {
     // write me
     }
 
+    @Test
     public void testOnlyNodeFailuresDisableNode() throws Exception {
         // test put
         cluster = getNineNodeCluster();
@@ -387,6 +411,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
     /**
      * Tests that getAll works correctly with a node down in a two node cluster.
      */
+    @Test
     public void testGetAllWithNodeDown() throws Exception {
         cluster = VoldemortTestConstants.getTwoNodeCluster();
 
@@ -412,6 +437,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         }
     }
 
+    @Test
     public void testGetAllWithFailingStore() throws Exception {
         cluster = VoldemortTestConstants.getTwoNodeCluster();
 
@@ -464,6 +490,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
      * 
      * http://github.com/voldemort/voldemort/issues#issue/18
      */
+    @Test
     public void testGetAllWithMorePreferredReadsThanNodes() throws Exception {
         cluster = VoldemortTestConstants.getTwoNodeCluster();
 
@@ -504,6 +531,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
      * See Issue #89: Sequential retrieval in RoutedStore.get doesn't consider
      * repairReads.
      */
+    @Test
     public void testReadRepairWithFailures() throws Exception {
         cluster = getNineNodeCluster();
 
@@ -554,6 +582,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
      * This issue would only happen with one node down and another that was slow
      * to respond.
      */
+    @Test
     public void testPutWithOneNodeDownAndOneNodeSlow() throws Exception {
         cluster = VoldemortTestConstants.getThreeNodeCluster();
         StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
@@ -592,6 +621,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         store.put(aKey, new Versioned<byte[]>(aValue));
     }
 
+    @Test
     public void testPutTimeout() throws Exception {
         int timeout = 50;
         StoreDefinition definition = new StoreDefinition("test",
@@ -641,7 +671,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
         }
     }
 
-    public void assertOperationalNodes(int expected) {
+    private void assertOperationalNodes(int expected) {
         int found = 0;
         for(Node n: cluster.getNodes())
             if(failureDetector.isAvailable(n))
@@ -658,7 +688,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest implements Failu
 
         FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
                                                                       10000,
-                                                                      subStores);
+                                                                      subStores,
+                                                                      time);
         failureDetector = FailureDetectorUtils.create(config);
     }
 }

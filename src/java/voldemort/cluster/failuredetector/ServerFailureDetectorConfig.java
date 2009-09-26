@@ -25,6 +25,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
 
 /**
  * ServerFailureDetectorConfig is used to retrieve configuration data for a
@@ -43,10 +45,19 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
+    private final Time time;
+
     public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
                                        StoreRepository storeRepository) {
+        this(voldemortConfig, storeRepository, SystemTime.INSTANCE);
+    }
+
+    public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
+                                       StoreRepository storeRepository,
+                                       Time time) {
         this.voldemortConfig = voldemortConfig;
         this.storeRepository = storeRepository;
+        this.time = time;
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
@@ -74,6 +85,10 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
             return store;
         }
+    }
+
+    public Time getTime() {
+        return time;
     }
 
 }
