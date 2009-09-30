@@ -259,16 +259,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      */
     @SuppressWarnings("unchecked")
     private Versioned<byte[]> convertObjectToBytes(String key, Versioned<Object> value) {
-        String valueStr = "null";
+        String valueStr = value.getValue().toString();
 
         if(CLUSTER_KEY.equals(key)) {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
-        } else if(SERVER_STATE_KEY.equals(key)) {
-            valueStr = value.getValue().toString();
-        } else if(REBALANCING_PROXY_DEST.equals(key)) {
-            valueStr = value.getValue().toString();
         } else if(REBALANCING_PARTITIONS_LIST.equals(key)) {
             // save the list as comma separate string.
             StringBuilder builder = new StringBuilder();
@@ -301,6 +297,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = ServerState.valueOf(value.getValue());
         } else if(REBALANCING_PROXY_DEST.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
+        } else if(NODE_ID_KEY.equals(key)) {
+            valueObject = Integer.parseInt(value.getValue());
         } else if(REBALANCING_PARTITIONS_LIST.equals(key)) {
             List<Integer> list = new ArrayList<Integer>();
             if(value.getValue().trim().length() > 0) {
@@ -326,8 +324,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
 
         /**
-         * Returns defaultValue if get() fails helper function for init()
-         * purpose
+         * Returns defaultValue if innerStore.get() fails helper function for
+         * init() purpose
          * 
          * @param key
          * @return
