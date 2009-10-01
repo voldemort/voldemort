@@ -6,6 +6,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.cluster.Node;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
@@ -85,8 +86,6 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         } finally {
             pool.checkin(destination, sands);
         }
-
-        
     }
 
     /**
@@ -195,7 +194,41 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      */
     @Override
     public int doDeletePartitionEntries(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        Node node = this.getMetadata().getCluster().getNodeById(nodeId);
+
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                node.getSocketPort(),
+                RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        SocketAndStreams sands = pool.checkout(destination);
+
+        try {
+            Class cl = filter == null ? DefaultVoldemortFilter.class : filter.getClass();
+            byte[] classBytes = networkClassLoader.dumpClass(cl);
+            DataOutputStream outputStream = sands.getOutputStream();
+            DataInputStream inputStream = sands.getInputStream();
+
+            VAdminProto.VoldemortAdminRequest.Builder request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                    .setType(VAdminProto.AdminRequestType.DELETE_PARTITION_ENTRIES)
+                    .setDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest.newBuilder()
+                            .addAllPartitions(partitionList)
+                            .setFilter(VAdminProto.VoldemortFilter.newBuilder()
+                                    .setName(cl.getName())
+                                    .setData(ProtoUtils.encodeBytes(new ByteArray(classBytes))))
+                            .setStore(storeName));
+            ProtoUtils.writeMessage(outputStream, request.build());
+            outputStream.flush();
+
+            VAdminProto.DeletePartitionEntriesResponse.Builder response = ProtoUtils.readToBuilder(inputStream,
+                    VAdminProto.DeletePartitionEntriesResponse.newBuilder());
+            if (response.hasError())
+                throwException(response.getError());
+            return response.getCount();
+        } catch (IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkout(destination);
+        }
     }
 
     public void throwException(VProto.Error error) {

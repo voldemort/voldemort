@@ -5,16 +5,19 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.Store;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
+import voldemort.versioning.Versioned;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by IntelliJ IDEA.
@@ -74,6 +77,48 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                      client.getClusterMetadata(server.getIdentityNode().getId()).getValue(),
                      updatedCluster);
         
+    }
+
+    public void testDeletePartitionEntries() {
+    Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store);
+
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+        }
+
+        getAdminClient().doDeletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
+
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            if(routingStrategy.getPartitionList(entry.getFirst().get()).contains(0)
+               || routingStrategy.getPartitionList(entry.getFirst().get()).contains(2)) {
+                assertEquals("store should be missing all 0,2 entries",
+                             0,
+                             store.get(entry.getFirst()).size());
+            } else {
+                assertEquals("store should have all 1,3 entries", 1, store.get(entry.getFirst())
+                                                                          .size());
+                assertEquals("entry should match",
+                             entry.getSecond().getValue(),
+                             store.get(entry.getFirst()).get(0).getValue());
+            }
+        }
+        
+    }
+
+    private Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = new HashSet<Pair<ByteArray, Versioned<byte[]>>>();
+
+        for(int i = 0; i <= 1000; i++) {
+            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+            Versioned<byte[]> value = new Versioned<byte[]>(ByteUtils.getBytes("value-" + i,
+                                                                               "UTF-8"));
+            entrySet.add(new Pair<ByteArray, Versioned<byte[]>>(key, value));
+        }
+
+        return entrySet;
     }
 
     

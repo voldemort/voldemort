@@ -49,7 +49,9 @@ public class RequestHandlerFactory {
             case ADMIN_PROTOCOL_BUFFERS:
                 return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
                         repository,
-                        metadata);
+                        metadata,
+                        voldemortConfig.getStreamMaxReadBytesPerSec(),
+                        voldemortConfig.getStreamMaxWriteBytesPerSec());
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }

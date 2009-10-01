@@ -4,16 +4,19 @@ package voldemort.server.protocol.pb;
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
+import voldemort.client.protocol.VoldemortFilter;
+import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
-import voldemort.client.protocol.pb.VProto;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
-import voldemort.server.protocol.AbstractRequestHandler;
+import voldemort.server.protocol.RequestHandler;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
+import voldemort.utils.*;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import java.io.DataInputStream;
@@ -30,17 +33,31 @@ import java.util.List;
  * Time: 4:45:20 PM
  * To change this template use File | Settings | File Templates.
  */
-public class ProtoBuffAdminServiceRequestHandler extends AbstractRequestHandler {
+public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final Logger logger = Logger.getLogger(ProtoBuffAdminServiceRequestHandler.class);
+
+    private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
+    private final StoreRepository storeRepository;
+    private final NetworkClassLoader networkClassLoader;
+    private final int streamMaxBytesReadPerSec;
+    private final int streamMaxBytesWritesPerSec;
 
-
+    
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
-                                               MetadataStore metadataStore) {
-        super(errorCodeMapper,storeRepository);
+                                               MetadataStore metadataStore,
+                                               int streamMaxBytesReadPerSec,
+                                               int streamMaxBytesWritesPerSec) {
+        this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
+        this.storeRepository = storeRepository;
 
+        this.streamMaxBytesReadPerSec = streamMaxBytesReadPerSec;
+        this.streamMaxBytesWritesPerSec = streamMaxBytesWritesPerSec;
+        
+        this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
+                .getContextClassLoader());
     }
     
     //@Override
@@ -56,7 +73,9 @@ public class ProtoBuffAdminServiceRequestHandler extends AbstractRequestHandler 
             case UPDATE_METADATA:
                 response = handleUpdateMetadata(request.getUpdateMetadata());
                 break;
-          //  case DELETE_PARTITION_ENTRIES: break;
+            case DELETE_PARTITION_ENTRIES:
+                response = handleDeletePartitionEntries(request.getDeletePartitionEntries());
+                break;
           //  case FETCH_PARTITION_ENTRIES: break;
           //  case REDIRECT_GET: break;
           //  case UPDATE_PARTITION_ENTRIES: break;
@@ -64,6 +83,66 @@ public class ProtoBuffAdminServiceRequestHandler extends AbstractRequestHandler 
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
         ProtoUtils.writeMessage(outputStream, response);
+        outputStream.flush();
+    }
+
+    private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
+        VoldemortFilter filter;
+        byte[] classBytes = ProtoUtils.decodeBytes(request.getData())
+                .get();
+        String className = request.getName();
+        try {
+            Class<?> cl = networkClassLoader.loadClass(className, classBytes, 0, classBytes.length);
+            filter = (VoldemortFilter) cl.newInstance();
+        } catch (Exception e) {
+            throw new VoldemortException("Failed to load and instantiate the filter class", e);
+        }
+
+        return filter;
+    }
+
+    public VAdminProto.DeletePartitionEntriesResponse
+    handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
+        VAdminProto.DeletePartitionEntriesResponse.Builder response =
+                VAdminProto.DeletePartitionEntriesResponse.newBuilder();
+        try {
+            String storeName = request.getStore();
+            List<Integer> partitions = request.getPartitionsList();
+            StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
+            if (storageEngine == null) {
+                throw new VoldemortException("No store named '" + storeName + "'.");
+            }
+            RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
+            VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter()) :
+                    new DefaultVoldemortFilter();
+            IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
+
+            int deleteSuccess = 0;
+            while (iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+
+                if (validPartition(entry.getFirst().get(), partitions, routingStrategy) &&
+                        filter.filter(entry.getFirst(), entry.getSecond())) {
+                    if (storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
+                        deleteSuccess++;
+
+                    if (throttler != null)
+                        throttler.maybeThrottle(entry.getFirst().get().length +
+                                entry.getSecond().getValue().length +
+                                ((VectorClock) entry.getSecond().getVersion()).sizeInBytes());
+                }
+
+            }
+
+            iterator.close();
+            response.setCount(deleteSuccess);
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        }
+        
+        return response.build();
     }
 
     public VAdminProto.UpdateMetadataResponse handleUpdateMetadata(VAdminProto.UpdateMetadataRequest request) {
@@ -80,7 +159,7 @@ public class ProtoBuffAdminServiceRequestHandler extends AbstractRequestHandler 
             
 
         } catch (VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
         }
 
         return response.build();
@@ -106,11 +185,24 @@ public class ProtoBuffAdminServiceRequestHandler extends AbstractRequestHandler 
 
             }
         } catch (VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
         }
         return response.build();
 
     }
+
+    protected boolean validPartition(byte[] key,
+                                     List<Integer> partitionList,
+                                     RoutingStrategy routingStrategy) {
+        List<Integer> keyPartitions = routingStrategy.getPartitionList(key);
+        for(int p: partitionList) {
+            if(keyPartitions.contains(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * This method is used by non-blocking code to determine if the give buffer
      * represents a complete request. Because the non-blocking code can by

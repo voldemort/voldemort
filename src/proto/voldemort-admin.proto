@@ -81,7 +81,8 @@ message FetchPartitionEntriesResponse {
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-  optional VoldemortFilter filter = 2; 
+	repeated int32 partitions = 3;
+	optional VoldemortFilter filter = 2; 
 }
 
 message DeletePartitionEntriesResponse {
