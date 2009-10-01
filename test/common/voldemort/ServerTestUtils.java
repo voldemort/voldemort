@@ -29,9 +29,12 @@ import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
 import voldemort.client.RoutingTier;
+import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
+import voldemort.client.protocol.pb.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -304,10 +307,23 @@ public class ServerTestUtils {
     }
 
     public static NativeAdminClientRequestFormat getAdminClient(Node identityNode,
-                                                                MetadataStore MetadataStore) {
-        return new NativeAdminClientRequestFormat(MetadataStore, new SocketPool(2,
+                                                                MetadataStore metadataStore) {
+        return new NativeAdminClientRequestFormat(metadataStore, new SocketPool(2,
                                                                                 10000,
                                                                                 100000,
                                                                                 32 * 1024));
+    }
+    
+    public static AdminClientRequestFormat getAdminClient(Node identityNode,
+                                                          MetadataStore metadataStore,
+                                                          boolean useProtocolBuffers) {
+        if (useProtocolBuffers)
+            return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
+                    10000,
+                    100000,
+                    32 * 1024));
+        else
+            return getAdminClient(identityNode, metadataStore);
+
     }
 }

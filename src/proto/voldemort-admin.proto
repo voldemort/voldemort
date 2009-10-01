@@ -1,0 +1,114 @@
+package voldemort;
+
+option java_package = "voldemort.client.protocol.pb";
+option java_outer_classname = "VAdminProto";
+option optimize_for = SPEED;
+
+import "voldemort-client.proto";
+
+message GetMetadataRequest {
+  required bytes key = 1;
+}
+
+message GetMetadataResponse {
+  optional Versioned version = 1;
+  optional Error error = 3;
+}
+
+message UpdateMetadataRequest {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message UpdateMetadataResponse {
+  optional Error error = 1;
+}
+
+message RedirectGetRequest {
+  required string store_name = 1;
+  required bytes key = 2;
+}
+
+message RedirectGetResponse {
+  repeated Versioned versioned = 1;
+  optional Error error = 2;
+}
+
+message PartitionEntry {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message UpdatePartitionEntriesRequest {
+  required string store = 1;
+  repeated PartitionEntry partition_entries = 2;
+}
+
+message UpdatePartitionEntriesResponse {
+  optional Error error = 1;
+}
+
+message VoldemortFilter {
+  required string name = 1;
+  required bytes data = 2;
+}
+
+message StartFetchPartitionEntriesRequest {
+  repeated int32 partitions = 1;
+  optional VoldemortFilter filter = 2;
+}
+
+message ContinueFetchPartitionEntriesRequest {
+  repeated PartitionEntry partition_entries = 1;
+}
+
+enum FetchPartitionEntriesRequestType {
+  START = 0;
+  CONTINUE = 1;
+}
+
+message FetchPartitionEntriesRequest {
+  required FetchPartitionEntriesRequestType type = 1;
+  required string store = 2;
+  optional ContinueFetchPartitionEntriesRequest continue = 3;
+  optional StartFetchPartitionEntriesRequest start = 4;
+}
+
+message FetchPartitionEntriesResponse {
+  repeated PartitionEntry partition_entries = 1;
+  optional Error error = 2;
+}
+
+message DeletePartitionEntriesRequest {
+  required string store = 1;
+  optional VoldemortFilter filter = 2; 
+}
+
+message DeletePartitionEntriesResponse {
+  required int32 count = 1;
+  optional Error error = 2;
+}
+
+enum AdminRequestType {
+  GET_METADATA = 0;
+  UPDATE_METADATA = 1;
+  REDIRECT_GET = 2;
+  UPDATE_PARTITION_ENTRIES = 3;
+  FETCH_PARTITION_ENTRIES = 4;
+  DELETE_PARTITION_ENTRIES = 5;
+}
+
+message VoldemortAdminRequest {
+  required AdminRequestType type = 1;
+  optional GetMetadataRequest get_metadata = 2;
+  optional UpdateMetadataRequest update_metadata = 3;
+  optional RedirectGetRequest redirect_get = 4;
+  optional UpdatePartitionEntriesRequest update_partition_entries = 5;
+  optional FetchPartitionEntriesRequest fetch_partition_entries = 6;
+  optional DeletePartitionEntriesRequest delete_partition_entries = 7;
+}
+
+
+  
+
+
