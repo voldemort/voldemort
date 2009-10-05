@@ -75,9 +75,8 @@ message StartFetchPartitionEntriesRequest {
 // to the client to stop asking for additional data
 
 message FetchPartitionEntriesRequest {
-  required FetchPartitionEntriesRequestType type = 1;
-  required string store = 2;
-  optional StartFetchPartitionEntriesRequest start = 3;
+  required string store = 1;
+  optional StartFetchPartitionEntriesRequest start = 2;
 }
 
 message FetchPartitionEntriesResponse {

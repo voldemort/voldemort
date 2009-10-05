@@ -76,7 +76,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             case DELETE_PARTITION_ENTRIES:
                 response = handleDeletePartitionEntries(request.getDeletePartitionEntries());
                 break;
-          //  case FETCH_PARTITION_ENTRIES: break;
+            case FETCH_PARTITION_ENTRIES:
+                response = handleFetchPartitionEntries(request.getFetchPartitionEntries())
+                break;
             case REDIRECT_GET:
                 response = handleRedirectGet(request.getRedirectGet());
                 break;
@@ -124,7 +126,25 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    
+
+    public VAdminProto.FetchPartitionEntriesResponse handleFetchPartitionEntries
+            (VAdminProto.FetchPartitionEntriesRequest request) {
+        VAdminProto.FetchPartitionEntriesResponse.Builder response =
+                VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+        try {
+            String storeName = request.getStore();
+            if (request.hasStart()) {
+                // Start the fetch partition entries request
+            } else {
+                // Continue the fetch partition entries request if one is started
+            }
+
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        }
+
+        return response.build();
+    }
     public VAdminProto.DeletePartitionEntriesResponse
     handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response =
