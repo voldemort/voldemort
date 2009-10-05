@@ -5,12 +5,14 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -80,6 +82,45 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         
     }
 
+    public void testStateTransitions() {
+        // change to REBALANCING STATE
+        AdminClientRequestFormat client = getAdminClient();
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+
+        MetadataStore.ServerState state = server.getMetadataStore().getServerState();
+        assertEquals("State should be changed correctly to rebalancing state",
+                     MetadataStore.ServerState.REBALANCING_STEALER_STATE,
+                     state);
+
+        // change back to NORMAL state
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.NORMAL_STATE);
+
+        state = server.getMetadataStore().getServerState();
+        assertEquals("State should be changed correctly to rebalancing state",
+                     MetadataStore.ServerState.NORMAL_STATE,
+                     state);
+
+        // lets revert back to REBALANCING STATE AND CHECK
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.REBALANCING_DONOR_STATE);
+
+        state = server.getMetadataStore().getServerState();
+
+        assertEquals("State should be changed correctly to rebalancing state",
+                     MetadataStore.ServerState.REBALANCING_DONOR_STATE,
+                     state);
+
+        client.updateServerState(server.getIdentityNode().getId(),
+                                 MetadataStore.ServerState.NORMAL_STATE);
+
+        state = server.getMetadataStore().getServerState();
+        assertEquals("State should be changed correctly to rebalancing state",
+                     MetadataStore.ServerState.NORMAL_STATE,
+                     state);
+    }
+
     public void testDeletePartitionEntries() {
     Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
@@ -107,6 +148,32 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
             }
         }
         
+    }
+    
+    public void testRedirectGet() {
+        // user store should be present
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine("users");
+
+        assertNotSame("Store 'users' should not be null", null, store);
+
+        ByteArray key = new ByteArray(ByteUtils.getBytes("test_member_1", "UTF-8"));
+        byte[] value = "test-value-1".getBytes();
+
+        store.put(key, new Versioned<byte[]>(value));
+
+        // check direct get
+        assertEquals("Direct Get should succeed", new String(value), new String(store.get(key)
+                                                                                     .get(0)
+                                                                                     .getValue()));
+
+        // update server stores info
+        AdminClientRequestFormat client = getAdminClient();
+
+        assertEquals("ForcedGet should match put value",
+                     new String(value),
+                     new String(client.redirectGet(server.getIdentityNode().getId(), "users", key)
+                                      .get(0)
+                                      .getValue()));
     }
 
     private Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
