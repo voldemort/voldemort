@@ -63,6 +63,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore(), true);
     }
 
+         
     public void testUpdateClusterMetadata() {
         Cluster cluster = server.getMetadataStore().getCluster();
         List<Node> nodes = new ArrayList<Node>(cluster.getNodes());

@@ -15,6 +15,7 @@ import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -144,7 +145,40 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      */
     @Override
     public List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId, String storeName, ByteArray key) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
+        SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
+                proxyDestNode.getSocketPort(),
+                RequestFormatType.ADMIN_PROTOCOL_BUFFERS
+                );
+        SocketAndStreams sands = pool.checkout(destination);
+        try {
+            DataOutputStream outputStream = sands.getOutputStream();
+            DataInputStream inputStream = sands.getInputStream();
+
+            VAdminProto.VoldemortAdminRequest request =
+                    VAdminProto.VoldemortAdminRequest.newBuilder()
+                            .setType(VAdminProto.AdminRequestType.REDIRECT_GET)
+                            .setRedirectGet(VAdminProto.RedirectGetRequest.newBuilder()
+                                    .setKey(ProtoUtils.encodeBytes(key))
+                                    .setStoreName(storeName)).build();
+
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+
+            VAdminProto.RedirectGetResponse.Builder response =
+                    ProtoUtils.readToBuilder(inputStream, VAdminProto.RedirectGetResponse.newBuilder());
+
+            if (response.hasError())
+                throwException(response.getError());
+
+            return ProtoUtils.decodeVersions(response.getVersionedList());
+        } catch (IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+
     }
 
     /**
@@ -222,6 +256,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                     VAdminProto.DeletePartitionEntriesResponse.newBuilder());
             if (response.hasError())
                 throwException(response.getError());
+
             return response.getCount();
         } catch (IOException e) {
             close(sands.getSocket());

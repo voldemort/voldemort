@@ -58,20 +58,26 @@ message StartFetchPartitionEntriesRequest {
   optional VoldemortFilter filter = 2;
 }
 
-message ContinueFetchPartitionEntriesRequest {
-  repeated PartitionEntry partition_entries = 1;
-}
+// This somewhat emulates the HTTP chunking patttern: in this case we are not
+// relying on transfering entire chunks of entries in a single request.
 
-enum FetchPartitionEntriesRequestType {
-  START = 0;
-  CONTINUE = 1;
-}
+// This means the server can choose how many entries to convert (in memory)
+// to protocol buffers at the same time and also how many entries to send in
+// a single response.
+
+// If start request is specified, then the filter and the list of partitions
+// is sent. Otherwise, it is assumed that the request is a "continue" request.
+
+// In order not to maintain session state, this will require a blocking
+// protocol and binding a client to a specific thread in a pool.
+
+// In either case a response is sent. An empty response indicates
+// to the client to stop asking for additional data
 
 message FetchPartitionEntriesRequest {
   required FetchPartitionEntriesRequestType type = 1;
   required string store = 2;
-  optional ContinueFetchPartitionEntriesRequest continue = 3;
-  optional StartFetchPartitionEntriesRequest start = 4;
+  optional StartFetchPartitionEntriesRequest start = 3;
 }
 
 message FetchPartitionEntriesResponse {

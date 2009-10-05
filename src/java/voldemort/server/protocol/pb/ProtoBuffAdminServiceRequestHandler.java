@@ -77,7 +77,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 response = handleDeletePartitionEntries(request.getDeletePartitionEntries());
                 break;
           //  case FETCH_PARTITION_ENTRIES: break;
-          //  case REDIRECT_GET: break;
+            case REDIRECT_GET:
+                response = handleRedirectGet(request.getRedirectGet());
+                break;
           //  case UPDATE_PARTITION_ENTRIES: break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -101,6 +103,28 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return filter;
     }
 
+    public VAdminProto.RedirectGetResponse handleRedirectGet(VAdminProto.RedirectGetRequest request) {
+        VAdminProto.RedirectGetResponse.Builder response =
+                VAdminProto.RedirectGetResponse.newBuilder();
+        try {
+            String storeName = request.getStoreName() ;
+            ByteArray key = ProtoUtils.decodeBytes(request.getKey());
+            StorageEngine<ByteArray, byte[]> storageEngine =
+                    storeRepository.getStorageEngine(storeName);
+            if (storageEngine == null) {
+                throw new VoldemortException("No stored named '" + storeName + "'.");
+            }
+            List<Versioned<byte[]>> results = storageEngine.get(key);
+            for (Versioned<byte[]> result: results) {
+                response.addVersioned(ProtoUtils.encodeVersioned(result));
+            }
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        }
+        return response.build();
+    }
+
+    
     public VAdminProto.DeletePartitionEntriesResponse
     handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response =
