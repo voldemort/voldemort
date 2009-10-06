@@ -45,7 +45,7 @@ public class StoreDefinition implements Serializable {
     private final Integer preferredReads;
     private final int requiredReads;
     private final Integer retentionPeriodDays;
-    private final Integer retentionThrottleRate;
+    private final Integer retentionScanThrottleRate;
     private final String routingStrategyType;
 
     public StoreDefinition(String name,
@@ -72,7 +72,7 @@ public class StoreDefinition implements Serializable {
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
         this.retentionPeriodDays = retentionDays;
-        this.retentionThrottleRate = retentionThrottleRate;
+        this.retentionScanThrottleRate = retentionThrottleRate;
         this.routingStrategyType = routingStrategyType;
         checkParameterLegality();
     }
@@ -165,12 +165,12 @@ public class StoreDefinition implements Serializable {
         return this.retentionPeriodDays;
     }
 
-    public boolean hasRetentionThrottleRate() {
-        return this.retentionThrottleRate != null;
+    public boolean hasRetentionScanThrottleRate() {
+        return this.retentionScanThrottleRate != null;
     }
 
-    public Integer getRetentionThrottleRate() {
-        return this.retentionThrottleRate;
+    public Integer getRetentionScanThrottleRate() {
+        return this.retentionScanThrottleRate;
     }
 
     @Override
@@ -193,7 +193,7 @@ public class StoreDefinition implements Serializable {
                && getValueSerializer().equals(def.getValueSerializer())
                && getRoutingPolicy() == def.getRoutingPolicy()
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
-               && Objects.equal(getRetentionThrottleRate(), def.getRetentionThrottleRate());
+               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
     }
 
     @Override
@@ -209,6 +209,6 @@ public class StoreDefinition implements Serializable {
                                 getPreferredReads(),
                                 getPreferredWrites(),
                                 getRetentionDays(),
-                                getRetentionThrottleRate());
+                                getRetentionScanThrottleRate());
     }
 }

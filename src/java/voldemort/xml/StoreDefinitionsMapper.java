@@ -256,8 +256,8 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasRetentionPeriod())
             store.addContent(new Element(STORE_RETENTION_POLICY_ELMT).setText(Integer.toString(storeDefinition.getRetentionDays())));
 
-        if(storeDefinition.hasRetentionThrottleRate())
-            store.addContent(new Element(STORE_RETENTION_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionThrottleRate())));
+        if(storeDefinition.hasRetentionScanThrottleRate())
+            store.addContent(new Element(STORE_RETENTION_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionScanThrottleRate())));
 
         return store;
     }

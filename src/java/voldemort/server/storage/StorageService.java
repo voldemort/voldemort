@@ -247,14 +247,13 @@ public class StorageService extends AbstractService {
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
 
-        Integer maxReadRate = storeDef.getRetentionThrottleRate();
+        int maxReadRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
+                                                                 : Integer.MAX_VALUE;
+
         logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
-                    + "' at " + startTime + "."
-                    + (null == maxReadRate ? "" : " Max reading rate: " + maxReadRate + " Bytes/S"));
-        // If no throttle parameter was given, use MAX VALUE as the allowed MB/S
-        if(null == maxReadRate) {
-            maxReadRate = Integer.MAX_VALUE;
-        }
+                    + "' at " + startTime + " with retention scan throttle rate:" + maxReadRate
+                    + " Entries/second.");
+
         IoThrottler throttler = new IoThrottler(maxReadRate);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
@@ -342,9 +341,20 @@ public class StorageService extends AbstractService {
         return this.storeRepository;
     }
 
-    @JmxOperation(description = "Force cleanup of old data based on retention policy.", impact = MBeanOperationInfo.ACTION)
+    @JmxOperation(description = "Force cleanup of old data based on retention policy, allows override of throttle-rate", impact = MBeanOperationInfo.ACTION)
     public void forceCleanupOldData(String storeName) {
-        logger.info("forceCleanupOldData() called for store " + storeName);
+        StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
+        int throttleRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
+                                                                  : Integer.MAX_VALUE;
+
+        forceCleanupOldDataThrottled(storeName, throttleRate);
+    }
+
+    @JmxOperation(description = "Force cleanup of old data based on retention policy.", impact = MBeanOperationInfo.ACTION)
+    public void forceCleanupOldDataThrottled(String storeName, int entryScanThrottleRate) {
+        logger.info("forceCleanupOldData() called for store " + storeName
+                    + " with retention scan throttle rate:" + entryScanThrottleRate
+                    + " Entries/second.");
 
         try {
             StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
@@ -356,14 +366,12 @@ public class StorageService extends AbstractService {
                     try {
                         if(cleanupPermits.availablePermits() >= 1) {
 
-                            int throttleRate = storeDef.hasRetentionThrottleRate() ? storeDef.getRetentionThrottleRate()
-                                                                                  : Integer.MAX_VALUE;
                             executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
                                                                                    cleanupPermits,
                                                                                    storeDef.getRetentionDays()
                                                                                            * Time.MS_PER_DAY,
                                                                                    SystemTime.INSTANCE,
-                                                                                   new IoThrottler(throttleRate)));
+                                                                                   new IoThrottler(entryScanThrottleRate)));
                         } else {
                             logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
                                          + engine.getName());
