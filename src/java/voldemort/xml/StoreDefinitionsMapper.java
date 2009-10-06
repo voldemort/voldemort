@@ -73,7 +73,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_REQUIRED_READS_ELMT = "required-reads";
     public final static String STORE_PREFERRED_READS_ELMT = "preferred-reads";
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
-    public final static String STORE_RETENTION_THROTTLE_RATE_ELMT = "retention-throttle-rate";
+    public final static String STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT = "retention-scan-throttle-rate";
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     private final static String STORE_VERSION_ATTR = "version";
 
@@ -165,7 +165,7 @@ public class StoreDefinitionsMapper {
         Integer retentionThrottleRate = null;
         if(retention != null) {
             retentionPolicyDays = Integer.parseInt(retention.getText());
-            Element throttleRate = store.getChild(STORE_RETENTION_THROTTLE_RATE_ELMT);
+            Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
             if(throttleRate != null)
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
         }
@@ -256,8 +256,8 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasRetentionPeriod())
             store.addContent(new Element(STORE_RETENTION_POLICY_ELMT).setText(Integer.toString(storeDefinition.getRetentionDays())));
 
-        if(storeDefinition.hasRetentionThrottleRate())
-            store.addContent(new Element(STORE_RETENTION_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionThrottleRate())));
+        if(storeDefinition.hasRetentionScanThrottleRate())
+            store.addContent(new Element(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionScanThrottleRate())));
 
         return store;
     }
