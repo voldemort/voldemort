@@ -82,7 +82,8 @@ public class DataCleanupJob<K, V> implements Runnable {
                         logger.debug("Deleted item " + deleted);
                 }
 
-                throttler.maybeThrottle(clock.sizeInBytes());
+                // TODO: this is wrong commenting out for now.
+                // throttler.maybeThrottle(clock.sizeInBytes());
             }
             logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
                         + " items deleted.");
