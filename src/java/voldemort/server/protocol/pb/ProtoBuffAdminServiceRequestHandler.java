@@ -22,8 +22,12 @@ import voldemort.versioning.Versioned;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 
 /**
@@ -42,13 +46,24 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final int streamMaxBytesReadPerSec;
     private final int streamMaxBytesWritesPerSec;
+    private final int streamBufferSize;
 
-    
+
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
                                                int streamMaxBytesReadPerSec,
                                                int streamMaxBytesWritesPerSec) {
+        this(errorCodeMapper, storeRepository, metadataStore, streamMaxBytesReadPerSec,
+                streamMaxBytesWritesPerSec, 1);
+    }
+
+    public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
+                                               StoreRepository storeRepository,
+                                               MetadataStore metadataStore,
+                                               int streamMaxBytesReadPerSec,
+                                               int streamMaxBytesWritesPerSec,
+                                               int streamBufferSize) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
@@ -58,34 +73,40 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                 .getContextClassLoader());
+        this.streamBufferSize = streamBufferSize;
     }
     
     //@Override
     public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream) throws IOException {
         VoldemortAdminRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                 VoldemortAdminRequest.newBuilder());
-        Message response;
 
         switch(request.getType()) {
             case GET_METADATA:
-                response = handleGetMetadata(request.getGetMetadata());
+                writeMessageAndFlush(handleGetMetadata(request.getGetMetadata()), outputStream);
                 break;
             case UPDATE_METADATA:
-                response = handleUpdateMetadata(request.getUpdateMetadata());
+                writeMessageAndFlush(handleUpdateMetadata(request.getUpdateMetadata()), outputStream);
                 break;
             case DELETE_PARTITION_ENTRIES:
-                response = handleDeletePartitionEntries(request.getDeletePartitionEntries());
+                writeMessageAndFlush(handleDeletePartitionEntries(request.getDeletePartitionEntries()),
+                        outputStream);
                 break;
             case FETCH_PARTITION_ENTRIES:
-                response = handleFetchPartitionEntries(request.getFetchPartitionEntries())
+                handleFetchPartitionEntries(request.getFetchPartitionEntries(), outputStream);
                 break;
             case REDIRECT_GET:
-                response = handleRedirectGet(request.getRedirectGet());
+                writeMessageAndFlush(handleRedirectGet(request.getRedirectGet()), outputStream);
                 break;
-          //  case UPDATE_PARTITION_ENTRIES: break;
+            case UPDATE_PARTITION_ENTRIES:
+                handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream, outputStream);
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
+
+    }
+
+    private void writeMessageAndFlush(Message response, DataOutputStream outputStream) throws IOException {
         ProtoUtils.writeMessage(outputStream, response);
         outputStream.flush();
     }
@@ -126,25 +147,114 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+    public int writeBufferToStream(Queue<Pair<ByteArray, Versioned<byte[]>>> buffer, DataOutputStream outputStream,
+                                   boolean lastMessage)
+            throws IOException
+    {
+        VAdminProto.FetchPartitionEntriesResponse.Builder
+                responseBuilder = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+        while (!buffer.isEmpty()) {
+            VAdminProto.PartitionEntry.Builder partitionEntry =
+                    VAdminProto.PartitionEntry.newBuilder();
 
-    public VAdminProto.FetchPartitionEntriesResponse handleFetchPartitionEntries
-            (VAdminProto.FetchPartitionEntriesRequest request) {
-        VAdminProto.FetchPartitionEntriesResponse.Builder response =
-                VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+            Pair<ByteArray, Versioned<byte[]>> queuedEntry =
+                    buffer.remove();
+
+            partitionEntry.setKey(ProtoUtils.encodeBytes(queuedEntry.getFirst()));
+            partitionEntry.setVersioned(ProtoUtils.encodeVersioned(queuedEntry.getSecond()));
+
+            responseBuilder.addPartitionEntries(partitionEntry);
+        }
+        responseBuilder.setContinue(!lastMessage);
+        Message response = responseBuilder.build();
+        writeMessageAndFlush(response, outputStream);
+        return response.getSerializedSize();
+    }
+
+    public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
+                                            DataOutputStream outputStream) throws IOException {
         try {
             String storeName = request.getStore();
-            if (request.hasStart()) {
-                // Start the fetch partition entries request
+            StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
+            if (storageEngine == null) {
+                throw new VoldemortException("No store named '" + storeName + "'.");
+            }
+            RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
+            IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+            List<Integer> partitionList = request.getPartitionsList();
+
+            VoldemortFilter filter;
+            if (request.hasFilter()) {
+                filter = getFilterFromRequest(request.getFilter());
             } else {
-                // Continue the fetch partition entries request if one is started
+                filter = new DefaultVoldemortFilter();
             }
 
-        } catch (VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-        }
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
+            Queue<Pair<ByteArray, Versioned<byte[]>>> buffer = new
+                    LinkedList<Pair<ByteArray, Versioned<byte[]>>>();
+            while (iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
-        return response.build();
+                if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
+                    && filter.filter(entry.getFirst(), entry.getSecond())) {
+                    buffer.add(entry);
+                }
+                if (buffer.size() > streamBufferSize) {
+                    int bytesWritten = writeBufferToStream(buffer, outputStream, false);
+                    if (throttler != null) {
+                        throttler.maybeThrottle(bytesWritten + 1);
+                    }
+                }
+            }
+            writeBufferToStream(buffer, outputStream, true);
+        } catch (VoldemortException e) {
+            VAdminProto.FetchPartitionEntriesResponse.Builder response =
+                    VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            response.setContinue(false);
+            writeMessageAndFlush(response.build(), outputStream);
+        }
     }
+
+    public void handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest originalRequest,
+                                             DataInputStream inputStream, DataOutputStream outputStream)
+            throws IOException {
+        VAdminProto.UpdatePartitionEntriesRequest request = originalRequest;
+        try {
+            String storeName = request.getStore();
+            StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
+            if (storageEngine == null) {
+                throw new VoldemortException("No stored named '" + storeName + "'.");
+            }
+            IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
+            do {
+                for (VAdminProto.PartitionEntry partitionEntry: request.getPartitionEntriesList()) {
+                    ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
+                    Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
+                    storageEngine.put(key, value);
+
+                    if (throttler != null) {
+                        throttler.maybeThrottle(partitionEntry.getSerializedSize() + 1);
+                    }
+
+                }
+                request = ProtoUtils.readToBuilder(inputStream, VAdminProto.UpdatePartitionEntriesRequest
+                    .newBuilder()).build();
+                
+            } while (request.getContinue());
+            VAdminProto.UpdateMetadataResponse response =
+                    VAdminProto.UpdateMetadataResponse.newBuilder().build();
+            writeMessageAndFlush(response, outputStream);
+        } catch (VoldemortException e) {
+            VAdminProto.UpdateMetadataResponse response =
+                    VAdminProto.UpdateMetadataResponse.newBuilder()
+                    .setError(ProtoUtils.encodeError(errorCodeMapper, e))
+                    .build();
+            writeMessageAndFlush(response, outputStream);
+        }
+    }
+    
     public VAdminProto.DeletePartitionEntriesResponse
     handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response =
