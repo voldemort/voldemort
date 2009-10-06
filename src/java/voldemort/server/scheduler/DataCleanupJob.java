@@ -97,7 +97,7 @@ public class DataCleanupJob<K, V> implements Runnable {
     }
 
     private void acquireCleanupPermit() {
-        logger.debug("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
+        logger.info("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
         try {
             this.cleanupPermits.acquire();
         } catch(InterruptedException e) {

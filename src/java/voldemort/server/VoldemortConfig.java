@@ -127,6 +127,9 @@ public class VoldemortConfig implements Serializable {
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
 
+    private int retentionCleanupFirstStartTimeInHour;
+    private int retentionCleanupScheduledPeriodInHour;
+
     public VoldemortConfig(int nodeId, String voldemortHome) {
         this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
     }
@@ -223,6 +226,13 @@ public class VoldemortConfig implements Serializable {
                                                                     InMemoryStorageConfiguration.class.getName(),
                                                                     CacheStorageConfiguration.class.getName(),
                                                                     ReadOnlyStorageConfiguration.class.getName()));
+
+        // start at midnight (0-23)
+        this.retentionCleanupFirstStartTimeInHour = props.getInt("retention.cleanup.first.start.hour",
+                                                                 0);
+        // repeat every 24 hours
+        this.retentionCleanupScheduledPeriodInHour = props.getInt("retention.cleanup.period.hours",
+                                                                  24);
 
         // save props for access from plugins
         this.allProps = props;
@@ -399,14 +409,10 @@ public class VoldemortConfig implements Serializable {
      * value, irrespective of total utilization.
      * 
      * <ul>
-     * <li>
-     * property: "bdb.cleaner.minFileUtilization"</li>
-     * <li>
-     * default: 5</li>
-     * <li>
-     * minimum: 0</li>
-     * <li>
-     * maximum: 50</li>
+     * <li> property: "bdb.cleaner.minFileUtilization"</li>
+     * <li> default: 5</li>
+     * <li> minimum: 0</li>
+     * <li> maximum: 50</li>
      * </ul>
      */
     public int getBdbCleanerMinFileUtilization() {
@@ -424,14 +430,10 @@ public class VoldemortConfig implements Serializable {
      * this value.
      * 
      * <ul>
-     * <li>
-     * property: "bdb.cleaner.minUtilization"</li>
-     * <li>
-     * default: 50</li>
-     * <li>
-     * minimum: 0</li>
-     * <li>
-     * maximum: 90</li>
+     * <li> property: "bdb.cleaner.minUtilization"</li>
+     * <li> default: 50</li>
+     * <li> minimum: 0</li>
+     * <li> maximum: 90</li>
      * </ul>
      */
     public int getBdbCleanerMinUtilization() {
@@ -844,5 +846,21 @@ public class VoldemortConfig implements Serializable {
 
     public void setNumCleanupPermits(int numCleanupPermits) {
         this.numCleanupPermits = numCleanupPermits;
+    }
+
+    public int getRetentionCleanupFirstStartTimeInHour() {
+        return retentionCleanupFirstStartTimeInHour;
+    }
+
+    public void setRetentionCleanupFirstStartTimeInHour(int retentionCleanupFirstStartTimeInHour) {
+        this.retentionCleanupFirstStartTimeInHour = retentionCleanupFirstStartTimeInHour;
+    }
+
+    public int getRetentionCleanupScheduledPeriodInHour() {
+        return retentionCleanupScheduledPeriodInHour;
+    }
+
+    public void setRetentionCleanupScheduledPeriodInHour(int retentionCleanupScheduledPeriodInHour) {
+        this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
     }
 }

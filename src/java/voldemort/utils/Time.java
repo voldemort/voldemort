@@ -34,6 +34,7 @@ public interface Time {
     public final static long NS_PER_SECOND = NS_PER_US * US_PER_SECOND;
     public final static long SECONDS_PER_HOUR = 60 * 60;
     public final static long SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
+    public final static long MS_PER_HOUR = SECONDS_PER_HOUR * MS_PER_SECOND;
     public final static long MS_PER_DAY = SECONDS_PER_DAY * MS_PER_SECOND;
 
     public long getMilliseconds();
