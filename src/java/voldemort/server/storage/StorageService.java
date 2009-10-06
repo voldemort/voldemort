@@ -346,30 +346,38 @@ public class StorageService extends AbstractService {
     public void forceCleanupOldData(String storeName) {
         logger.info("forceCleanupOldData() called for store " + storeName);
 
-        StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
-        StorageEngine<ByteArray, byte[]> engine = storeRepository.getStorageEngine(storeName);
+        try {
+            StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
+            StorageEngine<ByteArray, byte[]> engine = storeRepository.getStorageEngine(storeName);
 
-        if(null != engine) {
-            if(storeDef.hasRetentionPeriod()) {
-                ExecutorService executor = Executors.newFixedThreadPool(1);
-                try {
-                    if(cleanupPermits.availablePermits() >= 1) {
+            if(null != engine) {
+                if(storeDef.hasRetentionPeriod()) {
+                    ExecutorService executor = Executors.newFixedThreadPool(1);
+                    try {
+                        if(cleanupPermits.availablePermits() >= 1) {
 
-                        executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
-                                                                               cleanupPermits,
-                                                                               storeDef.getRetentionDays()
-                                                                                       * Time.MS_PER_DAY,
-                                                                               SystemTime.INSTANCE));
-                    } else {
-                        logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
-                                     + engine.getName());
+                            int throttleRate = storeDef.hasRetentionThrottleRate() ? storeDef.getRetentionThrottleRate()
+                                                                                  : Integer.MAX_VALUE;
+                            executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
+                                                                                   cleanupPermits,
+                                                                                   storeDef.getRetentionDays()
+                                                                                           * Time.MS_PER_DAY,
+                                                                                   SystemTime.INSTANCE,
+                                                                                   new IoThrottler(throttleRate)));
+                        } else {
+                            logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
+                                         + engine.getName());
+                        }
+                    } finally {
+                        executor.shutdown();
                     }
-                } finally {
-                    executor.shutdown();
+                } else {
+                    logger.error("forceCleanupOldData() No retention policy found for " + storeName);
                 }
-            } else {
-                logger.error("forceCleanupOldData() No retention policy found for " + storeName);
             }
+        } catch(Exception e) {
+            logger.error("Error while running forceCleanupOldData()", e);
+            throw new VoldemortException(e);
         }
     }
 }
