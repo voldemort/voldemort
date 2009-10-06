@@ -26,12 +26,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+
+import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -187,6 +192,7 @@ public class StorageService extends AbstractService {
             if(voldemortConfig.isJmxEnabled())
                 JmxUtils.registerMbean(store.getName(), store);
         }
+
         storeRepository.addLocalStore(store);
     }
 
@@ -336,4 +342,34 @@ public class StorageService extends AbstractService {
         return this.storeRepository;
     }
 
+    @JmxOperation(description = "Force cleanup of old data based on retention policy.", impact = MBeanOperationInfo.ACTION)
+    public void forceCleanupOldData(String storeName) {
+        logger.info("forceCleanupOldData() called for store " + storeName);
+
+        StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
+        StorageEngine<ByteArray, byte[]> engine = storeRepository.getStorageEngine(storeName);
+
+        if(null != engine) {
+            if(storeDef.hasRetentionPeriod()) {
+                ExecutorService executor = Executors.newFixedThreadPool(1);
+                try {
+                    if(cleanupPermits.availablePermits() >= 1) {
+
+                        executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
+                                                                               cleanupPermits,
+                                                                               storeDef.getRetentionDays()
+                                                                                       * Time.MS_PER_DAY,
+                                                                               SystemTime.INSTANCE));
+                    } else {
+                        logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
+                                     + engine.getName());
+                    }
+                } finally {
+                    executor.shutdown();
+                }
+            } else {
+                logger.error("forceCleanupOldData() No retention policy found for " + storeName);
+            }
+        }
+    }
 }
