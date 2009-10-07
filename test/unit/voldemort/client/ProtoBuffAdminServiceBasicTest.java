@@ -152,6 +152,45 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         
     }
 
+    public void testFetch() throws IOException {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+        Map<String, String> expected = new HashMap<String, String>();
+
+
+        for (Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+            if (routingStrategy.getPartitionList(entry.getFirst().get()).contains(0) ||
+                    routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
+                expected.put(new String(entry.getFirst().get()),
+                        new String(entry.getSecond().getValue()));
+
+            }
+        }
+
+        int checked=0;
+        int matched=0;
+
+        AdminClientRequestFormat client = getAdminClient();
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.doFetchPartitionEntries(
+                server.getIdentityNode().getId(),
+                storeName, Arrays.asList(0, 1), null);
+        while (fetchIt.hasNext()) {
+            Pair<ByteArray, Versioned<byte[]>> fetchedKv = fetchIt.next();
+            checked++;
+
+            String fetchedKey = new String(fetchedKv.getFirst().get());
+            String fetchedValue = new String(fetchedKv.getSecond().getValue());
+
+            if (expected.get(fetchedKey).equals(fetchedValue))
+                matched++;
+        }
+
+        assertEquals("All values should have matched", checked, matched);
+
+    }
+    
     public void testFetchAndUpdate() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);

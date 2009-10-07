@@ -22,9 +22,7 @@ import voldemort.versioning.Versioned;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -46,7 +44,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final int streamMaxBytesReadPerSec;
     private final int streamMaxBytesWritesPerSec;
-    private final int streamBufferSize;
+    private final int windowSize;
 
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -55,7 +53,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                int streamMaxBytesReadPerSec,
                                                int streamMaxBytesWritesPerSec) {
         this(errorCodeMapper, storeRepository, metadataStore, streamMaxBytesReadPerSec,
-                streamMaxBytesWritesPerSec, 500);
+                streamMaxBytesWritesPerSec, 5);
     }
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -63,7 +61,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                MetadataStore metadataStore,
                                                int streamMaxBytesReadPerSec,
                                                int streamMaxBytesWritesPerSec,
-                                               int streamBufferSize) {
+                                               int windowSize) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
@@ -73,7 +71,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                 .getContextClassLoader());
-        this.streamBufferSize = streamBufferSize;
+        this.windowSize = windowSize;
     }
     
     //@Override
@@ -192,23 +190,25 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
 
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
-            Queue<Pair<ByteArray, Versioned<byte[]>>> buffer = new
+            Queue<Pair<ByteArray, Versioned<byte[]>>> window = new
                     LinkedList<Pair<ByteArray, Versioned<byte[]>>>();
             while (iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
-                    buffer.add(entry);
+                    window.add(entry);
                 }
-                if (buffer.size() >= streamBufferSize) {
-                    int bytesWritten = writeBufferToStream(buffer, outputStream, false);
+                if (window.size() >= windowSize) {
+                    int bytesWritten = writeBufferToStream(window, outputStream, iterator.hasNext());
                     if (throttler != null) {
                         throttler.maybeThrottle(bytesWritten + 1);
                     }
                 }
             }
-            writeBufferToStream(buffer, outputStream, true);
+            if (!window.isEmpty())
+                writeBufferToStream(window, outputStream, true);
+
         } catch (VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response =
                     VAdminProto.FetchPartitionEntriesResponse.newBuilder();

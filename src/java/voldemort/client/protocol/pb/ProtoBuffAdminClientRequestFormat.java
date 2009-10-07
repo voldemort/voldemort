@@ -17,7 +17,6 @@ import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -41,20 +40,20 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     private final static Logger logger = Logger.getLogger(ProtoBuffAdminClientRequestFormat.class);
     private final SocketPool pool;
     private final NetworkClassLoader networkClassLoader;
-    private final int streamMaxBufferSize;
+    private final int windowSize;
 
     public ProtoBuffAdminClientRequestFormat(MetadataStore metadataStore, SocketPool pool) {
-       this(metadataStore, pool, 500);
+       this(metadataStore, pool, 5);
     }
 
     public ProtoBuffAdminClientRequestFormat(MetadataStore metadataStore, SocketPool pool, int
-                                             streamMaxBufferSize) {
+            windowSize) {
         super(metadataStore);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = pool;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.streamMaxBufferSize = streamMaxBufferSize;
+        this.windowSize = windowSize;
     }
 
     /**
@@ -226,7 +225,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                         .setVersioned(ProtoUtils.encodeVersioned(pair.getSecond()))
                         .build();
                 buffer.add(partitionEntry);
-                if (buffer.size() >= streamMaxBufferSize) {
+                if (buffer.size() >= windowSize) {
                     Message request;
                     VAdminProto.UpdatePartitionEntriesRequest updateRequest =
                             VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
@@ -286,6 +285,16 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
     }
 
+    private Pair<ByteArray, Versioned<byte[]>> defenestrate(Queue<VAdminProto.PartitionEntry> window) {
+        if (!window.isEmpty()) {
+            VAdminProto.PartitionEntry partitionEntry =
+                    window.remove();
+            return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
+                    ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
+        }
+        return null;
+    }
+
     /**
      * streaming API to get all entries belonging to any of the partition in the
      * input List.
@@ -336,17 +345,18 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
             throw new VoldemortException(e);
         }
 
+
         return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-            private Queue<VAdminProto.PartitionEntry> buffer =
+            private Queue<VAdminProto.PartitionEntry> window =
                     new LinkedList<VAdminProto.PartitionEntry>();
             private boolean continueFetching = true;
 
             @Override
             public Pair<ByteArray, Versioned<byte[]>> computeNext() {
                if (!continueFetching) {
-                   if (!buffer.isEmpty()) {
+                   if (!window.isEmpty()) {
                        VAdminProto.PartitionEntry partitionEntry =
-                               buffer.remove();
+                               window.remove();
                        return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
                                ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
                    }
@@ -354,9 +364,9 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                    return endOfData();
 
                } else {
-                   if (!buffer.isEmpty()) {
+                   if (!window.isEmpty()) {
                        VAdminProto.PartitionEntry partitionEntry =
-                               buffer.remove();
+                               window.remove();
                        return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
                                ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
                    }
@@ -381,8 +391,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                        }
 
 
-                       buffer.addAll(partitionEntries);
-                       VAdminProto.PartitionEntry partitionEntry = buffer.remove();
+                       window.addAll(partitionEntries);
+                       VAdminProto.PartitionEntry partitionEntry = window.remove();
 
                        return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
                                ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
