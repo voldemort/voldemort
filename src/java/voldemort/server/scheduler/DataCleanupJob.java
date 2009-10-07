@@ -90,10 +90,8 @@ public class DataCleanupJob<K, V> implements Runnable {
         } catch(Exception e) {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
-            try {
-                closeIterator(iterator);
-                this.cleanupPermits.release();
-            }
+            closeIterator(iterator);
+            this.cleanupPermits.release();
         }
     }
 
