@@ -65,7 +65,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
@@ -254,7 +254,7 @@ public class StorageService extends AbstractService {
                     + "' at " + startTime + " with retention scan throttle rate:" + maxReadRate
                     + " Entries/second.");
 
-        IoThrottler throttler = new IoThrottler(maxReadRate);
+        EventThrottler throttler = new EventThrottler(maxReadRate);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
                                                                     cleanupPermits,
@@ -376,7 +376,7 @@ public class StorageService extends AbstractService {
                                                                                    storeDef.getRetentionDays()
                                                                                            * Time.MS_PER_DAY,
                                                                                    SystemTime.INSTANCE,
-                                                                                   new IoThrottler(entryScanThrottleRate)));
+                                                                                   new EventThrottler(entryScanThrottleRate)));
                         } else {
                             logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
                                          + engine.getName());

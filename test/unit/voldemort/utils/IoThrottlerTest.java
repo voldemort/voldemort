@@ -38,7 +38,7 @@ public class IoThrottlerTest extends TestCase {
     public void testThrottler(int readSize, int numReads, long readTime, long throttledRate) {
         long startTime = 1000;
         MockTime time = new MockTime(startTime);
-        IoThrottler throttler = new IoThrottler(time, throttledRate, 50);
+        EventThrottler throttler = new EventThrottler(time, throttledRate, 50);
         for(int i = 0; i < numReads; i++) {
             time.addMilliseconds(readTime);
             throttler.maybeThrottle(readSize);

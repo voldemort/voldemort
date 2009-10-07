@@ -22,7 +22,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -43,13 +43,13 @@ public class DataCleanupJob<K, V> implements Runnable {
     private final Semaphore cleanupPermits;
     private final long maxAgeMs;
     private final Time time;
-    private final IoThrottler throttler;
+    private final EventThrottler throttler;
 
     public DataCleanupJob(StorageEngine<K, V> store,
                           Semaphore cleanupPermits,
                           long maxAgeMs,
                           Time time,
-                          IoThrottler throttler) {
+                          EventThrottler throttler) {
         this.store = Utils.notNull(store);
         this.cleanupPermits = Utils.notNull(cleanupPermits);
         this.maxAgeMs = maxAgeMs;
