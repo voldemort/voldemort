@@ -378,7 +378,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 isOpen = false;
             } catch(DatabaseException e) {
                 logger.error(e);
-                throw new PersistenceFailureException(e);
             }
         }
 
