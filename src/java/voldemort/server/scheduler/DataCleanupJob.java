@@ -91,6 +91,7 @@ public class DataCleanupJob<K, V> implements Runnable {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
             closeIterator(iterator);
+            logger.info("Releasing lock  after data cleanup on \"" + store.getName() + "\".");
             this.cleanupPermits.release();
         }
     }
