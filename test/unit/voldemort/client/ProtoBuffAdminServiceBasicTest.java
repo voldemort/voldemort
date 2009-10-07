@@ -9,9 +9,11 @@ import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -149,7 +151,72 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         }
         
     }
-    
+
+    public void testFetchAndUpdate() throws IOException {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store);
+
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+        }
+
+        // lets start a new server
+        VoldemortConfig config2 = ServerTestUtils.createServerConfig(1,
+                                                                     TestUtils.createTempDir()
+                                                                              .getAbsolutePath(),
+                                                                     null,
+                                                                     storesXmlfile);
+        VoldemortServer server2 = new VoldemortServer(config2, cluster);
+        server2.start();
+
+        // assert server2 is missing all keys
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            assertEquals("Server2 should return empty result List for all",
+                         0,
+                         server2.getStoreRepository()
+                                .getStorageEngine(storeName)
+                                .get(entry.getFirst())
+                                .size());
+        }
+
+        // use pipeGetAndPutStream to add values to server2
+        AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
+                                                                               server2.getMetadataStore(), true);
+
+        client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+
+        // assert all partition 0, 1 keys present in server 2
+        Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store2);
+
+        StoreDefinition storeDef = server.getMetadataStore().getStoreDef(storeName);
+        assertNotSame("StoreDefinition for 'users' should not be null", null, storeDef);
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                             server.getMetadataStore()
+                                                                                                   .getCluster());
+
+        int checked = 0;
+        int matched = 0;
+        for(int i = 100; i <= 1000; i++) {
+            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
+
+            if(routingStrategy.getPartitionList(key.get()).get(0) == 0
+               || routingStrategy.getPartitionList(key.get()).get(0) == 1) {
+                checked++;
+                if(store2.get(key).size() > 0
+                   && new String(value).equals(new String(store2.get(key).get(0).getValue()))) {
+                    matched++;
+                }
+            }
+        }
+
+        server2.stop();
+        assertEquals("All Values should have matched", checked, matched);
+    }
+
     public void testRedirectGet() {
         // user store should be present
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine("users");

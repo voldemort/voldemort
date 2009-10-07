@@ -55,7 +55,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                int streamMaxBytesReadPerSec,
                                                int streamMaxBytesWritesPerSec) {
         this(errorCodeMapper, storeRepository, metadataStore, streamMaxBytesReadPerSec,
-                streamMaxBytesWritesPerSec, 1);
+                streamMaxBytesWritesPerSec, 500);
     }
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -100,6 +100,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 break;
             case UPDATE_PARTITION_ENTRIES:
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream, outputStream);
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -200,7 +201,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
                     buffer.add(entry);
                 }
-                if (buffer.size() > streamBufferSize) {
+                if (buffer.size() >= streamBufferSize) {
                     int bytesWritten = writeBufferToStream(buffer, outputStream, false);
                     if (throttler != null) {
                         throttler.maybeThrottle(bytesWritten + 1);
@@ -220,7 +221,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     public void handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest originalRequest,
                                              DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException {
-        VAdminProto.UpdatePartitionEntriesRequest request = originalRequest;
+        VAdminProto.UpdatePartitionEntriesRequest.Builder request = originalRequest.toBuilder();
         try {
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
@@ -239,16 +240,17 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     }
 
                 }
-                request = ProtoUtils.readToBuilder(inputStream, VAdminProto.UpdatePartitionEntriesRequest
-                    .newBuilder()).build();
+                if (request.getContinue())
+                    request = ProtoUtils.readToBuilder(inputStream, VAdminProto.UpdatePartitionEntriesRequest
+                            .newBuilder());
                 
             } while (request.getContinue());
-            VAdminProto.UpdateMetadataResponse response =
-                    VAdminProto.UpdateMetadataResponse.newBuilder().build();
+            VAdminProto.UpdatePartitionEntriesResponse response =
+                    VAdminProto.UpdatePartitionEntriesResponse.newBuilder().build();
             writeMessageAndFlush(response, outputStream);
         } catch (VoldemortException e) {
-            VAdminProto.UpdateMetadataResponse response =
-                    VAdminProto.UpdateMetadataResponse.newBuilder()
+            VAdminProto.UpdatePartitionEntriesResponse response =
+                    VAdminProto.UpdatePartitionEntriesResponse.newBuilder()
                     .setError(ProtoUtils.encodeError(errorCodeMapper, e))
                     .build();
             writeMessageAndFlush(response, outputStream);
