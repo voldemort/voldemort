@@ -70,7 +70,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
 
         SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
+                                                              node.getAdminPort(),
                                                               RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -101,7 +101,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
 
         SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
+                                                              node.getAdminPort(),
                                                               RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -145,7 +145,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
                                                  ByteArray key) {
         Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
         SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
-                                                              proxyDestNode.getSocketPort(),
+                                                              proxyDestNode.getAdminPort(),
                                                               RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -184,7 +184,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
                                                                                 VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                    node.getSocketPort(),
+                                                                    node.getAdminPort(),
                                                                     RequestFormatType.ADMIN);
         final SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -257,7 +257,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
                                         VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
-                                                                    node.getSocketPort(),
+                                                                    node.getAdminPort(),
                                                                     RequestFormatType.ADMIN);
         final SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -301,7 +301,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         filter = (null == filter) ? new DefaultVoldemortFilter() : filter;
         SocketDestination destination = new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
+                                                              node.getAdminPort(),
                                                               RequestFormatType.ADMIN);
         SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
