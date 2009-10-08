@@ -23,6 +23,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -91,17 +92,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         outputStream);
                 break;
             case FETCH_PARTITION_ENTRIES:
-//
                 handleFetchPartitionEntries(request.getFetchPartitionEntries(), outputStream);
-//
                 break;
             case REDIRECT_GET:
                 writeMessageAndFlush(handleRedirectGet(request.getRedirectGet()), outputStream);
                 break;
             case UPDATE_PARTITION_ENTRIES:
-
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream, outputStream);
-
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -177,6 +174,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
                                             DataOutputStream outputStream) throws IOException {
         try {
+            boolean sentAny=false;
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
             if (storageEngine == null) {
@@ -194,26 +192,38 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
 
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
-            Queue<Pair<ByteArray, Versioned<byte[]>>> window = new
-                    LinkedList<Pair<ByteArray, Versioned<byte[]>>>();
             while (iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-
+                   VAdminProto.PartitionEntry partitionEntry =
+                        VAdminProto.PartitionEntry.newBuilder()
+                        .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
+                        .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
+                        .build();
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
-                    window.add(entry);
-                    if (window.size() >= windowSize) {
-                        writeWindowToStream(window, outputStream, !iterator.hasNext());
-                        if (throttler != null) {
-                           throttler.maybeThrottle(entry.getFirst().length() +
-                                   entry.getSecond().getValue().length + 1);
-                        }
+
+                    VAdminProto.FetchPartitionEntriesResponse response =
+                            VAdminProto.FetchPartitionEntriesResponse.newBuilder()
+                            .setContinue(iterator.hasNext())
+                            .addAllPartitionEntries(Arrays.asList(partitionEntry))
+                            .build();
+                    ProtoUtils.writeMessage(outputStream, response);
+                    sentAny = true;
+                    if (throttler != null) {
+                        throttler.maybeThrottle(entry.getFirst().length() +
+                                entry.getSecond().getValue().length + 1);
                     }
                 }
             }
-            if (!window.isEmpty())
-                writeWindowToStream(window, outputStream, true);
-
+            iterator.close();
+            if (!sentAny) {
+                VAdminProto.FetchPartitionEntriesResponse response =
+                        VAdminProto.FetchPartitionEntriesResponse.newBuilder()
+                                .setContinue(false)
+                                .build();
+                ProtoUtils.writeMessage(outputStream, response);
+            }
+            outputStream.flush();
         } catch (VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response =
                     VAdminProto.FetchPartitionEntriesResponse.newBuilder();
