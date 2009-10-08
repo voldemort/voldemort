@@ -31,7 +31,9 @@ import voldemort.cluster.Node;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
+import voldemort.server.protocol.AdminRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
@@ -88,9 +90,6 @@ public class VoldemortServer extends AbstractService {
     }
 
     private List<VoldemortService> createServices() {
-        RequestHandlerFactory requestHandlerFactory = new RequestHandlerFactory(this.storeRepository,
-                                                                                this.metadata,
-                                                                                voldemortConfig);
 
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
@@ -105,9 +104,11 @@ public class VoldemortServer extends AbstractService {
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
         if(voldemortConfig.isSocketServerEnabled()) {
+            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository);
+
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector.");
-                services.add(new NioSocketService(requestHandlerFactory,
+                services.add(new NioSocketService(socketRequestHandlerFactory,
                                                   identityNode.getSocketPort(),
                                                   voldemortConfig.getSocketBufferSize(),
                                                   voldemortConfig.getNioConnectorSelectors(),
@@ -115,7 +116,7 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.isJmxEnabled()));
             } else {
                 logger.info("Using BIO Connector.");
-                services.add(new SocketService(requestHandlerFactory,
+                services.add(new SocketService(socketRequestHandlerFactory,
                                                identityNode.getSocketPort(),
                                                voldemortConfig.getCoreThreads(),
                                                voldemortConfig.getMaxThreads(),
@@ -126,7 +127,10 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isAdminServerEnabled()) {
-            services.add(new SocketService(requestHandlerFactory,
+            AdminRequestHandlerFactory adminRequestHandlerFactory = new AdminRequestHandlerFactory(this.storeRepository,
+                                                                                                   this.metadata,
+                                                                                                   this.voldemortConfig);
+            services.add(new SocketService(adminRequestHandlerFactory,
                                            identityNode.getAdminPort(),
                                            voldemortConfig.getAdminCoreThreads(),
                                            voldemortConfig.getAdminMaxThreads(),
