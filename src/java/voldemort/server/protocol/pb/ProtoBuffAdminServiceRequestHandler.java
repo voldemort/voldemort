@@ -1,8 +1,6 @@
 package voldemort.server.protocol.pb;
 
 
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
@@ -25,63 +23,39 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 
 
 /**
- * Created by IntelliJ IDEA.
- * User: afeinber
- * Date: Sep 29, 2009
- * Time: 4:45:20 PM
- * To change this template use File | Settings | File Templates.
+ *
+ * @author afeinber
  */
 public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
-    private final Logger logger = Logger.getLogger(ProtoBuffAdminServiceRequestHandler.class);
-
+    private final static Logger logger = Logger.getLogger(ProtoBuffAdminServiceRequestHandler.class);
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
     private final StoreRepository storeRepository;
     private final NetworkClassLoader networkClassLoader;
     private final int streamMaxBytesReadPerSec;
     private final int streamMaxBytesWritesPerSec;
-    private final int windowSize;
-
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
                                                int streamMaxBytesReadPerSec,
                                                int streamMaxBytesWritesPerSec) {
-        this(errorCodeMapper, storeRepository, metadataStore, streamMaxBytesReadPerSec,
-                streamMaxBytesWritesPerSec, 10);
-    }
-
-    public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
-                                               StoreRepository storeRepository,
-                                               MetadataStore metadataStore,
-                                               int streamMaxBytesReadPerSec,
-                                               int streamMaxBytesWritesPerSec,
-                                               int windowSize) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
-
         this.streamMaxBytesReadPerSec = streamMaxBytesReadPerSec;
         this.streamMaxBytesWritesPerSec = streamMaxBytesWritesPerSec;
-        
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                 .getContextClassLoader());
-        this.windowSize = windowSize;
     }
     
-    //@Override
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream) throws IOException {
         final VoldemortAdminRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                 VoldemortAdminRequest.newBuilder());
-
         switch(request.getType()) {
             case GET_METADATA:
                 ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));
@@ -108,6 +82,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     }
 
+    private static int entrySize(Pair<ByteArray, Versioned<byte[]>> entry) {
+        return entry.getFirst().get().length +
+                entry.getSecond().getValue().length +
+                ((VectorClock) entry.getSecond().getVersion()).sizeInBytes() + 1;
+    }
+
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
         VoldemortFilter filter;
         byte[] classBytes = ProtoUtils.decodeBytes(request.getData())
@@ -119,7 +99,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } catch (Exception e) {
             throw new VoldemortException("Failed to load and instantiate the filter class", e);
         }
-
         return filter;
     }
 
@@ -155,18 +134,15 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
             IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
             List<Integer> partitionList = request.getPartitionsList();
-
             VoldemortFilter filter;
             if (request.hasFilter()) {
                 filter = getFilterFromRequest(request.getFilter());
             } else {
                 filter = new DefaultVoldemortFilter();
             }
-
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
             while (iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
                     VAdminProto.PartitionEntry partitionEntry =
@@ -180,8 +156,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
                     if (throttler != null) {
-                        throttler.maybeThrottle(entry.getFirst().length() +
-                                entry.getSecond().getValue().length + 1);
+                        throttler.maybeThrottle(entrySize(entry));
                     }
                 }
             }
@@ -215,8 +190,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
                 storageEngine.put(key, value);
                 if (throttler != null) {
-                    throttler.maybeThrottle(partitionEntry.getKey().size() +
-                            partitionEntry.getVersioned().getValue().size() + 1);
+                    throttler.maybeThrottle(entrySize(Pair.create(key,value)));
                 }
                 int size = inputStream.readInt();
                 if (size <= 0) 
@@ -252,26 +226,18 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter()) :
                     new DefaultVoldemortFilter();
             IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
-
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
-
             int deleteSuccess = 0;
             while (iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-
                 if (validPartition(entry.getFirst().get(), partitions, routingStrategy) &&
                         filter.filter(entry.getFirst(), entry.getSecond())) {
                     if (storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
                         deleteSuccess++;
-
                     if (throttler != null)
-                        throttler.maybeThrottle(entry.getFirst().get().length +
-                                entry.getSecond().getValue().length +
-                                ((VectorClock) entry.getSecond().getVersion()).sizeInBytes());
+                        throttler.maybeThrottle(entrySize(entry));
                 }
-
             }
-
             iterator.close();
             response.setCount(deleteSuccess);
         } catch (VoldemortException e) {
@@ -283,31 +249,24 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.UpdateMetadataResponse handleUpdateMetadata(VAdminProto.UpdateMetadataRequest request) {
         VAdminProto.UpdateMetadataResponse.Builder response = VAdminProto.UpdateMetadataResponse.newBuilder();
-
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
-
             if (MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
                 metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")), versionedValue);
             }
-            
-
         } catch (VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
         }
-
         return response.build();
     }
 
     public VAdminProto.GetMetadataResponse handleGetMetadata(VAdminProto.GetMetadataRequest request) {
         VAdminProto.GetMetadataResponse.Builder response = VAdminProto.GetMetadataResponse.newBuilder();
-
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
-
             if (MetadataStore.METADATA_KEYS.contains(keyString)) {
                 List<Versioned<byte[]>> versionedList =
                         metadataStore.get(key);
@@ -318,7 +277,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             } else {
                 throw new VoldemortException("Metadata Key passed " + keyString + " is not handled yet ...");
-
             }
         } catch (VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -350,7 +308,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
      *               returns
      * @return True if the buffer holds a complete request, false otherwise
      */
-    //@Override
     public boolean isCompleteRequest(ByteBuffer buffer) {
         throw new VoldemortException("Non-blocking server not supported for ProtoBuffAdminServiceRequestHandler");
     }
