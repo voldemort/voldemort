@@ -34,6 +34,7 @@ import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.http.HttpService;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -55,7 +56,7 @@ public class RemoteStoreComparisonTest {
         int numThreads = Integer.parseInt(args[1]);
         boolean useNio = args.length > 2 ? args[2].equals("true") : false;
 
-        /*** In memory test ***/
+        /** * In memory test ** */
         final Store<byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[]>("test");
         PerformanceTest memWriteTest = new PerformanceTest() {
 
@@ -89,7 +90,7 @@ public class RemoteStoreComparisonTest {
         System.out.println();
         System.out.println();
 
-        /*** Do Socket tests ***/
+        /** * Do Socket tests ** */
         String storeName = "test";
         StoreRepository repository = new StoreRepository();
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
@@ -100,9 +101,7 @@ public class RemoteStoreComparisonTest {
                                                                               RequestFormatType.VOLDEMORT_V1),
                                                         socketPool,
                                                         false);
-        RequestHandlerFactory factory = new RequestHandlerFactory(repository,
-                                                                  null,
-                                                                  ServerTestUtils.getVoldemortConfig());
+        RequestHandlerFactory factory = new SocketRequestHandlerFactory(repository);
         AbstractSocketService socketService = ServerTestUtils.getSocketService(useNio,
                                                                                factory,
                                                                                6666,
@@ -148,7 +147,7 @@ public class RemoteStoreComparisonTest {
         socketPool.close();
         socketService.stop();
 
-        /*** Do HTTP tests ***/
+        /** * Do HTTP tests ** */
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         HttpService httpService = new HttpService(null,
                                                   repository,
