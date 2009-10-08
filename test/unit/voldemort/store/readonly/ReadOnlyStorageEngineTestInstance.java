@@ -103,6 +103,7 @@ public class ReadOnlyStorageEngineTestInstance {
                                                        1,
                                                        1,
                                                        1,
+                                                       1,
                                                        1);
         RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                     cluster);

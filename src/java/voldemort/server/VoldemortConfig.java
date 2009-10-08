@@ -68,6 +68,7 @@ public class VoldemortConfig implements Serializable {
     private long bdbCheckpointMs;
     private boolean bdbOneEnvPerStore;
     private int bdbCleanerMinFileUtilization;
+    private int bdbCleanerMinUtilization;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -91,7 +92,6 @@ public class VoldemortConfig implements Serializable {
 
     private int clientRoutingTimeoutMs;
     private int clientMaxConnectionsPerNode;
-    private int clientMaxTotalConnections;
     private int clientConnectionTimeoutMs;
     private int clientNodeBannageMs;
     private int clientMaxThreads;
@@ -161,6 +161,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
+        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.minFileUtilization", 5);
+        this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -196,7 +198,6 @@ public class VoldemortConfig implements Serializable {
                                                   Runtime.getRuntime().availableProcessors());
 
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
-        this.clientMaxTotalConnections = props.getInt("client.max.total.connections", 100);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
         this.clientNodeBannageMs = props.getInt("client.node.bannage.ms", 10000);
@@ -402,11 +403,17 @@ public class VoldemortConfig implements Serializable {
      * A log file will be cleaned if its utilization percentage is below this
      * value, irrespective of total utilization.
      * 
-     * <ul>
+     * <ul> <<<<<<< HEAD:src/java/voldemort/server/VoldemortConfig.java
      * <li> property: "bdb.cleaner.minFileUtilization"</li>
      * <li> default: 5</li>
      * <li> minimum: 0</li>
      * <li> maximum: 50</li>
+     * =======
+     * <li> property: "bdb.cleaner.minFileUtilization"</li>
+     * <li> default: 5</li>
+     * <li> minimum: 0</li>
+     * <li> maximum: 50</li>
+     * >>>>>>> alex/rebalancing:src/java/voldemort/server/VoldemortConfig.java
      * </ul>
      */
     public int getBdbCleanerMinFileUtilization() {
@@ -420,6 +427,29 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * <<<<<<< HEAD:src/java/voldemort/server/VoldemortConfig.java =======
+     * The cleaner will keep the total disk space utilization percentage above
+     * this value.
+     * 
+     * <ul>
+     * <li> property: "bdb.cleaner.minUtilization"</li>
+     * <li> default: 50</li>
+     * <li> minimum: 0</li>
+     * <li> maximum: 90</li>
+     * </ul>
+     */
+    public int getBdbCleanerMinUtilization() {
+        return bdbCleanerMinUtilization;
+    }
+
+    public final void setBdbCleanerMinUtilization(int minUtilization) {
+        if(minUtilization < 0 || minUtilization > 90)
+            throw new IllegalArgumentException("minUtilization should be between 0 and 90 (both inclusive)");
+        this.bdbCleanerMinUtilization = minUtilization;
+    }
+
+    /**
+     * >>>>>>> alex/rebalancing:src/java/voldemort/server/VoldemortConfig.java
      * The btree node fanout. Given by "bdb.btree.fanout". default: 512
      */
     public int getBdbBtreeFanout() {
@@ -601,14 +631,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setClientMaxConnectionsPerNode(int maxConnectionsPerNode) {
         this.clientMaxConnectionsPerNode = maxConnectionsPerNode;
-    }
-
-    public int getClientMaxTotalConnections() {
-        return clientMaxTotalConnections;
-    }
-
-    public void setClientMaxTotalConnections(int maxTotalConnections) {
-        this.clientMaxTotalConnections = maxTotalConnections;
     }
 
     public int getClientConnectionTimeoutMs() {

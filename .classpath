@@ -30,7 +30,6 @@
 	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-lang-2.4.jar"/>
 	<classpathentry kind="lib" path="lib/jopt-simple-3.1.jar"/>
-	<classpathentry kind="lib" path="lib/protobuf-java-2.1.0.jar"/>
 	<classpathentry kind="lib" path="lib/commons-collections-3.2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jdom-1.1.jar"/>
 	<classpathentry kind="lib" path="lib/servlet-api-2.5.jar"/>
@@ -40,5 +39,6 @@
 	<classpathentry kind="lib" path="lib/jline-0.9.94.jar"/>
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/je-3.3.87.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.2.0.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

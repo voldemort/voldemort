@@ -113,9 +113,12 @@
   </target>
   
   <target name="protobuff" description="Generate source files from .proto files">
-    <path id="proto-files">
-      <fileset dir="${protobuff.dir}" />
-    </path>
+    <pathconvert property="proto.sources" pathsep=" ">
+      <path id="proto-files">
+	<fileset dir="${protobuff.dir}" />
+      </path>
+    </pathconvert>
+
     <property name="proto.path" location="${protobuff.dir}"/> 
     <property name="javaout.path" location="${java.dir}"/>
     <property name="pythonout.path" location="${python.dir}"/>
@@ -123,7 +126,7 @@
       <arg value="--proto_path=${proto.path}"/>
       <arg value="--java_out=${javaout.path}"/>
       <arg value="--python_out=${pythonout.path}"/>
-      <arg pathref="proto-files"/>
+      <arg line="${proto.sources}"/>
     </exec>
   </target>
 

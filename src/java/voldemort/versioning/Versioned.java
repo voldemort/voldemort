@@ -71,7 +71,11 @@ public final class Versioned<T> implements Serializable {
 
     @Override
     public int hashCode() {
-        return 31 + version.hashCode() + 31 * object.hashCode();
+        int value = 31 + version.hashCode();
+        if(object != null) {
+            value += 31 * object.hashCode();
+        }
+        return value;
     }
 
     @Override

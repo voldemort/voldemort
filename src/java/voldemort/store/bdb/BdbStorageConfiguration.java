@@ -81,6 +81,10 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Long.toString(config.getBdbCheckpointBytes()));
         environmentConfig.setConfigParam(EnvironmentConfig.CHECKPOINTER_WAKEUP_INTERVAL,
                                          Long.toString(config.getBdbCheckpointMs() * Time.US_PER_MS));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION,
+                                         Integer.toString(config.getBdbCleanerMinFileUtilization()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MIN_UTILIZATION,
+                                         Integer.toString(config.getBdbCleanerMinUtilization()));
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
@@ -154,6 +158,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         logger.info("    BDB cache size = " + config.getCacheSize());
         logger.info("    BDB " + EnvironmentConfig.CLEANER_THREADS + " = "
                     + config.getConfigParam(EnvironmentConfig.CLEANER_THREADS));
+        logger.info("    BDB " + EnvironmentConfig.CLEANER_MIN_UTILIZATION + " = "
+                    + config.getConfigParam(EnvironmentConfig.CLEANER_MIN_UTILIZATION));
         logger.info("    BDB " + EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION + " = "
                     + config.getConfigParam(EnvironmentConfig.CLEANER_MIN_FILE_UTILIZATION));
         logger.info("    BDB " + EnvironmentConfig.LOG_FILE_MAX + " = "

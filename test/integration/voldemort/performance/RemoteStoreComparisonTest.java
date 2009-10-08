@@ -49,10 +49,11 @@ public class RemoteStoreComparisonTest {
     public static void main(String[] args) throws Exception {
         if(args.length != 2)
             Utils.croak("USAGE: java " + RemoteStoreComparisonTest.class.getName()
-                        + " numRequests numThreads");
+                        + " numRequests numThreads [useNio]");
 
         int numRequests = Integer.parseInt(args[0]);
         int numThreads = Integer.parseInt(args[1]);
+        boolean useNio = args.length > 2 ? args[2].equals("true") : false;
 
         /*** In memory test ***/
         final Store<byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[]>("test");
@@ -102,7 +103,8 @@ public class RemoteStoreComparisonTest {
         RequestHandlerFactory factory = new RequestHandlerFactory(repository,
                                                                   null,
                                                                   ServerTestUtils.getVoldemortConfig());
-        AbstractSocketService socketService = ServerTestUtils.getSocketService(factory,
+        AbstractSocketService socketService = ServerTestUtils.getSocketService(useNio,
+                                                                               factory,
                                                                                6666,
                                                                                50,
                                                                                50,

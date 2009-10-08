@@ -5,6 +5,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.NativeAdminServiceRequestHandler;
+import voldemort.server.protocol.pb.ProtoBuffAdminServiceRequestHandler;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -45,6 +46,12 @@ public class RequestHandlerFactory {
                                                       metadata,
                                                       voldemortConfig.getStreamMaxReadBytesPerSec(),
                                                       voldemortConfig.getStreamMaxWriteBytesPerSec());
+            case ADMIN_PROTOCOL_BUFFERS:
+                return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
+                        repository,
+                        metadata,
+                        voldemortConfig.getStreamMaxReadBytesPerSec(),
+                        voldemortConfig.getStreamMaxWriteBytesPerSec());
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }

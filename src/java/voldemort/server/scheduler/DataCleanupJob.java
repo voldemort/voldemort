@@ -22,6 +22,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.IoThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -42,15 +43,18 @@ public class DataCleanupJob<K, V> implements Runnable {
     private final Semaphore cleanupPermits;
     private final long maxAgeMs;
     private final Time time;
+    private final IoThrottler throttler;
 
     public DataCleanupJob(StorageEngine<K, V> store,
                           Semaphore cleanupPermits,
                           long maxAgeMs,
-                          Time time) {
+                          Time time,
+                          IoThrottler throttler) {
         this.store = Utils.notNull(store);
         this.cleanupPermits = Utils.notNull(cleanupPermits);
         this.maxAgeMs = maxAgeMs;
         this.time = time;
+        this.throttler = throttler;
     }
 
     public void run() {
@@ -68,7 +72,6 @@ public class DataCleanupJob<K, V> implements Runnable {
                         logger.info("Datacleanup job halted.");
                         return;
                     }
-
                     Pair<K, Versioned<V>> keyAndVal = iterator.next();
                     VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                     if(now - clock.getTimestamp() > maxAgeMs) {
@@ -77,6 +80,7 @@ public class DataCleanupJob<K, V> implements Runnable {
                         if(deleted % 10000 == 0)
                             logger.debug("Deleted item " + deleted);
                     }
+                    throttler.maybeThrottle(clock.sizeInBytes());
                 }
             } catch(RuntimeException e) {
                 iterator.close();

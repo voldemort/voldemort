@@ -18,7 +18,16 @@ package voldemort.client;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.serialization.SerializerFactory;
@@ -28,18 +37,29 @@ import voldemort.server.AbstractSocketService;
  * @author jay
  * 
  */
+
+@RunWith(Parameterized.class)
 public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
     private AbstractSocketService socketService;
 
-    public SocketStoreClientFactoryTest() {
-        super();
+    private final boolean useNio;
+
+    public SocketStoreClientFactoryTest(boolean useNio) {
+        this.useNio = useNio;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
-        socketService = ServerTestUtils.getSocketService(getClusterXml(),
+        socketService = ServerTestUtils.getSocketService(useNio,
+                                                         getClusterXml(),
                                                          getStoreDefXml(),
                                                          getValidStoreName(),
                                                          getLocalNode().getSocketPort());
@@ -47,6 +67,7 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         super.tearDown();
         socketService.stop();
@@ -74,6 +95,7 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
         return SocketStoreClientFactory.URL_SCHEME;
     }
 
+    @Test
     public void testTwoFactories() throws Exception {
         /* Test that two factories can be hosted on the same jvm */
         List<StoreClientFactory> factories = new ArrayList<StoreClientFactory>();

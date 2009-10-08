@@ -65,6 +65,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.IoThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
@@ -259,13 +260,23 @@ public class StorageService extends AbstractService {
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
+
+        Integer maxReadRate = storeDef.getRetentionThrottleRate();
         logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
-                    + "' at " + startTime + ".");
+                    + "' at " + startTime + "."
+                    + (null == maxReadRate ? "" : " Max reading rate: " + maxReadRate + " Bytes/S"));
+        // If no throttle parameter was given, use MAX VALUE as the allowed MB/S
+        if(null == maxReadRate) {
+            maxReadRate = Integer.MAX_VALUE;
+        }
+        IoThrottler throttler = new IoThrottler(maxReadRate);
+
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
                                                                     cleanupPermits,
                                                                     storeDef.getRetentionDays()
                                                                             * Time.MS_PER_DAY,
-                                                                    SystemTime.INSTANCE);
+                                                                    SystemTime.INSTANCE,
+                                                                    throttler);
         this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
     }
 
