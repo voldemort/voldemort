@@ -1,5 +1,4 @@
-package voldemort.server.protocol.pb;
-
+package voldemort.server.protocol.admin;
 
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
@@ -27,7 +26,7 @@ import java.util.List;
 
 
 /**
- *
+ * Protocol buffers implementation of a {@link RequestHandler}
  * @author afeinber
  */
 public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
@@ -161,7 +160,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             }
             iterator.close();
-            outputStream.writeInt(-1);
+            ProtoUtils.writeEndOfStream(outputStream);
         } catch (VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response =
                     VAdminProto.FetchPartitionEntriesResponse.newBuilder();

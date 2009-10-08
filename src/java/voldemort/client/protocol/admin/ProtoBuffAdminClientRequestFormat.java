@@ -1,4 +1,4 @@
-package voldemort.client.protocol.pb;
+package voldemort.client.protocol.admin;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.protobuf.ByteString;
@@ -8,6 +8,9 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
+import voldemort.client.protocol.pb.ProtoUtils;
+import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VProto;
 import voldemort.cluster.Node;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
@@ -212,7 +215,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                     ProtoUtils.writeMessage(outputStream, updateRequest);
                 }
             }
-            outputStream.writeInt(-1);
+            ProtoUtils.writeEndOfStream(outputStream);
             outputStream.flush();
             VAdminProto.UpdatePartitionEntriesResponse.Builder updateResponse =
                     ProtoUtils.readToBuilder(inputStream,

@@ -29,12 +29,11 @@ import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
 import voldemort.client.RoutingTier;
-import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
-import voldemort.client.protocol.pb.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;

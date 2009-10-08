@@ -5,7 +5,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.NativeAdminServiceRequestHandler;
-import voldemort.server.protocol.pb.ProtoBuffAdminServiceRequestHandler;
+import voldemort.server.protocol.admin.ProtoBuffAdminServiceRequestHandler;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.store.ErrorCodeMapper;
