@@ -67,6 +67,7 @@ public class VoldemortConfig implements Serializable {
     private long bdbCheckpointBytes;
     private long bdbCheckpointMs;
     private boolean bdbOneEnvPerStore;
+    private int bdbCleanerMinFileUtilization;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -159,6 +160,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
+        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -178,7 +180,7 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
-        this.adminMaxThreads = props.getInt("admin.max.threads", 100);
+        this.adminMaxThreads = props.getInt("admin.max.threads", 10);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
@@ -397,6 +399,27 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * A log file will be cleaned if its utilization percentage is below this
+     * value, irrespective of total utilization.
+     * 
+     * <ul>
+     * <li> property: "bdb.cleaner.minFileUtilization"</li>
+     * <li> default: 5</li>
+     * <li> minimum: 0</li>
+     * <li> maximum: 50</li>
+     * </ul>
+     */
+    public int getBdbCleanerMinFileUtilization() {
+        return bdbCleanerMinFileUtilization;
+    }
+
+    public final void setBdbCleanerMinFileUtilization(int minFileUtilization) {
+        if(minFileUtilization < 0 || minFileUtilization > 50)
+            throw new IllegalArgumentException("minFileUtilization should be between 0 and 50 (both inclusive)");
+        this.bdbCleanerMinFileUtilization = minFileUtilization;
+    }
+
+    /**
      * The btree node fanout. Given by "bdb.btree.fanout". default: 512
      */
     public int getBdbBtreeFanout() {
@@ -431,12 +454,6 @@ public class VoldemortConfig implements Serializable {
     public void setMaxThreads(int maxThreads) {
         this.maxThreads = maxThreads;
     }
-
-    /**
-     * Admin Threads count setting default is core=1 , max = 2
-     * 
-     * @return
-     */
 
     public int getAdminCoreThreads() {
         return adminCoreThreads;

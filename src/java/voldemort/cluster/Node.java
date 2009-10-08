@@ -21,6 +21,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.utils.Utils;
 
@@ -35,22 +37,35 @@ import com.google.common.collect.ImmutableList;
 @Threadsafe
 public class Node implements Serializable {
 
+    private static final Logger logger = Logger.getLogger(Node.class.getName());
+
     private static final long serialVersionUID = 1;
     private final int id;
     private final String host;
     private final int httpPort;
     private final int socketPort;
+    private final int adminPort;
     private final List<Integer> partitions;
     private final NodeStatus status;
 
     public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, partitions, new NodeStatus());
+        this(id, host, httpPort, socketPort, -1, partitions, new NodeStatus());
     }
 
     public Node(int id,
                 String host,
                 int httpPort,
                 int socketPort,
+                int adminPort,
+                List<Integer> partitions) {
+        this(id, host, httpPort, socketPort, adminPort, partitions, new NodeStatus());
+    }
+
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
                 List<Integer> partitions,
                 NodeStatus status) {
         this.id = id;
@@ -59,6 +74,15 @@ public class Node implements Serializable {
         this.socketPort = socketPort;
         this.status = status;
         this.partitions = ImmutableList.copyOf(partitions);
+
+        // fix default value for adminPort if not defined
+        if(adminPort == -1) {
+            adminPort = socketPort + 1;
+            logger.warn("admin-port not defined for node:" + id + " using default value"
+                        + adminPort + " as (socket_port + 1):");
+        }
+
+        this.adminPort = adminPort;
     }
 
     public String getHost() {
@@ -71,6 +95,10 @@ public class Node implements Serializable {
 
     public int getSocketPort() {
         return socketPort;
+    }
+
+    public int getAdminPort() {
+        return adminPort;
     }
 
     public int getId() {

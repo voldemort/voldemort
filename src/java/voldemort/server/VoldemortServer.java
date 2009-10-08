@@ -125,6 +125,16 @@ public class VoldemortServer extends AbstractService {
             }
         }
 
+        if(voldemortConfig.isAdminServerEnabled()) {
+            services.add(new SocketService(requestHandlerFactory,
+                                           identityNode.getAdminPort(),
+                                           voldemortConfig.getAdminCoreThreads(),
+                                           voldemortConfig.getAdminMaxThreads(),
+                                           voldemortConfig.getAdminSocketBufferSize(),
+                                           "admin-server",
+                                           voldemortConfig.isJmxEnabled()));
+        }
+
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
