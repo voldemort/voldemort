@@ -43,7 +43,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     private final int windowSize;
 
     public ProtoBuffAdminClientRequestFormat(MetadataStore metadataStore, SocketPool pool) {
-       this(metadataStore, pool, 5);
+       this(metadataStore, pool, 10);
     }
 
     public ProtoBuffAdminClientRequestFormat(MetadataStore metadataStore, SocketPool pool, int
@@ -192,6 +192,37 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
     }
 
+    public void writeWindowToStream(String storeName, Queue<Pair<ByteArray, Versioned<byte []>>> window,
+                                   DataOutputStream outputStream, boolean firstMessage, boolean lastMessage)
+        throws IOException {
+        VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest =
+                VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
+
+        while (!window.isEmpty()) {
+            VAdminProto.PartitionEntry.Builder partitionEntry =
+                VAdminProto.PartitionEntry.newBuilder();
+            Pair<ByteArray, Versioned<byte []>> queuedEntry =
+                    window.remove();
+            partitionEntry.setKey(ProtoUtils.encodeBytes(queuedEntry.getFirst()));
+            partitionEntry.setVersioned(ProtoUtils.encodeVersioned(queuedEntry.getSecond()));
+            updateRequest.addPartitionEntries(partitionEntry.build());
+        }
+        updateRequest.setContinue(!lastMessage);
+        updateRequest.setStore(storeName);
+        Message message;
+        if (firstMessage) {
+            VAdminProto.VoldemortAdminRequest.Builder adminRequest =
+                    VAdminProto.VoldemortAdminRequest.newBuilder()
+                            .setType(VAdminProto.AdminRequestType.UPDATE_PARTITION_ENTRIES)
+                    .setUpdatePartitionEntries(updateRequest);
+            message = adminRequest.build();
+        } else {
+            message = updateRequest.build();
+        }
+        ProtoUtils.writeMessage(outputStream, message);
+        outputStream.flush();
+    }
+    
     /**
      * update Entries at (remote) node with all entries in iterator for passed
      * storeName
@@ -213,68 +244,33 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
         DataInputStream inputStream = sands.getInputStream();
-        Queue<VAdminProto.PartitionEntry> buffer = new
-                LinkedList<VAdminProto.PartitionEntry>();
-        boolean firstRun=true;
+        Queue<Pair<ByteArray, Versioned<byte[]>>> window = new
+                LinkedList<Pair<ByteArray, Versioned<byte[]>>>();
+        boolean firstMessage=true;
         try {
             while (entryIterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> pair = entryIterator.next();
-                VAdminProto.PartitionEntry partitionEntry =
-                        VAdminProto.PartitionEntry.newBuilder()
-                        .setKey(ProtoUtils.encodeBytes(pair.getFirst()))
-                        .setVersioned(ProtoUtils.encodeVersioned(pair.getSecond()))
-                        .build();
-                buffer.add(partitionEntry);
-                if (buffer.size() >= windowSize) {
-                    Message request;
-                    VAdminProto.UpdatePartitionEntriesRequest updateRequest =
-                            VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
-                                                .setStore(storeName)
-                                                .setContinue(true)
-                                                .addAllPartitionEntries(buffer)
-                                                .build();
-                    if (firstRun) {
-                        request =
-                                VAdminProto.VoldemortAdminRequest.newBuilder().
-                                        setType(VAdminProto.AdminRequestType.UPDATE_PARTITION_ENTRIES)
-                                        .setUpdatePartitionEntries(updateRequest).build();
-                        firstRun=false;
-                    } else {
-                        request = updateRequest;
-
-                    }
-                    ProtoUtils.writeMessage(outputStream, request);
-                    outputStream.flush();
-                    buffer.clear();
+                window.add(pair);
+                if (window.size() >= windowSize) {
+                    writeWindowToStream(storeName, window, outputStream, firstMessage, !entryIterator.hasNext());
+                    if (firstMessage)
+                        firstMessage = false;
                 }
-
+            }
+            if (!window.isEmpty()) {
+                writeWindowToStream(storeName, window, outputStream, firstMessage, true);
+                if (firstMessage) {
+                    firstMessage = false;
+                }
             }
 
-            Message request;
-            VAdminProto.UpdatePartitionEntriesRequest.Builder updateRequest =
-                    VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
-                            .setStore(storeName)
-                            .setContinue(false);
-            if (!buffer.isEmpty())
-                updateRequest.addAllPartitionEntries(buffer);
-
-            if (firstRun) {
-                request =
-                        VAdminProto.VoldemortAdminRequest.newBuilder().
-                                setType(VAdminProto.AdminRequestType.UPDATE_PARTITION_ENTRIES)
-                                .setUpdatePartitionEntries(updateRequest).build();
-            } else {
-                request = updateRequest.build();
-
-            }
-            ProtoUtils.writeMessage(outputStream, request);
-            outputStream.flush();
-
-            VAdminProto.UpdatePartitionEntriesResponse.Builder updateResponse =
+            if (!firstMessage) {
+                VAdminProto.UpdatePartitionEntriesResponse.Builder updateResponse =
                     ProtoUtils.readToBuilder(inputStream,
                             VAdminProto.UpdatePartitionEntriesResponse.newBuilder());
-            if (updateResponse.hasError()) {
-                throwException(updateResponse.getError());
+                if (updateResponse.hasError()) {
+                    throwException(updateResponse.getError());
+                }
             }
         } catch (IOException e) {
             close(sands.getSocket());
@@ -283,16 +279,6 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
             pool.checkin(destination, sands);
         }
 
-    }
-
-    private Pair<ByteArray, Versioned<byte[]>> defenestrate(Queue<VAdminProto.PartitionEntry> window) {
-        if (!window.isEmpty()) {
-            VAdminProto.PartitionEntry partitionEntry =
-                    window.remove();
-            return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
-                    ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
-        }
-        return null;
     }
 
     /**
