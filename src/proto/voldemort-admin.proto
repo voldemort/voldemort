@@ -12,7 +12,7 @@ message GetMetadataRequest {
 
 message GetMetadataResponse {
   optional Versioned version = 1;
-  optional Error error = 3;
+  optional Error error = 2;
 }
 
 message UpdateMetadataRequest {
@@ -41,8 +41,7 @@ message PartitionEntry {
 
 message UpdatePartitionEntriesRequest {
   required string store = 1;
-  repeated PartitionEntry partition_entries = 2;
-  required bool continue = 3;
+  required PartitionEntry partition_entry = 2;
 }
 
 message UpdatePartitionEntriesResponse {
@@ -61,15 +60,14 @@ message FetchPartitionEntriesRequest {
 }
 
 message FetchPartitionEntriesResponse {
-  repeated PartitionEntry partition_entries = 1;
-  required bool continue = 2;
-  optional Error error = 3;
+  required PartitionEntry partition_entry = 1;
+  optional Error error = 2;
 }
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-	repeated int32 partitions = 3;
-	optional VoldemortFilter filter = 2; 
+	repeated int32 partitions = 2;
+	optional VoldemortFilter filter = 3; 
 }
 
 message DeletePartitionEntriesResponse {

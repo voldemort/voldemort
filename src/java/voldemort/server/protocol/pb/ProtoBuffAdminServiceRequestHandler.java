@@ -1,6 +1,8 @@
 package voldemort.server.protocol.pb;
 
 
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
@@ -82,20 +84,20 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
         switch(request.getType()) {
             case GET_METADATA:
-                writeMessageAndFlush(handleGetMetadata(request.getGetMetadata()), outputStream);
+                ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));
                 break;
             case UPDATE_METADATA:
-                writeMessageAndFlush(handleUpdateMetadata(request.getUpdateMetadata()), outputStream);
+                ProtoUtils.writeMessage(outputStream, handleUpdateMetadata(request.getUpdateMetadata()));
                 break;
             case DELETE_PARTITION_ENTRIES:
-                writeMessageAndFlush(handleDeletePartitionEntries(request.getDeletePartitionEntries()),
-                        outputStream);
+                ProtoUtils.writeMessage(outputStream,
+                        handleDeletePartitionEntries(request.getDeletePartitionEntries()));
                 break;
             case FETCH_PARTITION_ENTRIES:
                 handleFetchPartitionEntries(request.getFetchPartitionEntries(), outputStream);
                 break;
             case REDIRECT_GET:
-                writeMessageAndFlush(handleRedirectGet(request.getRedirectGet()), outputStream);
+                ProtoUtils.writeMessage(outputStream, handleRedirectGet(request.getRedirectGet()));
                 break;
             case UPDATE_PARTITION_ENTRIES:
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream, outputStream);
@@ -147,34 +149,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public int writeWindowToStream(Queue<Pair<ByteArray, Versioned<byte[]>>> window, DataOutputStream outputStream,
-                                   boolean lastMessage)
-            throws IOException
-    {
-        VAdminProto.FetchPartitionEntriesResponse.Builder
-                responseBuilder = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-        while (!window.isEmpty()) {
-            VAdminProto.PartitionEntry.Builder partitionEntry =
-                    VAdminProto.PartitionEntry.newBuilder();
-
-            Pair<ByteArray, Versioned<byte[]>> queuedEntry =
-                    window.remove();
-
-            partitionEntry.setKey(ProtoUtils.encodeBytes(queuedEntry.getFirst()));
-            partitionEntry.setVersioned(ProtoUtils.encodeVersioned(queuedEntry.getSecond()));
-
-            responseBuilder.addPartitionEntries(partitionEntry);
-        }
-        responseBuilder.setContinue(!lastMessage);
-        Message response = responseBuilder.build();
-        writeMessageAndFlush(response, outputStream);
-        return response.getSerializedSize();
-    }
-
     public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
                                             DataOutputStream outputStream) throws IOException {
         try {
-            boolean sentAny=false;
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
             if (storageEngine == null) {
@@ -202,13 +179,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
 
-                    VAdminProto.FetchPartitionEntriesResponse response =
-                            VAdminProto.FetchPartitionEntriesResponse.newBuilder()
-                            .setContinue(iterator.hasNext())
-                            .addAllPartitionEntries(Arrays.asList(partitionEntry))
-                            .build();
-                    ProtoUtils.writeMessage(outputStream, response);
-                    sentAny = true;
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response =
+                            VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                    response.setPartitionEntry(partitionEntry);
+                    Message message = response.build();
+                    ProtoUtils.writeMessage(outputStream, message);
+                    if (message.getSerializedSize() <= 0)
+                        System.out.println("size = " + message.getSerializedSize());
                     if (throttler != null) {
                         throttler.maybeThrottle(entry.getFirst().length() +
                                 entry.getSecond().getValue().length + 1);
@@ -216,29 +193,22 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             }
             iterator.close();
-            if (!sentAny) {
-                VAdminProto.FetchPartitionEntriesResponse response =
-                        VAdminProto.FetchPartitionEntriesResponse.newBuilder()
-                                .setContinue(false)
-                                .build();
-                ProtoUtils.writeMessage(outputStream, response);
-            }
-            outputStream.flush();
+            outputStream.writeInt(-1);
         } catch (VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response =
                     VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            response.setContinue(false);
-            writeMessageAndFlush(response.build(), outputStream);
+            ProtoUtils.writeMessage(outputStream, response.build());
         }
     }
 
     public void handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest originalRequest,
                                              DataInputStream inputStream, DataOutputStream outputStream)
             throws IOException {
-        VAdminProto.UpdatePartitionEntriesRequest.Builder request = originalRequest.toBuilder();
-        boolean continueFetching=true;
-        boolean firstFetched=true;
+        VAdminProto.UpdatePartitionEntriesRequest request = originalRequest;
+        VAdminProto.UpdatePartitionEntriesResponse.Builder response =
+                VAdminProto.UpdatePartitionEntriesResponse.newBuilder();
+        boolean continueReading=true;
         try {
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
@@ -246,34 +216,31 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("No stored named '" + storeName + "'.");
             }
             IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
-            while (continueFetching) {
-                if (!firstFetched) {
-                    request = ProtoUtils.readToBuilder(inputStream, VAdminProto.UpdatePartitionEntriesRequest
-                            .newBuilder());
-                } else {
-                    firstFetched = false;
+            while (continueReading) {
+                VAdminProto.PartitionEntry partitionEntry = request.getPartitionEntry();
+                ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
+                Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
+                storageEngine.put(key, value);
+                if (throttler != null) {
+                    throttler.maybeThrottle(partitionEntry.getKey().size() +
+                            partitionEntry.getVersioned().getValue().size() + 1);
                 }
-                for (VAdminProto.PartitionEntry partitionEntry: request.getPartitionEntriesList()) {
-                    ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
-                    Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
-                    storageEngine.put(key, value);
-                    if (throttler != null) {
-                        throttler.maybeThrottle(partitionEntry.getKey().size() +
-                                partitionEntry.getVersioned().getValue().size() + 1);
-                    }
+                int size = inputStream.readInt();
+                if (size <= 0) 
+                    continueReading = false;
+                else {
+                    CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
+                    codedInputStream.pushLimit(size);
+                    VAdminProto.UpdatePartitionEntriesRequest.Builder builder =
+                            VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
+                    builder.mergeFrom(codedInputStream);
+                    request = builder.build();
                 }
-                continueFetching = request.getContinue();
             }
-            
-            VAdminProto.UpdatePartitionEntriesResponse response =
-                    VAdminProto.UpdatePartitionEntriesResponse.newBuilder().build();
-            writeMessageAndFlush(response, outputStream);
         } catch (VoldemortException e) {
-            VAdminProto.UpdatePartitionEntriesResponse response =
-                    VAdminProto.UpdatePartitionEntriesResponse.newBuilder()
-                    .setError(ProtoUtils.encodeError(errorCodeMapper, e))
-                    .build();
-            writeMessageAndFlush(response, outputStream);
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        } finally {
+            ProtoUtils.writeMessage(outputStream, response.build());
         }
     }
     

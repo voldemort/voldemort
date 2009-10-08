@@ -180,13 +180,14 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
             Pair<ByteArray, Versioned<byte[]>> fetchedKv = fetchIt.next();
             checked++;
 
+            System.out.println(checked);
             String fetchedKey = new String(fetchedKv.getFirst().get());
             String fetchedValue = new String(fetchedKv.getSecond().getValue());
 
             if (expected.get(fetchedKey).equals(fetchedValue))
                 matched++;
         }
-
+        assertEquals(expected.size(), checked);
         assertEquals("All values should have matched", checked, matched);
 
     }
