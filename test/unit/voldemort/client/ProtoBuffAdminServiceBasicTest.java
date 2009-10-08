@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import com.google.common.collect.ImmutableList;
@@ -24,11 +40,7 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Created by IntelliJ IDEA.
- * User: afeinber
- * Date: Sep 30, 2009
- * Time: 12:56:06 PM
- * To change this template use File | Settings | File Templates.
+ * @author afeinber
  */
 public class ProtoBuffAdminServiceBasicTest extends TestCase {
     private static String storeName = "test-replication-memory";
@@ -42,14 +54,12 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     public void setUp() throws IOException {
        // start 2 node cluster with free ports
         int[] ports = ServerTestUtils.findFreePorts(2);
-        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 0,
-                1 }));
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(0, 1));
 
         ports = ServerTestUtils.findFreePorts(2);
-        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 2,
-                3 }));
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(2, 3));
 
-        cluster = new Cluster("admin-service-test", Arrays.asList(new Node[] { node0, node1 }));
+        cluster = new Cluster("admin-service-test", Arrays.asList(node0, node1));
         config = ServerTestUtils.createServerConfig(0,
                                                     TestUtils.createTempDir().getAbsolutePath(),
                                                     null,

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client.protocol.admin;
 
 import com.google.common.collect.AbstractIterator;
@@ -45,7 +61,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         this.errorMapper = new ErrorCodeMapper();
         this.pool = pool;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
-                                                               .getContextClassLoader());
+            .getContextClassLoader());
     }
 
     /**
@@ -60,23 +76,24 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     public void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getSocketPort(),
-                RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+            node.getSocketPort(),
+            RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
+
         try {
             StoreUtils.assertValidKey(key);
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
             ProtoUtils.writeMessage(outputStream,
-                    VAdminProto.VoldemortAdminRequest.newBuilder()
+                VAdminProto.VoldemortAdminRequest.newBuilder()
                     .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
                     .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
-                            .setKey(ByteString.copyFrom(key.get()))
-                            .setVersioned(ProtoUtils.encodeVersioned(value)))
+                        .setKey(ByteString.copyFrom(key.get()))
+                        .setVersioned(ProtoUtils.encodeVersioned(value)))
                     .build());
             outputStream.flush();
             VAdminProto.UpdateMetadataResponse.Builder response = ProtoUtils.readToBuilder(
-                    inputStream, VAdminProto.UpdateMetadataResponse.newBuilder());
+                inputStream, VAdminProto.UpdateMetadataResponse.newBuilder());
             if (response.hasError())
                 throwException(response.getError());
         } catch (IOException e) {
@@ -97,25 +114,26 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     @Override
     public Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
-
         SocketDestination destination = new SocketDestination(node.getHost(),
                 node.getSocketPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
+
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
             ProtoUtils.writeMessage(outputStream,
-                    VAdminProto.VoldemortAdminRequest.newBuilder()
+                VAdminProto.VoldemortAdminRequest.newBuilder()
                     .setType(VAdminProto.AdminRequestType.GET_METADATA)
                     .setGetMetadata(VAdminProto.GetMetadataRequest.newBuilder()
-                            .setKey(ByteString.copyFrom(key.get())))
+                        .setKey(ByteString.copyFrom(key.get())))
                     .build());
             outputStream.flush();
             VAdminProto.GetMetadataResponse.Builder response = ProtoUtils.readToBuilder(
-                    inputStream, VAdminProto.GetMetadataResponse.newBuilder());
+                inputStream, VAdminProto.GetMetadataResponse.newBuilder());
             if (response.hasError())
                 throwException(response.getError());
+
             return ProtoUtils.decodeVersioned(response.getVersion());
         } catch (IOException e) {
             close(sands.getSocket());
@@ -137,28 +155,31 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @return List<Versioned <byte[]>>
      */
     @Override
-    public List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId, String storeName, ByteArray key) {
+    public List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId, String storeName,
+                                                 ByteArray key) {
         Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
         SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
                 proxyDestNode.getSocketPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS
                 );
         SocketAndStreams sands = pool.checkout(destination);
+
         try {
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
             VAdminProto.VoldemortAdminRequest request =
-                    VAdminProto.VoldemortAdminRequest.newBuilder()
-                            .setType(VAdminProto.AdminRequestType.REDIRECT_GET)
-                            .setRedirectGet(VAdminProto.RedirectGetRequest.newBuilder()
-                                    .setKey(ProtoUtils.encodeBytes(key))
-                                    .setStoreName(storeName)).build();
+                VAdminProto.VoldemortAdminRequest.newBuilder()
+                    .setType(VAdminProto.AdminRequestType.REDIRECT_GET)
+                    .setRedirectGet(VAdminProto.RedirectGetRequest.newBuilder()
+                        .setKey(ProtoUtils.encodeBytes(key))
+                        .setStoreName(storeName)).build();
             ProtoUtils.writeMessage(outputStream, request);
             outputStream.flush();
             VAdminProto.RedirectGetResponse.Builder response =
                     ProtoUtils.readToBuilder(inputStream, VAdminProto.RedirectGetResponse.newBuilder());
             if (response.hasError())
                 throwException(response.getError());
+
             return ProtoUtils.decodeVersions(response.getVersionedList());
         } catch (IOException e) {
             close(sands.getSocket());
@@ -182,15 +203,18 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws IOException
      */
     @Override
-    public void doUpdatePartitionEntries(int nodeId, String storeName, Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator, VoldemortFilter filter) {
+    public void doUpdatePartitionEntries(int nodeId, String storeName,
+                                         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                         VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getSocketPort(),
-                RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+            node.getSocketPort(),
+            RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
         DataInputStream inputStream = sands.getInputStream();
         boolean firstMessage=true;
+
         try {
             while (entryIterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
@@ -245,7 +269,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      */
     @Override
     public Iterator<Pair<ByteArray, Versioned<byte[]>>>
-    doFetchPartitionEntries(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    doFetchPartitionEntries(int nodeId, String storeName, List<Integer> partitionList,
+                            VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                 node.getSocketPort(),
@@ -253,11 +278,13 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         final SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
         final DataInputStream inputStream = sands.getInputStream();
+
         try {
             VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
                     VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                     .addAllPartitions(partitionList)
                     .setStore(storeName);
+
             if (filter != null) {
                 Class cl = filter.getClass();
                 byte[] classBytes = networkClassLoader.dumpClass(cl);
@@ -267,10 +294,13 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                         .build();
                 fetchRequest.setFilter(encodedFilter);
             }
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                    .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
-                    .setFetchPartitionEntries(fetchRequest)
-                    .build();
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest
+                .newBuilder()
+                .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
+                .setFetchPartitionEntries(fetchRequest)
+                .build();
+
             ProtoUtils.writeMessage(outputStream, request);
             outputStream.flush();
         } catch (IOException e) {
@@ -296,11 +326,14 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                     VAdminProto.FetchPartitionEntriesResponse.Builder response =
                             VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.mergeFrom(input);
+
                     if (response.hasError()) {
                         pool.checkin(destination, sands);
                         throwException(response.getError());
                     }
+
                     VAdminProto.PartitionEntry partitionEntry = response.getPartitionEntry();
+
                     return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
                             ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
                 } catch (IOException e) {
@@ -327,9 +360,10 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws IOException
      */
     @Override
-    public int doDeletePartitionEntries(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    public int doDeletePartitionEntries(int nodeId, String storeName,
+                                        List<Integer> partitionList,
+                                        VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
-
         SocketDestination destination = new SocketDestination(node.getHost(),
                 node.getSocketPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -340,19 +374,21 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
             byte[] classBytes = networkClassLoader.dumpClass(cl);
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
+            VAdminProto.VoldemortAdminRequest.Builder request = VAdminProto.VoldemortAdminRequest
+                .newBuilder()
+                .setType(VAdminProto.AdminRequestType.DELETE_PARTITION_ENTRIES)
+                .setDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest.newBuilder()
+                    .addAllPartitions(partitionList)
+                    .setFilter(VAdminProto.VoldemortFilter.newBuilder()
+                        .setName(cl.getName())
+                        .setData(ProtoUtils.encodeBytes(new ByteArray(classBytes))))
+                    .setStore(storeName));
 
-            VAdminProto.VoldemortAdminRequest.Builder request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                    .setType(VAdminProto.AdminRequestType.DELETE_PARTITION_ENTRIES)
-                    .setDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest.newBuilder()
-                            .addAllPartitions(partitionList)
-                            .setFilter(VAdminProto.VoldemortFilter.newBuilder()
-                                    .setName(cl.getName())
-                                    .setData(ProtoUtils.encodeBytes(new ByteArray(classBytes))))
-                            .setStore(storeName));
             ProtoUtils.writeMessage(outputStream, request.build());
             outputStream.flush();
 
-            VAdminProto.DeletePartitionEntriesResponse.Builder response = ProtoUtils.readToBuilder(inputStream,
+            VAdminProto.DeletePartitionEntriesResponse.Builder response = ProtoUtils
+                .readToBuilder(inputStream,
                     VAdminProto.DeletePartitionEntriesResponse.newBuilder());
             if (response.hasError())
                 throwException(response.getError());
