@@ -108,11 +108,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     }
 
-    private void writeMessageAndFlush(Message response, DataOutputStream outputStream) throws IOException {
-        ProtoUtils.writeMessage(outputStream, response);
-        outputStream.flush();
-    }
-
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
         VoldemortFilter filter;
         byte[] classBytes = ProtoUtils.decodeBytes(request.getData())
@@ -171,21 +166,19 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
             while (iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-                   VAdminProto.PartitionEntry partitionEntry =
-                        VAdminProto.PartitionEntry.newBuilder()
-                        .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                        .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
-                        .build();
+
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
-
+                    VAdminProto.PartitionEntry partitionEntry =
+                            VAdminProto.PartitionEntry.newBuilder()
+                                    .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
+                                    .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
+                                    .build();
                     VAdminProto.FetchPartitionEntriesResponse.Builder response =
                             VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.setPartitionEntry(partitionEntry);
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
-                    if (message.getSerializedSize() <= 0)
-                        System.out.println("size = " + message.getSerializedSize());
                     if (throttler != null) {
                         throttler.maybeThrottle(entry.getFirst().length() +
                                 entry.getSecond().getValue().length + 1);
@@ -229,11 +222,11 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 if (size <= 0) 
                     continueReading = false;
                 else {
-                    CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
-                    codedInputStream.pushLimit(size);
+                    byte[] input = new byte[size];
+                    ByteUtils.read(inputStream, input);
                     VAdminProto.UpdatePartitionEntriesRequest.Builder builder =
                             VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
-                    builder.mergeFrom(codedInputStream);
+                    builder.mergeFrom(input);
                     request = builder.build();
                 }
             }

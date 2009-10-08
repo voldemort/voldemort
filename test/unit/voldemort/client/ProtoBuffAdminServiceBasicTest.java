@@ -179,8 +179,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         while (fetchIt.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> fetchedKv = fetchIt.next();
             checked++;
-
-            System.out.println(checked);
+            
             String fetchedKey = new String(fetchedKv.getFirst().get());
             String fetchedValue = new String(fetchedKv.getSecond().getValue());
 

@@ -18,6 +18,7 @@ import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
@@ -232,10 +233,13 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                             .setType(VAdminProto.AdminRequestType.UPDATE_PARTITION_ENTRIES)
                             .setUpdatePartitionEntries(updateRequest).build();
                     firstMessage = false;
+                    ProtoUtils.writeMessage(outputStream, request);
+                    outputStream.flush();
                 } else {
                     request = updateRequest;
+                    ProtoUtils.writeMessage(outputStream, request);
                 }
-                ProtoUtils.writeMessage(outputStream, request);
+
             }
             outputStream.writeInt(-1);
             outputStream.flush();
@@ -306,26 +310,24 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
 
         return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-            private int counter=0;
             @Override
             public Pair<ByteArray, Versioned<byte[]>> computeNext() {
                 try {
                     int size = inputStream.readInt();
                     if (size <= 0) {
-                        System.out.println("size = " + size + " reached end at " + counter);
                         pool.checkin(destination, sands);
                         return endOfData();
                     }
-                    counter++;
-                    CodedInputStream codedIn = CodedInputStream.newInstance(inputStream);
-                    codedIn.pushLimit(size);
+                    // There is a bug in CodedInputStream
+                    // Work around suggested thanks to Ijuma
+                    byte[] input = new byte[size];
+                    ByteUtils.read(inputStream, input);
                     VAdminProto.FetchPartitionEntriesResponse.Builder response =
                             VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-                    response.mergeFrom(codedIn);
+                    response.mergeFrom(input);
                     
                     if (response.hasError()) {
                         pool.checkin(destination, sands);
-                        System.out.println("we have an error");
                         throwException(response.getError());
                     }
 
