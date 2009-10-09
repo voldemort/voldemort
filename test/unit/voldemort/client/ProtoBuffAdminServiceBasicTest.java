@@ -199,6 +199,28 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         assertEquals(expected.size(), checked);
         assertEquals("All values should have matched", checked, matched);
 
+
+
+    }
+
+    public void testUpdate() {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        assertNotSame("Store '" + storeName + "' should not be null", null, store);
+
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = createEntries().iterator();
+
+        // Write
+        AdminClientRequestFormat client = getAdminClient();
+
+        client.doUpdatePartitionEntries(0, storeName, iterator, null);
+
+        for(int i = 100; i <= 104; i++) {
+            assertNotSame("Store should return a valid value",
+                          "value-" + i,
+                          new String(store.get(new ByteArray(ByteUtils.getBytes("" + i, "UTF-8")))
+                                          .get(0)
+                                          .getValue()));
+        }
     }
     
     public void testFetchAndUpdate() throws IOException {

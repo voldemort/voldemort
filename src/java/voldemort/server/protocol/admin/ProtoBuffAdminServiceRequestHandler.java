@@ -221,6 +221,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             StorageEngine<ByteArray, byte[]> storageEngine =
                 storeRepository.getStorageEngine(storeName);
 
+            VoldemortFilter filter;
+
+            if (request.hasFilter()) {
+                filter = getFilterFromRequest(request.getFilter());
+            } else {
+                filter = new DefaultVoldemortFilter();
+            }
+
             if (storageEngine == null) {
                 throw new VoldemortException("No stored named '" + storeName + "'.");
             }
@@ -230,11 +238,15 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
-                storageEngine.put(key, value);
+                if (filter.filter(key, value)) {
+                    storageEngine.put(key, value);
 
-                if (throttler != null) {
-                    throttler.maybeThrottle(entrySize(Pair.create(key,value)));
+                    if (throttler != null) {
+                          throttler.maybeThrottle(entrySize(Pair.create(key,value)));
+                      }
                 }
+
+
                 int size = inputStream.readInt();
 
                 if (size <= 0) 

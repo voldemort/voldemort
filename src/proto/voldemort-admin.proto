@@ -42,6 +42,7 @@ message PartitionEntry {
 message UpdatePartitionEntriesRequest {
   required string store = 1;
   required PartitionEntry partition_entry = 2;
+  optional VoldemortFilter filter = 3;
 }
 
 message UpdatePartitionEntriesResponse {
