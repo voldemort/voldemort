@@ -78,7 +78,7 @@ public class Node implements Serializable {
         // fix default value for adminPort if not defined
         if(adminPort == -1) {
             adminPort = socketPort + 1;
-            logger.warn("admin-port not defined for node:" + id + " using default value"
+            logger.warn("admin-port not defined for node:" + id + " using default value:"
                         + adminPort + " as (socket_port + 1):");
         }
 

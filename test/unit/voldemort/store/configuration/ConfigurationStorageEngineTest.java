@@ -18,7 +18,6 @@ package voldemort.store.configuration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -33,19 +32,20 @@ import voldemort.versioning.Versioned;
 
 public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, String> {
 
-    private List<File> tempDirs;
+    private File tempDir;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        tempDirs = new ArrayList<File>();
+        if(null != tempDir && tempDir.exists())
+            FileDeleteStrategy.FORCE.delete(tempDir);
     }
 
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        for(File file: tempDirs)
-            FileDeleteStrategy.FORCE.delete(file);
+        if(null != tempDir && tempDir.exists())
+            FileDeleteStrategy.FORCE.delete(tempDir);
     }
 
     @Override
@@ -55,8 +55,9 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
 
     @Override
     public Store<String, String> getStore() {
-        File tempDir = TestUtils.createTempDir();
-        tempDirs.add(tempDir);
+        if(null == tempDir || !tempDir.exists()) {
+            tempDir = TestUtils.createTempDir();
+        }
         return new ConfigurationStorageEngine("test", tempDir.getAbsolutePath());
     }
 
@@ -103,17 +104,16 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
 
     public void testEmacsTempFile() throws IOException {
         Store<String, String> store = getStore();
-        assertEquals("Only one tempDir should be present", 1, tempDirs.size());
         String keyName = "testkey.xml";
 
         store.put(keyName, new Versioned<String>("testValue"));
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
 
         // Now create a emacs style temp file
-        new File(tempDirs.get(0), keyName + "#").createNewFile();
-        new File(tempDirs.get(0), "#" + keyName + "#").createNewFile();
-        new File(tempDirs.get(0), keyName + "~").createNewFile();
-        new File(tempDirs.get(0), "." + keyName + "~").createNewFile();
+        new File(tempDir, keyName + "#").createNewFile();
+        new File(tempDir, "#" + keyName + "#").createNewFile();
+        new File(tempDir, keyName + "~").createNewFile();
+        new File(tempDir, "." + keyName + "~").createNewFile();
 
         assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
 
@@ -127,5 +127,15 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
         Map<String, List<Versioned<String>>> map = store.getAll(Arrays.asList(keyName));
         assertEquals("Only one file of name key should be present.", 1, map.get(keyName).size());
         assertEquals("Value should match.", "testValue1", map.get(keyName).get(0).getValue());
+    }
+
+    public void testRollBackFeature() {
+        VectorClock clock1 = new VectorClock();
+        getStore().put("test.key", new Versioned<String>("version 1", clock1));
+        getStore().put("test.key", new Versioned<String>("version 2", clock1.incremented(0, 1)));
+
+        // rollback key.
+        ((ConfigurationStorageEngine) getStore()).rollbackFromBackup("test.key");
+        assertEquals("version 1", getStore().get("test.key").get(0).getValue());
     }
 }

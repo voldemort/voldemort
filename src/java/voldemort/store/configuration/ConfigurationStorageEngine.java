@@ -49,7 +49,6 @@ import voldemort.versioning.Versioned;
  * <ul>
  * <li>Delete Operation is not permitted.</li>
  * <li>Iteration over entries is not permitted.</li>
- * <li>Concurrent Operations are not allowed.</li>
  * <li>Store keeps a backup file and can be rolled back by copying the file to
  * master location.</li>
  * 
@@ -161,7 +160,11 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
                 FileUtils.writeStringToFile(keyFile, value.getValue(), "UTF-8");
                 writeVersion(key, clock);
             } catch(IOException e) {
-                rollbackFromBackup(key);
+                try {
+                    rollbackFromBackup(key);
+                } catch(Exception rollbackError) {
+                    logger.error("Failed to rollback with exception ", rollbackError);
+                }
                 throw new VoldemortException(e);
             }
         }
@@ -172,7 +175,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
      * 
      * @param key
      */
-    private boolean rollbackFromBackup(String key) {
+    public boolean rollbackFromBackup(String key) {
         File backupKeyFile = new File(this.backupDirectory, key);
         File backupVersionFile = new File(this.backupVersionDirectory, key);
 
@@ -180,16 +183,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
             File keyFile = new File(this.directory, key);
             File versionFile = new File(this.versionDirectory, key);
 
-            try {
-                if(keyFile.delete() && versionFile.delete())
-                    return backupKeyFile.renameTo(keyFile)
-                           && backupVersionFile.renameTo(versionFile);
-            } catch(Exception e) {
-                logger.error("Failed to rollback with exception ", e);
-            }
+            if(keyFile.delete() && versionFile.delete())
+                return backupKeyFile.renameTo(keyFile) && backupVersionFile.renameTo(versionFile);
+
+        } else {
+            logger.warn("Rollback attempted but no backup File found:" + backupKeyFile);
         }
 
-        return false;
+        throw new VoldemortException("Failed to rollBack for key:" + key);
     }
 
     /**
@@ -201,24 +202,37 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
     private boolean updateBackup(String key) {
         File keyFile = new File(this.directory, key);
         File versionFile = new File(this.versionDirectory, key);
+        if(!versionFile.exists()) {
+            writeVersion(key, new VectorClock());
+            versionFile = new File(this.versionDirectory, key);
+        }
 
         if(keyFile.exists() && versionFile.exists()) {
             File backupKeyFile = new File(this.backupDirectory, key);
             File backupVersionFile = new File(this.backupVersionDirectory, key);
 
             try {
-                if(backupKeyFile.delete() && backupVersionFile.delete())
-                    return keyFile.renameTo(backupKeyFile)
-                           && versionFile.renameTo(backupVersionFile);
+                // delete old backup
+                backupKeyFile.delete();
+                backupVersionFile.delete();
+
+                return keyFile.renameTo(backupKeyFile) && versionFile.renameTo(backupVersionFile);
             } catch(Exception e) {
                 logger.error("Failed to backup with exception ", e);
             }
         }
-        return false;
+
+        throw new VoldemortException("Failed to take backup for key:" + key);
     }
 
     public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
+        switch(capability) {
+            case ROLLBACK_FROM_BACKUP:
+                return this;
+            default:
+                throw new NoSuchCapabilityException(capability, getName());
+
+        }
     }
 
     private VectorClock readVersion(String key) {

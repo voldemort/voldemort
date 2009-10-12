@@ -219,7 +219,7 @@ public abstract class AdminClientRequestFormat {
         VectorClock oldClock = (VectorClock) getRebalancingProxyDest(rebalancingNodeId).getVersion();
 
         doUpdateRemoteMetadata(rebalancingNodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST_KEY,
                                                                 "UTF-8")),
                                new Versioned<byte[]>(ByteUtils.getBytes("" + proxyDestNodeId,
                                                                         "UTF-8"),
@@ -228,7 +228,7 @@ public abstract class AdminClientRequestFormat {
 
     public Versioned<Integer> getRebalancingProxyDest(int rebalancingNodeId) {
         Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST_KEY,
                                                                                        "UTF-8")));
         return new Versioned<Integer>(Integer.parseInt(ByteUtils.getString(value.getValue(),
                                                                            "UTF-8")),
@@ -248,7 +248,7 @@ public abstract class AdminClientRequestFormat {
         VectorClock oldClock = (VectorClock) getRebalancingPartitionList(rebalancingNodeId).getVersion();
 
         doUpdateRemoteMetadata(rebalancingNodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
                                                                 "UTF-8")),
                                new Versioned<byte[]>(ByteUtils.getBytes(partitionListString.toString(),
                                                                         "UTF-8"),
@@ -257,7 +257,7 @@ public abstract class AdminClientRequestFormat {
 
     public Versioned<List<Integer>> getRebalancingPartitionList(int rebalancingNodeId) {
         Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
                                                                                        "UTF-8")));
         String[] partitionList = ByteUtils.getString(value.getValue(), "UTF-8").split(",");
         List<Integer> list = new ArrayList<Integer>();
