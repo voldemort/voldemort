@@ -103,6 +103,7 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                   1,
                                                   1,
                                                   1,
+                                                  null,
                                                   null);
         HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
                                                             TextStoreMapper.class,

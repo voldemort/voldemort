@@ -566,7 +566,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                          3,
                                                          3,
                                                          3,
-                                                         0);
+                                                         0,
+                                                         1);
         Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
         List<Node> nodes = new ArrayList<Node>();
         int totalDelay = 0;

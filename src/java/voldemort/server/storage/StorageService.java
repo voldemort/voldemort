@@ -16,7 +16,7 @@
 
 package voldemort.server.storage;
 
-import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
@@ -41,15 +44,16 @@ import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.VoldemortMetadata;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.store.InvalidMetadataCheckingStore;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
@@ -60,6 +64,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.IoThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
@@ -80,14 +85,14 @@ public class StorageService extends AbstractService {
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
-    private final VoldemortMetadata metadata;
+    private final MetadataStore metadata;
     private final Semaphore cleanupPermits;
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
 
     public StorageService(StoreRepository storeRepository,
-                          VoldemortMetadata metadata,
+                          MetadataStore metadata,
                           SchedulerService scheduler,
                           VoldemortConfig config) {
         super(ServiceType.STORAGE);
@@ -128,8 +133,7 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        MetadataStore metadataStore = MetadataStore.readFromDirectory(new File(voldemortConfig.getMetadataDirectory()));
-        registerEngine(metadataStore);
+        registerEngine(metadata);
 
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
@@ -144,8 +148,7 @@ public class StorageService extends AbstractService {
                                                                                        new ByteArraySerializer(),
                                                                                        new SlopSerializer()));
         }
-        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefs()
-                                                                                      .values());
+        List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
         for(StoreDefinition def: storeDefs) {
             openStore(def);
@@ -160,7 +163,7 @@ public class StorageService extends AbstractService {
         registerEngine(engine);
 
         if(voldemortConfig.isServerRoutingEnabled())
-            registerNodeStores(storeDef, metadata.getCurrentCluster(), voldemortConfig.getNodeId());
+            registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
             scheduleCleanupJob(storeDef, engine);
@@ -172,7 +175,7 @@ public class StorageService extends AbstractService {
      * @param engine Register the storage engine
      */
     public void registerEngine(StorageEngine<ByteArray, byte[]> engine) {
-        Cluster cluster = this.metadata.getCurrentCluster();
+        Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
         /* Now add any store wrappers that are enabled */
@@ -181,10 +184,25 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[]>(store,
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
+        if(voldemortConfig.isMetadataCheckingEnabled())
+            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+
+        if(voldemortConfig.isRedirectRoutingEnabled())
+            store = new RedirectingStore(store, metadata, socketPool);
+
         if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);
-            if(voldemortConfig.isJmxEnabled())
-                JmxUtils.registerMbean(store.getName(), store);
+
+            if(voldemortConfig.isJmxEnabled()) {
+
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                            store.getName());
+
+                if(mbeanServer.isRegistered(name))
+                    JmxUtils.unregisterMbean(mbeanServer, name);
+                JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+            }
         }
         storeRepository.addLocalStore(store);
     }
@@ -239,13 +257,23 @@ public class StorageService extends AbstractService {
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
+
+        Integer maxReadRate = storeDef.getRetentionThrottleRate();
         logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
-                    + "' at " + startTime + ".");
+                    + "' at " + startTime + "."
+                    + (null == maxReadRate ? "" : " Max reading rate: " + maxReadRate + " Bytes/S"));
+        // If no throttle parameter was given, use MAX VALUE as the allowed MB/S
+        if(null == maxReadRate) {
+            maxReadRate = Integer.MAX_VALUE;
+        }
+        IoThrottler throttler = new IoThrottler(maxReadRate);
+
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
                                                                     cleanupPermits,
                                                                     storeDef.getRetentionDays()
                                                                             * Time.MS_PER_DAY,
-                                                                    SystemTime.INSTANCE);
+                                                                    SystemTime.INSTANCE,
+                                                                    throttler);
         this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
     }
 
@@ -317,7 +345,7 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(lastException);
     }
 
-    public VoldemortMetadata getMetadataStore() {
+    public MetadataStore getMetadataStore() {
         return this.metadata;
     }
 

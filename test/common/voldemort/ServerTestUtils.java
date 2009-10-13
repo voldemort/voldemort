@@ -31,6 +31,9 @@ import org.mortbay.jetty.servlet.ServletHolder;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
+import voldemort.client.protocol.pb.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -42,6 +45,7 @@ import voldemort.server.http.StoreServlet;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -71,7 +75,8 @@ public class ServerTestUtils {
         Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
-        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"));
+        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"),
+                                                   0);
         metadata.put(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()),
                      new Versioned<byte[]>(clusterXml.getBytes()));
         metadata.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
@@ -87,26 +92,26 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static AbstractSocketService getSocketService(String clusterXml,
+    public static AbstractSocketService getSocketService(boolean useNio,
+                                                         String clusterXml,
                                                          String storesXml,
                                                          String storeName,
                                                          int port) {
-        RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
-                                                                            clusterXml,
-                                                                            storesXml),
-                                                                  null,
-                                                                  getVoldemortConfig());
-        return getSocketService(factory, port, 5, 10, 10000);
+        RequestHandlerFactory factory = new SocketRequestHandlerFactory(getStores(storeName,
+                                                                                  clusterXml,
+                                                                                  storesXml));
+        return getSocketService(useNio, factory, port, 5, 10, 10000);
     }
 
-    public static AbstractSocketService getSocketService(RequestHandlerFactory requestHandlerFactory,
+    public static AbstractSocketService getSocketService(boolean useNio,
+                                                         RequestHandlerFactory requestHandlerFactory,
                                                          int port,
                                                          int coreConnections,
                                                          int maxConnections,
                                                          int bufferSize) {
         AbstractSocketService socketService = null;
 
-        if(true) {
+        if(useNio) {
             socketService = new NioSocketService(requestHandlerFactory,
                                                  port,
                                                  bufferSize,
@@ -150,7 +155,7 @@ public class ServerTestUtils {
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
 
-        RequestHandler handler = new RequestHandlerFactory(repository, null, getVoldemortConfig()).getRequestHandler(requestFormat);
+        RequestHandler handler = new SocketRequestHandlerFactory(repository).getRequestHandler(requestFormat);
         context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
         server.start();
         return context;
@@ -230,6 +235,7 @@ public class ServerTestUtils {
                                          1,
                                          1,
                                          1,
+                                         1,
                                          1));
         return defs;
     }
@@ -253,6 +259,7 @@ public class ServerTestUtils {
                                    rreads,
                                    pwrites,
                                    rwrites,
+                                   1,
                                    1);
     }
 
@@ -273,13 +280,17 @@ public class ServerTestUtils {
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
+        config.setStreamMaxReadBytesPerSec(10 * 1000);
+        config.setStreamMaxWriteBytesPerSec(10 * 1000);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
         tempDir.mkdirs();
+        tempDir.deleteOnExit();
 
         File tempDir2 = new File(config.getDataDirectory());
         tempDir2.mkdirs();
+        tempDir2.deleteOnExit();
 
         // copy cluster.xml / stores.xml to temp metadata dir.
         if(null != clusterFile)
@@ -291,5 +302,26 @@ public class ServerTestUtils {
                                                              + File.separatorChar + "stores.xml"));
 
         return config;
+    }
+
+    public static NativeAdminClientRequestFormat getAdminClient(Node identityNode,
+                                                                MetadataStore metadataStore) {
+        return new NativeAdminClientRequestFormat(metadataStore, new SocketPool(2,
+                                                                                10000,
+                                                                                100000,
+                                                                                32 * 1024));
+    }
+
+    public static AdminClientRequestFormat getAdminClient(Node identityNode,
+                                                          MetadataStore metadataStore,
+                                                          boolean useProtocolBuffers) {
+        if(useProtocolBuffers)
+            return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
+                                                                                       10000,
+                                                                                       100000,
+                                                                                       32 * 1024));
+        else
+            return getAdminClient(identityNode, metadataStore);
+
     }
 }

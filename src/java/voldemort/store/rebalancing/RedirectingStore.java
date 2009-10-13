@@ -19,51 +19,48 @@ package voldemort.store.rebalancing;
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.client.AdminClient;
-import voldemort.server.VoldemortMetadata;
-import voldemort.server.VoldemortMetadata.ServerState;
+import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.ServerState;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**
- * The RebalancingStore extends {@link InvalidMetadataCheckingStoreTest}
+ * The RedirectingStore extends {@link DelegatingStore}
  * <p>
  * if current server_state is {@link ServerState#REBALANCING_STEALER_STATE} <br>
  * then
  * <ul>
  * <li>Get: proxy Get call to donor server ONLY for keys belonging to
- * {@link VoldemortMetadata#getCurrentPartitionStealList()}</li>
- * <li>Put: do a get() call on donor state and put to innerstore and than handle
- * client put() request to have correct version handling ONLY for keys belonging
- * to {@link VoldemortMetadata#getCurrentPartitionStealList()}.</li>
+ * {@link MetadataStore#getCurrentPartitionStealList()}</li>
+ * <li>Put: do a get() call on donor state and put to innerstore and than
+ * handle client put() request to have correct version handling ONLY for keys
+ * belonging to {@link MetadataStore#getCurrentPartitionStealList()}.</li>
  * </ul>
  * 
  * @author bbansal
  * 
  */
-public class RebalancingStore extends DelegatingStore<ByteArray, byte[]> {
+public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
-    private final AdminClient adminClient;
-    private final VoldemortMetadata metadata;
+    private final NativeAdminClientRequestFormat adminClient;
+    private final MetadataStore metadata;
 
-    public RebalancingStore(int node,
-                            Store<ByteArray, byte[]> innerStore,
-                            VoldemortMetadata metadata,
+    public RedirectingStore(Store<ByteArray, byte[]> innerStore,
+                            MetadataStore metadata,
                             SocketPool socketPool) {
         super(innerStore);
-        this.adminClient = new AdminClient(metadata.getCurrentCluster().getNodeById(node),
-                                           metadata,
-                                           socketPool);
+        this.adminClient = new NativeAdminClientRequestFormat(metadata, socketPool);
         this.metadata = metadata;
     }
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        if(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
+        if(MetadataStore.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
             proxyPut(key, value);
         } else {
@@ -73,7 +70,7 @@ public class RebalancingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        if(VoldemortMetadata.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
+        if(MetadataStore.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
             return proxyGet(key);
         } else {
@@ -83,7 +80,7 @@ public class RebalancingStore extends DelegatingStore<ByteArray, byte[]> {
 
     protected boolean checkKeyBelongsToStolenPartitions(ByteArray key) {
         for(int partitionId: metadata.getRoutingStrategy(getName()).getPartitionList(key.get())) {
-            if(metadata.getCurrentPartitionStealList().contains(partitionId)) {
+            if(metadata.getRebalancingPartitionList().contains(partitionId)) {
                 return true;
             }
         }
@@ -91,15 +88,17 @@ public class RebalancingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
-     * performs back-door proxy get to {@link VoldemortMetadata#getDonorNode()}
+     * performs back-door proxy get to {@link MetadataStore#getDonorNode()}
      * 
      * @param key
      * @return
      * @throws VoldemortException
      */
     protected List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        if(metadata.getDonorNode() != null) {
-            return adminClient.redirectGet(metadata.getDonorNode().getId(), getName(), key);
+        if(metadata.getRebalancingProxyDest() != null) {
+            return adminClient.redirectGet(metadata.getRebalancingProxyDest().getId(),
+                                           getName(),
+                                           key);
         }
 
         throw new VoldemortException("DonorNode not set for proxyGet() ");

@@ -103,8 +103,10 @@ public class ReadOnlyStorageEngineTestInstance {
                                                        1,
                                                        1,
                                                        1,
+                                                       1,
                                                        1);
-        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
+        RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                    cluster);
 
         // build store files in outputDir
         File outputDir = TestUtils.createTempDir(baseDir);
