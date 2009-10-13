@@ -44,7 +44,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -249,7 +249,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private void handleUpdateEntries(StorageEngine<ByteArray, byte[]> engine,
                                      DataInputStream inputStream,
                                      DataOutputStream outputStream) throws IOException {
-        IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
+        EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
 
         try {
             int keySize = inputStream.readInt();
@@ -313,7 +313,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
 
         RoutingStrategy routingStrategy = new RoutingStrategyFactory(metadata.getCurrentCluster()).getRoutingStrategy(metadata.getStoreDef(engine.getName()));
-        IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+        EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
         try {
             /**
              * TODO HIGH: This way to iterate over all keys is not optimal

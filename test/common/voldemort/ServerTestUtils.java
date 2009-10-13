@@ -87,7 +87,8 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static AbstractSocketService getSocketService(String clusterXml,
+    public static AbstractSocketService getSocketService(boolean useNio,
+                                                         String clusterXml,
                                                          String storesXml,
                                                          String storeName,
                                                          int port) {
@@ -96,17 +97,18 @@ public class ServerTestUtils {
                                                                             storesXml),
                                                                   null,
                                                                   getVoldemortConfig());
-        return getSocketService(factory, port, 5, 10, 10000);
+        return getSocketService(useNio, factory, port, 5, 10, 10000);
     }
 
-    public static AbstractSocketService getSocketService(RequestHandlerFactory requestHandlerFactory,
+    public static AbstractSocketService getSocketService(boolean useNio,
+                                                         RequestHandlerFactory requestHandlerFactory,
                                                          int port,
                                                          int coreConnections,
                                                          int maxConnections,
                                                          int bufferSize) {
         AbstractSocketService socketService = null;
 
-        if(true) {
+        if(useNio) {
             socketService = new NioSocketService(requestHandlerFactory,
                                                  port,
                                                  bufferSize,
@@ -230,6 +232,7 @@ public class ServerTestUtils {
                                          1,
                                          1,
                                          1,
+                                         1,
                                          1));
         return defs;
     }
@@ -253,6 +256,7 @@ public class ServerTestUtils {
                                    rreads,
                                    pwrites,
                                    rwrites,
+                                   1,
                                    1);
     }
 

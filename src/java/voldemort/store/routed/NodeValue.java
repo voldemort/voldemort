@@ -22,6 +22,7 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 /**
  * A wrapper around a node id, key and value. This class represents one
@@ -43,8 +44,8 @@ final class NodeValue<K, V> implements Serializable, Cloneable {
 
     public NodeValue(int nodeId, K key, Versioned<V> value) {
         this.nodeId = nodeId;
-        this.key = key;
-        this.value = value;
+        this.key = Preconditions.checkNotNull(key);
+        this.value = Preconditions.checkNotNull(value);
     }
 
     public int getNodeId() {

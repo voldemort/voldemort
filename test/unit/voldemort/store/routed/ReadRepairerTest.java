@@ -21,14 +21,27 @@ import static java.util.Collections.singletonList;
 import static voldemort.TestUtils.getClock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
+import voldemort.VoldemortTestConstants;
+import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategyType;
+import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
+import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /**
@@ -55,6 +68,47 @@ public class ReadRepairerTest extends TestCase {
                                                          getValue(2, 1, new int[] { 1 }),
                                                          getValue(3, 1, new int[] { 1 }));
         assertEquals(empty, repairer.getRepairs(values));
+    }
+
+    /**
+     * See Issue 150: Missing keys are not added to node when performing
+     * read-repair
+     */
+
+    public void testMissingKeysAreAddedToNodeWhenDoingReadRepair() {
+        ByteArray key = TestUtils.toByteArray("key");
+        byte[] value = "foo".getBytes();
+
+        Cluster cluster = VoldemortTestConstants.getThreeNodeCluster();
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               3,
+                                                               3,
+                                                               3,
+                                                               2,
+                                                               2,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        for(int a = 0; a < 3; a++) {
+            subStores.put(Iterables.get(cluster.getNodes(), a).getId(),
+                          new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        }
+
+        RoutedStore store = new RoutedStore("test", subStores, cluster, storeDef, 1, true, 1000L);
+        Iterables.get(cluster.getNodes(), 0).getStatus().setUnavailable();
+        store.put(key, new Versioned<byte[]>(value));
+        Iterables.get(cluster.getNodes(), 0).getStatus().setAvailable();
+        assertEquals(2, store.get(key).size());
+        // Last get should have repaired the missing key from node 0 so all
+        // stores should now return a value
+        assertEquals(3, store.get(key).size());
+
+        ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
+        // Try again, now use getAll to read repair
+        Iterables.get(cluster.getNodes(), 0).getStatus().setUnavailable();
+        store.put(anotherKey, new Versioned<byte[]>(value));
+        Iterables.get(cluster.getNodes(), 0).getStatus().setAvailable();
+        assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
+        assertEquals(3, store.get(anotherKey).size());
     }
 
     /**

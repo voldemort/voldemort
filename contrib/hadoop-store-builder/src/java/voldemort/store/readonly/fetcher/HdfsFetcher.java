@@ -33,7 +33,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.store.readonly.FileFetcher;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -60,9 +60,9 @@ public class HdfsFetcher implements FileFetcher {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
                                                            : null,
              new File(props.getString("hdfs.fetcher.tmp.dir", DEFAULT_TEMP_DIR)),
-             props.getInt("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
+             (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
         logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
-                    + " and throttle rate " + maxBytesPerSecond);
+                    + " and throttle rate " + maxBytesPerSecond + " and buffer size " + bufferSize);
     }
 
     public HdfsFetcher() {
@@ -84,9 +84,9 @@ public class HdfsFetcher implements FileFetcher {
         Configuration config = new Configuration();
         config.setInt("io.file.buffer.size", bufferSize);
         FileSystem fs = path.getFileSystem(config);
-        IoThrottler throttler = null;
+        EventThrottler throttler = null;
         if(maxBytesPerSecond != null)
-            throttler = new IoThrottler(maxBytesPerSecond);
+            throttler = new EventThrottler(maxBytesPerSecond);
 
         // copy file
         CopyStats stats = new CopyStats();
@@ -95,7 +95,7 @@ public class HdfsFetcher implements FileFetcher {
         return destination;
     }
 
-    private void fetch(FileSystem fs, Path source, File dest, IoThrottler throttler, CopyStats stats)
+    private void fetch(FileSystem fs, Path source, File dest, EventThrottler throttler, CopyStats stats)
             throws IOException {
         if(fs.isFile(source)) {
             copyFile(fs, source, dest, throttler, stats);
@@ -122,7 +122,7 @@ public class HdfsFetcher implements FileFetcher {
     private void copyFile(FileSystem fs,
                           Path source,
                           File dest,
-                          IoThrottler throttler,
+                          EventThrottler throttler,
                           CopyStats stats) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;

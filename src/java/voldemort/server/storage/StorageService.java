@@ -26,12 +26,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+
+import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -64,6 +69,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
@@ -195,6 +201,7 @@ public class StorageService extends AbstractService {
             if(voldemortConfig.isJmxEnabled())
                 JmxUtils.registerMbean(store.getName(), store);
         }
+
         storeRepository.addLocalStore(store);
     }
 
@@ -238,24 +245,38 @@ public class StorageService extends AbstractService {
      */
     private void scheduleCleanupJob(StoreDefinition storeDef,
                                     StorageEngine<ByteArray, byte[]> engine) {
-        // Schedule data retention cleanup job if applicable
+        // Schedule data retention cleanup job starting next day.
         GregorianCalendar cal = new GregorianCalendar();
         cal.add(Calendar.DAY_OF_YEAR, 1);
-        cal.set(Calendar.HOUR, 0);
+        cal.set(Calendar.HOUR, voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
+
+        int maxReadRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
+                                                                 : Integer.MAX_VALUE;
+
         logger.info("Scheduling data retention cleanup job for store '" + storeDef.getName()
-                    + "' at " + startTime + ".");
+                    + "' at " + startTime + " with retention scan throttle rate:" + maxReadRate
+                    + " Entries/second.");
+
+        EventThrottler throttler = new EventThrottler(maxReadRate);
+
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
                                                                     cleanupPermits,
                                                                     storeDef.getRetentionDays()
                                                                             * Time.MS_PER_DAY,
-                                                                    SystemTime.INSTANCE);
-        this.scheduler.schedule(cleanupJob, startTime, Time.MS_PER_DAY);
+                                                                    SystemTime.INSTANCE,
+                                                                    throttler);
+
+        this.scheduler.schedule(cleanupJob,
+                                startTime,
+                                voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
+                                        * Time.MS_PER_HOUR);
+
     }
 
     private StorageEngine<ByteArray, byte[]> getStorageEngine(String name, String type) {
@@ -344,4 +365,51 @@ public class StorageService extends AbstractService {
         return this.storeRepository;
     }
 
+    @JmxOperation(description = "Force cleanup of old data based on retention policy, allows override of throttle-rate", impact = MBeanOperationInfo.ACTION)
+    public void forceCleanupOldData(String storeName) {
+        StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
+        int throttleRate = storeDef.hasRetentionScanThrottleRate() ? storeDef.getRetentionScanThrottleRate()
+                                                                  : Integer.MAX_VALUE;
+
+        forceCleanupOldDataThrottled(storeName, throttleRate);
+    }
+
+    @JmxOperation(description = "Force cleanup of old data based on retention policy.", impact = MBeanOperationInfo.ACTION)
+    public void forceCleanupOldDataThrottled(String storeName, int entryScanThrottleRate) {
+        logger.info("forceCleanupOldData() called for store " + storeName
+                    + " with retention scan throttle rate:" + entryScanThrottleRate
+                    + " Entries/second.");
+
+        try {
+            StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
+            StorageEngine<ByteArray, byte[]> engine = storeRepository.getStorageEngine(storeName);
+
+            if(null != engine) {
+                if(storeDef.hasRetentionPeriod()) {
+                    ExecutorService executor = Executors.newFixedThreadPool(1);
+                    try {
+                        if(cleanupPermits.availablePermits() >= 1) {
+
+                            executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
+                                                                                   cleanupPermits,
+                                                                                   storeDef.getRetentionDays()
+                                                                                           * Time.MS_PER_DAY,
+                                                                                   SystemTime.INSTANCE,
+                                                                                   new EventThrottler(entryScanThrottleRate)));
+                        } else {
+                            logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
+                                         + engine.getName());
+                        }
+                    } finally {
+                        executor.shutdown();
+                    }
+                } else {
+                    logger.error("forceCleanupOldData() No retention policy found for " + storeName);
+                }
+            }
+        } catch(Exception e) {
+            logger.error("Error while running forceCleanupOldData()", e);
+            throw new VoldemortException(e);
+        }
+    }
 }

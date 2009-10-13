@@ -45,6 +45,7 @@ public class StoreDefinition implements Serializable {
     private final Integer preferredReads;
     private final int requiredReads;
     private final Integer retentionPeriodDays;
+    private final Integer retentionScanThrottleRate;
     private final String routingStrategyType;
 
     public StoreDefinition(String name,
@@ -58,7 +59,8 @@ public class StoreDefinition implements Serializable {
                            int requiredReads,
                            Integer preferredWrites,
                            int requiredWrites,
-                           Integer retentionDays) {
+                           Integer retentionDays,
+                           Integer retentionThrottleRate) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
@@ -70,6 +72,7 @@ public class StoreDefinition implements Serializable {
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
         this.retentionPeriodDays = retentionDays;
+        this.retentionScanThrottleRate = retentionThrottleRate;
         this.routingStrategyType = routingStrategyType;
         checkParameterLegality();
     }
@@ -162,6 +165,14 @@ public class StoreDefinition implements Serializable {
         return this.retentionPeriodDays;
     }
 
+    public boolean hasRetentionScanThrottleRate() {
+        return this.retentionScanThrottleRate != null;
+    }
+
+    public Integer getRetentionScanThrottleRate() {
+        return this.retentionScanThrottleRate;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -181,7 +192,8 @@ public class StoreDefinition implements Serializable {
                && getKeySerializer().equals(def.getKeySerializer())
                && getValueSerializer().equals(def.getValueSerializer())
                && getRoutingPolicy() == def.getRoutingPolicy()
-               && Objects.equal(getRetentionDays(), def.getRetentionDays());
+               && Objects.equal(getRetentionDays(), def.getRetentionDays())
+               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
     }
 
     @Override
@@ -196,6 +208,7 @@ public class StoreDefinition implements Serializable {
                                 getRequiredWrites(),
                                 getPreferredReads(),
                                 getPreferredWrites(),
-                                getRetentionDays());
+                                getRetentionDays(),
+                                getRetentionScanThrottleRate());
     }
 }

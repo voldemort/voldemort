@@ -303,6 +303,7 @@ public class TestUtils {
                                                        1,
                                                        1,
                                                        1,
+                                                       1,
                                                        1);
         RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
