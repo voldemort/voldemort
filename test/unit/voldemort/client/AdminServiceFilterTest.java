@@ -26,6 +26,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.VoldemortFilter;
+import voldemort.client.protocol.admin.AdminClientRequestFormat;
 import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -93,8 +94,9 @@ public class AdminServiceFilterTest extends TestCase {
         return entrySet;
     }
 
-    private NativeAdminClientRequestFormat getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
+    private AdminClientRequestFormat getAdminClient() {
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore(),
+            true);
     }
 
     public void testFetchAsStreamWithFilter() {

@@ -106,6 +106,10 @@ public class ProtoUtils {
         codedOut.flush();
     }
 
+    public static void writeEndOfStream(DataOutputStream output) throws IOException {
+        output.writeInt(-1);
+    }
+
     public static <T extends Message.Builder> T readToBuilder(DataInputStream input, T builder)
             throws IOException {
         int size = input.readInt();
