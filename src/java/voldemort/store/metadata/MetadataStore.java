@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.NoSuchCapabilityException;
@@ -79,6 +80,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                                                     REBALANCING_PROXY_DEST_KEY,
                                                                     REBALANCING_PARTITIONS_LIST_KEY,
                                                                     ROUTING_STRATEGY_KEY);
+
+    public static final Set<String> TRANSIENT_KEYS = ImmutableSet.of(ROUTING_STRATEGY_KEY);
 
     public static enum ServerState {
         NORMAL_STATE,
@@ -236,6 +239,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         for(StoreDefinition store: getStoreDefList()) {
             map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
         }
+
+        // add metadata Store
+        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
+
         return map;
     }
 
@@ -350,14 +357,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
          * @return
          */
         synchronized public Versioned<Object> get(String key) {
-            if(!inMemoryHash.containsKey(key) && METADATA_KEYS.contains(key)) {
-                // readback from innerStore
-                Versioned<byte[]> valueBytes = getInnerValue(key);
+            if(METADATA_KEYS.contains(key)) {
+                if(!inMemoryHash.containsKey(key) && !TRANSIENT_KEYS.contains(key)) {
+                    // readback from innerStore
+                    Versioned<byte[]> valueBytes = getInnerValue(key);
 
-                inMemoryHash.put(key, convertBytesToObject(key, valueBytes));
+                    inMemoryHash.put(key, convertBytesToObject(key, valueBytes));
+                }
+
+                return inMemoryHash.get(key);
             }
 
-            return inMemoryHash.get(key);
+            throw new VoldemortException("Unsupported key at metadata cache get():" + key);
         }
 
         /**
@@ -368,15 +379,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 // update entry into hash table
                 inMemoryHash.put(key, value);
 
-                // do special handling if any
-                value = doSpecialPutHandling(key, value);
+                if(!TRANSIENT_KEYS.contains(key)) {
+                    // do special handling if any
+                    value = doSpecialPutHandling(key, value);
 
-                // write back each entry to innerStore
-                Versioned<byte[]> valueBytes = convertObjectToBytes(key, value);
-                innerStore.put(key,
-                               new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
-                                                                         "UTF-8"),
-                                                     valueBytes.getVersion()));
+                    // write back each entry to innerStore
+                    Versioned<byte[]> valueBytes = convertObjectToBytes(key, value);
+                    innerStore.put(key,
+                                   new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
+                                                                             "UTF-8"),
+                                                         valueBytes.getVersion()));
+                }
                 return;
             }
 
