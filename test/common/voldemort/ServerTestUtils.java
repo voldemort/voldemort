@@ -45,6 +45,7 @@ import voldemort.server.http.StoreServlet;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -96,11 +97,9 @@ public class ServerTestUtils {
                                                          String storesXml,
                                                          String storeName,
                                                          int port) {
-        RequestHandlerFactory factory = new RequestHandlerFactory(getStores(storeName,
-                                                                            clusterXml,
-                                                                            storesXml),
-                                                                  null,
-                                                                  getVoldemortConfig());
+        RequestHandlerFactory factory = new SocketRequestHandlerFactory(getStores(storeName,
+                                                                                  clusterXml,
+                                                                                  storesXml));
         return getSocketService(useNio, factory, port, 5, 10, 10000);
     }
 
@@ -156,7 +155,7 @@ public class ServerTestUtils {
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
 
-        RequestHandler handler = new RequestHandlerFactory(repository, null, getVoldemortConfig()).getRequestHandler(requestFormat);
+        RequestHandler handler = new SocketRequestHandlerFactory(repository).getRequestHandler(requestFormat);
         context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
         server.start();
         return context;
@@ -312,15 +311,15 @@ public class ServerTestUtils {
                                                                                 100000,
                                                                                 32 * 1024));
     }
-    
+
     public static AdminClientRequestFormat getAdminClient(Node identityNode,
                                                           MetadataStore metadataStore,
                                                           boolean useProtocolBuffers) {
-        if (useProtocolBuffers)
+        if(useProtocolBuffers)
             return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
-                    10000,
-                    100000,
-                    32 * 1024));
+                                                                                       10000,
+                                                                                       100000,
+                                                                                       32 * 1024));
         else
             return getAdminClient(identityNode, metadataStore);
 

@@ -76,7 +76,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     public void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-            node.getSocketPort(),
+            node.getAdminPort(),
             RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
 
@@ -115,7 +115,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
     public Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getSocketPort(),
+                node.getAdminPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
 
@@ -159,7 +159,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                                                  ByteArray key) {
         Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
         SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
-                proxyDestNode.getSocketPort(),
+                proxyDestNode.getAdminPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS
                 );
         SocketAndStreams sands = pool.checkout(destination);
@@ -208,7 +208,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                                          VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-            node.getSocketPort(),
+            node.getAdminPort(),
             RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
@@ -277,7 +277,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                             VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getSocketPort(),
+                node.getAdminPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         final SocketAndStreams sands = pool.checkout(destination);
         DataOutputStream outputStream = sands.getOutputStream();
@@ -372,7 +372,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                                         VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getSocketPort(),
+                node.getAdminPort(),
                 RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
         SocketAndStreams sands = pool.checkout(destination);
 

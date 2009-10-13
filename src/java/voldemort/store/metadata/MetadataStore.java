@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.NoSuchCapabilityException;
@@ -68,17 +69,19 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String STORES_KEY = "stores.xml";
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
-    public static final String REBALANCING_PROXY_DEST = "rebalancing.proxy.dest";
-    public static final String REBALANCING_PARTITIONS_LIST = "rebalancing.partitions.list";
-    public static final String ROUTING_STRATEGY = "routing.strategy";
+    public static final String REBALANCING_PROXY_DEST_KEY = "rebalancing.proxy.dest";
+    public static final String REBALANCING_PARTITIONS_LIST_KEY = "rebalancing.partitions.list";
+    public static final String ROUTING_STRATEGY_KEY = "routing.strategy";
 
     public static final Set<String> METADATA_KEYS = ImmutableSet.of(CLUSTER_KEY,
                                                                     STORES_KEY,
                                                                     SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_PROXY_DEST,
-                                                                    REBALANCING_PARTITIONS_LIST,
-                                                                    ROUTING_STRATEGY);
+                                                                    REBALANCING_PROXY_DEST_KEY,
+                                                                    REBALANCING_PARTITIONS_LIST_KEY,
+                                                                    ROUTING_STRATEGY_KEY);
+
+    public static final Set<String> TRANSIENT_KEYS = ImmutableSet.of(ROUTING_STRATEGY_KEY);
 
     public static enum ServerState {
         NORMAL_STATE,
@@ -120,6 +123,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * Initializes the metadataCache for MetadataStore
      */
     private void init(int nodeId) {
+        logger.info("metadata init().");
         // These keys should be present
         metadataCache.get(CLUSTER_KEY);
         metadataCache.get(STORES_KEY);
@@ -127,9 +131,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         // Set default value if not present
         metadataCache.get(NODE_ID_KEY, nodeId);
         metadataCache.get(SERVER_STATE_KEY, ServerState.NORMAL_STATE.toString());
-        metadataCache.get(REBALANCING_PROXY_DEST, new Integer(-1));
-        metadataCache.get(REBALANCING_PARTITIONS_LIST, new ArrayList<Integer>(0));
-        metadataCache.get(ROUTING_STRATEGY, updateRoutingStrategies());
+        metadataCache.get(REBALANCING_PROXY_DEST_KEY, new Integer(-1));
+        metadataCache.get(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
+
+        // recalculate routing strategy and put it to store.
+        metadataCache.put(ROUTING_STRATEGY_KEY, new Versioned<Object>(updateRoutingStrategies()));
     }
 
     /**
@@ -211,18 +217,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public Node getRebalancingProxyDest() {
-        return getCluster().getNodeById(Integer.parseInt((String) metadataCache.get(REBALANCING_PROXY_DEST)
+        return getCluster().getNodeById(Integer.parseInt((String) metadataCache.get(REBALANCING_PROXY_DEST_KEY)
                                                                                .getValue()));
     }
 
     @SuppressWarnings("unchecked")
     public List<Integer> getRebalancingPartitionList() {
-        return (List<Integer>) metadataCache.get(REBALANCING_PARTITIONS_LIST).getValue();
+        return (List<Integer>) metadataCache.get(REBALANCING_PARTITIONS_LIST_KEY).getValue();
     }
 
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
-        Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY)
+        Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
                                                                                                       .getValue();
         return routingStrategyMap.get(storeName);
     }
@@ -233,6 +239,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         for(StoreDefinition store: getStoreDefList()) {
             map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
         }
+
+        // add metadata Store
+        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
+
         return map;
     }
 
@@ -259,17 +269,13 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      */
     @SuppressWarnings("unchecked")
     private Versioned<byte[]> convertObjectToBytes(String key, Versioned<Object> value) {
-        String valueStr = "null";
+        String valueStr = value.getValue().toString();
 
         if(CLUSTER_KEY.equals(key)) {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
-        } else if(SERVER_STATE_KEY.equals(key)) {
-            valueStr = value.getValue().toString();
-        } else if(REBALANCING_PROXY_DEST.equals(key)) {
-            valueStr = value.getValue().toString();
-        } else if(REBALANCING_PARTITIONS_LIST.equals(key)) {
+        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
             // save the list as comma separate string.
             StringBuilder builder = new StringBuilder();
             List<Integer> list = (List<Integer>) value.getValue();
@@ -299,9 +305,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
         } else if(SERVER_STATE_KEY.equals(key)) {
             valueObject = ServerState.valueOf(value.getValue());
-        } else if(REBALANCING_PROXY_DEST.equals(key)) {
+        } else if(REBALANCING_PROXY_DEST_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
-        } else if(REBALANCING_PARTITIONS_LIST.equals(key)) {
+        } else if(NODE_ID_KEY.equals(key)) {
+            valueObject = Integer.parseInt(value.getValue());
+        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
             List<Integer> list = new ArrayList<Integer>();
             if(value.getValue().trim().length() > 0) {
                 String[] partitions = value.getValue().split(",");
@@ -326,8 +334,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
 
         /**
-         * Returns defaultValue if get() fails helper function for init()
-         * purpose
+         * Returns defaultValue if innerStore.get() fails helper function for
+         * init() purpose
          * 
          * @param key
          * @return
@@ -349,14 +357,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
          * @return
          */
         synchronized public Versioned<Object> get(String key) {
-            if(!inMemoryHash.containsKey(key) && METADATA_KEYS.contains(key)) {
-                // readback from innerStore
-                Versioned<byte[]> valueBytes = getInnerValue(key);
+            if(METADATA_KEYS.contains(key)) {
+                if(!inMemoryHash.containsKey(key) && !TRANSIENT_KEYS.contains(key)) {
+                    // readback from innerStore
+                    Versioned<byte[]> valueBytes = getInnerValue(key);
 
-                inMemoryHash.put(key, convertBytesToObject(key, valueBytes));
+                    inMemoryHash.put(key, convertBytesToObject(key, valueBytes));
+                }
+
+                return inMemoryHash.get(key);
             }
 
-            return inMemoryHash.get(key);
+            throw new VoldemortException("Unsupported key at metadata cache get():" + key);
         }
 
         /**
@@ -367,15 +379,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 // update entry into hash table
                 inMemoryHash.put(key, value);
 
-                // do special handling if any
-                value = doSpecialPutHandling(key, value);
+                if(!TRANSIENT_KEYS.contains(key)) {
+                    // do special handling if any
+                    value = doSpecialPutHandling(key, value);
 
-                // write back each entry to innerStore
-                Versioned<byte[]> valueBytes = convertObjectToBytes(key, value);
-                innerStore.put(key,
-                               new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
-                                                                         "UTF-8"),
-                                                     valueBytes.getVersion()));
+                    // write back each entry to innerStore
+                    Versioned<byte[]> valueBytes = convertObjectToBytes(key, value);
+                    innerStore.put(key,
+                                   new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
+                                                                             "UTF-8"),
+                                                         valueBytes.getVersion()));
+                }
                 return;
             }
 
@@ -395,8 +409,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             if(CLUSTER_KEY.equals(key) || STORES_KEY.equals(key)) {
                 // routing strategy might change if one of these key is
                 // changing.
-                VectorClock clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY).getVersion();
-                metadataCache.put(ROUTING_STRATEGY,
+                VectorClock clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY)
+                                                               .getVersion();
+                metadataCache.put(ROUTING_STRATEGY_KEY,
                                   new Versioned<Object>(updateRoutingStrategies(),
                                                         clock.incremented(getNodeId(), 1)));
             }
