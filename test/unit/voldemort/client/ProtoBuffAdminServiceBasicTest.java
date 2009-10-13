@@ -53,11 +53,11 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     @Override
     public void setUp() throws IOException {
        // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(2);
-        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(0, 1));
+        int[] ports = ServerTestUtils.findFreePorts(3);
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], ports[2], Arrays.asList(0, 1));
 
-        ports = ServerTestUtils.findFreePorts(2);
-        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(2, 3));
+        ports = ServerTestUtils.findFreePorts(3);
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], ports[2], Arrays.asList(2, 3));
 
         cluster = new Cluster("admin-service-test", Arrays.asList(node0, node1));
         config = ServerTestUtils.createServerConfig(0,
