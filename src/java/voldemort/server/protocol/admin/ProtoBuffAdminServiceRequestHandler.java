@@ -246,10 +246,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                       }
                 }
 
-
                 int size = inputStream.readInt();
 
-                if (size <= 0) 
+                if (size <= 0)
                     continueReading = false;
                 else {
                     byte[] input = new byte[size];
