@@ -44,8 +44,4 @@ public class TimeBasedInconsistencyResolver<T> implements InconsistencyResolver<
             return Collections.singletonList(max);
         }
     }
-
-    public boolean requiresValue() {
-        return false;
-    }
 }

@@ -38,14 +38,6 @@ public class ChainedResolver<T> implements InconsistencyResolver<T> {
             this.resolvers.add(Utils.notNull(resolver));
     }
 
-    public boolean requiresValue() {
-        for(InconsistencyResolver<T> resolver: resolvers) {
-            if(resolver.requiresValue())
-                return true;
-        }
-        return false;
-    }
-
     public List<T> resolveConflicts(List<T> items) {
         for(InconsistencyResolver<T> resolver: resolvers) {
             if(items.size() <= 1)

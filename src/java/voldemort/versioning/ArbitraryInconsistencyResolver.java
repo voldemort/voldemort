@@ -28,10 +28,6 @@ import java.util.List;
  */
 public class ArbitraryInconsistencyResolver<T> implements InconsistencyResolver<T> {
 
-    public boolean requiresValue() {
-        return false;
-    }
-
     /**
      * Arbitrarily resolve the inconsistency by choosing the first object if
      * there is one.
