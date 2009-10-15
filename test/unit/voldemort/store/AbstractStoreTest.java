@@ -252,10 +252,10 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         store.put(key, Versioned.value(value));
         List<Versioned<V>> versioneds = store.get(key);
         List<Version> versions = store.getVersions(key);
-        assertTrue(versioneds.size() > 0);
-        assertEquals(versioneds.size(), versions.size());
-        for(int i = 0; i < versioneds.size(); i++)
-            assertEquals(versioneds.get(i).getVersion(), versions.get(i));
+        assertEquals(1, versioneds.size());
+        assertTrue(versions.size() > 0);
+        for(int i = 0; i < versions.size(); i++)
+            assertEquals(versioneds.get(0).getVersion(), versions.get(i));
 
         assertEquals(0, store.getVersions(keys.get(1)).size());
     }
