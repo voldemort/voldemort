@@ -19,6 +19,7 @@ package voldemort.store.bdb;
 import java.io.File;
 import java.util.Map;
 
+import com.sleepycat.je.*;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -31,13 +32,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Maps;
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseConfig;
-import com.sleepycat.je.DatabaseException;
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.StatsConfig;
 
 /**
  * The configuration that is shared between berkeley db instances. This includes
@@ -104,6 +98,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             try {
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
+                PreloadConfig preloadConfig = new PreloadConfig();
+                preloadConfig.setLoadLNs(true);
+                db.preload(preloadConfig);
                 BdbStorageEngine engine = new BdbStorageEngine(storeName, environment, db);
                 stores.put(storeName, engine);
                 return engine;

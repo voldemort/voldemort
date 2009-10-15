@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.sleepycat.je.*;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
@@ -44,17 +45,6 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.sleepycat.je.Cursor;
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseEntry;
-import com.sleepycat.je.DatabaseException;
-import com.sleepycat.je.DatabaseStats;
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.LockMode;
-import com.sleepycat.je.OperationStatus;
-import com.sleepycat.je.StatsConfig;
-import com.sleepycat.je.Transaction;
 
 /**
  * A store that uses BDB for persistence
@@ -87,6 +77,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
+            PreloadConfig preloadConfig = new PreloadConfig();
+            preloadConfig.setLoadLNs(true);
+            bdbDatabase.preload(preloadConfig);
+            
             Cursor cursor = bdbDatabase.openCursor(null, null);
             return new BdbStoreIterator(cursor);
         } catch(DatabaseException e) {
