@@ -56,7 +56,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final String storeName;
     private final InconsistencyResolver<Versioned<V>> resolver;
     private volatile Store<K, V> store;
-    private volatile boolean inconsistencyResolverRequiresValue;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
@@ -71,8 +70,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private void reinit() {
         this.store = storeFactory.getRawStore(storeName, resolver);
-        InconsistencyResolver<?> irs = (InconsistencyResolver<?>) store.getCapability(StoreCapabilityType.INCONSISTENCY_RESOLVER);
-        inconsistencyResolverRequiresValue = irs.requiresValue();
     }
 
     public boolean delete(K key) {
@@ -160,17 +157,18 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void put(K key, V value) {
+        List<Version> versions = getVersions(key);
         Versioned<V> versioned;
-        if(inconsistencyResolverRequiresValue) {
-            versioned = get(key);
+        if(versions.isEmpty())
+            versioned = Versioned.value(value, new VectorClock());
+        else if(versions.size() == 1)
+            versioned = Versioned.value(value, versions.get(0));
+        else {
+            versioned = get(key, null);
             if(versioned == null)
-                versioned = new Versioned<V>(value, new VectorClock());
-            versioned.setObject(value);
-        } else {
-            Version version = getVersion(key);
-            if(version == null)
-                version = new VectorClock();
-            versioned = Versioned.value(value, version);
+                versioned = Versioned.value(value, new VectorClock());
+            else
+                versioned.setObject(value);
         }
         put(key, versioned);
     }
