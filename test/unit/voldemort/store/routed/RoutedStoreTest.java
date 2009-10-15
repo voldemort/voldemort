@@ -49,6 +49,7 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;
@@ -349,6 +350,22 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
         assertOperationalNodes(cluster, 0);
+    }
+
+    public void testGetVersions2() throws Exception {
+        List<ByteArray> keys = getKeys(2);
+        ByteArray key = keys.get(0);
+        byte[] value = getValue();
+        Store<ByteArray, byte[]> store = getStore();
+        store.put(key, Versioned.value(value));
+        List<Versioned<byte[]>> versioneds = store.get(key);
+        List<Version> versions = store.getVersions(key);
+        assertEquals(1, versioneds.size());
+        assertEquals(9, versions.size());
+        for(int i = 0; i < versions.size(); i++)
+            assertEquals(versioneds.get(0).getVersion(), versions.get(i));
+
+        assertEquals(0, store.getVersions(keys.get(1)).size());
     }
 
     /**
