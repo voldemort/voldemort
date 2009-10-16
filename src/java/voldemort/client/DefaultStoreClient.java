@@ -94,7 +94,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public V getValue(K key, V defaultValue) {
         Versioned<V> versioned = get(key);
         if(versioned == null)
-            return null;
+            return defaultValue;
         else
             return versioned.getValue();
     }
