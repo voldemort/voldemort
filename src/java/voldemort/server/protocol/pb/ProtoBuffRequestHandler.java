@@ -11,6 +11,7 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VProto.GetRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.protocol.pb.VProto.VoldemortRequest;
 import voldemort.server.StoreRepository;
@@ -18,6 +19,7 @@ import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.ByteString;
@@ -59,11 +61,26 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                 case DELETE:
                     response = handleDelete(request.getDelete(), store);
                     break;
+                case GET_VERSION:
+                    response = handleGetVersion(request.getGet(), store);
+                    break;
                 default:
                     throw new VoldemortException("Unknown operation " + request.getType());
             }
         }
         ProtoUtils.writeMessage(outputStream, response);
+    }
+
+    private Message handleGetVersion(GetRequest request, Store<ByteArray, byte[]> store) {
+        VProto.GetVersionResponse.Builder response = VProto.GetVersionResponse.newBuilder();
+        try {
+            List<Version> versions = store.getVersions(ProtoUtils.decodeBytes(request.getKey()));
+            for(Version version: versions)
+                response.addVersions(ProtoUtils.encodeClock(version));
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
+        }
+        return response.build();
     }
 
     public boolean isCompleteRequest(ByteBuffer buffer) {

@@ -27,10 +27,14 @@ import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
 /**
- * A Store that uses a InconsistencyResolver to eleminate some duplicates
+ * A Store that uses a InconsistencyResolver to eliminate some duplicates.
  * 
  * @author jay
  * 
+ */
+/*
+ * Note that unlike get and getAll, getVersions is not overridden so the
+ * versions are not passed through the inconsistency resolver.
  */
 public class InconsistencyResolvingStore<K, V> extends DelegatingStore<K, V> {
 

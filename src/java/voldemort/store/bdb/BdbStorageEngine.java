@@ -16,7 +16,6 @@
 
 package voldemort.store.bdb;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,6 +26,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.serialization.IdentitySerializer;
+import voldemort.serialization.Serializer;
 import voldemort.serialization.VersionedSerializer;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
@@ -45,6 +45,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -70,14 +71,25 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final String name;
     private final Database bdbDatabase;
     private final Environment environment;
-    private final VersionedSerializer<byte[]> serializer;
+    private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
+    private final Serializer<Version> versionSerializer;
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
-        this.serializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
+        this.versionedSerializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
+        this.versionSerializer = new Serializer<Version>() {
+
+            public byte[] toBytes(Version object) {
+                return ((VectorClock) object).toBytes();
+            }
+
+            public Version toObject(byte[] bytes) {
+                return versionedSerializer.getVersion(bytes);
+            }
+        };
         this.isOpen = new AtomicBoolean(true);
     }
 
@@ -95,18 +107,22 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
-        return get(key, LockMode.READ_UNCOMMITTED);
+    public List<Version> getVersions(ByteArray key) {
+        return get(key, LockMode.READ_UNCOMMITTED, versionSerializer);
     }
 
-    private List<Versioned<byte[]>> get(ByteArray key, LockMode lockMode)
+    public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
+        return get(key, LockMode.READ_UNCOMMITTED, versionedSerializer);
+    }
+
+    private <T> List<T> get(ByteArray key, LockMode lockMode, Serializer<T> serializer)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
 
         Cursor cursor = null;
         try {
             cursor = bdbDatabase.openCursor(null, null);
-            return get(cursor, key, lockMode);
+            return get(cursor, key, lockMode, serializer);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
@@ -123,7 +139,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         try {
             cursor = bdbDatabase.openCursor(null, null);
             for(ByteArray key: keys) {
-                List<Versioned<byte[]>> values = get(cursor, key, LockMode.READ_UNCOMMITTED);
+                List<Versioned<byte[]>> values = get(cursor,
+                                                     key,
+                                                     LockMode.READ_UNCOMMITTED,
+                                                     versionedSerializer);
                 if(!values.isEmpty())
                     result.put(key, values);
             }
@@ -136,13 +155,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return result;
     }
 
-    private List<Versioned<byte[]>> get(Cursor cursor, ByteArray key, LockMode lockMode)
-            throws DatabaseException {
+    private static <T> List<T> get(Cursor cursor,
+                                   ByteArray key,
+                                   LockMode lockMode,
+                                   Serializer<T> serializer) throws DatabaseException {
         StoreUtils.assertValidKey(key);
 
         DatabaseEntry keyEntry = new DatabaseEntry(key.get());
         DatabaseEntry valueEntry = new DatabaseEntry();
-        List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>();
+        List<T> results = Lists.newArrayList();
 
         for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, lockMode); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
                                                                                                                                                         valueEntry,
@@ -185,7 +206,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
             // Okay so we cleaned up all the prior stuff, so now we are good to
             // insert the new thing
-            valueEntry = new DatabaseEntry(serializer.toBytes(value));
+            valueEntry = new DatabaseEntry(versionedSerializer.toBytes(value));
             OperationStatus status = cursor.put(keyEntry, valueEntry);
             if(status != OperationStatus.SUCCESS)
                 throw new PersistenceFailureException("Put operation failed with status: " + status);
@@ -391,4 +412,5 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
 
     }
+
 }

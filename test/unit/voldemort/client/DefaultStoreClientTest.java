@@ -54,13 +54,13 @@ public class DefaultStoreClientTest extends TestCase {
         assertNotNull(client.get("k").getVersion());
     }
 
-    public void getUnversioned() {
+    public void testGetUnversioned() {
         assertEquals("GET of non-existant key should be null.", null, client.getValue("k"));
         client.put("k", "v");
         assertEquals("GET of k should return v, if v is there.", "v", client.getValue("k"));
     }
 
-    public void getUnversionedWithDefault() {
+    public void testGetUnversionedWithDefault() {
         assertEquals("GET of non-existant key should return default.", "v", client.getValue("k",
                                                                                             "v"));
         assertEquals("null should be an acceptable default", null, client.getValue("k", null));
@@ -88,6 +88,10 @@ public class DefaultStoreClientTest extends TestCase {
                    new Versioned<String>("v2",
                                          new VectorClock().incremented(nodeId + 1,
                                                                        time.getMilliseconds())));
+	assertEquals("GET should return the new value set by PUT.", "v2", client.getValue("k"));
+	assertEquals("GET should return the new version set by PUT.", expected.incremented(nodeId + 1,
+											   time.getMilliseconds()),
+		     client.get("k").getVersion());
     }
 
     public void testPutUnversioned() {
@@ -112,7 +116,7 @@ public class DefaultStoreClientTest extends TestCase {
     }
 
     public void testDeleteVersion() {
-        assertFalse("Delete of non-existant key should be false.", client.delete("k"));
+        assertFalse("Delete of non-existant key should be false.", client.delete("k", new VectorClock()));
         client.put("k", new Versioned<String>("v"));
         assertFalse("Delete of a lesser version should be false.", client.delete("k",
                                                                                  new VectorClock()));

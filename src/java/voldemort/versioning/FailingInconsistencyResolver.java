@@ -32,5 +32,4 @@ public class FailingInconsistencyResolver<T> implements InconsistencyResolver<T>
         else
             return items;
     }
-
 }

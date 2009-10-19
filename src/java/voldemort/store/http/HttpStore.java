@@ -183,4 +183,24 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         throw new NoSuchCapabilityException(capability, getName());
     }
 
+    public List<Version> getVersions(ByteArray key) {
+        StoreUtils.assertValidKey(key);
+        PostMethod method = null;
+        try {
+            method = new PostMethod(this.storeUrl);
+            ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
+            requestFormat.writeGetVersionRequest(new DataOutputStream(outputBytes),
+                                                 storeName,
+                                                 key,
+                                                 reroute);
+            DataInputStream input = executeRequest(method, outputBytes);
+            return requestFormat.readGetVersionResponse(input);
+        } catch(IOException e) {
+            throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
+                                                + storeName, e);
+        } finally {
+            if(method != null)
+                method.releaseConnection();
+        }
+    }
 }

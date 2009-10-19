@@ -27,14 +27,17 @@ import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.pb.VProto.DeleteResponse;
 import voldemort.client.protocol.pb.VProto.GetAllResponse;
 import voldemort.client.protocol.pb.VProto.GetResponse;
+import voldemort.client.protocol.pb.VProto.GetVersionResponse;
 import voldemort.client.protocol.pb.VProto.PutResponse;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 
 /**
@@ -158,4 +161,29 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         throw mapper.getError((short) error.getErrorCode(), error.getErrorMessage());
     }
 
+    public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException {
+        GetVersionResponse.Builder response = ProtoUtils.readToBuilder(stream,
+                                                                       GetVersionResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+        List<Version> versions = Lists.newArrayListWithCapacity(response.getVersionsCount());
+        for(VProto.VectorClock version: response.getVersionsList())
+            versions.add(ProtoUtils.decodeClock(version));
+        return versions;
+    }
+
+    public void writeGetVersionRequest(DataOutputStream output,
+                                       String storeName,
+                                       ByteArray key,
+                                       boolean shouldReroute) throws IOException {
+        StoreUtils.assertValidKey(key);
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.GET_VERSION)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(shouldReroute)
+                                                       .setGet(VProto.GetRequest.newBuilder()
+                                                                                .setKey(ByteString.copyFrom(key.get())))
+                                                       .build());
+    }
 }

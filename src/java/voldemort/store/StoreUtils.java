@@ -32,8 +32,10 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
@@ -125,6 +127,13 @@ public class StoreUtils {
         }
 
         throw new InvalidMetadataException("client routing strategy not in sync with store routing strategy!");
+    }
+
+    public static <V> List<Version> getVersions(List<Versioned<V>> versioneds) {
+        List<Version> versions = Lists.newArrayListWithCapacity(versioneds.size());
+        for(Versioned<?> versioned: versioneds)
+            versions.add(versioned.getVersion());
+        return versions;
     }
 
     /**

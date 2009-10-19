@@ -25,6 +25,7 @@ import voldemort.VoldemortException;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -63,6 +64,10 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         return dataMap;
+    }
+
+    public List<Version> getVersions(ByteArray key) {
+        return StoreUtils.getVersions(get(key));
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {

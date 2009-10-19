@@ -82,4 +82,7 @@ public class DelegatingStore<K, V> implements Store<K, V> {
         return innerStore.toString();
     }
 
+    public List<Version> getVersions(K key) {
+        return innerStore.getVersions(key);
+    }
 }

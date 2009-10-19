@@ -27,4 +27,5 @@ public class VoldemortOpCode {
     public static final byte UPDATE_METADATA_OP_CODE = 6;
     public static final byte SERVER_STATE_CHANGE_OP_CODE = 8;
     public static final byte REDIRECT_GET_OP_CODE = 9;
+    public static final byte GET_VERSION_OP_CODE = 10;
 }
