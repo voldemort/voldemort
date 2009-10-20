@@ -63,12 +63,7 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                         System.out.println("return completed" + key + " resource:" + resource
                                            + " at " + new Date());
                     } catch(TimeoutException e) {
-                        // only if alloted resources are same as pool size
-                        assertEquals("resources In Hand(" + resourceInHand.get(key).get()
-                                     + ") should be same as  pool size(" + config.getMaxPoolSize()
-                                     + ")", config.getMaxPoolSize(), resourceInHand.get(key).get());
                         ++testStats.timeoutRequests;
-                        System.out.println("saw timeout !!");
                         return;
                     } catch(Exception e) {
                         throw new RuntimeException(e);
