@@ -108,6 +108,20 @@ public abstract class AdminClientRequestFormat {
                                                                                          VoldemortFilter filter);
 
     /**
+     * streaming API to get a list of all the keys that belong to any of the partitions
+     * in the input list
+     * 
+     * @param nodeId
+     * @param storeName
+     * @param partitionList
+     * @param filter
+     * @return
+     */
+    public abstract Iterator<ByteArray> doFetchKeys(int nodeId, String storeName,
+                                           List<Integer> partitionList,
+                                           VoldemortFilter filter);
+
+    /**
      * update Entries at (remote) node with all entries in iterator for passed
      * storeName
      * 

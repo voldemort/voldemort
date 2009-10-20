@@ -346,6 +346,21 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
     }
 
+    /**
+     * streaming API to get a list of all the keys that belong to any of the partitions
+     * in the input list
+     *
+     * @param nodeId
+     * @param storeName
+     * @param partitionList
+     * @param filter
+     * @return
+     */
+    @Override
+    public Iterator<ByteArray> doFetchKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
         Class cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);
