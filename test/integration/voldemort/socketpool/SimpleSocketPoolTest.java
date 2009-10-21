@@ -64,7 +64,7 @@ public class SimpleSocketPoolTest extends TestCase {
 
     public void testSocketPoolLimitSomeTimeout() throws Exception {
         // start a dummy server
-        SocketServer server = new SocketServer(6666, 50, 50, 1000, new RequestHandlerFactory(null,
+        SocketServer server = new SocketServer(7666, 50, 50, 1000, new RequestHandlerFactory(null,
                                                                                              null,
                                                                                              null));
         server.start();
@@ -81,13 +81,13 @@ public class SimpleSocketPoolTest extends TestCase {
                     throws Exception {
                 Thread.sleep(100);
                 int random = (int) (Math.random() * 10);
-                if(random == 7)
+                if(random >= 5)
                     resource.getSocket().close();
             }
 
             @Override
             protected SocketDestination getRequestKey() throws Exception {
-                return new SocketDestination("localhost", 6666, RequestFormatType.VOLDEMORT_V1);
+                return new SocketDestination("localhost", 7666, RequestFormatType.VOLDEMORT_V1);
             }
 
         };
