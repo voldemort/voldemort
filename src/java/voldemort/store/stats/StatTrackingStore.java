@@ -89,8 +89,8 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
         try {
             super.put(key, value);
         } catch (ObsoleteVersionException e) {
-	    throw e;
             stats.recordTime(Tracked.OBSOLETE, System.nanoTime() - start);
+            throw e;
         } catch(VoldemortException e) {
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
