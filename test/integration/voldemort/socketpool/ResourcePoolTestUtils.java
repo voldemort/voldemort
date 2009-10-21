@@ -1,5 +1,8 @@
 package voldemort.socketpool;
 
+import voldemort.store.socket.SocketAndStreams;
+import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketResourceFactory;
 import voldemort.utils.pool.ResourceFactory;
 
 public class ResourcePoolTestUtils {
@@ -17,5 +20,9 @@ public class ResourcePoolTestUtils {
                 return true;
             }
         };
+    }
+
+    public static ResourceFactory<SocketDestination, SocketAndStreams> getSocketPoolFactory() {
+        return new SocketResourceFactory(100, 1000) {};
     }
 }

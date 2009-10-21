@@ -95,6 +95,7 @@ public class KeyedResourcePool<K, V> {
         try {
             int attempts = 0;
             for(; attempts < this.maxCreateAttempts; attempts++) {
+                resource = null;
                 checkNotClosed();
                 long timeRemainingNs = this.timeoutNs - (System.nanoTime() - startNs);
                 if(timeRemainingNs < 0)
@@ -198,7 +199,7 @@ public class KeyedResourcePool<K, V> {
         if(pool == null)
             throw new IllegalArgumentException("Invalid key '" + key
                                                + "': no resource pool exists for that key.");
-        if(isOpen.get()) {
+        if(isOpen.get() && objectFactory.validate(key, resource)) {
             boolean success = pool.nonBlockingPut(resource);
             if(!success) {
                 destroyResource(key, pool, resource);
