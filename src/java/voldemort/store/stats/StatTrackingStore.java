@@ -24,6 +24,7 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -87,6 +88,9 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
         long start = System.nanoTime();
         try {
             super.put(key, value);
+        } catch (ObsoleteVersionException e) {
+            // Don't rethrow this, as not to log it. Merely track it in JMX
+            stats.recordTime(Tracked.OBSOLETE, System.nanoTime() - start);
         } catch(VoldemortException e) {
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
@@ -157,6 +161,12 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
     @JmxGetter(name = "DeleteThroughput", description = "Throughput of DELETE requests.")
     public float getDeleteThroughput() {
         return stats.getThroughput(Tracked.DELETE);
+    }
+
+    @JmxGetter(name = "numberOfObsoleteVersions",
+            description = "Number of ObsoleteVersionExceptions since the last reset.")
+    public long getNumberOfObsoleteVersions() {
+        return stats.getCount(Tracked.OBSOLETE);
     }
 
     @JmxGetter(name = "numberOfExceptions", description = "The number of exceptions since the last reset.")
