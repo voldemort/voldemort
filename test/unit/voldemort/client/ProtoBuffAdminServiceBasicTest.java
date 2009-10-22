@@ -162,6 +162,38 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         
     }
 
+    public void testFetchKeys() throws IOException {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+        Set<String> expected = new HashSet<String>();
+
+        for (Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+            if (routingStrategy.getPartitionList(entry.getFirst().get()).contains(0) ||
+                    routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
+                expected.add(new String(entry.getFirst().get()));
+            }
+        }
+
+        int checked=0;
+        int matched=0;
+
+        AdminClientRequestFormat client = getAdminClient();
+        Iterator<ByteArray> fetchIt = client.doFetchKeys(server.getIdentityNode().getId(),
+            storeName, Arrays.asList(0,1), null);
+        while (fetchIt.hasNext()) {
+            ByteArray fetchedKey = fetchIt.next();
+            checked++;
+
+            String fetchedKeyStr = new String(fetchedKey.get());
+            if (expected.contains(fetchedKeyStr))
+                matched++;
+        }
+        assertEquals(expected.size(), checked);
+        assertEquals("All values should have matched", checked, matched);
+    }
+    
     public void testFetch() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();

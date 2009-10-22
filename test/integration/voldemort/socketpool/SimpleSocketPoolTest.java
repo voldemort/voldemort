@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import junit.framework.TestCase;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketServer;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
 import voldemort.store.socket.SocketAndStreams;
@@ -64,9 +65,7 @@ public class SimpleSocketPoolTest extends TestCase {
 
     public void testSocketPoolLimitSomeTimeout() throws Exception {
         // start a dummy server
-        SocketServer server = new SocketServer(7666, 50, 50, 1000, new RequestHandlerFactory(null,
-                                                                                             null,
-                                                                                             null));
+        SocketServer server = new SocketServer(7666, 50, 50, 1000, new SocketRequestHandlerFactory(null), "test");
         server.start();
 
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
