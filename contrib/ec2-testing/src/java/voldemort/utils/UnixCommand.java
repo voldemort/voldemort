@@ -1,4 +1,4 @@
-package voldemort.utils.ec2testing;
+package voldemort.utils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
