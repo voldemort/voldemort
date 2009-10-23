@@ -62,8 +62,8 @@ public abstract class AbstractSocketPoolTest<K, V> extends TestCase {
                         doSomethingWithResource(key, resource);
 
                         // return
-                        pool.checkin(key, resource);
                         resourceInHand.get(key).decrementAndGet();
+                        pool.checkin(key, resource);
                     } catch(TimeoutException e) {
                         ++testStats.timeoutRequests;
                         return;
