@@ -10,9 +10,9 @@ import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.utils.ClusterStarter;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.SshClusterStarter;
-import voldemort.utils.ClusterStarter;
 
 public class VoldemortClusterStarterApp {
 
@@ -78,14 +78,14 @@ public class VoldemortClusterStarterApp {
             in.close();
         } catch(IOException e) {}
 
-        ClusterStarter voldemortClusterStarter = new SshClusterStarter();
+        ClusterStarter clusterStarter = new SshClusterStarter();
 
-        voldemortClusterStarter.start(hostNames,
-                                      hostUserId,
-                                      sshPrivateKey,
-                                      voldemortRootDirectory,
-                                      voldemortHomeDirectory,
-                                      600000);
+        clusterStarter.start(hostNames,
+                             hostUserId,
+                             sshPrivateKey,
+                             voldemortRootDirectory,
+                             voldemortHomeDirectory,
+                             600000);
     }
 
     private static void printUsage(PrintStream out, OptionParser parser) throws IOException {

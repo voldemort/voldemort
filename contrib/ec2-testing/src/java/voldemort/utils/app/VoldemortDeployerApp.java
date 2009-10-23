@@ -11,8 +11,8 @@ import java.util.List;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.RsyncDeployer;
 import voldemort.utils.Deployer;
+import voldemort.utils.RsyncDeployer;
 
 public class VoldemortDeployerApp {
 
@@ -85,13 +85,13 @@ public class VoldemortDeployerApp {
 
         System.out.println(hostNames);
 
-        Deployer voldemortDeploy = new RsyncDeployer();
-        voldemortDeploy.deploy(hostNames,
-                               hostUserId,
-                               sshPrivateKey,
-                               voldemortRootDirectory,
-                               sourceDirectory,
-                               600000);
+        Deployer deployer = new RsyncDeployer();
+        deployer.deploy(hostNames,
+                        hostUserId,
+                        sshPrivateKey,
+                        voldemortRootDirectory,
+                        sourceDirectory,
+                        600000);
     }
 
     private static void printUsage(PrintStream out, OptionParser parser) throws IOException {

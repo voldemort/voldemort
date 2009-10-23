@@ -48,36 +48,37 @@ public class SmokeTest {
     }
 
     private void generateClusterDescriptor(Collection<String> privateDnsNames) throws Exception {
-        ClusterGenerator cdg = new ClusterGenerator();
-        String clusterXml = cdg.createClusterDescriptor(new ArrayList<String>(privateDnsNames), 3);
+        ClusterGenerator clusterGenerator = new ClusterGenerator();
+        String clusterXml = clusterGenerator.createClusterDescriptor(new ArrayList<String>(privateDnsNames),
+                                                                     3);
 
         // System.out.println(clusterXml); // Rad
     }
 
     private void rsync(Collection<String> hostNames) throws Exception {
-        Deployer voldemortDeployer = new RsyncDeployer();
-        voldemortDeployer.deploy(hostNames,
-                                 hostUserId,
-                                 sshPrivateKey,
-                                 voldemortRootDirectory,
-                                 sourceDirectory,
-                                 600000);
+        Deployer deployer = new RsyncDeployer();
+        deployer.deploy(hostNames,
+                        hostUserId,
+                        sshPrivateKey,
+                        voldemortRootDirectory,
+                        sourceDirectory,
+                        600000);
     }
 
     private void startCluster(Collection<String> hostNames) throws Exception {
-        ClusterStarter voldemortClusterStarter = new SshClusterStarter();
-        voldemortClusterStarter.start(hostNames,
-                                      hostUserId,
-                                      sshPrivateKey,
-                                      voldemortRootDirectory + "/voldemort",
-                                      voldemortHomeDirectory,
-                                      600000);
+        ClusterStarter clusterStarter = new SshClusterStarter();
+        clusterStarter.start(hostNames,
+                             hostUserId,
+                             sshPrivateKey,
+                             voldemortRootDirectory + "/voldemort",
+                             voldemortHomeDirectory,
+                             600000);
     }
 
     private void stopCluster(Collection<String> hostNames) throws Exception {
-        ClusterStopper voldemortClusterStopper = new SshClusterStopper();
-        voldemortClusterStopper.stop(hostNames, hostUserId, sshPrivateKey, voldemortRootDirectory
-                                                                           + "/voldemort", 600000);
+        ClusterStopper clusterStopper = new SshClusterStopper();
+        clusterStopper.stop(hostNames, hostUserId, sshPrivateKey, voldemortRootDirectory
+                                                                  + "/voldemort", 600000);
     }
 
 }
