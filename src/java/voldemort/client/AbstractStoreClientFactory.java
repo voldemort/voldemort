@@ -89,6 +89,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
+    private final int maxBootstrapRetries;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -105,6 +106,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         else
             this.mbeanServer = null;
         this.jmxId = jmxIdCounter.getAndIncrement();
+        this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         registerThreadPoolJmx(threadPool);
     }
 
@@ -132,9 +134,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V> Store<K, V> getRawStore(String storeName,
                                           InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
-        String clusterXml = bootstrapMetadata(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-        String storesXml = bootstrapMetadata(MetadataStore.STORES_KEY, bootstrapUrls);
+        String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml));
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
@@ -199,6 +201,25 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
+    }
+
+    private String bootstrapMetadataWithRetries(String key, URI[] urls) {
+        int nTries = 0;
+        while(nTries++ < this.maxBootstrapRetries) {
+            try {
+                return bootstrapMetadata(key, urls);
+            } catch(BootstrapFailureException e) {
+                int backOffTime = 5 * nTries;
+                logger.warn("Failed to bootstrap will try again after" + backOffTime);
+                try {
+                    Thread.sleep(backOffTime * 1000);
+                } catch(InterruptedException e1) {
+                    throw new RuntimeException(e1);
+                }
+            }
+        }
+
+        throw new BootstrapFailureException("No available boostrap servers found!");
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {
