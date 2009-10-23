@@ -695,7 +695,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         markUnavailable(node, e);
                         failures.add(e);
                     } catch (ObsoleteVersionException e) {
-                        // Do not log or consider an obsoleteVersionException a failure
+                        // Do not log ObsoleteVersionException
+                        failures.add(e);
                     }
                     catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
