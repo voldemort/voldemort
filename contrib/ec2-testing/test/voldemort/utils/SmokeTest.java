@@ -13,20 +13,29 @@ import voldemort.utils.ec2testing.TypicaEc2Connection;
 
 public class SmokeTest {
 
+    private String hostUserId = "root";
+
+    private File sshPrivateKey = new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
+
+    private String voldemortRootDirectory = "somesubdirectory";
+
+    private String voldemortHomeDirectory = "somesubdirectory/voldemort/config/single_node_cluster";
+
+    private File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
+
     @Test
     public void test() throws Exception {
         Map<String, String> dnsNames = new HashMap<String, String>();
-        dnsNames.put("ec2-75-101-191-205.compute-1.amazonaws.com",
-                     "domU-12-31-39-00-C4-D5.compute-1.internal");
+        dnsNames.put("ec2-174-129-127-232.compute-1.amazonaws.com", "ip-10-242-203-96.ec2.internal");
 
         // dnsNames = createInstances();
         generateClusterDescriptor(dnsNames.values());
 
         rsync(dnsNames.keySet());
         startCluster(dnsNames.keySet());
-        
+
         Thread.sleep(15000);
-        
+
         stopCluster(dnsNames.keySet());
     }
 
@@ -47,36 +56,27 @@ public class SmokeTest {
     }
 
     private void rsync(Collection<String> hostNames) throws Exception {
-        File sourceDirectory = new File("/Users/kirk/voldemortdev/voldemort");
-        File sshPrivateKey = new File("/Users/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
-
         VoldemortDeployer voldemortDeployer = new RsyncVoldemortDeployer();
         voldemortDeployer.deploy(hostNames,
-                                 "root",
+                                 hostUserId,
                                  sshPrivateKey,
-                                 sourceDirectory,
-                                 "",
-                                 "",
-                                 "",
-                                 "somesubdirectory");
+                                 voldemortRootDirectory,
+                                 sourceDirectory);
     }
 
     private void startCluster(Collection<String> hostNames) throws Exception {
-        File sshPrivateKey = new File("/Users/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
-
         VoldemortClusterStarter voldemortClusterStarter = new SshVoldemortClusterStarter();
         voldemortClusterStarter.start(hostNames,
-                                      "root",
+                                      hostUserId,
                                       sshPrivateKey,
-                                      "somesubdirectory/voldemort",
-                                      "somesubdirectory/voldemort/config/single_node_cluster");
+                                      voldemortRootDirectory + "/voldemort",
+                                      voldemortHomeDirectory);
     }
 
     private void stopCluster(Collection<String> hostNames) throws Exception {
-        File sshPrivateKey = new File("/Users/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
-
         VoldemortClusterStopper voldemortClusterStopper = new SshVoldemortClusterStopper();
-        voldemortClusterStopper.stop(hostNames, "root", sshPrivateKey, "somesubdirectory/voldemort");
+        voldemortClusterStopper.stop(hostNames, hostUserId, sshPrivateKey, voldemortRootDirectory
+                                                                           + "/voldemort");
     }
 
 }

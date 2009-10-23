@@ -8,10 +8,7 @@ public interface VoldemortDeployer {
     public void deploy(Collection<String> hostNames,
                        String hostUserId,
                        File sshPrivateKey,
-                       File sourceDirectory,
-                       String clusterXml,
-                       String storesXml,
-                       String serverProperties,
-                       String destinationDirectory) throws VoldemortDeploymentException;
+                       String voldemortRootDirectory,
+                       File sourceDirectory) throws VoldemortDeploymentException;
 
 }
