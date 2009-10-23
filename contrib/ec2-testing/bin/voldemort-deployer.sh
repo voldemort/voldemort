@@ -34,4 +34,4 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java $VOLD_OPTS -cp $CLASSPATH voldemort.utils.app.VoldemortEc2InstanceCreatorApp $@
+java $VOLD_OPTS -cp $CLASSPATH voldemort.utils.app.VoldemortDeployerApp $@

@@ -16,32 +16,20 @@
 
 package voldemort.utils;
 
-import java.util.List;
+public class StopClusterException extends Exception {
 
-public class ClusterNodeDescriptor {
+    public StopClusterException() {}
 
-    private String hostName;
-
-    private int id;
-
-    private List<Integer> partitions;
-
-    public ClusterNodeDescriptor(String hostName, int id, List<Integer> partitions) {
-        this.hostName = hostName;
-        this.id = id;
-        this.partitions = partitions;
+    public StopClusterException(String message) {
+        super(message);
     }
 
-    public String getHostName() {
-        return hostName;
+    public StopClusterException(Throwable cause) {
+        super(cause);
     }
 
-    public int getId() {
-        return id;
-    }
-
-    public List<Integer> getPartitions() {
-        return partitions;
+    public StopClusterException(String message, Throwable cause) {
+        super(message, cause);
     }
 
 }

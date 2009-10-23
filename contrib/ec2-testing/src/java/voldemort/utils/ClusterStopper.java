@@ -16,32 +16,15 @@
 
 package voldemort.utils;
 
-import java.util.List;
+import java.io.File;
+import java.util.Collection;
 
-public class ClusterNodeDescriptor {
+public interface ClusterStopper {
 
-    private String hostName;
-
-    private int id;
-
-    private List<Integer> partitions;
-
-    public ClusterNodeDescriptor(String hostName, int id, List<Integer> partitions) {
-        this.hostName = hostName;
-        this.id = id;
-        this.partitions = partitions;
-    }
-
-    public String getHostName() {
-        return hostName;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public List<Integer> getPartitions() {
-        return partitions;
-    }
+    public void stop(Collection<String> hostNames,
+                     String hostUserId,
+                     File sshPrivateKey,
+                     String voldemortRootDirectory,
+                     long timeout) throws StopClusterException;
 
 }

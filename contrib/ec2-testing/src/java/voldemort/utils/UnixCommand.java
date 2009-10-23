@@ -1,12 +1,25 @@
+/*
+ * Copyright 2009 LinkedIn, Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
-
-import org.apache.commons.lang.StringUtils;
 
 /**
  * A wrapper for executing a unix command
@@ -16,53 +29,58 @@ import org.apache.commons.lang.StringUtils;
  */
 public class UnixCommand {
 
+    private final String hostName;
+
     private final String[] args;
 
-    public static void main(String[] args) throws Exception {
-        UnixCommand cmd = new UnixCommand(args);
-        cmd.execute();
-    }
-
-    public UnixCommand(String... args) {
+    public UnixCommand(String hostName, String... args) {
+        this.hostName = hostName;
         this.args = args;
     }
 
-    public UnixCommand(List<String> args) {
+    public UnixCommand(String hostName, List<String> args) {
+        this.hostName = hostName;
         this.args = args.toArray(new String[args.size()]);
     }
 
-    public void execute() throws InterruptedException, IOException {
+    public String getHostName() {
+        return hostName;
+    }
+
+    public int execute(CommandOutputListener commandOutputListener) throws InterruptedException,
+            IOException {
         ProcessBuilder builder = new ProcessBuilder(this.args);
         Process process = builder.start();
 
-        Thread stdout = new StreamPrinter(process.getInputStream());
-        Thread stderr = new StreamPrinter(process.getErrorStream());
-        stdout.start();
-        stderr.start();
+        Thread stdoutWatcher = new ProcessOutputWatcher(new BufferedReader(new InputStreamReader(process.getInputStream())),
+                                                        commandOutputListener,
+                                                        CommandOutputListener.OutputType.STDOUT);
+        Thread stderrWatcher = new ProcessOutputWatcher(new BufferedReader(new InputStreamReader(process.getErrorStream())),
+                                                        commandOutputListener,
+                                                        CommandOutputListener.OutputType.STDERR);
+
+        stdoutWatcher.start();
+        stderrWatcher.start();
 
         process.waitFor();
 
-        int exitCode = process.exitValue();
-
-        if(exitCode > 0)
-            throw new RuntimeException(exitCode + "");
+        return process.exitValue();
     }
 
-    public String getCommand() {
-        return StringUtils.join(args, ' ');
-    }
+    private class ProcessOutputWatcher extends Thread {
 
-    @Override
-    public String toString() {
-        return StringUtils.join(args, ' ');
-    }
+        private final BufferedReader reader;
 
-    private static class StreamPrinter extends Thread {
+        private final CommandOutputListener commandOutputListener;
 
-        private BufferedReader reader;
+        private final CommandOutputListener.OutputType outputType;
 
-        public StreamPrinter(InputStream inputStream) {
-            this.reader = new BufferedReader(new InputStreamReader(inputStream));
+        public ProcessOutputWatcher(BufferedReader reader,
+                                    CommandOutputListener commandOutputListener,
+                                    CommandOutputListener.OutputType outputType) {
+            this.reader = reader;
+            this.commandOutputListener = commandOutputListener;
+            this.outputType = outputType;
         }
 
         @Override
@@ -70,9 +88,8 @@ public class UnixCommand {
             try {
                 String line = null;
 
-                while((line = reader.readLine()) != null) {
-                    System.out.println(line);
-                }
+                while((line = reader.readLine()) != null)
+                    commandOutputListener.outputReceived(outputType, hostName, line);
             } catch(IOException e) {
                 e.printStackTrace();
             }

@@ -8,9 +8,6 @@ import java.util.Map;
 
 import org.junit.Test;
 
-import voldemort.utils.ec2testing.Ec2Connection;
-import voldemort.utils.ec2testing.TypicaEc2Connection;
-
 public class SmokeTest {
 
     private String hostUserId = "root";
@@ -26,7 +23,9 @@ public class SmokeTest {
     @Test
     public void test() throws Exception {
         Map<String, String> dnsNames = new HashMap<String, String>();
-        dnsNames.put("ec2-174-129-127-232.compute-1.amazonaws.com", "ip-10-242-203-96.ec2.internal");
+        dnsNames.put("ec2-75-101-226-173.compute-1.amazonaws.com", "ip-10-244-133-123.ec2.internal");
+        dnsNames.put("ec2-174-129-138-76.compute-1.amazonaws.com", "ip-10-244-145-204.ec2.internal");
+        dnsNames.put("ec2-75-101-199-162.compute-1.amazonaws.com", "ip-10-245-70-114.ec2.internal");
 
         // dnsNames = createInstances();
         generateClusterDescriptor(dnsNames.values());
@@ -45,38 +44,40 @@ public class SmokeTest {
         String ami = System.getProperty("ec2Ami");
         String keyPairId = System.getProperty("ec2KeyPairId");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.createInstances(ami, keyPairId, null, 1, 360000);
+        return ec2.createInstances(ami, keyPairId, null, 3, 360000);
     }
 
     private void generateClusterDescriptor(Collection<String> privateDnsNames) throws Exception {
-        ClusterDescriptorGenerator cdg = new ClusterDescriptorGenerator();
+        ClusterGenerator cdg = new ClusterGenerator();
         String clusterXml = cdg.createClusterDescriptor(new ArrayList<String>(privateDnsNames), 3);
 
         // System.out.println(clusterXml); // Rad
     }
 
     private void rsync(Collection<String> hostNames) throws Exception {
-        VoldemortDeployer voldemortDeployer = new RsyncVoldemortDeployer();
+        Deployer voldemortDeployer = new RsyncDeployer();
         voldemortDeployer.deploy(hostNames,
                                  hostUserId,
                                  sshPrivateKey,
                                  voldemortRootDirectory,
-                                 sourceDirectory);
+                                 sourceDirectory,
+                                 600000);
     }
 
     private void startCluster(Collection<String> hostNames) throws Exception {
-        VoldemortClusterStarter voldemortClusterStarter = new SshVoldemortClusterStarter();
+        ClusterStarter voldemortClusterStarter = new SshClusterStarter();
         voldemortClusterStarter.start(hostNames,
                                       hostUserId,
                                       sshPrivateKey,
                                       voldemortRootDirectory + "/voldemort",
-                                      voldemortHomeDirectory);
+                                      voldemortHomeDirectory,
+                                      600000);
     }
 
     private void stopCluster(Collection<String> hostNames) throws Exception {
-        VoldemortClusterStopper voldemortClusterStopper = new SshVoldemortClusterStopper();
+        ClusterStopper voldemortClusterStopper = new SshClusterStopper();
         voldemortClusterStopper.stop(hostNames, hostUserId, sshPrivateKey, voldemortRootDirectory
-                                                                           + "/voldemort");
+                                                                           + "/voldemort", 600000);
     }
 
 }
