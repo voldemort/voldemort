@@ -16,10 +16,8 @@
 
 package voldemort.utils;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,35 +33,36 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-class CommandLineAction {
+abstract class CommandLineClusterOperation {
+
+    protected final CommandLineClusterConfig commandLineClusterConfig;
+
+    protected final String commandId;
 
     protected final Log logger = LogFactory.getLog(getClass());
 
-    protected void run(String commandId,
-                       Collection<String> hostNames,
-                       String hostUserId,
-                       File sshPrivateKey,
-                       String voldemortRootDirectory,
-                       String voldemortHomeDirectory,
-                       File sourceDirectory,
-                       long timeout,
-                       StringBuilder errors) throws IOException {
-        ExecutorService threadPool = Executors.newFixedThreadPool(hostNames.size());
-        List<Future<Object>> futures = new ArrayList<Future<Object>>();
+    protected CommandLineClusterOperation(CommandLineClusterConfig commandLineClusterConfig,
+                                          String commandId) {
+        this.commandLineClusterConfig = commandLineClusterConfig;
+        this.commandId = commandId;
+    }
 
+    public void execute() throws ClusterOperationException {
         Properties properties = new Properties();
-        properties.load(getClass().getClassLoader().getResourceAsStream("commands.properties"));
+
+        try {
+            properties.load(getClass().getClassLoader().getResourceAsStream("commands.properties"));
+        } catch(IOException e1) {
+            throw new ClusterOperationException(e1);
+        }
 
         final String rawCommand = properties.getProperty(commandId);
+        ExecutorService threadPool = Executors.newFixedThreadPool(commandLineClusterConfig.getHostNames()
+                                                                                          .size());
+        List<Future<Object>> futures = new ArrayList<Future<Object>>();
 
-        for(String hostName: hostNames) {
-            String parameterizedCommand = parameterizeCommand(hostName,
-                                                              hostUserId,
-                                                              sshPrivateKey,
-                                                              voldemortRootDirectory,
-                                                              voldemortHomeDirectory,
-                                                              sourceDirectory,
-                                                              rawCommand);
+        for(String hostName: commandLineClusterConfig.getHostNames()) {
+            String parameterizedCommand = parameterizeCommand(hostName, rawCommand);
             List<String> commandArgs = generateCommandArgs(parameterizedCommand);
             UnixCommand command = new UnixCommand(hostName, commandArgs);
 
@@ -73,11 +72,13 @@ class CommandLineAction {
             futures.add(future);
         }
 
+        StringBuilder errors = new StringBuilder();
+
         for(Future<Object> future: futures) {
             Throwable t = null;
 
             try {
-                future.get(timeout, TimeUnit.MILLISECONDS);
+                future.get();
             } catch(ExecutionException ex) {
                 t = ex.getCause();
             } catch(Exception e) {
@@ -103,27 +104,30 @@ class CommandLineAction {
             if(logger.isWarnEnabled())
                 logger.warn(e, e);
         }
+
+        if(errors.length() > 0)
+            throw new ClusterOperationException(errors.toString());
     }
 
-    private String parameterizeCommand(String hostName,
-                                       String hostUserId,
-                                       File sshPrivateKey,
-                                       String voldemortRootDirectory,
-                                       String voldemortHomeDirectory,
-                                       File sourceDirectory,
-                                       String command) {
+    private String parameterizeCommand(String hostName, String command) {
         Map<String, String> variableMap = new HashMap<String, String>();
         variableMap.put("hostName", hostName);
-        variableMap.put("hostUserId", hostUserId);
+        variableMap.put("hostUserId", commandLineClusterConfig.getHostUserId());
 
-        if(sshPrivateKey != null)
-            variableMap.put("sshPrivateKey", sshPrivateKey.getAbsolutePath());
+        if(commandLineClusterConfig.getSshPrivateKey() != null)
+            variableMap.put("sshPrivateKey", commandLineClusterConfig.getSshPrivateKey()
+                                                                     .getAbsolutePath());
 
-        variableMap.put("voldemortRootDirectory", voldemortRootDirectory);
-        variableMap.put("voldemortHomeDirectory", voldemortHomeDirectory);
+        variableMap.put("voldemortParentDirectory",
+                        commandLineClusterConfig.getVoldemortParentDirectory());
+        variableMap.put("voldemortRootDirectory",
+                        commandLineClusterConfig.getVoldemortRootDirectory());
+        variableMap.put("voldemortHomeDirectory",
+                        commandLineClusterConfig.getVoldemortHomeDirectory());
 
-        if(sourceDirectory != null)
-            variableMap.put("sourceDirectory", sourceDirectory.getAbsolutePath());
+        if(commandLineClusterConfig.getSourceDirectory() != null)
+            variableMap.put("sourceDirectory", commandLineClusterConfig.getSourceDirectory()
+                                                                       .getAbsolutePath());
 
         for(Map.Entry<String, String> entry: variableMap.entrySet())
             command = StringUtils.replace(command, "${" + entry.getKey() + "}", entry.getValue());

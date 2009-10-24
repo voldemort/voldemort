@@ -16,20 +16,8 @@
 
 package voldemort.utils;
 
-public class StopClusterException extends Exception {
+public interface ClusterOperation {
 
-    public StopClusterException() {}
-
-    public StopClusterException(String message) {
-        super(message);
-    }
-
-    public StopClusterException(Throwable cause) {
-        super(cause);
-    }
-
-    public StopClusterException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    public void execute() throws ClusterOperationException;
 
 }

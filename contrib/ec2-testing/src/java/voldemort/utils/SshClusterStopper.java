@@ -16,35 +16,10 @@
 
 package voldemort.utils;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
+public class SshClusterStopper extends CommandLineClusterOperation implements ClusterOperation {
 
-public class SshClusterStopper extends CommandLineAction implements ClusterStopper {
-
-    public void stop(Collection<String> hostNames,
-                     String hostUserId,
-                     File sshPrivateKey,
-                     String voldemortRootDirectory,
-                     long timeout) throws StopClusterException {
-        StringBuilder errors = new StringBuilder();
-
-        try {
-            run("SshClusterStopper.ssh",
-                hostNames,
-                hostUserId,
-                sshPrivateKey,
-                voldemortRootDirectory,
-                null,
-                null,
-                timeout,
-                errors);
-        } catch(IOException e) {
-            throw new StopClusterException(e);
-        }
-
-        if(errors.length() > 0)
-            throw new StopClusterException(errors.toString());
+    public SshClusterStopper(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "SshClusterStopper.ssh");
     }
 
 }

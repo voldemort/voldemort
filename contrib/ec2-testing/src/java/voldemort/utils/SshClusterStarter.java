@@ -16,36 +16,10 @@
 
 package voldemort.utils;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
+public class SshClusterStarter extends CommandLineClusterOperation implements ClusterOperation {
 
-public class SshClusterStarter extends CommandLineAction implements ClusterStarter {
-
-    public void start(Collection<String> hostNames,
-                      String hostUserId,
-                      File sshPrivateKey,
-                      String voldemortRootDirectory,
-                      String voldemortHomeDirectory,
-                      long timeout) throws StartClusterException {
-        StringBuilder errors = new StringBuilder();
-
-        try {
-            run("SshClusterStarter.ssh",
-                hostNames,
-                hostUserId,
-                sshPrivateKey,
-                voldemortRootDirectory,
-                voldemortHomeDirectory,
-                null,
-                timeout,
-                errors);
-        } catch(IOException e) {
-            throw new StartClusterException(e);
-        }
-
-        if(errors.length() > 0)
-            throw new StartClusterException(errors.toString());
+    public SshClusterStarter(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "SshClusterStarter.ssh");
     }
 
 }

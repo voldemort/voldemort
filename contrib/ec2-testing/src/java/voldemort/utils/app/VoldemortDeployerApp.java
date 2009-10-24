@@ -10,8 +10,9 @@ import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.utils.ClusterOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.Deployer;
+import voldemort.utils.CommandLineClusterConfig;
 import voldemort.utils.RsyncDeployer;
 
 public class VoldemortDeployerApp {
@@ -21,7 +22,7 @@ public class VoldemortDeployerApp {
         parser.accepts("hostsfile", "File containing list of remote host names.").withRequiredArg();
         parser.accepts("hostuserid", "Name of user on remote host. Default root").withRequiredArg();
         parser.accepts("sshprivatekey", "File containing the private SSH key").withRequiredArg();
-        parser.accepts("voldemortroot", "Voldemort's root directory on remote host")
+        parser.accepts("voldemortparent", "Voldemort's parent directory on remote host")
               .withRequiredArg();
         parser.accepts("sourcedir", "The source directory on the local machine").withRequiredArg();
 
@@ -55,10 +56,10 @@ public class VoldemortDeployerApp {
         else
             hostUserId = "root";
 
-        if(!options.has("voldemortroot"))
+        if(!options.has("voldemortparent"))
             printUsage(System.err, parser);
 
-        String voldemortRootDirectory = CmdUtils.valueOf(options, "voldemortroot", "");
+        String voldemortParentDirectory = CmdUtils.valueOf(options, "voldemortparent", "");
 
         if(!options.has("sourcedir"))
             printUsage(System.err, parser);
@@ -83,15 +84,15 @@ public class VoldemortDeployerApp {
             in.close();
         } catch(IOException e) {}
 
-        System.out.println(hostNames);
+        CommandLineClusterConfig config = new CommandLineClusterConfig();
+        config.setHostNames(hostNames);
+        config.setHostUserId(hostUserId);
+        config.setSshPrivateKey(sshPrivateKey);
+        config.setVoldemortParentDirectory(voldemortParentDirectory);
+        config.setSourceDirectory(sourceDirectory);
 
-        Deployer deployer = new RsyncDeployer();
-        deployer.deploy(hostNames,
-                        hostUserId,
-                        sshPrivateKey,
-                        voldemortRootDirectory,
-                        sourceDirectory,
-                        600000);
+        ClusterOperation operation = new RsyncDeployer(config);
+        operation.execute();
     }
 
     private static void printUsage(PrintStream out, OptionParser parser) throws IOException {

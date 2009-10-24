@@ -16,15 +16,10 @@
 
 package voldemort.utils;
 
-import java.io.File;
-import java.util.Collection;
+public class SshRemoteMonitor extends CommandLineClusterOperation implements ClusterOperation {
 
-public interface ClusterStopper {
-
-    public void stop(Collection<String> hostNames,
-                     String hostUserId,
-                     File sshPrivateKey,
-                     String voldemortRootDirectory,
-                     long timeout) throws StopClusterException;
+    public SshRemoteMonitor(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "SshRemoteMonitor.ssh");
+    }
 
 }

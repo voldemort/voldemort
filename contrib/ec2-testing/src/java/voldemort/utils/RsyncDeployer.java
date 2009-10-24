@@ -16,36 +16,10 @@
 
 package voldemort.utils;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
+public class RsyncDeployer extends CommandLineClusterOperation implements ClusterOperation {
 
-public class RsyncDeployer extends CommandLineAction implements Deployer {
-
-    public void deploy(Collection<String> hostNames,
-                       String hostUserId,
-                       File sshPrivateKey,
-                       String voldemortRootDirectory,
-                       File sourceDirectory,
-                       long timeout) throws DeploymentException {
-        StringBuilder errors = new StringBuilder();
-
-        try {
-            run("RsyncDeployer.rsync",
-                hostNames,
-                hostUserId,
-                sshPrivateKey,
-                voldemortRootDirectory,
-                null,
-                sourceDirectory,
-                timeout,
-                errors);
-        } catch(IOException e) {
-            throw new DeploymentException(e);
-        }
-
-        if(errors.length() > 0)
-            throw new DeploymentException(errors.toString());
+    public RsyncDeployer(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "RsyncDeployer.rsync");
     }
 
 }

@@ -16,16 +16,20 @@
 
 package voldemort.utils;
 
-import java.io.File;
-import java.util.Collection;
+public class ClusterOperationException extends Exception {
 
-public interface ClusterStarter {
+    public ClusterOperationException() {}
 
-    public void start(Collection<String> hostNames,
-                      String hostUserId,
-                      File sshPrivateKey,
-                      String voldemortRootDirectory,
-                      String voldemortHomeDirectory,
-                      long timeout) throws StartClusterException;
+    public ClusterOperationException(String message) {
+        super(message);
+    }
+
+    public ClusterOperationException(Throwable cause) {
+        super(cause);
+    }
+
+    public ClusterOperationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
 }
