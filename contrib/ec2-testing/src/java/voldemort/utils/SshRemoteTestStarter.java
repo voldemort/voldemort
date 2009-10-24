@@ -16,10 +16,10 @@
 
 package voldemort.utils;
 
-public class SshRemoteMonitor extends CommandLineClusterOperation implements ClusterOperation {
+public class SshRemoteTestStarter extends CommandLineClusterOperation implements ClusterOperation {
 
-    public SshRemoteMonitor(CommandLineClusterConfig commandLineClusterConfig) {
-        super(commandLineClusterConfig, "SshRemoteMonitor.ssh");
+    public SshRemoteTestStarter(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "SshRemoteTestStarter.ssh");
     }
 
 }

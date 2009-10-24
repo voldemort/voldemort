@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
 public class SmokeTest {
@@ -19,7 +20,8 @@ public class SmokeTest {
                      "domU-12-31-39-02-E4-C8.compute-1.internal");
 
         // dnsNames = createInstances();
-        generateClusterDescriptor(dnsNames.values());
+        generateClusterDescriptor(dnsNames.values(),
+                                  "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/cluster.xml");
 
         CommandLineClusterConfig config = new CommandLineClusterConfig();
         config.setHostNames(dnsNames.keySet());
@@ -32,6 +34,7 @@ public class SmokeTest {
 
         new RsyncDeployer(config).execute();
         new SshClusterStarter(config).execute();
+        new SshRemoteTestStarter(config).execute();
         Thread.sleep(15000);
         new SshClusterStopper(config).execute();
     }
@@ -45,12 +48,13 @@ public class SmokeTest {
         return ec2.createInstances(ami, keyPairId, null, 1, 360000);
     }
 
-    private void generateClusterDescriptor(Collection<String> privateDnsNames) throws Exception {
+    private void generateClusterDescriptor(Collection<String> privateDnsNames, String path)
+            throws Exception {
         ClusterGenerator clusterGenerator = new ClusterGenerator();
         String clusterXml = clusterGenerator.createClusterDescriptor(new ArrayList<String>(privateDnsNames),
                                                                      3);
 
-        // System.out.println(clusterXml); // Rad
+        FileUtils.writeStringToFile(new File(path), clusterXml);
     }
 
 }

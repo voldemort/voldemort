@@ -1,96 +1,64 @@
+/*
+ * Copyright 2009 LinkedIn, Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils.app;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
 
-import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.utils.ClusterGenerator;
-import voldemort.utils.CmdUtils;
 
-public class VoldemortClusterGeneratorApp {
+import org.apache.commons.io.FileUtils;
+
+import voldemort.utils.ClusterGenerator;
+
+public class VoldemortClusterGeneratorApp extends VoldemortApp {
 
     public static void main(String[] args) throws Exception {
-        OptionParser parser = new OptionParser();
-        parser.accepts("dnsfile", "File containing public and private dns names.")
-              .withRequiredArg();
-        parser.accepts("partitions", "Number of partitions for each cluster node.")
+        new VoldemortClusterGeneratorApp().run(args);
+    }
+
+    @Override
+    protected String getScriptName() {
+        return "voldemort-clustergenerator.sh";
+    }
+
+    @Override
+    public void run(String[] args) throws Exception {
+        parser.accepts("hostnames", "File containing host names").withRequiredArg();
+        parser.accepts("partitions", "Number of partitions per cluster node")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("fileout", "cluster.xml configuration file. Default System.out")
+        parser.accepts("output", "cluster.xml configuration file; defaults to stdout")
               .withRequiredArg();
 
         OptionSet options = parser.parse(args);
+        File hostNamesFile = getRequiredInputFile(options, "hostnames");
+        int partitions = getRequiredInt(options, "partitions");
+        File outputFile = getOutputFile(options, "output");
 
-        if(!options.has("dnsfile"))
-            printUsage(System.err, parser);
+        List<String> privateHostNames = getHostNamesFromFile(hostNamesFile, false);
 
-        String dnsFile = CmdUtils.valueOf(options, "dnsfile", "");
-        File file = new File(dnsFile);
-        if(!file.canRead()) {
-            System.out.println("Dns File cannot be read.");
-            System.exit(2);
-        }
+        String clusterXml = new ClusterGenerator().createClusterDescriptor(privateHostNames,
+                                                                           partitions);
 
-        if(!options.has("partitions"))
-            printUsage(System.err, parser);
-
-        int partitions = CmdUtils.valueOf(options, "partitions", 0);
-
-        File outFile = null;
-
-        if(options.has("fileout")) {
-
-            String fileOut = CmdUtils.valueOf(options, "fileout", "");
-            outFile = new File(fileOut);
-            File parentDirectory = outFile.getAbsoluteFile().getParentFile();
-
-            // Try to make any parent directories for the user. Don't bother
-            // checking here as we'll determine writability right below.
-            parentDirectory.mkdirs();
-
-            if(!parentDirectory.canWrite()) {
-                System.out.println("File cannot be written in directory "
-                                   + parentDirectory.getAbsolutePath());
-                System.exit(2);
-            }
-        }
-        List<String> dnsNames = new ArrayList<String>();
-        try {
-            BufferedReader in = new BufferedReader(new FileReader(file));
-            String str;
-            while((str = in.readLine()) != null) {
-                dnsNames.add(str.substring(str.indexOf(",") + 1, str.length()));
-            }
-            in.close();
-        } catch(IOException e) {}
-
-        ClusterGenerator cdg = new ClusterGenerator();
-        String descriptor = cdg.createClusterDescriptor(dnsNames, partitions);
-
-        PrintStream out = null;
-        if(outFile != null) {
-            try {
-                out = new PrintStream(new FileOutputStream(outFile));
-                out.print(descriptor);
-            } finally {
-                if(out != null)
-                    out.close();
-            }
-        } else {
-            System.out.print(descriptor);
-        }
+        if(outputFile != null)
+            FileUtils.writeStringToFile(outputFile, clusterXml);
+        else
+            System.out.print(clusterXml);
     }
 
-    private static void printUsage(PrintStream out, OptionParser parser) throws IOException {
-        out.println("Usage: $VOLDEMORT_HOME/contrib/ec2-testing/bin/voldemort-clustergenerator.sh");
-        parser.printHelpOn(out);
-        System.exit(1);
-    }
 }

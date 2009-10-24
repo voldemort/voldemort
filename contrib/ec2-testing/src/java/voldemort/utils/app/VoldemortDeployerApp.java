@@ -1,88 +1,58 @@
+/*
+ * Copyright 2009 LinkedIn, Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils.app;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
 
-import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.utils.ClusterOperation;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.CommandLineClusterConfig;
 import voldemort.utils.RsyncDeployer;
 
-public class VoldemortDeployerApp {
+public class VoldemortDeployerApp extends VoldemortApp {
 
     public static void main(String[] args) throws Exception {
-        OptionParser parser = new OptionParser();
-        parser.accepts("hostsfile", "File containing list of remote host names.").withRequiredArg();
-        parser.accepts("hostuserid", "Name of user on remote host. Default root").withRequiredArg();
-        parser.accepts("sshprivatekey", "File containing the private SSH key").withRequiredArg();
+        new VoldemortDeployerApp().run(args);
+    }
+
+    @Override
+    protected String getScriptName() {
+        return "voldemort-deployer.sh";
+    }
+
+    @Override
+    public void run(String[] args) throws Exception {
+        parser.accepts("hostnames", "File containing host names").withRequiredArg();
+        parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
+        parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
         parser.accepts("voldemortparent", "Voldemort's parent directory on remote host")
               .withRequiredArg();
-        parser.accepts("sourcedir", "The source directory on the local machine").withRequiredArg();
+        parser.accepts("source", "The source directory on the local machine").withRequiredArg();
 
         OptionSet options = parser.parse(args);
+        File hostNamesFile = getRequiredInputFile(options, "hostnames");
+        File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
+        String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
+        String voldemortParentDirectory = getRequiredString(options, "voldemortparent");
+        File sourceDirectory = getRequiredInputFile(options, "source");
 
-        if(!options.has("hostsfile"))
-            printUsage(System.err, parser);
-
-        String hostsFile = CmdUtils.valueOf(options, "hostsfile", "");
-        File file = new File(hostsFile);
-        if(!file.canRead()) {
-            System.out.println("Hosts File cannot be read.");
-            System.exit(2);
-        }
-
-        if(!options.has("sshprivatekey"))
-            printUsage(System.err, parser);
-
-        String sshKey = CmdUtils.valueOf(options, "sshprivatekey", "");
-
-        File sshPrivateKey = new File(sshKey);
-
-        if(!sshPrivateKey.canRead()) {
-            System.out.println("SSH Private Key File cannot be read.");
-            System.exit(2);
-        }
-
-        String hostUserId = "";
-        if(options.has("hostuserid"))
-            hostUserId = CmdUtils.valueOf(options, "hostuserid", "");
-        else
-            hostUserId = "root";
-
-        if(!options.has("voldemortparent"))
-            printUsage(System.err, parser);
-
-        String voldemortParentDirectory = CmdUtils.valueOf(options, "voldemortparent", "");
-
-        if(!options.has("sourcedir"))
-            printUsage(System.err, parser);
-
-        String sourceDir = CmdUtils.valueOf(options, "sourcedir", "");
-        File sourceDirectory = new File(sourceDir);
-        if(!sourceDirectory.canRead()) {
-            System.out.println("Source Directory cannot be read.");
-            System.exit(2);
-        }
-
-        List<String> hostNames = new ArrayList<String>();
-        try {
-            BufferedReader in = new BufferedReader(new FileReader(file));
-            String str;
-            while((str = in.readLine()) != null) {
-                if(str.indexOf(',') != -1)
-                    hostNames.add(str.substring(0, str.indexOf(",")));
-                else
-                    hostNames.add(str);
-            }
-            in.close();
-        } catch(IOException e) {}
+        List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
 
         CommandLineClusterConfig config = new CommandLineClusterConfig();
         config.setHostNames(hostNames);
@@ -95,9 +65,4 @@ public class VoldemortDeployerApp {
         operation.execute();
     }
 
-    private static void printUsage(PrintStream out, OptionParser parser) throws IOException {
-        out.println("Usage: $VOLDEMORT_HOME/contrib/ec2-testing/bin/voldemort-deployer.sh");
-        parser.printHelpOn(out);
-        System.exit(1);
-    }
 }
