@@ -94,8 +94,8 @@ public class AdminTest {
         System.out.println(ops + " ops carried out.");
     }
 
-    public void testFetch(List<?> optNodes, List<?> optPartitions) {
-        final SetMultimap<Integer,Integer> nodePartitions = HashMultimap.create();
+    protected SetMultimap<Integer,Integer> getNodePartitions(List<?> optNodes, List<?> optPartitions) {
+        SetMultimap<Integer,Integer> nodePartitions = HashMultimap.create();
 
 
         if (optPartitions != null && optNodes != null) {
@@ -118,6 +118,10 @@ public class AdminTest {
         }
         else throw new IllegalStateException();
 
+        return nodePartitions;
+    }
+
+    public void testFetch(final SetMultimap<Integer,Integer> nodePartitions) {
         for (final Integer node: nodePartitions.keySet()) {
             System.out.println("Testing fetch of node " + node + " partitions "
                 + nodePartitions.get(node) + ": \n");
@@ -169,9 +173,10 @@ public class AdminTest {
         else
             adminTest = new AdminTest(bootstrapUrl, storeName);
 
-        adminTest.testFetch(options.has("n") ? options.valuesOf("n") : null,
+        SetMultimap<Integer,Integer> nodePartitions =
+            adminTest.getNodePartitions(options.has("n") ? options.valuesOf("n") : null,
             options.has("p") ? options.valuesOf("p") : null);
 
-
+        adminTest.testFetch(nodePartitions);
     }
 }

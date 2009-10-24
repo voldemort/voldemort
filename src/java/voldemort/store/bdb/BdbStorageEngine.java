@@ -62,13 +62,19 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final Environment environment;
     private final VersionedSerializer<byte[]> serializer;
     private final AtomicBoolean isOpen;
+    private final boolean cursorPreload;
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
+        this(name, environment, database, false);
+    }
+
+    public BdbStorageEngine(String name, Environment environment, Database database, boolean cursorPreload) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
         this.serializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
         this.isOpen = new AtomicBoolean(true);
+        this.cursorPreload = cursorPreload;
     }
 
     public String getName() {
@@ -77,9 +83,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
-            PreloadConfig preloadConfig = new PreloadConfig();
-            preloadConfig.setLoadLNs(true);
-            bdbDatabase.preload(preloadConfig);
+            if (cursorPreload) {
+                PreloadConfig preloadConfig = new PreloadConfig();
+                preloadConfig.setLoadLNs(true);
+                bdbDatabase.preload(preloadConfig);
+            }
             
             Cursor cursor = bdbDatabase.openCursor(null, null);
             return new BdbStoreIterator(cursor);
