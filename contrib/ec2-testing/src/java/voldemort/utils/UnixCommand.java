@@ -53,11 +53,9 @@ public class UnixCommand {
         Process process = builder.start();
 
         Thread stdoutWatcher = new ProcessOutputWatcher(new BufferedReader(new InputStreamReader(process.getInputStream())),
-                                                        commandOutputListener,
-                                                        CommandOutputListener.OutputType.STDOUT);
+                                                        commandOutputListener);
         Thread stderrWatcher = new ProcessOutputWatcher(new BufferedReader(new InputStreamReader(process.getErrorStream())),
-                                                        commandOutputListener,
-                                                        CommandOutputListener.OutputType.STDERR);
+                                                        commandOutputListener);
 
         stdoutWatcher.start();
         stderrWatcher.start();
@@ -73,14 +71,10 @@ public class UnixCommand {
 
         private final CommandOutputListener commandOutputListener;
 
-        private final CommandOutputListener.OutputType outputType;
-
         public ProcessOutputWatcher(BufferedReader reader,
-                                    CommandOutputListener commandOutputListener,
-                                    CommandOutputListener.OutputType outputType) {
+                                    CommandOutputListener commandOutputListener) {
             this.reader = reader;
             this.commandOutputListener = commandOutputListener;
-            this.outputType = outputType;
         }
 
         @Override
@@ -89,7 +83,7 @@ public class UnixCommand {
                 String line = null;
 
                 while((line = reader.readLine()) != null)
-                    commandOutputListener.outputReceived(outputType, hostName, line);
+                    commandOutputListener.outputReceived(hostName, line);
             } catch(IOException e) {
                 e.printStackTrace();
             }

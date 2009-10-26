@@ -16,8 +16,10 @@
 
 package voldemort.utils;
 
-public interface ClusterOperation {
+import java.util.List;
 
-    public void execute() throws ClusterOperationException;
+public interface ClusterOperation<T> {
+
+    public List<T> execute() throws ClusterOperationException;
 
 }

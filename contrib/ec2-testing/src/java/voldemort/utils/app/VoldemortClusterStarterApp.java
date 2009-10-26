@@ -62,7 +62,7 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
         config.setVoldemortHomeDirectory(voldemortHomeDirectory);
         config.setVoldemortRootDirectory(voldemortRootDirectory);
 
-        ClusterOperation operation = new SshClusterStarter(config);
+        ClusterOperation<Object> operation = new SshClusterStarter(config);
         operation.execute();
     }
 

@@ -16,7 +16,8 @@
 
 package voldemort.utils;
 
-public class SshClusterStopper extends CommandLineClusterOperation implements ClusterOperation {
+public class SshClusterStopper extends CommandLineClusterOperation<Object> implements
+        ClusterOperation<Object> {
 
     public SshClusterStopper(CommandLineClusterConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshClusterStopper.ssh");

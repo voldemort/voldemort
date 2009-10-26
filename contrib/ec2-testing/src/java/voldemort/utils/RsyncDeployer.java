@@ -16,7 +16,8 @@
 
 package voldemort.utils;
 
-public class RsyncDeployer extends CommandLineClusterOperation implements ClusterOperation {
+public class RsyncDeployer extends CommandLineClusterOperation<Object> implements
+        ClusterOperation<Object> {
 
     public RsyncDeployer(CommandLineClusterConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "RsyncDeployer.rsync");

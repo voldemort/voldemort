@@ -2,6 +2,7 @@ package voldemort.utils;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Map;
 
 public class CommandLineClusterConfig {
 
@@ -17,7 +18,11 @@ public class CommandLineClusterConfig {
 
     private String voldemortHomeDirectory;
 
+    private Map<String, Integer> nodeIds;
+
     private File sourceDirectory;
+
+    private Map<String, String> remoteTestArguments;
 
     public Collection<String> getHostNames() {
         return hostNames;
@@ -67,12 +72,28 @@ public class CommandLineClusterConfig {
         this.voldemortHomeDirectory = voldemortHomeDirectory;
     }
 
+    public Map<String, Integer> getNodeIds() {
+        return nodeIds;
+    }
+
+    public void setNodeIds(Map<String, Integer> nodeIds) {
+        this.nodeIds = nodeIds;
+    }
+
     public File getSourceDirectory() {
         return sourceDirectory;
     }
 
     public void setSourceDirectory(File sourceDirectory) {
         this.sourceDirectory = sourceDirectory;
+    }
+
+    public Map<String, String> getRemoteTestArguments() {
+        return remoteTestArguments;
+    }
+
+    public void setRemoteTestArguments(Map<String, String> remoteTestArguments) {
+        this.remoteTestArguments = remoteTestArguments;
     }
 
 }

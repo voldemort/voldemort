@@ -33,7 +33,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-abstract class CommandLineClusterOperation {
+abstract class CommandLineClusterOperation<T> {
 
     protected final CommandLineClusterConfig commandLineClusterConfig;
 
@@ -47,7 +47,7 @@ abstract class CommandLineClusterOperation {
         this.commandId = commandId;
     }
 
-    public void execute() throws ClusterOperationException {
+    public List<T> execute() throws ClusterOperationException {
         Properties properties = new Properties();
 
         try {
@@ -57,56 +57,66 @@ abstract class CommandLineClusterOperation {
         }
 
         final String rawCommand = properties.getProperty(commandId);
-        ExecutorService threadPool = Executors.newFixedThreadPool(commandLineClusterConfig.getHostNames()
-                                                                                          .size());
-        List<Future<Object>> futures = new ArrayList<Future<Object>>();
+        final ExecutorService threadPool = Executors.newFixedThreadPool(commandLineClusterConfig.getHostNames()
+                                                                                                .size());
+        final List<Future<T>> futures = new ArrayList<Future<T>>();
 
         for(String hostName: commandLineClusterConfig.getHostNames()) {
             String parameterizedCommand = parameterizeCommand(hostName, rawCommand);
             List<String> commandArgs = generateCommandArgs(parameterizedCommand);
             UnixCommand command = new UnixCommand(hostName, commandArgs);
-
-            CommandOutputListener commandOutputListener = new LoggingCommandOutputListener();
-            Future<Object> future = threadPool.submit(new ExitCodeCallable(command,
-                                                                           commandOutputListener));
+            Callable<T> callable = getCallable(command);
+            Future<T> future = threadPool.submit(callable);
             futures.add(future);
         }
 
-        StringBuilder errors = new StringBuilder();
-
-        for(Future<Object> future: futures) {
-            Throwable t = null;
-
-            try {
-                future.get();
-            } catch(ExecutionException ex) {
-                t = ex.getCause();
-            } catch(Exception e) {
-                t = e;
-            }
-
-            if(t != null) {
-                if(logger.isWarnEnabled())
-                    logger.warn(t, t);
-
-                if(errors.length() > 0)
-                    errors.append("; ");
-
-                errors.append(t.getMessage());
-            }
-        }
-
-        threadPool.shutdown();
+        List<T> list = new ArrayList<T>();
 
         try {
-            threadPool.awaitTermination(60, TimeUnit.SECONDS);
-        } catch(InterruptedException e) {
-            if(logger.isWarnEnabled())
-                logger.warn(e, e);
+            StringBuilder errors = new StringBuilder();
+
+            for(Future<T> future: futures) {
+                Throwable t = null;
+
+                try {
+                    T result = future.get();
+                    list.add(result);
+                } catch(ExecutionException ex) {
+                    t = ex.getCause();
+                } catch(Exception e) {
+                    t = e;
+                }
+
+                if(t != null) {
+                    if(logger.isWarnEnabled())
+                        logger.warn(t, t);
+
+                    if(errors.length() > 0)
+                        errors.append("; ");
+
+                    errors.append(t.getMessage());
+                }
+            }
+
+            if(errors.length() > 0)
+                throw new ClusterOperationException(errors.toString());
+        } finally {
+            threadPool.shutdown();
+
+            try {
+                threadPool.awaitTermination(60, TimeUnit.SECONDS);
+            } catch(InterruptedException e) {
+                if(logger.isWarnEnabled())
+                    logger.warn(e, e);
+            }
         }
 
-        if(errors.length() > 0)
-            throw new ClusterOperationException(errors.toString());
+        return list;
+    }
+
+    protected Callable<T> getCallable(UnixCommand command) {
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null);
+        return new ExitCodeCallable(command, commandOutputListener);
     }
 
     private String parameterizeCommand(String hostName, String command) {
@@ -124,6 +134,21 @@ abstract class CommandLineClusterOperation {
                         commandLineClusterConfig.getVoldemortRootDirectory());
         variableMap.put("voldemortHomeDirectory",
                         commandLineClusterConfig.getVoldemortHomeDirectory());
+
+        // Null-safe access would be nice here ;)
+        String nodeId = commandLineClusterConfig.getNodeIds() != null
+                        && commandLineClusterConfig.getNodeIds().get(hostName) != null ? commandLineClusterConfig.getNodeIds()
+                                                                                                                 .get(hostName)
+                                                                                                                 .toString()
+                                                                                      : null;
+
+        variableMap.put("voldemortNodeId", nodeId);
+
+        String remoteTestArguments = commandLineClusterConfig.getRemoteTestArguments() != null ? commandLineClusterConfig.getRemoteTestArguments()
+                                                                                                                         .get(hostName)
+                                                                                              : null;
+
+        variableMap.put("remoteTestArguments", remoteTestArguments);
 
         if(commandLineClusterConfig.getSourceDirectory() != null)
             variableMap.put("sourceDirectory", commandLineClusterConfig.getSourceDirectory()
@@ -177,29 +202,25 @@ abstract class CommandLineClusterOperation {
 
     protected class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
 
-        public LoggingCommandOutputListener() {
-            this(null);
-        }
-
         public LoggingCommandOutputListener(CommandOutputListener delegate) {
             super(delegate);
         }
 
-        public void outputReceived(OutputType outputType, String hostName, String line) {
-            if(outputType == OutputType.STDERR) {
+        public void outputReceived(String hostName, String line) {
+            if(line.contains("Exception") || line.startsWith("\tat ")) {
                 if(logger.isWarnEnabled())
-                    logger.warn("ERROR from " + hostName + ": " + line);
-            } else if(outputType == OutputType.STDOUT) {
+                    logger.warn("Probable error from " + hostName + ": " + line);
+            } else {
                 if(logger.isInfoEnabled())
                     logger.info("From " + hostName + ": " + line);
             }
 
             if(delegate != null)
-                delegate.outputReceived(outputType, hostName, line);
+                delegate.outputReceived(hostName, line);
         }
     }
 
-    protected class ExitCodeCallable implements Callable<Object> {
+    protected class ExitCodeCallable implements Callable<T> {
 
         private final UnixCommand command;
 
@@ -210,12 +231,13 @@ abstract class CommandLineClusterOperation {
             this.commandOutputListener = commandOutputListener;
         }
 
-        public Object call() throws Exception {
+        public T call() throws Exception {
             int exitCode = command.execute(commandOutputListener);
 
             if(exitCode != 0)
                 throw new Exception("Process on " + command.getHostName() + " exited with code "
                                     + exitCode + ". Please check the logs for details.");
+
             return null;
         }
     }

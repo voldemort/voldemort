@@ -24,6 +24,7 @@ import joptsimple.OptionSet;
 import org.apache.commons.io.FileUtils;
 
 import voldemort.utils.ClusterGenerator;
+import voldemort.utils.CmdUtils;
 
 public class VoldemortClusterGeneratorApp extends VoldemortApp {
 
@@ -44,15 +45,18 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
               .ofType(Integer.class);
         parser.accepts("output", "cluster.xml configuration file; defaults to stdout")
               .withRequiredArg();
+        parser.accepts("clustername", "Cluster name; defaults to mycluster").withRequiredArg();
 
         OptionSet options = parser.parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         int partitions = getRequiredInt(options, "partitions");
         File outputFile = getOutputFile(options, "output");
+        String clusterName = CmdUtils.valueOf(options, "clustername", "mycluster");
 
         List<String> privateHostNames = getHostNamesFromFile(hostNamesFile, false);
 
-        String clusterXml = new ClusterGenerator().createClusterDescriptor(privateHostNames,
+        String clusterXml = new ClusterGenerator().createClusterDescriptor(clusterName,
+                                                                           privateHostNames,
                                                                            partitions);
 
         if(outputFile != null)

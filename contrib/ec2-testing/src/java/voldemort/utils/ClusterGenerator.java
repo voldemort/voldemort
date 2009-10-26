@@ -47,11 +47,11 @@ public class ClusterGenerator {
         return list;
     }
 
-    public String createClusterDescriptor(List<String> hostNames, int partitions) {
+    public String createClusterDescriptor(String clusterName, List<String> hostNames, int partitions) {
         List<ClusterNodeDescriptor> clusterNodeDescriptors = createClusterNodeDescriptors(hostNames,
                                                                                           partitions);
 
-        return createClusterDescriptor("prodcluster", clusterNodeDescriptors);
+        return createClusterDescriptor(clusterName, clusterNodeDescriptors);
     }
 
     public String createClusterDescriptor(String clusterName,

@@ -61,7 +61,7 @@ public class VoldemortDeployerApp extends VoldemortApp {
         config.setVoldemortParentDirectory(voldemortParentDirectory);
         config.setSourceDirectory(sourceDirectory);
 
-        ClusterOperation operation = new RsyncDeployer(config);
+        ClusterOperation<Object> operation = new RsyncDeployer(config);
         operation.execute();
     }
 
