@@ -17,7 +17,6 @@
 package voldemort.utils;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -26,11 +25,6 @@ public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult>
 
     public SshRemoteTest(CommandLineClusterConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshRemoteTest.ssh");
-    }
-
-    @Override
-    public List<RemoteTestResult> execute() throws ClusterOperationException {
-        return super.execute();
     }
 
     @Override
