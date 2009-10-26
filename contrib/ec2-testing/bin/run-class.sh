@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#   Copyright 2009 LinkedIn, Inc
+#   Copyright 2008-2009 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,4 +15,33 @@
 #  limitations under the License.
 #
 
-./run-class.sh voldemort.utils.app.VoldemortEc2InstanceCreatorApp $@
+if [ $# -lt 1 ]; then
+	echo $0 java-class-name [options]
+	exit 1
+fi
+
+base_dir=$(dirname $0)/../../..
+
+for file in $base_dir/dist/*.jar;
+do
+  CLASSPATH=$CLASSPATH:$file
+done
+
+for file in $base_dir/lib/*.jar;
+do
+  CLASSPATH=$CLASSPATH:$file
+done
+
+for file in $base_dir/contrib/ec2-testing/lib/*.jar;
+do
+  CLASSPATH=$CLASSPATH:$file
+done
+
+CLASSPATH=$CLASSPATH:$base_dir/dist/resources
+
+if [ -z $VOLD_OPTS ]; then
+  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+fi
+
+export CLASSPATH
+java $VOLD_OPTS -cp $CLASSPATH $@

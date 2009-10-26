@@ -13,15 +13,13 @@ public class SmokeTest {
 
     @Test
     public void test() throws Exception {
-        Map<String, String> dnsNames = new HashMap<String, String>();
-        dnsNames.put("ec2-75-101-191-206.compute-1.amazonaws.com",
-                     "domU-12-31-39-07-84-D2.compute-1.internal");
-        dnsNames.put("ec2-67-202-36-69.compute-1.amazonaws.com",
-                     "domU-12-31-39-07-A5-05.compute-1.internal");
-        dnsNames.put("ec2-174-129-60-214.compute-1.amazonaws.com",
-                     "domU-12-31-39-06-8C-36.compute-1.internal");
+        Map<String, String> dnsNames = getInstances();
 
-        // dnsNames = createInstances();
+        if(dnsNames.size() < 3) {
+            createInstances(6);
+            dnsNames = getInstances();
+        }
+
         Map<String, Integer> nodeIds = generateClusterDescriptor(dnsNames,
                                                                  "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
 
@@ -39,7 +37,7 @@ public class SmokeTest {
         final String bootstrapUrl = dnsNames.values().iterator().next();
         int startKeyIndex = 0;
         final int numRequests = 10000;
-        final int iterations = 100;
+        final int iterations = 10;
 
         for(String publicHostName: dnsNames.keySet()) {
             remoteTestArguments.put(publicHostName, "-wd --start-key-index "
@@ -50,6 +48,12 @@ public class SmokeTest {
         }
 
         config.setRemoteTestArguments(remoteTestArguments);
+
+        try {
+            new SshClusterStopper(config).execute();
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
 
         new RsyncDeployer(config).execute();
 
@@ -70,25 +74,39 @@ public class SmokeTest {
         Thread.sleep(5000);
 
         List<RemoteTestResult> remoteTestResults = new SshRemoteTest(config).execute();
+        double totalResults = 0;
 
         for(RemoteTestResult remoteTestResult: remoteTestResults) {
-            System.out.println(remoteTestResult.getHostName() + " for writes:");
+            double hostResults = 0;
 
-            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations()) {
-                System.out.println("\t" + remoteTestIteration.getWrites());
-            }
+            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations())
+                hostResults += remoteTestIteration.getWrites();
+
+            double hostAvg = hostResults / remoteTestResult.getRemoteTestIterations().size();
+            System.out.println(remoteTestResult.getHostName() + " for writes: " + hostAvg);
+            totalResults += hostAvg;
         }
+
+        double totalAvg = totalResults / remoteTestResults.size();
+        System.out.println("Total for writes: " + totalAvg);
 
         new SshClusterStopper(config).execute();
     }
 
-    private Map<String, String> createInstances() throws Exception {
+    private Map<String, String> createInstances(int count) throws Exception {
         String accessId = System.getProperty("ec2AccessId");
         String secretKey = System.getProperty("ec2SecretKey");
         String ami = System.getProperty("ec2Ami");
         String keyPairId = System.getProperty("ec2KeyPairId");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.createInstances(ami, keyPairId, null, 2, 360000);
+        return ec2.createInstances(ami, keyPairId, null, count);
+    }
+
+    private Map<String, String> getInstances() throws Exception {
+        String accessId = System.getProperty("ec2AccessId");
+        String secretKey = System.getProperty("ec2SecretKey");
+        Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
+        return ec2.getInstances();
     }
 
     private Map<String, Integer> generateClusterDescriptor(Map<String, String> dnsNames, String path)

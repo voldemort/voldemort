@@ -80,8 +80,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         Map<String, String> dnsNames = ec2Connection.createInstances(ami,
                                                                      keypairId,
                                                                      instanceSize,
-                                                                     instanceCount,
-                                                                     timeout);
+                                                                     instanceCount);
 
         StringBuilder dnsNameEntriesBuilder = new StringBuilder();
 

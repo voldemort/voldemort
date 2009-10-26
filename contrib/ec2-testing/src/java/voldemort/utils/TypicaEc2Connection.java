@@ -43,20 +43,21 @@ public class TypicaEc2Connection implements Ec2Connection {
         ec2 = new Jec2(accessId, secretKey);
     }
 
+    public Map<String, String> getInstances() throws Exception {
+        List<String> dummyInstanceIds = new ArrayList<String>();
+        Map<String, String> hostNameMap = new HashMap<String, String>();
+        waitForInstances(dummyInstanceIds, hostNameMap);
+        return hostNameMap;
+    }
+
     public Map<String, String> createInstances(String ami,
                                                String keypairId,
                                                String instanceSize,
-                                               int instanceCount,
-                                               long timeout) throws Exception {
+                                               int instanceCount) throws Exception {
         List<String> instanceIds = launch(ami, keypairId, instanceSize, instanceCount);
         Map<String, String> hostNameMap = new HashMap<String, String>();
 
-        long startTime = System.currentTimeMillis();
-
         while(!instanceIds.isEmpty()) {
-            if(System.currentTimeMillis() > (startTime + timeout))
-                throw new Error("Rollback creation NYI");
-
             try {
                 if(logger.isInfoEnabled())
                     logger.info("Sleeping for " + POLL_INTERVAL + " seconds...");
@@ -67,9 +68,6 @@ public class TypicaEc2Connection implements Ec2Connection {
             }
 
             waitForInstances(instanceIds, hostNameMap);
-
-            if(instanceIds.isEmpty())
-                break;
         }
 
         return hostNameMap;
@@ -103,55 +101,50 @@ public class TypicaEc2Connection implements Ec2Connection {
         if(logger.isInfoEnabled())
             logger.info("Waiting for instances: " + instanceIds);
 
-        try {
-            for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
-                if(res.getInstances() != null) {
-                    for(Instance instance: res.getInstances()) {
-                        String state = String.valueOf(instance.getState()).toLowerCase();
+        for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
+            if(res.getInstances() != null) {
+                for(Instance instance: res.getInstances()) {
+                    String state = String.valueOf(instance.getState()).toLowerCase();
 
-                        if(state.equals("pending")) {
-                            if(logger.isInfoEnabled())
-                                logger.info("Instance " + instance.getInstanceId()
-                                            + " in pending state");
+                    if(state.equals("pending")) {
+                        if(logger.isInfoEnabled())
+                            logger.info("Instance " + instance.getInstanceId()
+                                        + " in pending state");
 
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        if(!state.equals("running")) {
-                            if(logger.isWarnEnabled())
-                                logger.warn("Instance " + instance.getInstanceId()
-                                            + " in unexpected state: " + state + ", code: "
-                                            + instance.getStateCode());
+                    if(!state.equals("running")) {
+                        if(logger.isWarnEnabled())
+                            logger.warn("Instance " + instance.getInstanceId()
+                                        + " in unexpected state: " + state + ", code: "
+                                        + instance.getStateCode());
 
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        String publicDnsName = instance.getDnsName() != null ? instance.getDnsName()
-                                                                                       .trim()
-                                                                            : "";
-                        String privateDnsName = instance.getPrivateDnsName() != null ? instance.getPrivateDnsName()
-                                                                                               .trim()
-                                                                                    : "";
+                    String publicDnsName = instance.getDnsName() != null ? instance.getDnsName()
+                                                                                   .trim() : "";
+                    String privateDnsName = instance.getPrivateDnsName() != null ? instance.getPrivateDnsName()
+                                                                                           .trim()
+                                                                                : "";
 
-                        if(publicDnsName.length() > 0 && privateDnsName.length() > 0) {
-                            hostNameMap.put(instance.getDnsName(), instance.getPrivateDnsName());
-                            instanceIds.remove(instance.getInstanceId());
+                    if(publicDnsName.length() > 0 && privateDnsName.length() > 0) {
+                        hostNameMap.put(instance.getDnsName(), instance.getPrivateDnsName());
+                        instanceIds.remove(instance.getInstanceId());
 
-                            if(logger.isInfoEnabled())
-                                logger.info("Instance " + instance.getInstanceId()
-                                            + " running with public DNS: " + instance.getDnsName()
-                                            + ", private DNS: " + instance.getPrivateDnsName());
-                        } else {
-                            if(logger.isWarnEnabled())
-                                logger.warn("Instance "
-                                            + instance.getInstanceId()
-                                            + " in running state, but missing public and/or private DNS name");
-                        }
+                        if(logger.isInfoEnabled())
+                            logger.info("Instance " + instance.getInstanceId()
+                                        + " running with public DNS: " + instance.getDnsName()
+                                        + ", private DNS: " + instance.getPrivateDnsName());
+                    } else {
+                        if(logger.isWarnEnabled())
+                            logger.warn("Instance "
+                                        + instance.getInstanceId()
+                                        + " in running state, but missing public and/or private DNS name");
                     }
                 }
             }
-        } catch(EC2Exception e) {
-
         }
     }
 

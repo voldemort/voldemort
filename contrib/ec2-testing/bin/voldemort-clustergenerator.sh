@@ -15,23 +15,4 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/../../..
-
-for file in $base_dir/dist/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/contrib/ec2-testing/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-CLASSPATH=$CLASSPATH:$base_dir/dist/resources
-
-java $VOLD_OPTS -cp $CLASSPATH voldemort.utils.app.VoldemortClusterGeneratorApp $@
+./run-class.sh voldemort.utils.app.VoldemortClusterGeneratorApp $@
