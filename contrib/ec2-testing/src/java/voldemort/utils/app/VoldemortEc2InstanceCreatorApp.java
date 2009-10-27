@@ -44,7 +44,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
     public void run(String[] args) throws Exception {
         parser.accepts("help", "Prints this help");
         parser.accepts("logging",
-                       "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+                       "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
         parser.accepts("accessid", "Access ID").withRequiredArg();
         parser.accepts("secretkey", "SecretKey").withRequiredArg();

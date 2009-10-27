@@ -43,7 +43,7 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
     public void run(String[] args) throws Exception {
         parser.accepts("help", "Prints this help");
         parser.accepts("logging",
-                       "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+                       "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
@@ -52,6 +52,28 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
               .withRequiredArg();
         parser.accepts("voldemorthome", "Voldemort's home directory on remote host")
               .withRequiredArg();
+        parser.accepts("start-key-index",
+                       "Value of --start-key-index for voldemort-remote-test.sh on remote host")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("numrequests",
+                       "Value of numrequests for voldemort-remote-test.sh on remote host")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("iterations",
+                       "Value of --iterations for voldemort-remote-test.sh on remote host")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("value-size",
+                       "Value of --value-size for voldemort-remote-test.sh on remote host")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("threads", "Value of --threads for voldemort-remote-test.sh on remote host")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("operations",
+                       "Value of -r, -w, and/or -d for voldemort-remote-test.sh on remote host")
+              .withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
@@ -59,6 +81,12 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
         String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
+        int startKeyIndex = CmdUtils.valueOf(options, "start-key-index", 0);
+        int numRequests = getRequiredInt(options, "numrequests");
+        int iterations = CmdUtils.valueOf(options, "iterations", 1);
+        int valueSize = CmdUtils.valueOf(options, "value-size", 1024);
+        int threads = CmdUtils.valueOf(options, "threads", 8);
+        String operations = getRequiredString(options, "operations");
 
         List<String> publicHostNames = getHostNamesFromFile(hostNamesFile, true);
 
@@ -71,16 +99,14 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
 
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
         final String bootstrapUrl = getHostNamesFromFile(hostNamesFile, false).get(0);
-        int startKeyIndex = 0;
-        final int numRequests = 100000;
-        final int iterations = 25;
 
         for(String publicHostName: publicHostNames) {
-            remoteTestArguments.put(publicHostName, "-wd --start-key-index "
+            remoteTestArguments.put(publicHostName, "-" + operations + " --start-key-index "
                                                     + (startKeyIndex * numRequests)
-                                                    + " --value-size 100 --iterations "
-                                                    + iterations + " tcp://" + bootstrapUrl
-                                                    + ":6666 test " + numRequests);
+                                                    + " --value-size " + valueSize + " --threads "
+                                                    + threads + " --iterations " + iterations
+                                                    + " tcp://" + bootstrapUrl + ":6666 test "
+                                                    + numRequests);
             startKeyIndex++;
         }
 

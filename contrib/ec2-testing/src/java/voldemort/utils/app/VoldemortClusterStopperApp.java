@@ -21,21 +21,19 @@ import java.util.List;
 
 import joptsimple.OptionSet;
 import voldemort.utils.ClusterOperation;
-import voldemort.utils.ClusterOperationException;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.CommandLineClusterConfig;
-import voldemort.utils.SshClusterStarter;
 import voldemort.utils.SshClusterStopper;
 
-public class VoldemortClusterStarterApp extends VoldemortApp {
+public class VoldemortClusterStopperApp extends VoldemortApp {
 
     public static void main(String[] args) throws Exception {
-        new VoldemortClusterStarterApp().run(args);
+        new VoldemortClusterStopperApp().run(args);
     }
 
     @Override
     protected String getScriptName() {
-        return "voldemort-clusterstarter.sh";
+        return "voldemort-clusterstopper.sh";
     }
 
     @Override
@@ -49,40 +47,22 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
         parser.accepts("voldemortroot", "Voldemort's root directory on remote host")
               .withRequiredArg();
-        parser.accepts("voldemorthome", "Voldemort's home directory on remote host")
-              .withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
-        String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
         String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
 
         List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
 
-        final CommandLineClusterConfig config = new CommandLineClusterConfig();
+        CommandLineClusterConfig config = new CommandLineClusterConfig();
         config.setHostNames(hostNames);
         config.setHostUserId(hostUserId);
         config.setSshPrivateKey(sshPrivateKey);
-        config.setVoldemortHomeDirectory(voldemortHomeDirectory);
         config.setVoldemortRootDirectory(voldemortRootDirectory);
 
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-
-            @Override
-            public void run() {
-                ClusterOperation<Object> operation = new SshClusterStopper(config);
-                try {
-                    operation.execute();
-                } catch(ClusterOperationException e) {
-                    e.printStackTrace();
-                }
-            }
-
-        });
-
-        ClusterOperation<Object> operation = new SshClusterStarter(config);
+        ClusterOperation<Object> operation = new SshClusterStopper(config);
         operation.execute();
     }
 

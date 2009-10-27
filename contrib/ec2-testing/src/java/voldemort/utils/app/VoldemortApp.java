@@ -71,8 +71,8 @@ public abstract class VoldemortApp {
 
     @SuppressWarnings("unchecked")
     protected void setLogging(OptionSet options) {
-        // "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
-        String levelString = CmdUtils.valueOf(options, "logging", "warn");
+        // "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
+        String levelString = CmdUtils.valueOf(options, "logging", "info");
 
         Level level = null;
 
