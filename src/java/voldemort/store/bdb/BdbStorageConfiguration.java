@@ -172,7 +172,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     public EnvironmentStats getStats(String storeName) {
         StatsConfig config = new StatsConfig();
-        config.setFast(true);
+        config.setFast(false);
         try {
             Environment env = getEnvironment(storeName);
             return env.getStats(config);
