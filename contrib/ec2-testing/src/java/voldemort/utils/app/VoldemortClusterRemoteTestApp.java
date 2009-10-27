@@ -74,6 +74,12 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         parser.accepts("operations",
                        "Value of -r, -w, and/or -d for voldemort-remote-test.sh on remote host")
               .withRequiredArg();
+        parser.accepts("storename",
+                       "Value of store name for voldemort-remote-test.sh on remote host, defaults to \"test\"")
+              .withRequiredArg();
+        parser.accepts("bootstrapurl",
+                       "Value of bootstrap-url for voldemort-remote-test.sh on remote host")
+              .withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
@@ -87,6 +93,8 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         int valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         int threads = CmdUtils.valueOf(options, "threads", 8);
         String operations = getRequiredString(options, "operations");
+        String bootstrapUrl = getRequiredString(options, "bootstrapurl");
+        String storeName = CmdUtils.valueOf(options, "storename", "test");
 
         List<String> publicHostNames = getHostNamesFromFile(hostNamesFile, true);
 
@@ -98,14 +106,13 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         config.setVoldemortRootDirectory(voldemortRootDirectory);
 
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
-        final String bootstrapUrl = getHostNamesFromFile(hostNamesFile, false).get(0);
 
         for(String publicHostName: publicHostNames) {
             remoteTestArguments.put(publicHostName, "-" + operations + " --start-key-index "
                                                     + (startKeyIndex * numRequests)
                                                     + " --value-size " + valueSize + " --threads "
-                                                    + threads + " --iterations " + iterations
-                                                    + " tcp://" + bootstrapUrl + ":6666 test "
+                                                    + threads + " --iterations " + iterations + " "
+                                                    + bootstrapUrl + " " + storeName + " "
                                                     + numRequests);
             startKeyIndex++;
         }

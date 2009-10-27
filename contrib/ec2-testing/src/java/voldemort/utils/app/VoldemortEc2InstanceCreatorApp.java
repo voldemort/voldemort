@@ -53,10 +53,6 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         parser.accepts("instances", "Number of instances (default 1)")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("timeout",
-                       "Timeout in milliseconds (default = 2 minutes + 30 seconds for each instance)")
-              .withRequiredArg()
-              .ofType(Integer.class);
         parser.accepts("instancesize",
                        "Instance size; options are DEFAULT (default), LARGE, XLARGE, MEDIUM_HCPU, and XLARGE_HCPU")
               .withRequiredArg();
@@ -68,11 +64,10 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         String accessId = getRequiredString(options, "accessid");
         String secretKey = getRequiredString(options, "secretkey");
         String ami = getRequiredString(options, "ami");
-        File outputFile = getOutputFile(options, "output");
         String keypairId = getRequiredString(options, "keypairid");
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
-        int timeout = CmdUtils.valueOf(options, "timeout", (120000 + instanceCount * 30000));
-        String instanceSize = CmdUtils.valueOf(options, "size", "DEFAULT");
+        String instanceSize = CmdUtils.valueOf(options, "instancesize", "DEFAULT");
+        File outputFile = getOutputFile(options, "output");
 
         try {
             InstanceType.valueOf(instanceSize);

@@ -101,15 +101,19 @@ public abstract class VoldemortApp {
     }
 
     protected String getRequiredString(OptionSet options, String argumentName) {
-        if(!options.has(argumentName))
+        if(!options.has(argumentName)) {
+            System.err.println("Missing required argument " + argumentName);
             printUsage();
+        }
 
         return CmdUtils.valueOf(options, argumentName, "");
     }
 
     protected int getRequiredInt(OptionSet options, String argumentName) {
-        if(!options.has(argumentName))
+        if(!options.has(argumentName)) {
+            System.err.println("Missing required argument " + argumentName);
             printUsage();
+        }
 
         return CmdUtils.valueOf(options, argumentName, 0);
     }

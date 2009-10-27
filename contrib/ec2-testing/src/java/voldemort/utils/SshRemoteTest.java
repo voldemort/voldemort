@@ -47,12 +47,13 @@ public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult>
             return remoteTestOutputParser.getRemoteTestIterations();
         }
 
+        @Override
         public void outputReceived(String hostName, String line) {
             remoteTestOutputParser.outputReceived(line);
 
-            if(delegate != null)
-                delegate.outputReceived(hostName, line);
+            super.outputReceived(hostName, line);
         }
+
     }
 
     protected class RemoteTestResultCallable implements Callable<RemoteTestResult> {

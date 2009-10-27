@@ -116,7 +116,7 @@ abstract class CommandLineClusterOperation<T> {
 
     protected Callable<T> getCallable(UnixCommand command) {
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null);
-        return new ExitCodeCallable(command, commandOutputListener);
+        return new ExitCodeCallable<T>(command, commandOutputListener);
     }
 
     private String parameterizeCommand(String hostName, String command) {
@@ -188,53 +188,6 @@ abstract class CommandLineClusterOperation<T> {
             logger.debug("Command to execute: " + commands.toString());
 
         return commands;
-    }
-
-    protected abstract class DelegatingCommandOutputListener implements CommandOutputListener {
-
-        protected final CommandOutputListener delegate;
-
-        public DelegatingCommandOutputListener(CommandOutputListener delegate) {
-            this.delegate = delegate;
-        }
-
-    }
-
-    protected class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
-
-        public LoggingCommandOutputListener(CommandOutputListener delegate) {
-            super(delegate);
-        }
-
-        public void outputReceived(String hostName, String line) {
-            if(logger.isInfoEnabled())
-                logger.info(hostName + ": " + line);
-
-            if(delegate != null)
-                delegate.outputReceived(hostName, line);
-        }
-    }
-
-    protected class ExitCodeCallable implements Callable<T> {
-
-        private final UnixCommand command;
-
-        private final CommandOutputListener commandOutputListener;
-
-        public ExitCodeCallable(UnixCommand command, CommandOutputListener commandOutputListener) {
-            this.command = command;
-            this.commandOutputListener = commandOutputListener;
-        }
-
-        public T call() throws Exception {
-            int exitCode = command.execute(commandOutputListener);
-
-            if(exitCode != 0)
-                throw new Exception("Process on " + command.getHostName() + " exited with code "
-                                    + exitCode + ". Please check the logs for details.");
-
-            return null;
-        }
     }
 
 }

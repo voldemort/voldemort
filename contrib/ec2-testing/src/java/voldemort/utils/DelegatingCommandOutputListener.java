@@ -16,22 +16,17 @@
 
 package voldemort.utils;
 
-public class ClusterOperationException extends Exception {
+public abstract class DelegatingCommandOutputListener implements CommandOutputListener {
 
-    private static final long serialVersionUID = 1L;
+    private final CommandOutputListener delegate;
 
-    public ClusterOperationException() {}
-
-    public ClusterOperationException(String message) {
-        super(message);
+    public DelegatingCommandOutputListener(CommandOutputListener delegate) {
+        this.delegate = delegate;
     }
 
-    public ClusterOperationException(Throwable cause) {
-        super(cause);
-    }
-
-    public ClusterOperationException(String message, Throwable cause) {
-        super(message, cause);
+    public void outputReceived(String hostName, String line) {
+        if(delegate != null)
+            delegate.outputReceived(hostName, line);
     }
 
 }

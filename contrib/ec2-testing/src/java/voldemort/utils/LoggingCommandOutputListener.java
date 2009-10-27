@@ -16,22 +16,23 @@
 
 package voldemort.utils;
 
-public class ClusterOperationException extends Exception {
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
-    private static final long serialVersionUID = 1L;
+public class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
 
-    public ClusterOperationException() {}
+    protected final Log logger = LogFactory.getLog(getClass());
 
-    public ClusterOperationException(String message) {
-        super(message);
+    public LoggingCommandOutputListener(CommandOutputListener delegate) {
+        super(delegate);
     }
 
-    public ClusterOperationException(Throwable cause) {
-        super(cause);
-    }
+    @Override
+    public void outputReceived(String hostName, String line) {
+        if(logger.isDebugEnabled())
+            logger.debug(hostName + ": " + line);
 
-    public ClusterOperationException(String message, Throwable cause) {
-        super(message, cause);
+        super.outputReceived(hostName, line);
     }
 
 }
