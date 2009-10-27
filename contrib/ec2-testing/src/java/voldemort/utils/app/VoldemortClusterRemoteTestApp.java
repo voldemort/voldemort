@@ -41,6 +41,10 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
 
     @Override
     public void run(String[] args) throws Exception {
+        parser.accepts("help", "Prints this help");
+        parser.accepts("logging",
+                       "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+              .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
@@ -49,7 +53,7 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         parser.accepts("voldemorthome", "Voldemort's home directory on remote host")
               .withRequiredArg();
 
-        OptionSet options = parser.parse(args);
+        OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");

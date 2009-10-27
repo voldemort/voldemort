@@ -207,13 +207,8 @@ abstract class CommandLineClusterOperation<T> {
         }
 
         public void outputReceived(String hostName, String line) {
-            if(line.contains("Exception") || line.startsWith("\tat ")) {
-                if(logger.isWarnEnabled())
-                    logger.warn(hostName + ": " + line);
-            } else {
-                if(logger.isInfoEnabled())
-                    logger.info(hostName + ": " + line);
-            }
+            if(logger.isInfoEnabled())
+                logger.info(hostName + ": " + line);
 
             if(delegate != null)
                 delegate.outputReceived(hostName, line);

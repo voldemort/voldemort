@@ -19,13 +19,17 @@ package voldemort.utils.app;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 
+import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 
 import voldemort.utils.CmdUtils;
 
@@ -47,6 +51,53 @@ public abstract class VoldemortApp {
         }
 
         System.exit(1);
+    }
+
+    protected OptionSet parse(String[] args) {
+        try {
+            OptionSet options = parser.parse(args);
+
+            if(options.has("help"))
+                printUsage();
+
+            setLogging(options);
+            return options;
+        } catch(OptionException e) {
+            System.err.println(e.getMessage());
+            printUsage();
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void setLogging(OptionSet options) {
+        // "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+        String levelString = CmdUtils.valueOf(options, "logging", "warn");
+
+        Level level = null;
+
+        if(levelString.equals("debug"))
+            level = Level.DEBUG;
+        else if(levelString.equals("info"))
+            level = Level.INFO;
+        else if(levelString.equals("warn"))
+            level = Level.WARN;
+        else if(levelString.equals("error"))
+            level = Level.ERROR;
+        else if(levelString.equals("off"))
+            level = Level.OFF;
+        else
+            printUsage();
+
+        Logger rootLogger = Logger.getRootLogger();
+        rootLogger.setLevel(level);
+
+        Enumeration<Logger> e = rootLogger.getLoggerRepository().getCurrentLoggers();
+
+        while(e.hasMoreElements()) {
+            Logger logger = e.nextElement();
+            logger.setLevel(level);
+        }
     }
 
     protected String getRequiredString(OptionSet options, String argumentName) {

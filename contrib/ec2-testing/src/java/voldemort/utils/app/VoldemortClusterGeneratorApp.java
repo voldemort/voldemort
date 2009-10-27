@@ -39,6 +39,10 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
 
     @Override
     public void run(String[] args) throws Exception {
+        parser.accepts("help", "Prints this help");
+        parser.accepts("logging",
+                       "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+              .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("partitions", "Number of partitions per cluster node")
               .withRequiredArg()
@@ -47,7 +51,7 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
               .withRequiredArg();
         parser.accepts("clustername", "Cluster name; defaults to mycluster").withRequiredArg();
 
-        OptionSet options = parser.parse(args);
+        OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         int partitions = getRequiredInt(options, "partitions");
         File outputFile = getOutputFile(options, "output");

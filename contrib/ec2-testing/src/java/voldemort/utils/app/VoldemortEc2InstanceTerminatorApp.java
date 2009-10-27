@@ -37,12 +37,16 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
 
     @Override
     public void run(String[] args) throws Exception {
+        parser.accepts("help", "Prints this help");
+        parser.accepts("logging",
+                       "Options are \"debug\", \"info\", \"warn\" (default), \"error\", or \"off\"")
+              .withRequiredArg();
         parser.accepts("accessid", "Access ID").withRequiredArg();
         parser.accepts("secretkey", "SecretKey").withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("force", "Use option to force deletion of *all* instances");
 
-        OptionSet options = parser.parse(args);
+        OptionSet options = parse(args);
         String accessId = getRequiredString(options, "accessid");
         String secretKey = getRequiredString(options, "secretkey");
 
