@@ -15,4 +15,4 @@
 #  limitations under the License.
 #
 
-./run-class.sh voldemort.utils.app.VoldemortEc2InstanceTerminatorApp $@
+$(dirname $0)/run-class.sh voldemort.utils.app.VoldemortEc2InstanceTerminatorApp $@

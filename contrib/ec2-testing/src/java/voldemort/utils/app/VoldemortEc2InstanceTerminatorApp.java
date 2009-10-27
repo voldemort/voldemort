@@ -56,6 +56,8 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
         } else if(options.has("force")) {
             // Get all of the instances...
             hostNames = new ArrayList<String>(ec2Connection.getInstances().keySet());
+        } else {
+            printUsage();
         }
 
         ec2Connection.deleteInstances(hostNames);
