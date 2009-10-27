@@ -16,6 +16,7 @@
 
 package voldemort.utils;
 
+import java.util.List;
 import java.util.Map;
 
 public interface Ec2Connection {
@@ -26,5 +27,7 @@ public interface Ec2Connection {
                                                String keypairId,
                                                String instanceSize,
                                                int instanceCount) throws Exception;
+
+    public void deleteInstances(List<String> publicHostNames) throws Exception;
 
 }

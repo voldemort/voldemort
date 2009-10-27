@@ -1,3 +1,19 @@
+/*
+ * Copyright 2009 LinkedIn, Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.File;
@@ -36,14 +52,15 @@ public class SmokeTest {
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
         final String bootstrapUrl = dnsNames.values().iterator().next();
         int startKeyIndex = 0;
-        final int numRequests = 10000;
-        final int iterations = 10;
+        final int numRequests = 100000;
+        final int iterations = 25;
 
         for(String publicHostName: dnsNames.keySet()) {
             remoteTestArguments.put(publicHostName, "-wd --start-key-index "
                                                     + (startKeyIndex * numRequests)
-                                                    + " --iterations " + iterations + " tcp://"
-                                                    + bootstrapUrl + ":6666 test " + numRequests);
+                                                    + " --value-size 100 --iterations "
+                                                    + iterations + " tcp://" + bootstrapUrl
+                                                    + ":6666 test " + numRequests);
             startKeyIndex++;
         }
 
@@ -52,7 +69,7 @@ public class SmokeTest {
         try {
             new SshClusterStopper(config).execute();
         } catch(Exception e) {
-            e.printStackTrace();
+            // Ignore...
         }
 
         new RsyncDeployer(config).execute();
@@ -60,13 +77,11 @@ public class SmokeTest {
         new Thread(new Runnable() {
 
             public void run() {
-
                 try {
                     new SshClusterStarter(config).execute();
                 } catch(ClusterOperationException e) {
                     e.printStackTrace();
                 }
-
             }
 
         }).start();
@@ -74,21 +89,7 @@ public class SmokeTest {
         Thread.sleep(5000);
 
         List<RemoteTestResult> remoteTestResults = new SshRemoteTest(config).execute();
-        double totalResults = 0;
-
-        for(RemoteTestResult remoteTestResult: remoteTestResults) {
-            double hostResults = 0;
-
-            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations())
-                hostResults += remoteTestIteration.getWrites();
-
-            double hostAvg = hostResults / remoteTestResult.getRemoteTestIterations().size();
-            System.out.println(remoteTestResult.getHostName() + " for writes: " + hostAvg);
-            totalResults += hostAvg;
-        }
-
-        double totalAvg = totalResults / remoteTestResults.size();
-        System.out.println("Total for writes: " + totalAvg);
+        new RemoteTestSummarizer().outputTestResults(remoteTestResults);
 
         new SshClusterStopper(config).execute();
     }

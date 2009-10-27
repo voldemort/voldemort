@@ -76,6 +76,21 @@ public abstract class VoldemortApp {
         return file;
     }
 
+    protected File getInputFile(OptionSet options, String argumentName) {
+        if(!options.has(argumentName))
+            return null;
+
+        String fileName = CmdUtils.valueOf(options, argumentName, "");
+        File file = new File(fileName);
+
+        if(!file.canRead()) {
+            System.out.println("File " + fileName + " cannot be read");
+            System.exit(2);
+        }
+
+        return file;
+    }
+
     protected File getOutputFile(OptionSet options, String argumentName) {
         if(!options.has(argumentName))
             return null;

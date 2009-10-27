@@ -73,6 +73,52 @@ public class TypicaEc2Connection implements Ec2Connection {
         return hostNameMap;
     }
 
+    public void deleteInstances(List<String> hostNames) throws Exception {
+        if(logger.isInfoEnabled())
+            logger.info("Deleting instances for hosts: " + hostNames);
+
+        List<String> instanceIds = new ArrayList<String>();
+
+        for(ReservationDescription res: ec2.describeInstances(new ArrayList<String>())) {
+            if(res.getInstances() != null) {
+                for(Instance instance: res.getInstances()) {
+                    String state = String.valueOf(instance.getState()).toLowerCase();
+
+                    if(state.equals("pending")) {
+                        if(logger.isInfoEnabled())
+                            logger.info("Instance " + instance.getInstanceId()
+                                        + " in pending state");
+
+                        continue;
+                    }
+
+                    if(!state.equals("running")) {
+                        if(logger.isWarnEnabled())
+                            logger.warn("Instance " + instance.getInstanceId()
+                                        + " in unexpected state: " + state + ", code: "
+                                        + instance.getStateCode());
+
+                        continue;
+                    }
+
+                    String publicDnsName = instance.getDnsName() != null ? instance.getDnsName()
+                                                                                   .trim() : "";
+
+                    if(hostNames.contains(publicDnsName)) {
+                        instanceIds.add(instance.getInstanceId());
+
+                        if(logger.isInfoEnabled())
+                            logger.info("Instance " + instance.getInstanceId()
+                                        + " running with public DNS " + instance.getDnsName()
+                                        + " to be terminated");
+                    }
+                }
+            }
+        }
+
+        ec2.terminateInstances(instanceIds);
+    }
+
     private List<String> launch(String ami, String keypairId, String instanceSize, int instanceCount)
             throws EC2Exception {
         LaunchConfiguration launchConfiguration = new LaunchConfiguration(ami);
