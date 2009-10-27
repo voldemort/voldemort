@@ -120,7 +120,6 @@ public abstract class VoldemortApp {
 
     protected File getRequiredInputFile(OptionSet options, String argumentName) {
         String fileName = getRequiredString(options, argumentName);
-
         File file = new File(fileName);
 
         if(!file.canRead()) {
@@ -146,10 +145,7 @@ public abstract class VoldemortApp {
         return file;
     }
 
-    protected File getOutputFile(OptionSet options, String argumentName) {
-        if(!options.has(argumentName))
-            return null;
-
+    protected File getRequiredOutputFile(OptionSet options, String argumentName) {
         String fileName = getRequiredString(options, argumentName);
         File file = new File(fileName);
         File parentDirectory = file.getAbsoluteFile().getParentFile();

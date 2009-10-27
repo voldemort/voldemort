@@ -21,16 +21,26 @@ import org.apache.commons.logging.LogFactory;
 
 public class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
 
-    protected final Log logger = LogFactory.getLog(getClass());
+    private final Log logger;
 
     public LoggingCommandOutputListener(CommandOutputListener delegate) {
+        this(delegate, LogFactory.getLog(LoggingCommandOutputListener.class));
+    }
+
+    public LoggingCommandOutputListener(CommandOutputListener delegate, Log logger) {
         super(delegate);
+        this.logger = logger;
     }
 
     @Override
     public void outputReceived(String hostName, String line) {
-        if(logger.isDebugEnabled())
-            logger.debug(hostName + ": " + line);
+        if(line.contains("Exception") || line.startsWith("\tat")) {
+            if(logger.isWarnEnabled())
+                logger.warn(hostName + ": " + line);
+        } else {
+            if(logger.isDebugEnabled())
+                logger.debug(hostName + ": " + line);
+        }
 
         super.outputReceived(hostName, line);
     }

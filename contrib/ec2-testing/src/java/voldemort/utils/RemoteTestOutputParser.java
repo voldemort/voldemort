@@ -19,17 +19,26 @@ package voldemort.utils;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RemoteTestOutputParser {
+import org.apache.commons.logging.Log;
+
+public class RemoteTestOutputParser implements CommandOutputListener {
 
     private final static String ITERATOR_LINE_TAG = " iteration = ";
 
+    private final static String ITERATIONS_TOTAL_LINE_TAG = "iterations : ";
+
     private final static String THROUGHPUT_LINE_TAG = "Throughput: ";
+
+    private final Log log;
 
     private final Map<Integer, RemoteTestIteration> remoteTestIterations;
 
     private int iterationIndex;
 
-    public RemoteTestOutputParser() {
+    private int totalIterations;
+
+    public RemoteTestOutputParser(Log log) {
+        this.log = log;
         this.remoteTestIterations = new HashMap<Integer, RemoteTestIteration>();
     }
 
@@ -37,13 +46,22 @@ public class RemoteTestOutputParser {
         return remoteTestIterations;
     }
 
-    public void outputReceived(String line) {
+    public void outputReceived(String hostName, String line) {
         int i = line.indexOf(ITERATOR_LINE_TAG);
 
         if(i != -1) {
             iterationIndex = Integer.parseInt(line.substring(i + ITERATOR_LINE_TAG.length())
                                                   .replace("=", "")
                                                   .trim());
+
+            if(log.isInfoEnabled()) {
+                int percentComplete = totalIterations != 0 ? (iterationIndex * 100)
+                                                             / totalIterations : -1;
+
+                log.info(hostName + " starting iteration " + iterationIndex
+                         + ((percentComplete != -1) ? " " + percentComplete + "%" : ""));
+            }
+
         } else if(line.startsWith(THROUGHPUT_LINE_TAG)) {
             RemoteTestIteration remoteTestIteration = remoteTestIterations.get(iterationIndex);
 
@@ -62,6 +80,12 @@ public class RemoteTestOutputParser {
                 remoteTestIteration.setReads(value);
             else if(line.contains("deletes"))
                 remoteTestIteration.setDeletes(value);
+        } else if((i = line.indexOf(ITERATIONS_TOTAL_LINE_TAG)) != -1) {
+            totalIterations = Integer.parseInt(line.substring(i
+                                                              + ITERATIONS_TOTAL_LINE_TAG.length())
+                                                   .replace("=", "")
+                                                   .trim());
         }
     }
+
 }

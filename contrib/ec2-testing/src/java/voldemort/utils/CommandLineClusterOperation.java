@@ -115,7 +115,7 @@ abstract class CommandLineClusterOperation<T> {
     }
 
     protected Callable<T> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null);
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null, logger);
         return new ExitCodeCallable<T>(command, commandOutputListener);
     }
 

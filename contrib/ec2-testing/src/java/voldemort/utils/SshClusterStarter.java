@@ -16,11 +16,82 @@
 
 package voldemort.utils;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class SshClusterStarter extends CommandLineClusterOperation<Object> implements
         ClusterOperation<Object> {
 
+    private final AtomicInteger completedCounter = new AtomicInteger();
+
+    private final int hostCount;
+
+    private final CommandOutputListener outputListener = new SshClusterStarterCommandOutputListener();
+
     public SshClusterStarter(CommandLineClusterConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshClusterStarter.ssh");
+        hostCount = commandLineClusterConfig.getHostNames().size();
+    }
+
+    @Override
+    public List<Object> execute() throws ClusterOperationException {
+        if(logger.isInfoEnabled())
+            logger.info("Starting Voldemort cluster");
+
+        return super.execute();
+    }
+
+    @Override
+    protected Callable<Object> getCallable(UnixCommand command) {
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(outputListener,
+                                                                                       logger);
+        return new ClusterStarterCallable<Object>(command, commandOutputListener);
+    }
+
+    public class SshClusterStarterCommandOutputListener implements CommandOutputListener {
+
+        public void outputReceived(String hostName, String line) {
+            if(line.contains("Startup completed")) {
+                completedCounter.incrementAndGet();
+
+                if(logger.isInfoEnabled()) {
+                    logger.info(hostName + " startup complete");
+
+                    if(hasStartupCompleted())
+                        logger.info("Cluster startup complete");
+                }
+            }
+        }
+    }
+
+    private boolean hasStartupCompleted() {
+        return hostCount == completedCounter.get();
+    }
+
+    private class ClusterStarterCallable<T> implements Callable<T> {
+
+        private final UnixCommand command;
+
+        private final CommandOutputListener commandOutputListener;
+
+        public ClusterStarterCallable(UnixCommand command,
+                                      CommandOutputListener commandOutputListener) {
+            this.command = command;
+            this.commandOutputListener = commandOutputListener;
+        }
+
+        public T call() throws Exception {
+            int exitCode = command.execute(commandOutputListener);
+
+            // If the user hits Ctrl+C after startup, we get an exit code of
+            // 255, so don't throw an exception in this case.
+            if(!(exitCode == 255 && hasStartupCompleted()))
+                throw new Exception("Process on " + command.getHostName() + " exited with code "
+                                    + exitCode + ". Please check the logs for details.");
+
+            return null;
+        }
     }
 
 }

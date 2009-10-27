@@ -29,49 +29,32 @@ public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult>
 
     @Override
     protected Callable<RemoteTestResult> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null);
-        IterationTrackerCommandOutputListener iterationTrackerCommandOutputListener = new IterationTrackerCommandOutputListener(commandOutputListener);
-        return new RemoteTestResultCallable(command, iterationTrackerCommandOutputListener);
-    }
-
-    protected class IterationTrackerCommandOutputListener extends DelegatingCommandOutputListener {
-
-        private final RemoteTestOutputParser remoteTestOutputParser;
-
-        public IterationTrackerCommandOutputListener(CommandOutputListener delegate) {
-            super(delegate);
-            this.remoteTestOutputParser = new RemoteTestOutputParser();
-        }
-
-        public Map<Integer, RemoteTestIteration> getRemoteTestIterations() {
-            return remoteTestOutputParser.getRemoteTestIterations();
-        }
-
-        @Override
-        public void outputReceived(String hostName, String line) {
-            remoteTestOutputParser.outputReceived(line);
-
-            super.outputReceived(hostName, line);
-        }
-
+        RemoteTestOutputParser remoteTestOutputParser = new RemoteTestOutputParser(logger);
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(remoteTestOutputParser,
+                                                                                       logger);
+        return new RemoteTestResultCallable(command, commandOutputListener, remoteTestOutputParser);
     }
 
     protected class RemoteTestResultCallable implements Callable<RemoteTestResult> {
 
         private final UnixCommand command;
 
-        private final IterationTrackerCommandOutputListener commandOutputListener;
+        private final CommandOutputListener commandOutputListener;
+
+        private final RemoteTestOutputParser remoteTestOutputParser;
 
         public RemoteTestResultCallable(UnixCommand command,
-                                        IterationTrackerCommandOutputListener commandOutputListener) {
+                                        CommandOutputListener commandOutputListener,
+                                        RemoteTestOutputParser remoteTestOutputParser) {
             this.command = command;
             this.commandOutputListener = commandOutputListener;
+            this.remoteTestOutputParser = remoteTestOutputParser;
         }
 
         public RemoteTestResult call() throws Exception {
             command.execute(commandOutputListener);
 
-            Map<Integer, RemoteTestIteration> remoteTestIterations = commandOutputListener.getRemoteTestIterations();
+            Map<Integer, RemoteTestIteration> remoteTestIterations = remoteTestOutputParser.getRemoteTestIterations();
             RemoteTestResult remoteTestResult = new RemoteTestResult();
             remoteTestResult.setHostName(command.getHostName());
             remoteTestResult.setRemoteTestIterations(new ArrayList<RemoteTestIteration>(remoteTestIterations.values()));

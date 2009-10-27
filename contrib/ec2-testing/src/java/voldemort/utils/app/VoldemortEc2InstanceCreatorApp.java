@@ -56,8 +56,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         parser.accepts("instancesize",
                        "Instance size; options are DEFAULT (default), LARGE, XLARGE, MEDIUM_HCPU, and XLARGE_HCPU")
               .withRequiredArg();
-        parser.accepts("output",
-                       "Output of newly created public and private DNS entries; defaults to stdout")
+        parser.accepts("output", "Output file for newly created public and private DNS entries")
               .withRequiredArg();
 
         OptionSet options = parse(args);
@@ -67,7 +66,6 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         String keypairId = getRequiredString(options, "keypairid");
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
         String instanceSize = CmdUtils.valueOf(options, "instancesize", "DEFAULT");
-        File outputFile = getOutputFile(options, "output");
 
         try {
             InstanceType.valueOf(instanceSize);
@@ -75,28 +73,24 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
             printUsage();
         }
 
+        File output = getRequiredOutputFile(options, "output");
+
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
         Map<String, String> dnsNames = ec2Connection.createInstances(ami,
                                                                      keypairId,
                                                                      instanceSize,
                                                                      instanceCount);
 
-        StringBuilder dnsNameEntriesBuilder = new StringBuilder();
+        StringBuilder s = new StringBuilder();
 
         for(Map.Entry<String, String> entry: dnsNames.entrySet()) {
-            dnsNameEntriesBuilder.append(entry.getKey());
-            dnsNameEntriesBuilder.append(',');
-            dnsNameEntriesBuilder.append(entry.getValue());
-            dnsNameEntriesBuilder.append(System.getProperty("line.separator"));
+            s.append(entry.getKey());
+            s.append(',');
+            s.append(entry.getValue());
+            s.append(System.getProperty("line.separator"));
         }
 
-        String dnsNameEntries = dnsNameEntriesBuilder.toString();
-
-        if(outputFile != null)
-            FileUtils.writeStringToFile(outputFile, dnsNameEntries);
-        else
-            System.out.print(dnsNameEntries);
-
+        FileUtils.writeStringToFile(output, s.toString());
     }
 
 }

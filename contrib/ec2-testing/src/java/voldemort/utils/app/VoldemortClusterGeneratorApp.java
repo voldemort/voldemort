@@ -47,14 +47,13 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
         parser.accepts("partitions", "Number of partitions per cluster node")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("output", "cluster.xml configuration file; defaults to stdout")
-              .withRequiredArg();
+        parser.accepts("output", "Output file for cluster.xml").withRequiredArg();
         parser.accepts("clustername", "Cluster name; defaults to mycluster").withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         int partitions = getRequiredInt(options, "partitions");
-        File outputFile = getOutputFile(options, "output");
+        File output = getRequiredOutputFile(options, "output");
         String clusterName = CmdUtils.valueOf(options, "clustername", "mycluster");
 
         List<String> privateHostNames = getHostNamesFromFile(hostNamesFile, false);
@@ -63,10 +62,7 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
                                                                            privateHostNames,
                                                                            partitions);
 
-        if(outputFile != null)
-            FileUtils.writeStringToFile(outputFile, clusterXml);
-        else
-            System.out.print(clusterXml);
+        FileUtils.writeStringToFile(output, clusterXml);
     }
 
 }

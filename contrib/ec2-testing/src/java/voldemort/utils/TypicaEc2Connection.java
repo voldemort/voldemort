@@ -59,8 +59,8 @@ public class TypicaEc2Connection implements Ec2Connection {
 
         while(!instanceIds.isEmpty()) {
             try {
-                if(logger.isInfoEnabled())
-                    logger.info("Sleeping for " + POLL_INTERVAL + " seconds...");
+                if(logger.isDebugEnabled())
+                    logger.debug("Sleeping for " + POLL_INTERVAL + " seconds...");
 
                 Thread.sleep(POLL_INTERVAL * 1000);
             } catch(InterruptedException e) {
@@ -74,8 +74,8 @@ public class TypicaEc2Connection implements Ec2Connection {
     }
 
     public void deleteInstances(List<String> hostNames) throws Exception {
-        if(logger.isInfoEnabled())
-            logger.info("Deleting instances for hosts: " + hostNames);
+        if(logger.isDebugEnabled())
+            logger.debug("Deleting instances for hosts: " + hostNames);
 
         List<String> instanceIds = new ArrayList<String>();
 
@@ -85,9 +85,9 @@ public class TypicaEc2Connection implements Ec2Connection {
                     String state = String.valueOf(instance.getState()).toLowerCase();
 
                     if(state.equals("pending")) {
-                        if(logger.isInfoEnabled())
-                            logger.info("Instance " + instance.getInstanceId()
-                                        + " in pending state");
+                        if(logger.isDebugEnabled())
+                            logger.debug("Instance " + instance.getInstanceId()
+                                         + " in pending state");
 
                         continue;
                     }
@@ -108,9 +108,8 @@ public class TypicaEc2Connection implements Ec2Connection {
                         instanceIds.add(instance.getInstanceId());
 
                         if(logger.isInfoEnabled())
-                            logger.info("Instance " + instance.getInstanceId()
-                                        + " running with public DNS " + instance.getDnsName()
-                                        + " to be terminated");
+                            logger.info("Instance " + instance.getInstanceId() + " )"
+                                        + instance.getDnsName() + ") to be terminated");
                     }
                 }
             }
@@ -144,8 +143,8 @@ public class TypicaEc2Connection implements Ec2Connection {
 
     private void waitForInstances(List<String> instanceIds, Map<String, String> hostNameMap)
             throws Exception {
-        if(logger.isInfoEnabled())
-            logger.info("Waiting for instances: " + instanceIds);
+        if(logger.isDebugEnabled())
+            logger.debug("Waiting for instances: " + instanceIds);
 
         for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
             if(res.getInstances() != null) {
@@ -153,9 +152,9 @@ public class TypicaEc2Connection implements Ec2Connection {
                     String state = String.valueOf(instance.getState()).toLowerCase();
 
                     if(state.equals("pending")) {
-                        if(logger.isInfoEnabled())
-                            logger.info("Instance " + instance.getInstanceId()
-                                        + " in pending state");
+                        if(logger.isDebugEnabled())
+                            logger.debug("Instance " + instance.getInstanceId()
+                                         + " in pending state");
 
                         continue;
                     }

@@ -16,11 +16,53 @@
 
 package voldemort.utils;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class SshClusterStopper extends CommandLineClusterOperation<Object> implements
         ClusterOperation<Object> {
 
+    private final AtomicInteger completedCounter = new AtomicInteger();
+
+    private final int hostCount;
+
+    private final CommandOutputListener outputListener = new SshClusterStopperCommandOutputListener();
+
     public SshClusterStopper(CommandLineClusterConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshClusterStopper.ssh");
+        hostCount = commandLineClusterConfig.getHostNames().size();
+    }
+
+    @Override
+    public List<Object> execute() throws ClusterOperationException {
+        if(logger.isInfoEnabled())
+            logger.info("Stopping Voldemort cluster");
+
+        return super.execute();
+    }
+
+    @Override
+    protected Callable<Object> getCallable(UnixCommand command) {
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(outputListener,
+                                                                                       logger);
+        return new ExitCodeCallable<Object>(command, commandOutputListener);
+    }
+
+    public class SshClusterStopperCommandOutputListener implements CommandOutputListener {
+
+        public void outputReceived(String hostName, String line) {
+            if(line.contains("Stopping Voldemort...")) {
+                completedCounter.incrementAndGet();
+
+                if(logger.isInfoEnabled()) {
+                    logger.info(hostName + " shutdown complete");
+
+                    if(hostCount == completedCounter.get())
+                        logger.info("Cluster shutdown complete");
+                }
+            }
+        }
     }
 
 }
