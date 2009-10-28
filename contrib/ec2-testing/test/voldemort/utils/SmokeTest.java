@@ -43,9 +43,9 @@ public class SmokeTest {
         config.setHostNames(dnsNames.keySet());
         config.setHostUserId("root");
         config.setSshPrivateKey(new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair"));
-        config.setVoldemortParentDirectory("somesubdirectory");
-        config.setVoldemortRootDirectory("somesubdirectory/voldemort");
-        config.setVoldemortHomeDirectory("somesubdirectory/voldemort/config/single_node_cluster");
+        config.setVoldemortParentDirectory(".");
+        config.setVoldemortRootDirectory("voldemort");
+        config.setVoldemortHomeDirectory("voldemort/config/single_node_cluster");
         config.setNodeIds(nodeIds);
         config.setSourceDirectory(new File("/home/kirk/voldemortdev/voldemort"));
 
