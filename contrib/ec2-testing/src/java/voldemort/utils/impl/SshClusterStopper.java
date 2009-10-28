@@ -16,7 +16,16 @@
 
 package voldemort.utils.impl;
 
+import static voldemort.utils.impl.CommandLineParameterizer.HOST_NAME_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.HOST_USER_ID_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.SSH_PRIVATE_KEY_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIRECTORY_PARAM;
+
+import java.io.File;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,21 +36,45 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
 
     private final AtomicInteger completedCounter = new AtomicInteger();
 
-    private final int hostCount;
-
     private final CommandOutputListener outputListener = new SshClusterStopperCommandOutputListener();
 
-    public SshClusterStopper(RemoteOperationConfig commandLineClusterConfig) {
-        super(commandLineClusterConfig, "SshClusterStopper.ssh");
-        hostCount = commandLineClusterConfig.getHostNames().size();
+    private final Collection<String> hostNames;
+
+    private final File sshPrivateKey;
+
+    private final String hostUserId;
+
+    private final String voldemortRootDirectory;
+
+    public SshClusterStopper(Collection<String> hostNames,
+                             File sshPrivateKey,
+                             String hostUserId,
+                             String voldemortRootDirectory) {
+        super();
+        this.hostNames = hostNames;
+        this.sshPrivateKey = sshPrivateKey;
+        this.hostUserId = hostUserId;
+        this.voldemortRootDirectory = voldemortRootDirectory;
     }
 
-    @Override
     public List<Object> execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Stopping Voldemort cluster");
 
-        return super.execute();
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterStopper.ssh");
+        Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
+
+        for(String hostName: hostNames) {
+            Map<String, String> parameters = new HashMap<String, String>();
+            parameters.put(HOST_NAME_PARAM, hostName);
+            parameters.put(HOST_USER_ID_PARAM, hostUserId);
+            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(VOLDEMORT_ROOT_DIRECTORY_PARAM, voldemortRootDirectory);
+
+            hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
+        }
+
+        return execute(hostNameCommandLineMap);
     }
 
     @Override
@@ -60,7 +93,7 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
                 if(logger.isInfoEnabled()) {
                     logger.info(hostName + " shutdown complete");
 
-                    if(hostCount == completedCounter.get())
+                    if(hostNames.size() == completedCounter.get())
                         logger.info("Cluster shutdown complete");
                 }
             }

@@ -33,13 +33,13 @@ import java.util.Map;
 
 public interface Ec2Connection {
 
-    public Map<String, String> getInstances() throws Exception;
+    public Map<String, String> list() throws Exception;
 
-    public Map<String, String> createInstances(String ami,
-                                               String keypairId,
-                                               String instanceSize,
-                                               int instanceCount) throws Exception;
+    public Map<String, String> create(String ami,
+                                      String keypairId,
+                                      String instanceSize,
+                                      int instanceCount) throws Exception;
 
-    public void deleteInstances(List<String> publicHostNames) throws Exception;
+    public void delete(List<String> hostNames) throws Exception;
 
 }

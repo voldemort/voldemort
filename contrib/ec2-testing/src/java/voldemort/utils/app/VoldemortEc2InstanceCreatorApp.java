@@ -76,7 +76,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         File output = getRequiredOutputFile(options, "output");
 
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
-        Map<String, String> dnsNames = ec2Connection.createInstances(ami,
+        Map<String, String> dnsNames = ec2Connection.create(ami,
                                                                      keypairId,
                                                                      instanceSize,
                                                                      instanceCount);

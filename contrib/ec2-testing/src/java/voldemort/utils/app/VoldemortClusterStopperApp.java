@@ -20,9 +20,8 @@ import java.io.File;
 import java.util.List;
 
 import joptsimple.OptionSet;
-import voldemort.utils.RemoteOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.impl.RemoteOperationConfig;
+import voldemort.utils.RemoteOperation;
 import voldemort.utils.impl.SshClusterStopper;
 
 public class VoldemortClusterStopperApp extends VoldemortApp {
@@ -50,19 +49,16 @@ public class VoldemortClusterStopperApp extends VoldemortApp {
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
+
+        List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
 
-        List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
-
-        RemoteOperationConfig config = new RemoteOperationConfig();
-        config.setHostNames(hostNames);
-        config.setHostUserId(hostUserId);
-        config.setSshPrivateKey(sshPrivateKey);
-        config.setVoldemortRootDirectory(voldemortRootDirectory);
-
-        RemoteOperation<Object> operation = new SshClusterStopper(config);
+        RemoteOperation<Object> operation = new SshClusterStopper(hostNames,
+                                                                  sshPrivateKey,
+                                                                  hostUserId,
+                                                                  voldemortRootDirectory);
         operation.execute();
     }
 

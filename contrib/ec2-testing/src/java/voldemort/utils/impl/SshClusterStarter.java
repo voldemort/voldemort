@@ -16,7 +16,18 @@
 
 package voldemort.utils.impl;
 
+import static voldemort.utils.impl.CommandLineParameterizer.HOST_NAME_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.HOST_USER_ID_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.SSH_PRIVATE_KEY_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_HOME_DIRECTORY_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_NODE_ID_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIRECTORY_PARAM;
+
+import java.io.File;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,21 +38,54 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
 
     private final AtomicInteger completedCounter = new AtomicInteger();
 
-    private final int hostCount;
-
     private final CommandOutputListener outputListener = new SshClusterStarterCommandOutputListener();
 
-    public SshClusterStarter(RemoteOperationConfig commandLineClusterConfig) {
-        super(commandLineClusterConfig, "SshClusterStarter.ssh");
-        hostCount = commandLineClusterConfig.getHostNames().size();
+    private final Collection<String> hostNames;
+
+    private final File sshPrivateKey;
+
+    private final String hostUserId;
+
+    private final String voldemortRootDirectory;
+
+    private final String voldemortHomeDirectory;
+
+    private final Map<String, Integer> nodeIds;
+
+    public SshClusterStarter(Collection<String> hostNames,
+                             File sshPrivateKey,
+                             String hostUserId,
+                             String voldemortRootDirectory,
+                             String voldemortHomeDirectory,
+                             Map<String, Integer> nodeIds) {
+        this.hostNames = hostNames;
+        this.sshPrivateKey = sshPrivateKey;
+        this.hostUserId = hostUserId;
+        this.voldemortRootDirectory = voldemortRootDirectory;
+        this.voldemortHomeDirectory = voldemortHomeDirectory;
+        this.nodeIds = nodeIds;
     }
 
-    @Override
     public List<Object> execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Starting Voldemort cluster");
 
-        return super.execute();
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterStarter.ssh");
+        Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
+
+        for(String hostName: hostNames) {
+            Map<String, String> parameters = new HashMap<String, String>();
+            parameters.put(HOST_NAME_PARAM, hostName);
+            parameters.put(HOST_USER_ID_PARAM, hostUserId);
+            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(VOLDEMORT_ROOT_DIRECTORY_PARAM, voldemortRootDirectory);
+            parameters.put(VOLDEMORT_HOME_DIRECTORY_PARAM, voldemortHomeDirectory);
+            parameters.put(VOLDEMORT_NODE_ID_PARAM, nodeIds.get(hostName).toString());
+
+            hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
+        }
+
+        return execute(hostNameCommandLineMap);
     }
 
     @Override
@@ -68,7 +112,7 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
     }
 
     private boolean hasStartupCompleted() {
-        return hostCount == completedCounter.get();
+        return hostNames.size() == completedCounter.get();
     }
 
     private class ClusterStarterCallable<T> implements Callable<T> {

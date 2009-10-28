@@ -20,7 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
@@ -200,6 +202,34 @@ public abstract class VoldemortApp {
             }
 
             hostNames.add(hostName);
+        }
+
+        return hostNames;
+    }
+
+    protected Map<String, String> getHostNamesFromFile(File file) {
+        if(!file.canRead()) {
+            System.out.println("File " + file.getAbsolutePath() + " cannot be read");
+            System.exit(2);
+        }
+
+        LineIterator iterator = null;
+
+        try {
+            iterator = FileUtils.lineIterator(file);
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        Map<String, String> hostNames = new HashMap<String, String>();
+
+        while(iterator.hasNext()) {
+            String rawLine = iterator.nextLine();
+            String[] hostNameArray = rawLine.split(",");
+            String externalHostName = hostNameArray[0];
+            String internalHostName = hostNameArray.length > 1 ? hostNameArray[1]
+                                                              : externalHostName;
+            hostNames.put(externalHostName, internalHostName);
         }
 
         return hostNames;

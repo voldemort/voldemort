@@ -20,9 +20,8 @@ import java.io.File;
 import java.util.List;
 
 import joptsimple.OptionSet;
-import voldemort.utils.RemoteOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.impl.RemoteOperationConfig;
+import voldemort.utils.RemoteOperation;
 import voldemort.utils.impl.RsyncDeployer;
 
 public class VoldemortDeployerApp extends VoldemortApp {
@@ -58,14 +57,11 @@ public class VoldemortDeployerApp extends VoldemortApp {
 
         List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
 
-        RemoteOperationConfig config = new RemoteOperationConfig();
-        config.setHostNames(hostNames);
-        config.setHostUserId(hostUserId);
-        config.setSshPrivateKey(sshPrivateKey);
-        config.setVoldemortParentDirectory(voldemortParentDirectory);
-        config.setSourceDirectory(sourceDirectory);
-
-        RemoteOperation<Object> operation = new RsyncDeployer(config);
+        RemoteOperation<Object> operation = new RsyncDeployer(hostNames,
+                                                              sshPrivateKey,
+                                                              sourceDirectory,
+                                                              hostUserId,
+                                                              voldemortParentDirectory);
         operation.execute();
     }
 

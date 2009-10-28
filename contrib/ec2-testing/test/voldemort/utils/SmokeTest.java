@@ -18,6 +18,7 @@ package voldemort.utils;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,6 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
-import voldemort.utils.impl.RemoteOperationConfig;
 import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.RsyncDeployer;
 import voldemort.utils.impl.SshClusterStarter;
@@ -44,18 +44,15 @@ public class SmokeTest {
             dnsNames = getInstances();
         }
 
-        Map<String, Integer> nodeIds = generateClusterDescriptor(dnsNames,
-                                                                 "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
-
-        final RemoteOperationConfig config = new RemoteOperationConfig();
-        config.setHostNames(dnsNames.keySet());
-        config.setHostUserId("root");
-        config.setSshPrivateKey(new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair"));
-        config.setVoldemortParentDirectory(".");
-        config.setVoldemortRootDirectory("voldemort");
-        config.setVoldemortHomeDirectory("voldemort/config/single_node_cluster");
-        config.setNodeIds(nodeIds);
-        config.setSourceDirectory(new File("/home/kirk/voldemortdev/voldemort"));
+        final Map<String, Integer> nodeIds = generateClusterDescriptor(dnsNames,
+                                                                       "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
+        final Collection<String> hostNames = dnsNames.keySet();
+        final String hostUserId = "root";
+        final File sshPrivateKey = new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
+        final String voldemortParentDirectory = ".";
+        final String voldemortRootDirectory = "voldemort";
+        final String voldemortHomeDirectory = "voldemort/config/single_node_cluster";
+        final File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
 
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
         final String bootstrapUrl = dnsNames.values().iterator().next();
@@ -72,21 +69,28 @@ public class SmokeTest {
             startKeyIndex++;
         }
 
-        config.setRemoteTestArguments(remoteTestArguments);
-
         try {
-            new SshClusterStopper(config).execute();
+            new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
         } catch(Exception e) {
             // Ignore...
         }
 
-        new RsyncDeployer(config).execute();
+        new RsyncDeployer(hostNames,
+                          sshPrivateKey,
+                          sourceDirectory,
+                          hostUserId,
+                          voldemortParentDirectory).execute();
 
         new Thread(new Runnable() {
 
             public void run() {
                 try {
-                    new SshClusterStarter(config).execute();
+                    new SshClusterStarter(hostNames,
+                                          sshPrivateKey,
+                                          hostUserId,
+                                          voldemortRootDirectory,
+                                          voldemortHomeDirectory,
+                                          nodeIds).execute();
                 } catch(RemoteOperationException e) {
                     e.printStackTrace();
                 }
@@ -96,10 +100,15 @@ public class SmokeTest {
 
         Thread.sleep(5000);
 
-        List<RemoteTestResult> remoteTestResults = new SshRemoteTest(config).execute();
+        List<RemoteTestResult> remoteTestResults = new SshRemoteTest(hostNames,
+                                                                     sshPrivateKey,
+                                                                     hostUserId,
+                                                                     voldemortRootDirectory,
+                                                                     voldemortHomeDirectory,
+                                                                     remoteTestArguments).execute();
         new RemoteTestSummarizer().outputTestResults(remoteTestResults);
 
-        new SshClusterStopper(config).execute();
+        new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }
 
     private Map<String, String> createInstances(int count) throws Exception {
@@ -108,20 +117,20 @@ public class SmokeTest {
         String ami = System.getProperty("ec2Ami");
         String keyPairId = System.getProperty("ec2KeyPairId");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.createInstances(ami, keyPairId, null, count);
+        return ec2.create(ami, keyPairId, null, count);
     }
 
     private Map<String, String> getInstances() throws Exception {
         String accessId = System.getProperty("ec2AccessId");
         String secretKey = System.getProperty("ec2SecretKey");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.getInstances();
+        return ec2.list();
     }
 
-    private Map<String, Integer> generateClusterDescriptor(Map<String, String> dnsNames, String path)
-            throws Exception {
+    private Map<String, Integer> generateClusterDescriptor(Map<String, String> hostNames,
+                                                           String path) throws Exception {
         ClusterGenerator clusterGenerator = new ClusterGenerator();
-        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(new ArrayList<String>(dnsNames.values()),
+        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(new ArrayList<String>(hostNames.values()),
                                                                                           3);
         String clusterXml = clusterGenerator.createClusterDescriptor("test", nodes);
         FileUtils.writeStringToFile(new File(path), clusterXml);
@@ -131,7 +140,7 @@ public class SmokeTest {
             String privateDnsName = node.getHostName();
 
             // OK, yeah, super-inefficient...
-            for(Map.Entry<String, String> entry: dnsNames.entrySet()) {
+            for(Map.Entry<String, String> entry: hostNames.entrySet()) {
                 if(entry.getValue().equals(privateDnsName)) {
                     nodeIds.put(entry.getKey(), node.getId());
                 }

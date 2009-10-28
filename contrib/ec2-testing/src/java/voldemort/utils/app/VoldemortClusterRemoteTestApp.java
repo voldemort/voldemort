@@ -24,7 +24,6 @@ import java.util.Map;
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.RemoteTestResult;
-import voldemort.utils.impl.RemoteOperationConfig;
 import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.SshRemoteTest;
 
@@ -82,7 +81,8 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
               .withRequiredArg();
 
         OptionSet options = parse(args);
-        File hostNamesFile = getRequiredInputFile(options, "hostnames");
+        List<String> hostNames = getHostNamesFromFile(getRequiredInputFile(options, "hostnames"),
+                                                      true);
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
@@ -96,18 +96,9 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         String bootstrapUrl = getRequiredString(options, "bootstrapurl");
         String storeName = CmdUtils.valueOf(options, "storename", "test");
 
-        List<String> publicHostNames = getHostNamesFromFile(hostNamesFile, true);
-
-        RemoteOperationConfig config = new RemoteOperationConfig();
-        config.setHostNames(publicHostNames);
-        config.setHostUserId(hostUserId);
-        config.setSshPrivateKey(sshPrivateKey);
-        config.setVoldemortHomeDirectory(voldemortHomeDirectory);
-        config.setVoldemortRootDirectory(voldemortRootDirectory);
-
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
 
-        for(String publicHostName: publicHostNames) {
+        for(String publicHostName: hostNames) {
             remoteTestArguments.put(publicHostName, "-" + operations + " --start-key-index "
                                                     + (startKeyIndex * numRequests)
                                                     + " --value-size " + valueSize + " --threads "
@@ -117,9 +108,12 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
             startKeyIndex++;
         }
 
-        config.setRemoteTestArguments(remoteTestArguments);
-
-        List<RemoteTestResult> remoteTestResults = new SshRemoteTest(config).execute();
+        List<RemoteTestResult> remoteTestResults = new SshRemoteTest(hostNames,
+                                                                     sshPrivateKey,
+                                                                     hostUserId,
+                                                                     voldemortRootDirectory,
+                                                                     voldemortHomeDirectory,
+                                                                     remoteTestArguments).execute();
         new RemoteTestSummarizer().outputTestResults(remoteTestResults);
     }
 

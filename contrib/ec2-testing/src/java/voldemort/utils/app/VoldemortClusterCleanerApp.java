@@ -20,9 +20,8 @@ import java.io.File;
 import java.util.List;
 
 import joptsimple.OptionSet;
-import voldemort.utils.RemoteOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.impl.RemoteOperationConfig;
+import voldemort.utils.RemoteOperation;
 import voldemort.utils.impl.SshClusterCleaner;
 
 public class VoldemortClusterCleanerApp extends VoldemortApp {
@@ -56,13 +55,10 @@ public class VoldemortClusterCleanerApp extends VoldemortApp {
 
         List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
 
-        final RemoteOperationConfig config = new RemoteOperationConfig();
-        config.setHostNames(hostNames);
-        config.setHostUserId(hostUserId);
-        config.setSshPrivateKey(sshPrivateKey);
-        config.setVoldemortHomeDirectory(voldemortHomeDirectory);
-
-        RemoteOperation<Object> operation = new SshClusterCleaner(config);
+        RemoteOperation<Object> operation = new SshClusterCleaner(hostNames,
+                                                                  sshPrivateKey,
+                                                                  hostUserId,
+                                                                  voldemortHomeDirectory);
         operation.execute();
     }
 

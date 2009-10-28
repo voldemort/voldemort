@@ -26,7 +26,6 @@ import org.apache.commons.logging.LogFactory;
 
 import voldemort.utils.Ec2Connection;
 
-import com.xerox.amazonws.ec2.EC2Exception;
 import com.xerox.amazonws.ec2.InstanceType;
 import com.xerox.amazonws.ec2.Jec2;
 import com.xerox.amazonws.ec2.LaunchConfiguration;
@@ -45,17 +44,17 @@ public class TypicaEc2Connection implements Ec2Connection {
         ec2 = new Jec2(accessId, secretKey);
     }
 
-    public Map<String, String> getInstances() throws Exception {
+    public Map<String, String> list() throws Exception {
         List<String> dummyInstanceIds = new ArrayList<String>();
         Map<String, String> hostNameMap = new HashMap<String, String>();
         waitForInstances(dummyInstanceIds, hostNameMap);
         return hostNameMap;
     }
 
-    public Map<String, String> createInstances(String ami,
-                                               String keypairId,
-                                               String instanceSize,
-                                               int instanceCount) throws Exception {
+    public Map<String, String> create(String ami,
+                                      String keypairId,
+                                      String instanceSize,
+                                      int instanceCount) throws Exception {
         List<String> instanceIds = launch(ami, keypairId, instanceSize, instanceCount);
         Map<String, String> hostNameMap = new HashMap<String, String>();
 
@@ -75,7 +74,7 @@ public class TypicaEc2Connection implements Ec2Connection {
         return hostNameMap;
     }
 
-    public void deleteInstances(List<String> hostNames) throws Exception {
+    public void delete(List<String> hostNames) throws Exception {
         if(logger.isDebugEnabled())
             logger.debug("Deleting instances for hosts: " + hostNames);
 
@@ -121,7 +120,7 @@ public class TypicaEc2Connection implements Ec2Connection {
     }
 
     private List<String> launch(String ami, String keypairId, String instanceSize, int instanceCount)
-            throws EC2Exception {
+            throws Exception {
         LaunchConfiguration launchConfiguration = new LaunchConfiguration(ami);
         launchConfiguration.setInstanceType(instanceSize == null ? InstanceType.DEFAULT
                                                                 : InstanceType.valueOf(instanceSize));
