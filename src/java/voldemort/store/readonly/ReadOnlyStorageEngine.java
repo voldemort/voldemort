@@ -141,13 +141,15 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void close() throws VoldemortException {
         logger.debug("Close called for read-only store.");
         this.fileModificationLock.writeLock().lock();
-        if(!isOpen) {
-            fileModificationLock.writeLock().unlock();
-            throw new IllegalStateException("Attempt to close non-open store.");
-        }
+
         try {
-            this.isOpen = false;
-            fileSet.close();
+            if(isOpen) {
+                this.isOpen = false;
+                fileSet.close();
+            }
+            else {
+                logger.debug("Attempt to close already closed store " + getName());
+            }
         } finally {
             this.fileModificationLock.writeLock().unlock();
         }
