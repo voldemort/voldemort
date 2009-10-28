@@ -170,7 +170,7 @@ public abstract class VoldemortApp {
         return file;
     }
 
-    protected List<String> getHostNamesFromFile(File file, boolean usePublicDnsName) {
+    protected List<String> getHostNamesFromFile(File file, boolean useExternalDnsName) {
         if(!file.canRead()) {
             System.out.println("File " + file.getAbsolutePath() + " cannot be read");
             System.exit(2);
@@ -190,7 +190,7 @@ public abstract class VoldemortApp {
             String rawLine = iterator.nextLine();
             String hostName = null;
 
-            if(usePublicDnsName) {
+            if(useExternalDnsName) {
                 int i = rawLine.indexOf(',');
 
                 if(i != -1)
