@@ -294,6 +294,7 @@ public class StorageService extends AbstractService {
             try {
                 store.close();
             } catch(Exception e) {
+                logger.error(e);
                 lastException = e;
             }
         }
@@ -303,6 +304,7 @@ public class StorageService extends AbstractService {
             try {
                 store.close();
             } catch(Exception e) {
+                logger.error(e);
                 lastException = e;
             }
         }
@@ -313,6 +315,7 @@ public class StorageService extends AbstractService {
             try {
                 this.storeRepository.getSlopStore().close();
             } catch(Exception e) {
+                logger.error(e);
                 lastException = e;
             }
         }
@@ -324,6 +327,7 @@ public class StorageService extends AbstractService {
             try {
                 config.close();
             } catch(Exception e) {
+                logger.error(e);
                 lastException = e;
             }
         }
