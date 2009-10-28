@@ -25,11 +25,61 @@ import java.util.Random;
 
 import org.apache.commons.lang.StringUtils;
 
+/**
+ * ClusterGenerator generates a cluster.xml file given either a list of hosts or
+ * a list of ClusterNodeDescriptor instances.
+ * 
+ * <p/>
+ * 
+ * This is largely the same as the generate_cluster_xml.py script, but was
+ * created because we need to be able to create new cluster.xml files
+ * dynamically from JUnit. It seemed overly kludgey to have a script that calls
+ * Java that then calls Python.
+ * 
+ * <p/>
+ * 
+ * <b>A note about host names</b>: the host name that is referred to in this
+ * class is a system's <i>internal</i> host name, rather than its external name.
+ * That is, depending on the network topology, a system may have an internal
+ * host name by which it is known by in its local network and an external host
+ * name by which it's known by systems external to that network.
+ * 
+ * <p/>
+ * 
+ * For example, EC2 systems have both internal host names and external host
+ * names. When a system external to EC2 (e.g. a developer's machine or a machine
+ * running a testing framework) wants to communicate with EC2 (via SSH, et al.),
+ * he must use the EC2 instance's external host name. However, for the EC2
+ * instances to communicate amongst themselves (e.g. when running the Voldemort
+ * tests), the Voldemort cluster nodes and Voldemort test nodes must use the
+ * internal host name. The external host name is used by the development/testing
+ * system to reach EC2 for orchestrating the testing. But the communication of
+ * the test and server nodes in the test are all on the same network, using the
+ * internal host name.
+ * 
+ * @author Kirk True
+ */
+
 public class ClusterGenerator {
 
+    /**
+     * Creates a list of ClusterNodeDescriptor instances given a list of host
+     * names.
+     * 
+     * <p/>
+     * 
+     * <b>Please see "A note about host names"</b> in the class' JavaDoc for
+     * important clarification as to the type of host names used.
+     * 
+     * @param hostNames <i>Internal</i> host name
+     * @param numPartitions Number of partitions per host
+     * 
+     * @return
+     */
+
     public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
-                                                                    int partitions) {
-        List<Integer> ids = range(hostNames.size() * partitions);
+                                                                    int numPartitions) {
+        List<Integer> ids = range(hostNames.size() * numPartitions);
 
         Random random = new Random(5276239082346L);
         Collections.shuffle(ids, random);
@@ -38,18 +88,25 @@ public class ClusterGenerator {
 
         for(int i = 0; i < hostNames.size(); i++) {
             String hostName = hostNames.get(i);
-            List<Integer> partitionsList = ids.subList(i * partitions, (i + 1) * partitions);
-            Collections.sort(partitionsList);
+            List<Integer> partitions = ids.subList(i * numPartitions, (i + 1) * numPartitions);
+            Collections.sort(partitions);
 
-            list.add(new ClusterNodeDescriptor(hostName, i, partitionsList));
+            ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
+            cnd.setHostName(hostName);
+            cnd.setId(i);
+            cnd.setPartitions(partitions);
+
+            list.add(cnd);
         }
 
         return list;
     }
 
-    public String createClusterDescriptor(String clusterName, List<String> hostNames, int partitions) {
+    public String createClusterDescriptor(String clusterName,
+                                          List<String> hostNames,
+                                          int numPartitions) {
         List<ClusterNodeDescriptor> clusterNodeDescriptors = createClusterNodeDescriptors(hostNames,
-                                                                                          partitions);
+                                                                                          numPartitions);
 
         return createClusterDescriptor(clusterName, clusterNodeDescriptors);
     }
@@ -60,18 +117,18 @@ public class ClusterGenerator {
         PrintWriter pw = new PrintWriter(sw);
 
         pw.println("<cluster>");
-        pw.println("    <name>" + clusterName + "</name>");
+        pw.println("\t<name>" + clusterName + "</name>");
 
-        for(ClusterNodeDescriptor clusterNodeDescriptor: clusterNodeDescriptors) {
-            String partitionsList = StringUtils.join(clusterNodeDescriptor.getPartitions(), ", ");
+        for(ClusterNodeDescriptor cnd: clusterNodeDescriptors) {
+            String partitions = StringUtils.join(cnd.getPartitions(), ", ");
 
-            pw.println("    <server>");
-            pw.println("        <id>" + clusterNodeDescriptor.getId() + "</id>");
-            pw.println("        <host>" + clusterNodeDescriptor.getHostName() + "</host>");
-            pw.println("        <http-port>8081</http-port>");
-            pw.println("        <socket-port>6666</socket-port>");
-            pw.println("        <partitions>" + partitionsList + "</partitions>");
-            pw.println("    </server>");
+            pw.println("\t<server>");
+            pw.println("\t\t<id>" + cnd.getId() + "</id>");
+            pw.println("\t\t<host>" + cnd.getHostName() + "</host>");
+            pw.println("\t\t<http-port>" + cnd.getHttpPort() + "</http-port>");
+            pw.println("\t\t<socket-port>" + cnd.getSocketPort() + "</socket-port>");
+            pw.println("\t\t<partitions>" + partitions + "</partitions>");
+            pw.println("\t</server>");
         }
 
         pw.println("</cluster>");

@@ -20,28 +20,58 @@ import java.util.List;
 
 public class ClusterNodeDescriptor {
 
+    private static final int DEFAULT_HTTP_PORT = 8081;
+
+    private static final int DEFAULT_SOCKET_PORT = 6666;
+
     private String hostName;
 
     private int id;
 
-    private List<Integer> partitions;
+    private int httpPort = DEFAULT_HTTP_PORT;
 
-    public ClusterNodeDescriptor(String hostName, int id, List<Integer> partitions) {
-        this.hostName = hostName;
-        this.id = id;
-        this.partitions = partitions;
-    }
+    private int socketPort = DEFAULT_SOCKET_PORT;
+
+    private List<Integer> partitions;
 
     public String getHostName() {
         return hostName;
+    }
+
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
     }
 
     public int getId() {
         return id;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public int getHttpPort() {
+        return httpPort;
+    }
+
+    public void setHttpPort(int httpPort) {
+        this.httpPort = httpPort;
+    }
+
+    public int getSocketPort() {
+        return socketPort;
+    }
+
+    public void setSocketPort(int socketPort) {
+        this.socketPort = socketPort;
+    }
+
     public List<Integer> getPartitions() {
         return partitions;
+    }
+
+    public void setPartitions(List<Integer> partitions) {
+        this.partitions = partitions;
     }
 
 }

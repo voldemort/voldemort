@@ -23,10 +23,10 @@ import java.util.Map;
 
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.CommandLineClusterConfig;
 import voldemort.utils.RemoteTestResult;
-import voldemort.utils.RemoteTestSummarizer;
-import voldemort.utils.SshRemoteTest;
+import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.RemoteTestSummarizer;
+import voldemort.utils.impl.SshRemoteTest;
 
 public class VoldemortClusterRemoteTestApp extends VoldemortApp {
 

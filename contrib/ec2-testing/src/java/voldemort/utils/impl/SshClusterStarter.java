@@ -14,11 +14,14 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import voldemort.utils.ClusterOperation;
+import voldemort.utils.ClusterOperationException;
 
 public class SshClusterStarter extends CommandLineClusterOperation<Object> implements
         ClusterOperation<Object> {

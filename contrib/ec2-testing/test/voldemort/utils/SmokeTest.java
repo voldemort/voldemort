@@ -25,6 +25,14 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
+import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.RemoteTestSummarizer;
+import voldemort.utils.impl.RsyncDeployer;
+import voldemort.utils.impl.SshClusterStarter;
+import voldemort.utils.impl.SshClusterStopper;
+import voldemort.utils.impl.SshRemoteTest;
+import voldemort.utils.impl.TypicaEc2Connection;
+
 public class SmokeTest {
 
     @Test

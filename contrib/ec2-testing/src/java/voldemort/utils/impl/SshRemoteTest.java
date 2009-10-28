@@ -14,11 +14,15 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.Callable;
+
+import voldemort.utils.ClusterOperation;
+import voldemort.utils.RemoteTestIteration;
+import voldemort.utils.RemoteTestResult;
 
 public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult> implements
         ClusterOperation<RemoteTestResult> {

@@ -22,7 +22,7 @@ import java.util.List;
 
 import joptsimple.OptionSet;
 import voldemort.utils.Ec2Connection;
-import voldemort.utils.TypicaEc2Connection;
+import voldemort.utils.impl.TypicaEc2Connection;
 
 public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
 

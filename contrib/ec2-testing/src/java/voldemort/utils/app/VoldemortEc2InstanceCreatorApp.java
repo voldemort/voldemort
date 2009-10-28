@@ -25,7 +25,7 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Ec2Connection;
-import voldemort.utils.TypicaEc2Connection;
+import voldemort.utils.impl.TypicaEc2Connection;
 
 import com.xerox.amazonws.ec2.InstanceType;
 

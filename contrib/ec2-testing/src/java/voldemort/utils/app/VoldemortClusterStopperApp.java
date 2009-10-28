@@ -22,8 +22,8 @@ import java.util.List;
 import joptsimple.OptionSet;
 import voldemort.utils.ClusterOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.CommandLineClusterConfig;
-import voldemort.utils.SshClusterStopper;
+import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.SshClusterStopper;
 
 public class VoldemortClusterStopperApp extends VoldemortApp {
 

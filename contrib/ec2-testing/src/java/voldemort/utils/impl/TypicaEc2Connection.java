@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +23,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import voldemort.utils.Ec2Connection;
 
 import com.xerox.amazonws.ec2.EC2Exception;
 import com.xerox.amazonws.ec2.InstanceType;

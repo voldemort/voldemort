@@ -14,7 +14,9 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
+
+import voldemort.utils.ClusterOperation;
 
 public class SshClusterCleaner extends CommandLineClusterOperation<Object> implements
         ClusterOperation<Object> {

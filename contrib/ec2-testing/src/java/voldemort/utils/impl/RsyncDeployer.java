@@ -14,19 +14,15 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
-public abstract class DelegatingCommandOutputListener implements CommandOutputListener {
+import voldemort.utils.ClusterOperation;
 
-    private final CommandOutputListener delegate;
+public class RsyncDeployer extends CommandLineClusterOperation<Object> implements
+        ClusterOperation<Object> {
 
-    public DelegatingCommandOutputListener(CommandOutputListener delegate) {
-        this.delegate = delegate;
-    }
-
-    public void outputReceived(String hostName, String line) {
-        if(delegate != null)
-            delegate.outputReceived(hostName, line);
+    public RsyncDeployer(CommandLineClusterConfig commandLineClusterConfig) {
+        super(commandLineClusterConfig, "RsyncDeployer.rsync");
     }
 
 }

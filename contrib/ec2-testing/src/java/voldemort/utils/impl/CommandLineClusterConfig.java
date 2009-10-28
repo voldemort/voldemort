@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.io.File;
 import java.util.Collection;

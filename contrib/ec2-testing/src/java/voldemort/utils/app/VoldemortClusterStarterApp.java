@@ -23,9 +23,9 @@ import joptsimple.OptionSet;
 import voldemort.utils.ClusterOperation;
 import voldemort.utils.ClusterOperationException;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.CommandLineClusterConfig;
-import voldemort.utils.SshClusterStarter;
-import voldemort.utils.SshClusterStopper;
+import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.SshClusterStarter;
+import voldemort.utils.impl.SshClusterStopper;
 
 public class VoldemortClusterStarterApp extends VoldemortApp {
 

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import voldemort.utils.ClusterOperationException;
 
 abstract class CommandLineClusterOperation<T> {
 

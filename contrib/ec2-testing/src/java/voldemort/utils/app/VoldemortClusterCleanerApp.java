@@ -22,8 +22,8 @@ import java.util.List;
 import joptsimple.OptionSet;
 import voldemort.utils.ClusterOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.CommandLineClusterConfig;
-import voldemort.utils.SshClusterCleaner;
+import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.SshClusterCleaner;
 
 public class VoldemortClusterCleanerApp extends VoldemortApp {
 

@@ -14,10 +14,13 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import voldemort.utils.RemoteTestIteration;
+import voldemort.utils.RemoteTestResult;
 
 public class RemoteTestSummarizer {
 

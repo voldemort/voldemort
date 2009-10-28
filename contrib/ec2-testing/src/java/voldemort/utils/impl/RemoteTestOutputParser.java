@@ -14,12 +14,14 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
+
+import voldemort.utils.RemoteTestIteration;
 
 public class RemoteTestOutputParser implements CommandOutputListener {
 

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.utils.impl;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
