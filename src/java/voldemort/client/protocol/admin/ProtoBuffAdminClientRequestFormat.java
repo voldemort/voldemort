@@ -357,7 +357,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @return
      */
     @Override
-    public Iterator<ByteArray> doFetchKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    public Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
             node.getAdminPort(),
@@ -367,8 +367,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            VAdminProto.FetchKeysRequest.Builder fetchRequest =
-                VAdminProto.FetchKeysRequest.newBuilder()
+            VAdminProto.FetchPartitionKeysRequest.Builder fetchRequest =
+                VAdminProto.FetchPartitionKeysRequest.newBuilder()
                     .addAllPartitions(partitionList)
                     .setStore(storeName);
 
@@ -378,7 +378,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
             VAdminProto.VoldemortAdminRequest request =
                 VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setFetchKeys(fetchRequest)
+                .setFetchPartitionKeys(fetchRequest)
                 .setType(VAdminProto.AdminRequestType.FETCH_KEYS)
                 .build();
             ProtoUtils.writeMessage(outputStream, request);
@@ -401,8 +401,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
                     byte[] input = new byte[size];
                     ByteUtils.read(inputStream, input);
-                    VAdminProto.FetchKeysResponse.Builder response =
-                        VAdminProto.FetchKeysResponse.newBuilder();
+                    VAdminProto.FetchPartitionKeysResponse.Builder response =
+                        VAdminProto.FetchPartitionKeysResponse.newBuilder();
                     response.mergeFrom(input);
 
                     if (response.hasError()) {

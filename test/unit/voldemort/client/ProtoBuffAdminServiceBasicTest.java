@@ -162,7 +162,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         
     }
 
-    public void testFetchKeys() throws IOException {
+    public void testFetchPartitionKeys() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
@@ -180,7 +180,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         int matched=0;
 
         AdminClientRequestFormat client = getAdminClient();
-        Iterator<ByteArray> fetchIt = client.doFetchKeys(server.getIdentityNode().getId(),
+        Iterator<ByteArray> fetchIt = client.doFetchPartitionKeys(server.getIdentityNode().getId(),
             storeName, Arrays.asList(0,1), null);
         while (fetchIt.hasNext()) {
             ByteArray fetchedKey = fetchIt.next();

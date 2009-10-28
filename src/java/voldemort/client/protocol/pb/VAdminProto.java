@@ -3795,28 +3795,28 @@ public final class VAdminProto {
     }
   }
   
-  public static final class FetchKeysRequest extends
+  public static final class FetchPartitionKeysRequest extends
       com.google.protobuf.GeneratedMessage {
-    // Use FetchKeysRequest.newBuilder() to construct.
-    private FetchKeysRequest() {}
+    // Use FetchPartitionKeysRequest.newBuilder() to construct.
+    private FetchPartitionKeysRequest() {}
     
-    private static final FetchKeysRequest defaultInstance = new FetchKeysRequest();
-    public static FetchKeysRequest getDefaultInstance() {
+    private static final FetchPartitionKeysRequest defaultInstance = new FetchPartitionKeysRequest();
+    public static FetchPartitionKeysRequest getDefaultInstance() {
       return defaultInstance;
     }
     
-    public FetchKeysRequest getDefaultInstanceForType() {
+    public FetchPartitionKeysRequest getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchKeysRequest_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionKeysRequest_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchKeysRequest_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionKeysRequest_fieldAccessorTable;
     }
     
     // repeated int32 partitions = 1;
@@ -3895,57 +3895,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -3955,25 +3955,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest result;
+      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest internalGetResult() {
         return result;
       }
       
@@ -3982,7 +3982,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest();
+        result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest();
         return this;
       }
       
@@ -3992,24 +3992,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest build() {
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -4018,7 +4018,7 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
@@ -4027,22 +4027,22 @@ public final class VAdminProto {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
         }
-        voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDefaultInstance()) return this;
         if (!other.partitions_.isEmpty()) {
           if (result.partitions_.isEmpty()) {
             result.partitions_ = new java.util.ArrayList<java.lang.Integer>();
@@ -4563,28 +4563,28 @@ public final class VAdminProto {
     }
   }
   
-  public static final class FetchKeysResponse extends
+  public static final class FetchPartitionKeysResponse extends
       com.google.protobuf.GeneratedMessage {
-    // Use FetchKeysResponse.newBuilder() to construct.
-    private FetchKeysResponse() {}
+    // Use FetchPartitionKeysResponse.newBuilder() to construct.
+    private FetchPartitionKeysResponse() {}
     
-    private static final FetchKeysResponse defaultInstance = new FetchKeysResponse();
-    public static FetchKeysResponse getDefaultInstance() {
+    private static final FetchPartitionKeysResponse defaultInstance = new FetchPartitionKeysResponse();
+    public static FetchPartitionKeysResponse getDefaultInstance() {
       return defaultInstance;
     }
     
-    public FetchKeysResponse getDefaultInstanceForType() {
+    public FetchPartitionKeysResponse getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchKeysResponse_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionKeysResponse_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchKeysResponse_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionKeysResponse_fieldAccessorTable;
     }
     
     // required bytes key = 1;
@@ -4639,57 +4639,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -4699,25 +4699,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse result;
+      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse internalGetResult() {
         return result;
       }
       
@@ -4726,7 +4726,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse();
+        result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse();
         return this;
       }
       
@@ -4736,24 +4736,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse build() {
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -4762,27 +4762,27 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
         }
-        voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.getDefaultInstance()) return this;
         if (other.hasKey()) {
           setKey(other.getKey());
         }
@@ -5716,12 +5716,12 @@ public final class VAdminProto {
     public boolean hasDeletePartitionEntries() { return hasDeletePartitionEntries; }
     public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest getDeletePartitionEntries() { return deletePartitionEntries_; }
     
-    // optional .voldemort.FetchKeysRequest fetch_keys = 8;
-    public static final int FETCH_KEYS_FIELD_NUMBER = 8;
-    private boolean hasFetchKeys;
-    private voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest fetchKeys_ = voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDefaultInstance();
-    public boolean hasFetchKeys() { return hasFetchKeys; }
-    public voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest getFetchKeys() { return fetchKeys_; }
+    // optional .voldemort.FetchPartitionKeysRequest fetch_partition_keys = 8;
+    public static final int FETCH_PARTITION_KEYS_FIELD_NUMBER = 8;
+    private boolean hasFetchPartitionKeys;
+    private voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest fetchPartitionKeys_ = voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDefaultInstance();
+    public boolean hasFetchPartitionKeys() { return hasFetchPartitionKeys; }
+    public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest getFetchPartitionKeys() { return fetchPartitionKeys_; }
     
     public final boolean isInitialized() {
       if (!hasType) return false;
@@ -5743,8 +5743,8 @@ public final class VAdminProto {
       if (hasDeletePartitionEntries()) {
         if (!getDeletePartitionEntries().isInitialized()) return false;
       }
-      if (hasFetchKeys()) {
-        if (!getFetchKeys().isInitialized()) return false;
+      if (hasFetchPartitionKeys()) {
+        if (!getFetchPartitionKeys().isInitialized()) return false;
       }
       return true;
     }
@@ -5772,8 +5772,8 @@ public final class VAdminProto {
       if (hasDeletePartitionEntries()) {
         output.writeMessage(7, getDeletePartitionEntries());
       }
-      if (hasFetchKeys()) {
-        output.writeMessage(8, getFetchKeys());
+      if (hasFetchPartitionKeys()) {
+        output.writeMessage(8, getFetchPartitionKeys());
       }
       getUnknownFields().writeTo(output);
     }
@@ -5812,9 +5812,9 @@ public final class VAdminProto {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, getDeletePartitionEntries());
       }
-      if (hasFetchKeys()) {
+      if (hasFetchPartitionKeys()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(8, getFetchKeys());
+          .computeMessageSize(8, getFetchPartitionKeys());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -5986,8 +5986,8 @@ public final class VAdminProto {
         if (other.hasDeletePartitionEntries()) {
           mergeDeletePartitionEntries(other.getDeletePartitionEntries());
         }
-        if (other.hasFetchKeys()) {
-          mergeFetchKeys(other.getFetchKeys());
+        if (other.hasFetchPartitionKeys()) {
+          mergeFetchPartitionKeys(other.getFetchPartitionKeys());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -6079,12 +6079,12 @@ public final class VAdminProto {
               break;
             }
             case 66: {
-              voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.newBuilder();
-              if (hasFetchKeys()) {
-                subBuilder.mergeFrom(getFetchKeys());
+              voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.newBuilder();
+              if (hasFetchPartitionKeys()) {
+                subBuilder.mergeFrom(getFetchPartitionKeys());
               }
               input.readMessage(subBuilder, extensionRegistry);
-              setFetchKeys(subBuilder.buildPartial());
+              setFetchPartitionKeys(subBuilder.buildPartial());
               break;
             }
           }
@@ -6335,40 +6335,40 @@ public final class VAdminProto {
         return this;
       }
       
-      // optional .voldemort.FetchKeysRequest fetch_keys = 8;
-      public boolean hasFetchKeys() {
-        return result.hasFetchKeys();
+      // optional .voldemort.FetchPartitionKeysRequest fetch_partition_keys = 8;
+      public boolean hasFetchPartitionKeys() {
+        return result.hasFetchPartitionKeys();
       }
-      public voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest getFetchKeys() {
-        return result.getFetchKeys();
+      public voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest getFetchPartitionKeys() {
+        return result.getFetchPartitionKeys();
       }
-      public Builder setFetchKeys(voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest value) {
+      public Builder setFetchPartitionKeys(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        result.hasFetchKeys = true;
-        result.fetchKeys_ = value;
+        result.hasFetchPartitionKeys = true;
+        result.fetchPartitionKeys_ = value;
         return this;
       }
-      public Builder setFetchKeys(voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.Builder builderForValue) {
-        result.hasFetchKeys = true;
-        result.fetchKeys_ = builderForValue.build();
+      public Builder setFetchPartitionKeys(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.Builder builderForValue) {
+        result.hasFetchPartitionKeys = true;
+        result.fetchPartitionKeys_ = builderForValue.build();
         return this;
       }
-      public Builder mergeFetchKeys(voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest value) {
-        if (result.hasFetchKeys() &&
-            result.fetchKeys_ != voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDefaultInstance()) {
-          result.fetchKeys_ =
-            voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.newBuilder(result.fetchKeys_).mergeFrom(value).buildPartial();
+      public Builder mergeFetchPartitionKeys(voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest value) {
+        if (result.hasFetchPartitionKeys() &&
+            result.fetchPartitionKeys_ != voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDefaultInstance()) {
+          result.fetchPartitionKeys_ =
+            voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.newBuilder(result.fetchPartitionKeys_).mergeFrom(value).buildPartial();
         } else {
-          result.fetchKeys_ = value;
+          result.fetchPartitionKeys_ = value;
         }
-        result.hasFetchKeys = true;
+        result.hasFetchPartitionKeys = true;
         return this;
       }
-      public Builder clearFetchKeys() {
-        result.hasFetchKeys = false;
-        result.fetchKeys_ = voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.getDefaultInstance();
+      public Builder clearFetchPartitionKeys() {
+        result.hasFetchPartitionKeys = false;
+        result.fetchPartitionKeys_ = voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.getDefaultInstance();
         return this;
       }
     }
@@ -6438,20 +6438,20 @@ public final class VAdminProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_FetchPartitionEntriesRequest_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_FetchKeysRequest_descriptor;
+    internal_static_voldemort_FetchPartitionKeysRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_FetchKeysRequest_fieldAccessorTable;
+      internal_static_voldemort_FetchPartitionKeysRequest_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_FetchPartitionEntriesResponse_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_FetchPartitionEntriesResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_FetchKeysResponse_descriptor;
+    internal_static_voldemort_FetchPartitionKeysResponse_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_FetchKeysResponse_fieldAccessorTable;
+      internal_static_voldemort_FetchPartitionKeysResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_DeletePartitionEntriesRequest_descriptor;
   private static
@@ -6499,37 +6499,38 @@ public final class VAdminProto {
       "ata\030\002 \002(\014\"m\n\034FetchPartitionEntriesReques" +
       "t\022\022\n\npartitions\030\001 \003(\005\022\r\n\005store\030\002 \002(\t\022*\n\006" +
       "filter\030\003 \001(\0132\032.voldemort.VoldemortFilter" +
-      "\"a\n\020FetchKeysRequest\022\022\n\npartitions\030\001 \003(\005" +
-      "\022\r\n\005store\030\002 \002(\t\022*\n\006filter\030\003 \001(\0132\032.voldem" +
-      "ort.VoldemortFilter\"t\n\035FetchPartitionEnt" +
-      "riesResponse\0222\n\017partition_entry\030\001 \002(\0132\031." +
-      "voldemort.PartitionEntry\022\037\n\005error\030\002 \001(\0132" +
-      "\020.voldemort.Error\"A\n\021FetchKeysResponse\022\013" +
-      "\n\003key\030\001 \002(\014\022\037\n\005error\030\002 \001(\0132\020.voldemort.E",
-      "rror\"n\n\035DeletePartitionEntriesRequest\022\r\n" +
-      "\005store\030\001 \002(\t\022\022\n\npartitions\030\002 \003(\005\022*\n\006filt" +
-      "er\030\003 \001(\0132\032.voldemort.VoldemortFilter\"P\n\036" +
-      "DeletePartitionEntriesResponse\022\r\n\005count\030" +
-      "\001 \002(\005\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"\372" +
-      "\003\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033" +
-      ".voldemort.AdminRequestType\0223\n\014get_metad" +
-      "ata\030\002 \001(\0132\035.voldemort.GetMetadataRequest" +
-      "\0229\n\017update_metadata\030\003 \001(\0132 .voldemort.Up" +
-      "dateMetadataRequest\0223\n\014redirect_get\030\004 \001(",
-      "\0132\035.voldemort.RedirectGetRequest\022J\n\030upda" +
-      "te_partition_entries\030\005 \001(\0132(.voldemort.U" +
-      "pdatePartitionEntriesRequest\022H\n\027fetch_pa" +
-      "rtition_entries\030\006 \001(\0132\'.voldemort.FetchP" +
-      "artitionEntriesRequest\022J\n\030delete_partiti" +
-      "on_entries\030\007 \001(\0132(.voldemort.DeleteParti" +
-      "tionEntriesRequest\022/\n\nfetch_keys\030\010 \001(\0132\033" +
-      ".voldemort.FetchKeysRequest*\264\001\n\020AdminReq" +
-      "uestType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_MET" +
-      "ADATA\020\001\022\020\n\014REDIRECT_GET\020\002\022\034\n\030UPDATE_PART",
-      "ITION_ENTRIES\020\003\022\033\n\027FETCH_PARTITION_ENTRI" +
-      "ES\020\004\022\034\n\030DELETE_PARTITION_ENTRIES\020\005\022\016\n\nFE" +
-      "TCH_KEYS\020\006B-\n\034voldemort.client.protocol." +
-      "pbB\013VAdminProtoH\001"
+      "\"j\n\031FetchPartitionKeysRequest\022\022\n\npartiti" +
+      "ons\030\001 \003(\005\022\r\n\005store\030\002 \002(\t\022*\n\006filter\030\003 \001(\013" +
+      "2\032.voldemort.VoldemortFilter\"t\n\035FetchPar" +
+      "titionEntriesResponse\0222\n\017partition_entry" +
+      "\030\001 \002(\0132\031.voldemort.PartitionEntry\022\037\n\005err" +
+      "or\030\002 \001(\0132\020.voldemort.Error\"J\n\032FetchParti" +
+      "tionKeysResponse\022\013\n\003key\030\001 \002(\014\022\037\n\005error\030\002",
+      " \001(\0132\020.voldemort.Error\"n\n\035DeletePartitio" +
+      "nEntriesRequest\022\r\n\005store\030\001 \002(\t\022\022\n\npartit" +
+      "ions\030\002 \003(\005\022*\n\006filter\030\003 \001(\0132\032.voldemort.V" +
+      "oldemortFilter\"P\n\036DeletePartitionEntries" +
+      "Response\022\r\n\005count\030\001 \002(\005\022\037\n\005error\030\002 \001(\0132\020" +
+      ".voldemort.Error\"\215\004\n\025VoldemortAdminReque" +
+      "st\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminReques" +
+      "tType\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort." +
+      "GetMetadataRequest\0229\n\017update_metadata\030\003 " +
+      "\001(\0132 .voldemort.UpdateMetadataRequest\0223\n",
+      "\014redirect_get\030\004 \001(\0132\035.voldemort.Redirect" +
+      "GetRequest\022J\n\030update_partition_entries\030\005" +
+      " \001(\0132(.voldemort.UpdatePartitionEntriesR" +
+      "equest\022H\n\027fetch_partition_entries\030\006 \001(\0132" +
+      "\'.voldemort.FetchPartitionEntriesRequest" +
+      "\022J\n\030delete_partition_entries\030\007 \001(\0132(.vol" +
+      "demort.DeletePartitionEntriesRequest\022B\n\024" +
+      "fetch_partition_keys\030\010 \001(\0132$.voldemort.F" +
+      "etchPartitionKeysRequest*\264\001\n\020AdminReques" +
+      "tType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADA",
+      "TA\020\001\022\020\n\014REDIRECT_GET\020\002\022\034\n\030UPDATE_PARTITI" +
+      "ON_ENTRIES\020\003\022\033\n\027FETCH_PARTITION_ENTRIES\020" +
+      "\004\022\034\n\030DELETE_PARTITION_ENTRIES\020\005\022\016\n\nFETCH" +
+      "_KEYS\020\006B-\n\034voldemort.client.protocol.pbB" +
+      "\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -6624,14 +6625,14 @@ public final class VAdminProto {
               new java.lang.String[] { "Partitions", "Store", "Filter", },
               voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest.class,
               voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest.Builder.class);
-          internal_static_voldemort_FetchKeysRequest_descriptor =
+          internal_static_voldemort_FetchPartitionKeysRequest_descriptor =
             getDescriptor().getMessageTypes().get(11);
-          internal_static_voldemort_FetchKeysRequest_fieldAccessorTable = new
+          internal_static_voldemort_FetchPartitionKeysRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_FetchKeysRequest_descriptor,
+              internal_static_voldemort_FetchPartitionKeysRequest_descriptor,
               new java.lang.String[] { "Partitions", "Store", "Filter", },
-              voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.class,
-              voldemort.client.protocol.pb.VAdminProto.FetchKeysRequest.Builder.class);
+              voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.class,
+              voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysRequest.Builder.class);
           internal_static_voldemort_FetchPartitionEntriesResponse_descriptor =
             getDescriptor().getMessageTypes().get(12);
           internal_static_voldemort_FetchPartitionEntriesResponse_fieldAccessorTable = new
@@ -6640,14 +6641,14 @@ public final class VAdminProto {
               new java.lang.String[] { "PartitionEntry", "Error", },
               voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse.class,
               voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse.Builder.class);
-          internal_static_voldemort_FetchKeysResponse_descriptor =
+          internal_static_voldemort_FetchPartitionKeysResponse_descriptor =
             getDescriptor().getMessageTypes().get(13);
-          internal_static_voldemort_FetchKeysResponse_fieldAccessorTable = new
+          internal_static_voldemort_FetchPartitionKeysResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_FetchKeysResponse_descriptor,
+              internal_static_voldemort_FetchPartitionKeysResponse_descriptor,
               new java.lang.String[] { "Key", "Error", },
-              voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.class,
-              voldemort.client.protocol.pb.VAdminProto.FetchKeysResponse.Builder.class);
+              voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.class,
+              voldemort.client.protocol.pb.VAdminProto.FetchPartitionKeysResponse.Builder.class);
           internal_static_voldemort_DeletePartitionEntriesRequest_descriptor =
             getDescriptor().getMessageTypes().get(14);
           internal_static_voldemort_DeletePartitionEntriesRequest_fieldAccessorTable = new
@@ -6669,7 +6670,7 @@ public final class VAdminProto {
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "RedirectGet", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "FetchKeys", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "RedirectGet", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "FetchPartitionKeys", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;

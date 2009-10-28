@@ -117,7 +117,7 @@ public abstract class AdminClientRequestFormat {
      * @param filter
      * @return
      */
-    public abstract Iterator<ByteArray> doFetchKeys(int nodeId, String storeName,
+    public abstract Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName,
                                            List<Integer> partitionList,
                                            VoldemortFilter filter);
 

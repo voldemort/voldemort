@@ -261,7 +261,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
      * @return
      */
     @Override
-    public Iterator<ByteArray> doFetchKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    public Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 

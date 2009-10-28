@@ -60,7 +60,7 @@ message FetchPartitionEntriesRequest {
   optional VoldemortFilter filter = 3;
 }
 
-message FetchKeysRequest {
+message FetchPartitionKeysRequest {
   repeated int32 partitions = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
@@ -71,7 +71,7 @@ message FetchPartitionEntriesResponse {
   optional Error error = 2;
 }
 
-message FetchKeysResponse {
+message FetchPartitionKeysResponse {
   required bytes key = 1;
   optional Error error = 2;
 }
@@ -105,7 +105,7 @@ message VoldemortAdminRequest {
   optional UpdatePartitionEntriesRequest update_partition_entries = 5;
   optional FetchPartitionEntriesRequest fetch_partition_entries = 6;
   optional DeletePartitionEntriesRequest delete_partition_entries = 7;
-  optional FetchKeysRequest fetch_keys = 8;
+  optional FetchPartitionKeysRequest fetch_partition_keys = 8;
 }
 
 

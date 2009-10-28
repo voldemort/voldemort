@@ -96,7 +96,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     outputStream);
                 break;
             case FETCH_KEYS:
-                handleFetchKeys(request.getFetchKeys(), outputStream);
+                handleFetchPartitionKeys(request.getFetchPartitionKeys(), outputStream);
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -151,7 +151,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public void handleFetchKeys(VAdminProto.FetchKeysRequest request,
+    public void handleFetchPartitionKeys(VAdminProto.FetchPartitionKeysRequest request,
                                 DataOutputStream outputStream) throws IOException {
         try {
             String storeName = request.getStore();
@@ -178,7 +178,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
-                    VAdminProto.FetchKeysResponse response = VAdminProto.FetchKeysResponse
+                    VAdminProto.FetchPartitionKeysResponse response = VAdminProto.FetchPartitionKeysResponse
                         .newBuilder()
                         .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
                         .build();
@@ -192,7 +192,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             iterator.close();
             ProtoUtils.writeEndOfStream(outputStream);
         } catch (VoldemortException e) {
-            VAdminProto.FetchKeysResponse response = VAdminProto.FetchKeysResponse.newBuilder()
+            VAdminProto.FetchPartitionKeysResponse response = VAdminProto.FetchPartitionKeysResponse.newBuilder()
                 .setError(ProtoUtils.encodeError(errorCodeMapper, e))
                 .build();
             ProtoUtils.writeMessage(outputStream, response);
