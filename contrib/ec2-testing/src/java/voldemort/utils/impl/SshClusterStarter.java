@@ -20,11 +20,10 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.utils.ClusterOperation;
-import voldemort.utils.ClusterOperationException;
+import voldemort.utils.ClusterStarter;
+import voldemort.utils.RemoteOperationException;
 
-public class SshClusterStarter extends CommandLineClusterOperation<Object> implements
-        ClusterOperation<Object> {
+public class SshClusterStarter extends CommandLineRemoteOperation<Object> implements ClusterStarter {
 
     private final AtomicInteger completedCounter = new AtomicInteger();
 
@@ -32,13 +31,13 @@ public class SshClusterStarter extends CommandLineClusterOperation<Object> imple
 
     private final CommandOutputListener outputListener = new SshClusterStarterCommandOutputListener();
 
-    public SshClusterStarter(CommandLineClusterConfig commandLineClusterConfig) {
+    public SshClusterStarter(RemoteOperationConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshClusterStarter.ssh");
         hostCount = commandLineClusterConfig.getHostNames().size();
     }
 
     @Override
-    public List<Object> execute() throws ClusterOperationException {
+    public List<Object> execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Starting Voldemort cluster");
 

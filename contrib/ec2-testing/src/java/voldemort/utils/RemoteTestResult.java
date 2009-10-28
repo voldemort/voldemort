@@ -16,28 +16,60 @@
 
 package voldemort.utils;
 
-import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 public class RemoteTestResult {
 
-    private String hostName;
+    private final String hostName;
 
-    private List<RemoteTestIteration> remoteTestIterations;
+    private final SortedMap<Integer, RemoteTestIteration> remoteTestIterations;
+
+    public RemoteTestResult(String hostName) {
+        this.hostName = hostName;
+        this.remoteTestIterations = new TreeMap<Integer, RemoteTestIteration>();
+    }
 
     public String getHostName() {
         return hostName;
     }
 
-    public void setHostName(String hostName) {
-        this.hostName = hostName;
-    }
-
-    public List<RemoteTestIteration> getRemoteTestIterations() {
+    public SortedMap<Integer, RemoteTestIteration> getRemoteTestIterations() {
         return remoteTestIterations;
     }
 
-    public void setRemoteTestIterations(List<RemoteTestIteration> remoteTestIterations) {
-        this.remoteTestIterations = remoteTestIterations;
+    public static class RemoteTestIteration {
+
+        private double reads;
+
+        private double writes;
+
+        private double deletes;
+
+        public double getReads() {
+            return reads;
+        }
+
+        public void setReads(double reads) {
+            this.reads = reads;
+        }
+
+        public double getWrites() {
+            return writes;
+        }
+
+        public void setWrites(double writes) {
+            this.writes = writes;
+        }
+
+        public double getDeletes() {
+            return deletes;
+        }
+
+        public void setDeletes(double deletes) {
+            this.deletes = deletes;
+        }
+
     }
 
 }

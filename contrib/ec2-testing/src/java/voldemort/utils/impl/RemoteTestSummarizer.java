@@ -19,8 +19,8 @@ package voldemort.utils.impl;
 import java.util.ArrayList;
 import java.util.List;
 
-import voldemort.utils.RemoteTestIteration;
 import voldemort.utils.RemoteTestResult;
+import voldemort.utils.RemoteTestResult.RemoteTestIteration;
 
 public class RemoteTestSummarizer {
 
@@ -34,7 +34,8 @@ public class RemoteTestSummarizer {
             List<Double> hostWriteResults = new ArrayList<Double>();
             List<Double> hostDeleteResults = new ArrayList<Double>();
 
-            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations()) {
+            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations()
+                                                                         .values()) {
                 hostReadResults.add(remoteTestIteration.getReads());
                 hostWriteResults.add(remoteTestIteration.getWrites());
                 hostDeleteResults.add(remoteTestIteration.getDeletes());

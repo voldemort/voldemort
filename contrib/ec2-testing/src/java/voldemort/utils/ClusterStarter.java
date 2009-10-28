@@ -16,22 +16,6 @@
 
 package voldemort.utils;
 
-public class ClusterOperationException extends Exception {
-
-    private static final long serialVersionUID = 1L;
-
-    public ClusterOperationException() {}
-
-    public ClusterOperationException(String message) {
-        super(message);
-    }
-
-    public ClusterOperationException(Throwable cause) {
-        super(cause);
-    }
-
-    public ClusterOperationException(String message, Throwable cause) {
-        super(message, cause);
-    }
+public interface ClusterStarter extends RemoteOperation<Object> {
 
 }

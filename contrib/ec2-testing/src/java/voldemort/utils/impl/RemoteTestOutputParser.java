@@ -16,12 +16,12 @@
 
 package voldemort.utils.impl;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
 
-import voldemort.utils.RemoteTestIteration;
+import voldemort.utils.RemoteTestResult;
+import voldemort.utils.RemoteTestResult.RemoteTestIteration;
 
 public class RemoteTestOutputParser implements CommandOutputListener {
 
@@ -33,19 +33,15 @@ public class RemoteTestOutputParser implements CommandOutputListener {
 
     private final Log log;
 
-    private final Map<Integer, RemoteTestIteration> remoteTestIterations;
+    private final RemoteTestResult remoteTestResult;
 
     private int iterationIndex;
 
     private int totalIterations;
 
-    public RemoteTestOutputParser(Log log) {
+    public RemoteTestOutputParser(Log log, RemoteTestResult remoteTestResult) {
         this.log = log;
-        this.remoteTestIterations = new HashMap<Integer, RemoteTestIteration>();
-    }
-
-    public Map<Integer, RemoteTestIteration> getRemoteTestIterations() {
-        return remoteTestIterations;
+        this.remoteTestResult = remoteTestResult;
     }
 
     public void outputReceived(String hostName, String line) {
@@ -65,11 +61,13 @@ public class RemoteTestOutputParser implements CommandOutputListener {
             }
 
         } else if(line.startsWith(THROUGHPUT_LINE_TAG)) {
-            RemoteTestIteration remoteTestIteration = remoteTestIterations.get(iterationIndex);
+            Map<Integer, RemoteTestIteration> map = remoteTestResult.getRemoteTestIterations();
+
+            RemoteTestIteration remoteTestIteration = map.get(iterationIndex);
 
             if(remoteTestIteration == null) {
                 remoteTestIteration = new RemoteTestIteration();
-                remoteTestIterations.put(iterationIndex, remoteTestIteration);
+                map.put(iterationIndex, remoteTestIteration);
             }
 
             double value = Double.parseDouble(line.substring(THROUGHPUT_LINE_TAG.length(),

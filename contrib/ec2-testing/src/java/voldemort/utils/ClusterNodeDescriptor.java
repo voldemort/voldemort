@@ -156,7 +156,7 @@ public class ClusterNodeDescriptor {
      * with any partitions for any <i>other</i> nodes in the cluster. This class
      * doesn't enforce/check overlaps; you'll find them at runtime ;)
      * 
-     * <p>
+     * <p/>
      * 
      * Also, if possible, provide the list in ascending sorted order. (This is
      * an optimization for humans.)

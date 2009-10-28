@@ -20,9 +20,9 @@ import java.io.File;
 import java.util.List;
 
 import joptsimple.OptionSet;
-import voldemort.utils.ClusterOperation;
+import voldemort.utils.RemoteOperation;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.RemoteOperationConfig;
 import voldemort.utils.impl.SshClusterStopper;
 
 public class VoldemortClusterStopperApp extends VoldemortApp {
@@ -56,13 +56,13 @@ public class VoldemortClusterStopperApp extends VoldemortApp {
 
         List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
 
-        CommandLineClusterConfig config = new CommandLineClusterConfig();
+        RemoteOperationConfig config = new RemoteOperationConfig();
         config.setHostNames(hostNames);
         config.setHostUserId(hostUserId);
         config.setSshPrivateKey(sshPrivateKey);
         config.setVoldemortRootDirectory(voldemortRootDirectory);
 
-        ClusterOperation<Object> operation = new SshClusterStopper(config);
+        RemoteOperation<Object> operation = new SshClusterStopper(config);
         operation.execute();
     }
 

@@ -14,14 +14,8 @@
  * the License.
  */
 
-package voldemort.utils.impl;
+package voldemort.utils;
 
-import voldemort.utils.Deployer;
-
-public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements Deployer {
-
-    public RsyncDeployer(RemoteOperationConfig commandLineClusterConfig) {
-        super(commandLineClusterConfig, "RsyncDeployer.rsync");
-    }
+public interface RemoteTest extends RemoteOperation<RemoteTestResult> {
 
 }

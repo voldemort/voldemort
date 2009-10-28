@@ -16,36 +16,27 @@
 
 package voldemort.utils;
 
-public class RemoteTestIteration {
+import java.util.List;
 
-    private double reads;
+/**
+ * A RemoteOperation represents an operation that can be performed on a remote
+ * system. For example, it may represent the ability to remotely start/stop
+ * server and test nodes, deploy files, and so forth.
+ * 
+ * @author Kirk True
+ * 
+ * @param <T> Data that is returned from an operation, specific to that
+ *        operation
+ */
 
-    private double writes;
+public interface RemoteOperation<T> {
 
-    private double deletes;
+    /**
+     * 
+     * @return
+     * @throws RemoteOperationException
+     */
 
-    public double getReads() {
-        return reads;
-    }
-
-    public void setReads(double reads) {
-        this.reads = reads;
-    }
-
-    public double getWrites() {
-        return writes;
-    }
-
-    public void setWrites(double writes) {
-        this.writes = writes;
-    }
-
-    public double getDeletes() {
-        return deletes;
-    }
-
-    public void setDeletes(double deletes) {
-        this.deletes = deletes;
-    }
+    public List<T> execute() throws RemoteOperationException;
 
 }

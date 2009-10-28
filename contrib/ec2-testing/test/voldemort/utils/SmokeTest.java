@@ -25,7 +25,7 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
-import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.RemoteOperationConfig;
 import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.RsyncDeployer;
 import voldemort.utils.impl.SshClusterStarter;
@@ -47,7 +47,7 @@ public class SmokeTest {
         Map<String, Integer> nodeIds = generateClusterDescriptor(dnsNames,
                                                                  "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
 
-        final CommandLineClusterConfig config = new CommandLineClusterConfig();
+        final RemoteOperationConfig config = new RemoteOperationConfig();
         config.setHostNames(dnsNames.keySet());
         config.setHostUserId("root");
         config.setSshPrivateKey(new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair"));
@@ -87,7 +87,7 @@ public class SmokeTest {
             public void run() {
                 try {
                     new SshClusterStarter(config).execute();
-                } catch(ClusterOperationException e) {
+                } catch(RemoteOperationException e) {
                     e.printStackTrace();
                 }
             }

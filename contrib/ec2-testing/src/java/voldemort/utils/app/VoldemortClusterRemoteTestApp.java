@@ -24,7 +24,7 @@ import java.util.Map;
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.RemoteTestResult;
-import voldemort.utils.impl.CommandLineClusterConfig;
+import voldemort.utils.impl.RemoteOperationConfig;
 import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.SshRemoteTest;
 
@@ -98,7 +98,7 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
 
         List<String> publicHostNames = getHostNamesFromFile(hostNamesFile, true);
 
-        CommandLineClusterConfig config = new CommandLineClusterConfig();
+        RemoteOperationConfig config = new RemoteOperationConfig();
         config.setHostNames(publicHostNames);
         config.setHostUserId(hostUserId);
         config.setSshPrivateKey(sshPrivateKey);

@@ -20,7 +20,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Map;
 
-public class CommandLineClusterConfig {
+public class RemoteOperationConfig {
 
     private Collection<String> hostNames;
 

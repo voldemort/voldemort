@@ -16,12 +16,11 @@
 
 package voldemort.utils.impl;
 
-import voldemort.utils.ClusterOperation;
+import voldemort.utils.ClusterCleaner;
 
-public class SshClusterCleaner extends CommandLineClusterOperation<Object> implements
-        ClusterOperation<Object> {
+public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implements ClusterCleaner {
 
-    public SshClusterCleaner(CommandLineClusterConfig commandLineClusterConfig) {
+    public SshClusterCleaner(RemoteOperationConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshClusterCleaner.ssh");
     }
 

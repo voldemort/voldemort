@@ -16,27 +16,26 @@
 
 package voldemort.utils.impl;
 
-import java.util.ArrayList;
-import java.util.Map;
 import java.util.concurrent.Callable;
 
-import voldemort.utils.ClusterOperation;
-import voldemort.utils.RemoteTestIteration;
+import voldemort.utils.RemoteTest;
 import voldemort.utils.RemoteTestResult;
 
-public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult> implements
-        ClusterOperation<RemoteTestResult> {
+public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> implements
+        RemoteTest {
 
-    public SshRemoteTest(CommandLineClusterConfig commandLineClusterConfig) {
+    public SshRemoteTest(RemoteOperationConfig commandLineClusterConfig) {
         super(commandLineClusterConfig, "SshRemoteTest.ssh");
     }
 
     @Override
     protected Callable<RemoteTestResult> getCallable(UnixCommand command) {
-        RemoteTestOutputParser remoteTestOutputParser = new RemoteTestOutputParser(logger);
+        RemoteTestResult remoteTestResult = new RemoteTestResult(command.getHostName());
+        RemoteTestOutputParser remoteTestOutputParser = new RemoteTestOutputParser(logger,
+                                                                                   remoteTestResult);
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(remoteTestOutputParser,
                                                                                        logger);
-        return new RemoteTestResultCallable(command, commandOutputListener, remoteTestOutputParser);
+        return new RemoteTestResultCallable(command, commandOutputListener, remoteTestResult);
     }
 
     protected class RemoteTestResultCallable implements Callable<RemoteTestResult> {
@@ -45,23 +44,19 @@ public class SshRemoteTest extends CommandLineClusterOperation<RemoteTestResult>
 
         private final CommandOutputListener commandOutputListener;
 
-        private final RemoteTestOutputParser remoteTestOutputParser;
+        private final RemoteTestResult remoteTestResult;
 
         public RemoteTestResultCallable(UnixCommand command,
                                         CommandOutputListener commandOutputListener,
-                                        RemoteTestOutputParser remoteTestOutputParser) {
+                                        RemoteTestResult remoteTestResult) {
             this.command = command;
             this.commandOutputListener = commandOutputListener;
-            this.remoteTestOutputParser = remoteTestOutputParser;
+            this.remoteTestResult = remoteTestResult;
         }
 
         public RemoteTestResult call() throws Exception {
             command.execute(commandOutputListener);
 
-            Map<Integer, RemoteTestIteration> remoteTestIterations = remoteTestOutputParser.getRemoteTestIterations();
-            RemoteTestResult remoteTestResult = new RemoteTestResult();
-            remoteTestResult.setHostName(command.getHostName());
-            remoteTestResult.setRemoteTestIterations(new ArrayList<RemoteTestIteration>(remoteTestIterations.values()));
             return remoteTestResult;
         }
 

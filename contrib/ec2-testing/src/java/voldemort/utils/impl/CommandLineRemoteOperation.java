@@ -33,37 +33,37 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import voldemort.utils.ClusterOperationException;
+import voldemort.utils.RemoteOperationException;
 
-abstract class CommandLineClusterOperation<T> {
+abstract class CommandLineRemoteOperation<T> {
 
-    protected final CommandLineClusterConfig commandLineClusterConfig;
+    protected final RemoteOperationConfig remoteOperationConfig;
 
     protected final String commandId;
 
     protected final Log logger = LogFactory.getLog(getClass());
 
-    protected CommandLineClusterOperation(CommandLineClusterConfig commandLineClusterConfig,
-                                          String commandId) {
-        this.commandLineClusterConfig = commandLineClusterConfig;
+    protected CommandLineRemoteOperation(RemoteOperationConfig remoteOperationConfig,
+                                         String commandId) {
+        this.remoteOperationConfig = remoteOperationConfig;
         this.commandId = commandId;
     }
 
-    public List<T> execute() throws ClusterOperationException {
+    public List<T> execute() throws RemoteOperationException {
         Properties properties = new Properties();
 
         try {
             properties.load(getClass().getClassLoader().getResourceAsStream("commands.properties"));
         } catch(IOException e1) {
-            throw new ClusterOperationException(e1);
+            throw new RemoteOperationException(e1);
         }
 
         final String rawCommand = properties.getProperty(commandId);
-        final ExecutorService threadPool = Executors.newFixedThreadPool(commandLineClusterConfig.getHostNames()
-                                                                                                .size());
+        final ExecutorService threadPool = Executors.newFixedThreadPool(remoteOperationConfig.getHostNames()
+                                                                                             .size());
         final List<Future<T>> futures = new ArrayList<Future<T>>();
 
-        for(String hostName: commandLineClusterConfig.getHostNames()) {
+        for(String hostName: remoteOperationConfig.getHostNames()) {
             String parameterizedCommand = parameterizeCommand(hostName, rawCommand);
             List<String> commandArgs = generateCommandArgs(parameterizedCommand);
             UnixCommand command = new UnixCommand(hostName, commandArgs);
@@ -101,7 +101,7 @@ abstract class CommandLineClusterOperation<T> {
             }
 
             if(errors.length() > 0)
-                throw new ClusterOperationException(errors.toString());
+                throw new RemoteOperationException(errors.toString());
         } finally {
             threadPool.shutdown();
 
@@ -124,37 +124,35 @@ abstract class CommandLineClusterOperation<T> {
     private String parameterizeCommand(String hostName, String command) {
         Map<String, String> variableMap = new HashMap<String, String>();
         variableMap.put("hostName", hostName);
-        variableMap.put("hostUserId", commandLineClusterConfig.getHostUserId());
+        variableMap.put("hostUserId", remoteOperationConfig.getHostUserId());
 
-        if(commandLineClusterConfig.getSshPrivateKey() != null)
-            variableMap.put("sshPrivateKey", commandLineClusterConfig.getSshPrivateKey()
-                                                                     .getAbsolutePath());
+        if(remoteOperationConfig.getSshPrivateKey() != null)
+            variableMap.put("sshPrivateKey", remoteOperationConfig.getSshPrivateKey()
+                                                                  .getAbsolutePath());
 
         variableMap.put("voldemortParentDirectory",
-                        commandLineClusterConfig.getVoldemortParentDirectory());
-        variableMap.put("voldemortRootDirectory",
-                        commandLineClusterConfig.getVoldemortRootDirectory());
-        variableMap.put("voldemortHomeDirectory",
-                        commandLineClusterConfig.getVoldemortHomeDirectory());
+                        remoteOperationConfig.getVoldemortParentDirectory());
+        variableMap.put("voldemortRootDirectory", remoteOperationConfig.getVoldemortRootDirectory());
+        variableMap.put("voldemortHomeDirectory", remoteOperationConfig.getVoldemortHomeDirectory());
 
         // Null-safe access would be nice here ;)
-        String nodeId = commandLineClusterConfig.getNodeIds() != null
-                        && commandLineClusterConfig.getNodeIds().get(hostName) != null ? commandLineClusterConfig.getNodeIds()
-                                                                                                                 .get(hostName)
-                                                                                                                 .toString()
-                                                                                      : null;
+        String nodeId = remoteOperationConfig.getNodeIds() != null
+                        && remoteOperationConfig.getNodeIds().get(hostName) != null ? remoteOperationConfig.getNodeIds()
+                                                                                                           .get(hostName)
+                                                                                                           .toString()
+                                                                                   : null;
 
         variableMap.put("voldemortNodeId", nodeId);
 
-        String remoteTestArguments = commandLineClusterConfig.getRemoteTestArguments() != null ? commandLineClusterConfig.getRemoteTestArguments()
-                                                                                                                         .get(hostName)
-                                                                                              : null;
+        String remoteTestArguments = remoteOperationConfig.getRemoteTestArguments() != null ? remoteOperationConfig.getRemoteTestArguments()
+                                                                                                                   .get(hostName)
+                                                                                           : null;
 
         variableMap.put("remoteTestArguments", remoteTestArguments);
 
-        if(commandLineClusterConfig.getSourceDirectory() != null)
-            variableMap.put("sourceDirectory", commandLineClusterConfig.getSourceDirectory()
-                                                                       .getAbsolutePath());
+        if(remoteOperationConfig.getSourceDirectory() != null)
+            variableMap.put("sourceDirectory", remoteOperationConfig.getSourceDirectory()
+                                                                    .getAbsolutePath());
 
         for(Map.Entry<String, String> entry: variableMap.entrySet())
             command = StringUtils.replace(command, "${" + entry.getKey() + "}", entry.getValue());
