@@ -19,6 +19,18 @@ package voldemort.utils;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Ec2Connection represents a connection to Amazon's EC2 API. The name of the
+ * API doesn't denote some sort of persistent, long-lived connection. This API
+ * simply serves as an abstraction of the actual underlying library/mechanism we
+ * use to talk to EC2.
+ * 
+ * This API defines methods to create, delete, and retrieve a list of the remote
+ * hosts from EC2.
+ * 
+ * @author Kirk True
+ */
+
 public interface Ec2Connection {
 
     public Map<String, String> getInstances() throws Exception;

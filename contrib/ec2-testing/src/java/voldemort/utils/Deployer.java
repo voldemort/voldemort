@@ -16,6 +16,33 @@
 
 package voldemort.utils;
 
+/**
+ * Deployer represents the operation of remotely deploying the Voldemort
+ * distribution to a set of Voldemort clients and/or servers. A <i>Voldemort
+ * distribution</i> is the set of binaries, configuration files, etc. that
+ * comprise the Voldemort system. For example, the binary distribution (.zip,
+ * .tar.gz, etc.) of Voldemort includes a top-level directory of the name
+ * <i>voldemort-&lt;version&gt;</i>, under which are directories such as
+ * <i>bin</i>, <i>config</i>, <i>dist</i>, etc. It is this top-level directory
+ * (<i>voldemort-&lt;version&gt;</i>) that is deployed.
+ * 
+ * <p/>
+ * 
+ * Implementation notes:
+ * 
+ * <ol>
+ * <li>Implementations must provide a reasonable guarantee that the deployment
+ * actually occurred. An error should be raised, therefore, if the data could
+ * not be copied, regardless of cause.
+ * <li>No precaution or assumption need be made as to the state of the data
+ * being copied. For example, no checks are made to ensure that a Voldemort
+ * server is not currently running on the given remote host, using this data
+ * directory upon which this operation is being performed.
+ * </ol>
+ * 
+ * @author Kirk True
+ */
+
 public interface Deployer extends RemoteOperation<Object> {
 
 }
