@@ -167,7 +167,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
         for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, lockMode); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
                                                                                                                                                         valueEntry,
-                                                                                                                                                        LockMode.RMW)) {
+                                                                                                                                                        lockMode)) {
             results.add(serializer.toObject(valueEntry.getData()));
         }
         return results;
