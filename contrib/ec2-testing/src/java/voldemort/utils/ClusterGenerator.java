@@ -58,13 +58,24 @@ import org.apache.commons.lang.StringUtils;
  * internal host name.
  * 
  * @author Kirk True
+ * 
+ * @see ClusterNodeDescriptor
  */
 
 public class ClusterGenerator {
 
+    private final static long SEED = 5276239082346L;
+
     /**
      * Creates a list of ClusterNodeDescriptor instances given a list of host
-     * names.
+     * names. The returned list of ClusterNodeDescriptor have only the host
+     * name, ID, and partition list attributes set.
+     * 
+     * <p/>
+     * 
+     * The list of partitions is randomly distributed over the list of hosts
+     * using a hard-coded random seed. This mimics the behavior of
+     * generate_cluster_xml.py.
      * 
      * <p/>
      * 
@@ -72,23 +83,29 @@ public class ClusterGenerator {
      * important clarification as to the type of host names used.
      * 
      * @param hostNames <i>Internal</i> host name
-     * @param numPartitions Number of partitions per host
+     * @param numPartitions Number of partitions <b>per host</b>
      * 
-     * @return
+     * @return List of ClusterNodeDescriptor
      */
 
     public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
                                                                     int numPartitions) {
-        List<Integer> ids = range(hostNames.size() * numPartitions);
+        // Create a list of integers [0..totalPartitions).
+        int totalPartitions = hostNames.size() * numPartitions;
+        List<Integer> allPartitionIds = new ArrayList<Integer>();
 
-        Random random = new Random(5276239082346L);
-        Collections.shuffle(ids, random);
+        for(int i = 0; i < totalPartitions; i++)
+            allPartitionIds.add(i);
+
+        Random random = new Random(SEED);
+        Collections.shuffle(allPartitionIds, random);
 
         List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
 
         for(int i = 0; i < hostNames.size(); i++) {
             String hostName = hostNames.get(i);
-            List<Integer> partitions = ids.subList(i * numPartitions, (i + 1) * numPartitions);
+            List<Integer> partitions = allPartitionIds.subList(i * numPartitions, (i + 1)
+                                                                                  * numPartitions);
             Collections.sort(partitions);
 
             ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
@@ -102,6 +119,17 @@ public class ClusterGenerator {
         return list;
     }
 
+    /**
+     * Creates a String representing the format used by cluster.xml given the
+     * cluster name, host names, and number of partitions for each host.
+     * 
+     * @param clusterName Name of cluster
+     * @param hostNames <i>Internal</i> host name
+     * @param numPartitions Number of partitions <b>per host</b>
+     * 
+     * @return String of formatted XML as used by cluster.xml
+     */
+
     public String createClusterDescriptor(String clusterName,
                                           List<String> hostNames,
                                           int numPartitions) {
@@ -110,6 +138,17 @@ public class ClusterGenerator {
 
         return createClusterDescriptor(clusterName, clusterNodeDescriptors);
     }
+
+    /**
+     * Creates a String representing the format used by cluster.xml given the
+     * cluster name and a list of ClusterNodeDescriptor instances.
+     * 
+     * @param clusterName Name of cluster
+     * @param clusterNodeDescriptors List of ClusterNodeDescriptor instances
+     *        with which the string is generated
+     * 
+     * @return String of formatted XML as used by cluster.xml
+     */
 
     public String createClusterDescriptor(String clusterName,
                                           List<ClusterNodeDescriptor> clusterNodeDescriptors) {
@@ -134,15 +173,6 @@ public class ClusterGenerator {
         pw.println("</cluster>");
 
         return sw.toString();
-    }
-
-    private List<Integer> range(int stop) {
-        List<Integer> ids = new ArrayList<Integer>();
-
-        for(int i = 0; i < stop; i++)
-            ids.add(i);
-
-        return ids;
     }
 
 }
