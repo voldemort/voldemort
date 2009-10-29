@@ -30,8 +30,16 @@ public class CommandLineParameterizer {
     public static final String VOLDEMORT_ROOT_DIRECTORY_PARAM = "voldemortRootDirectory";
     public static final String VOLDEMORT_HOME_DIRECTORY_PARAM = "voldemortHomeDirectory";
     public static final String VOLDEMORT_NODE_ID_PARAM = "voldemortNodeId";
-    public static final String REMOTE_TEST_ARGUMENTS_PARAM = "remoteTestArguments";
-    public static final String SLEEP_SECONDS_PARAM = "sleepSeconds";
+    public static final String RAMP_TIME_PARAM = "rampTime";
+    public static final String OPERATIONS_PARAM = "operations";
+    public static final String START_KEY_INDEX_PARAM = "startKeyIndex";
+    public static final String VALUE_SIZE_PARAM = "valueSize";
+    public static final String THREADS_PARAM = "threads";
+    public static final String ITERATIONS_PARAM = "iterations";
+    public static final String BOOTSTRAP_URL_PARAM = "bootstrapUrl";
+    public static final String STORE_NAME_PARAM = "storeName";
+    public static final String NUM_REQUESTS_PARAM = "numRequests";
+
     public static final String SOURCE_DIRECTORY_PARAM = "sourceDirectory";
 
     private final String rawCommand;

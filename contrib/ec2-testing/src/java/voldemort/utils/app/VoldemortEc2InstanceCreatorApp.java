@@ -54,9 +54,6 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
                                + Ec2Connection.Ec2InstanceType.XLARGE + ", "
                                + Ec2Connection.Ec2InstanceType.MEDIUM_HCPU + ", and "
                                + Ec2Connection.Ec2InstanceType.XLARGE_HCPU).withRequiredArg();
-        parser.accepts("output",
-                       "Output file for newly created external and internal host name entries")
-              .withRequiredArg();
 
         OptionSet options = parse(args);
         String accessId = getRequiredString(options, "accessid");
@@ -81,10 +78,12 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
                                                                 instanceCount);
 
         StringBuilder s = new StringBuilder();
+        s.append("# Each line represents an external host name to internal host name mapping.");
+        s.append(System.getProperty("line.separator"));
 
         for(HostNamePair hostNamePair: hostNamePairs) {
             s.append(hostNamePair.getExternalHostName());
-            s.append(',');
+            s.append('=');
             s.append(hostNamePair.getInternalHostName());
             s.append(System.getProperty("line.separator"));
         }

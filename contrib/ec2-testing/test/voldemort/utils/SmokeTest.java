@@ -58,20 +58,6 @@ public class SmokeTest {
         final String voldemortHomeDirectory = "voldemort/config/single_node_cluster";
         final File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
 
-        Map<String, String> remoteTestArguments = new HashMap<String, String>();
-        int startKeyIndex = 0;
-        final int numRequests = 100000;
-        final int iterations = 25;
-
-        for(String publicHostName: hostNames) {
-            remoteTestArguments.put(publicHostName, "-wd --start-key-index "
-                                                    + (startKeyIndex * numRequests)
-                                                    + " --value-size 100 --iterations "
-                                                    + iterations + " tcp://" + bootstrapHostName
-                                                    + ":6666 test " + numRequests);
-            startKeyIndex++;
-        }
-
         try {
             new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
         } catch(Exception e) {
@@ -103,21 +89,19 @@ public class SmokeTest {
 
         Thread.sleep(5000);
 
-        int ramp = 30;
-        Map<String, Integer> sleepSeconds = new HashMap<String, Integer>();
-
-        for(int i = 0; i < hostNames.size(); i++) {
-            String publicHostName = hostNames.get(i);
-            sleepSeconds.put(publicHostName, ramp * i);
-        }
-
         new SshRemoteTest(hostNames,
                           sshPrivateKey,
                           hostUserId,
                           voldemortRootDirectory,
                           voldemortHomeDirectory,
-                          remoteTestArguments,
-                          sleepSeconds).execute();
+                          30,
+                          "wd",
+                          100,
+                          10,
+                          25,
+                          " tcp://" + bootstrapHostName + ":6666",
+                          "test",
+                          100000).execute();
 
         new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }
@@ -128,7 +112,7 @@ public class SmokeTest {
         String ami = System.getProperty("ec2Ami");
         String keyPairId = System.getProperty("ec2KeyPairId");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.create(ami, keyPairId, null, count);
+        return ec2.create(ami, keyPairId, Ec2Connection.Ec2InstanceType.DEFAULT, count);
     }
 
     private List<HostNamePair> getInstances() throws Exception {

@@ -19,6 +19,16 @@ package voldemort.utils;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+/**
+ * RemoteTestResult is the output from the RemoteTest operation. For the given
+ * client system on which the test was run, we capture the host name as well as
+ * a mapping of the values for the reads/second, writes/second, and
+ * deletes/second for each iteration. These raw numbers can then be manipulated
+ * as seen fit for the desired measurement.
+ * 
+ * @author Kirk True
+ */
+
 public class RemoteTestResult {
 
     private final String hostName;
@@ -34,40 +44,49 @@ public class RemoteTestResult {
         return hostName;
     }
 
+    /**
+     * Note: we return the actual object reference here - not a copy. At
+     * present, some implementations may intentionally directly alter this as
+     * the test is in progress.
+     * 
+     * @return Map sorted and keyed by its iteration index with the value being
+     *         the RemoteTestIteration instance.
+     */
+
     public SortedMap<Integer, RemoteTestIteration> getRemoteTestIterations() {
         return remoteTestIterations;
     }
 
     public static class RemoteTestIteration {
 
-        private double reads;
+        private double readsPerSecond;
 
-        private double writes;
+        private double writesPerSecond;
 
-        private double deletes;
+        private double deletesPerSecond;
 
-        public double getReads() {
-            return reads;
+        public double getReadsPerSecond() {
+            return readsPerSecond;
         }
 
-        public void setReads(double reads) {
-            this.reads = reads;
+        public void setReadsPerSecond(double readsPerSecond) {
+            this.readsPerSecond = readsPerSecond;
         }
 
-        public double getWrites() {
-            return writes;
+        public double getWritesPerSecond() {
+            return writesPerSecond;
         }
 
-        public void setWrites(double writes) {
-            this.writes = writes;
+        public void setWritesPerSecond(double writesPerSecond) {
+            this.writesPerSecond = writesPerSecond;
         }
 
-        public double getDeletes() {
-            return deletes;
+        public double getDeletesPerSecond() {
+            return deletesPerSecond;
         }
 
-        public void setDeletes(double deletes) {
-            this.deletes = deletes;
+        public void setDeletesPerSecond(double deletesPerSecond) {
+            this.deletesPerSecond = deletesPerSecond;
         }
 
     }

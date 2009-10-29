@@ -16,11 +16,18 @@
 
 package voldemort.utils.impl;
 
+import static voldemort.utils.impl.CommandLineParameterizer.BOOTSTRAP_URL_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_NAME_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_USER_ID_PARAM;
-import static voldemort.utils.impl.CommandLineParameterizer.REMOTE_TEST_ARGUMENTS_PARAM;
-import static voldemort.utils.impl.CommandLineParameterizer.SLEEP_SECONDS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.ITERATIONS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.NUM_REQUESTS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.OPERATIONS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.RAMP_TIME_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.SSH_PRIVATE_KEY_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.START_KEY_INDEX_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.STORE_NAME_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.THREADS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.VALUE_SIZE_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_HOME_DIRECTORY_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIRECTORY_PARAM;
 
@@ -48,24 +55,48 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
 
     private final String voldemortHomeDirectory;
 
-    private final Map<String, String> remoteTestArguments;
+    private final int rampTime;
 
-    private final Map<String, Integer> sleepSeconds;
+    private final String operations;
+
+    private final int valueSize;
+
+    private final int threads;
+
+    private final int iterations;
+
+    private final String bootstrapUrl;
+
+    private final String storeName;
+
+    private final long numRequests;
 
     public SshRemoteTest(Collection<String> hostNames,
                          File sshPrivateKey,
                          String hostUserId,
                          String voldemortRootDirectory,
                          String voldemortHomeDirectory,
-                         Map<String, String> remoteTestArguments,
-                         Map<String, Integer> sleepSeconds) {
+                         int rampTime,
+                         String operations,
+                         int valueSize,
+                         int threads,
+                         int iterations,
+                         String bootstrapUrl,
+                         String storeName,
+                         long numRequests) {
         this.hostNames = hostNames;
         this.sshPrivateKey = sshPrivateKey;
         this.hostUserId = hostUserId;
         this.voldemortRootDirectory = voldemortRootDirectory;
         this.voldemortHomeDirectory = voldemortHomeDirectory;
-        this.remoteTestArguments = remoteTestArguments;
-        this.sleepSeconds = sleepSeconds;
+        this.rampTime = rampTime;
+        this.operations = operations;
+        this.valueSize = valueSize;
+        this.threads = threads;
+        this.iterations = iterations;
+        this.bootstrapUrl = bootstrapUrl;
+        this.storeName = storeName;
+        this.numRequests = numRequests;
     }
 
     public List<RemoteTestResult> execute() throws RemoteOperationException {
@@ -75,6 +106,8 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
         CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshRemoteTest.ssh");
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
+        int index = 0;
+
         for(String hostName: hostNames) {
             Map<String, String> parameters = new HashMap<String, String>();
             parameters.put(HOST_NAME_PARAM, hostName);
@@ -82,10 +115,19 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
             parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
             parameters.put(VOLDEMORT_ROOT_DIRECTORY_PARAM, voldemortRootDirectory);
             parameters.put(VOLDEMORT_HOME_DIRECTORY_PARAM, voldemortHomeDirectory);
-            parameters.put(REMOTE_TEST_ARGUMENTS_PARAM, remoteTestArguments.get(hostName));
-            parameters.put(SLEEP_SECONDS_PARAM, sleepSeconds.get(hostName).toString());
+            parameters.put(RAMP_TIME_PARAM, String.valueOf(index * rampTime));
+            parameters.put(OPERATIONS_PARAM, operations);
+            parameters.put(START_KEY_INDEX_PARAM, String.valueOf(index * numRequests));
+            parameters.put(VALUE_SIZE_PARAM, String.valueOf(valueSize));
+            parameters.put(THREADS_PARAM, String.valueOf(threads));
+            parameters.put(ITERATIONS_PARAM, String.valueOf(iterations));
+            parameters.put(BOOTSTRAP_URL_PARAM, bootstrapUrl);
+            parameters.put(STORE_NAME_PARAM, storeName);
+            parameters.put(NUM_REQUESTS_PARAM, String.valueOf(numRequests));
 
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
+
+            index++;
         }
 
         return execute(hostNameCommandLineMap);

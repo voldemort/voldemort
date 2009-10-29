@@ -75,11 +75,11 @@ public class RemoteTestOutputParser implements CommandOutputListener {
                                                                           THROUGHPUT_LINE_TAG.length())));
 
             if(line.contains("writes"))
-                remoteTestIteration.setWrites(value);
+                remoteTestIteration.setWritesPerSecond(value);
             else if(line.contains("reads"))
-                remoteTestIteration.setReads(value);
+                remoteTestIteration.setReadsPerSecond(value);
             else if(line.contains("deletes"))
-                remoteTestIteration.setDeletes(value);
+                remoteTestIteration.setDeletesPerSecond(value);
         } else if((i = line.indexOf(ITERATIONS_TOTAL_LINE_TAG)) != -1) {
             totalIterations = Integer.parseInt(line.substring(i
                                                               + ITERATIONS_TOTAL_LINE_TAG.length())

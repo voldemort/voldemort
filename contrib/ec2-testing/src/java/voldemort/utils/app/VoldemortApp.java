@@ -17,17 +17,20 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.LineIterator;
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -119,6 +122,15 @@ public abstract class VoldemortApp {
         return CmdUtils.valueOf(options, argumentName, 0);
     }
 
+    protected long getRequiredLong(OptionSet options, String argumentName) {
+        if(!options.has(argumentName)) {
+            System.err.println("Missing required argument " + argumentName);
+            printUsage();
+        }
+
+        return Long.parseLong(CmdUtils.valueOf(options, argumentName, "0"));
+    }
+
     protected File getRequiredInputFile(OptionSet options, String argumentName) {
         String fileName = getRequiredString(options, argumentName);
         File file = new File(fileName);
@@ -152,22 +164,26 @@ public abstract class VoldemortApp {
             System.exit(2);
         }
 
-        LineIterator iterator = null;
+        Properties properties = new Properties();
+        InputStream is = null;
 
         try {
-            iterator = FileUtils.lineIterator(file);
+            is = new FileInputStream(file);
+            properties.load(is);
         } catch(IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            IOUtils.closeQuietly(is);
         }
 
         List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
-        while(iterator.hasNext()) {
-            String rawLine = iterator.nextLine();
-            String[] hostNameArray = rawLine.split(",");
-            String externalHostName = hostNameArray[0];
-            String internalHostName = hostNameArray.length > 1 ? hostNameArray[1]
-                                                              : externalHostName;
+        for(Map.Entry<Object, Object> entry: properties.entrySet()) {
+            String key = entry.getKey() != null ? entry.getKey().toString() : null;
+            String value = entry.getValue() != null ? entry.getValue().toString() : null;
+
+            String externalHostName = key;
+            String internalHostName = value != null ? value : key;
             hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
         }
 
