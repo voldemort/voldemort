@@ -38,6 +38,14 @@ import voldemort.utils.RemoteOperationException;
  * ssh client on the host operating system to communicate with the remote system
  * to invoke a command line script/program.
  * 
+ * <p/>
+ * 
+ * What CommandLineRemoteOperation solves for its subclasses is converting
+ * per-host String commands to invokable UnixCommand objects that are then
+ * executed in parallel against the remote hosts. The results of those command
+ * line invocations are then placed (in arbitrary order) into a list that is
+ * returned to the caller.
+ * 
  * @author Kirk True
  * 
  * @param <T> Return type for the operation, specific to the subclass
@@ -47,6 +55,19 @@ import voldemort.utils.RemoteOperationException;
 abstract class CommandLineRemoteOperation<T> {
 
     protected final Log logger = LogFactory.getLog(getClass());
+
+    /**
+     * Executes the given commands in parallel on the remote hosts and
+     * aggregates the results for the caller.
+     * 
+     * @param hostNameCommandLineMap Map with a key is the external host name
+     *        and the value is the command line to execute remotely on that host
+     * 
+     * @return List of result types as dictated by the subclass
+     * 
+     * @throws RemoteOperationException Thrown on error invoking the command on
+     *         one or more clients.
+     */
 
     protected List<T> execute(Map<String, String> hostNameCommandLineMap)
             throws RemoteOperationException {
@@ -69,10 +90,11 @@ abstract class CommandLineRemoteOperation<T> {
             futures.add(future);
         }
 
-        List<T> list = new ArrayList<T>();
-
+        // Build up a list of all the results and/or capture the errors as they
+        // occur.
         try {
             StringBuilder errors = new StringBuilder();
+            List<T> list = new ArrayList<T>();
 
             for(Future<T> future: futures) {
                 Throwable t = null;
@@ -99,6 +121,8 @@ abstract class CommandLineRemoteOperation<T> {
 
             if(errors.length() > 0)
                 throw new RemoteOperationException(errors.toString());
+
+            return list;
         } finally {
             threadPool.shutdown();
 
@@ -109,9 +133,21 @@ abstract class CommandLineRemoteOperation<T> {
                     logger.warn(e, e);
             }
         }
-
-        return list;
     }
+
+    /**
+     * By default we'll add a logging listener to output the output from the
+     * remote invocation and return the result of the ExitCodeCallable.
+     * 
+     * <p/>
+     * 
+     * This method can be overridden by subclasses to provide a more useful
+     * interaction with the output from the remote host.
+     * 
+     * @param command UnixCommand to execute
+     * 
+     * @return Callable that is used in the thread pool in the execute method
+     */
 
     protected Callable<T> getCallable(UnixCommand command) {
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
