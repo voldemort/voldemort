@@ -19,6 +19,7 @@ package voldemort.utils.impl;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_NAME_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_USER_ID_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.REMOTE_TEST_ARGUMENTS_PARAM;
+import static voldemort.utils.impl.CommandLineParameterizer.SLEEP_SECONDS_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.SSH_PRIVATE_KEY_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_HOME_DIRECTORY_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIRECTORY_PARAM;
@@ -49,18 +50,22 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
 
     private final Map<String, String> remoteTestArguments;
 
+    private final Map<String, Integer> sleepSeconds;
+
     public SshRemoteTest(Collection<String> hostNames,
                          File sshPrivateKey,
                          String hostUserId,
                          String voldemortRootDirectory,
                          String voldemortHomeDirectory,
-                         Map<String, String> remoteTestArguments) {
+                         Map<String, String> remoteTestArguments,
+                         Map<String, Integer> sleepSeconds) {
         this.hostNames = hostNames;
         this.sshPrivateKey = sshPrivateKey;
         this.hostUserId = hostUserId;
         this.voldemortRootDirectory = voldemortRootDirectory;
         this.voldemortHomeDirectory = voldemortHomeDirectory;
         this.remoteTestArguments = remoteTestArguments;
+        this.sleepSeconds = sleepSeconds;
     }
 
     public List<RemoteTestResult> execute() throws RemoteOperationException {
@@ -78,6 +83,7 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
             parameters.put(VOLDEMORT_ROOT_DIRECTORY_PARAM, voldemortRootDirectory);
             parameters.put(VOLDEMORT_HOME_DIRECTORY_PARAM, voldemortHomeDirectory);
             parameters.put(REMOTE_TEST_ARGUMENTS_PARAM, remoteTestArguments.get(hostName));
+            parameters.put(SLEEP_SECONDS_PARAM, sleepSeconds.get(hostName).toString());
 
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }

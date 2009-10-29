@@ -81,6 +81,10 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         parser.accepts("bootstrapurl",
                        "Value of bootstrap-url for voldemort-remote-test.sh on remote host")
               .withRequiredArg();
+        parser.accepts("ramp",
+                       "Number of seconds to sleep to stagger clients before running test on remote host, defaults to 30")
+              .withRequiredArg()
+              .ofType(Integer.class);
 
         OptionSet options = parse(args);
         List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(getRequiredInputFile(options,
@@ -102,6 +106,7 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
         String operations = getRequiredString(options, "operations");
         String bootstrapUrl = getRequiredString(options, "bootstrapurl");
         String storeName = CmdUtils.valueOf(options, "storename", "test");
+        int ramp = CmdUtils.valueOf(options, "ramp", 30);
 
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
 
@@ -115,12 +120,20 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
             startKeyIndex++;
         }
 
+        Map<String, Integer> sleepSeconds = new HashMap<String, Integer>();
+
+        for(int i = 0; i < hostNames.size(); i++) {
+            String publicHostName = hostNames.get(i);
+            sleepSeconds.put(publicHostName, ramp * i);
+        }
+
         List<RemoteTestResult> remoteTestResults = new SshRemoteTest(hostNames,
                                                                      sshPrivateKey,
                                                                      hostUserId,
                                                                      voldemortRootDirectory,
                                                                      voldemortHomeDirectory,
-                                                                     remoteTestArguments).execute();
+                                                                     remoteTestArguments,
+                                                                     sleepSeconds).execute();
         outputTestResults(remoteTestResults);
     }
 

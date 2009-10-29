@@ -103,12 +103,21 @@ public class SmokeTest {
 
         Thread.sleep(5000);
 
+        int ramp = 30;
+        Map<String, Integer> sleepSeconds = new HashMap<String, Integer>();
+
+        for(int i = 0; i < hostNames.size(); i++) {
+            String publicHostName = hostNames.get(i);
+            sleepSeconds.put(publicHostName, ramp * i);
+        }
+
         new SshRemoteTest(hostNames,
                           sshPrivateKey,
                           hostUserId,
                           voldemortRootDirectory,
                           voldemortHomeDirectory,
-                          remoteTestArguments).execute();
+                          remoteTestArguments,
+                          sleepSeconds).execute();
 
         new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }

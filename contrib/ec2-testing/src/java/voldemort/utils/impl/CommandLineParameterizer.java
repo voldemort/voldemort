@@ -31,6 +31,7 @@ public class CommandLineParameterizer {
     public static final String VOLDEMORT_HOME_DIRECTORY_PARAM = "voldemortHomeDirectory";
     public static final String VOLDEMORT_NODE_ID_PARAM = "voldemortNodeId";
     public static final String REMOTE_TEST_ARGUMENTS_PARAM = "remoteTestArguments";
+    public static final String SLEEP_SECONDS_PARAM = "sleepSeconds";
     public static final String SOURCE_DIRECTORY_PARAM = "sourceDirectory";
 
     private final String rawCommand;
