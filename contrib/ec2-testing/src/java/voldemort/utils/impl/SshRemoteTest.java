@@ -91,7 +91,8 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
         RemoteTestOutputParser remoteTestOutputParser = new RemoteTestOutputParser(logger,
                                                                                    remoteTestResult);
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(remoteTestOutputParser,
-                                                                                       logger);
+                                                                                       logger,
+                                                                                       true);
         return new RemoteTestResultCallable(command, commandOutputListener, remoteTestResult);
     }
 

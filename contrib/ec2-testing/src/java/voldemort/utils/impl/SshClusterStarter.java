@@ -91,7 +91,8 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
     @Override
     protected Callable<Object> getCallable(UnixCommand command) {
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(outputListener,
-                                                                                       logger);
+                                                                                       logger,
+                                                                                       true);
         return new ClusterStarterCallable<Object>(command, commandOutputListener);
     }
 

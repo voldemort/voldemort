@@ -80,7 +80,8 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
     @Override
     protected Callable<Object> getCallable(UnixCommand command) {
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(outputListener,
-                                                                                       logger);
+                                                                                       logger,
+                                                                                       true);
         return new ExitCodeCallable<Object>(command, commandOutputListener);
     }
 

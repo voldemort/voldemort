@@ -16,13 +16,9 @@
 
 package voldemort.utils.app;
 
-import java.io.File;
 import java.util.List;
 
 import joptsimple.OptionSet;
-
-import org.apache.commons.io.FileUtils;
-
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Ec2Connection;
 import voldemort.utils.HostNamePair;
@@ -78,8 +74,6 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
             printUsage();
         }
 
-        File output = getRequiredOutputFile(options, "output");
-
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
         List<HostNamePair> hostNamePairs = ec2Connection.create(ami,
                                                                 keypairId,
@@ -95,7 +89,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
             s.append(System.getProperty("line.separator"));
         }
 
-        FileUtils.writeStringToFile(output, s.toString());
+        System.out.print(s);
     }
 
 }

@@ -146,29 +146,6 @@ public abstract class VoldemortApp {
         return file;
     }
 
-    protected File getRequiredOutputFile(OptionSet options, String argumentName) {
-        String fileName = getRequiredString(options, argumentName);
-        File file = new File(fileName);
-        File parentDirectory = file.getAbsoluteFile().getParentFile();
-
-        if(parentDirectory == null) {
-            System.out.println("File " + fileName + " does not have parent directory");
-            System.exit(3);
-        }
-
-        // Try to make any parent directories for the user. Don't bother
-        // checking here as we'll determine writability right below.
-        parentDirectory.mkdirs();
-
-        if(!parentDirectory.canWrite()) {
-            System.out.println("File cannot be written in directory "
-                               + parentDirectory.getAbsolutePath());
-            System.exit(3);
-        }
-
-        return file;
-    }
-
     protected List<HostNamePair> getHostNamesPairsFromFile(File file) {
         if(!file.canRead()) {
             System.out.println("File " + file.getAbsolutePath() + " cannot be read");

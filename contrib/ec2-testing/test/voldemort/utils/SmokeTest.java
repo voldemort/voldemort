@@ -25,7 +25,6 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
-import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.RsyncDeployer;
 import voldemort.utils.impl.SshClusterStarter;
 import voldemort.utils.impl.SshClusterStopper;
@@ -104,13 +103,12 @@ public class SmokeTest {
 
         Thread.sleep(5000);
 
-        List<RemoteTestResult> remoteTestResults = new SshRemoteTest(hostNames,
-                                                                     sshPrivateKey,
-                                                                     hostUserId,
-                                                                     voldemortRootDirectory,
-                                                                     voldemortHomeDirectory,
-                                                                     remoteTestArguments).execute();
-        new RemoteTestSummarizer().outputTestResults(remoteTestResults);
+        new SshRemoteTest(hostNames,
+                          sshPrivateKey,
+                          hostUserId,
+                          voldemortRootDirectory,
+                          voldemortHomeDirectory,
+                          remoteTestArguments).execute();
 
         new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }

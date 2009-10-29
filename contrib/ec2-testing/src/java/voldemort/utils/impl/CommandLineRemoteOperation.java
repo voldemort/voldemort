@@ -101,7 +101,9 @@ abstract class CommandLineRemoteOperation<T> {
     }
 
     protected Callable<T> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null, logger);
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
+                                                                                       logger,
+                                                                                       true);
         return new ExitCodeCallable<T>(command, commandOutputListener);
     }
 

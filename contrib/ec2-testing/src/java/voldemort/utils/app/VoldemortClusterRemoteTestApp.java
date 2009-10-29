@@ -26,7 +26,7 @@ import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.HostNamePair;
 import voldemort.utils.RemoteTestResult;
-import voldemort.utils.impl.RemoteTestSummarizer;
+import voldemort.utils.RemoteTestResult.RemoteTestIteration;
 import voldemort.utils.impl.SshRemoteTest;
 
 public class VoldemortClusterRemoteTestApp extends VoldemortApp {
@@ -121,7 +121,48 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
                                                                      voldemortRootDirectory,
                                                                      voldemortHomeDirectory,
                                                                      remoteTestArguments).execute();
-        new RemoteTestSummarizer().outputTestResults(remoteTestResults);
+        outputTestResults(remoteTestResults);
+    }
+
+    private void outputTestResults(List<RemoteTestResult> remoteTestResults) {
+        List<Double> totalReadResults = new ArrayList<Double>();
+        List<Double> totalWriteResults = new ArrayList<Double>();
+        List<Double> totalDeleteResults = new ArrayList<Double>();
+
+        for(RemoteTestResult remoteTestResult: remoteTestResults) {
+            List<Double> hostReadResults = new ArrayList<Double>();
+            List<Double> hostWriteResults = new ArrayList<Double>();
+            List<Double> hostDeleteResults = new ArrayList<Double>();
+
+            for(RemoteTestIteration remoteTestIteration: remoteTestResult.getRemoteTestIterations()
+                                                                         .values()) {
+                hostReadResults.add(remoteTestIteration.getReads());
+                hostWriteResults.add(remoteTestIteration.getWrites());
+                hostDeleteResults.add(remoteTestIteration.getDeletes());
+
+                totalReadResults.add(remoteTestIteration.getReads());
+                totalWriteResults.add(remoteTestIteration.getWrites());
+                totalDeleteResults.add(remoteTestIteration.getDeletes());
+            }
+
+            printResult(hostReadResults, remoteTestResult.getHostName(), "reads");
+            printResult(hostWriteResults, remoteTestResult.getHostName(), "writes");
+            printResult(hostDeleteResults, remoteTestResult.getHostName(), "deletes");
+        }
+
+        printResult(totalReadResults, "test", "reads");
+        printResult(totalWriteResults, "test", "writes");
+        printResult(totalDeleteResults, "test", "deletes");
+    }
+
+    private void printResult(List<Double> results, String owner, String operation) {
+        double total = 0;
+
+        for(double d: results)
+            total += d;
+
+        double avg = total / results.size();
+        System.out.println("Average for " + owner + " for " + operation + ": " + avg);
     }
 
 }

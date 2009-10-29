@@ -17,24 +17,24 @@
 package voldemort.utils.impl;
 
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 public class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
 
     private final Log logger;
 
-    public LoggingCommandOutputListener(CommandOutputListener delegate) {
-        this(delegate, LogFactory.getLog(LoggingCommandOutputListener.class));
-    }
+    private final boolean shouldProcessExceptions;
 
-    public LoggingCommandOutputListener(CommandOutputListener delegate, Log logger) {
+    public LoggingCommandOutputListener(CommandOutputListener delegate,
+                                        Log logger,
+                                        boolean shouldProcessExceptions) {
         super(delegate);
         this.logger = logger;
+        this.shouldProcessExceptions = shouldProcessExceptions;
     }
 
     @Override
     public void outputReceived(String hostName, String line) {
-        if(line.contains("Exception") || line.startsWith("\tat")) {
+        if(shouldProcessExceptions && (line.contains("Exception") || line.startsWith("\tat"))) {
             if(logger.isWarnEnabled())
                 logger.warn(hostName + ": " + line);
         } else {

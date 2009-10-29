@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import voldemort.utils.Deployer;
 import voldemort.utils.RemoteOperationException;
@@ -75,6 +76,14 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
         }
 
         return execute(hostNameCommandLineMap);
+    }
+
+    @Override
+    protected Callable<Object> getCallable(UnixCommand command) {
+        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
+                                                                                       logger,
+                                                                                       false);
+        return new ExitCodeCallable<Object>(command, commandOutputListener);
     }
 
 }

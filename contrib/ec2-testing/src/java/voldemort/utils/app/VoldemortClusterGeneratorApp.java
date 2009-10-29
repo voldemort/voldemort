@@ -21,9 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import joptsimple.OptionSet;
-
-import org.apache.commons.io.FileUtils;
-
 import voldemort.utils.ClusterGenerator;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.HostNamePair;
@@ -49,13 +46,11 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
         parser.accepts("partitions", "Number of partitions per cluster node")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("output", "Output file for cluster.xml").withRequiredArg();
         parser.accepts("clustername", "Cluster name; defaults to mycluster").withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         int partitions = getRequiredInt(options, "partitions");
-        File output = getRequiredOutputFile(options, "output");
         String clusterName = CmdUtils.valueOf(options, "clustername", "mycluster");
 
         List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
@@ -68,7 +63,7 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
                                                                            hostNames,
                                                                            partitions);
 
-        FileUtils.writeStringToFile(output, clusterXml);
+        System.out.print(clusterXml);
     }
 
 }
