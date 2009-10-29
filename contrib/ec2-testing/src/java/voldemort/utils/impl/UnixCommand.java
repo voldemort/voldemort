@@ -82,8 +82,15 @@ public class UnixCommand {
             try {
                 String line = null;
 
-                while((line = reader.readLine()) != null)
-                    commandOutputListener.outputReceived(hostName, line);
+                while((line = reader.readLine()) != null) {
+                    try {
+                        commandOutputListener.outputReceived(hostName, line);
+                    } catch(Throwable t) {
+                        // This is just in case any CommandOutputReceiver has
+                        // bugs or something we don't die on all output.
+                        t.printStackTrace();
+                    }
+                }
             } catch(IOException e) {
                 e.printStackTrace();
             }

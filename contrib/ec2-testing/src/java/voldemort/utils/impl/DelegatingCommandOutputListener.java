@@ -16,11 +16,27 @@
 
 package voldemort.utils.impl;
 
+/**
+ * Abstract implementation of CommandOutputListener that allows chaining of
+ * calls to outputReceived.
+ * 
+ * @author Kirk True
+ */
+
 public abstract class DelegatingCommandOutputListener implements CommandOutputListener {
 
     private final CommandOutputListener delegate;
 
-    public DelegatingCommandOutputListener(CommandOutputListener delegate) {
+    /**
+     * Constructs a new DelegatingCommandOutputListener instance. Note: some
+     * implementations may only <i>optionally</i> use delegation; that is, it's
+     * not required. In those cases, simply pass in <code>null</code>.
+     * 
+     * @param delegate CommandOutputListener to delegate calls to, or null if
+     *        unused
+     */
+
+    protected DelegatingCommandOutputListener(CommandOutputListener delegate) {
         this.delegate = delegate;
     }
 
