@@ -17,12 +17,14 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.RemoteTestResult;
 import voldemort.utils.impl.RemoteTestSummarizer;
 import voldemort.utils.impl.SshRemoteTest;
@@ -81,8 +83,13 @@ public class VoldemortClusterRemoteTestApp extends VoldemortApp {
               .withRequiredArg();
 
         OptionSet options = parse(args);
-        List<String> hostNames = getHostNamesFromFile(getRequiredInputFile(options, "hostnames"),
-                                                      true);
+        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(getRequiredInputFile(options,
+                                                                                          "hostnames"));
+        List<String> hostNames = new ArrayList<String>();
+
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getExternalHostName());
+
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");

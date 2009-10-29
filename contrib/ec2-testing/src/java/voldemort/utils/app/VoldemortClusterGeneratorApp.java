@@ -17,6 +17,7 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import joptsimple.OptionSet;
@@ -25,6 +26,7 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.utils.ClusterGenerator;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 
 public class VoldemortClusterGeneratorApp extends VoldemortApp {
 
@@ -56,10 +58,14 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
         File output = getRequiredOutputFile(options, "output");
         String clusterName = CmdUtils.valueOf(options, "clustername", "mycluster");
 
-        List<String> privateHostNames = getHostNamesFromFile(hostNamesFile, false);
+        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
+        List<String> hostNames = new ArrayList<String>();
+
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getInternalHostName());
 
         String clusterXml = new ClusterGenerator().createClusterDescriptor(clusterName,
-                                                                           privateHostNames,
+                                                                           hostNames,
                                                                            partitions);
 
         FileUtils.writeStringToFile(output, clusterXml);

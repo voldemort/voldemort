@@ -17,7 +17,9 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -30,6 +32,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.RemoteOperation;
 import voldemort.utils.RemoteOperationException;
 import voldemort.utils.impl.SshClusterStarter;
@@ -65,7 +68,16 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
-        final Map<String, String> hostNames = getHostNamesFromFile(hostNamesFile);
+
+        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
+        final List<String> externalHostNames = new ArrayList<String>();
+        final List<String> internalHostNames = new ArrayList<String>();
+
+        for(HostNamePair hostNamePair: hostNamePairs) {
+            externalHostNames.add(hostNamePair.getExternalHostName());
+            internalHostNames.add(hostNamePair.getInternalHostName());
+        }
+
         final File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         final String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
@@ -73,13 +85,13 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
         File clusterXmlFile = getRequiredInputFile(options, "clusterxml");
 
-        Map<String, Integer> nodeIds = getNodeIds(hostNamesFile, clusterXmlFile, hostNames);
+        Map<String, Integer> nodeIds = getNodeIds(hostNamesFile, clusterXmlFile, hostNamePairs);
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
 
             @Override
             public void run() {
-                RemoteOperation<Object> operation = new SshClusterStopper(hostNames.keySet(),
+                RemoteOperation<Object> operation = new SshClusterStopper(externalHostNames,
                                                                           sshPrivateKey,
                                                                           hostUserId,
                                                                           voldemortRootDirectory);
@@ -92,7 +104,7 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
         });
 
-        RemoteOperation<Object> operation = new SshClusterStarter(hostNames.keySet(),
+        RemoteOperation<Object> operation = new SshClusterStarter(externalHostNames,
                                                                   sshPrivateKey,
                                                                   hostUserId,
                                                                   voldemortRootDirectory,
@@ -103,7 +115,7 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
     private Map<String, Integer> getNodeIds(File hostNamesFile,
                                             File clusterXmlFile,
-                                            Map<String, String> hostNames) throws Exception {
+                                            List<HostNamePair> hostNamePairs) throws Exception {
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
         DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document document = documentBuilder.parse(clusterXmlFile);
@@ -134,9 +146,9 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                     // the external->internal mappings and find the one that
                     // matches the internal host name and assign the node ID to
                     // its corresponding external host name.
-                    for(Map.Entry<String, String> entry: hostNames.entrySet()) {
-                        if(entry.getValue().equals(internalHostName))
-                            nodeIds.put(entry.getKey(), Integer.parseInt(id));
+                    for(HostNamePair hostNamePair: hostNamePairs) {
+                        if(hostNamePair.getInternalHostName().equals(internalHostName))
+                            nodeIds.put(hostNamePair.getExternalHostName(), Integer.parseInt(id));
                     }
                 } else {
                     throw new Exception(clusterXmlFile.getAbsolutePath()
@@ -145,7 +157,7 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
             }
         }
 
-        if(nodeIds.size() != hostNames.size()) {
+        if(nodeIds.size() != hostNamePairs.size()) {
             throw new Exception(clusterXmlFile.getAbsolutePath()
                                 + " appears to be corrupt; not all of the hosts from "
                                 + hostNamesFile.getAbsolutePath() + " were represented in "

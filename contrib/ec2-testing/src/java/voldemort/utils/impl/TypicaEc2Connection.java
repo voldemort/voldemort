@@ -17,14 +17,13 @@
 package voldemort.utils.impl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import voldemort.utils.Ec2Connection;
+import voldemort.utils.HostNamePair;
 
 import com.xerox.amazonws.ec2.InstanceType;
 import com.xerox.amazonws.ec2.Jec2;
@@ -44,86 +43,37 @@ public class TypicaEc2Connection implements Ec2Connection {
         ec2 = new Jec2(accessId, secretKey);
     }
 
-    public Map<String, String> list() throws Exception {
-        List<String> dummyInstanceIds = new ArrayList<String>();
-        Map<String, String> hostNameMap = new HashMap<String, String>();
-        waitForInstances(dummyInstanceIds, hostNameMap);
-        return hostNameMap;
-    }
-
-    public Map<String, String> create(String ami,
-                                      String keypairId,
-                                      String instanceSize,
-                                      int instanceCount) throws Exception {
-        List<String> instanceIds = launch(ami, keypairId, instanceSize, instanceCount);
-        Map<String, String> hostNameMap = new HashMap<String, String>();
-
-        while(!instanceIds.isEmpty()) {
-            try {
-                if(logger.isDebugEnabled())
-                    logger.debug("Sleeping for " + POLL_INTERVAL + " seconds...");
-
-                Thread.sleep(POLL_INTERVAL * 1000);
-            } catch(InterruptedException e) {
-                break;
-            }
-
-            waitForInstances(instanceIds, hostNameMap);
-        }
-
-        return hostNameMap;
-    }
-
-    public void delete(List<String> hostNames) throws Exception {
-        if(logger.isDebugEnabled())
-            logger.debug("Deleting instances for hosts: " + hostNames);
-
-        List<String> instanceIds = new ArrayList<String>();
+    public List<HostNamePair> list() throws Exception {
+        List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
         for(ReservationDescription res: ec2.describeInstances(new ArrayList<String>())) {
             if(res.getInstances() != null) {
                 for(Instance instance: res.getInstances()) {
-                    String state = String.valueOf(instance.getState()).toLowerCase();
+                    HostNamePair hostNamePair = getHostNamePair(instance);
 
-                    if(state.equals("pending")) {
-                        if(logger.isDebugEnabled())
-                            logger.debug("Instance " + instance.getInstanceId()
-                                         + " in pending state");
-
-                        continue;
-                    }
-
-                    if(!state.equals("running")) {
+                    if(hostNamePair == null) {
                         if(logger.isWarnEnabled())
-                            logger.warn("Instance " + instance.getInstanceId()
-                                        + " in unexpected state: " + state + ", code: "
-                                        + instance.getStateCode());
+                            logger.warn("Instance "
+                                        + instance.getInstanceId()
+                                        + " present, but missing external and/or internal host name");
 
                         continue;
                     }
 
-                    String publicDnsName = instance.getDnsName() != null ? instance.getDnsName()
-                                                                                   .trim() : "";
-
-                    if(hostNames.contains(publicDnsName)) {
-                        instanceIds.add(instance.getInstanceId());
-
-                        if(logger.isInfoEnabled())
-                            logger.info("Instance " + instance.getInstanceId() + " )"
-                                        + instance.getDnsName() + ") to be terminated");
-                    }
+                    hostNamePairs.add(hostNamePair);
                 }
             }
         }
 
-        ec2.terminateInstances(instanceIds);
+        return hostNamePairs;
     }
 
-    private List<String> launch(String ami, String keypairId, String instanceSize, int instanceCount)
-            throws Exception {
+    public List<HostNamePair> create(String ami,
+                                     String keypairId,
+                                     Ec2Connection.Ec2InstanceType instanceType,
+                                     int instanceCount) throws Exception {
         LaunchConfiguration launchConfiguration = new LaunchConfiguration(ami);
-        launchConfiguration.setInstanceType(instanceSize == null ? InstanceType.DEFAULT
-                                                                : InstanceType.valueOf(instanceSize));
+        launchConfiguration.setInstanceType(InstanceType.valueOf(instanceType.name()));
         launchConfiguration.setKeyName(keypairId);
         launchConfiguration.setMinCount(instanceCount);
         launchConfiguration.setMaxCount(instanceCount);
@@ -139,59 +89,147 @@ public class TypicaEc2Connection implements Ec2Connection {
             instanceIds.add(instance.getInstanceId());
         }
 
-        return instanceIds;
-    }
+        List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
-    private void waitForInstances(List<String> instanceIds, Map<String, String> hostNameMap)
-            throws Exception {
-        if(logger.isDebugEnabled())
-            logger.debug("Waiting for instances: " + instanceIds);
+        while(!instanceIds.isEmpty()) {
+            try {
+                if(logger.isDebugEnabled())
+                    logger.debug("Sleeping for " + POLL_INTERVAL + " seconds...");
 
-        for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
-            if(res.getInstances() != null) {
-                for(Instance instance: res.getInstances()) {
-                    String state = String.valueOf(instance.getState()).toLowerCase();
+                Thread.sleep(POLL_INTERVAL * 1000);
+            } catch(InterruptedException e) {
+                break;
+            }
 
-                    if(state.equals("pending")) {
-                        if(logger.isDebugEnabled())
-                            logger.debug("Instance " + instance.getInstanceId()
-                                         + " in pending state");
+            for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
+                if(res.getInstances() != null) {
+                    for(Instance instance: res.getInstances()) {
+                        String state = String.valueOf(instance.getState()).toLowerCase();
 
-                        continue;
-                    }
+                        if(!state.equals("running")) {
+                            if(logger.isDebugEnabled())
+                                logger.debug("Instance " + instance.getInstanceId() + " in state: "
+                                             + state);
 
-                    if(!state.equals("running")) {
-                        if(logger.isWarnEnabled())
-                            logger.warn("Instance " + instance.getInstanceId()
-                                        + " in unexpected state: " + state + ", code: "
-                                        + instance.getStateCode());
+                            continue;
+                        }
 
-                        continue;
-                    }
+                        HostNamePair hostNamePair = getHostNamePair(instance);
 
-                    String publicDnsName = instance.getDnsName() != null ? instance.getDnsName()
-                                                                                   .trim() : "";
-                    String privateDnsName = instance.getPrivateDnsName() != null ? instance.getPrivateDnsName()
-                                                                                           .trim()
-                                                                                : "";
+                        if(hostNamePair == null) {
+                            if(logger.isWarnEnabled())
+                                logger.warn("Instance "
+                                            + instance.getInstanceId()
+                                            + " in running state, but missing external and/or internal host name");
 
-                    if(publicDnsName.length() > 0 && privateDnsName.length() > 0) {
-                        hostNameMap.put(instance.getDnsName(), instance.getPrivateDnsName());
-                        instanceIds.remove(instance.getInstanceId());
+                            continue;
+                        }
+
+                        hostNamePairs.add(hostNamePair);
 
                         if(logger.isInfoEnabled())
                             logger.info("Instance " + instance.getInstanceId()
-                                        + " running with public DNS: " + instance.getDnsName()
-                                        + ", private DNS: " + instance.getPrivateDnsName());
-                    } else {
-                        if(logger.isWarnEnabled())
-                            logger.warn("Instance "
-                                        + instance.getInstanceId()
-                                        + " in running state, but missing public and/or private DNS name");
+                                        + " running with external host name: "
+                                        + hostNamePair.getExternalHostName()
+                                        + ", internal host name: "
+                                        + hostNamePair.getInternalHostName());
+
+                        instanceIds.remove(instance.getInstanceId());
                     }
                 }
             }
         }
+
+        return hostNamePairs;
+    }
+
+    public void delete(List<String> hostNames) throws Exception {
+        if(logger.isDebugEnabled())
+            logger.debug("Deleting instances for hosts: " + hostNames);
+
+        List<String> instanceIds = new ArrayList<String>();
+
+        for(ReservationDescription res: ec2.describeInstances(new ArrayList<String>())) {
+            if(res.getInstances() != null) {
+                for(Instance instance: res.getInstances()) {
+                    String state = String.valueOf(instance.getState()).toLowerCase();
+
+                    if(state.equals("shutting-down")) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Instance " + instance.getInstanceId()
+                                         + " already shutting down");
+
+                        continue;
+                    } else if(state.equals("terminated")) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Instance " + instance.getInstanceId()
+                                         + " already terminated");
+
+                        continue;
+                    }
+
+                    String externalHostName = instance.getDnsName() != null ? instance.getDnsName()
+                                                                                      .trim() : "";
+
+                    if(hostNames.contains(externalHostName)) {
+                        instanceIds.add(instance.getInstanceId());
+
+                        if(logger.isInfoEnabled())
+                            logger.info("Instance " + instance.getInstanceId() + " ("
+                                        + externalHostName + ") to be terminated");
+                    }
+                }
+            }
+        }
+
+        // Race condition - it's possible for another entity to have terminated
+        // the instances as we're running, so simply return if there's nothing
+        // for us to do.
+        if(instanceIds.isEmpty())
+            return;
+
+        ec2.terminateInstances(instanceIds);
+
+        while(!instanceIds.isEmpty()) {
+            try {
+                if(logger.isDebugEnabled())
+                    logger.debug("Sleeping for " + POLL_INTERVAL + " seconds...");
+
+                Thread.sleep(POLL_INTERVAL * 1000);
+            } catch(InterruptedException e) {
+                break;
+            }
+
+            for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
+                if(res.getInstances() != null) {
+                    for(Instance instance: res.getInstances()) {
+                        String state = String.valueOf(instance.getState()).toLowerCase();
+
+                        if(!state.equals("terminated")) {
+                            if(logger.isDebugEnabled())
+                                logger.debug("Instance " + instance.getInstanceId() + " in state: "
+                                             + state);
+
+                            continue;
+                        }
+
+                        instanceIds.remove(instance.getInstanceId());
+                    }
+                }
+            }
+        }
+    }
+
+    private HostNamePair getHostNamePair(Instance instance) {
+        String externalHostName = instance.getDnsName() != null ? instance.getDnsName().trim() : "";
+        String internalHostName = instance.getPrivateDnsName() != null ? instance.getPrivateDnsName()
+                                                                                 .trim()
+                                                                      : "";
+
+        if(externalHostName.length() == 0 || internalHostName.length() == 0)
+            return null;
+
+        return new HostNamePair(externalHostName, internalHostName);
     }
 
 }

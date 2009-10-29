@@ -17,7 +17,7 @@
 package voldemort.utils.app;
 
 import java.io.File;
-import java.util.Map;
+import java.util.List;
 
 import joptsimple.OptionSet;
 
@@ -25,9 +25,8 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Ec2Connection;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.impl.TypicaEc2Connection;
-
-import com.xerox.amazonws.ec2.InstanceType;
 
 public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
 
@@ -53,10 +52,14 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         parser.accepts("instances", "Number of instances (default 1)")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("instancesize",
-                       "Instance size; options are DEFAULT (default), LARGE, XLARGE, MEDIUM_HCPU, and XLARGE_HCPU")
-              .withRequiredArg();
-        parser.accepts("output", "Output file for newly created public and private DNS entries")
+        parser.accepts("instancetype",
+                       "Instance type; options are " + Ec2Connection.Ec2InstanceType.DEFAULT
+                               + " (default), " + Ec2Connection.Ec2InstanceType.LARGE + ", "
+                               + Ec2Connection.Ec2InstanceType.XLARGE + ", "
+                               + Ec2Connection.Ec2InstanceType.MEDIUM_HCPU + ", and "
+                               + Ec2Connection.Ec2InstanceType.XLARGE_HCPU).withRequiredArg();
+        parser.accepts("output",
+                       "Output file for newly created external and internal host name entries")
               .withRequiredArg();
 
         OptionSet options = parse(args);
@@ -65,10 +68,12 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         String ami = getRequiredString(options, "ami");
         String keypairId = getRequiredString(options, "keypairid");
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
-        String instanceSize = CmdUtils.valueOf(options, "instancesize", "DEFAULT");
+        Ec2Connection.Ec2InstanceType instanceType = null;
 
         try {
-            InstanceType.valueOf(instanceSize);
+            instanceType = Ec2Connection.Ec2InstanceType.valueOf(CmdUtils.valueOf(options,
+                                                                                  "instancetype",
+                                                                                  "DEFAULT"));
         } catch(Exception e) {
             printUsage();
         }
@@ -76,17 +81,17 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         File output = getRequiredOutputFile(options, "output");
 
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
-        Map<String, String> dnsNames = ec2Connection.create(ami,
-                                                                     keypairId,
-                                                                     instanceSize,
-                                                                     instanceCount);
+        List<HostNamePair> hostNamePairs = ec2Connection.create(ami,
+                                                                keypairId,
+                                                                instanceType,
+                                                                instanceCount);
 
         StringBuilder s = new StringBuilder();
 
-        for(Map.Entry<String, String> entry: dnsNames.entrySet()) {
-            s.append(entry.getKey());
+        for(HostNamePair hostNamePair: hostNamePairs) {
+            s.append(hostNamePair.getExternalHostName());
             s.append(',');
-            s.append(entry.getValue());
+            s.append(hostNamePair.getInternalHostName());
             s.append(System.getProperty("line.separator"));
         }
 

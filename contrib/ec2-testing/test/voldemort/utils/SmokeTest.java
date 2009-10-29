@@ -18,7 +18,6 @@ package voldemort.utils;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,16 +36,22 @@ public class SmokeTest {
 
     @Test
     public void test() throws Exception {
-        Map<String, String> dnsNames = getInstances();
+        List<HostNamePair> hostNamePairs = getInstances();
 
-        if(dnsNames.size() < 3) {
+        if(hostNamePairs.size() < 3) {
             createInstances(6);
-            dnsNames = getInstances();
+            hostNamePairs = getInstances();
         }
 
-        final Map<String, Integer> nodeIds = generateClusterDescriptor(dnsNames,
+        final Map<String, Integer> nodeIds = generateClusterDescriptor(hostNamePairs,
                                                                        "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
-        final Collection<String> hostNames = dnsNames.keySet();
+
+        final List<String> hostNames = new ArrayList<String>();
+        String bootstrapHostName = hostNamePairs.get(0).getInternalHostName();
+
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getExternalHostName());
+
         final String hostUserId = "root";
         final File sshPrivateKey = new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
         final String voldemortParentDirectory = ".";
@@ -55,16 +60,15 @@ public class SmokeTest {
         final File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
 
         Map<String, String> remoteTestArguments = new HashMap<String, String>();
-        final String bootstrapUrl = dnsNames.values().iterator().next();
         int startKeyIndex = 0;
         final int numRequests = 100000;
         final int iterations = 25;
 
-        for(String publicHostName: dnsNames.keySet()) {
+        for(String publicHostName: hostNames) {
             remoteTestArguments.put(publicHostName, "-wd --start-key-index "
                                                     + (startKeyIndex * numRequests)
                                                     + " --value-size 100 --iterations "
-                                                    + iterations + " tcp://" + bootstrapUrl
+                                                    + iterations + " tcp://" + bootstrapHostName
                                                     + ":6666 test " + numRequests);
             startKeyIndex++;
         }
@@ -111,7 +115,7 @@ public class SmokeTest {
         new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }
 
-    private Map<String, String> createInstances(int count) throws Exception {
+    private List<HostNamePair> createInstances(int count) throws Exception {
         String accessId = System.getProperty("ec2AccessId");
         String secretKey = System.getProperty("ec2SecretKey");
         String ami = System.getProperty("ec2Ami");
@@ -120,30 +124,32 @@ public class SmokeTest {
         return ec2.create(ami, keyPairId, null, count);
     }
 
-    private Map<String, String> getInstances() throws Exception {
+    private List<HostNamePair> getInstances() throws Exception {
         String accessId = System.getProperty("ec2AccessId");
         String secretKey = System.getProperty("ec2SecretKey");
         Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
         return ec2.list();
     }
 
-    private Map<String, Integer> generateClusterDescriptor(Map<String, String> hostNames,
+    private Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
                                                            String path) throws Exception {
+        List<String> hostNames = new ArrayList<String>();
+
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getInternalHostName());
+
         ClusterGenerator clusterGenerator = new ClusterGenerator();
-        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(new ArrayList<String>(hostNames.values()),
+        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
                                                                                           3);
         String clusterXml = clusterGenerator.createClusterDescriptor("test", nodes);
         FileUtils.writeStringToFile(new File(path), clusterXml);
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
 
         for(ClusterNodeDescriptor node: nodes) {
-            String privateDnsName = node.getHostName();
-
             // OK, yeah, super-inefficient...
-            for(Map.Entry<String, String> entry: hostNames.entrySet()) {
-                if(entry.getValue().equals(privateDnsName)) {
-                    nodeIds.put(entry.getKey(), node.getId());
-                }
+            for(HostNamePair hostNamePair: hostNamePairs) {
+                if(node.getHostName().equals(hostNamePair.getInternalHostName()))
+                    nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
             }
         }
 

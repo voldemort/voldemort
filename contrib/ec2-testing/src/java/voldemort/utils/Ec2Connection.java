@@ -17,7 +17,6 @@
 package voldemort.utils;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Ec2Connection represents a connection to Amazon's EC2 API. The name of the
@@ -33,12 +32,66 @@ import java.util.Map;
 
 public interface Ec2Connection {
 
-    public Map<String, String> list() throws Exception;
+    public enum Ec2InstanceType {
 
-    public Map<String, String> create(String ami,
-                                      String keypairId,
-                                      String instanceSize,
-                                      int instanceCount) throws Exception;
+        DEFAULT,
+        LARGE,
+        XLARGE,
+        MEDIUM_HCPU,
+        XLARGE_HCPU;
+
+    }
+
+    /**
+     * Retrieve the host names (external/internal) of the instances launched by
+     * the EC2 account. These are not filtered in any form but represent
+     * <b>all</b> instances owned by this account, regardless of launch time,
+     * instance size, etc.
+     * 
+     * @return List of HostNamePair instances
+     * 
+     * @throws Exception Thrown on errors
+     */
+
+    public List<HostNamePair> list() throws Exception;
+
+    /**
+     * Creates <code>instanceCount</code> number of instances of type
+     * <code>instanceType</code> using the given AMI and keypair ID. The
+     * implementation of this method must block until the instances are all
+     * successfully started and in the <i>running</i> state (as reported by
+     * EC2).
+     * 
+     * <p/>
+     * 
+     * Please note: the AMI and instance type must be compatible. For example,
+     * attempting to launch a XLARGE_HCPU instance using a 32-bit AMI will
+     * result in an error.
+     * 
+     * @param ami Amazon Machine Image; can be public, private, etc.
+     * @param keypairId String representing keypair ID
+     * @param instanceType Instance type to launch
+     * @param instanceCount Number of instances to launch
+     * 
+     * @return List of HostNamePair instances
+     * 
+     * @throws Exception Thrown on errors
+     */
+
+    public List<HostNamePair> create(String ami,
+                                     String keypairId,
+                                     Ec2InstanceType instanceType,
+                                     int instanceCount) throws Exception;
+
+    /**
+     * Deletes the EC2 instances represented by the given external host names.
+     * Like the create method, this method blocks until the instances
+     * represented by the given host names have terminated.
+     * 
+     * @param hostNames External host names of EC2 instances to terminate
+     * 
+     * @throws Exception Thrown on errors
+     */
 
     public void delete(List<String> hostNames) throws Exception;
 

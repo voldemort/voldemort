@@ -17,10 +17,12 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.RemoteOperation;
 import voldemort.utils.impl.SshClusterStopper;
 
@@ -49,8 +51,12 @@ public class VoldemortClusterStopperApp extends VoldemortApp {
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
+        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
+        List<String> hostNames = new ArrayList<String>();
 
-        List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getExternalHostName());
+
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortRootDirectory = getRequiredString(options, "voldemortroot");

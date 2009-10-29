@@ -17,10 +17,12 @@
 package voldemort.utils.app;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.RemoteOperation;
 import voldemort.utils.impl.SshClusterCleaner;
 
@@ -53,7 +55,11 @@ public class VoldemortClusterCleanerApp extends VoldemortApp {
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
 
-        List<String> hostNames = getHostNamesFromFile(hostNamesFile, true);
+        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
+        List<String> hostNames = new ArrayList<String>();
+
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(hostNamePair.getExternalHostName());
 
         RemoteOperation<Object> operation = new SshClusterCleaner(hostNames,
                                                                   sshPrivateKey,

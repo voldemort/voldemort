@@ -22,6 +22,7 @@ import java.util.List;
 
 import joptsimple.OptionSet;
 import voldemort.utils.Ec2Connection;
+import voldemort.utils.HostNamePair;
 import voldemort.utils.impl.TypicaEc2Connection;
 
 public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
@@ -52,14 +53,18 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
 
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
 
-        List<String> hostNames = null;
+        List<String> hostNames = new ArrayList<String>();
         File hostNamesFile = getInputFile(options, "hostnames");
 
         if(hostNamesFile != null) {
-            hostNames = getHostNamesFromFile(hostNamesFile, true);
+            List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
+
+            for(HostNamePair hostNamePair: hostNamePairs)
+                hostNames.add(hostNamePair.getExternalHostName());
         } else if(options.has("force")) {
             // Get all of the instances...
-            hostNames = new ArrayList<String>(ec2Connection.list().keySet());
+            for(HostNamePair hostNamePair: ec2Connection.list())
+                hostNames.add(hostNamePair.getExternalHostName());
         } else {
             printUsage();
         }

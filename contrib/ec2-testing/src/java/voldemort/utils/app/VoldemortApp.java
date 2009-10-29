@@ -20,9 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
@@ -34,6 +32,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.utils.CmdUtils;
+import voldemort.utils.HostNamePair;
 
 public abstract class VoldemortApp {
 
@@ -170,7 +169,7 @@ public abstract class VoldemortApp {
         return file;
     }
 
-    protected List<String> getHostNamesFromFile(File file, boolean useExternalDnsName) {
+    protected List<HostNamePair> getHostNamesPairsFromFile(File file) {
         if(!file.canRead()) {
             System.out.println("File " + file.getAbsolutePath() + " cannot be read");
             System.exit(2);
@@ -184,44 +183,7 @@ public abstract class VoldemortApp {
             throw new RuntimeException(e);
         }
 
-        List<String> hostNames = new ArrayList<String>();
-
-        while(iterator.hasNext()) {
-            String rawLine = iterator.nextLine();
-            String hostName = null;
-
-            if(useExternalDnsName) {
-                int i = rawLine.indexOf(',');
-
-                if(i != -1)
-                    hostName = rawLine.substring(0, i);
-                else
-                    hostName = rawLine;
-            } else {
-                hostName = rawLine.substring(rawLine.indexOf(",") + 1, rawLine.length());
-            }
-
-            hostNames.add(hostName);
-        }
-
-        return hostNames;
-    }
-
-    protected Map<String, String> getHostNamesFromFile(File file) {
-        if(!file.canRead()) {
-            System.out.println("File " + file.getAbsolutePath() + " cannot be read");
-            System.exit(2);
-        }
-
-        LineIterator iterator = null;
-
-        try {
-            iterator = FileUtils.lineIterator(file);
-        } catch(IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        Map<String, String> hostNames = new HashMap<String, String>();
+        List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
         while(iterator.hasNext()) {
             String rawLine = iterator.nextLine();
@@ -229,10 +191,10 @@ public abstract class VoldemortApp {
             String externalHostName = hostNameArray[0];
             String internalHostName = hostNameArray.length > 1 ? hostNameArray[1]
                                                               : externalHostName;
-            hostNames.put(externalHostName, internalHostName);
+            hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
         }
 
-        return hostNames;
+        return hostNamePairs;
     }
 
 }
