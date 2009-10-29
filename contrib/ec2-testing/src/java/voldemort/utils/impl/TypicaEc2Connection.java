@@ -17,6 +17,7 @@
 package voldemort.utils.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
@@ -46,7 +47,7 @@ public class TypicaEc2Connection implements Ec2Connection {
     public List<HostNamePair> list() throws Exception {
         List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
-        for(ReservationDescription res: ec2.describeInstances(new ArrayList<String>())) {
+        for(ReservationDescription res: ec2.describeInstances(Collections.<String> emptyList())) {
             if(res.getInstances() != null) {
                 for(Instance instance: res.getInstances()) {
                     HostNamePair hostNamePair = getHostNamePair(instance);
@@ -149,7 +150,7 @@ public class TypicaEc2Connection implements Ec2Connection {
 
         List<String> instanceIds = new ArrayList<String>();
 
-        for(ReservationDescription res: ec2.describeInstances(new ArrayList<String>())) {
+        for(ReservationDescription res: ec2.describeInstances(Collections.<String> emptyList())) {
             if(res.getInstances() != null) {
                 for(Instance instance: res.getInstances()) {
                     String state = String.valueOf(instance.getState()).toLowerCase();

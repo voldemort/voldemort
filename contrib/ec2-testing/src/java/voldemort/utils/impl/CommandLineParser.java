@@ -19,6 +19,21 @@ package voldemort.utils.impl;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * CommandLineParser parses the command line into appropriate arguments. This is
+ * <i>usually</i> as easy as splitting on the space character, but we also have
+ * to honor quoted arguments (that may have spaces) and parse those as one
+ * argument.
+ * 
+ * <p/>
+ * 
+ * This class is used in preparation for passing the list of strings to
+ * UnixCommand. UnixCommand, in turn, uses the {@link java.lang.ProcessBuilder}
+ * class to build up the command to execute.
+ * 
+ * @author Kirk True
+ */
+
 public class CommandLineParser {
 
     public List<String> parse(String command) {

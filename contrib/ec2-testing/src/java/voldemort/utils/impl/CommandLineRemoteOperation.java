@@ -31,6 +31,19 @@ import org.apache.commons.logging.LogFactory;
 
 import voldemort.utils.RemoteOperationException;
 
+/**
+ * CommandLineRemoteOperation represents a command-line based remote operation.
+ * That is, it invokes the remote system by means of invoking a command line
+ * executable. Often (but not always) this is an SSH-based approach, using the
+ * ssh client on the host operating system to communicate with the remote system
+ * to invoke a command line script/program.
+ * 
+ * @author Kirk True
+ * 
+ * @param <T> Return type for the operation, specific to the subclass
+ *        implementation
+ */
+
 abstract class CommandLineRemoteOperation<T> {
 
     protected final Log logger = LogFactory.getLog(getClass());

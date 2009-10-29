@@ -21,6 +21,19 @@ import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
 
+/**
+ * CommandLineParameterizer handles the task of replacing parameter placeholders
+ * with their provided values. This is used to change a command line template
+ * into an executable statement.
+ * 
+ * <p/>
+ * 
+ * The format for parameters is ${variableName}. These variables appear in a
+ * template and are substituted on demand.
+ * 
+ * @author Kirk True
+ */
+
 public class CommandLineParameterizer {
 
     public static final String HOST_NAME_PARAM = "hostName";
@@ -54,10 +67,6 @@ public class CommandLineParameterizer {
         }
 
         rawCommand = properties.getProperty(commandId);
-    }
-
-    public String getRawCommand() {
-        return rawCommand;
     }
 
     public String parameterize(Map<String, String> parameters) {
