@@ -346,6 +346,82 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
     }
 
+    /**
+     * streaming API to get a list of all the keys that belong to any of the partitions
+     * in the input list
+     *
+     * @param nodeId
+     * @param storeName
+     * @param partitionList
+     * @param filter
+     * @return
+     */
+    @Override
+    public Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+        Node node = this.getMetadata().getCluster().getNodeById(nodeId);
+        final SocketDestination destination = new SocketDestination(node.getHost(),
+            node.getAdminPort(),
+            RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        final SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        final DataInputStream inputStream = sands.getInputStream();
+
+        try {
+            VAdminProto.FetchPartitionKeysRequest.Builder fetchRequest =
+                VAdminProto.FetchPartitionKeysRequest.newBuilder()
+                    .addAllPartitions(partitionList)
+                    .setStore(storeName);
+
+            if (filter != null) {
+                fetchRequest.setFilter(encodeFilter(filter));
+            }
+
+            VAdminProto.VoldemortAdminRequest request =
+                VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setFetchPartitionKeys(fetchRequest)
+                .setType(VAdminProto.AdminRequestType.FETCH_KEYS)
+                .build();
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+        } catch (IOException e) {
+            close(sands.getSocket());
+            pool.checkin(destination, sands);
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<ByteArray>() {
+            @Override
+            public ByteArray computeNext() {
+                try {
+                    int size = inputStream.readInt();
+                    if (size <= 0) {
+                        pool.checkin(destination, sands);
+                        return endOfData();
+                    }
+
+                    byte[] input = new byte[size];
+                    ByteUtils.read(inputStream, input);
+                    VAdminProto.FetchPartitionKeysResponse.Builder response =
+                        VAdminProto.FetchPartitionKeysResponse.newBuilder();
+                    response.mergeFrom(input);
+
+                    if (response.hasError()) {
+                        pool.checkin(destination, sands);
+                        throwException(response.getError());
+                    }
+
+                    return ProtoUtils.decodeBytes(response.getKey());
+
+                } catch (IOException e) {
+                    close(sands.getSocket());
+                    pool.checkin(destination, sands);
+                    throw new VoldemortException(e);
+                }
+
+            }
+        };
+    }
+
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
         Class cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);

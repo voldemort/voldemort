@@ -60,8 +60,19 @@ message FetchPartitionEntriesRequest {
   optional VoldemortFilter filter = 3;
 }
 
+message FetchPartitionKeysRequest {
+  repeated int32 partitions = 1;
+  required string store = 2;
+  optional VoldemortFilter filter = 3;
+}
+
 message FetchPartitionEntriesResponse {
   required PartitionEntry partition_entry = 1;
+  optional Error error = 2;
+}
+
+message FetchPartitionKeysResponse {
+  required bytes key = 1;
   optional Error error = 2;
 }
 
@@ -83,6 +94,7 @@ enum AdminRequestType {
   UPDATE_PARTITION_ENTRIES = 3;
   FETCH_PARTITION_ENTRIES = 4;
   DELETE_PARTITION_ENTRIES = 5;
+  FETCH_KEYS = 6;
 }
 
 message VoldemortAdminRequest {
@@ -93,6 +105,7 @@ message VoldemortAdminRequest {
   optional UpdatePartitionEntriesRequest update_partition_entries = 5;
   optional FetchPartitionEntriesRequest fetch_partition_entries = 6;
   optional DeletePartitionEntriesRequest delete_partition_entries = 7;
+  optional FetchPartitionKeysRequest fetch_partition_keys = 8;
 }
 
 

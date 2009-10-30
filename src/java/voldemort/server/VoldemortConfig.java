@@ -69,6 +69,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbOneEnvPerStore;
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
+    private boolean bdbCursorPreload;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -163,6 +164,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.minFileUtilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
+        this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -403,17 +405,11 @@ public class VoldemortConfig implements Serializable {
      * A log file will be cleaned if its utilization percentage is below this
      * value, irrespective of total utilization.
      * 
-     * <ul> <<<<<<< HEAD:src/java/voldemort/server/VoldemortConfig.java
+     * <ul>
      * <li> property: "bdb.cleaner.minFileUtilization"</li>
      * <li> default: 5</li>
      * <li> minimum: 0</li>
      * <li> maximum: 50</li>
-     * =======
-     * <li> property: "bdb.cleaner.minFileUtilization"</li>
-     * <li> default: 5</li>
-     * <li> minimum: 0</li>
-     * <li> maximum: 50</li>
-     * >>>>>>> alex/rebalancing:src/java/voldemort/server/VoldemortConfig.java
      * </ul>
      */
     public int getBdbCleanerMinFileUtilization() {
@@ -427,7 +423,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * <<<<<<< HEAD:src/java/voldemort/server/VoldemortConfig.java =======
+     *
      * The cleaner will keep the total disk space utilization percentage above
      * this value.
      * 
@@ -449,7 +445,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * >>>>>>> alex/rebalancing:src/java/voldemort/server/VoldemortConfig.java
+     * 
      * The btree node fanout. Given by "bdb.btree.fanout". default: 512
      */
     public int getBdbBtreeFanout() {
@@ -458,6 +454,20 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
+    }
+
+    /**
+     * Do we preload the cursor or not? The advantage of preloading for cursor is faster
+     * streaming performance, as entries are fetched in disk order. Incidentally, pre-loading is
+     * only a side-effect of what we're really trying to do: fetch in disk (as opposed to key)
+     * order, but there doesn't seem to be an easy/intuitive way to do for BDB JE. 
+     */
+    public boolean getBdbCursorPreload() {
+        return this.bdbCursorPreload;
+    }
+
+    public void setBdbCursorPreload(boolean bdbCursorPreload) {
+        this.bdbCursorPreload = bdbCursorPreload;
     }
 
     /**

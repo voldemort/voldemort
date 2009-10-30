@@ -53,11 +53,11 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     @Override
     public void setUp() throws IOException {
        // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(2);
-        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(0, 1));
+        int[] ports = ServerTestUtils.findFreePorts(3);
+        Node node0 = new Node(0, "localhost", ports[0], ports[1], ports[2], Arrays.asList(0, 1));
 
-        ports = ServerTestUtils.findFreePorts(2);
-        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(2, 3));
+        ports = ServerTestUtils.findFreePorts(3);
+        Node node1 = new Node(1, "localhost", ports[0], ports[1], ports[2], Arrays.asList(2, 3));
 
         cluster = new Cluster("admin-service-test", Arrays.asList(node0, node1));
         config = ServerTestUtils.createServerConfig(0,
@@ -162,6 +162,38 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         
     }
 
+    public void testFetchPartitionKeys() throws IOException {
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
+        RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
+        Set<String> expected = new HashSet<String>();
+
+        for (Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+            store.put(entry.getFirst(), entry.getSecond());
+            if (routingStrategy.getPartitionList(entry.getFirst().get()).contains(0) ||
+                    routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
+                expected.add(new String(entry.getFirst().get()));
+            }
+        }
+
+        int checked=0;
+        int matched=0;
+
+        AdminClientRequestFormat client = getAdminClient();
+        Iterator<ByteArray> fetchIt = client.doFetchPartitionKeys(server.getIdentityNode().getId(),
+            storeName, Arrays.asList(0,1), null);
+        while (fetchIt.hasNext()) {
+            ByteArray fetchedKey = fetchIt.next();
+            checked++;
+
+            String fetchedKeyStr = new String(fetchedKey.get());
+            if (expected.contains(fetchedKeyStr))
+                matched++;
+        }
+        assertEquals(expected.size(), checked);
+        assertEquals("All values should have matched", checked, matched);
+    }
+    
     public void testFetch() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();

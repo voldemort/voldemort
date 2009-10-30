@@ -655,7 +655,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
                         failures.add(e);
-                    } catch(Exception e) {
+                    } catch (ObsoleteVersionException e) {
+                        // Do not log ObsoleteVersionException
+                        failures.add(e);
+                    }
+                    catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
                                     + ")", e);
                         failures.add(e);
