@@ -34,6 +34,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import voldemort.utils.ClusterStarter;
 import voldemort.utils.RemoteOperationException;
 
+/**
+ * SshClusterStarter is an implementation of ClusterStarter that essentially
+ * just SSH's into all of the machines and runs the voldemort-server.sh script.
+ * We set the node ID specific to each server from the command line vs. storing
+ * it in the server.properties file.
+ * 
+ * @author Kirk True
+ */
+
 public class SshClusterStarter extends CommandLineRemoteOperation<Object> implements ClusterStarter {
 
     private final AtomicInteger completedCounter = new AtomicInteger();

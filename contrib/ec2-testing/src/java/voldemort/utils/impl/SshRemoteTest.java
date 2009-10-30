@@ -42,6 +42,14 @@ import voldemort.utils.RemoteOperationException;
 import voldemort.utils.RemoteTest;
 import voldemort.utils.RemoteTestResult;
 
+/**
+ * SshRemoteTest is an SSH-based implementation of RemoteTest that wraps calls
+ * to voldemort.performance.RemoteTest (AKA voldemort-remote-test.sh) on all of
+ * the machines provided.
+ * 
+ * @author Kirk True
+ */
+
 public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> implements
         RemoteTest {
 
@@ -70,6 +78,47 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
     private final String storeName;
 
     private final long numRequests;
+
+    /**
+     * Creates a new SshRemoteTest instance.
+     * 
+     * @param hostNames External host names for servers that make up the
+     *        Voldemort cluster
+     * @param sshPrivateKey SSH private key file on local filesystem that can
+     *        access all of the remote hosts
+     * @param hostUserId User ID on the remote hosts; assumed to be the same for
+     *        all of the remote hosts
+     * @param voldemortRootDirectory Directory pointing to the Voldemort
+     *        distribution, relative to the home directory of the user on the
+     *        remote system represented by hostUserId; assumed to be the same
+     *        for all of the remote hosts
+     * @param voldemortHomeDirectory Directory under which Voldemort
+     *        configuration and data are kept, relative to the home directory of
+     *        the user on the remote system represented by hostUserId; this is
+     *        the same value as represented by the $VOLDEMORT_HOME environment
+     *        variable; assumed to be the same for all of the remote hosts
+     * @param rampTime Value in seconds to wait on each node before starting the
+     *        test; the ramp up is multiplied by the number of clients
+     *        (n*rampTime); that is, client 0 will wait 0 seconds (0*rampTime),
+     *        client 1 will wait rampTime seconds (1*rampTime), client 2 will
+     *        wait 2*rampTime seconds (2*rampTime), and so on
+     * @param operations A concatenation of the "-r", "-w", and "-d " values of
+     *        the voldemort.performance.RemoteTest class
+     * @param valueSize See the --value-size argument of the
+     *        voldemort.performance.RemoteTest class
+     * @param threads See the --threads argument of the
+     *        voldemort.performance.RemoteTest class
+     * @param iterations See the --iterations argument of the
+     *        voldemort.performance.RemoteTest class
+     * @param bootstrapUrl See the bootstrapUrl argument of the
+     *        voldemort.performance.RemoteTest class
+     * @param storeName See the storeName argument of the
+     *        voldemort.performance.RemoteTest class
+     * @param numRequests See the num-requests argument of the
+     *        voldemort.performance.RemoteTest class
+     * 
+     * @see voldemort.performance.RemoteTest
+     */
 
     public SshRemoteTest(Collection<String> hostNames,
                          File sshPrivateKey,

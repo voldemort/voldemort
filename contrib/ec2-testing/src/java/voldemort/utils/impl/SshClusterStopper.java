@@ -32,6 +32,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import voldemort.utils.ClusterStopper;
 import voldemort.utils.RemoteOperationException;
 
+/**
+ * SshClusterStopper is an implementation of ClusterStopper that essentially
+ * just SSH's into all of the machines and runs voldemort-stop.sh.
+ * 
+ * @author Kirk True
+ */
+
 public class SshClusterStopper extends CommandLineRemoteOperation<Object> implements ClusterStopper {
 
     private final AtomicInteger completedCounter = new AtomicInteger();
@@ -45,6 +52,21 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
     private final String hostUserId;
 
     private final String voldemortRootDirectory;
+
+    /**
+     * Creates a new SshClusterStopper instance.
+     * 
+     * @param hostNames External host names for servers that make up the
+     *        Voldemort cluster
+     * @param sshPrivateKey SSH private key file on local filesystem that can
+     *        access all of the remote hosts
+     * @param hostUserId User ID on the remote hosts; assumed to be the same for
+     *        all of the remote hosts
+     * @param voldemortRootDirectory Directory pointing to the Voldemort
+     *        distribution, relative to the home directory of the user on the
+     *        remote system represented by hostUserId; assumed to be the same
+     *        for all of the remote hosts
+     */
 
     public SshClusterStopper(Collection<String> hostNames,
                              File sshPrivateKey,
@@ -93,7 +115,7 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
     public class SshClusterStopperCommandOutputListener implements CommandOutputListener {
 
         public void outputReceived(String hostName, String line) {
-            if(line.contains("Stopping Voldemort...")) {
+            if(line.contains("Stopping Voldemort")) {
                 completedCounter.incrementAndGet();
 
                 if(logger.isInfoEnabled()) {

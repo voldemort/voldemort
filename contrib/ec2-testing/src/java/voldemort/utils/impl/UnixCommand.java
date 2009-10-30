@@ -22,11 +22,11 @@ import java.io.InputStreamReader;
 import java.util.List;
 
 /**
- * A wrapper for executing a unix command
+ * A wrapper for executing a UNIX command.
  * 
- * @author jay
- * 
+ * @author Jay Kreps
  */
+
 public class UnixCommand {
 
     private final String hostName;

@@ -32,6 +32,13 @@ import com.xerox.amazonws.ec2.LaunchConfiguration;
 import com.xerox.amazonws.ec2.ReservationDescription;
 import com.xerox.amazonws.ec2.ReservationDescription.Instance;
 
+/**
+ * TypicaEc2Connection implements the Ec2Connection interface using the Typica
+ * library (http://code.google.com/p/typica/) for EC2 access.
+ * 
+ * @author Kirk True
+ */
+
 public class TypicaEc2Connection implements Ec2Connection {
 
     private static final int POLL_INTERVAL = 15;
