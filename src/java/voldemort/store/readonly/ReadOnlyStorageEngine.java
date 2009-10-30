@@ -210,11 +210,28 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         // okay we have released the lock and the store is now open again, it is
         // safe to do a potentially slow delete if we have one too many backups
         File extraBackup = new File(storeDir, "version-" + (numBackups + 1));
-        if(extraBackup.exists()) {
-            logger.info("Deleting oldest backup file " + extraBackup);
-            Utils.rm(extraBackup);
-            logger.info("Delete completed successfully.");
-        }
+        if(extraBackup.exists())
+            deleteAsync(extraBackup);
+    }
+
+    /**
+     * Delete the given file in a seperate thread
+     * 
+     * @param file The file to delete
+     */
+    public void deleteAsync(final File file) {
+        new Thread(new Runnable() {
+
+            public void run() {
+                try {
+                    logger.info("Deleting file " + file);
+                    Utils.rm(file);
+                    logger.info("Delete completed successfully.");
+                } catch(Exception e) {
+                    logger.error(e);
+                }
+            }
+        }, "background-file-delete").start();
     }
 
     @JmxOperation(description = "Rollback to the most recent backup of the current store.")
