@@ -22,7 +22,7 @@ import java.util.List;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.store.memory.InMemoryStorageEngine;
-import voldemort.store.metadata.MetadataStore.ServerState;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -41,7 +41,7 @@ public class MetadataStoreTest extends TestCase {
                                                    MetadataStore.STORES_KEY,
                                                    MetadataStore.SERVER_STATE_KEY,
                                                    MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                                   MetadataStore.REBALANCING_PROXY_DEST_KEY);
+                                                   MetadataStore.REBALANCING_SLAVES_LIST_KEY);
 
     @Override
     public void setUp() throws Exception {
@@ -70,8 +70,8 @@ public class MetadataStoreTest extends TestCase {
                                       "UTF-8");
 
         } else if(MetadataStore.SERVER_STATE_KEY.equals(keyString)) {
-            int i = (int) (Math.random() * ServerState.values().length);
-            return ByteUtils.getBytes(ServerState.values()[i].toString(), "UTF-8");
+            int i = (int) (Math.random() * VoldemortState.values().length);
+            return ByteUtils.getBytes(VoldemortState.values()[i].toString(), "UTF-8");
         } else if(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY.equals(keyString)) {
             int size = (int) (Math.random() * 10);
             String partitionsList = "";
@@ -81,7 +81,7 @@ public class MetadataStoreTest extends TestCase {
                     partitionsList += ",";
             }
             return ByteUtils.getBytes(partitionsList, "UTF-8");
-        } else if(MetadataStore.REBALANCING_PROXY_DEST_KEY.equals(keyString)) {
+        } else if(MetadataStore.REBALANCING_SLAVES_LIST_KEY.equals(keyString)) {
             return ByteUtils.getBytes("" + ((int) Math.random() * 100), "UTF-8");
         }
 

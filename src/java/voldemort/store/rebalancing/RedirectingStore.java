@@ -23,7 +23,7 @@ import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.ServerState;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
@@ -32,7 +32,7 @@ import voldemort.versioning.Versioned;
 /**
  * The RedirectingStore extends {@link DelegatingStore}
  * <p>
- * if current server_state is {@link ServerState#REBALANCING_STEALER_STATE} <br>
+ * if current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
  * then
  * <ul>
  * <li>Get: proxy Get call to donor server ONLY for keys belonging to
@@ -60,7 +60,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        if(MetadataStore.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
+        if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
             proxyPut(key, value);
         } else {
@@ -70,7 +70,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        if(MetadataStore.ServerState.REBALANCING_STEALER_STATE.equals(metadata.getServerState())
+        if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
             return proxyGet(key);
         } else {

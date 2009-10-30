@@ -159,6 +159,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void put(K key, V value) {
+        List<Version> versions = store.getVersions();
+        if (versions.size() == 1)
+        {
+            put (key , new Versioned<V>(value, versions.get(0)));
+        }
         Versioned<V> versioned = get(key, NOT_FOUND);
         if(versioned == NOT_FOUND)
             versioned = new Versioned<V>(value, new VectorClock());

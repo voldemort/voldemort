@@ -28,7 +28,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.ServerState;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
@@ -59,8 +59,9 @@ public abstract class AdminClientRequestFormat {
     /**
      * Updates Metadata at (remote) Node
      * 
-     * @param nodeId
-     * @param storesList
+     * @param nodeId the remoteNode Id where metadata should be updated.
+     * @param key metadata key to updae.
+     * @param value metadata value
      * @throws VoldemortException
      */
     public abstract void doUpdateRemoteMetadata(int remoteNodeId,
@@ -70,8 +71,8 @@ public abstract class AdminClientRequestFormat {
     /**
      * Get Metadata from (remote) Node
      * 
-     * @param nodeId
-     * @param storesList
+     * @param nodeId the remoteNode Id .
+     * @param key metadata key.
      * @throws VoldemortException
      */
     public abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
@@ -81,12 +82,12 @@ public abstract class AdminClientRequestFormat {
      * security checks and return the value. queries the raw storageEngine at
      * server end to return the value
      * 
-     * @param proxyDestNodeId
+     * @param proxySlaveNodeId
      * @param storeName
      * @param key
      * @return List<Versioned <byte[]>>
      */
-    public abstract List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId,
+    public abstract List<Versioned<byte[]>> doRedirectGet(int proxySlaveNodeId,
                                                           String storeName,
                                                           ByteArray key);
 
@@ -96,9 +97,10 @@ public abstract class AdminClientRequestFormat {
      * 
      * @param nodeId
      * @param storeName
-     * @param partitionList
-     * @param filterRequest: <imp>Do not fetch entries filtered out (returned
-     *        false) from the {@link VoldemortFilter} implementation</imp>
+     * @param partitionList: List of partitions to be fetched from remote
+     *        server.
+     * @param filter: A VoldemortFilter class to do server side filtering or
+     *        null
      * @return
      * @throws VoldemortException
      */
@@ -114,8 +116,8 @@ public abstract class AdminClientRequestFormat {
      * @param nodeId
      * @param storeName
      * @param entryIterator
-     * @param filterRequest: <imp>Do not Update entries filtered out (returned
-     *        false) from the {@link VoldemortFilter} implementation</imp>
+     * @param filter: A VoldemortFilter class to do server side filtering or
+     *        null.
      * @throws VoldemortException
      * @throws IOException
      */
@@ -130,8 +132,8 @@ public abstract class AdminClientRequestFormat {
      * @param nodeId
      * @param storeName
      * @param partitionList
-     * @param filterRequest: <imp>Do not Delete entries filtered out (returned
-     *        false) from the {@link VoldemortFilter} implementation</imp>
+     * @param filter: A VoldemortFilter class to do server side filtering or
+     *        null.
      * @throws VoldemortException
      * @throws IOException
      */
@@ -195,7 +197,7 @@ public abstract class AdminClientRequestFormat {
     }
 
     /* get/update Server state metadata */
-    public void updateServerState(int nodeId, MetadataStore.ServerState state) {
+    public void updateServerState(int nodeId, MetadataStore.VoldemortState state) {
         VectorClock oldClock = (VectorClock) getServerState(nodeId).getVersion();
 
         doUpdateRemoteMetadata(nodeId,
@@ -205,13 +207,13 @@ public abstract class AdminClientRequestFormat {
                                                      oldClock.incremented(nodeId, 1)));
     }
 
-    public Versioned<ServerState> getServerState(int nodeId) {
+    public Versioned<VoldemortState> getServerState(int nodeId) {
         Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
                                                       new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
                                                                                        "UTF-8")));
-        return new Versioned<ServerState>(ServerState.valueOf(ByteUtils.getString(value.getValue(),
-                                                                                  "UTF-8")),
-                                          value.getVersion());
+        return new Versioned<VoldemortState>(VoldemortState.valueOf(ByteUtils.getString(value.getValue(),
+                                                                                        "UTF-8")),
+                                             value.getVersion());
     }
 
     /* get/update Proxy Destination Node while rebalancing */
@@ -219,7 +221,7 @@ public abstract class AdminClientRequestFormat {
         VectorClock oldClock = (VectorClock) getRebalancingProxyDest(rebalancingNodeId).getVersion();
 
         doUpdateRemoteMetadata(rebalancingNodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST_KEY,
+                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_SLAVES_LIST_KEY,
                                                                 "UTF-8")),
                                new Versioned<byte[]>(ByteUtils.getBytes("" + proxyDestNodeId,
                                                                         "UTF-8"),
@@ -228,7 +230,7 @@ public abstract class AdminClientRequestFormat {
 
     public Versioned<Integer> getRebalancingProxyDest(int rebalancingNodeId) {
         Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PROXY_DEST_KEY,
+                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_SLAVES_LIST_KEY,
                                                                                        "UTF-8")));
         return new Versioned<Integer>(Integer.parseInt(ByteUtils.getString(value.getValue(),
                                                                            "UTF-8")),

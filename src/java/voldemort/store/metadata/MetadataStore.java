@@ -43,6 +43,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -63,11 +64,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
 
+    // need to be in sync with other using gossip
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
+    public static final String CLUSTER_STATE_KEY = "cluster.state";
+
+    // server individual values no gossip
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
-    public static final String REBALANCING_PROXY_DEST_KEY = "rebalancing.proxy.dest";
+    public static final String REBALANCING_SLAVES_LIST_KEY = "rebalancing.slave.list";
     public static final String REBALANCING_PARTITIONS_LIST_KEY = "rebalancing.partitions.list";
     public static final String ROUTING_STRATEGY_KEY = "routing.strategy";
 
@@ -75,20 +80,23 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                                                       STORES_KEY,
                                                                       SERVER_STATE_KEY,
                                                                       NODE_ID_KEY,
-                                                                      REBALANCING_PROXY_DEST_KEY,
-                                                                      REBALANCING_PARTITIONS_LIST_KEY);
+                                                                      REBALANCING_SLAVES_LIST_KEY,
+                                                                      CLUSTER_STATE_KEY);
 
-    public static final Set<String> TRANSIENT_KEYS = ImmutableSet.of(ROUTING_STRATEGY_KEY);
+    public static final Set<String> TRANSIENT_KEYS = ImmutableSet.of(REBALANCING_PARTITIONS_LIST_KEY,
+                                                                     ROUTING_STRATEGY_KEY);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(PERSISTENT_KEYS)
                                                                 .addAll(TRANSIENT_KEYS)
                                                                 .build();
 
-    public static enum ServerState {
-        NORMAL_STATE,
-        REBALANCING_STEALER_STATE,
-        REBALANCING_DONOR_STATE
+    public static enum VoldemortState {
+        NORMAL_SERVER,
+        REBALANCING_MASTER_SERVER,
+        REBALANCING_SLAVE_SERVER,
+        REBALANCING_CLUSTER,
+        NORMAL_CLUSTER
     }
 
     private final Store<String, String> innerStore;
@@ -134,14 +142,23 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
         // Set default value if not present
         initCache(NODE_ID_KEY, nodeId);
-        initCache(SERVER_STATE_KEY, ServerState.NORMAL_STATE.toString());
-        initCache(REBALANCING_PROXY_DEST_KEY, new Integer(-1));
+        initCache(REBALANCING_SLAVES_LIST_KEY, new Integer(-1));
         initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
         initCache(ROUTING_STRATEGY_KEY, updateRoutingStrategies());
+
+        // init serverState
+        initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
+        if(getServerState().equals(VoldemortState.REBALANCING_SLAVE_SERVER)) {
+            // if state is rebalancing slave start as normal state
+            VectorClock clock = (VectorClock) metadataCache.get(SERVER_STATE_KEY).getVersion();
+            this.put(SERVER_STATE_KEY,
+                     new Versioned<String>(VoldemortState.NORMAL_SERVER.toString(),
+                                           clock.incremented(this.getNodeId(), 1)));
+        }
     }
 
     private void initCache(String key) {
-        metadataCache.put(key, convertBytesToObject(key, getInnerValue(key)));
+        metadataCache.put(key, convertStringToObject(key, getInnerValue(key)));
     }
 
     private void initCache(String key, Object defaultValue) {
@@ -149,12 +166,34 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             initCache(key);
         } catch(Exception e) {
             // put default value if failed to init
-            Versioned<Object> value = new Versioned<Object>(defaultValue);
-            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
-            Versioned<String> valueStr = convertObjectToBytes(key, value);
+            Versioned<String> value = convertObjectToString(key,
+                                                            new Versioned<Object>(defaultValue));
+            this.put(key, value);
+        }
+    }
 
-            this.put(keyBytes, new Versioned<byte[]>(ByteUtils.getBytes(valueStr.getValue(),
-                                                                        "UTF-8")));
+    /**
+     * helper function to convert strings to bytes as needed.
+     * 
+     * @param key
+     * @param value
+     */
+    public void put(String key, Versioned<String> value) {
+        try {
+            if(METADATA_KEYS.contains(key)) {
+
+                // cache all keys
+                metadataCache.put(key, convertStringToObject(key, value));
+
+                // only persistent_keys should be persisted
+                if(PERSISTENT_KEYS.contains(key)) {
+                    innerStore.put(key, value);
+                }
+            } else {
+                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+            }
+        } catch(Exception e) {
+            throw new VoldemortException("Failed to put() for key:" + key, e);
         }
     }
 
@@ -167,27 +206,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @throws VoldemortException
      */
     public void put(ByteArray keyBytes, Versioned<byte[]> valueBytes) throws VoldemortException {
-        try {
-            String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
-            Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
-                                                                                "UTF-8"),
-                                                            valueBytes.getVersion());
-            if(METADATA_KEYS.contains(key)) {
-
-                // cache all keys
-                metadataCache.put(key, convertBytesToObject(key, value));
-
-                // only persistent_keys should be persisted
-                if(PERSISTENT_KEYS.contains(key)) {
-                    innerStore.put(key, value);
-                }
-            } else {
-                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
-            }
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to put() for key:"
-                                         + ByteUtils.getString(keyBytes.get(), "UTF-8"), e);
-        }
+        String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
+        Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
+                                                                            "UTF-8"),
+                                                        valueBytes.getVersion());
+        this.put(key, value);
     }
 
     public void close() throws VoldemortException {
@@ -212,7 +235,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 List<Versioned<byte[]>> values = Lists.newArrayList();
 
                 // Get the cached value and convert to string
-                Versioned<String> value = convertObjectToBytes(key, metadataCache.get(key));
+                Versioned<String> value = convertObjectToString(key, metadataCache.get(key));
 
                 values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
                                                  value.getVersion()));
@@ -252,12 +275,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
     }
 
-    public ServerState getServerState() {
-        return ServerState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
+    public VoldemortState getServerState() {
+        return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
 
     public Node getRebalancingProxyDest() {
-        return getCluster().getNodeById(Integer.parseInt((String) metadataCache.get(REBALANCING_PROXY_DEST_KEY)
+        return getCluster().getNodeById(Integer.parseInt((String) metadataCache.get(REBALANCING_SLAVES_LIST_KEY)
                                                                                .getValue()));
     }
 
@@ -308,14 +331,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @return
      */
     @SuppressWarnings("unchecked")
-    private Versioned<String> convertObjectToBytes(String key, Versioned<Object> value) {
+    private Versioned<String> convertObjectToString(String key, Versioned<Object> value) {
         String valueStr = value.getValue().toString();
 
         if(CLUSTER_KEY.equals(key)) {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
-        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)
+                  || REBALANCING_SLAVES_LIST_KEY.equals(key)) {
             // save the list as comma separate string.
             StringBuilder builder = new StringBuilder();
             List<Integer> list = (List<Integer>) value.getValue();
@@ -333,7 +357,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return new Versioned<String>(valueStr, value.getVersion());
     }
 
-    private Versioned<Object> convertBytesToObject(String key, Versioned<String> value) {
+    private Versioned<Object> convertStringToObject(String key, Versioned<String> value) {
         Object valueObject = null;
 
         if(CLUSTER_KEY.equals(key)) {
@@ -341,12 +365,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(STORES_KEY.equals(key)) {
             valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
         } else if(SERVER_STATE_KEY.equals(key)) {
-            valueObject = ServerState.valueOf(value.getValue());
-        } else if(REBALANCING_PROXY_DEST_KEY.equals(key)) {
-            valueObject = Integer.parseInt(value.getValue());
+            valueObject = VoldemortState.valueOf(value.getValue());
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
-        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)
+                  || REBALANCING_SLAVES_LIST_KEY.equals(key)) {
             List<Integer> list = new ArrayList<Integer>();
             if(value.getValue().trim().length() > 0) {
                 String[] partitions = value.getValue().split(",");

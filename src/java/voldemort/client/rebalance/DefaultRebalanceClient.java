@@ -48,7 +48,7 @@ public class DefaultRebalanceClient implements RebalanceClient {
             try {
                 // Set stealerNode state
                 adminClient.updateServerState(stealerNodeID,
-                                              MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+                                              MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
                 // stealer node sets targetCluster as currentCluster
                 adminClient.updateClusterMetadata(stealerNodeID, targetCluster);
@@ -67,7 +67,7 @@ public class DefaultRebalanceClient implements RebalanceClient {
 
                             // change state for donorNode
                             adminClient.updateServerState(donorNode.getId(),
-                                                          MetadataStore.ServerState.REBALANCING_DONOR_STATE);
+                                                          MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
 
                             // donorNode sets new cluster
                             adminClient.updateClusterMetadata(donorNode.getId(), targetCluster);
@@ -79,17 +79,17 @@ public class DefaultRebalanceClient implements RebalanceClient {
                                                               null);
                             // set donorNode back to Normal
                             adminClient.updateServerState(donorNode.getId(),
-                                                          MetadataStore.ServerState.NORMAL_STATE);
+                                                          MetadataStore.VoldemortState.NORMAL_SERVER);
                         }
                     }
                 }
                 // everything kool change stealerState to be normal
-                adminClient.updateServerState(stealerNodeID, MetadataStore.ServerState.NORMAL_STATE);
+                adminClient.updateServerState(stealerNodeID, MetadataStore.VoldemortState.NORMAL_SERVER);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {
                     adminClient.updateServerState(node.getId(),
-                                                  MetadataStore.ServerState.NORMAL_STATE);
+                                                  MetadataStore.VoldemortState.NORMAL_SERVER);
                     adminClient.updateClusterMetadata(node.getId(), currentCluster);
                 }
                 throw new VoldemortException("Steal Partitions for " + stealerNodeID + " failed", e);
@@ -132,7 +132,7 @@ public class DefaultRebalanceClient implements RebalanceClient {
             try {
                 // Set donorNode state
                 adminClient.updateServerState(donorNodeId,
-                                              MetadataStore.ServerState.REBALANCING_DONOR_STATE);
+                                              MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
 
                 // donorNode sets targetCluster as currentCluster
                 adminClient.updateClusterMetadata(donorNodeId, targetCluster);
@@ -151,7 +151,7 @@ public class DefaultRebalanceClient implements RebalanceClient {
 
                             // change state for destNode
                             adminClient.updateServerState(destNode.getId(),
-                                                          MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+                                                          MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
                             // destNode sets new cluster
                             adminClient.updateClusterMetadata(destNode.getId(), targetCluster);
@@ -163,17 +163,17 @@ public class DefaultRebalanceClient implements RebalanceClient {
                                                               null);
                             // set destNode back to Normal
                             adminClient.updateServerState(destNode.getId(),
-                                                          MetadataStore.ServerState.NORMAL_STATE);
+                                                          MetadataStore.VoldemortState.NORMAL_SERVER);
                         }
                     }
                 }
                 // everything kool change donorNode to be normal
-                adminClient.updateServerState(donorNodeId, MetadataStore.ServerState.NORMAL_STATE);
+                adminClient.updateServerState(donorNodeId, MetadataStore.VoldemortState.NORMAL_SERVER);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {
                     adminClient.updateServerState(node.getId(),
-                                                  MetadataStore.ServerState.NORMAL_STATE);
+                                                  MetadataStore.VoldemortState.NORMAL_SERVER);
                     adminClient.updateClusterMetadata(node.getId(), currentCluster);
                 }
                 throw new VoldemortException("Donate Partitions for " + donorNodeId + " failed", e);

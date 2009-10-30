@@ -137,7 +137,7 @@ public class RedirectingStoreTest extends TestCase {
             }
         }
 
-        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
 
@@ -186,7 +186,7 @@ public class RedirectingStoreTest extends TestCase {
         // we should see obsolete version exception if try to insert with same
         // version
 
-        adminClient.updateServerState(0, MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+        adminClient.updateServerState(0, MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             if(metadata.getRoutingStrategy(storeName)

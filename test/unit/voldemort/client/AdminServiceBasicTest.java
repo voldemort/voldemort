@@ -182,38 +182,38 @@ public class AdminServiceBasicTest extends TestCase {
         // change to REBALANCING STATE
         NativeAdminClientRequestFormat client = getAdminClient();
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.ServerState.REBALANCING_STEALER_STATE);
+                                 MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
-        MetadataStore.ServerState state = server.getMetadataStore().getServerState();
+        MetadataStore.VoldemortState state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.ServerState.REBALANCING_STEALER_STATE,
+                     MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
 
         // change back to NORMAL state
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.ServerState.NORMAL_STATE);
+                                 MetadataStore.VoldemortState.NORMAL_SERVER);
 
         state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.ServerState.NORMAL_STATE,
+                     MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.ServerState.REBALANCING_DONOR_STATE);
+                                 MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
 
         state = server.getMetadataStore().getServerState();
 
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.ServerState.REBALANCING_DONOR_STATE,
+                     MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER,
                      state);
 
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.ServerState.NORMAL_STATE);
+                                 MetadataStore.VoldemortState.NORMAL_SERVER);
 
         state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.ServerState.NORMAL_STATE,
+                     MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
     }
 
