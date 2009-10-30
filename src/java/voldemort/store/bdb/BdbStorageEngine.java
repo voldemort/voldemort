@@ -167,7 +167,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
         for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, lockMode); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
                                                                                                                                                         valueEntry,
-                                                                                                                                                        LockMode.RMW)) {
+                                                                                                                                                        lockMode)) {
             results.add(serializer.toObject(valueEntry.getData()));
         }
         return results;
@@ -328,7 +328,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     @JmxOperation(description = "A variety of stats about the BDB for this store.")
     public String getBdbStats() {
         String stats = getStats(false).toString();
-        logger.info("Bdb store" + getName() + " stats:\n" + stats + "\n");
+        logger.debug("Bdb store" + getName() + " stats:\n" + stats + "\n");
         return stats;
     }
 
