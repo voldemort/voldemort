@@ -31,6 +31,7 @@ import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -166,4 +167,29 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
     }
 
+    public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException {
+        checkException(stream);
+        int resultSize = stream.readInt();
+        List<Version> results = new ArrayList<Version>(resultSize);
+        for(int i = 0; i < resultSize; i++) {
+            int versionSize = stream.readInt();
+            byte[] bytes = new byte[versionSize];
+            ByteUtils.read(stream, bytes);
+            VectorClock clock = new VectorClock(bytes);
+            results.add(clock);
+        }
+        return results;
+    }
+
+    public void writeGetVersionRequest(DataOutputStream output,
+                                       String storeName,
+                                       ByteArray key,
+                                       boolean shouldReroute) throws IOException {
+        StoreUtils.assertValidKey(key);
+        output.writeByte(VoldemortOpCode.GET_VERSION_OP_CODE);
+        output.writeUTF(storeName);
+        output.writeBoolean(shouldReroute);
+        output.writeInt(key.length());
+        output.write(key.get());
+    }
 }

@@ -162,7 +162,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
             RoutingStrategy routingStrategy =
                 metadataStore.getRoutingStrategy(storageEngine.getName());
-            IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+            EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
             List<Integer> partitionList = request.getPartitionsList();
             VoldemortFilter filter;
 
@@ -212,7 +212,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
             RoutingStrategy routingStrategy =
                 metadataStore.getRoutingStrategy(storageEngine.getName());
-            IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+            EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
             List<Integer> partitionList = request.getPartitionsList();
             VoldemortFilter filter;
 
@@ -284,7 +284,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             if (storageEngine == null) {
                 throw new VoldemortException("No stored named '" + storeName + "'.");
             }
-            IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
+            EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
             while (continueReading) {
                 VAdminProto.PartitionEntry partitionEntry = request.getPartitionEntry();
                 ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
@@ -337,7 +337,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 metadataStore.getRoutingStrategy(storageEngine.getName());
             VoldemortFilter filter = request.hasFilter()
                 ? getFilterFromRequest(request.getFilter()) : new DefaultVoldemortFilter();
-            IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+            EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
             int deleteSuccess = 0;
 

@@ -121,6 +121,10 @@ public class CompressingStore implements Store<ByteArray, byte[]> {
         return inflateValues(innerStore.get(deflateKey(key)));
     }
 
+    public List<Version> getVersions(ByteArray key) {
+        return innerStore.getVersions(deflateKey(key));
+    }
+
     private List<Versioned<byte[]>> inflateValues(List<Versioned<byte[]>> result) {
         List<Versioned<byte[]>> inflated = new ArrayList<Versioned<byte[]>>(result.size());
         for(Versioned<byte[]> item: result)

@@ -174,7 +174,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     public EnvironmentStats getStats(String storeName) {
         StatsConfig config = new StatsConfig();
-        config.setFast(true);
+        config.setFast(false);
         try {
             Environment env = getEnvironment(storeName);
             return env.getStats(config);
@@ -185,7 +185,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     @JmxOperation(description = "A variety of stats about one BDB environment.")
     public String getEnvStatsAsString(String storeName) throws Exception {
-        return getStats(storeName).toString();
+        String envStats = getStats(storeName).toString();
+        logger.debug("Bdb Environment stats:\n" + envStats);
+        return envStats;
     }
 
     public void close() {

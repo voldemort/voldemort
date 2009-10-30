@@ -24,7 +24,7 @@ import voldemort.MockTime;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.store.StorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -55,7 +55,7 @@ public class DataCleanupJobTest extends TestCase {
                                            new Semaphore(1),
                                            Time.MS_PER_DAY,
                                            time,
-                                           new IoThrottler(1)).run();
+                                           new EventThrottler(1)).run();
 
         // Check that all the later keys are there AND the key updated later
         assertContains("a", "d", "e", "f");

@@ -100,4 +100,6 @@ public interface Store<K, V> {
      */
     public Object getCapability(StoreCapabilityType capability);
 
+    public List<Version> getVersions(K key);
+
 }

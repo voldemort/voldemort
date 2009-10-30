@@ -24,6 +24,7 @@ import java.util.Map;
 
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -41,7 +42,14 @@ public interface RequestFormat {
                                 ByteArray key,
                                 boolean shouldReroute) throws IOException;
 
+    public void writeGetVersionRequest(DataOutputStream output,
+                                       String storeName,
+                                       ByteArray key,
+                                       boolean shouldReroute) throws IOException;
+
     public List<Versioned<byte[]>> readGetResponse(DataInputStream stream) throws IOException;
+
+    public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException;
 
     public void writeGetAllRequest(DataOutputStream output,
                                    String storeName,

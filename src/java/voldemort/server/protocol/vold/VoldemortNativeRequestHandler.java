@@ -21,6 +21,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -69,11 +70,35 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                 case VoldemortOpCode.DELETE_OP_CODE:
                     handleDelete(inputStream, outputStream, store);
                     break;
+                case VoldemortOpCode.GET_VERSION_OP_CODE:
+                    handleGetVersion(inputStream, outputStream, store);
+                    break;
                 default:
                     throw new IOException("Unknown op code: " + opCode);
             }
         }
         outputStream.flush();
+    }
+
+    private void handleGetVersion(DataInputStream inputStream,
+                                  DataOutputStream outputStream,
+                                  Store<ByteArray, byte[]> store) throws IOException {
+        ByteArray key = readKey(inputStream);
+        List<Version> results = null;
+        try {
+            results = store.getVersions(key);
+            outputStream.writeShort(0);
+        } catch(VoldemortException e) {
+            e.printStackTrace();
+            writeException(outputStream, e);
+            return;
+        }
+        outputStream.writeInt(results.size());
+        for(Version v: results) {
+            byte[] clock = ((VectorClock) v).toBytes();
+            outputStream.writeInt(clock.length);
+            outputStream.write(clock);
+        }
     }
 
     /**
@@ -96,6 +121,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
             switch(opCode) {
                 case VoldemortOpCode.GET_OP_CODE:
+                case VoldemortOpCode.GET_VERSION_OP_CODE:
                     // Read the key just to skip the bytes.
                     readKey(inputStream);
                     break;

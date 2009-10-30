@@ -50,8 +50,6 @@ import com.google.common.collect.Maps;
 @Threadsafe
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
-    private final Versioned<V> NOT_FOUND = new Versioned<V>(null, null);
-
     private final StoreClientFactory storeFactory;
 
     private final int metadataRefreshAttempts;
@@ -96,7 +94,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public V getValue(K key, V defaultValue) {
         Versioned<V> versioned = get(key);
         if(versioned == null)
-            return null;
+            return defaultValue;
         else
             return versioned.getValue();
     }
@@ -159,10 +157,19 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void put(K key, V value) {
-        Versioned<V> versioned = get(key, NOT_FOUND);
-        if(versioned == NOT_FOUND)
-            versioned = new Versioned<V>(value, new VectorClock());
-        versioned.setObject(value);
+        List<Version> versions = getVersions(key);
+        Versioned<V> versioned;
+        if(versions.isEmpty())
+            versioned = Versioned.value(value, new VectorClock());
+        else if(versions.size() == 1)
+            versioned = Versioned.value(value, versions.get(0));
+        else {
+            versioned = get(key, null);
+            if(versioned == null)
+                versioned = Versioned.value(value, new VectorClock());
+            else
+                versioned.setObject(value);
+        }
         put(key, versioned);
     }
 
@@ -221,4 +228,26 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return strategy.routeRequest(keySerializer.toBytes(key));
     }
 
+    private Version getVersion(K key) {
+        List<Version> versions = getVersions(key);
+        if(versions.size() == 0)
+            return null;
+        else if(versions.size() == 1)
+            return versions.get(0);
+        else
+            throw new InconsistentDataException("Unresolved versions returned from get(" + key
+                                                + ") = " + versions, versions);
+    }
+
+    private List<Version> getVersions(K key) {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                return store.getVersions(key);
+            } catch(InvalidMetadataException e) {
+                reinit();
+            }
+        }
+        throw new InvalidMetadataException(this.metadataRefreshAttempts
+                                           + " metadata refresh attempts failed.");
+    }
 }

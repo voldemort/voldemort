@@ -34,7 +34,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
@@ -73,7 +73,7 @@ public class NativeAdminServiceRequestHandler extends AdminServiceRequestHandler
     protected void handleUpdateEntriesAsStream(StorageEngine<ByteArray, byte[]> engine,
                                                DataInputStream inputStream,
                                                DataOutputStream outputStream) throws IOException {
-        IoThrottler throttler = new IoThrottler(streamMaxBytesWritesPerSec);
+        EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
 
         try {
             int keySize = inputStream.readInt();
@@ -123,7 +123,7 @@ public class NativeAdminServiceRequestHandler extends AdminServiceRequestHandler
         VoldemortFilter filter = readFilterClassFromStream(inputStream);
 
         RoutingStrategy routingStrategy = getMetadataStore().getRoutingStrategy(engine.getName());
-        IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+        EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
 
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
@@ -190,7 +190,7 @@ public class NativeAdminServiceRequestHandler extends AdminServiceRequestHandler
 
         RoutingStrategy routingStrategy = getMetadataStore().getRoutingStrategy(engine.getName());
 
-        IoThrottler throttler = new IoThrottler(streamMaxBytesReadPerSec);
+        EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
         try {
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
 

@@ -28,6 +28,10 @@ public class FailingReadsStore<K, V> implements Store<K, V> {
         throw new VoldemortException("Operation failed");
     }
 
+    public java.util.List<Version> getVersions(K key) {
+        throw new VoldemortException("Operation failed");
+    }
+
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
         throw new VoldemortException("Operation failed");
     }

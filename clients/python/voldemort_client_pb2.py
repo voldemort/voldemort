@@ -27,6 +27,10 @@ _REQUESTTYPE = descriptor.EnumDescriptor(
       name='DELETE', index=3, number=3,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='GET_VERSION', index=4, number=4,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -36,6 +40,7 @@ GET = 0
 GET_ALL = 1
 PUT = 2
 DELETE = 3
+GET_VERSION = 4
 
 
 
@@ -221,6 +226,35 @@ _GETRESPONSE = descriptor.Descriptor(
       options=None),
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.GetResponse.error', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_GETVERSIONRESPONSE = descriptor.Descriptor(
+  name='GetVersionResponse',
+  full_name='voldemort.GetVersionResponse',
+  filename='voldemort-client.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='versions', full_name='voldemort.GetVersionResponse.versions', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.GetVersionResponse.error', index=1,
       number=2, type=11, cpp_type=10, label=1,
       default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -464,6 +498,8 @@ _VERSIONED.fields_by_name['version'].message_type = _VECTORCLOCK
 _KEYEDVERSIONS.fields_by_name['versions'].message_type = _VERSIONED
 _GETRESPONSE.fields_by_name['versioned'].message_type = _VERSIONED
 _GETRESPONSE.fields_by_name['error'].message_type = _ERROR
+_GETVERSIONRESPONSE.fields_by_name['versions'].message_type = _VECTORCLOCK
+_GETVERSIONRESPONSE.fields_by_name['error'].message_type = _ERROR
 _GETALLRESPONSE.fields_by_name['values'].message_type = _KEYEDVERSIONS
 _GETALLRESPONSE.fields_by_name['error'].message_type = _ERROR
 _PUTREQUEST.fields_by_name['versioned'].message_type = _VERSIONED
@@ -503,6 +539,10 @@ class GetRequest(message.Message):
 class GetResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETRESPONSE
+
+class GetVersionResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _GETVERSIONRESPONSE
 
 class GetAllRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

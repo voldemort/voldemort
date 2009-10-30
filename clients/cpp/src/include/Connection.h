@@ -119,16 +119,16 @@ public:
 private:
     void wait_for_operation(long millis);
     void timeout();
-    void handle_connect(const system::error_code& err,
+    void handle_connect(const boost::system::error_code& err,
                         tcp::resolver::iterator endpoint_iterator);
 
-    void handle_resolve(const system::error_code& err,
+    void handle_resolve(const boost::system::error_code& err,
                         tcp::resolver::iterator endpoint_iterator);
 #if 0
-    void handle_data_op(const system::error_code& err,
+    void handle_data_op(const boost::system::error_code& err,
                         size_t transferred);
 #endif
-    void check_error(const system::error_code& err);
+    void check_error(const boost::system::error_code& err);
 
     shared_ptr<ClientConfig> config;
 

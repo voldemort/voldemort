@@ -22,7 +22,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.IoThrottler;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -43,13 +43,13 @@ public class DataCleanupJob<K, V> implements Runnable {
     private final Semaphore cleanupPermits;
     private final long maxAgeMs;
     private final Time time;
-    private final IoThrottler throttler;
+    private final EventThrottler throttler;
 
     public DataCleanupJob(StorageEngine<K, V> store,
                           Semaphore cleanupPermits,
                           long maxAgeMs,
                           Time time,
-                          IoThrottler throttler) {
+                          EventThrottler throttler) {
         this.store = Utils.notNull(store);
         this.cleanupPermits = Utils.notNull(cleanupPermits);
         this.maxAgeMs = maxAgeMs;
@@ -65,44 +65,48 @@ public class DataCleanupJob<K, V> implements Runnable {
             int deleted = 0;
             long now = time.getMilliseconds();
             iterator = store.entries();
-            try {
-                while(iterator.hasNext()) {
-                    // check if we have been interrupted
-                    if(Thread.currentThread().isInterrupted()) {
-                        logger.info("Datacleanup job halted.");
-                        return;
-                    }
-                    Pair<K, Versioned<V>> keyAndVal = iterator.next();
-                    VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
-                    if(now - clock.getTimestamp() > maxAgeMs) {
-                        store.delete(keyAndVal.getFirst(), clock);
-                        deleted++;
-                        if(deleted % 10000 == 0)
-                            logger.debug("Deleted item " + deleted);
-                    }
-                    throttler.maybeThrottle(clock.sizeInBytes());
+
+            while(iterator.hasNext()) {
+                // check if we have been interrupted
+                if(Thread.currentThread().isInterrupted()) {
+                    logger.info("Datacleanup job halted.");
+                    return;
                 }
-            } catch(RuntimeException e) {
-                iterator.close();
-                logger.error("Error during data cleanup", e);
-                throw e;
-            } finally {
-                if(iterator != null)
-                    iterator.close();
+
+                Pair<K, Versioned<V>> keyAndVal = iterator.next();
+                VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
+                if(now - clock.getTimestamp() > maxAgeMs) {
+                    store.delete(keyAndVal.getFirst(), clock);
+                    deleted++;
+                    if(deleted % 10000 == 0)
+                        logger.debug("Deleted item " + deleted);
+                }
+
+                // throttle on number of entries.
+                throttler.maybeThrottle(1);
             }
             logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
                         + " items deleted.");
         } catch(Exception e) {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
-            if(iterator != null)
-                iterator.close();
+            closeIterator(iterator);
+            logger.info("Releasing lock  after data cleanup on \"" + store.getName() + "\".");
             this.cleanupPermits.release();
         }
     }
 
+    private void closeIterator(ClosableIterator<Pair<K, Versioned<V>>> iterator) {
+        try {
+            if(iterator != null)
+                iterator.close();
+        } catch(Exception e) {
+            logger.error("Error in closing iterator " + store.getName() + " ", e);
+        }
+    }
+
     private void acquireCleanupPermit() {
-        logger.debug("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
+        logger.info("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
         try {
             this.cleanupPermits.acquire();
         } catch(InterruptedException e) {

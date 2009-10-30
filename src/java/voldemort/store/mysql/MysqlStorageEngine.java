@@ -366,4 +366,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
 
     }
+
+    public List<Version> getVersions(ByteArray key) {
+        return StoreUtils.getVersions(get(key));
+    }
 }

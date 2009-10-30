@@ -100,7 +100,7 @@ public class KeyedResourcePool<K, V> {
                 long timeRemainingNs = this.timeoutNs - (System.nanoTime() - startNs);
                 if(timeRemainingNs < 0)
                     throw new TimeoutException("Could not acquire resource in "
-                                               + (this.timeoutNs * Time.NS_PER_MS) + " ms.");
+                                               + (this.timeoutNs / Time.NS_PER_MS) + " ms.");
                 resource = checkoutOrCreateResource(key, resources, timeRemainingNs);
                 if(objectFactory.validate(key, resource))
                     return resource;
@@ -134,7 +134,7 @@ public class KeyedResourcePool<K, V> {
         resource = pool.blockingGet(timeoutNs);
         if(resource == null)
             throw new TimeoutException("Timed out wait for resource after "
-                                       + (timeoutNs * Time.NS_PER_MS) + " ms.");
+                                       + (timeoutNs / Time.NS_PER_MS) + " ms.");
 
         return resource;
     }

@@ -50,5 +50,4 @@ public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Ve
             return Collections.singletonList(new Versioned<T>(merged, clock));
         }
     }
-
 }

@@ -251,6 +251,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     }
 
+
+    public List<Version> getVersions(ByteArray key) {
+        List<Versioned<byte[]>> values = get(key);
+        List<Version> versions = new ArrayList<Version>(values.size());
+        for (Versioned value: values)
+        {
+            versions.add(value.getVersion());
+        }
+        return versions;    
+    }
+    
     public Cluster getCluster() {
         return (Cluster) metadataCache.get(CLUSTER_KEY).getValue();
     }

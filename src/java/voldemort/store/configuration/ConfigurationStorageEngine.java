@@ -31,6 +31,7 @@ import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
@@ -114,6 +115,15 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
+    }
+
+    public List<Version> getVersions(String key) {
+        List<Versioned<String>> values = get(key);
+        List<Version> versions = new ArrayList<Version>(values.size());
+        for(Versioned value: values) {
+            versions.add(value.getVersion());
+        }
+        return versions;
     }
 
     public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys)

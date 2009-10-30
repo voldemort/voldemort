@@ -51,7 +51,7 @@ public class ClientConfig {
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
-    private volatile int maxBootstrapRetries = 3;
+    private volatile int maxBootstrapRetries = 1;
 
     public ClientConfig() {}
 
@@ -385,6 +385,9 @@ public class ClientConfig {
     }
 
     public void setMaxBootstrapRetries(int maxBootstrapRetries) {
+        if(maxBootstrapRetries < 1)
+            throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
+
         this.maxBootstrapRetries = maxBootstrapRetries;
     }
 }
