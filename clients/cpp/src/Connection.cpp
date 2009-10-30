@@ -1,15 +1,15 @@
 /* -*- C++ -*-; c-basic-offset: 4; indent-tabs-mode: nil */
 /*
  * Implementation for SocketStore class.
- * 
+ *
  * Copyright (c) 2009 Webroot Software, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -28,6 +28,10 @@
 #include <sys/socket.h>
 #include <cerrno>
 
+#if !defined(MSG_NOSIGNAL) && defined(__APPLE__)
+#define MSG_NOSIGNAL MSG_HAVEMORE
+#endif
+
 namespace Voldemort {
 
 using namespace std;
@@ -39,7 +43,7 @@ Connection::Connection(const string& hostName,
                        const string& negString,
                        shared_ptr<ClientConfig>& conf)
     : config(conf), host(hostName), port(portNum), negotiationString(negString),
-      io_service(), resolver(io_service), timer(io_service), 
+      io_service(), resolver(io_service), timer(io_service),
       socket(io_service), connbuf(NULL), connstream(NULL), active(false) {
 }
 
@@ -57,15 +61,15 @@ void Connection::connect() {
                            boost::bind(&Connection::handle_resolve, this,
                                        asio::placeholders::error,
                                        asio::placeholders::iterator));
-    
+
     wait_for_operation(config->getConnectionTimeoutMs());
 }
 
-void Connection::check_error(const system::error_code& err) {
+void Connection::check_error(const boost::system::error_code& err) {
     if (err) {
         active = false;
         throw UnreachableStoreException(err.message());
-    } 
+    }
 }
 
 void Connection::wait_for_operation(long millis)
@@ -91,22 +95,22 @@ void Connection::timeout() {
     op_timeout = true;
 }
 
-void Connection::handle_resolve(const system::error_code& err,
+void Connection::handle_resolve(const boost::system::error_code& err,
                                 tcp::resolver::iterator endpoint_iterator) {
     check_error(err);
-    
+
     // Attempt a connection to the first endpoint in the list. Each endpoint
     // will be tried until we successfully establish a connection.
     tcp::endpoint endpoint = *endpoint_iterator;
     socket.async_connect(endpoint,
-                         boost::bind(&Connection::handle_connect, 
+                         boost::bind(&Connection::handle_connect,
                                      this,
-                                     asio::placeholders::error, 
+                                     asio::placeholders::error,
                                      ++endpoint_iterator));
 
 }
 
-void Connection::handle_connect(const system::error_code& err,
+void Connection::handle_connect(const boost::system::error_code& err,
                                 tcp::resolver::iterator endpoint_iterator) {
     if (!err) {
         /* We're done with ASIO now, since it performs really poorly
@@ -141,9 +145,9 @@ void Connection::handle_connect(const system::error_code& err,
         socket.close();
         tcp::endpoint endpoint = *endpoint_iterator;
         socket.async_connect(endpoint,
-                             boost::bind(&Connection::handle_connect, 
+                             boost::bind(&Connection::handle_connect,
                                          this,
-                                         asio::placeholders::error, 
+                                         asio::placeholders::error,
                                          ++endpoint_iterator));
     } else {
         check_error(err);
@@ -175,7 +179,7 @@ size_t Connection::read_some(char* buffer, size_t bufferLen) {
 }
 
 #if 0
-void Connection::handle_data_op(const system::error_code& err,
+void Connection::handle_data_op(const boost::system::error_code& err,
                                 size_t transferred) {
     check_error(err);
     bytesTransferred = transferred;
@@ -212,7 +216,7 @@ void Connection::close() {
     resolver.cancel();
 }
 
-ConnectionBuffer::ConnectionBuffer(Connection& con) 
+ConnectionBuffer::ConnectionBuffer(Connection& con)
     : conn(con), unbuffered_(false) {
     init_buffers();
 };
@@ -234,8 +238,8 @@ void ConnectionBuffer::init_buffers() {
 
 int ConnectionBuffer::underflow() {
     if (gptr() == egptr()) {
-        size_t bytes_transferred = 
-            conn.read_some(get_buffer_.begin() + putback_max, 
+        size_t bytes_transferred =
+            conn.read_some(get_buffer_.begin() + putback_max,
                            get_buffer_.size());
         if (bytes_transferred < 0)
             return traits_type::eof();
@@ -263,7 +267,7 @@ int ConnectionBuffer::overflow(int c) {
         }
     } else {
         // Send all data in the output buffer.
-         size_t bytes_transferred = 
+         size_t bytes_transferred =
              conn.write(pbase(), pptr() - pbase());
          if (bytes_transferred <= 0)
              return traits_type::eof();
