@@ -18,11 +18,28 @@ package voldemort.utils.impl;
 
 import org.apache.commons.logging.Log;
 
+/**
+ * LoggingCommandOutputListener simply takes the output from the remote system
+ * and logs it using the logging API.
+ * 
+ * @author Kirk True
+ */
+
 public class LoggingCommandOutputListener extends DelegatingCommandOutputListener {
 
     private final Log logger;
 
     private final boolean shouldProcessExceptions;
+
+    /**
+     * Creates a new instance of LoggingCommandOutputListener.
+     * 
+     * @param delegate Delegate to call after logging, or null if not used
+     * @param logger Logger to use to perform actual logging
+     * @param shouldProcessExceptions True to <i>attempt</i> to process
+     *        exceptions and write them as warnings rather than info; not
+     *        fool-proof by any means
+     */
 
     public LoggingCommandOutputListener(CommandOutputListener delegate,
                                         Log logger,
@@ -34,6 +51,8 @@ public class LoggingCommandOutputListener extends DelegatingCommandOutputListene
 
     @Override
     public void outputReceived(String hostName, String line) {
+        // If desired we can increase the checking of the exception to make it
+        // more reliable differentiate real problems.
         if(shouldProcessExceptions && (line.contains("Exception") || line.startsWith("\tat"))) {
             if(logger.isWarnEnabled())
                 logger.warn(hostName + ": " + line);

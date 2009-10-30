@@ -74,7 +74,12 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        return execute(hostNameCommandLineMap);
+        List<Object> ret = execute(hostNameCommandLineMap);
+
+        if(logger.isInfoEnabled())
+            logger.info("Stopping of Voldemort cluster complete");
+
+        return ret;
     }
 
     @Override

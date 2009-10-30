@@ -52,6 +52,29 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
 
     private final Map<String, Integer> nodeIds;
 
+    /**
+     * Creates a new SshClusterStarter instance.
+     * 
+     * @param hostNames External host names for servers that make up the
+     *        Voldemort cluster
+     * @param sshPrivateKey SSH private key file on local filesystem that can
+     *        access all of the remote hosts
+     * @param hostUserId User ID on the remote hosts; assumed to be the same for
+     *        all of the remote hosts
+     * @param voldemortRootDirectory Directory pointing to the Voldemort
+     *        distribution, relative to the home directory of the user on the
+     *        remote system represented by hostUserId; assumed to be the same
+     *        for all of the remote hosts
+     * @param voldemortHomeDirectory Directory under which Voldemort
+     *        configuration and data are kept, relative to the home directory of
+     *        the user on the remote system represented by hostUserId; this is
+     *        the same value as represented by the $VOLDEMORT_HOME environment
+     *        variable; assumed to be the same for all of the remote hosts
+     * @param nodeIds Node number for each of the remote hosts; this is the
+     *        value that can appear in server.properties but we specify on
+     *        launch of the instance
+     */
+
     public SshClusterStarter(Collection<String> hostNames,
                              File sshPrivateKey,
                              String hostUserId,
@@ -85,6 +108,9 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
+        // We don't actually exit until the server applications quit, so we
+        // don't have the 'cluster startup complete' logging here - it's done in
+        // SshClusterStarterCommandOutputListener.
         return execute(hostNameCommandLineMap);
     }
 

@@ -23,6 +23,13 @@ import org.apache.commons.logging.Log;
 import voldemort.utils.RemoteTestResult;
 import voldemort.utils.RemoteTestResult.RemoteTestIteration;
 
+/**
+ * RemoteTestOutputParser parses the output of the remote invocation of
+ * voldemort-remote-test.sh in order to determine the performance results.
+ * 
+ * @author Kirk True
+ */
+
 public class RemoteTestOutputParser implements CommandOutputListener {
 
     private final static String ITERATOR_LINE_TAG = " iteration = ";
@@ -48,6 +55,11 @@ public class RemoteTestOutputParser implements CommandOutputListener {
         int i = line.indexOf(ITERATOR_LINE_TAG);
 
         if(i != -1) {
+            // Each iteration is marked by a line such as:
+            //
+            // ----------------- iteration = 0 -----------------
+            //
+            // So we need to grab that integer by parsing appropriately.
             iterationIndex = Integer.parseInt(line.substring(i + ITERATOR_LINE_TAG.length())
                                                   .replace("=", "")
                                                   .trim());
@@ -81,6 +93,9 @@ public class RemoteTestOutputParser implements CommandOutputListener {
             else if(line.contains("deletes"))
                 remoteTestIteration.setDeletesPerSecond(value);
         } else if((i = line.indexOf(ITERATIONS_TOTAL_LINE_TAG)) != -1) {
+            // At the beginning of a test run the test application prints out
+            // the number of iterations. If we can get ahold of this then we can
+            // determine a percentage complete.
             totalIterations = Integer.parseInt(line.substring(i
                                                               + ITERATIONS_TOTAL_LINE_TAG.length())
                                                    .replace("=", "")

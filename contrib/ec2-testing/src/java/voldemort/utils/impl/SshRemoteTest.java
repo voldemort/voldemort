@@ -130,7 +130,12 @@ public class SshRemoteTest extends CommandLineRemoteOperation<RemoteTestResult> 
             index++;
         }
 
-        return execute(hostNameCommandLineMap);
+        List<RemoteTestResult> ret = execute(hostNameCommandLineMap);
+
+        if(logger.isInfoEnabled())
+            logger.info("Execution of remote tests complete");
+
+        return ret;
     }
 
     @Override

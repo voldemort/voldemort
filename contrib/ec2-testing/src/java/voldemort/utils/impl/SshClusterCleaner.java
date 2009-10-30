@@ -30,6 +30,13 @@ import java.util.Map;
 import voldemort.utils.ClusterCleaner;
 import voldemort.utils.RemoteOperationException;
 
+/**
+ * SshClusterCleaner is an implementation of ClusterCleaner that cleans a
+ * particular data directory.
+ * 
+ * @author Kirk True
+ */
+
 public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implements ClusterCleaner {
 
     private final Collection<String> hostNames;
@@ -39,6 +46,22 @@ public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implem
     private final String hostUserId;
 
     private final String voldemortHomeDirectory;
+
+    /**
+     * Creates a new SshClusterCleaner instance.
+     * 
+     * @param hostNames External host names for which to clean the Voldemort
+     *        data directory
+     * @param sshPrivateKey SSH private key file on local filesystem that can
+     *        access all of the remote hosts
+     * @param hostUserId User ID on the remote hosts; assumed to be the same for
+     *        all of the remote hosts
+     * @param voldemortHomeDirectory Directory under which Voldemort
+     *        configuration and data are kept, relative to the home directory of
+     *        the user on the remote system represented by hostUserId; this is
+     *        the same value as represented by the $VOLDEMORT_HOME environment
+     *        variable; assumed to be the same for all of the remote hosts
+     */
 
     public SshClusterCleaner(Collection<String> hostNames,
                              File sshPrivateKey,
@@ -51,6 +74,9 @@ public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implem
     }
 
     public List<Object> execute() throws RemoteOperationException {
+        if(logger.isInfoEnabled())
+            logger.info("Cleaning " + voldemortHomeDirectory + " on remote hosts: " + hostNames);
+
         CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterCleaner.ssh");
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
@@ -64,7 +90,12 @@ public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implem
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        return execute(hostNameCommandLineMap);
+        List<Object> ret = execute(hostNameCommandLineMap);
+
+        if(logger.isInfoEnabled())
+            logger.info("Cleaning remote hosts complete");
+
+        return ret;
     }
 
 }

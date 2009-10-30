@@ -32,6 +32,15 @@ import java.util.concurrent.Callable;
 import voldemort.utils.Deployer;
 import voldemort.utils.RemoteOperationException;
 
+/**
+ * RsyncDeployer is an implementation of Deployer that uses the rsync command
+ * line utility to copy the data to the remote host. It's a little bit clunky
+ * going out to the shell to do this, but rsync is very flexible and can ride
+ * over SSH.
+ * 
+ * @author Kirk True
+ */
+
 public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements Deployer {
 
     private final Collection<String> hostNames;
@@ -43,6 +52,25 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
     private final String hostUserId;
 
     private final String voldemortParentDirectory;
+
+    /**
+     * Creates a new RsyncDeployer instance.
+     * 
+     * @param hostNames External host names to which to deploy the Voldemort
+     *        distribution
+     * @param sshPrivateKey SSH private key file on local filesystem that can
+     *        access all of the remote hosts
+     * @param sourceDirectory Directory of Voldemort distribution on local file
+     *        system
+     * @param hostUserId User ID on the remote hosts; assumed to be the same for
+     *        all of the remote hosts
+     * @param voldemortParentDirectory Parent directory into which the Voldemort
+     *        distribution will be copied, relative to the home directory of the
+     *        user on the remote system represented by hostUserId; e.g. if you
+     *        want to deploy Voldemort to /root/somedirectory/voldemort, the
+     *        voldemortParentDirectory would be simply "somedirectory"; assumed
+     *        to be the same for all of the remote hosts
+     */
 
     public RsyncDeployer(Collection<String> hostNames,
                          File sshPrivateKey,
@@ -59,7 +87,15 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
     public List<Object> execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Rsync-ing " + sourceDirectory.getAbsolutePath() + " to "
-                        + voldemortParentDirectory);
+                        + voldemortParentDirectory + " on remote hosts: " + hostNames);
+
+        if(!sourceDirectory.exists())
+            throw new RemoteOperationException(sourceDirectory.getAbsolutePath()
+                                               + " does not exist");
+
+        if(!sourceDirectory.isDirectory())
+            throw new RemoteOperationException("Directory " + sourceDirectory.getAbsolutePath()
+                                               + " is not a directory");
 
         CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("RsyncDeployer.rsync");
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
@@ -75,11 +111,19 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        return execute(hostNameCommandLineMap);
+        List<Object> ret = execute(hostNameCommandLineMap);
+
+        if(logger.isInfoEnabled())
+            logger.info("Rsync-ing complete");
+
+        return ret;
     }
 
     @Override
     protected Callable<Object> getCallable(UnixCommand command) {
+        // Note that we pass in "false" here because we don't want to log
+        // uploads of "VoldemortException" as warnings. (We can trip up the
+        // exception detection easily.)
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
                                                                                        logger,
                                                                                        false);
