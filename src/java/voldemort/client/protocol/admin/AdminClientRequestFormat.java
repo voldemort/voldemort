@@ -38,10 +38,10 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
- * Abstract class for AdminClientRequestFormat. defines helper functions and
- * abstract functions need to be extended by different clients.
+ * The base interface for all administrative functions.
  * 
  * @author bbansal
+ * 
  */
 public abstract class AdminClientRequestFormat {
 
@@ -54,43 +54,7 @@ public abstract class AdminClientRequestFormat {
         this.metadata = metadata;
     }
 
-    /* Abstract functions need to be overwritten */
-
-    /**
-     * Updates Metadata at (remote) Node
-     * 
-     * @param nodeId the remoteNode Id where metadata should be updated.
-     * @param key metadata key to updae.
-     * @param value metadata value
-     * @throws VoldemortException
-     */
-    public abstract void doUpdateRemoteMetadata(int remoteNodeId,
-                                                ByteArray key,
-                                                Versioned<byte[]> value);
-
-    /**
-     * Get Metadata from (remote) Node
-     * 
-     * @param nodeId the remoteNode Id .
-     * @param key metadata key.
-     * @throws VoldemortException
-     */
-    public abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
-
-    /**
-     * provides a mechanism to do forcedGet on (remote) store, Overrides all
-     * security checks and return the value. queries the raw storageEngine at
-     * server end to return the value
-     * 
-     * @param proxySlaveNodeId
-     * @param storeName
-     * @param key
-     * @return List<Versioned <byte[]>>
-     */
-    public abstract List<Versioned<byte[]>> doRedirectGet(int proxySlaveNodeId,
-                                                          String storeName,
-                                                          ByteArray key);
-
+    /* Abstract functions need to be overwritten by implementations */
     /**
      * streaming API to get all entries belonging to any of the partition in the
      * input List.
@@ -104,14 +68,14 @@ public abstract class AdminClientRequestFormat {
      * @return
      * @throws VoldemortException
      */
-    public abstract Iterator<Pair<ByteArray, Versioned<byte[]>>> doFetchPartitionEntries(int nodeId,
-                                                                                         String storeName,
-                                                                                         List<Integer> partitionList,
-                                                                                         VoldemortFilter filter);
+    public abstract Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
+                                                                                       String storeName,
+                                                                                       List<Integer> partitionList,
+                                                                                       VoldemortFilter filter);
 
     /**
-     * streaming API to get a list of all the keys that belong to any of the partitions
-     * in the input list
+     * streaming API to get a list of all the keys that belong to any of the
+     * partitions in the input list
      * 
      * @param nodeId
      * @param storeName
@@ -119,9 +83,10 @@ public abstract class AdminClientRequestFormat {
      * @param filter
      * @return
      */
-    public abstract Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName,
-                                           List<Integer> partitionList,
-                                           VoldemortFilter filter);
+    public abstract Iterator<ByteArray> fetchPartitionKeys(int nodeId,
+                                                           String storeName,
+                                                           List<Integer> partitionList,
+                                                           VoldemortFilter filter);
 
     /**
      * update Entries at (remote) node with all entries in iterator for passed
@@ -135,10 +100,10 @@ public abstract class AdminClientRequestFormat {
      * @throws VoldemortException
      * @throws IOException
      */
-    public abstract void doUpdatePartitionEntries(int nodeId,
-                                                  String storeName,
-                                                  Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
-                                                  VoldemortFilter filter);
+    public abstract void updatePartitionEntries(int nodeId,
+                                                String storeName,
+                                                Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                                VoldemortFilter filter);
 
     /**
      * Delete all Entries at (remote) node for partitions in partitionList
@@ -151,13 +116,45 @@ public abstract class AdminClientRequestFormat {
      * @throws VoldemortException
      * @throws IOException
      */
-    public abstract int doDeletePartitionEntries(int nodeId,
-                                                 String storeName,
-                                                 List<Integer> partitionList,
-                                                 VoldemortFilter filter);
+    public abstract int deletePartitionEntries(int nodeId,
+                                               String storeName,
+                                               List<Integer> partitionList,
+                                               VoldemortFilter filter);
 
-    /* helper functions */
+    /**
+     * update remote metadata on a particular node
+     * 
+     * @param remoteNodeId
+     * @param key
+     * @param value
+     */
+    protected abstract void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value);
+    
 
+    /**
+     * get remote metadata on a particular node
+     * 
+     * @param remoteNodeId
+     * @param key
+     * @return
+     */
+    protected abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
+
+    /* Helper functions */
+
+    public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value){
+      ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+      Versioned<byte[]> valueBytes = new Versioned<byte[]> (ByteUtils.getBytes(value.getValue(), "UTF-8"), value.getVersion());
+      
+      doUpdateRemoteMetadata(remoteNodeId, keyBytes, valueBytes);
+    }
+    
+    public Versioned<String> getRemoteMetadata(int remoteNodeId, String key){
+        ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+        Versioned<byte[]> value = doGetRemoteMetadata(remoteNodeId, keyBytes);
+        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"), value.getVersion());
+    }
+    
     public Node getConnectedNode() {
         return metadata.getCluster().getNodeById(metadata.getNodeId());
     }
@@ -166,24 +163,19 @@ public abstract class AdminClientRequestFormat {
         return metadata;
     }
 
-    /* get/update cluster metadata */
     public void updateClusterMetadata(int nodeId, Cluster cluster) throws VoldemortException {
         // get current version.
         VectorClock oldClock = (VectorClock) getClusterMetadata(nodeId).getVersion();
 
-        doUpdateRemoteMetadata(nodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.CLUSTER_KEY, "UTF-8")),
-                               new Versioned<byte[]>(ByteUtils.getBytes(clusterMapper.writeCluster(cluster),
-                                                                        "UTF-8"),
-                                                     oldClock.incremented(nodeId, 1)));
+        updateRemoteMetadata(nodeId,
+                             MetadataStore.CLUSTER_KEY,
+                             new Versioned<String>(clusterMapper.writeCluster(cluster),
+                                                   oldClock.incremented(nodeId, 1)));
     }
 
     public Versioned<Cluster> getClusterMetadata(int nodeId) throws VoldemortException {
-        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.CLUSTER_KEY,
-                                                                                       "UTF-8")));
-        Cluster cluster = clusterMapper.readCluster(new StringReader(ByteUtils.getString(value.getValue(),
-                                                                                         "UTF-8")));
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
         return new Versioned<Cluster>(cluster, value.getVersion());
 
     }
@@ -194,19 +186,15 @@ public abstract class AdminClientRequestFormat {
         // get current version.
         VectorClock oldClock = (VectorClock) getStoresMetadata(nodeId).getVersion();
 
-        doUpdateRemoteMetadata(nodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY, "UTF-8")),
-                               new Versioned<byte[]>(ByteUtils.getBytes(storeMapper.writeStoreList(storesList),
-                                                                        "UTF-8"),
-                                                     oldClock.incremented(nodeId, 1)));
+        updateRemoteMetadata(nodeId,
+                             MetadataStore.STORES_KEY,
+                             new Versioned<String>(storeMapper.writeStoreList(storesList),
+                                                   oldClock.incremented(nodeId, 1)));
     }
 
     public Versioned<List<StoreDefinition>> getStoresMetadata(int nodeId) throws VoldemortException {
-        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.STORES_KEY,
-                                                                                       "UTF-8")));
-        List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(ByteUtils.getString(value.getValue(),
-                                                                                                         "UTF-8")));
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.STORES_KEY);
+        List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(value.getValue()));
         return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
     }
 
@@ -214,19 +202,15 @@ public abstract class AdminClientRequestFormat {
     public void updateServerState(int nodeId, MetadataStore.VoldemortState state) {
         VectorClock oldClock = (VectorClock) getServerState(nodeId).getVersion();
 
-        doUpdateRemoteMetadata(nodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
-                                                                "UTF-8")),
-                               new Versioned<byte[]>(ByteUtils.getBytes(state.toString(), "UTF-8"),
-                                                     oldClock.incremented(nodeId, 1)));
+        updateRemoteMetadata(nodeId,
+                             MetadataStore.SERVER_STATE_KEY,
+                             new Versioned<String>(state.toString(),
+                                                   oldClock.incremented(nodeId, 1)));
     }
 
     public Versioned<VoldemortState> getServerState(int nodeId) {
-        Versioned<byte[]> value = doGetRemoteMetadata(nodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.SERVER_STATE_KEY,
-                                                                                       "UTF-8")));
-        return new Versioned<VoldemortState>(VoldemortState.valueOf(ByteUtils.getString(value.getValue(),
-                                                                                        "UTF-8")),
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
+        return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                              value.getVersion());
     }
 
@@ -234,21 +218,16 @@ public abstract class AdminClientRequestFormat {
     public void updateRebalancingProxyDest(int rebalancingNodeId, int proxyDestNodeId) {
         VectorClock oldClock = (VectorClock) getRebalancingProxyDest(rebalancingNodeId).getVersion();
 
-        doUpdateRemoteMetadata(rebalancingNodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_SLAVES_LIST_KEY,
-                                                                "UTF-8")),
-                               new Versioned<byte[]>(ByteUtils.getBytes("" + proxyDestNodeId,
-                                                                        "UTF-8"),
-                                                     oldClock.incremented(rebalancingNodeId, 1)));
+        updateRemoteMetadata(rebalancingNodeId,
+                             MetadataStore.REBALANCING_SLAVES_LIST_KEY,
+                             new Versioned<String>("" + proxyDestNodeId,
+                                                   oldClock.incremented(rebalancingNodeId, 1)));
     }
 
     public Versioned<Integer> getRebalancingProxyDest(int rebalancingNodeId) {
-        Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_SLAVES_LIST_KEY,
-                                                                                       "UTF-8")));
-        return new Versioned<Integer>(Integer.parseInt(ByteUtils.getString(value.getValue(),
-                                                                           "UTF-8")),
-                                      value.getVersion());
+        Versioned<String> value = getRemoteMetadata(rebalancingNodeId,
+                                                    MetadataStore.REBALANCING_SLAVES_LIST_KEY);
+        return new Versioned<Integer>(Integer.parseInt(value.getValue()), value.getVersion());
     }
 
     /* get/update Rebalancing partition list */
@@ -263,19 +242,16 @@ public abstract class AdminClientRequestFormat {
 
         VectorClock oldClock = (VectorClock) getRebalancingPartitionList(rebalancingNodeId).getVersion();
 
-        doUpdateRemoteMetadata(rebalancingNodeId,
-                               new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                                                "UTF-8")),
-                               new Versioned<byte[]>(ByteUtils.getBytes(partitionListString.toString(),
-                                                                        "UTF-8"),
-                                                     oldClock.incremented(rebalancingNodeId, 1)));
+        updateRemoteMetadata(rebalancingNodeId,
+                             MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                             new Versioned<String>(partitionListString.toString(),
+                                                   oldClock.incremented(rebalancingNodeId, 1)));
     }
 
     public Versioned<List<Integer>> getRebalancingPartitionList(int rebalancingNodeId) {
-        Versioned<byte[]> value = doGetRemoteMetadata(rebalancingNodeId,
-                                                      new ByteArray(ByteUtils.getBytes(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                                                                       "UTF-8")));
-        String[] partitionList = ByteUtils.getString(value.getValue(), "UTF-8").split(",");
+        Versioned<String> value = getRemoteMetadata(rebalancingNodeId,
+                                                      MetadataStore.REBALANCING_PARTITIONS_LIST_KEY);
+        String[] partitionList = value.getValue().split(",");
         List<Integer> list = new ArrayList<Integer>();
         for(int i = 0; i < partitionList.length; i++) {
             list.add(Integer.parseInt(partitionList[i]));
@@ -283,13 +259,6 @@ public abstract class AdminClientRequestFormat {
 
         return new Versioned<List<Integer>>(list, value.getVersion());
     }
-
-    /* redirectGet() while proxy mode. */
-    public List<Versioned<byte[]>> redirectGet(int redirectedNodeId, String storeName, ByteArray key) {
-        return doRedirectGet(redirectedNodeId, storeName, key);
-    }
-
-    /* Streaming APIs */
 
     /**
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
@@ -299,9 +268,9 @@ public abstract class AdminClientRequestFormat {
                                       String storeName,
                                       List<Integer> stealList,
                                       VoldemortFilter filter) {
-        doUpdatePartitionEntries(stealerNodeId, storeName, doFetchPartitionEntries(donorNodeId,
-                                                                                   storeName,
-                                                                                   stealList,
-                                                                                   filter), null);
+        updatePartitionEntries(stealerNodeId, storeName, fetchPartitionEntries(donorNodeId,
+                                                                               storeName,
+                                                                               stealList,
+                                                                               filter), null);
     }
 }

@@ -152,32 +152,6 @@ public class AdminServiceBasicTest extends TestCase {
         assertEquals("Store users should no longer be available", false, foundUserStore);
     }
 
-    public void testRedirectGet() {
-        // user store should be present
-        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine("users");
-
-        assertNotSame("Store 'users' should not be null", null, store);
-
-        ByteArray key = new ByteArray(ByteUtils.getBytes("test_member_1", "UTF-8"));
-        byte[] value = "test-value-1".getBytes();
-
-        store.put(key, new Versioned<byte[]>(value));
-
-        // check direct get
-        assertEquals("Direct Get should succeed", new String(value), new String(store.get(key)
-                                                                                     .get(0)
-                                                                                     .getValue()));
-
-        // update server stores info
-        NativeAdminClientRequestFormat client = getAdminClient();
-
-        assertEquals("ForcedGet should match put value",
-                     new String(value),
-                     new String(client.redirectGet(server.getIdentityNode().getId(), "users", key)
-                                      .get(0)
-                                      .getValue()));
-    }
-
     public void testStateTransitions() {
         // change to REBALANCING STATE
         NativeAdminClientRequestFormat client = getAdminClient();
@@ -227,7 +201,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         // Get a single partition here
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().doFetchPartitionEntries(0,
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchPartitionEntries(0,
                                                                                                               storeName,
                                                                                                               Arrays.asList(new Integer[] { 0 }),
                                                                                                               null);
@@ -241,7 +215,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         // check for two partitions
-        entryIterator = getAdminClient().doFetchPartitionEntries(0,
+        entryIterator = getAdminClient().fetchPartitionEntries(0,
                                                                  storeName,
                                                                  Arrays.asList(new Integer[] { 0, 1 }),
                                                                  null);
@@ -268,7 +242,7 @@ public class AdminServiceBasicTest extends TestCase {
         // Write
         NativeAdminClientRequestFormat client = getAdminClient();
 
-        client.doUpdatePartitionEntries(0, storeName, iterator, null);
+        client.updatePartitionEntries(0, storeName, iterator, null);
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
@@ -288,7 +262,7 @@ public class AdminServiceBasicTest extends TestCase {
             store.put(entry.getFirst(), entry.getSecond());
         }
 
-        getAdminClient().doDeletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
+        getAdminClient().deletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
 
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {

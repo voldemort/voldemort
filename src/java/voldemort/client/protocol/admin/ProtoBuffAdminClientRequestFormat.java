@@ -73,7 +73,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      */
     @Override
-    public void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
+    protected void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
             node.getAdminPort(),
@@ -112,7 +112,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      */
     @Override
-    public Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
+    protected Versioned<byte []> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
                 node.getAdminPort(),
@@ -145,52 +145,6 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
 
     /**
-     * provides a mechanism to do forcedGet on (remote) store, Overrides all
-     * security checks and return the value. queries the raw storageEngine at
-     * server end to return the value
-     *
-     * @param proxyDestNodeId
-     * @param storeName
-     * @param key
-     * @return List<Versioned <byte[]>>
-     */
-    @Override
-    public List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId, String storeName,
-                                                 ByteArray key) {
-        Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
-        SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
-                proxyDestNode.getAdminPort(),
-                RequestFormatType.ADMIN_PROTOCOL_BUFFERS
-                );
-        SocketAndStreams sands = pool.checkout(destination);
-
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            DataInputStream inputStream = sands.getInputStream();
-            VAdminProto.VoldemortAdminRequest request =
-                VAdminProto.VoldemortAdminRequest.newBuilder()
-                    .setType(VAdminProto.AdminRequestType.REDIRECT_GET)
-                    .setRedirectGet(VAdminProto.RedirectGetRequest.newBuilder()
-                        .setKey(ProtoUtils.encodeBytes(key))
-                        .setStoreName(storeName)).build();
-            ProtoUtils.writeMessage(outputStream, request);
-            outputStream.flush();
-            VAdminProto.RedirectGetResponse.Builder response =
-                    ProtoUtils.readToBuilder(inputStream, VAdminProto.RedirectGetResponse.newBuilder());
-            if (response.hasError())
-                throwException(response.getError());
-
-            return ProtoUtils.decodeVersions(response.getVersionedList());
-        } catch (IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-
-    }
-
-    /**
      * update Entries at (remote) node with all entries in iterator for passed
      * storeName
      *
@@ -202,8 +156,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      * @throws IOException
      */
-    @Override
-    public void doUpdatePartitionEntries(int nodeId, String storeName,
+    public void updatePartitionEntries(int nodeId, String storeName,
                                          Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                          VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
@@ -271,9 +224,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @return
      * @throws VoldemortException
      */
-    @Override
     public Iterator<Pair<ByteArray, Versioned<byte[]>>>
-    doFetchPartitionEntries(int nodeId, String storeName, List<Integer> partitionList,
+    fetchPartitionEntries(int nodeId, String storeName, List<Integer> partitionList,
                             VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -356,8 +308,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @param filter
      * @return
      */
-    @Override
-    public Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    public Iterator<ByteArray> fetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
             node.getAdminPort(),
@@ -442,8 +393,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      * @throws IOException
      */
-    @Override
-    public int doDeletePartitionEntries(int nodeId, String storeName,
+    public int deletePartitionEntries(int nodeId, String storeName,
                                         List<Integer> partitionList,
                                         VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);

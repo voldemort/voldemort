@@ -95,13 +95,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @throws VoldemortException
      */
     protected List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        if(metadata.getRebalancingProxyDest() != null) {
-            return adminClient.redirectGet(metadata.getRebalancingProxyDest().getId(),
-                                           getName(),
-                                           key);
-        }
-
-        throw new VoldemortException("DonorNode not set for proxyGet() ");
+        // TODO fix this 
+        throw new VoldemortException("proxyGet() not implemented yet.");
     }
 
     /**
