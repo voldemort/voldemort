@@ -28,6 +28,10 @@ public class AdminTest {
     public static interface Measurable {
         long apply();
     }
+
+    public static interface Timed {
+        void apply();
+    }
     
     private static final String usageStr =
         "Usage: $VOLDEMORT_HOME/bin/admin-test.sh \\\n" +
@@ -90,8 +94,18 @@ public class AdminTest {
         }
         long totalTime = System.currentTimeMillis() - start;
 
-        System.out.println("Throughput: " + (ops / (float) totalTime * 1000) + " ops / sec.");
+        System.out.println("Throughput: " + (ops / (double) totalTime * 1000) + " ops / sec.");
         System.out.println(ops + " ops carried out.");
+    }
+
+    public static void timeFunction(Timed fn, int count) {
+        long start = System.currentTimeMillis();
+        for (int i=0; i < count; i++) {
+            fn.apply();
+        }
+        long totalTime = System.currentTimeMillis() - start;
+
+        System.out.println("Total time: " + totalTime / 1000);
     }
 
     protected SetMultimap<Integer,Integer> getNodePartitions(List<?> optNodes, List<?> optPartitions) {
@@ -141,12 +155,26 @@ public class AdminTest {
         }
     }
 
+    public void testFetchAndUpdate(final SetMultimap<Integer,Integer> from, final int to, final String store) {
+        for (final Integer node: from.keySet()) {
+            timeFunction(new Timed() {
+                public void apply() {
+                    adminClient.fetchAndUpdateStreams(node, to, store, new ArrayList<Integer>(from.get(node)), null);
+                }
+
+            }, 1);
+        }
+    }
+
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
 
         parser.accepts("native", "use native admin client");
         parser.accepts("f", "execute fetch operation");
+        parser.accepts("fu", "fetch and update")
+                .withRequiredArg()
+                .ofType(Integer.class);
         parser.accepts("n", "node id")
             .withRequiredArg()
             .ofType(Integer.class)
