@@ -15,13 +15,4 @@
 #  limitations under the License.
 #
 
-#TODO: Need to learn how to use regular expressions.
-test_file=$(dirname $0)/../../../dist/voldemort-[0-9].[0-9][0-9].jar
-
-if [ ! -f $test_file ]
-    then
-        echo "Please build Voldemort before deploying to remote hosts."
-        exit 1
-fi
-
 $(dirname $0)/run-class.sh $CLASSPATH voldemort.utils.app.VoldemortDeployerApp $@
