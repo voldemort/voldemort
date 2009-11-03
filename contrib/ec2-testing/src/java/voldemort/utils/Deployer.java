@@ -43,6 +43,6 @@ package voldemort.utils;
  * @author Kirk True
  */
 
-public interface Deployer extends RemoteOperation<Object> {
+public interface Deployer extends RemoteOperation {
 
 }

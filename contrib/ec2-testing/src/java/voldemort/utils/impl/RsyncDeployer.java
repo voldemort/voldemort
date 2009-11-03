@@ -16,16 +16,15 @@
 
 package voldemort.utils.impl;
 
+import static voldemort.utils.impl.CommandLineParameterizer.DESTINATION_DIRECTORY_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_NAME_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.HOST_USER_ID_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.SOURCE_DIRECTORY_PARAM;
 import static voldemort.utils.impl.CommandLineParameterizer.SSH_PRIVATE_KEY_PARAM;
-import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_PARENT_DIRECTORY_PARAM;
 
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -41,17 +40,17 @@ import voldemort.utils.RemoteOperationException;
  * @author Kirk True
  */
 
-public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements Deployer {
+public class RsyncDeployer extends CommandLineRemoteOperation implements Deployer {
 
     private final Collection<String> hostNames;
 
     private final File sshPrivateKey;
 
-    private final File sourceDirectory;
-
     private final String hostUserId;
 
-    private final String voldemortParentDirectory;
+    private final File sourceDirectory;
+
+    private final String destinationDirectory;
 
     /**
      * Creates a new RsyncDeployer instance.
@@ -64,30 +63,30 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
      *        system
      * @param hostUserId User ID on the remote hosts; assumed to be the same for
      *        all of the remote hosts
-     * @param voldemortParentDirectory Parent directory into which the Voldemort
-     *        distribution will be copied, relative to the home directory of the
-     *        user on the remote system represented by hostUserId; e.g. if you
-     *        want to deploy Voldemort to /root/somedirectory/voldemort, the
-     *        voldemortParentDirectory would be simply "somedirectory"; assumed
-     *        to be the same for all of the remote hosts
+     * @param destinationDirectory Parent directory into which the
+     *        sourceDirectory will be copied, relative to the home directory of
+     *        the user on the remote system represented by hostUserId; e.g. if
+     *        you want to deploy Voldemort to /root/somedirectory/voldemort, the
+     *        destinationDirectory would be simply "somedirectory"; assumed to
+     *        be the same for all of the remote hosts
      */
 
     public RsyncDeployer(Collection<String> hostNames,
                          File sshPrivateKey,
-                         File sourceDirectory,
                          String hostUserId,
-                         String voldemortParentDirectory) {
+                         File sourceDirectory,
+                         String destinationDirectory) {
         this.hostNames = hostNames;
         this.sshPrivateKey = sshPrivateKey;
-        this.sourceDirectory = sourceDirectory;
         this.hostUserId = hostUserId;
-        this.voldemortParentDirectory = voldemortParentDirectory;
+        this.sourceDirectory = sourceDirectory;
+        this.destinationDirectory = destinationDirectory;
     }
 
-    public List<Object> execute() throws RemoteOperationException {
+    public void execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Rsync-ing " + sourceDirectory.getAbsolutePath() + " to "
-                        + voldemortParentDirectory + " on remote hosts: " + hostNames);
+                        + destinationDirectory + " on remote hosts: " + hostNames);
 
         if(!sourceDirectory.exists())
             throw new RemoteOperationException(sourceDirectory.getAbsolutePath()
@@ -105,29 +104,27 @@ public class RsyncDeployer extends CommandLineRemoteOperation<Object> implements
             parameters.put(HOST_NAME_PARAM, hostName);
             parameters.put(HOST_USER_ID_PARAM, hostUserId);
             parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
-            parameters.put(VOLDEMORT_PARENT_DIRECTORY_PARAM, voldemortParentDirectory);
+            parameters.put(DESTINATION_DIRECTORY_PARAM, destinationDirectory);
             parameters.put(SOURCE_DIRECTORY_PARAM, sourceDirectory.getAbsolutePath());
 
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        List<Object> ret = execute(hostNameCommandLineMap);
+        execute(hostNameCommandLineMap);
 
         if(logger.isInfoEnabled())
             logger.info("Rsync-ing complete");
-
-        return ret;
     }
 
     @Override
-    protected Callable<Object> getCallable(UnixCommand command) {
+    protected Callable<?> getCallable(UnixCommand command) {
         // Note that we pass in "false" here because we don't want to log
         // uploads of "VoldemortException" as warnings. (We can trip up the
         // exception detection easily.)
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
                                                                                        logger,
                                                                                        false);
-        return new ExitCodeCallable<Object>(command, commandOutputListener);
+        return new ExitCodeCallable(command, commandOutputListener);
     }
 
 }

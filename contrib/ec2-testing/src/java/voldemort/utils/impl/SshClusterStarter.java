@@ -26,7 +26,6 @@ import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIREC
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,7 +42,7 @@ import voldemort.utils.RemoteOperationException;
  * @author Kirk True
  */
 
-public class SshClusterStarter extends CommandLineRemoteOperation<Object> implements ClusterStarter {
+public class SshClusterStarter extends CommandLineRemoteOperation implements ClusterStarter {
 
     private final AtomicInteger completedCounter = new AtomicInteger();
 
@@ -98,7 +97,7 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
         this.nodeIds = nodeIds;
     }
 
-    public List<Object> execute() throws RemoteOperationException {
+    public void execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Starting Voldemort cluster");
 
@@ -120,7 +119,7 @@ public class SshClusterStarter extends CommandLineRemoteOperation<Object> implem
         // We don't actually exit until the server applications quit, so we
         // don't have the 'cluster startup complete' logging here - it's done in
         // SshClusterStarterCommandOutputListener.
-        return execute(hostNameCommandLineMap);
+        execute(hostNameCommandLineMap);
     }
 
     @Override

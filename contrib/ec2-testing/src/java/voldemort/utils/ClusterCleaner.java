@@ -49,6 +49,6 @@ package voldemort.utils;
  * @author Kirk True
  */
 
-public interface ClusterCleaner extends RemoteOperation<Object> {
+public interface ClusterCleaner extends RemoteOperation {
 
 }

@@ -24,10 +24,7 @@ import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_ROOT_DIREC
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.utils.ClusterStopper;
 import voldemort.utils.RemoteOperationException;
@@ -39,11 +36,7 @@ import voldemort.utils.RemoteOperationException;
  * @author Kirk True
  */
 
-public class SshClusterStopper extends CommandLineRemoteOperation<Object> implements ClusterStopper {
-
-    private final AtomicInteger completedCounter = new AtomicInteger();
-
-    private final CommandOutputListener outputListener = new SshClusterStopperCommandOutputListener();
+public class SshClusterStopper extends CommandLineRemoteOperation implements ClusterStopper {
 
     private final Collection<String> hostNames;
 
@@ -79,7 +72,7 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
         this.voldemortRootDirectory = voldemortRootDirectory;
     }
 
-    public List<Object> execute() throws RemoteOperationException {
+    public void execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Stopping Voldemort cluster");
 
@@ -96,36 +89,10 @@ public class SshClusterStopper extends CommandLineRemoteOperation<Object> implem
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        List<Object> ret = execute(hostNameCommandLineMap);
+        execute(hostNameCommandLineMap);
 
         if(logger.isInfoEnabled())
             logger.info("Stopping of Voldemort cluster complete");
-
-        return ret;
-    }
-
-    @Override
-    protected Callable<Object> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(outputListener,
-                                                                                       logger,
-                                                                                       true);
-        return new ExitCodeCallable<Object>(command, commandOutputListener);
-    }
-
-    public class SshClusterStopperCommandOutputListener implements CommandOutputListener {
-
-        public void outputReceived(String hostName, String line) {
-            if(line.contains("Stopping Voldemort")) {
-                completedCounter.incrementAndGet();
-
-                if(logger.isInfoEnabled()) {
-                    logger.info(hostName + " shutdown complete");
-
-                    if(hostNames.size() == completedCounter.get())
-                        logger.info("Cluster shutdown complete");
-                }
-            }
-        }
     }
 
 }

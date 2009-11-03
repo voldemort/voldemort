@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -159,6 +160,20 @@ public abstract class VoldemortApp {
     }
 
     protected List<HostNamePair> getHostNamesPairsFromFile(File file) {
+        Map<String, String> properties = getRequiredPropertiesFile(file);
+        List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
+
+        for(Map.Entry<String, String> entry: properties.entrySet()) {
+            String externalHostName = entry.getKey();
+            String internalHostName = entry.getValue() != null ? entry.getValue()
+                                                              : externalHostName;
+            hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
+        }
+
+        return hostNamePairs;
+    }
+
+    protected Map<String, String> getRequiredPropertiesFile(File file) {
         if(!file.canRead()) {
             System.out.println("File " + file.getAbsolutePath() + " cannot be read");
             System.exit(2);
@@ -176,18 +191,16 @@ public abstract class VoldemortApp {
             IOUtils.closeQuietly(is);
         }
 
-        List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
+        Map<String, String> map = new HashMap<String, String>();
 
         for(Map.Entry<Object, Object> entry: properties.entrySet()) {
             String key = entry.getKey() != null ? entry.getKey().toString() : null;
             String value = entry.getValue() != null ? entry.getValue().toString() : null;
 
-            String externalHostName = key;
-            String internalHostName = value != null ? value : key;
-            hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
+            map.put(key, value);
         }
 
-        return hostNamePairs;
+        return map;
     }
 
 }

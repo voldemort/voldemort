@@ -57,6 +57,6 @@ package voldemort.utils;
  * @see RemoteTestResult
  */
 
-public interface RemoteTest extends RemoteOperation<RemoteTestResult> {
+public interface RemoteTest extends RemoteOperation {
 
 }

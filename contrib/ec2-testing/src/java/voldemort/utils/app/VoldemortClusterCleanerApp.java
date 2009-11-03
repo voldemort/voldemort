@@ -61,10 +61,10 @@ public class VoldemortClusterCleanerApp extends VoldemortApp {
         for(HostNamePair hostNamePair: hostNamePairs)
             hostNames.add(hostNamePair.getExternalHostName());
 
-        RemoteOperation<Object> operation = new SshClusterCleaner(hostNames,
-                                                                  sshPrivateKey,
-                                                                  hostUserId,
-                                                                  voldemortHomeDirectory);
+        RemoteOperation operation = new SshClusterCleaner(hostNames,
+                                                          sshPrivateKey,
+                                                          hostUserId,
+                                                          voldemortHomeDirectory);
         operation.execute();
     }
 

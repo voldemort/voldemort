@@ -61,10 +61,10 @@ public class VoldemortClusterStopperApp extends VoldemortApp {
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
 
-        RemoteOperation<Object> operation = new SshClusterStopper(hostNames,
-                                                                  sshPrivateKey,
-                                                                  hostUserId,
-                                                                  voldemortRootDirectory);
+        RemoteOperation operation = new SshClusterStopper(hostNames,
+                                                          sshPrivateKey,
+                                                          hostUserId,
+                                                          voldemortRootDirectory);
         operation.execute();
     }
 

@@ -27,7 +27,7 @@ import java.util.concurrent.Callable;
  * @param <T> Type of return object
  */
 
-public class ExitCodeCallable<T> implements Callable<T> {
+public class ExitCodeCallable implements Callable<Object> {
 
     private final UnixCommand command;
 
@@ -38,7 +38,7 @@ public class ExitCodeCallable<T> implements Callable<T> {
         this.commandOutputListener = commandOutputListener;
     }
 
-    public T call() throws Exception {
+    public Object call() throws Exception {
         int exitCode = command.execute(commandOutputListener);
 
         if(exitCode != 0)

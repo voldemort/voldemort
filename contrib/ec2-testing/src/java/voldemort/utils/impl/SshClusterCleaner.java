@@ -24,7 +24,6 @@ import static voldemort.utils.impl.CommandLineParameterizer.VOLDEMORT_HOME_DIREC
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import voldemort.utils.ClusterCleaner;
@@ -37,7 +36,7 @@ import voldemort.utils.RemoteOperationException;
  * @author Kirk True
  */
 
-public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implements ClusterCleaner {
+public class SshClusterCleaner extends CommandLineRemoteOperation implements ClusterCleaner {
 
     private final Collection<String> hostNames;
 
@@ -73,7 +72,7 @@ public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implem
         this.voldemortHomeDirectory = voldemortHomeDirectory;
     }
 
-    public List<Object> execute() throws RemoteOperationException {
+    public void execute() throws RemoteOperationException {
         if(logger.isInfoEnabled())
             logger.info("Cleaning " + voldemortHomeDirectory + " on remote hosts: " + hostNames);
 
@@ -90,12 +89,10 @@ public class SshClusterCleaner extends CommandLineRemoteOperation<Object> implem
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
         }
 
-        List<Object> ret = execute(hostNameCommandLineMap);
+        execute(hostNameCommandLineMap);
 
         if(logger.isInfoEnabled())
             logger.info("Cleaning remote hosts complete");
-
-        return ret;
     }
 
 }

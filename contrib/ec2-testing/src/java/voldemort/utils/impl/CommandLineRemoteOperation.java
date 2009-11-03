@@ -52,7 +52,7 @@ import voldemort.utils.RemoteOperationException;
  *        implementation
  */
 
-abstract class CommandLineRemoteOperation<T> {
+abstract class CommandLineRemoteOperation {
 
     protected final Log logger = LogFactory.getLog(getClass());
 
@@ -69,12 +69,12 @@ abstract class CommandLineRemoteOperation<T> {
      *         one or more clients.
      */
 
-    protected List<T> execute(Map<String, String> hostNameCommandLineMap)
+    protected void execute(Map<String, String> hostNameCommandLineMap)
             throws RemoteOperationException {
         CommandLineParser commandLineParser = new CommandLineParser();
 
         ExecutorService threadPool = Executors.newFixedThreadPool(hostNameCommandLineMap.size());
-        List<Future<T>> futures = new ArrayList<Future<T>>();
+        List<Future<?>> futures = new ArrayList<Future<?>>();
 
         for(Map.Entry<String, String> entry: hostNameCommandLineMap.entrySet()) {
             String hostName = entry.getKey();
@@ -85,8 +85,8 @@ abstract class CommandLineRemoteOperation<T> {
 
             List<String> commandArgs = commandLineParser.parse(commandLine);
             UnixCommand command = new UnixCommand(hostName, commandArgs);
-            Callable<T> callable = getCallable(command);
-            Future<T> future = threadPool.submit(callable);
+            Callable<?> callable = getCallable(command);
+            Future<?> future = threadPool.submit(callable);
             futures.add(future);
         }
 
@@ -94,14 +94,12 @@ abstract class CommandLineRemoteOperation<T> {
         // occur.
         try {
             StringBuilder errors = new StringBuilder();
-            List<T> list = new ArrayList<T>();
 
-            for(Future<T> future: futures) {
+            for(Future<?> future: futures) {
                 Throwable t = null;
 
                 try {
-                    T result = future.get();
-                    list.add(result);
+                    future.get();
                 } catch(ExecutionException ex) {
                     t = ex.getCause();
                 } catch(Exception e) {
@@ -121,8 +119,6 @@ abstract class CommandLineRemoteOperation<T> {
 
             if(errors.length() > 0)
                 throw new RemoteOperationException(errors.toString());
-
-            return list;
         } finally {
             threadPool.shutdown();
 
@@ -149,11 +145,11 @@ abstract class CommandLineRemoteOperation<T> {
      * @return Callable that is used in the thread pool in the execute method
      */
 
-    protected Callable<T> getCallable(UnixCommand command) {
+    protected Callable<?> getCallable(UnixCommand command) {
         CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
                                                                                        logger,
                                                                                        true);
-        return new ExitCodeCallable<T>(command, commandOutputListener);
+        return new ExitCodeCallable(command, commandOutputListener);
     }
 
 }

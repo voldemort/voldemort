@@ -44,6 +44,6 @@ package voldemort.utils;
  * @author Kirk True
  */
 
-public interface ClusterStarter extends RemoteOperation<Object> {
+public interface ClusterStarter extends RemoteOperation {
 
 }

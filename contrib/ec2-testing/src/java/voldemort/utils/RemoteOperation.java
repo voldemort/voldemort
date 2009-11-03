@@ -16,8 +16,6 @@
 
 package voldemort.utils;
 
-import java.util.List;
-
 /**
  * A RemoteOperation represents an operation that can be performed on a remote
  * system. For example, it may represent the ability to remotely start/stop
@@ -29,24 +27,18 @@ import java.util.List;
  * perform the operation in parallel with respect to the remote hosts.
  * 
  * @author Kirk True
- * 
- * @param <T> Data that is returned from an operation, specific to that
- *        operation
  */
 
-public interface RemoteOperation<T> {
+public interface RemoteOperation {
 
     /**
-     * Executes the specific remote operation. A remote operation can span
-     * multiple remote hosts, so the results for each remote host are captured
-     * in a list.
-     * 
-     * @return List of results
+     * Executes the specific remote operation which can span multiple remote
+     * hosts.
      * 
      * @throws RemoteOperationException Thrown if an error occurred performing
      *         the remote operation
      */
 
-    public List<T> execute() throws RemoteOperationException;
+    public void execute() throws RemoteOperationException;
 
 }

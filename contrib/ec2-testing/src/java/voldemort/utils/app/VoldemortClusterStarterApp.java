@@ -91,10 +91,10 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
             @Override
             public void run() {
-                RemoteOperation<Object> operation = new SshClusterStopper(externalHostNames,
-                                                                          sshPrivateKey,
-                                                                          hostUserId,
-                                                                          voldemortRootDirectory);
+                RemoteOperation operation = new SshClusterStopper(externalHostNames,
+                                                                  sshPrivateKey,
+                                                                  hostUserId,
+                                                                  voldemortRootDirectory);
                 try {
                     operation.execute();
                 } catch(RemoteOperationException e) {
@@ -104,12 +104,12 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
         });
 
-        RemoteOperation<Object> operation = new SshClusterStarter(externalHostNames,
-                                                                  sshPrivateKey,
-                                                                  hostUserId,
-                                                                  voldemortRootDirectory,
-                                                                  voldemortHomeDirectory,
-                                                                  nodeIds);
+        RemoteOperation operation = new SshClusterStarter(externalHostNames,
+                                                          sshPrivateKey,
+                                                          hostUserId,
+                                                          voldemortRootDirectory,
+                                                          voldemortHomeDirectory,
+                                                          nodeIds);
         operation.execute();
     }
 

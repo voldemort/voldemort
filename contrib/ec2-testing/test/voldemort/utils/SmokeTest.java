@@ -53,10 +53,10 @@ public class SmokeTest {
 
         final String hostUserId = "root";
         final File sshPrivateKey = new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
-        final String voldemortParentDirectory = ".";
         final String voldemortRootDirectory = "voldemort";
         final String voldemortHomeDirectory = "voldemort/config/single_node_cluster";
         final File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
+        String parentDirectory = ".";
 
         try {
             new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
@@ -64,11 +64,7 @@ public class SmokeTest {
             // Ignore...
         }
 
-        new RsyncDeployer(hostNames,
-                          sshPrivateKey,
-                          sourceDirectory,
-                          hostUserId,
-                          voldemortParentDirectory).execute();
+        new RsyncDeployer(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory).execute();
 
         new Thread(new Runnable() {
 
@@ -89,19 +85,9 @@ public class SmokeTest {
 
         Thread.sleep(5000);
 
-        new SshRemoteTest(hostNames,
-                          sshPrivateKey,
-                          hostUserId,
-                          voldemortRootDirectory,
-                          voldemortHomeDirectory,
-                          30,
-                          "wd",
-                          100,
-                          10,
-                          25,
-                          " tcp://" + bootstrapHostName + ":6666",
-                          "test",
-                          100000).execute();
+        Map<String, String> commands = new HashMap<String, String>();
+
+        new SshRemoteTest(hostNames, sshPrivateKey, hostUserId, commands).execute();
 
         new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }

@@ -46,27 +46,26 @@ public class VoldemortDeployerApp extends VoldemortApp {
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
-        parser.accepts("voldemortparent", "Voldemort's parent directory on remote host")
-              .withRequiredArg();
+        parser.accepts("parent", "Parent directory on remote host").withRequiredArg();
         parser.accepts("source", "The source directory on the local machine").withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
         File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
-        String voldemortParentDirectory = getRequiredString(options, "voldemortparent");
         File sourceDirectory = getRequiredInputFile(options, "source");
+        String parentDirectory = getRequiredString(options, "parent");
         List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
         List<String> hostNames = new ArrayList<String>();
 
         for(HostNamePair hostNamePair: hostNamePairs)
             hostNames.add(hostNamePair.getExternalHostName());
 
-        RemoteOperation<Object> operation = new RsyncDeployer(hostNames,
-                                                              sshPrivateKey,
-                                                              sourceDirectory,
-                                                              hostUserId,
-                                                              voldemortParentDirectory);
+        RemoteOperation operation = new RsyncDeployer(hostNames,
+                                                      sshPrivateKey,
+                                                      hostUserId,
+                                                      sourceDirectory,
+                                                      parentDirectory);
         operation.execute();
     }
 
