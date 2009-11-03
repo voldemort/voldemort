@@ -5,9 +5,9 @@
 # After the program is done with the data file and .pg file
 # it then deletes the files.
 
-DATE='date+%C%y%-%m-%d_%H_%M_%S'
+DATE=`date +%C%y_%m_%d_%H_%M_%S`
 PG_FILE=${DATE}graph99percentile.pg
-IMG_FILE=${DATE}graph99percentile.png
+IMG_FILE=graph99percentile.png
 DATA_FILE=${DATE}graph99percentile.dat
 
 if [ "$1" = "" ]
@@ -35,6 +35,7 @@ plot "${DATA_FILE}" using 1:2 title "Reads", \\
 "" using 1:3 title "Writes", \\
 "" using 1:4 title "Deletes"
 End-of-Message
-chmod +x ${PG_FILE
-./${PG_FILE} > ${IMG_FILE}
-rm -f ${PG_FILE} ${DATA_FILE}
+
+chmod +x $PG_FILE
+./$PG_FILE > $IMG_FILE
+rm -f $PG_FILE $DATA_FILE
