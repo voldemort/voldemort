@@ -128,8 +128,9 @@ public abstract class AdminClientRequestFormat {
      * @param key
      * @param value
      */
-    protected abstract void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value);
-    
+    protected abstract void doUpdateRemoteMetadata(int remoteNodeId,
+                                                   ByteArray key,
+                                                   Versioned<byte[]> value);
 
     /**
      * get remote metadata on a particular node
@@ -142,19 +143,22 @@ public abstract class AdminClientRequestFormat {
 
     /* Helper functions */
 
-    public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value){
-      ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
-      Versioned<byte[]> valueBytes = new Versioned<byte[]> (ByteUtils.getBytes(value.getValue(), "UTF-8"), value.getVersion());
-      
-      doUpdateRemoteMetadata(remoteNodeId, keyBytes, valueBytes);
+    public void updateRemoteMetadata(int remoteNodeId, String key, Versioned<String> value) {
+        ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
+        Versioned<byte[]> valueBytes = new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(),
+                                                                                "UTF-8"),
+                                                             value.getVersion());
+
+        doUpdateRemoteMetadata(remoteNodeId, keyBytes, valueBytes);
     }
-    
-    public Versioned<String> getRemoteMetadata(int remoteNodeId, String key){
+
+    public Versioned<String> getRemoteMetadata(int remoteNodeId, String key) {
         ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
         Versioned<byte[]> value = doGetRemoteMetadata(remoteNodeId, keyBytes);
-        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"), value.getVersion());
+        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"),
+                                     value.getVersion());
     }
-    
+
     public Node getConnectedNode() {
         return metadata.getCluster().getNodeById(metadata.getNodeId());
     }
@@ -250,7 +254,7 @@ public abstract class AdminClientRequestFormat {
 
     public Versioned<List<Integer>> getRebalancingPartitionList(int rebalancingNodeId) {
         Versioned<String> value = getRemoteMetadata(rebalancingNodeId,
-                                                      MetadataStore.REBALANCING_PARTITIONS_LIST_KEY);
+                                                    MetadataStore.REBALANCING_PARTITIONS_LIST_KEY);
         String[] partitionList = value.getValue().split(",");
         List<Integer> list = new ArrayList<Integer>();
         for(int i = 0; i < partitionList.length; i++) {

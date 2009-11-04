@@ -174,12 +174,12 @@ public class AdminServiceBasicTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
+                                 MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         state = server.getMetadataStore().getServerState();
 
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER,
+                     MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
 
         client.updateServerState(server.getIdentityNode().getId(),
@@ -202,9 +202,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // Get a single partition here
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchPartitionEntries(0,
-                                                                                                              storeName,
-                                                                                                              Arrays.asList(new Integer[] { 0 }),
-                                                                                                              null);
+                                                                                                            storeName,
+                                                                                                            Arrays.asList(new Integer[] { 0 }),
+                                                                                                            null);
 
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
 
@@ -216,9 +216,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // check for two partitions
         entryIterator = getAdminClient().fetchPartitionEntries(0,
-                                                                 storeName,
-                                                                 Arrays.asList(new Integer[] { 0, 1 }),
-                                                                 null);
+                                                               storeName,
+                                                               Arrays.asList(new Integer[] { 0, 1 }),
+                                                               null);
         // assert right partitions returned and both are returned
         Set<Integer> partitionSet2 = new HashSet<Integer>();
         while(entryIterator.hasNext()) {

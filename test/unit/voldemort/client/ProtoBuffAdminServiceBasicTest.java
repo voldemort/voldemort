@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,12 +16,20 @@
 
 package voldemort.client;
 
-import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -36,13 +44,13 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
-import java.io.IOException;
-import java.util.*;
+import com.google.common.collect.ImmutableList;
 
 /**
  * @author afeinber
  */
 public class ProtoBuffAdminServiceBasicTest extends TestCase {
+
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
@@ -52,7 +60,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
 
     @Override
     public void setUp() throws IOException {
-       // start 2 node cluster with free ports
+        // start 2 node cluster with free ports
         int[] ports = ServerTestUtils.findFreePorts(3);
         Node node0 = new Node(0, "localhost", ports[0], ports[1], ports[2], Arrays.asList(0, 1));
 
@@ -74,14 +82,15 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     }
 
     public AdminClientRequestFormat getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore(), true);
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(),
+                                              server.getMetadataStore(),
+                                              true);
     }
 
-         
     public void testUpdateClusterMetadata() {
         Cluster cluster = server.getMetadataStore().getCluster();
         List<Node> nodes = new ArrayList<Node>(cluster.getNodes());
-        nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4,5)));
+        nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
         AdminClientRequestFormat client = getAdminClient();
@@ -91,7 +100,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         assertEquals("AdminClient.getMetdata() should match",
                      client.getClusterMetadata(server.getIdentityNode().getId()).getValue(),
                      updatedCluster);
-        
+
     }
 
     public void testStateTransitions() {
@@ -116,12 +125,12 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
+                                 MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         state = server.getMetadataStore().getServerState();
 
         assertEquals("State should be changed correctly to rebalancing state",
-                     MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER,
+                     MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
 
         client.updateServerState(server.getIdentityNode().getId(),
@@ -134,7 +143,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     }
 
     public void testDeletePartitionEntries() {
-    Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
+        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
@@ -159,7 +168,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                              store.get(entry.getFirst()).get(0).getValue());
             }
         }
-        
+
     }
 
     public void testFetchPartitionKeys() throws IOException {
@@ -168,70 +177,72 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
         Set<String> expected = new HashSet<String>();
 
-        for (Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
             store.put(entry.getFirst(), entry.getSecond());
-            if (routingStrategy.getPartitionList(entry.getFirst().get()).contains(0) ||
-                    routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
+            if(routingStrategy.getPartitionList(entry.getFirst().get()).contains(0)
+               || routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
                 expected.add(new String(entry.getFirst().get()));
             }
         }
 
-        int checked=0;
-        int matched=0;
+        int checked = 0;
+        int matched = 0;
 
         AdminClientRequestFormat client = getAdminClient();
         Iterator<ByteArray> fetchIt = client.fetchPartitionKeys(server.getIdentityNode().getId(),
-            storeName, Arrays.asList(0,1), null);
-        while (fetchIt.hasNext()) {
+                                                                storeName,
+                                                                Arrays.asList(0, 1),
+                                                                null);
+        while(fetchIt.hasNext()) {
             ByteArray fetchedKey = fetchIt.next();
             checked++;
 
             String fetchedKeyStr = new String(fetchedKey.get());
-            if (expected.contains(fetchedKeyStr))
+            if(expected.contains(fetchedKeyStr))
                 matched++;
         }
         assertEquals(expected.size(), checked);
         assertEquals("All values should have matched", checked, matched);
     }
-    
+
     public void testFetch() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
         Map<String, String> expected = new HashMap<String, String>();
 
-
-        for (Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
+        for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
             store.put(entry.getFirst(), entry.getSecond());
-            if (routingStrategy.getPartitionList(entry.getFirst().get()).contains(0) ||
-                    routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
-                expected.put(new String(entry.getFirst().get()),
-                        new String(entry.getSecond().getValue()));
+            if(routingStrategy.getPartitionList(entry.getFirst().get()).contains(0)
+               || routingStrategy.getPartitionList(entry.getFirst().get()).contains(1)) {
+                expected.put(new String(entry.getFirst().get()), new String(entry.getSecond()
+                                                                                 .getValue()));
 
             }
         }
 
-        int checked=0;
-        int matched=0;
+        int checked = 0;
+        int matched = 0;
 
         AdminClientRequestFormat client = getAdminClient();
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.fetchPartitionEntries(
-                server.getIdentityNode().getId(),
-                storeName, Arrays.asList(0, 1), null);
-        while (fetchIt.hasNext()) {
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.fetchPartitionEntries(server.getIdentityNode()
+                                                                                                  .getId(),
+                                                                                            storeName,
+                                                                                            Arrays.asList(0,
+                                                                                                          1),
+                                                                                            null);
+        while(fetchIt.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> fetchedKv = fetchIt.next();
             checked++;
-            
+
             String fetchedKey = new String(fetchedKv.getFirst().get());
             String fetchedValue = new String(fetchedKv.getSecond().getValue());
 
-            if (expected.get(fetchedKey).equals(fetchedValue))
+            if(expected.get(fetchedKey).equals(fetchedValue))
                 matched++;
         }
         assertEquals(expected.size(), checked);
         assertEquals("All values should have matched", checked, matched);
-
-
 
     }
 
@@ -254,7 +265,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                                           .getValue()));
         }
     }
-    
+
     public void testFetchAndUpdate() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
@@ -286,7 +297,8 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
 
         // use pipeGetAndPutStream to add values to server2
         AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
-                                                                               server2.getMetadataStore(), true);
+                                                                         server2.getMetadataStore(),
+                                                                         true);
 
         client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
 
@@ -320,7 +332,6 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         assertEquals("All Values should have matched", checked, matched);
     }
 
-
     private Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = new HashSet<Pair<ByteArray, Versioned<byte[]>>>();
 
@@ -334,5 +345,4 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         return entrySet;
     }
 
-    
 }
