@@ -137,7 +137,7 @@ public abstract class VoldemortApp {
         File file = new File(fileName);
 
         if(!file.canRead()) {
-            System.out.println("File " + fileName + " cannot be read");
+            System.err.println("File " + fileName + " cannot be read");
             System.exit(2);
         }
 
@@ -152,7 +152,7 @@ public abstract class VoldemortApp {
         File file = new File(fileName);
 
         if(!file.canRead()) {
-            System.out.println("File " + fileName + " cannot be read");
+            System.err.println("File " + fileName + " cannot be read");
             System.exit(2);
         }
 
@@ -175,7 +175,7 @@ public abstract class VoldemortApp {
 
     protected Map<String, String> getRequiredPropertiesFile(File file) {
         if(!file.canRead()) {
-            System.out.println("File " + file.getAbsolutePath() + " cannot be read");
+            System.err.println("File " + file.getAbsolutePath() + " cannot be read");
             System.exit(2);
         }
 
