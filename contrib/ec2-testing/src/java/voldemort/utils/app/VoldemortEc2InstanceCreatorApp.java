@@ -78,8 +78,6 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
                                                                 instanceCount);
 
         StringBuilder s = new StringBuilder();
-        s.append("# Each line represents an external host name to internal host name mapping.");
-        s.append(System.getProperty("line.separator"));
 
         for(HostNamePair hostNamePair: hostNamePairs) {
             s.append(hostNamePair.getExternalHostName());
