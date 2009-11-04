@@ -26,8 +26,8 @@ iterations=${10}
 rm -f $LOG_SERVERS_FILE $LOG_CLIENTS_FILE $COMMANDS_FILE
 
 # Create multiple instances in EC2.
-#./contrib/ec2-testing/bin/voldemort-ec2instancecreator.sh --accessid $accessKeyId --secretkey $secretKey --ami $ami --instances $numClients --keypairid $keypairId >> $HOSTS_CLIENTS 2>> $LOG_SERVERS_FILE
-#./contrib/ec2-testing/bin/voldemort-ec2instancecreator.sh --accessid $accessKeyId --secretkey $secretKey --ami $ami --instances $numServers --keypairid $keypairId >> $HOSTS_SERVERS 2>> $LOG_SERVERS_FILE
+./contrib/ec2-testing/bin/voldemort-ec2instancecreator.sh --accessid $accessKeyId --secretkey $secretKey --ami $ami --instances $numClients --keypairid $keypairId > $HOSTS_CLIENTS 2>> $LOG_SERVERS_FILE
+./contrib/ec2-testing/bin/voldemort-ec2instancecreator.sh --accessid $accessKeyId --secretkey $secretKey --ami $ami --instances $numServers --keypairid $keypairId > $HOSTS_SERVERS 2>> $LOG_SERVERS_FILE
 
 ./contrib/ec2-testing/bin/voldemort-clustergenerator.sh --hostnames $HOSTS_SERVERS --partitions $partitions > $configDir/config/cluster.xml
 
