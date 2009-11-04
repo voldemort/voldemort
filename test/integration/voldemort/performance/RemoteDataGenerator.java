@@ -9,6 +9,8 @@ import voldemort.client.StoreClientFactory;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.PseudoRandom;
 
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.List;
 
 /**
@@ -22,10 +24,28 @@ public class RemoteDataGenerator {
     private final int workers;
     private static final int MAX_WORKERS = 8;
 
+    private static final String usageStr =
+            "Usage: $VOLDEMORT_HOME/bin/generate-data.sh \\\n" +
+                    "\t [options] bootstrapUrl storeName";
+
     public RemoteDataGenerator(String url, String storeName, int workers) {
         this.workers = workers;
         this.url = url;
         this.storeName = storeName;
+    }
+
+    public static void printUsage(PrintStream out, OptionParser parser, String msg) throws
+            IOException {
+        out.println(msg);
+        out.println(usageStr);
+        parser.printHelpOn(out);
+        System.exit(1);
+    }
+
+    public static void printUsage(PrintStream out, OptionParser parser) throws IOException {
+        out.println(usageStr);
+        parser.printHelpOn(out);
+        System.exit(1);
     }
 
     /**
@@ -79,7 +99,7 @@ public class RemoteDataGenerator {
         return output.toString();
     }
 
-    public static void main (String[] args) {
+    public static void main (String[] args) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("k", "key size")
                 .withRequiredArg()
@@ -92,9 +112,11 @@ public class RemoteDataGenerator {
 
         OptionSet options = parser.parse(args);
         List<String> nonOptions = options.nonOptionArguments();
-        if (nonOptions.size() != 3) {
 
+        if (nonOptions.size() != 3) {
+            printUsage(System.err, parser);
         }
+        
         String url = nonOptions.get(0);
         String storeName = nonOptions.get(1);
 
