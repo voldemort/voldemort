@@ -65,10 +65,6 @@ public class DefaultRebalanceClient implements RebalanceClient {
                         if(stealList.size() > 0) {
                             logger.info("stealing partitions from " + donorNode.getId());
 
-                            // change state for donorNode
-                            adminClient.updateServerState(donorNode.getId(),
-                                                          MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
-
                             // donorNode sets new cluster
                             adminClient.updateClusterMetadata(donorNode.getId(), targetCluster);
 
@@ -84,7 +80,8 @@ public class DefaultRebalanceClient implements RebalanceClient {
                     }
                 }
                 // everything kool change stealerState to be normal
-                adminClient.updateServerState(stealerNodeID, MetadataStore.VoldemortState.NORMAL_SERVER);
+                adminClient.updateServerState(stealerNodeID,
+                                              MetadataStore.VoldemortState.NORMAL_SERVER);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {
@@ -130,9 +127,6 @@ public class DefaultRebalanceClient implements RebalanceClient {
         Node donorNode = currentCluster.getNodeById(donorNodeId);
         if(donorNode != null) {
             try {
-                // Set donorNode state
-                adminClient.updateServerState(donorNodeId,
-                                              MetadataStore.VoldemortState.REBALANCING_SLAVE_SERVER);
 
                 // donorNode sets targetCluster as currentCluster
                 adminClient.updateClusterMetadata(donorNodeId, targetCluster);
@@ -168,7 +162,8 @@ public class DefaultRebalanceClient implements RebalanceClient {
                     }
                 }
                 // everything kool change donorNode to be normal
-                adminClient.updateServerState(donorNodeId, MetadataStore.VoldemortState.NORMAL_SERVER);
+                adminClient.updateServerState(donorNodeId,
+                                              MetadataStore.VoldemortState.NORMAL_SERVER);
             } catch(Exception e) {
                 // if any node fails be paranoid and roll back everything
                 for(Node node: currentCluster.getNodes()) {

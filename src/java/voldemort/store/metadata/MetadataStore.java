@@ -43,7 +43,6 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -74,27 +73,21 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_SLAVES_LIST_KEY = "rebalancing.slave.list";
     public static final String REBALANCING_PARTITIONS_LIST_KEY = "rebalancing.partitions.list";
-    public static final String ROUTING_STRATEGY_KEY = "routing.strategy";
 
-    public static final Set<String> PERSISTENT_KEYS = ImmutableSet.of(CLUSTER_KEY,
-                                                                      STORES_KEY,
-                                                                      SERVER_STATE_KEY,
-                                                                      NODE_ID_KEY,
-                                                                      REBALANCING_SLAVES_LIST_KEY,
-                                                                      CLUSTER_STATE_KEY);
+    public static final Set<String> METADATA_KEYS = ImmutableSet.of(CLUSTER_KEY,
+                                                                    STORES_KEY,
+                                                                    SERVER_STATE_KEY,
+                                                                    NODE_ID_KEY,
+                                                                    REBALANCING_SLAVES_LIST_KEY,
+                                                                    REBALANCING_PARTITIONS_LIST_KEY,
+                                                                    CLUSTER_STATE_KEY);
 
-    public static final Set<String> TRANSIENT_KEYS = ImmutableSet.of(REBALANCING_PARTITIONS_LIST_KEY,
-                                                                     ROUTING_STRATEGY_KEY);
-
-    public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
-                                                                .addAll(PERSISTENT_KEYS)
-                                                                .addAll(TRANSIENT_KEYS)
-                                                                .build();
+    // helper keys for metadataCacheOnly
+    private static final String ROUTING_STRATEGY_KEY = "routing.strategy";
 
     public static enum VoldemortState {
         NORMAL_SERVER,
         REBALANCING_MASTER_SERVER,
-        REBALANCING_SLAVE_SERVER,
         REBALANCING_CLUSTER,
         NORMAL_CLUSTER
     }
@@ -136,25 +129,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private void init(int nodeId) {
         logger.info("metadata init().");
 
-        // These keys should be present
+        // Required keys
         initCache(CLUSTER_KEY);
         initCache(STORES_KEY);
 
-        // Set default value if not present
+        // Initialize with default if not present
         initCache(NODE_ID_KEY, nodeId);
-        initCache(REBALANCING_SLAVES_LIST_KEY, new Integer(-1));
+        initCache(REBALANCING_SLAVES_LIST_KEY, new ArrayList<Integer>(0));
         initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
-        initCache(ROUTING_STRATEGY_KEY, updateRoutingStrategies());
-
-        // init serverState
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
-        if(getServerState().equals(VoldemortState.REBALANCING_SLAVE_SERVER)) {
-            // if state is rebalancing slave start as normal state
-            VectorClock clock = (VectorClock) metadataCache.get(SERVER_STATE_KEY).getVersion();
-            this.put(SERVER_STATE_KEY,
-                     new Versioned<String>(VoldemortState.NORMAL_SERVER.toString(),
-                                           clock.incremented(this.getNodeId(), 1)));
-        }
+
+        // set transient values
+        updateRoutingStrategies();
     }
 
     private void initCache(String key) {
@@ -185,10 +171,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 // cache all keys
                 metadataCache.put(key, convertStringToObject(key, value));
 
-                // only persistent_keys should be persisted
-                if(PERSISTENT_KEYS.contains(key)) {
-                    innerStore.put(key, value);
-                }
+                innerStore.put(key, value);
+
             } else {
                 throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
             }
@@ -251,17 +235,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     }
 
-
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key);
         List<Version> versions = new ArrayList<Version>(values.size());
-        for (Versioned value: values)
-        {
+        for(Versioned value: values) {
             versions.add(value.getVersion());
         }
-        return versions;    
+        return versions;
     }
-    
+
     public Cluster getCluster() {
         return (Cluster) metadataCache.get(CLUSTER_KEY).getValue();
     }
@@ -300,6 +282,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return (List<Integer>) metadataCache.get(REBALANCING_PARTITIONS_LIST_KEY).getValue();
     }
 
+    public void setRebalancingPartitionList(List<Integer> list) {
+        metadataCache.put(REBALANCING_PARTITIONS_LIST_KEY, new Versioned<Object>(list));
+    }
+
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
         Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
@@ -307,7 +293,13 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return routingStrategyMap.get(storeName);
     }
 
-    private Object updateRoutingStrategies() {
+    @SuppressWarnings("unchecked")
+    public void updateRoutingStrategies() {
+        this.metadataCache.put(ROUTING_STRATEGY_KEY,
+                               new Versioned<Object>(createRoutingStrategMap()));
+    }
+
+    private Object createRoutingStrategMap() {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
         for(StoreDefinition store: getStoreDefList()) {
@@ -349,8 +341,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
-        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)
-                  || REBALANCING_SLAVES_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)) {
             // save the list as comma separate string.
             StringBuilder builder = new StringBuilder();
             List<Integer> list = (List<Integer>) value.getValue();
@@ -379,8 +370,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = VoldemortState.valueOf(value.getValue());
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
-        } else if(REBALANCING_PARTITIONS_LIST_KEY.equals(key)
-                  || REBALANCING_SLAVES_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)) {
             List<Integer> list = new ArrayList<Integer>();
             if(value.getValue().trim().length() > 0) {
                 String[] partitions = value.getValue().split(",");
