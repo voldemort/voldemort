@@ -116,7 +116,7 @@ public class AdminServiceFilterTest extends TestCase {
         assertNotSame("should be filtered key count shoud not be 0.", 0, shouldFilterCount);
 
         // make fetch stream call with filter
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().doFetchPartitionEntries(0,
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchPartitionEntries(0,
                                                                                                               storeName,
                                                                                                               Arrays.asList(new Integer[] { 0 }),
                                                                                                               filter);
@@ -143,7 +143,7 @@ public class AdminServiceFilterTest extends TestCase {
         }
 
         // make delete stream call with filter
-        getAdminClient().doDeletePartitionEntries(0,
+        getAdminClient().deletePartitionEntries(0,
                                                   storeName,
                                                   Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
                                                   filter);
@@ -170,7 +170,7 @@ public class AdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         // make update stream call with filter
-        getAdminClient().doUpdatePartitionEntries(0, storeName, entrySet.iterator(), filter);
+        getAdminClient().updatePartitionEntries(0, storeName, entrySet.iterator(), filter);
 
         // assert none of the filtered entries are updated.
         // user store should be present

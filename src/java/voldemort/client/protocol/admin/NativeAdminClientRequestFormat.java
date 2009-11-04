@@ -66,7 +66,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     }
 
     @Override
-    public void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
+    protected void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
 
         SocketDestination destination = new SocketDestination(node.getHost(),
@@ -97,7 +97,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
     }
 
     @Override
-    public Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
+    protected Versioned<byte []> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
         Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
 
         SocketDestination destination = new SocketDestination(node.getHost(),
@@ -139,46 +139,8 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         }
     }
 
-    @Override
-    public List<Versioned<byte[]>> doRedirectGet(int proxyDestNodeId,
-                                                 String storeName,
-                                                 ByteArray key) {
-        Node proxyDestNode = this.getMetadata().getCluster().getNodeById(proxyDestNodeId);
-        SocketDestination destination = new SocketDestination(proxyDestNode.getHost(),
-                                                              proxyDestNode.getAdminPort(),
-                                                              RequestFormatType.ADMIN);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            outputStream.writeByte(VoldemortOpCode.REDIRECT_GET_OP_CODE);
-            outputStream.writeUTF(storeName);
-            outputStream.writeInt(key.length());
-            outputStream.write(key.get());
-            outputStream.flush();
-            DataInputStream inputStream = sands.getInputStream();
-            checkException(inputStream);
-            int resultSize = inputStream.readInt();
-            List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(resultSize);
-            for(int i = 0; i < resultSize; i++) {
-                int valueSize = inputStream.readInt();
-                byte[] bytes = new byte[valueSize];
-                ByteUtils.read(inputStream, bytes);
-                VectorClock clock = new VectorClock(bytes);
-                results.add(new Versioned<byte[]>(ByteUtils.copy(bytes,
-                                                                 clock.sizeInBytes(),
-                                                                 bytes.length), clock));
-            }
-            return results;
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
-    }
 
-    @Override
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> doFetchPartitionEntries(int nodeId,
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
                                                                                 String storeName,
                                                                                 List<Integer> partitionList,
                                                                                 VoldemortFilter filter) {
@@ -260,13 +222,11 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
      * @param filter
      * @return
      */
-    @Override
-    public Iterator<ByteArray> doFetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
+    public Iterator<ByteArray> fetchPartitionKeys(int nodeId, String storeName, List<Integer> partitionList, VoldemortFilter filter) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
-    public int doDeletePartitionEntries(int nodeId,
+    public int deletePartitionEntries(int nodeId,
                                         String storeName,
                                         List<Integer> partitionList,
                                         VoldemortFilter filter) {
@@ -308,8 +268,7 @@ public class NativeAdminClientRequestFormat extends AdminClientRequestFormat {
         }
     }
 
-    @Override
-    public void doUpdatePartitionEntries(int nodeId,
+    public void updatePartitionEntries(int nodeId,
                                          String storeName,
                                          Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                          VoldemortFilter filter) {

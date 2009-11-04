@@ -143,7 +143,7 @@ public class AdminTest {
                 public long apply() {
                     long i=0;
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient
-                        .doFetchPartitionEntries(node,storeName,
+                        .fetchPartitionEntries(node,storeName,
                             new ArrayList<Integer>(nodePartitions.get(node)), null);
                     while (result.hasNext()) {
                         i++;

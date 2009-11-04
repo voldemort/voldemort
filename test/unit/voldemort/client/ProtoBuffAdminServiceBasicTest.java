@@ -142,7 +142,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
             store.put(entry.getFirst(), entry.getSecond());
         }
 
-        getAdminClient().doDeletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
+        getAdminClient().deletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
 
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
@@ -180,7 +180,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         int matched=0;
 
         AdminClientRequestFormat client = getAdminClient();
-        Iterator<ByteArray> fetchIt = client.doFetchPartitionKeys(server.getIdentityNode().getId(),
+        Iterator<ByteArray> fetchIt = client.fetchPartitionKeys(server.getIdentityNode().getId(),
             storeName, Arrays.asList(0,1), null);
         while (fetchIt.hasNext()) {
             ByteArray fetchedKey = fetchIt.next();
@@ -215,7 +215,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         int matched=0;
 
         AdminClientRequestFormat client = getAdminClient();
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.doFetchPartitionEntries(
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.fetchPartitionEntries(
                 server.getIdentityNode().getId(),
                 storeName, Arrays.asList(0, 1), null);
         while (fetchIt.hasNext()) {
@@ -244,7 +244,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         // Write
         AdminClientRequestFormat client = getAdminClient();
 
-        client.doUpdatePartitionEntries(0, storeName, iterator, null);
+        client.updatePartitionEntries(0, storeName, iterator, null);
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
@@ -320,31 +320,6 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         assertEquals("All Values should have matched", checked, matched);
     }
 
-    public void testRedirectGet() {
-        // user store should be present
-        Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine("users");
-
-        assertNotSame("Store 'users' should not be null", null, store);
-
-        ByteArray key = new ByteArray(ByteUtils.getBytes("test_member_1", "UTF-8"));
-        byte[] value = "test-value-1".getBytes();
-
-        store.put(key, new Versioned<byte[]>(value));
-
-        // check direct get
-        assertEquals("Direct Get should succeed", new String(value), new String(store.get(key)
-                                                                                     .get(0)
-                                                                                     .getValue()));
-
-        // update server stores info
-        AdminClientRequestFormat client = getAdminClient();
-
-        assertEquals("ForcedGet should match put value",
-                     new String(value),
-                     new String(client.redirectGet(server.getIdentityNode().getId(), "users", key)
-                                      .get(0)
-                                      .getValue()));
-    }
 
     private Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = new HashSet<Pair<ByteArray, Versioned<byte[]>>>();
