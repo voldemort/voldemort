@@ -52,7 +52,6 @@ public class RemoteDataGenerator {
             StringBuilder valueBuilder = new StringBuilder(makeString(valueSize))
                     .append(i);
             if (postfix != null) {
-                valueBuilder.append(postfix);
                 keyBuilder.append(postfix);
             }
             try {

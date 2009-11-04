@@ -18,6 +18,7 @@ package voldemort.client.protocol.admin;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
@@ -64,6 +65,28 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
             .getContextClassLoader());
     }
 
+    protected <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
+        Node node = this.getMetadata().getCluster().getNodeById(nodeId);
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                node.getAdminPort(),
+                RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        SocketAndStreams sands = pool.checkout(destination);
+
+        try {
+            DataOutputStream outputStream = sands.getOutputStream();
+            DataInputStream inputStream = sands.getInputStream();
+            ProtoUtils.writeMessage(outputStream, message);
+            outputStream.flush();
+
+            return ProtoUtils.readToBuilder(inputStream, builder);
+        } catch (IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+    }
+
     /**
      * Updates Metadata at (remote) Node
      *
@@ -74,34 +97,17 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      */
     @Override
     protected void doUpdateRemoteMetadata(int remoteNodeId, ByteArray key, Versioned<byte[]> value) {
-        Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(),
-            node.getAdminPort(),
-            RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-        SocketAndStreams sands = pool.checkout(destination);
-
-        try {
-            StoreUtils.assertValidKey(key);
-            DataOutputStream outputStream = sands.getOutputStream();
-            DataInputStream inputStream = sands.getInputStream();
-            ProtoUtils.writeMessage(outputStream,
-                VAdminProto.VoldemortAdminRequest.newBuilder()
-                    .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
-                    .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.UPDATE_METADATA)
+                .setUpdateMetadata(VAdminProto.UpdateMetadataRequest.newBuilder()
                         .setKey(ByteString.copyFrom(key.get()))
-                        .setVersioned(ProtoUtils.encodeVersioned(value)))
-                    .build());
-            outputStream.flush();
-            VAdminProto.UpdateMetadataResponse.Builder response = ProtoUtils.readToBuilder(
-                inputStream, VAdminProto.UpdateMetadataResponse.newBuilder());
-            if (response.hasError())
-                throwException(response.getError());
-        } catch (IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+                        .setVersioned(ProtoUtils.encodeVersioned(value))
+                        .build())
+                .build();
+        VAdminProto.UpdateMetadataResponse.Builder response = sendAndReceive(remoteNodeId, request,
+                VAdminProto.UpdateMetadataResponse.newBuilder());
+        if (response.hasError())
+            throwException(response.getError());
     }
 
     /**
@@ -113,34 +119,18 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      */
     @Override
     protected Versioned<byte []> doGetRemoteMetadata(int remoteNodeId, ByteArray key) {
-        Node node = this.getMetadata().getCluster().getNodeById(remoteNodeId);
-        SocketDestination destination = new SocketDestination(node.getHost(),
-                node.getAdminPort(),
-                RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-        SocketAndStreams sands = pool.checkout(destination);
-
-        try {
-            DataOutputStream outputStream = sands.getOutputStream();
-            DataInputStream inputStream = sands.getInputStream();
-            ProtoUtils.writeMessage(outputStream,
-                VAdminProto.VoldemortAdminRequest.newBuilder()
-                    .setType(VAdminProto.AdminRequestType.GET_METADATA)
-                    .setGetMetadata(VAdminProto.GetMetadataRequest.newBuilder()
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.GET_METADATA)
+                .setGetMetadata(VAdminProto.GetMetadataRequest.newBuilder()
                         .setKey(ByteString.copyFrom(key.get())))
-                    .build());
-            outputStream.flush();
-            VAdminProto.GetMetadataResponse.Builder response = ProtoUtils.readToBuilder(
-                inputStream, VAdminProto.GetMetadataResponse.newBuilder());
-            if (response.hasError())
-                throwException(response.getError());
+                .build();
 
-            return ProtoUtils.decodeVersioned(response.getVersion());
-        } catch (IOException e) {
-            close(sands.getSocket());
-            throw new VoldemortException(e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+        VAdminProto.GetMetadataResponse.Builder response = sendAndReceive(remoteNodeId, request,
+                VAdminProto.GetMetadataResponse.newBuilder());
+        if (response.hasError())
+            throwException(response.getError());
+
+        return ProtoUtils.decodeVersioned(response.getVersion());
     }
 
 
