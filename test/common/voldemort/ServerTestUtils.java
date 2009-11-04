@@ -31,8 +31,6 @@ import org.mortbay.jetty.servlet.ServletHolder;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -304,24 +302,11 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static NativeAdminClientRequestFormat getAdminClient(Node identityNode,
-                                                                MetadataStore metadataStore) {
-        return new NativeAdminClientRequestFormat(metadataStore, new SocketPool(2,
-                                                                                10000,
-                                                                                100000,
-                                                                                32 * 1024));
-    }
-
-    public static AdminClientRequestFormat getAdminClient(Node identityNode,
-                                                          MetadataStore metadataStore,
-                                                          boolean useProtocolBuffers) {
-        if(useProtocolBuffers)
-            return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
-                                                                                       10000,
-                                                                                       100000,
-                                                                                       32 * 1024));
-        else
-            return getAdminClient(identityNode, metadataStore);
-
+    public static ProtoBuffAdminClientRequestFormat getAdminClient(Node identityNode,
+                                                                   MetadataStore metadataStore) {
+        return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
+                                                                                   10000,
+                                                                                   100000,
+                                                                                   32 * 1024));
     }
 }

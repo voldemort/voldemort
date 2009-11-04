@@ -27,7 +27,6 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -95,8 +94,7 @@ public class AdminServiceFilterTest extends TestCase {
     }
 
     private AdminClientRequestFormat getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore(),
-            true);
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
     }
 
     public void testFetchAsStreamWithFilter() {
@@ -117,9 +115,9 @@ public class AdminServiceFilterTest extends TestCase {
 
         // make fetch stream call with filter
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchPartitionEntries(0,
-                                                                                                              storeName,
-                                                                                                              Arrays.asList(new Integer[] { 0 }),
-                                                                                                              filter);
+                                                                                                            storeName,
+                                                                                                            Arrays.asList(new Integer[] { 0 }),
+                                                                                                            filter);
 
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {
@@ -144,9 +142,9 @@ public class AdminServiceFilterTest extends TestCase {
 
         // make delete stream call with filter
         getAdminClient().deletePartitionEntries(0,
-                                                  storeName,
-                                                  Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
-                                                  filter);
+                                                storeName,
+                                                Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
+                                                filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {

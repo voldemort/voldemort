@@ -1,15 +1,18 @@
 package voldemort.client;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.log4j.Logger;
+
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClientRequestFormat;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
-import voldemort.cluster.Cluster;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.serialized.SerializingStore;
@@ -20,20 +23,12 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
-import java.io.StringReader;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 /**
- * Created by IntelliJ IDEA.
- * User: afeinber
- * Date: Oct 14, 2009
- * Time: 1:12:34 PM
+ * Created by IntelliJ IDEA. User: afeinber Date: Oct 14, 2009 Time: 1:12:34 PM
  * To change this template use File | Settings | File Templates.
  */
 public class AdminClientFactory {
+
     private final SocketPool socketPool;
     private final RoutingTier routingTier;
     private final Logger logger = Logger.getLogger(AdminClientFactory.class);
@@ -44,9 +39,9 @@ public class AdminClientFactory {
         this.config = config;
         this.routingTier = config.getRoutingTier();
         this.socketPool = new SocketPool(config.getMaxConnectionsPerNode(),
-            config.getConnectionTimeout(TimeUnit.MILLISECONDS),
-            config.getSocketTimeout(TimeUnit.MILLISECONDS),
-            config.getSocketBufferSize());
+                                         config.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                         config.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                         config.getSocketBufferSize());
         this.bootstrapUris = validateUrls(config.getBootstrapUrls());
     }
 
@@ -81,12 +76,11 @@ public class AdminClientFactory {
     }
 
     private static void validateUrl(URI uri) {
-        if (!"tcp".equals(uri.getScheme()))
+        if(!"tcp".equals(uri.getScheme()))
             throw new IllegalArgumentException("Illegal scheme in bootstrap URL for SocketStoreClientFactory:"
                                                + " expected 'tcp' "
                                                + "but found '"
                                                + uri.getScheme() + "'.");
-
 
     }
 
@@ -122,32 +116,17 @@ public class AdminClientFactory {
     }
 
     public AdminClientRequestFormat getAdminClient() {
-        return getAdminClient(false);
-    }
-
-    public AdminClientRequestFormat getAdminClient(boolean useNative) {
         String clusterXml = bootstrapMetadata(MetadataStore.CLUSTER_KEY, bootstrapUris);
         String storesXml = bootstrapMetadata(MetadataStore.STORES_KEY, bootstrapUris);
-        StorageEngine<String,String> backingStore = new InMemoryStorageEngine<String, String>
-            ("metadata");
+        StorageEngine<String, String> backingStore = new InMemoryStorageEngine<String, String>("metadata");
         backingStore.put(MetadataStore.CLUSTER_KEY, new Versioned<String>(clusterXml));
         backingStore.put(MetadataStore.STORES_KEY, new Versioned<String>(storesXml));
         MetadataStore metadata = new MetadataStore(backingStore, 0);
 
-        if (useNative)
-            return new NativeAdminClientRequestFormat(metadata, socketPool);
-
         return new ProtoBuffAdminClientRequestFormat(metadata, socketPool);
     }
 
-    public AdminClientRequestFormat getAdminclient(MetadataStore metadata) {
-        return getAdminClient(metadata, false);
-        
-    }
-    public AdminClientRequestFormat getAdminClient(MetadataStore metadata, boolean useNative) {
-        if (useNative)
-            return new NativeAdminClientRequestFormat(metadata, socketPool);
-        
+    public AdminClientRequestFormat getAdminClient(MetadataStore metadata) {
         return new ProtoBuffAdminClientRequestFormat(metadata, socketPool);
     }
 }

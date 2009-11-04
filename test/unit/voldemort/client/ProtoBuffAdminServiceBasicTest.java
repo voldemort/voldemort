@@ -82,9 +82,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
     }
 
     public AdminClientRequestFormat getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(),
-                                              server.getMetadataStore(),
-                                              true);
+        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
     }
 
     public void testUpdateClusterMetadata() {
@@ -297,8 +295,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
 
         // use pipeGetAndPutStream to add values to server2
         AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
-                                                                         server2.getMetadataStore(),
-                                                                         true);
+                                                                         server2.getMetadataStore());
 
         client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
 

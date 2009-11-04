@@ -31,7 +31,6 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.rebalance.DefaultRebalanceClient;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -40,7 +39,6 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
-import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -49,12 +47,12 @@ import voldemort.versioning.Versioned;
 /**
  * Things to test purely functional
  * <ul>
- * <li> simple steal/donate partitions with checks <br>
+ * <li>simple steal/donate partitions with checks <br>
  * new nodes have the keys <br>
  * old nodes throw invalid metadata exception if queried.</li>
- * <li> redirect get while stealing/donating </li>
- * <li> rollback strategy .. kill server in midflight </li>
- * <li> cannot start 2 rebalancing on same node</li>
+ * <li>redirect get while stealing/donating</li>
+ * <li>rollback strategy .. kill server in midflight</li>
+ * <li>cannot start 2 rebalancing on same node</li>
  * </ul>
  * 
  * <imp> All socket timeouts are kept high as the streaming read/write bandwidth
@@ -102,10 +100,11 @@ public class RebalancingClientTest extends TestCase {
                                       cluster);
         server1.start();
 
+        // TODO : need fixing
         // create RebalanceClient with high timeouts
-        rebalanceClient = new DefaultRebalanceClient(0,
-                                                     server0.getMetadataStore(),
-                                                     new SocketPool(1, 2, 20000, 10000));
+        // rebalanceClient = new DefaultRebalanceClient(0,
+        // server0.getMetadataStore(),
+        // new SocketPool(1, 2, 20000, 10000));
     }
 
     @Override

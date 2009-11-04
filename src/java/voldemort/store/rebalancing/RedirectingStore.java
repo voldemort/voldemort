@@ -19,7 +19,7 @@ package voldemort.store.rebalancing;
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.NativeAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
@@ -37,9 +37,9 @@ import voldemort.versioning.Versioned;
  * <ul>
  * <li>Get: proxy Get call to donor server ONLY for keys belonging to
  * {@link MetadataStore#getCurrentPartitionStealList()}</li>
- * <li>Put: do a get() call on donor state and put to innerstore and than
- * handle client put() request to have correct version handling ONLY for keys
- * belonging to {@link MetadataStore#getCurrentPartitionStealList()}.</li>
+ * <li>Put: do a get() call on donor state and put to innerstore and than handle
+ * client put() request to have correct version handling ONLY for keys belonging
+ * to {@link MetadataStore#getCurrentPartitionStealList()}.</li>
  * </ul>
  * 
  * @author bbansal
@@ -47,14 +47,17 @@ import voldemort.versioning.Versioned;
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
-    private final NativeAdminClientRequestFormat adminClient;
+    private final AdminClient adminClient;
     private final MetadataStore metadata;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
                             MetadataStore metadata,
                             SocketPool socketPool) {
         super(innerStore);
-        this.adminClient = new NativeAdminClientRequestFormat(metadata, socketPool);
+        // TODO : need fixes
+        // this.adminClient = new NativeAdminClientRequestFormat(metadata,
+        // socketPool);
+        this.adminClient = null;
         this.metadata = metadata;
     }
 
@@ -95,7 +98,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @throws VoldemortException
      */
     protected List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        // TODO fix this 
+        // TODO fix this
         throw new VoldemortException("proxyGet() not implemented yet.");
     }
 
