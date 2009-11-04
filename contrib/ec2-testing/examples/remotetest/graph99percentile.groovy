@@ -33,9 +33,12 @@ for (i in 0..args.length - 1) {
 
         inputFile.getText().eachLine {
                 def data = it.split(" ")
-		reads.add(data[2].toDouble())
-                writes.add(data[3].toDouble())
-                deletes.add(data[4].toDouble())
+		
+		if (data.length >= 5) {
+			reads.add(data[2].toDouble())
+                	writes.add(data[3].toDouble())
+               		deletes.add(data[4].toDouble())
+		}
 	}
 
 	// Prints the data in a format that can be used by gnuplot.

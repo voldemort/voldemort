@@ -27,14 +27,16 @@ for (i in 0..args.length - 1) {
 
 	inputFile.getText().eachLine {
 		def data = it.split(" ")
-		
-		// Gets total seconds for each transaction, and the total iterations.
-		writesTotal += data[3].toDouble()
-		writesCount++
-		deletesTotal += data[4].toDouble()
-		deletesCount++		
-		readsTotal += data[2].toDouble()
-		readsCount++
+	
+		if (data.length >= 5) {	
+			// Gets total seconds for each transaction, and the total iterations.
+			writesTotal += data[3].toDouble()
+			writesCount++
+			deletesTotal += data[4].toDouble()
+			deletesCount++		
+			readsTotal += data[2].toDouble()
+			readsCount++
+		}
 	}	
 	
 	def writesAvg = writesTotal / writesCount
