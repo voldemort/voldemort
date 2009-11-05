@@ -23,7 +23,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -47,11 +47,11 @@ import java.net.Socket;
 import java.util.*;
 
 /**
- * Protocol buffers implementation for {@link voldemort.client.protocol.admin.AdminClientRequestFormat}
+ * Protocol buffers implementation for {@link voldemort.client.protocol.admin.AdminClient}
  * *
  * @author afeinber
  */
-public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat {
+public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     private final ErrorCodeMapper errorMapper;
     private final static Logger logger = Logger.getLogger(ProtoBuffAdminClientRequestFormat.class);
     private final SocketPool pool;
@@ -145,7 +145,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      * @throws IOException
      */
-    public void updatePartitionEntries(int nodeId, String storeName,
+    public void updateEntries(int nodeId, String storeName,
                                          Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                                          VoldemortFilter filter) {
         Node node = this.getMetadata().getCluster().getNodeById(nodeId);
@@ -355,6 +355,14 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         };
     }
 
+    /**
+     * Pipe fetch from donorNode and update stealerNode in streaming mode.
+     */
+    @Override
+    public void fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
         Class cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);
@@ -375,7 +383,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
      * @throws VoldemortException
      * @throws IOException
      */
-    public int deletePartitionEntries(int nodeId, String storeName,
+    @Override
+    public int deletePartitions(int nodeId, String storeName,
                                         List<Integer> partitionList,
                                         VoldemortFilter filter) {
         VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest =

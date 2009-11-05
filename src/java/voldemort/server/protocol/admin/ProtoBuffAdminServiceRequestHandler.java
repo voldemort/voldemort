@@ -176,7 +176,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
-                    && filter.filter(entry.getFirst(), entry.getSecond())) {
+                    && filter.accept(entry.getFirst(), entry.getSecond())) {
 
                     VAdminProto.FetchPartitionEntriesResponse.Builder response =
                                                 VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -244,7 +244,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = ProtoUtils.decodeBytes(partitionEntry.getKey());
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
-                if (filter.filter(key, value)) {
+                if (filter.accept(key, value)) {
                     storageEngine.put(key, value);
 
                     if (throttler != null) {
@@ -299,7 +299,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
                 if (validPartition(entry.getFirst().get(), partitions, routingStrategy) &&
-                        filter.filter(entry.getFirst(), entry.getSecond())) {
+                        filter.accept(entry.getFirst(), entry.getSecond())) {
                     if (storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
                         deleteSuccess++;
                     if (throttler != null)

@@ -16,18 +16,27 @@
 
 package voldemort.client.protocol;
 
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.versioning.Versioned;
 
 /**
  * A filter API to provide client a way to filter entries on server side for
  * streaming APIs.<br>
- * Clients can write custom implentation of FilterRequest to implemet server
+ * Clients can write custom implementation of FilterRequest to implement server
  * side filtering for
  * <ul>
- * <li>{@link AdminClientRequestFormat#doDeletePartitionEntries(int, String, java.util.List)}</li>
- * <li>{@link AdminClientRequestFormat#doFetchPartitionEntries(int, String, java.util.List)}</li>
- * <li>{@link AdminClientRequestFormat#doUpdatePartitionEntries(int, String, java.util.Iterator)}</li>
+ * <li>
+ * {@link AdminClient#deletePartitions(int, String, java.util.List, VoldemortFilter)}
+ * </li>
+ * <li>
+ * {@link AdminClient#fetchPartitionEntries(int, String, java.util.List, VoldemortFilter)}
+ * </li>
+ * <li>
+ * {@link AdminClient#fetchPartitionKeys(int, String, java.util.List, VoldemortFilter)}
+ * </li>
+ * <li>
+ * {@link AdminClient#updateEntries(int, String, java.util.Iterator, VoldemortFilter)}
+ * </li>
  * </ul>
  * 
  * <imp> The implementation class maybe transferred over wire and loaded in a
@@ -45,5 +54,5 @@ public interface VoldemortFilter {
      * @param value
      * @return true: if the pair should be kept.
      */
-    public boolean filter(Object key, Versioned<?> value);
+    public boolean accept(Object key, Versioned<?> value);
 }

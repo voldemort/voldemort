@@ -26,7 +26,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.VoldemortFilter;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -93,7 +93,7 @@ public class AdminServiceFilterTest extends TestCase {
         return entrySet;
     }
 
-    private AdminClientRequestFormat getAdminClient() {
+    private AdminClient getAdminClient() {
         return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
     }
 
@@ -106,7 +106,7 @@ public class AdminServiceFilterTest extends TestCase {
         int shouldFilterCount = 0;
         for(Pair<ByteArray, Versioned<byte[]>> pair: createEntries()) {
             store.put(pair.getFirst(), pair.getSecond());
-            if(!filter.filter(pair.getFirst(), pair.getSecond())) {
+            if(!filter.accept(pair.getFirst(), pair.getSecond())) {
                 shouldFilterCount++;
             }
         }
@@ -122,7 +122,7 @@ public class AdminServiceFilterTest extends TestCase {
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
-            if(!filter.filter(entry.getFirst(), entry.getSecond())) {
+            if(!filter.accept(entry.getFirst(), entry.getSecond())) {
                 fail();
             }
         }
@@ -141,14 +141,14 @@ public class AdminServiceFilterTest extends TestCase {
         }
 
         // make delete stream call with filter
-        getAdminClient().deletePartitionEntries(0,
+        getAdminClient().deletePartitions(0,
                                                 storeName,
                                                 Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
                                                 filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
-            if(filter.filter(entry.getFirst(), entry.getSecond())) {
+            if(filter.accept(entry.getFirst(), entry.getSecond())) {
                 assertEquals("All entries should be deleted except the filtered ones.",
                              0,
                              store.get(entry.getFirst()).size());
@@ -168,7 +168,7 @@ public class AdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         // make update stream call with filter
-        getAdminClient().updatePartitionEntries(0, storeName, entrySet.iterator(), filter);
+        getAdminClient().updateEntries(0, storeName, entrySet.iterator(), filter);
 
         // assert none of the filtered entries are updated.
         // user store should be present
@@ -176,7 +176,7 @@ public class AdminServiceFilterTest extends TestCase {
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
 
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
-            if(filter.filter(entry.getFirst(), entry.getSecond())) {
+            if(filter.accept(entry.getFirst(), entry.getSecond())) {
                 assertEquals("Store should have this key/value pair",
                              1,
                              store.get(entry.getFirst()).size());
@@ -197,7 +197,7 @@ public class AdminServiceFilterTest extends TestCase {
             System.out.println("instantiating voldemortFilter");
         }
 
-        public boolean filter(Object key, Versioned<?> value) {
+        public boolean accept(Object key, Versioned<?> value) {
             String keyString = ByteUtils.getString(((ByteArray) key).get(), "UTF-8");
             if(Integer.parseInt(keyString) % 10 == 3) {
                 return false;

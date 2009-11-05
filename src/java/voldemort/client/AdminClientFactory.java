@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.StorageEngine;
@@ -115,7 +115,7 @@ public class AdminClientFactory {
                                RoutingTier.SERVER.equals(routingTier));
     }
 
-    public AdminClientRequestFormat getAdminClient() {
+    public AdminClient getAdminClient() {
         String clusterXml = bootstrapMetadata(MetadataStore.CLUSTER_KEY, bootstrapUris);
         String storesXml = bootstrapMetadata(MetadataStore.STORES_KEY, bootstrapUris);
         StorageEngine<String, String> backingStore = new InMemoryStorageEngine<String, String>("metadata");
@@ -126,7 +126,7 @@ public class AdminClientFactory {
         return new ProtoBuffAdminClientRequestFormat(metadata, socketPool);
     }
 
-    public AdminClientRequestFormat getAdminClient(MetadataStore metadata) {
+    public AdminClient getAdminClient(MetadataStore metadata) {
         return new ProtoBuffAdminClientRequestFormat(metadata, socketPool);
     }
 }

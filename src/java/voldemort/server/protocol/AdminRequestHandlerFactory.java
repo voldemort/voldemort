@@ -4,7 +4,6 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.protocol.admin.NativeAdminServiceRequestHandler;
 import voldemort.server.protocol.admin.ProtoBuffAdminServiceRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
@@ -35,12 +34,6 @@ public class AdminRequestHandlerFactory implements RequestHandlerFactory {
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
         switch(type) {
-            case ADMIN:
-                return new NativeAdminServiceRequestHandler(new ErrorCodeMapper(),
-                                                            repository,
-                                                            metadata,
-                                                            voldemortConfig.getStreamMaxReadBytesPerSec(),
-                                                            voldemortConfig.getStreamMaxWriteBytesPerSec());
             case ADMIN_PROTOCOL_BUFFERS:
                 return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
                                                                repository,

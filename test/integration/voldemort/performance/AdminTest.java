@@ -12,7 +12,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.AdminClientFactory;
 import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
@@ -25,7 +25,7 @@ import com.google.common.collect.SetMultimap;
 public class AdminTest {
 
     private final String storeName;
-    private final AdminClientRequestFormat adminClient;
+    private final AdminClient adminClient;
 
     public static interface Measurable {
 

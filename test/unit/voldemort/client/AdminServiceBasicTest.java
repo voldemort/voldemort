@@ -29,7 +29,7 @@ import java.util.Set;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -47,9 +47,9 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.ImmutableList;
 
 /**
- * @author afeinber
+ * @author afeinberg
  */
-public class ProtoBuffAdminServiceBasicTest extends TestCase {
+public class AdminServiceBasicTest extends TestCase {
 
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -81,7 +81,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         server.stop();
     }
 
-    public AdminClientRequestFormat getAdminClient() {
+    public AdminClient getAdminClient() {
         return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
     }
 
@@ -91,21 +91,21 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         nodes.add(new Node(3, "localhost", 8883, 6668, ImmutableList.of(4, 5)));
         Cluster updatedCluster = new Cluster("new-cluster", nodes);
 
-        AdminClientRequestFormat client = getAdminClient();
-        client.updateClusterMetadata(server.getIdentityNode().getId(), updatedCluster);
+        AdminClient client = getAdminClient();
+        client.updateRemoteCluster(server.getIdentityNode().getId(), updatedCluster);
 
         assertEquals("Cluster should match", updatedCluster, server.getMetadataStore().getCluster());
         assertEquals("AdminClient.getMetdata() should match",
-                     client.getClusterMetadata(server.getIdentityNode().getId()).getValue(),
+                     client.getRemoteCluster(server.getIdentityNode().getId()).getValue(),
                      updatedCluster);
 
     }
 
     public void testStateTransitions() {
         // change to REBALANCING STATE
-        AdminClientRequestFormat client = getAdminClient();
-        client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        AdminClient client = getAdminClient();
+        client.updateRemoteServerState(server.getIdentityNode().getId(),
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         MetadataStore.VoldemortState state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -113,8 +113,8 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                      state);
 
         // change back to NORMAL state
-        client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.NORMAL_SERVER);
+        client.updateRemoteServerState(server.getIdentityNode().getId(),
+                                       MetadataStore.VoldemortState.NORMAL_SERVER);
 
         state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -122,8 +122,8 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                      state);
 
         // lets revert back to REBALANCING STATE AND CHECK
-        client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        client.updateRemoteServerState(server.getIdentityNode().getId(),
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         state = server.getMetadataStore().getServerState();
 
@@ -131,8 +131,8 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
                      MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
 
-        client.updateServerState(server.getIdentityNode().getId(),
-                                 MetadataStore.VoldemortState.NORMAL_SERVER);
+        client.updateRemoteServerState(server.getIdentityNode().getId(),
+                                       MetadataStore.VoldemortState.NORMAL_SERVER);
 
         state = server.getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -149,7 +149,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
             store.put(entry.getFirst(), entry.getSecond());
         }
 
-        getAdminClient().deletePartitionEntries(0, storeName, Arrays.asList(0, 2), null);
+        getAdminClient().deletePartitions(0, storeName, Arrays.asList(0, 2), null);
 
         RoutingStrategy routingStrategy = server.getMetadataStore().getRoutingStrategy(storeName);
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
@@ -186,7 +186,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         int checked = 0;
         int matched = 0;
 
-        AdminClientRequestFormat client = getAdminClient();
+        AdminClient client = getAdminClient();
         Iterator<ByteArray> fetchIt = client.fetchPartitionKeys(server.getIdentityNode().getId(),
                                                                 storeName,
                                                                 Arrays.asList(0, 1),
@@ -222,7 +222,7 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         int checked = 0;
         int matched = 0;
 
-        AdminClientRequestFormat client = getAdminClient();
+        AdminClient client = getAdminClient();
         Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = client.fetchPartitionEntries(server.getIdentityNode()
                                                                                                   .getId(),
                                                                                             storeName,
@@ -251,9 +251,9 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = createEntries().iterator();
 
         // Write
-        AdminClientRequestFormat client = getAdminClient();
+        AdminClient client = getAdminClient();
 
-        client.updatePartitionEntries(0, storeName, iterator, null);
+        client.updateEntries(0, storeName, iterator, null);
 
         for(int i = 100; i <= 104; i++) {
             assertNotSame("Store should return a valid value",
@@ -264,6 +264,9 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         }
     }
 
+    /**
+     * @throws IOException
+     */
     public void testFetchAndUpdate() throws IOException {
         Store<ByteArray, byte[]> store = server.getStoreRepository().getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
@@ -294,8 +297,8 @@ public class ProtoBuffAdminServiceBasicTest extends TestCase {
         }
 
         // use pipeGetAndPutStream to add values to server2
-        AdminClientRequestFormat client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
-                                                                         server2.getMetadataStore());
+        AdminClient client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
+                                                            server2.getMetadataStore());
 
         client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
 

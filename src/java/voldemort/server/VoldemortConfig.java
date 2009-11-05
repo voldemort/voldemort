@@ -165,8 +165,9 @@ public class VoldemortConfig implements Serializable {
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
-        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.minFileUtilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
+
+        // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
@@ -187,6 +188,7 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
+        // Admin client should have less threads but very high buffer size.
         this.adminMaxThreads = props.getInt("admin.max.threads", 10);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
@@ -416,10 +418,10 @@ public class VoldemortConfig implements Serializable {
      * value, irrespective of total utilization.
      * 
      * <ul>
-     * <li> property: "bdb.cleaner.minFileUtilization"</li>
-     * <li> default: 5</li>
-     * <li> minimum: 0</li>
-     * <li> maximum: 50</li>
+     * <li>property: "bdb.cleaner.minFileUtilization"</li>
+     * <li>default: 5</li>
+     * <li>minimum: 0</li>
+     * <li>maximum: 50</li>
      * </ul>
      */
     public int getBdbCleanerMinFileUtilization() {
@@ -433,15 +435,15 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     *
+     * 
      * The cleaner will keep the total disk space utilization percentage above
      * this value.
      * 
      * <ul>
-     * <li> property: "bdb.cleaner.minUtilization"</li>
-     * <li> default: 50</li>
-     * <li> minimum: 0</li>
-     * <li> maximum: 90</li>
+     * <li>property: "bdb.cleaner.minUtilization"</li>
+     * <li>default: 50</li>
+     * <li>minimum: 0</li>
+     * <li>maximum: 90</li>
      * </ul>
      */
     public int getBdbCleanerMinUtilization() {
@@ -467,10 +469,11 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Do we preload the cursor or not? The advantage of preloading for cursor is faster
-     * streaming performance, as entries are fetched in disk order. Incidentally, pre-loading is
-     * only a side-effect of what we're really trying to do: fetch in disk (as opposed to key)
-     * order, but there doesn't seem to be an easy/intuitive way to do for BDB JE. 
+     * Do we preload the cursor or not? The advantage of preloading for cursor
+     * is faster streaming performance, as entries are fetched in disk order.
+     * Incidentally, pre-loading is only a side-effect of what we're really
+     * trying to do: fetch in disk (as opposed to key) order, but there doesn't
+     * seem to be an easy/intuitive way to do for BDB JE.
      */
     public boolean getBdbCursorPreload() {
         return this.bdbCursorPreload;
