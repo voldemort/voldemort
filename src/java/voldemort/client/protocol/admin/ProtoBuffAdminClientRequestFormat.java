@@ -360,7 +360,29 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      */
     @Override
     public void fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
-        // Place holder
+        VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest =
+                VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
+                .setNodeId(donorNodeId)
+                .addAllPartitions(stealList)
+                .setStore(storeName);
+        try {
+            if (filter != null) {
+                initiateFetchAndUpdateRequest.setFilter(encodeFilter(filter));
+            }
+        } catch (IOException e) {
+            throw new VoldemortException(e);
+        }
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
+                .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
+                .build();
+        VAdminProto.InitiateFetchAndUpdateResponse.Builder response = sendAndReceive(stealerNodeId, adminRequest,
+                VAdminProto.InitiateFetchAndUpdateResponse.newBuilder());
+
+        if (response.hasError()) {
+            throwException(response.getError());
+        }
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {

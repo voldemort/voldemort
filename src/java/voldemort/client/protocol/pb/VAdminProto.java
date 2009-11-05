@@ -5161,6 +5161,13 @@ public final class VAdminProto {
     public boolean hasDeletePartitionEntries() { return hasDeletePartitionEntries; }
     public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest getDeletePartitionEntries() { return deletePartitionEntries_; }
     
+    // optional .voldemort.InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
+    public static final int INITIATE_FETCH_AND_UPDATE_FIELD_NUMBER = 7;
+    private boolean hasInitiateFetchAndUpdate;
+    private voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest initiateFetchAndUpdate_ = voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.getDefaultInstance();
+    public boolean hasInitiateFetchAndUpdate() { return hasInitiateFetchAndUpdate; }
+    public voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest getInitiateFetchAndUpdate() { return initiateFetchAndUpdate_; }
+    
     public final boolean isInitialized() {
       if (!hasType) return false;
       if (hasGetMetadata()) {
@@ -5177,6 +5184,9 @@ public final class VAdminProto {
       }
       if (hasDeletePartitionEntries()) {
         if (!getDeletePartitionEntries().isInitialized()) return false;
+      }
+      if (hasInitiateFetchAndUpdate()) {
+        if (!getInitiateFetchAndUpdate().isInitialized()) return false;
       }
       return true;
     }
@@ -5200,6 +5210,9 @@ public final class VAdminProto {
       }
       if (hasDeletePartitionEntries()) {
         output.writeMessage(6, getDeletePartitionEntries());
+      }
+      if (hasInitiateFetchAndUpdate()) {
+        output.writeMessage(7, getInitiateFetchAndUpdate());
       }
       getUnknownFields().writeTo(output);
     }
@@ -5233,6 +5246,10 @@ public final class VAdminProto {
       if (hasDeletePartitionEntries()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(6, getDeletePartitionEntries());
+      }
+      if (hasInitiateFetchAndUpdate()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(7, getInitiateFetchAndUpdate());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -5401,6 +5418,9 @@ public final class VAdminProto {
         if (other.hasDeletePartitionEntries()) {
           mergeDeletePartitionEntries(other.getDeletePartitionEntries());
         }
+        if (other.hasInitiateFetchAndUpdate()) {
+          mergeInitiateFetchAndUpdate(other.getInitiateFetchAndUpdate());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -5479,6 +5499,15 @@ public final class VAdminProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setDeletePartitionEntries(subBuilder.buildPartial());
+              break;
+            }
+            case 58: {
+              voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.newBuilder();
+              if (hasInitiateFetchAndUpdate()) {
+                subBuilder.mergeFrom(getInitiateFetchAndUpdate());
+              }
+              input.readMessage(subBuilder, extensionRegistry);
+              setInitiateFetchAndUpdate(subBuilder.buildPartial());
               break;
             }
           }
@@ -5691,6 +5720,43 @@ public final class VAdminProto {
         result.deletePartitionEntries_ = voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest.getDefaultInstance();
         return this;
       }
+      
+      // optional .voldemort.InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
+      public boolean hasInitiateFetchAndUpdate() {
+        return result.hasInitiateFetchAndUpdate();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest getInitiateFetchAndUpdate() {
+        return result.getInitiateFetchAndUpdate();
+      }
+      public Builder setInitiateFetchAndUpdate(voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.hasInitiateFetchAndUpdate = true;
+        result.initiateFetchAndUpdate_ = value;
+        return this;
+      }
+      public Builder setInitiateFetchAndUpdate(voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.Builder builderForValue) {
+        result.hasInitiateFetchAndUpdate = true;
+        result.initiateFetchAndUpdate_ = builderForValue.build();
+        return this;
+      }
+      public Builder mergeInitiateFetchAndUpdate(voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest value) {
+        if (result.hasInitiateFetchAndUpdate() &&
+            result.initiateFetchAndUpdate_ != voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.getDefaultInstance()) {
+          result.initiateFetchAndUpdate_ =
+            voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.newBuilder(result.initiateFetchAndUpdate_).mergeFrom(value).buildPartial();
+        } else {
+          result.initiateFetchAndUpdate_ = value;
+        }
+        result.hasInitiateFetchAndUpdate = true;
+        return this;
+      }
+      public Builder clearInitiateFetchAndUpdate() {
+        result.hasInitiateFetchAndUpdate = false;
+        result.initiateFetchAndUpdate_ = voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.getDefaultInstance();
+        return this;
+      }
     }
     
     static {
@@ -5819,7 +5885,7 @@ public final class VAdminProto {
       "(\t\022*\n\006filter\030\004 \001(\0132\032.voldemort.Voldemort" +
       "Filter\"_\n\036InitiateFetchAndUpdateResponse" +
       "\022\034\n\024completed_partitions\030\001 \003(\005\022\037\n\005error\030" +
-      "\002 \001(\0132\020.voldemort.Error\"\224\003\n\025VoldemortAdm" +
+      "\002 \001(\0132\020.voldemort.Error\"\341\003\n\025VoldemortAdm" +
       "inRequest\022)\n\004type\030\001 \002(\0162\033.voldemort.Admi" +
       "nRequestType\0223\n\014get_metadata\030\002 \001(\0132\035.vol" +
       "demort.GetMetadataRequest\0229\n\017update_meta" +
@@ -5829,13 +5895,15 @@ public final class VAdminProto {
       "\022H\n\027fetch_partition_entries\030\005 \001(\0132\'.vold" +
       "emort.FetchPartitionEntriesRequest\022J\n\030de" +
       "lete_partition_entries\030\006 \001(\0132(.voldemort" +
-      ".DeletePartitionEntriesRequest*\261\001\n\020Admin" +
-      "RequestType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_" +
-      "METADATA\020\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002" +
-      "\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_" +
-      "PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AN" +
-      "D_UPDATE\020\005B-\n\034voldemort.client.protocol." +
-      "pbB\013VAdminProtoH\001"
+      ".DeletePartitionEntriesRequest\022K\n\031initia" +
+      "te_fetch_and_update\030\007 \001(\0132(.voldemort.In" +
+      "itiateFetchAndUpdateRequest*\261\001\n\020AdminReq" +
+      "uestType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_MET" +
+      "ADATA\020\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n" +
+      "\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PAR" +
+      "TITION_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_U",
+      "PDATE\020\005B-\n\034voldemort.client.protocol.pbB" +
+      "\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -5959,7 +6027,7 @@ public final class VAdminProto {
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;

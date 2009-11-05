@@ -96,6 +96,7 @@ message VoldemortAdminRequest {
   optional UpdatePartitionEntriesRequest update_partition_entries = 4;
   optional FetchPartitionEntriesRequest fetch_partition_entries = 5;
   optional DeletePartitionEntriesRequest delete_partition_entries = 6;
+  optional InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
 }
 
 

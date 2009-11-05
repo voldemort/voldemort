@@ -101,6 +101,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                              inputStream,
                                              outputStream);
                 break;
+            case INITIATE_FETCH_AND_UPDATE:
+                ProtoUtils.writeMessage(outputStream, handleFetchAndUpdate(request.getInitiateFetchAndUpdate()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -205,6 +208,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } finally {
             ProtoUtils.writeMessage(outputStream, response.build());
         }
+    }
+
+    public VAdminProto.InitiateFetchAndUpdateResponse
+    handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
+        VAdminProto.InitiateFetchAndUpdateResponse response = VAdminProto.InitiateFetchAndUpdateResponse.newBuilder()
+                .build();
+        return response;
     }
 
     public VAdminProto.DeletePartitionEntriesResponse handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
