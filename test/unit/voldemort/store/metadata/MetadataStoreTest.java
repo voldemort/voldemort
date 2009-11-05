@@ -21,6 +21,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
@@ -57,7 +58,9 @@ public class MetadataStoreTest extends TestCase {
 
     public ByteArray getValidKey() {
         int i = (int) (Math.random() * TEST_KEYS.size());
-        return new ByteArray(ByteUtils.getBytes(TEST_KEYS.get(i), "UTF-8"));
+        String key = TEST_KEYS.get(i);
+        System.out.println("valid Key:" + key);
+        return new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
     }
 
     public byte[] getValidValue(ByteArray key) {
@@ -100,18 +103,36 @@ public class MetadataStoreTest extends TestCase {
         }
     }
 
+    public void testRepeatedPuts() {
+        for(int i = 0; i <= TEST_RUNS; i++) {
+            for(int j = 0; j <= 5; j++) {
+                ByteArray key = getValidKey();
+
+                VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
+                Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key),
+                                                                clock.incremented(0, 1));
+
+                metadataStore.put(key, value);
+                checkValues(value, metadataStore.get(key), key);
+            }
+        }
+    }
+
     public void testObsoletePut() {
         for(int i = 0; i <= TEST_RUNS; i++) {
             ByteArray key = getValidKey();
             VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
-            Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key), clock);
+            Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key),
+                                                            clock.incremented(0, 1));
 
             try {
                 metadataStore.put(key, value);
+                assertTrue(true);
                 metadataStore.put(key, value);
                 fail();
-            } catch(ObsoleteVersionException e) {
-                // expected
+            } catch(VoldemortException e) {
+                // expected ObsoleteVersionException
+                assertEquals(e.getCause().getClass(), ObsoleteVersionException.class);
             }
         }
     }

@@ -177,7 +177,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
             }
         } catch(Exception e) {
-            throw new VoldemortException("Failed to put() for key:" + key, e);
+            throw new VoldemortException("Failed to put() key:" + key + " with value:" + value, e);
         }
     }
 
@@ -282,10 +282,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return (List<Integer>) metadataCache.get(REBALANCING_PARTITIONS_LIST_KEY).getValue();
     }
 
-    public void setRebalancingPartitionList(List<Integer> list) {
-        metadataCache.put(REBALANCING_PARTITIONS_LIST_KEY, new Versioned<Object>(list));
-    }
-
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
         Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
@@ -341,7 +337,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueStr = clusterMapper.writeCluster((Cluster) value.getValue());
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
-        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)
+                  || REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
             // save the list as comma separate string.
             StringBuilder builder = new StringBuilder();
             List<Integer> list = (List<Integer>) value.getValue();
@@ -353,9 +350,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 }
             }
             valueStr = builder.toString();
+        } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)
+                  || NODE_ID_KEY.equals(key)) {
+            valueStr = value.getValue().toString();
+        } else {
+            throw new VoldemortException("Unhandled key:'" + key
+                                         + "' for Object to String serialization.");
         }
 
-        // default case no special operation return same value
         return new Versioned<String>(valueStr, value.getVersion());
     }
 
@@ -366,11 +368,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = clusterMapper.readCluster(new StringReader(value.getValue()));
         } else if(STORES_KEY.equals(key)) {
             valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
-        } else if(SERVER_STATE_KEY.equals(key)) {
+        } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)) {
             valueObject = VoldemortState.valueOf(value.getValue());
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
-        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)) {
+        } else if(REBALANCING_SLAVES_LIST_KEY.equals(key)
+                  || REBALANCING_PARTITIONS_LIST_KEY.equals(key)) {
             List<Integer> list = new ArrayList<Integer>();
             if(value.getValue().trim().length() > 0) {
                 String[] partitions = value.getValue().split(",");
@@ -381,8 +384,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 }
             }
             valueObject = list;
+        } else {
+            throw new VoldemortException("Unhandled key:'" + key
+                                         + "' for String to Object serialization.");
         }
-        // default case no special operation return same value
+
         return new Versioned<Object>(valueObject, value.getVersion());
     }
 
