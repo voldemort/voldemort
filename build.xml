@@ -184,6 +184,9 @@
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
     </javac>
+    <copy todir="${contrib.classes.dir}">
+      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
+    </copy>
   </target>
 
   <target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
