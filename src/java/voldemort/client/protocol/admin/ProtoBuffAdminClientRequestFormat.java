@@ -133,7 +133,6 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         return ProtoUtils.decodeVersioned(response.getVersion());
     }
 
-
     /**
      * update Entries at (remote) node with all entries in iterator for passed
      * storeName
@@ -202,6 +201,39 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         }
     }
 
+    private void initiateFetchRequest(DataOutputStream outputStream, String storeName, List<Integer> partitionList,
+                                      VoldemortFilter filter, boolean fetchValues) throws IOException {
+        VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
+                VAdminProto.FetchPartitionEntriesRequest.newBuilder()
+                        .addAllPartitions(partitionList)
+                        .setFetchValues(fetchValues)
+                        .setStore(storeName);
+        
+        if (filter != null) {
+            fetchRequest.setFilter(encodeFilter(filter));
+        }
+
+        VAdminProto.VoldemortAdminRequest request =
+                VAdminProto.VoldemortAdminRequest.newBuilder()
+                        .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
+                        .setFetchPartitionEntries(fetchRequest)
+                .build();
+        ProtoUtils.writeMessage(outputStream, request);
+        outputStream.flush();
+
+    }
+
+    VAdminProto.FetchPartitionEntriesResponse responseFromStream(DataInputStream inputStream, int size) throws
+            IOException {
+        byte[] input = new byte[size];
+        ByteUtils.read(inputStream, input);
+        VAdminProto.FetchPartitionEntriesResponse.Builder response =
+                VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+        response.mergeFrom(input);
+
+        return response.build();
+    }
+
     /**
      * streaming API to get all entries belonging to any of the partition in the
      * input List.
@@ -226,24 +258,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
-                    VAdminProto.FetchPartitionEntriesRequest.newBuilder()
-                            .addAllPartitions(partitionList)
-                            .setFetchValues(true)
-                            .setStore(storeName);
-
-            if (filter != null) {
-                fetchRequest.setFilter(encodeFilter(filter));
-            }
-
-            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest
-                .newBuilder()
-                .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
-                .setFetchPartitionEntries(fetchRequest)
-                .build();
-
-            ProtoUtils.writeMessage(outputStream, request);
-            outputStream.flush();
+            initiateFetchRequest(outputStream, storeName, partitionList, filter, true);
         } catch (IOException e) {
             close (sands.getSocket());
             pool.checkin(destination, sands);
@@ -260,13 +275,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                         return endOfData();
                     }
 
-                    // There is a bug in CodedInputStream
-                    // Work around suggested by ijuma
-                    byte[] input = new byte[size];
-                    ByteUtils.read(inputStream, input);
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response =
-                            VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-                    response.mergeFrom(input);
+                    VAdminProto.FetchPartitionEntriesResponse response =
+                            responseFromStream(inputStream, size);
 
                     if (response.hasError()) {
                         pool.checkin(destination, sands);
@@ -309,22 +319,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
-                VAdminProto.FetchPartitionEntriesRequest.newBuilder()
-                    .addAllPartitions(partitionList)
-                    .setStore(storeName);
-
-            if (filter != null) {
-                fetchRequest.setFilter(encodeFilter(filter));
-            }
-
-            VAdminProto.VoldemortAdminRequest request =
-                VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setFetchPartitionEntries(fetchRequest)
-                .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
-                .build();
-            ProtoUtils.writeMessage(outputStream, request);
-            outputStream.flush();
+            initiateFetchRequest(outputStream, storeName, partitionList, filter, false);
         } catch (IOException e) {
             close(sands.getSocket());
             pool.checkin(destination, sands);
@@ -340,12 +335,9 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                         pool.checkin(destination, sands);
                         return endOfData();
                     }
-
-                    byte[] input = new byte[size];
-                    ByteUtils.read(inputStream, input);
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response =
-                        VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-                    response.mergeFrom(input);
+                    
+                    VAdminProto.FetchPartitionEntriesResponse response =
+                            responseFromStream(inputStream, size);
                     
                     if (response.hasError()) {
                         pool.checkin(destination, sands);
@@ -353,7 +345,6 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
                     }
 
                     return ProtoUtils.decodeBytes(response.getKey());
-
                 } catch (IOException e) {
                     close(sands.getSocket());
                     pool.checkin(destination, sands);
