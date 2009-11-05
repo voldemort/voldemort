@@ -24,16 +24,6 @@ message UpdateMetadataResponse {
   optional Error error = 1;
 }
 
-message RedirectGetRequest {
-  required string store_name = 1;
-  required bytes key = 2;
-}
-
-message RedirectGetResponse {
-  repeated Versioned versioned = 1;
-  optional Error error = 2;
-}
-
 message PartitionEntry {
   required bytes key = 1;
   required Versioned versioned = 2;
@@ -78,24 +68,29 @@ message DeletePartitionEntriesResponse {
   optional Error error = 2;
 }
 
+message InitiateFetchAndUpdate {
+  required int32 node_id = 1;
+  repeated int32 partitions = 2;
+  required string store = 3;
+  optional VoldemortFilter filter = 4;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
-  REDIRECT_GET = 2;
-  UPDATE_PARTITION_ENTRIES = 3;
-  FETCH_PARTITION_ENTRIES = 4;
-  DELETE_PARTITION_ENTRIES = 5;
-  FETCH_KEYS = 6;
+  UPDATE_PARTITION_ENTRIES = 2;
+  FETCH_PARTITION_ENTRIES = 3;
+  DELETE_PARTITION_ENTRIES = 4;
+  INITIATE_FETCH_AND_UPDATE = 5;
 }
 
 message VoldemortAdminRequest {
   required AdminRequestType type = 1;
   optional GetMetadataRequest get_metadata = 2;
   optional UpdateMetadataRequest update_metadata = 3;
-  optional RedirectGetRequest redirect_get = 4;
-  optional UpdatePartitionEntriesRequest update_partition_entries = 5;
-  optional FetchPartitionEntriesRequest fetch_partition_entries = 6;
-  optional DeletePartitionEntriesRequest delete_partition_entries = 7;
+  optional UpdatePartitionEntriesRequest update_partition_entries = 4;
+  optional FetchPartitionEntriesRequest fetch_partition_entries = 5;
+  optional DeletePartitionEntriesRequest delete_partition_entries = 6;
 }
 
 

@@ -88,9 +88,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             case FETCH_PARTITION_ENTRIES:
                 handleFetchPartitionEntries(request.getFetchPartitionEntries(), outputStream);
                 break;
-            case REDIRECT_GET:
-                ProtoUtils.writeMessage(outputStream, handleRedirectGet(request.getRedirectGet()));
-                break;
             case UPDATE_PARTITION_ENTRIES:
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream,
                     outputStream);
@@ -122,6 +119,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return filter;
     }
 
+    /*
     public VAdminProto.RedirectGetResponse
     handleRedirectGet(VAdminProto.RedirectGetRequest request) {
         VAdminProto.RedirectGetResponse.Builder response =
@@ -147,6 +145,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
         return response.build();
     }
+    */
 
     public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
                                             DataOutputStream outputStream) throws IOException {
