@@ -95,9 +95,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(), inputStream,
                     outputStream);
                 break;
-            case FETCH_KEYS:
-                handleFetchPartitionKeys(request.getFetchPartitionKeys(), outputStream);
-                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -151,55 +148,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public void handleFetchPartitionKeys(VAdminProto.FetchPartitionKeysRequest request,
-                                DataOutputStream outputStream) throws IOException {
-        try {
-            String storeName = request.getStore();
-            StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
-
-            if (storageEngine == null) {
-                throw new VoldemortException("No store named '" + storeName + "'.");
-            }
-            RoutingStrategy routingStrategy =
-                metadataStore.getRoutingStrategy(storageEngine.getName());
-            EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
-            List<Integer> partitionList = request.getPartitionsList();
-            VoldemortFilter filter;
-
-            if (request.hasFilter()) {
-                filter = getFilterFromRequest(request.getFilter());
-            } else {
-                filter = new DefaultVoldemortFilter();
-            }
-
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
-            while (iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-
-                if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
-                    && filter.filter(entry.getFirst(), entry.getSecond())) {
-                    VAdminProto.FetchPartitionKeysResponse response = VAdminProto.FetchPartitionKeysResponse
-                        .newBuilder()
-                        .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                        .build();
-                    ProtoUtils.writeMessage(outputStream, response);
-
-                    if (throttler != null) {
-                        throttler.maybeThrottle(entry.getFirst().length());
-                    }
-                }
-            }
-            iterator.close();
-            ProtoUtils.writeEndOfStream(outputStream);
-        } catch (VoldemortException e) {
-            VAdminProto.FetchPartitionKeysResponse response = VAdminProto.FetchPartitionKeysResponse.newBuilder()
-                .setError(ProtoUtils.encodeError(errorCodeMapper, e))
-                .build();
-            ProtoUtils.writeMessage(outputStream, response);
-        }
-
-    }
-
     public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
                                             DataOutputStream outputStream) throws IOException {
         try {
@@ -214,6 +162,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 metadataStore.getRoutingStrategy(storageEngine.getName());
             EventThrottler throttler = new EventThrottler(streamMaxBytesReadPerSec);
             List<Integer> partitionList = request.getPartitionsList();
+            boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
             VoldemortFilter filter;
 
             if (request.hasFilter()) {
@@ -229,15 +178,20 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 if (validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                     && filter.filter(entry.getFirst(), entry.getSecond())) {
 
-                    VAdminProto.PartitionEntry partitionEntry =
-                            VAdminProto.PartitionEntry.newBuilder()
-                                    .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                                    .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
-                                    .build();
                     VAdminProto.FetchPartitionEntriesResponse.Builder response =
-                            VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                                                VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
-                    response.setPartitionEntry(partitionEntry);
+                    if (fetchValues) {
+                        VAdminProto.PartitionEntry partitionEntry =
+                                VAdminProto.PartitionEntry.newBuilder()
+                                        .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
+                                        .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
+                                        .build();
+                        response.setPartitionEntry(partitionEntry);
+                    } else {
+                        response.setKey(ProtoUtils.encodeBytes(entry.getFirst()));
+                    }
+
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
 

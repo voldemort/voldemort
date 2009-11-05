@@ -228,8 +228,9 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         try {
             VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
                     VAdminProto.FetchPartitionEntriesRequest.newBuilder()
-                    .addAllPartitions(partitionList)
-                    .setStore(storeName);
+                            .addAllPartitions(partitionList)
+                            .setFetchValues(true)
+                            .setStore(storeName);
 
             if (filter != null) {
                 fetchRequest.setFilter(encodeFilter(filter));
@@ -308,8 +309,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            VAdminProto.FetchPartitionKeysRequest.Builder fetchRequest =
-                VAdminProto.FetchPartitionKeysRequest.newBuilder()
+            VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest =
+                VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                     .addAllPartitions(partitionList)
                     .setStore(storeName);
 
@@ -319,8 +320,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
             VAdminProto.VoldemortAdminRequest request =
                 VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setFetchPartitionKeys(fetchRequest)
-                .setType(VAdminProto.AdminRequestType.FETCH_KEYS)
+                .setFetchPartitionEntries(fetchRequest)
+                .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
                 .build();
             ProtoUtils.writeMessage(outputStream, request);
             outputStream.flush();
@@ -342,10 +343,10 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClientRequestFormat 
 
                     byte[] input = new byte[size];
                     ByteUtils.read(inputStream, input);
-                    VAdminProto.FetchPartitionKeysResponse.Builder response =
-                        VAdminProto.FetchPartitionKeysResponse.newBuilder();
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response =
+                        VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.mergeFrom(input);
-
+                    
                     if (response.hasError()) {
                         pool.checkin(destination, sands);
                         throwException(response.getError());
