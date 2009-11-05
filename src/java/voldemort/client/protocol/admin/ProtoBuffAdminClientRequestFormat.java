@@ -360,7 +360,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      */
     @Override
     public void fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        // Place holder
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {

@@ -68,11 +68,16 @@ message DeletePartitionEntriesResponse {
   optional Error error = 2;
 }
 
-message InitiateFetchAndUpdate {
+message InitiateFetchAndUpdateRequest {
   required int32 node_id = 1;
   repeated int32 partitions = 2;
   required string store = 3;
   optional VoldemortFilter filter = 4;
+}
+
+message InitiateFetchAndUpdateResponse {
+  repeated int32 completed_partitions = 1;
+  optional Error error = 2;
 }
 
 enum AdminRequestType {
