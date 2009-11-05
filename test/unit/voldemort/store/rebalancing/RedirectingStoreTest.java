@@ -23,7 +23,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortServer;
@@ -47,7 +47,7 @@ public class RedirectingStoreTest extends TestCase {
 
     VoldemortServer server0;
     VoldemortServer server1;
-    AdminClientRequestFormat adminClient;
+    AdminClient adminClient;
 
     Cluster cluster;
 
@@ -117,8 +117,10 @@ public class RedirectingStoreTest extends TestCase {
         MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        adminClient.updateRebalancingProxyDest(0, 1);
-        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
+        // TODO : fix me
+        // adminClient.updateRebalancingProxyDest(0, 1);
+        // adminClient.updateRebalancingPartitionList(0, Arrays.asList(new
+        // Integer[] { 2, 3 }));
 
         RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
@@ -137,7 +139,8 @@ public class RedirectingStoreTest extends TestCase {
             }
         }
 
-        adminClient.updateServerState(0, MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        adminClient.updateRemoteServerState(0,
+                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
 
@@ -178,15 +181,18 @@ public class RedirectingStoreTest extends TestCase {
         MetadataStore metadata = server0.getMetadataStore();
 
         // change donorNode/stealPartitionList here.
-        adminClient.updateRebalancingProxyDest(0, 1);
-        adminClient.updateRebalancingPartitionList(0, Arrays.asList(new Integer[] { 2, 3 }));
+        // TODO : fix me
+        // adminClient.updateRebalancingProxyDest(0, 1);
+        // adminClient.updateRebalancingPartitionList(0, Arrays.asList(new
+        // Integer[] { 2, 3 }));
 
         RedirectingStore RedirectingStore = getRedirectingStore(metadata);
 
         // we should see obsolete version exception if try to insert with same
         // version
 
-        adminClient.updateServerState(0, MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        adminClient.updateRemoteServerState(0,
+                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         for(int i = 100; i <= 1000; i++) {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
             if(metadata.getRoutingStrategy(storeName)
