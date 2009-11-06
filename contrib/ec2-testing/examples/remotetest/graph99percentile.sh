@@ -1,3 +1,4 @@
+#!/bin/sh
 # Written by Matthew Garcia
 # Creates a .pg file based on the datafile given by the user.
 # The program then runs the .pg file and outputs the data to
