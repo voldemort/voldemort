@@ -18,7 +18,7 @@ if [ "$1" = "" ]
         exit 1
 fi
 
-groovy graphAverageTime.groovy $@ > $DATA_FILE
+./graphAverageTime.scala $@ > $DATA_FILE
 cat > $PG_FILE <<End-of-Message 
 #!/usr/bin/gnuplot 
 reset 
