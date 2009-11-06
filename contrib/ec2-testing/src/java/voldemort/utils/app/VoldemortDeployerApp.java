@@ -44,14 +44,15 @@ public class VoldemortDeployerApp extends VoldemortApp {
                        "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
-        parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
+        parser.accepts("sshprivatekey", "File containing SSH private key (optional)")
+              .withRequiredArg();
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
         parser.accepts("parent", "Parent directory on remote host").withRequiredArg();
         parser.accepts("source", "The source directory on the local machine").withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
-        File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
+        File sshPrivateKey = getInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         File sourceDirectory = getRequiredInputFile(options, "source");
         String parentDirectory = getRequiredString(options, "parent");
