@@ -14,20 +14,12 @@ exec scala "$0" "$@"
 
 def get99thPercentile(times:List[Double]) : Double = {
   val timesSorted = times.sort(_ < _)
-  val percent = timesSorted.length * 0.99
-  var bd = new BigDecimal(new java.math.BigDecimal(percent))
-  bd = bd.setScale(0, BigDecimal.RoundingMode.ROUND_HALF_UP)
-  timesSorted(bd.intValue() - 1)
-}
-
-if (args.length <= 0) {
-  System.err.println("Please enter at least one file")
-  System.exit(1)
+  val percent = (timesSorted.length * 0.99).asInstanceOf[Int]
+  timesSorted(percent)
 }
 
 var i = 0
 
-// Get raw data files from user.
 for (arg <- args) {
   val writes = new scala.collection.mutable.ListBuffer[Double]()
   val deletes = new scala.collection.mutable.ListBuffer[Double]()

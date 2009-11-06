@@ -14,30 +14,29 @@ exec scala "$0" "$@"
 var i = 0
 
 for (arg <- args) {
+  var readsTotal = 0.0
+  var readsCount = 0
   var writesTotal = 0.0
   var writesCount = 0
   var deletesTotal = 0.0
   var deletesCount = 0
-  var readsTotal = 0.0
-  var readsCount = 0
 
   for (line <- scala.io.Source.fromFile(arg).getLines) {
     val data = line.split(" ")
 
     if (data.length >= 5) {
-      // Gets total seconds for each transaction, and the total iterations.
+      readsTotal += data(2).toDouble
+      readsCount += 1
       writesTotal += data(3).toDouble
       writesCount += 1
       deletesTotal += data(4).toDouble
       deletesCount += 1		
-      readsTotal += data(2).toDouble
-      readsCount += 1
     }
   }
 
+  val readsAvg = readsTotal / readsCount
   val writesAvg = writesTotal / writesCount
   val deletesAvg = deletesTotal / deletesCount
-  val readsAvg = readsTotal / readsCount
 
   i += 1
 
