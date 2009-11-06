@@ -12,8 +12,6 @@ exec scala "$0" "$@"
  use to create a graph based on the data). Output may be changed so 
  that this information is sent to a file. */
 
-import scala.collection.mutable.ListBuffer
-	
 def get99thPercentile(times:List[Double]) : Double = {
   val timesSorted = times.sort(_ < _)
   val percent = timesSorted.length * 0.99
@@ -31,9 +29,9 @@ var i = 0
 
 // Get raw data files from user.
 for (arg <- args) {
-  val writes = new ListBuffer[Double]()
-  val deletes = new ListBuffer[Double]()
-  val reads = new ListBuffer[Double]()
+  val writes = new scala.collection.mutable.ListBuffer[Double]()
+  val deletes = new scala.collection.mutable.ListBuffer[Double]()
+  val reads = new scala.collection.mutable.ListBuffer[Double]()
 
   for (line <- scala.io.Source.fromFile(arg).getLines) {
     val data = line.split(" ")
