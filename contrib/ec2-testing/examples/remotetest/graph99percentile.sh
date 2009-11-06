@@ -17,7 +17,7 @@ if [ "$1" = "" ]
         exit 1
 fi
 
-groovy graph99percentile.groovy $@ > $DATA_FILE
+./graph99percentile.scala $@ > $DATA_FILE
 
 # Creates a .pg file by outputting the file strings to it.
 
