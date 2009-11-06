@@ -9,20 +9,20 @@
 # The .png file contains the data created from the groovy script in a graph.
 
 DATE=`date +%C%y_%m_%d_%H_%M_%S`
-PG_FILE=${DATE}multiHostTest.pg
-IMG_FILE=multiHostTest.png
-DATA_FILE=${DATE}multiHostTest.dat
-HOSTS_FILE=${DATE}multiHostTest-hosts.dat
+PG_FILE=${DATE}graphMultiHostTest.pg
+IMG_FILE=graphMultiHostTest.png
+DATA_FILE=${DATE}graphMultiHostTest.dat
+HOSTS_FILE=${DATE}graphMultiHostTest-hosts.dat
 
 if [ "$1" = "" ]
 	then
-	echo "Usage: $0 Takes raw data files as arguments."
-	exit 1
+		echo "Usage: $0 Takes raw data files as arguments."
+		exit 1
 fi
 
-groovy multiHostTest.groovy $@ > $DATA_FILE
+./graphMultiHostTest.scala $@ > $DATA_FILE
 
-cat $1  | cut -d' ' -f1 | uniq > $HOSTS_FILE
+cat $1  | cut -d' ' -f1 | sort | uniq > $HOSTS_FILE
 intI=`awk 'END{print NR}' $HOSTS_FILE`
 
 # Creates the .pg file
