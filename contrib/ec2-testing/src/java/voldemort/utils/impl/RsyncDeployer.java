@@ -58,7 +58,7 @@ public class RsyncDeployer extends CommandLineRemoteOperation implements Deploye
      * @param hostNames External host names to which to deploy the Voldemort
      *        distribution
      * @param sshPrivateKey SSH private key file on local filesystem that can
-     *        access all of the remote hosts
+     *        access all of the remote hosts, or null if not needed
      * @param sourceDirectory Directory of Voldemort distribution on local file
      *        system
      * @param hostUserId User ID on the remote hosts; assumed to be the same for
@@ -96,14 +96,17 @@ public class RsyncDeployer extends CommandLineRemoteOperation implements Deploye
             throw new RemoteOperationException("Directory " + sourceDirectory.getAbsolutePath()
                                                + " is not a directory");
 
-        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("RsyncDeployer.rsync");
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("RsyncDeployer.rsync"
+                                                                                         + (sshPrivateKey != null ? ""
+                                                                                                                 : ".nokey"));
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
         for(String hostName: hostNames) {
             Map<String, String> parameters = new HashMap<String, String>();
             parameters.put(HOST_NAME_PARAM, hostName);
             parameters.put(HOST_USER_ID_PARAM, hostUserId);
-            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(SSH_PRIVATE_KEY_PARAM,
+                           sshPrivateKey != null ? sshPrivateKey.getAbsolutePath() : null);
             parameters.put(DESTINATION_DIRECTORY_PARAM, destinationDirectory);
             parameters.put(SOURCE_DIRECTORY_PARAM, sourceDirectory.getAbsolutePath());
 

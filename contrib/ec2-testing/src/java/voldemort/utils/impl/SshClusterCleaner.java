@@ -52,7 +52,7 @@ public class SshClusterCleaner extends CommandLineRemoteOperation implements Clu
      * @param hostNames External host names for which to clean the Voldemort
      *        data directory
      * @param sshPrivateKey SSH private key file on local filesystem that can
-     *        access all of the remote hosts
+     *        access all of the remote hosts, or null if not needed
      * @param hostUserId User ID on the remote hosts; assumed to be the same for
      *        all of the remote hosts
      * @param voldemortHomeDirectory Directory under which Voldemort
@@ -76,14 +76,17 @@ public class SshClusterCleaner extends CommandLineRemoteOperation implements Clu
         if(logger.isInfoEnabled())
             logger.info("Cleaning " + voldemortHomeDirectory + " on remote hosts: " + hostNames);
 
-        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterCleaner.ssh");
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterCleaner.ssh"
+                                                                                         + (sshPrivateKey != null ? ""
+                                                                                                                 : ".nokey"));
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
         for(String hostName: hostNames) {
             Map<String, String> parameters = new HashMap<String, String>();
             parameters.put(HOST_NAME_PARAM, hostName);
             parameters.put(HOST_USER_ID_PARAM, hostUserId);
-            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(SSH_PRIVATE_KEY_PARAM,
+                           sshPrivateKey != null ? sshPrivateKey.getAbsolutePath() : null);
             parameters.put(VOLDEMORT_HOME_DIRECTORY_PARAM, voldemortHomeDirectory);
 
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
@@ -94,5 +97,4 @@ public class SshClusterCleaner extends CommandLineRemoteOperation implements Clu
         if(logger.isInfoEnabled())
             logger.info("Cleaning remote hosts complete");
     }
-
 }
