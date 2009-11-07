@@ -16,121 +16,115 @@
 
 package voldemort.utils;
 
+import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
+import static voldemort.utils.Ec2InstanceRemoteTestUtils.listInstances;
+import static voldemort.utils.RemoteTestUtils.deploy;
+import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
+import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
+import static voldemort.utils.RemoteTestUtils.startClusterAsync;
+import static voldemort.utils.RemoteTestUtils.startClusterNode;
+import static voldemort.utils.RemoteTestUtils.stopCluster;
+import static voldemort.utils.RemoteTestUtils.stopClusterNode;
+import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
+import static voldemort.utils.RemoteTestUtils.toHostNames;
+
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.FileUtils;
+import org.junit.Before;
 import org.junit.Test;
-
-import voldemort.utils.impl.RsyncDeployer;
-import voldemort.utils.impl.SshClusterStarter;
-import voldemort.utils.impl.SshClusterStopper;
-import voldemort.utils.impl.SshRemoteTest;
-import voldemort.utils.impl.TypicaEc2Connection;
 
 public class SmokeTest {
 
+    private String accessId;
+    private String secretKey;
+    private String ami;
+    private String keyPairId;
+    private String sshPrivateKeyPath;
+    private String hostUserId;
+    private File sshPrivateKey;
+    private String voldemortRootDirectory;
+    private String voldemortHomeDirectory;
+    private File sourceDirectory;
+    private String parentDirectory;
+    private File clusterXmlFile;
+    private List<HostNamePair> hostNamePairs;
+    private List<String> hostNames;
+    private Map<String, Integer> nodeIds;
+
+    @Before
+    public void setUp() throws Exception {
+        accessId = System.getProperty("ec2AccessId");
+        secretKey = System.getProperty("ec2SecretKey");
+        ami = System.getProperty("ec2Ami");
+        keyPairId = System.getProperty("ec2KeyPairId");
+        sshPrivateKeyPath = System.getProperty("sshPrivateKeyPath");
+        hostUserId = "root";
+        sshPrivateKey = sshPrivateKeyPath != null ? new File(sshPrivateKeyPath) : null;
+        voldemortRootDirectory = "voldemort";
+        voldemortHomeDirectory = "voldemort/config/single_node_cluster";
+        sourceDirectory = new File(System.getProperty("user.dir"));
+        parentDirectory = ".";
+        clusterXmlFile = new File(System.getProperty("user.dir"),
+                                  "config/single_node_cluster/config/cluster.xml");
+
+        hostNamePairs = listInstances(accessId, secretKey);
+        int existing = hostNamePairs.size();
+        int max = 6;
+        int min = 3;
+
+        if(existing < min) {
+            createInstances(accessId, secretKey, ami, keyPairId, max - existing);
+            hostNamePairs = listInstances(accessId, secretKey);
+        }
+
+        hostNames = toHostNames(hostNamePairs);
+
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+
+        stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
+        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
+    }
+
     @Test
     public void test() throws Exception {
-        List<HostNamePair> hostNamePairs = getInstances();
-
-        if(hostNamePairs.size() < 3) {
-            createInstances(6);
-            hostNamePairs = getInstances();
-        }
-
-        final Map<String, Integer> nodeIds = generateClusterDescriptor(hostNamePairs,
-                                                                       "/home/kirk/voldemortdev/voldemort/config/single_node_cluster/config/cluster.xml");
-
-        final List<String> hostNames = new ArrayList<String>();
-        String bootstrapHostName = hostNamePairs.get(0).getInternalHostName();
-
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getExternalHostName());
-
-        final String hostUserId = "root";
-        final File sshPrivateKey = new File("/home/kirk/Dropbox/Configuration/AWS/id_rsa-mustardgrain-keypair");
-        final String voldemortRootDirectory = "voldemort";
-        final String voldemortHomeDirectory = "voldemort/config/single_node_cluster";
-        final File sourceDirectory = new File("/home/kirk/voldemortdev/voldemort");
-        String parentDirectory = ".";
-
         try {
-            new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
-        } catch(Exception e) {
-            // Ignore...
+            startClusterAsync(hostNames,
+                              sshPrivateKey,
+                              hostUserId,
+                              voldemortRootDirectory,
+                              voldemortHomeDirectory,
+                              nodeIds);
+
+            executeRemoteTest(hostNamePairs, sshPrivateKey, hostUserId, 10, 10, 100);
+        } finally {
+            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
-
-        new RsyncDeployer(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory).execute();
-
-        new Thread(new Runnable() {
-
-            public void run() {
-                try {
-                    new SshClusterStarter(hostNames,
-                                          sshPrivateKey,
-                                          hostUserId,
-                                          voldemortRootDirectory,
-                                          voldemortHomeDirectory,
-                                          nodeIds).execute();
-                } catch(RemoteOperationException e) {
-                    e.printStackTrace();
-                }
-            }
-
-        }).start();
-
-        Thread.sleep(5000);
-
-        Map<String, String> commands = new HashMap<String, String>();
-
-        new SshRemoteTest(hostNames, sshPrivateKey, hostUserId, commands).execute();
-
-        new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
     }
 
-    private List<HostNamePair> createInstances(int count) throws Exception {
-        String accessId = System.getProperty("ec2AccessId");
-        String secretKey = System.getProperty("ec2SecretKey");
-        String ami = System.getProperty("ec2Ami");
-        String keyPairId = System.getProperty("ec2KeyPairId");
-        Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.create(ami, keyPairId, Ec2Connection.Ec2InstanceType.DEFAULT, count);
-    }
+    @Test
+    public void test2() throws Exception {
+        try {
+            startClusterAsync(hostNames,
+                              sshPrivateKey,
+                              hostUserId,
+                              voldemortRootDirectory,
+                              voldemortHomeDirectory,
+                              nodeIds);
 
-    private List<HostNamePair> getInstances() throws Exception {
-        String accessId = System.getProperty("ec2AccessId");
-        String secretKey = System.getProperty("ec2SecretKey");
-        Ec2Connection ec2 = new TypicaEc2Connection(accessId, secretKey);
-        return ec2.list();
-    }
+            String badHostName = hostNames.get(0);
 
-    private Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
-                                                           String path) throws Exception {
-        List<String> hostNames = new ArrayList<String>();
+            stopClusterNode(badHostName, sshPrivateKey, hostUserId, voldemortRootDirectory);
 
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getInternalHostName());
-
-        ClusterGenerator clusterGenerator = new ClusterGenerator();
-        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
-                                                                                          3);
-        String clusterXml = clusterGenerator.createClusterDescriptor("test", nodes);
-        FileUtils.writeStringToFile(new File(path), clusterXml);
-        Map<String, Integer> nodeIds = new HashMap<String, Integer>();
-
-        for(ClusterNodeDescriptor node: nodes) {
-            // OK, yeah, super-inefficient...
-            for(HostNamePair hostNamePair: hostNamePairs) {
-                if(node.getHostName().equals(hostNamePair.getInternalHostName()))
-                    nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
-            }
+            startClusterNode(badHostName,
+                             sshPrivateKey,
+                             hostUserId,
+                             voldemortRootDirectory,
+                             voldemortHomeDirectory,
+                             nodeIds.get(hostNames.get(0)));
+        } finally {
+            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
-
-        return nodeIds;
     }
-
 }
