@@ -1,14 +1,14 @@
-package voldemort.client.protocol.admin;
+package voldemort.server.protocol.admin;
 
 /**
  * @author afeinberg
  */
-public abstract class AsyncRequest implements Runnable {
+public abstract class AsyncOperation implements Runnable {
     private final String id;
     private boolean complete=false;
     private String status;
 
-    public AsyncRequest(String id) {
+    public AsyncOperation(String id) {
         this.id = id;
     }
 

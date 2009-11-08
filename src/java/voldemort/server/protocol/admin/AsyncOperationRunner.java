@@ -1,12 +1,10 @@
-package voldemort.client.protocol.admin;
+package voldemort.server.protocol.admin;
 
-import org.apache.commons.collections.map.LRUMap;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -16,28 +14,28 @@ import java.util.concurrent.Executors;
  *
  * TODO: purge stale requests
  */
-public class AsyncRequestRunner {
-    private final Map<String,AsyncRequest> requests;
+public class AsyncOperationRunner {
+    private final Map<String, AsyncOperation> requests;
     private final ExecutorService executor;
-    private final Logger logger = Logger.getLogger(AsyncRequestRunner.class);
+    private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
 
     @SuppressWarnings("unchecked") // apache commons collections aren't updated for 1.5 yet
-    public AsyncRequestRunner(int poolSize, int cacheSize) {
-        requests = Collections.synchronizedMap(new LRUMap(cacheSize));
+    public AsyncOperationRunner(int poolSize, int cacheSize) {
+        requests = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
         executor = Executors.newFixedThreadPool(poolSize);
     }
 
     /**
-     * Submit a request. Throw a run time exception if the request is already submitted
-     * @param request The asynchronous request to submit
+     * Submit a operation. Throw a run time exception if the operation is already submitted
+     * @param operation The asynchronous operation to submit
      */
-    public void startRequest(AsyncRequest request) {
-        if (requests.containsKey(request.getId())) {
-            throw new VoldemortException("Request " + request.getId() + " already submitted to the system");
+    public void startRequest(AsyncOperation operation) {
+        if (requests.containsKey(operation.getId())) {
+            throw new VoldemortException("Request " + operation.getId() + " already submitted to the system");
         }
-        requests.put(request.getId(), request);
-        executor.submit(request);
-        logger.debug("Handling async request " + request.getId());
+        requests.put(operation.getId(), operation);
+        executor.submit(operation);
+        logger.debug("Handling async operation " + operation.getId());
     }
 
     /**

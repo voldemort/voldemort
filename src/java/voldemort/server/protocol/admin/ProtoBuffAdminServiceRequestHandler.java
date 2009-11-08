@@ -30,8 +30,8 @@ import voldemort.client.AdminClientFactory;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AsyncRequest;
-import voldemort.client.protocol.admin.AsyncRequestRunner;
+import voldemort.server.protocol.admin.AsyncOperation;
+import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -69,7 +69,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final int streamMaxBytesReadPerSec;
     private final int streamMaxBytesWritesPerSec;
-    private final AsyncRequestRunner asyncRunner;
+    private final AsyncOperationRunner asyncRunner;
 
     private final static int ASYNC_REQUEST_THREADS = 8;
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
@@ -86,7 +86,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.streamMaxBytesWritesPerSec = streamMaxBytesWritesPerSec;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.asyncRunner = new AsyncRequestRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -257,7 +257,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 .setRequestId(requestId);
 
         try {
-            asyncRunner.startRequest(new AsyncRequest(requestId) {
+            asyncRunner.startRequest(new AsyncOperation(requestId) {
                 public void run() {
                     setStatus("Started");
                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
