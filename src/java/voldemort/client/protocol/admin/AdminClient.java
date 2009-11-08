@@ -128,6 +128,14 @@ public abstract class AdminClient {
                                                VoldemortFilter filter);
 
     /**
+     * Get the status of asynchornous request
+     * @param nodeId Node to contact
+     * @param requestId Previously returned request Id
+     * @return A Pair of String (request status) and Boolean (is request complete?)
+     */
+    public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, String requestId);
+
+    /**
      * update remote metadata on a particular node
      * 
      * @param remoteNodeId
