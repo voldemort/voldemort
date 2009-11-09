@@ -22,10 +22,12 @@ import voldemort.VoldemortException;
 import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
+import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -79,6 +81,23 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         }
 
         return getInnerStore().get(key);
+    }
+
+    /**
+     * TODO : handle delete correctly <br>
+     * option1: delete locally and on remote node as well, the issue is cursor
+     * is open in READ_UNCOMMITED mode while rebalancing and can push the value
+     * back.<br>
+     * option2: keep it in separate slop store and apply deletes at the end of
+     * rebalancing.<br>
+     * option3: donot worry about deletes for now, voldemort in general have
+     * this issue if node went down while delete will still keep the old
+     * version.
+     */
+    @Override
+    public boolean delete(ByteArray key, Version version) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        return getInnerStore().delete(key, version);
     }
 
     protected boolean checkKeyBelongsToStolenPartitions(ByteArray key) {
