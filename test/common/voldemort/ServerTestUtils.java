@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -55,6 +56,7 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
@@ -200,22 +202,27 @@ public class ServerTestUtils {
     }
 
     public static Cluster getLocalCluster(int numberOfNodes) {
-        return getLocalCluster(numberOfNodes, findFreePorts(2 * numberOfNodes));
+        return getLocalCluster(numberOfNodes, findFreePorts(3 * numberOfNodes));
     }
 
     public static Cluster getLocalCluster(int numberOfNodes, int[] ports) {
-        if(2 * numberOfNodes != ports.length)
+        if(3 * numberOfNodes != ports.length)
             throw new IllegalArgumentException(3 * numberOfNodes + " ports required but only "
                                                + ports.length + " given.");
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numberOfNodes; i++)
-            nodes.add(new Node(i, "localhost", ports[2 * i], ports[2 * i + 1], ImmutableList.of(i)));
+            nodes.add(new Node(i,
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               ImmutableList.of(i)));
         return new Cluster("test-cluster", nodes);
     }
 
     public static Node getLocalNode(int nodeId, List<Integer> partitions) {
-        int[] ports = findFreePorts(2);
-        return new Node(nodeId, "localhost", ports[0], ports[1], partitions);
+        int[] ports = findFreePorts(3);
+        return new Node(nodeId, "localhost", ports[0], ports[1], ports[2], partitions);
     }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {
@@ -259,6 +266,19 @@ public class ServerTestUtils {
                                    rwrites,
                                    1,
                                    1);
+    }
+
+    public static HashMap<ByteArray, byte[]> createRandomKeyValuePairs(int numKeys) {
+        HashMap<ByteArray, byte[]> map = new HashMap<ByteArray, byte[]>();
+        for(int cnt = 0; cnt <= numKeys; cnt++) {
+            int keyInt = (int) (Math.random() * 100000);
+            ByteArray key = new ByteArray(ByteUtils.getBytes("" + keyInt, "UTF-8"));
+            byte[] value = ByteUtils.getBytes("value-" + keyInt, "UTF-8");
+
+            map.put(key, value);
+        }
+
+        return map;
     }
 
     public static VoldemortConfig createServerConfig(int nodeId,
