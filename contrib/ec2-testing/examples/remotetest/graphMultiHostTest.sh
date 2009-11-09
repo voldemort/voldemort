@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Written by Matthew Garcia
 # Runs a groovy script that creates a text file containing the information
 # that will be parsed, as well as a text file containing the hostnames of 
@@ -20,14 +20,14 @@ if [ "$1" = "" ]
 		exit 1
 fi
 
-./graphMultiHostTest.scala $@ > $DATA_FILE
+`dirname $0`/graphMultiHostTest.scala $@ > $DATA_FILE
 
 cat $1  | cut -d' ' -f1 | sort | uniq > $HOSTS_FILE
 intI=`awk 'END{print NR}' $HOSTS_FILE`
 
 # Creates the .pg file
 cat > $PG_FILE <<End-of-Message
-#!/usr/bin/gnuplot
+#!`which gnuplot`
 reset
 set terminal png
 set xlabel "Test Number"
