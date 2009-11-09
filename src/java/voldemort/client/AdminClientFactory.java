@@ -24,8 +24,7 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
 /**
- * Created by IntelliJ IDEA. User: afeinber Date: Oct 14, 2009 Time: 1:12:34 PM
- * To change this template use File | Settings | File Templates.
+ * @author afeinberg
  */
 public class AdminClientFactory {
 

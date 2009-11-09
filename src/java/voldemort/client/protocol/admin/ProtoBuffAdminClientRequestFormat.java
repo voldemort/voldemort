@@ -360,7 +360,67 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      */
     @Override
     public void fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest =
+                VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
+                .setNodeId(donorNodeId)
+                .addAllPartitions(stealList)
+                .setStore(storeName);
+        try {
+            if (filter != null) {
+                initiateFetchAndUpdateRequest.setFilter(encodeFilter(filter));
+            }
+        } catch (IOException e) {
+            throw new VoldemortException(e);
+        }
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
+                .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
+                .build();
+        VAdminProto.InitiateFetchAndUpdateResponse.Builder response = sendAndReceive(stealerNodeId, adminRequest,
+                VAdminProto.InitiateFetchAndUpdateResponse.newBuilder());
+
+        if (response.hasError()) {
+            throwException(response.getError());
+        }
+
+        /**
+         * This uses exponential back off to wait for the request to finish on the stealer node
+         * TODO: make waiting optional, add configurable delay parameters, use DelayQueue
+         */
+        long delay = 250;
+        long maxDelay = 1000*60;
+        String requestId = response.getRequestId();
+        while (true) {
+            Pair<String,Boolean> status = getAsyncRequestStatus(stealerNodeId, requestId);
+            if (status.getSecond())
+                break;
+            if (delay < maxDelay)
+                delay *= 2;
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    @Override
+    public Pair<String, Boolean> getAsyncRequestStatus(int nodeId, String requestId) {
+        VAdminProto.AsyncStatusRequest asyncRequest = VAdminProto.AsyncStatusRequest.newBuilder()
+                .setRequestId(requestId)
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.ASYNC_STATUS)
+                .setAsyncStatus(asyncRequest)
+                .build();
+        VAdminProto.AsyncStatusResponse.Builder response = sendAndReceive(nodeId, adminRequest,
+                VAdminProto.AsyncStatusResponse.newBuilder());
+
+        if (response.hasError())
+            throwException(response.getError());
+
+        return new Pair<String,Boolean>(response.getStatus(), response.getIsComplete());
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {

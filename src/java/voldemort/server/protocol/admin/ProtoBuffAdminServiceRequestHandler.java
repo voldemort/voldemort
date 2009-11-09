@@ -20,16 +20,24 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.AdminClientFactory;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.server.protocol.admin.AsyncOperation;
+import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandler;
@@ -61,6 +69,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final int streamMaxBytesReadPerSec;
     private final int streamMaxBytesWritesPerSec;
+    private final AsyncOperationRunner asyncRunner;
+
+    private final static int ASYNC_REQUEST_THREADS = 8;
+    private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
@@ -74,6 +86,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.streamMaxBytesWritesPerSec = streamMaxBytesWritesPerSec;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -100,6 +113,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 handleUpdatePartitionEntries(request.getUpdatePartitionEntries(),
                                              inputStream,
                                              outputStream);
+                break;
+            case INITIATE_FETCH_AND_UPDATE:
+                ProtoUtils.writeMessage(outputStream, handleFetchAndUpdate(request.getInitiateFetchAndUpdate()));
+                break;
+            case ASYNC_STATUS:
+                ProtoUtils.writeMessage(outputStream, handleAsyncStatus(request.getAsyncStatus()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -205,6 +224,84 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } finally {
             ProtoUtils.writeMessage(outputStream, response.build());
         }
+    }
+
+    public static String requestToId (String storeName, int nodeId, List<Integer> partitions)  {
+        StringBuilder requestIdBuilder = new StringBuilder();
+        for (int partition : partitions) {
+            requestIdBuilder.append('p')
+                    .append(partition)
+                    .append(';');
+        }
+        requestIdBuilder.append(storeName)
+                .append(nodeId);
+        return requestIdBuilder.toString();
+    }
+
+    public VAdminProto.InitiateFetchAndUpdateResponse
+    handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
+        final int nodeId = request.getNodeId();
+        Cluster cluster = metadataStore.getCluster();
+        Node remoteNode = cluster.getNodeById(nodeId);
+        String adminUrl = remoteNode.getSocketUrl().toString();
+
+        final List<Integer> partitions = request.getPartitionsList();
+        final AdminClientFactory adminClientFactory = new AdminClientFactory(new ClientConfig()
+                .setBootstrapUrls(adminUrl));
+        final VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter()) :
+                new DefaultVoldemortFilter();
+        final String storeName = request.getStore();
+
+        String requestId = "fetchAndUpdate" + requestToId(storeName, nodeId, partitions);
+        VAdminProto.InitiateFetchAndUpdateResponse.Builder response = VAdminProto.InitiateFetchAndUpdateResponse.newBuilder()
+                .setRequestId(requestId);
+
+        try {
+            asyncRunner.startRequest(new AsyncOperation(requestId) {
+                public void run() {
+                    setStatus("Started");
+                    StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
+                    AdminClient adminClient = adminClientFactory.getAdminClient();
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator =
+                            adminClient.fetchPartitionEntries(nodeId, storeName, partitions, filter);
+                    setStatus("Initated fetchPartitionEntries");
+                    EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
+                    for (long i=0; entriesIterator.hasNext(); i++) {
+                        Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+                        storageEngine.put(entry.getFirst(), entry.getSecond());
+
+                        throttler.maybeThrottle(entrySize(entry));
+
+                        if ((i % 1000) == 0) {
+                            setStatus(i + " entries processed");
+                        }
+                    }
+                    setStatus("Finished processing");
+                    setComplete();
+                }
+            });
+
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        }
+        
+        return response.build();
+    }
+
+    public VAdminProto.AsyncStatusResponse handleAsyncStatus(VAdminProto.AsyncStatusRequest request) {
+        VAdminProto.AsyncStatusResponse.Builder response = VAdminProto.AsyncStatusResponse.newBuilder();
+        try {
+            String requestId = request.getRequestId();
+            String requestStatus = asyncRunner.getRequestStatus(requestId);
+            boolean requestComplete = asyncRunner.isComplete(requestId);
+
+            response.setIsComplete(requestComplete);
+            response.setStatus(requestStatus);
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+        }
+
+        return response.build();
     }
 
     public VAdminProto.DeletePartitionEntriesResponse handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
