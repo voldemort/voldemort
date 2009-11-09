@@ -18,9 +18,9 @@ if [ "$1" = "" ]
         exit 1
 fi
 
-./graphAverageTime.scala $@ > $DATA_FILE
+`dirname $0`/graphAverageTime.scala $@ > $DATA_FILE
 cat > $PG_FILE <<End-of-Message 
-#!/usr/bin/gnuplot 
+#!`which gnuplot`
 reset 
 set terminal png
 set xlabel "Test Number"
