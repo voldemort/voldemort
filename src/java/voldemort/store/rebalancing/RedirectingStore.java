@@ -19,12 +19,11 @@ package voldemort.store.rebalancing;
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.AdminClient;
+import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -33,52 +32,53 @@ import voldemort.versioning.Versioned;
  * The RedirectingStore extends {@link DelegatingStore}
  * <p>
  * if current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
- * then
- * <ul>
- * <li>Get: proxy Get call to donor server ONLY for keys belonging to
- * {@link MetadataStore#getCurrentPartitionStealList()}</li>
- * <li>Put: do a get() call on donor state and put to innerstore and than handle
- * client put() request to have correct version handling ONLY for keys belonging
- * to {@link MetadataStore#getCurrentPartitionStealList()}.</li>
- * </ul>
+ * then before serving any client request do a remote get() call, put it locally
+ * ignoring any {@link ObsoleteVersionException} and then serve the client
+ * requests.
+ * 
+ * TODO: Deletes are not handled correctly right now, behavior is same as if the
+ * node was down while deleting and came back later.
  * 
  * @author bbansal
  * 
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
-    private final AdminClient adminClient;
     private final MetadataStore metadata;
+    private final StoreRepository storeRepository;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
                             MetadataStore metadata,
-                            SocketPool socketPool) {
+                            StoreRepository storeRepository) {
         super(innerStore);
-        // TODO : need fixes
-        // this.adminClient = new NativeAdminClientRequestFormat(metadata,
-        // socketPool);
-        this.adminClient = null;
         this.metadata = metadata;
+        this.storeRepository = storeRepository;
     }
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
-            proxyPut(key, value);
-        } else {
-            getInnerStore().put(key, value);
+            // if I am rebalancing for this key, try to do remote get() , put it
+            // locally first to get the correct version ignoring any
+            // ObsoleteVersionExceptions.
+            proxyPut(key);
         }
+
+        getInnerStore().put(key, value);
     }
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
            && checkKeyBelongsToStolenPartitions(key)) {
-            return proxyGet(key);
-        } else {
-            return getInnerStore().get(key);
+            // if I am rebalancing for this key, try to do remote get() , put it
+            // locally first to get the correct version ignoring any
+            // ObsoleteVersionExceptions.
+            proxyPut(key);
         }
+
+        return getInnerStore().get(key);
     }
 
     protected boolean checkKeyBelongsToStolenPartitions(ByteArray key) {
@@ -97,9 +97,18 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @return
      * @throws VoldemortException
      */
-    protected List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        // TODO fix this
-        throw new VoldemortException("proxyGet() not implemented yet.");
+    private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
+
+        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingSlaveNodeId())) {
+            throw new VoldemortException("Node Store not present in storeRepository for (store,nodeId) pair ("
+                                         + getName()
+                                         + ","
+                                         + metadata.getRebalancingSlaveNodeId()
+                                         + ").");
+        }
+
+        return storeRepository.getNodeStore(getName(), metadata.getRebalancingSlaveNodeId())
+                              .get(key);
     }
 
     /**
@@ -116,7 +125,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @param value
      * @throws VoldemortException
      */
-    protected void proxyPut(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    private void proxyPut(ByteArray key) throws VoldemortException {
         List<Versioned<byte[]>> proxyValues = proxyGet(key);
 
         try {
@@ -126,8 +135,5 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         } catch(ObsoleteVersionException e) {
             // ignore these
         }
-
-        // finally put client value
-        getInnerStore().put(key, value);
     }
 }

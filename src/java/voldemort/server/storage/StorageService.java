@@ -30,9 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
+import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
@@ -166,7 +166,7 @@ public class StorageService extends AbstractService {
                                                                    storeDef.getType());
         registerEngine(engine);
 
-        if(voldemortConfig.isServerRoutingEnabled())
+        if(voldemortConfig.isServerRoutingEnabled() || voldemortConfig.isRedirectRoutingEnabled())
             registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
@@ -188,11 +188,12 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[]>(store,
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
-        if(voldemortConfig.isMetadataCheckingEnabled())
-            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store, metadata, socketPool);
+            store = new RedirectingStore(store, metadata, storeRepository);
+
+        if(voldemortConfig.isMetadataCheckingEnabled())
+            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
 
         if(voldemortConfig.isStatTrackingEnabled()) {
             store = new StatTrackingStore<ByteArray, byte[]>(store);

@@ -18,20 +18,21 @@ package voldemort.store.rebalancing;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -42,48 +43,34 @@ import voldemort.versioning.Versioned;
  */
 public class RedirectingStoreTest extends TestCase {
 
-    private static String storeName = "test-replication-memory";
+    private static int TEST_VALUES_SIZE = 1000;
+    private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     VoldemortServer server0;
     VoldemortServer server1;
-    AdminClient adminClient;
-
-    Cluster cluster;
 
     @Override
     public void setUp() throws IOException {
-        // start 2 node cluster with free ports
-        int[] ports = ServerTestUtils.findFreePorts(2);
-        Node node0 = new Node(0, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 0,
-                1 }));
+        Cluster cluster = ServerTestUtils.getLocalCluster(2);
+        server0 = startServer(0, storesXmlfile, cluster);
 
-        ports = ServerTestUtils.findFreePorts(2);
-        Node node1 = new Node(1, "localhost", ports[0], ports[1], Arrays.asList(new Integer[] { 2,
-                3 }));
+        server1 = startServer(1, storesXmlfile, cluster);
+    }
 
-        cluster = new Cluster("admin-service-test", Arrays.asList(new Node[] { node0, node1 }));
+    private VoldemortServer startServer(int node, String storesXmlfile, Cluster cluster)
+            throws IOException {
+        VoldemortConfig config = ServerTestUtils.createServerConfig(node,
+                                                                    TestUtils.createTempDir()
+                                                                             .getAbsolutePath(),
+                                                                    null,
+                                                                    storesXmlfile);
+        // disable metadata checking for this test.
+        config.setEnableMetadataChecking(false);
 
-        server0 = new VoldemortServer(ServerTestUtils.createServerConfig(0,
-                                                                         TestUtils.createTempDir()
-                                                                                  .getAbsolutePath(),
-                                                                         null,
-                                                                         storesXmlfile),
-                                      cluster);
-        server0.start();
-
-        server1 = new VoldemortServer(ServerTestUtils.createServerConfig(1,
-                                                                         TestUtils.createTempDir()
-                                                                                  .getAbsolutePath(),
-                                                                         null,
-                                                                         storesXmlfile),
-                                      cluster);
-        server1.start();
-
-        // get adminClient
-        adminClient = ServerTestUtils.getAdminClient(server0.getIdentityNode(),
-                                                     server0.getMetadataStore());
-
+        VoldemortServer server = new VoldemortServer(config, cluster);
+        server.start();
+        return server;
     }
 
     @Override
@@ -92,122 +79,141 @@ public class RedirectingStoreTest extends TestCase {
         server1.stop();
     }
 
-    private RedirectingStore getRedirectingStore(MetadataStore metadata) {
+    private RedirectingStore getRedirectingStore(MetadataStore metadata, String storeName) {
         return new RedirectingStore(ServerTestUtils.getSocketStore(storeName,
                                                                    server0.getIdentityNode()
                                                                           .getSocketPort(),
                                                                    RequestFormatType.VOLDEMORT_V1),
                                     metadata,
-                                    new SocketPool(100, 2000, 1000, 10000));
+                                    server0.getStoreRepository());
     }
 
     public void testProxyGet() {
-        // enter bunch of data into server1
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
+        // create bunch of key-value pairs
+        HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
 
-            Store<ByteArray, byte[]> store = server1.getStoreRepository()
-                                                    .getStorageEngine(storeName);
-            store.put(key,
-                      Versioned.value(value,
+        // populate all entries in server1
+        Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                                                .getStorageEngine(testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            store.put(entry.getKey(),
+                      Versioned.value(entry.getValue(),
                                       new VectorClock().incremented(0, System.currentTimeMillis())));
         }
 
-        MetadataStore metadata = server0.getMetadataStore();
+        // for normal state server0 should be empty
+        checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0, 1), Arrays.asList(-1));
 
-        // change donorNode/stealPartitionList here.
-        // TODO : fix me
-        // adminClient.updateRebalancingProxyDest(0, 1);
-        // adminClient.updateRebalancingPartitionList(0, Arrays.asList(new
-        // Integer[] { 2, 3 }));
+        // set rebalancing 0 <-- 1 for partitions 2 only.
+        server0.getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        server0.getMetadataStore().put(MetadataStore.REBALANCING_SLAVE_NODE_ID, new Integer(1));
+        server0.getMetadataStore().put(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                                       Arrays.asList(1));
 
-        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
+        // for Rebalancing State we should see proxyGet()
+        checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
+    }
 
-        // for Normal server state no values are expected
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+    public void testProxyPut() {
+        // create bunch of key-value pairs
+        HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
 
-            if(metadata.getRoutingStrategy(storeName)
-                       .getPartitionList(key.get())
-                       .contains(new Integer(2))
-               || metadata.getRoutingStrategy(storeName)
-                          .getPartitionList(key.get())
-                          .contains(new Integer(3))) {
-                assertEquals("proxyGet should return emptys list", 0, RedirectingStore.get(key)
-                                                                                      .size());
-            }
+        // populate all entries in server1
+        Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                                                .getStorageEngine(testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            store.put(entry.getKey(),
+                      Versioned.value(entry.getValue(),
+                                      new VectorClock().incremented(0, System.currentTimeMillis())));
         }
 
-        adminClient.updateRemoteServerState(0,
-                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
+        // for normal state server0 should not
+        checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(0, 1), Arrays.asList(-1));
 
-            if(metadata.getRoutingStrategy(storeName)
-                       .getPartitionList(key.get())
-                       .contains(new Integer(2))
-               || metadata.getRoutingStrategy(storeName)
-                          .getPartitionList(key.get())
-                          .contains(new Integer(3))) {
-                assertEquals("proxyGet should return actual value",
-                             "value-" + i,
-                             new String(RedirectingStore.get(key).get(0).getValue()));
+        // clear server0 store now.
+        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            server0.getStoreRepository()
+                   .getLocalStore(testStoreName)
+                   .delete(entry.getKey(),
+                           new VectorClock().incremented(0, System.currentTimeMillis()));
+        }
+
+        // set rebalancing 0 <-- 1 for partitions 2 only.
+        server0.getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        server0.getMetadataStore().put(MetadataStore.REBALANCING_SLAVE_NODE_ID, new Integer(1));
+        server0.getMetadataStore().put(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                                       Arrays.asList(1));
+
+        // for Rebalancing State we should see proxyPut()
+        checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
+    }
+
+    private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
+                                 VoldemortServer server,
+                                 String storeName,
+                                 List<Integer> unavailablePartitions,
+                                 List<Integer> availablePartitions) {
+        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(storeName);
+        RedirectingStore redirectingStore = getRedirectingStore(server0.getMetadataStore(),
+                                                                storeName);
+
+        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            List<Integer> partitions = routing.getPartitionList(entry.getKey().get());
+            if(unavailablePartitions.containsAll(partitions)) {
+                assertEquals("Keys for partition:" + partitions + " should not be present.",
+                             0,
+                             redirectingStore.get(entry.getKey()).size());
+            } else if(availablePartitions.containsAll(partitions)) {
+                assertEquals("Keys for partition:" + partitions + " should be present.",
+                             1,
+                             redirectingStore.get(entry.getKey()).size());
+                assertEquals("Values should match.",
+                             new String(entry.getValue()),
+                             new String(redirectingStore.get(entry.getKey()).get(0).getValue()));
+            } else {
+                fail("This case should not come for this test partitions:" + partitions);
             }
         }
     }
 
-    public void testProxyPut() {
-        // enter bunch of data into server1
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            byte[] value = ByteUtils.getBytes("value-" + i, "UTF-8");
+    private void checkPutEntries(HashMap<ByteArray, byte[]> entryMap,
+                                 VoldemortServer server,
+                                 String storeName,
+                                 List<Integer> unavailablePartitions,
+                                 List<Integer> availablePartitions) {
+        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(storeName);
+        RedirectingStore redirectingStore = getRedirectingStore(server0.getMetadataStore(),
+                                                                storeName);
 
-            Store<ByteArray, byte[]> store = server1.getStoreRepository()
-                                                    .getStorageEngine(storeName);
-            store.put(key,
-                      Versioned.value(value,
-                                      new VectorClock().incremented(0, System.currentTimeMillis())));
-
-            // 
-            try {
-                store.put(key, store.get(key).get(0));
-                fail("put should throw ObsoleteVersionException before hitting this");
-            } catch(ObsoleteVersionException e) {
-                // ignore
-            }
-        }
-
-        MetadataStore metadata = server0.getMetadataStore();
-
-        // change donorNode/stealPartitionList here.
-        // TODO : fix me
-        // adminClient.updateRebalancingProxyDest(0, 1);
-        // adminClient.updateRebalancingPartitionList(0, Arrays.asList(new
-        // Integer[] { 2, 3 }));
-
-        RedirectingStore RedirectingStore = getRedirectingStore(metadata);
-
-        // we should see obsolete version exception if try to insert with same
-        // version
-
-        adminClient.updateRemoteServerState(0,
-                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-        for(int i = 100; i <= 1000; i++) {
-            ByteArray key = new ByteArray(ByteUtils.getBytes("" + i, "UTF-8"));
-            if(metadata.getRoutingStrategy(storeName)
-                       .getPartitionList(key.get())
-                       .contains(new Integer(2))
-               || metadata.getRoutingStrategy(storeName)
-                          .getPartitionList(key.get())
-                          .contains(new Integer(3))) {
+        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            List<Integer> partitions = routing.getPartitionList(entry.getKey().get());
+            if(unavailablePartitions.containsAll(partitions)) {
                 try {
-                    RedirectingStore.put(key, RedirectingStore.get(key).get(0));
-                    fail("put should throw ObsoleteVersionException before hitting this");
+                    // should NOT see obsoleteVersionException
+                    redirectingStore.put(entry.getKey(),
+                                         Versioned.value(entry.getValue(),
+                                                         new VectorClock().incremented(0,
+                                                                                       System.currentTimeMillis())));
+                } catch(ObsoleteVersionException e) {
+                    fail("should NOT see obsoleteVersionException for unavailablePartitions.");
+                }
+            } else if(availablePartitions.containsAll(partitions)) {
+                try {
+                    // should see obsoleteVersionException for same vectorClock
+                    redirectingStore.put(entry.getKey(),
+                                         Versioned.value(entry.getValue(),
+                                                         new VectorClock().incremented(0,
+                                                                                       System.currentTimeMillis())));
+                    fail("Should see obsoleteVersionException here.");
                 } catch(ObsoleteVersionException e) {
                     // ignore
                 }
+            } else {
+                fail("This case should not come for this test.");
             }
         }
+
     }
 }

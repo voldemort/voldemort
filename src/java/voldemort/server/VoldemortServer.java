@@ -39,6 +39,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -153,6 +154,13 @@ public class VoldemortServer extends AbstractService {
             service.start();
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
+
+        // check serverState
+        if(!metadata.getServerState().equals(VoldemortState.NORMAL_SERVER)) {
+            logger.warn("Server started in " + metadata.getServerState() + " state.");
+            // TODO fix me : handle server start in not normal state aka
+            // rebalancing
+        }
     }
 
     /**
