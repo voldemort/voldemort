@@ -152,7 +152,7 @@ public class RemoteTestUtils {
                                    File sshPrivateKey,
                                    String hostUserId,
                                    String voldemortRootDirectory) throws Exception {
-        new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory).execute();
+        new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory, false).execute();
     }
 
     public static void stopClusterQuiet(List<String> hostNames,
@@ -160,7 +160,11 @@ public class RemoteTestUtils {
                                         String hostUserId,
                                         String voldemortRootDirectory) throws Exception {
         try {
-            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
+            new SshClusterStopper(hostNames,
+                                  sshPrivateKey,
+                                  hostUserId,
+                                  voldemortRootDirectory,
+                                  true).execute();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);

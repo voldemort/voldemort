@@ -65,7 +65,8 @@ public class VoldemortClusterStopperApp extends VoldemortApp {
         RemoteOperation operation = new SshClusterStopper(hostNames,
                                                           sshPrivateKey,
                                                           hostUserId,
-                                                          voldemortRootDirectory);
+                                                          voldemortRootDirectory,
+                                                          false);
         operation.execute();
     }
 
