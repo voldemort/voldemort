@@ -95,7 +95,8 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                 RemoteOperation operation = new SshClusterStopper(externalHostNames,
                                                                   sshPrivateKey,
                                                                   hostUserId,
-                                                                  voldemortRootDirectory);
+                                                                  voldemortRootDirectory,
+                                                                  true);
                 try {
                     operation.execute();
                 } catch(RemoteOperationException e) {

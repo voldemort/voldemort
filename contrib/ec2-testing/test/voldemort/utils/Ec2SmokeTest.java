@@ -35,7 +35,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-public class SmokeTest {
+public class Ec2SmokeTest {
 
     private String accessId;
     private String secretKey;
@@ -55,18 +55,18 @@ public class SmokeTest {
 
     @Before
     public void setUp() throws Exception {
-        accessId = System.getProperty("ec2AccessId");
-        secretKey = System.getProperty("ec2SecretKey");
-        ami = System.getProperty("ec2Ami");
-        keyPairId = System.getProperty("ec2KeyPairId");
-        sshPrivateKeyPath = System.getProperty("sshPrivateKeyPath");
+        accessId = getSystemProperty("ec2AccessId");
+        secretKey = getSystemProperty("ec2SecretKey");
+        ami = getSystemProperty("ec2Ami");
+        keyPairId = getSystemProperty("ec2KeyPairId");
+        sshPrivateKeyPath = getSystemProperty("ec2SshPrivateKeyPath");
         hostUserId = "root";
         sshPrivateKey = sshPrivateKeyPath != null ? new File(sshPrivateKeyPath) : null;
         voldemortRootDirectory = "voldemort";
         voldemortHomeDirectory = "voldemort/config/single_node_cluster";
-        sourceDirectory = new File(System.getProperty("user.dir"));
+        sourceDirectory = new File(getSystemProperty("user.dir"));
         parentDirectory = ".";
-        clusterXmlFile = new File(System.getProperty("user.dir"),
+        clusterXmlFile = new File(getSystemProperty("user.dir"),
                                   "config/single_node_cluster/config/cluster.xml");
 
         hostNamePairs = listInstances(accessId, secretKey);
@@ -88,7 +88,7 @@ public class SmokeTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testRemoteTest() throws Exception {
         try {
             startClusterAsync(hostNames,
                               sshPrivateKey,
@@ -104,7 +104,7 @@ public class SmokeTest {
     }
 
     @Test
-    public void test2() throws Exception {
+    public void testTemporaryNodeOffline() throws Exception {
         try {
             startClusterAsync(hostNames,
                               sshPrivateKey,
@@ -113,11 +113,11 @@ public class SmokeTest {
                               voldemortHomeDirectory,
                               nodeIds);
 
-            String badHostName = hostNames.get(0);
+            String offlineHostName = hostNames.get(0);
 
-            stopClusterNode(badHostName, sshPrivateKey, hostUserId, voldemortRootDirectory);
+            stopClusterNode(offlineHostName, sshPrivateKey, hostUserId, voldemortRootDirectory);
 
-            startClusterNode(badHostName,
+            startClusterNode(offlineHostName,
                              sshPrivateKey,
                              hostUserId,
                              voldemortRootDirectory,
@@ -127,4 +127,14 @@ public class SmokeTest {
             stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
     }
+
+    protected String getSystemProperty(String key) {
+        String value = System.getProperty(key);
+
+        if(value == null || value.trim().length() == 0)
+            throw new RuntimeException("Missing value for system property " + key);
+
+        return value;
+    }
+
 }

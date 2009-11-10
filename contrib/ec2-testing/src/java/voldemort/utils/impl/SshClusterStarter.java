@@ -169,8 +169,10 @@ public class SshClusterStarter extends CommandLineRemoteOperation implements Clu
             int exitCode = command.execute(commandOutputListener);
 
             // If the user hits Ctrl+C after startup, we get an exit code of
-            // 255, so don't throw an exception in this case.
-            if(!(exitCode == 255 && hasStartupCompleted()))
+            // 255, so don't throw an exception in this case. Also, if we kill
+            // the process via its PID, we can get an error code of 143 (see
+            // http://forums.sun.com/thread.jspa?threadID=5136911).
+            if(!((exitCode == 143 || exitCode == 255) && hasStartupCompleted()))
                 throw new Exception("Process on " + command.getHostName() + " exited with code "
                                     + exitCode + ". Please check the logs for details.");
 

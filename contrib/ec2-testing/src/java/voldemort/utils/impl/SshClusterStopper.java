@@ -25,6 +25,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import voldemort.utils.ClusterStopper;
 import voldemort.utils.RemoteOperationException;
@@ -46,6 +47,8 @@ public class SshClusterStopper extends CommandLineRemoteOperation implements Clu
 
     private final String voldemortRootDirectory;
 
+    private final boolean suppressErrors;
+
     /**
      * Creates a new SshClusterStopper instance.
      * 
@@ -64,12 +67,13 @@ public class SshClusterStopper extends CommandLineRemoteOperation implements Clu
     public SshClusterStopper(Collection<String> hostNames,
                              File sshPrivateKey,
                              String hostUserId,
-                             String voldemortRootDirectory) {
-        super();
+                             String voldemortRootDirectory,
+                             boolean suppressErrors) {
         this.hostNames = hostNames;
         this.sshPrivateKey = sshPrivateKey;
         this.hostUserId = hostUserId;
         this.voldemortRootDirectory = voldemortRootDirectory;
+        this.suppressErrors = suppressErrors;
     }
 
     public void execute() throws RemoteOperationException {
@@ -98,4 +102,27 @@ public class SshClusterStopper extends CommandLineRemoteOperation implements Clu
             logger.info("Stopping of Voldemort cluster complete");
     }
 
+    @Override
+    protected Callable<?> getCallable(final UnixCommand command) {
+        if(suppressErrors) {
+            final CommandOutputListener commandOutputListener = new LoggingCommandOutputListener(null,
+                                                                                                 logger,
+                                                                                                 true);
+            return new Callable<Object>() {
+
+                public Object call() throws Exception {
+                    try {
+                        command.execute(commandOutputListener);
+                    } catch(Exception e) {
+                        // Ignore as we're suppressing errors...
+                    }
+
+                    return null;
+                }
+
+            };
+        } else {
+            return super.getCallable(command);
+        }
+    }
 }
