@@ -16,11 +16,12 @@
 
 package voldemort.store;
 
+import java.util.Arrays;
 import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -37,23 +38,20 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
 
     private static int LOOP_COUNT = 1000;
 
-    private StoreDefinition storeDef = null;
-
-    @Override
-    public void setUp() {
-        storeDef = ServerTestUtils.getStoreDefs(1).get(0);
-    }
-
     public void testValidMetaData() {
-        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
+        Cluster cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
+                { 4, 5, 6, 7 }, { 8, 9, 10, 11 } });
+        StoreDefinition storeDef = ServerTestUtils.getStoreDefs(1).get(0);
+
+        MetadataStore metadata = ServerTestUtils.createMetadataStore(cluster,
+                                                                     Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
                                                                               new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
                                                                               metadata);
 
         try {
-            doOperations(0, store, metadata);
+            doOperations(0, store, metadata, storeDef);
         } catch(InvalidMetadataException e) {
             throw new RuntimeException("Should not see any InvalidMetaDataException", e);
         }
@@ -64,40 +62,55 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
      * consistency
      */
     public void testAddingPartition() {
-        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
+        StoreDefinition storeDef = ServerTestUtils.getStoreDefs(1).get(0);
 
-        MetadataStore updatedMetadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3, 11 },
-                { 4, 5, 6, 7 }, { 8, 9, 10 } }, storeDef);
+        Cluster cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
+                { 4, 5, 6, 7 }, { 8, 9, 10 } });
+
+        MetadataStore metadata = ServerTestUtils.createMetadataStore(cluster,
+                                                                     Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
                                                                               new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
-                                                                              updatedMetadata);
+                                                                              metadata);
         try {
-            doOperations(0, store, metadata);
+            // add partitions to node 0 on client side.
+            Cluster updatedCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
+                    { 0, 1, 2, 3, 4, 5, 10 }, { 6, 7 }, { 8, 9 } });
+
+            MetadataStore updatedMetadata = ServerTestUtils.createMetadataStore(updatedCluster,
+                                                                                Arrays.asList(storeDef));
+            doOperations(0, store, updatedMetadata, storeDef);
+            fail("Should see InvalidMetadataExceptions");
         } catch(InvalidMetadataException e) {
-            throw new RuntimeException("Should not see any InvalidMetaDataException", e);
+            // ignore
         }
     }
 
     public void testRemovingPartition() {
-        boolean sawException = false;
-        MetadataStore metadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6, 7 }, { 8, 9, 10, 11 } }, storeDef);
+        StoreDefinition storeDef = ServerTestUtils.getStoreDefs(1).get(0);
 
-        MetadataStore updatedMetadata = TestUtils.createMetadata(new int[][] { { 0, 1, 2 },
-                { 4, 5, 6, 7, 3 }, { 8, 9, 10, 11 } }, storeDef);
+        Cluster cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
+                { 4, 5, 6, 7 }, { 8, 9, 10 } });
+
+        MetadataStore metadata = ServerTestUtils.createMetadataStore(cluster,
+                                                                     Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
                                                                               new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
-                                                                              updatedMetadata);
+                                                                              metadata);
         try {
-            doOperations(0, store, metadata);
-        } catch(InvalidMetadataException e) {
-            sawException = true;
-        }
+            // remove partitions to node 0 on client side.
+            Cluster updatedCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1 },
+                    { 2, 4, 5, 6, 7 }, { 3, 8, 9, 10 } });
 
-        assertEquals("Should see InvalidMetaDataException", true, sawException);
+            MetadataStore updatedMetadata = ServerTestUtils.createMetadataStore(updatedCluster,
+                                                                                Arrays.asList(storeDef));
+
+            doOperations(0, store, updatedMetadata, storeDef);
+        } catch(InvalidMetadataException e) {
+            throw new RuntimeException("Should not see any InvalidMetaDataException", e);
+        }
     }
 
     private boolean containsNodeId(List<Node> nodes, int nodeId) {
@@ -109,7 +122,10 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
         return false;
     }
 
-    private void doOperations(int nodeId, Store<ByteArray, byte[]> store, MetadataStore metadata) {
+    private void doOperations(int nodeId,
+                              Store<ByteArray, byte[]> store,
+                              MetadataStore metadata,
+                              StoreDefinition storeDef) {
         for(int i = 0; i < LOOP_COUNT;) {
             ByteArray key = new ByteArray(ByteUtils.md5(Integer.toString((int) (Math.random() * Integer.MAX_VALUE))
                                                                .getBytes()));

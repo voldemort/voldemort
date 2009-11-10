@@ -59,6 +59,8 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
 
@@ -202,27 +204,51 @@ public class ServerTestUtils {
     }
 
     public static Cluster getLocalCluster(int numberOfNodes) {
-        return getLocalCluster(numberOfNodes, findFreePorts(3 * numberOfNodes));
+        return getLocalCluster(numberOfNodes, findFreePorts(3 * numberOfNodes), null);
     }
 
-    public static Cluster getLocalCluster(int numberOfNodes, int[] ports) {
+    public static Cluster getLocalCluster(int numberOfNodes, int[][] partitionMap) {
+        return getLocalCluster(numberOfNodes, findFreePorts(3 * numberOfNodes), partitionMap);
+    }
+
+    public static Cluster getLocalCluster(int numberOfNodes, int[] ports, int[][] partitionMap) {
         if(3 * numberOfNodes != ports.length)
             throw new IllegalArgumentException(3 * numberOfNodes + " ports required but only "
                                                + ports.length + " given.");
         List<Node> nodes = new ArrayList<Node>();
-        for(int i = 0; i < numberOfNodes; i++)
+        for(int i = 0; i < numberOfNodes; i++) {
+            List<Integer> partitions = ImmutableList.of(i);
+            if(null != partitionMap) {
+                partitions = new ArrayList<Integer>(partitionMap[i].length);
+                for(int p: partitionMap[i]) {
+                    partitions.add(p);
+                }
+            }
+
             nodes.add(new Node(i,
                                "localhost",
                                ports[3 * i],
                                ports[3 * i + 1],
                                ports[3 * i + 2],
-                               ImmutableList.of(i)));
+                               partitions));
+        }
+
         return new Cluster("test-cluster", nodes);
     }
 
     public static Node getLocalNode(int nodeId, List<Integer> partitions) {
         int[] ports = findFreePorts(3);
         return new Node(nodeId, "localhost", ports[0], ports[1], ports[2], partitions);
+    }
+
+    public static MetadataStore createMetadataStore(Cluster cluster, List<StoreDefinition> storeDefs) {
+        Store<String, String> innerStore = new InMemoryStorageEngine<String, String>("inner-store");
+        innerStore.put(MetadataStore.CLUSTER_KEY,
+                       new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
+        innerStore.put(MetadataStore.STORES_KEY,
+                       new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(storeDefs)));
+
+        return new MetadataStore(innerStore, 0);
     }
 
     public static List<StoreDefinition> getStoreDefs(int numStores) {

@@ -22,7 +22,6 @@ import java.util.List;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
-import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -36,7 +35,6 @@ public class MetadataStoreTest extends TestCase {
 
     private static int TEST_RUNS = 100;
 
-    private InMemoryStorageEngine<String, String> innerStore;
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
@@ -47,13 +45,8 @@ public class MetadataStoreTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        innerStore = new InMemoryStorageEngine<String, String>("inner-store");
-        innerStore.put(MetadataStore.CLUSTER_KEY,
-                       new Versioned<String>(new ClusterMapper().writeCluster(ServerTestUtils.getLocalCluster(1))));
-        innerStore.put(MetadataStore.STORES_KEY,
-                       new Versioned<String>(new StoreDefinitionsMapper().writeStoreList(ServerTestUtils.getStoreDefs(1))));
-
-        metadataStore = new MetadataStore(innerStore, 0);
+        metadataStore = ServerTestUtils.createMetadataStore(ServerTestUtils.getLocalCluster(1),
+                                                            ServerTestUtils.getStoreDefs(1));
     }
 
     public ByteArray getValidKey() {
