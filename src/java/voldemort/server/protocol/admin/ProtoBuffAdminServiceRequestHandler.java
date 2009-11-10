@@ -257,7 +257,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 .setRequestId(requestId);
 
         try {
-            asyncRunner.startRequest(new AsyncOperation(requestId) {
+            asyncRunner.startRequest(requestId, new AsyncOperation() {
                 public void run() {
                     setStatus("Started");
                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);

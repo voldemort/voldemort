@@ -28,14 +28,15 @@ public class AsyncOperationRunner {
     /**
      * Submit a operation. Throw a run time exception if the operation is already submitted
      * @param operation The asynchronous operation to submit
+     * @param requestId Id of the request
      */
-    public void startRequest(AsyncOperation operation) {
-        if (requests.containsKey(operation.getId())) {
-            throw new VoldemortException("Request " + operation.getId() + " already submitted to the system");
+    public void startRequest(String requestId, AsyncOperation operation) {
+        if (requests.containsKey(requestId)) {
+            throw new VoldemortException("Request " + requestId + " already submitted to the system");
         }
-        requests.put(operation.getId(), operation);
+        requests.put(requestId, operation);
         executor.submit(operation);
-        logger.debug("Handling async operation " + operation.getId());
+        logger.debug("Handling async operation " + requestId);
     }
 
     /**
