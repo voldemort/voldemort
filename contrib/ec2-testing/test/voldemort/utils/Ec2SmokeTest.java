@@ -17,6 +17,7 @@
 package voldemort.utils;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
+import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.listInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
@@ -32,29 +33,31 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class Ec2SmokeTest {
 
-    private String accessId;
-    private String secretKey;
-    private String ami;
-    private String keyPairId;
-    private String sshPrivateKeyPath;
-    private String hostUserId;
-    private File sshPrivateKey;
-    private String voldemortRootDirectory;
-    private String voldemortHomeDirectory;
-    private File sourceDirectory;
-    private String parentDirectory;
-    private File clusterXmlFile;
-    private List<HostNamePair> hostNamePairs;
-    private List<String> hostNames;
-    private Map<String, Integer> nodeIds;
+    private static String accessId;
+    private static String secretKey;
+    private static String ami;
+    private static String keyPairId;
+    private static String sshPrivateKeyPath;
+    private static String hostUserId;
+    private static File sshPrivateKey;
+    private static String voldemortRootDirectory;
+    private static String voldemortHomeDirectory;
+    private static File sourceDirectory;
+    private static String parentDirectory;
+    private static File clusterXmlFile;
+    private static List<HostNamePair> hostNamePairs;
+    private static List<String> hostNames;
+    private static Map<String, Integer> nodeIds;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeClass
+    public static void setUpClass() throws Exception {
         accessId = getSystemProperty("ec2AccessId");
         secretKey = getSystemProperty("ec2SecretKey");
         ami = getSystemProperty("ec2Ami");
@@ -71,8 +74,8 @@ public class Ec2SmokeTest {
 
         hostNamePairs = listInstances(accessId, secretKey);
         int existing = hostNamePairs.size();
-        int max = 6;
-        int min = 3;
+        int max = 4;
+        int min = 2;
 
         if(existing < min) {
             createInstances(accessId, secretKey, ami, keyPairId, max - existing);
@@ -82,13 +85,22 @@ public class Ec2SmokeTest {
         hostNames = toHostNames(hostNamePairs);
 
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+    }
 
+    @AfterClass
+    public static void tearDownClass() throws Exception {
+        destroyInstances(accessId, secretKey, hostNames);
+    }
+
+    @Before
+    public void setUp() throws Exception {
         stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
-        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
     }
 
     @Test
     public void testRemoteTest() throws Exception {
+        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
+
         try {
             startClusterAsync(hostNames,
                               sshPrivateKey,
@@ -105,6 +117,8 @@ public class Ec2SmokeTest {
 
     @Test
     public void testTemporaryNodeOffline() throws Exception {
+        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
+
         try {
             startClusterAsync(hostNames,
                               sshPrivateKey,
@@ -128,7 +142,7 @@ public class Ec2SmokeTest {
         }
     }
 
-    protected String getSystemProperty(String key) {
+    private static String getSystemProperty(String key) {
         String value = System.getProperty(key);
 
         if(value == null || value.trim().length() == 0)

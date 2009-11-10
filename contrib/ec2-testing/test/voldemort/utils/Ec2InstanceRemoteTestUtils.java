@@ -37,6 +37,13 @@ public class Ec2InstanceRemoteTestUtils {
         return ec2.create(ec2Ami, ec2KeyPairId, Ec2Connection.Ec2InstanceType.DEFAULT, count);
     }
 
+    public static void destroyInstances(String ec2AccessId,
+                                        String ec2SecretKey,
+                                        List<String> hostNames) throws Exception {
+        Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
+        ec2.delete(hostNames);
+    }
+
     public static List<HostNamePair> listInstances(String ec2AccessId, String ec2SecretKey)
             throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);

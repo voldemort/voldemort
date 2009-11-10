@@ -104,14 +104,7 @@ public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteT
 
     @Override
     protected Callable<?> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new CommandOutputListener() {
-
-            public void outputReceived(String hostName, String line) {
-                System.out.println(hostName + ": " + line);
-            }
-
-        };
-
+        CommandOutputListener commandOutputListener = new StdOutCommandOutputListener(null, true);
         return new ExitCodeCallable(command, commandOutputListener);
     }
 
