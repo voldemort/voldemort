@@ -45,6 +45,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Protocol buffers implementation for {@link voldemort.client.protocol.admin.AdminClient}
@@ -384,25 +385,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
             throwException(response.getError());
         }
 
-        /**
-         * This uses exponential back off to wait for the request to finish on the stealer node
-         * TODO: make waiting optional, add configurable delay parameters, use DelayQueue
-         */
-        long delay = 250;
-        long maxDelay = 1000*60;
-        String requestId = response.getRequestId();
-        while (true) {
-            Pair<String,Boolean> status = getAsyncRequestStatus(stealerNodeId, requestId);
-            if (status.getSecond())
-                break;
-            if (delay < maxDelay)
-                delay *= 2;
-            try {
-                Thread.sleep(delay);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        awaitForCompletion(stealerNodeId, response.getRequestId(), 4, TimeUnit.SECONDS);
     }
 
     @Override
@@ -421,6 +404,31 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
             throwException(response.getError());
 
         return new Pair<String,Boolean>(response.getStatus(), response.getIsComplete());
+    }
+
+    @Override
+    public boolean awaitForCompletion(int nodeId, String requestId, long maxPeriod, TimeUnit timeunit) {
+        long delay = 250;
+        long maxDelay = 1000*60;
+        long started = System.currentTimeMillis();
+        long mustEndBy = started + timeunit.toMillis(maxPeriod);
+
+        while (System.currentTimeMillis() < mustEndBy) {
+            Pair<String,Boolean> status = getAsyncRequestStatus(nodeId, requestId);
+
+            if (status.getSecond())
+                return true;
+
+            if (delay < maxDelay)
+                delay *= 2;
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        return false;
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {

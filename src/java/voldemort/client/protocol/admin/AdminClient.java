@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
@@ -134,6 +135,17 @@ public abstract class AdminClient {
      * @return A Pair of String (request status) and Boolean (is request complete?)
      */
     public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, String requestId);
+
+
+    /**
+     * Await until an asynchronous request finishes
+     * @param nodeId Id of the node to contact
+     * @param requestId Id of the request on the node
+     * @param maxPeriod Maximum period to wait until completion
+     * @param timeunit Timeunit in which {@param maxPeriod} is given
+     * @return True if the request completed within {@param maxPeriod} time, false otherwise
+     */
+    public abstract boolean awaitForCompletion(int nodeId, String requestId, long maxPeriod, TimeUnit timeunit);
 
     /**
      * update remote metadata on a particular node
