@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -75,8 +74,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final static int ASYNC_REQUEST_THREADS = 8;
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
-    private final AtomicInteger lastRequestId = new AtomicInteger(0);
-    
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
@@ -260,12 +257,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 .setRequestId(requestId);
 
         try {
-            asyncRunner.startRequest(requestId, new AsyncOperation(0, "Fetch and update") {
-                public void apply() {
+            asyncRunner.startRequest(requestId, new AsyncOperation() {
+                public void run() {
+                    setStatus("Started");
                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                     AdminClient adminClient = adminClientFactory.getAdminClient();
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator =
                             adminClient.fetchPartitionEntries(nodeId, storeName, partitions, filter);
+                    setStatus("Initated fetchPartitionEntries");
                     EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
                     for (long i=0; entriesIterator.hasNext(); i++) {
                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
@@ -274,9 +273,11 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(entry));
 
                         if ((i % 1000) == 0) {
-                            status.setStatus(i + " entries processed");
+                            setStatus(i + " entries processed");
                         }
                     }
+                    setStatus("Finished processing");
+                    setComplete();
                 }
             });
 

@@ -15,12 +15,14 @@ public class AsyncOperationTest extends TestCase {
         Map<String, AsyncOperation> operations = new AsyncOperationRepository(2);
 
 
-        AsyncOperation completeLater = new AsyncOperation(0, "Complete later") {
-            public void apply() {
+        AsyncOperation completeLater = new AsyncOperation() {
+            public void run() {
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                } finally {
+                    setComplete();
                 }
             }
         };
@@ -29,8 +31,9 @@ public class AsyncOperationTest extends TestCase {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
         executorService.submit(completeLater);
 
-        AsyncOperation completeNow = new AsyncOperation(1, "Complete now") {
-            public void apply () {
+        AsyncOperation completeNow = new AsyncOperation() {
+            public void run () {
+                setComplete();
             }
         };
         executorService.submit(completeNow);
