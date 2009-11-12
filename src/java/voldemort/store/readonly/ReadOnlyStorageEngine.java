@@ -146,8 +146,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             if(isOpen) {
                 this.isOpen = false;
                 fileSet.close();
-            }
-            else {
+            } else {
                 logger.debug("Attempt to close already closed store " + getName());
             }
         } finally {
@@ -312,6 +311,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
         // okay finally do the rename
         source.renameTo(dest);
+    }
+
+    public ClosableIterator<ByteArray> keys() {
+        throw new UnsupportedOperationException("Iteration is not supported for "
+                                                + getClass().getName());
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {

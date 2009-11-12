@@ -32,6 +32,8 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -134,6 +136,31 @@ public class StoreUtils {
         for(Versioned<?> versioned: versioneds)
             versions.add(versioned.getVersion());
         return versions;
+    }
+
+    public static <K, V> ClosableIterator<K> keys(final ClosableIterator<Pair<K, V>> values) {
+        return new ClosableIterator<K>() {
+
+            public void close() {
+                values.close();
+            }
+
+            public boolean hasNext() {
+                return values.hasNext();
+            }
+
+            public K next() {
+                Pair<K, V> value = values.next();
+                if(value == null)
+                    return null;
+                return value.getFirst();
+            }
+
+            public void remove() {
+                values.remove();
+            }
+
+        };
     }
 
     /**

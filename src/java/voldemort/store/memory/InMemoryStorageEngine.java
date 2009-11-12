@@ -168,6 +168,11 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         return new InMemoryIterator<K, V>(map);
     }
 
+    public ClosableIterator<K> keys() {
+        // TODO Implement more efficient version.
+        return StoreUtils.keys(entries());
+    }
+
     public String getName() {
         return name;
     }

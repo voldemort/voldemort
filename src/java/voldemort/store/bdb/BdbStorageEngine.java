@@ -107,6 +107,16 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        try {
+            Cursor cursor = bdbDatabase.openCursor(null, null);
+            return new BdbKeysIterator(cursor);
+        } catch(DatabaseException e) {
+            logger.error(e);
+            throw new PersistenceFailureException(e);
+        }
+    }
+
     public List<Version> getVersions(ByteArray key) {
         return get(key, LockMode.READ_UNCOMMITTED, versionSerializer);
     }
@@ -332,6 +342,77 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return stats;
     }
 
+    private static class BdbKeysIterator implements ClosableIterator<ByteArray> {
+
+        private volatile boolean isOpen;
+        private final Cursor cursor;
+        private byte[] current;
+
+        public BdbKeysIterator(Cursor cursor) {
+            this.cursor = cursor;
+            isOpen = true;
+            DatabaseEntry keyEntry = new DatabaseEntry();
+            DatabaseEntry valueEntry = new DatabaseEntry();
+            valueEntry.setPartial(true);
+            try {
+                cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
+            } catch(DatabaseException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
+            }
+            current = keyEntry.getData();
+        }
+
+        public boolean hasNext() {
+            return current != null;
+        }
+
+        public ByteArray next() {
+            if(!isOpen)
+                throw new PersistenceFailureException("Call to next() on a closed iterator.");
+
+            DatabaseEntry keyEntry = new DatabaseEntry();
+            DatabaseEntry valueEntry = new DatabaseEntry();
+            valueEntry.setPartial(true);
+            try {
+                cursor.getNextNoDup(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
+            } catch(DatabaseException e) {
+                logger.error(e);
+                throw new PersistenceFailureException(e);
+            }
+            byte[] previous = current;
+            if(keyEntry.getData() == null)
+                current = null;
+            else
+                current = keyEntry.getData();
+
+            return new ByteArray(previous);
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("No removal y'all.");
+        }
+
+        public void close() {
+            try {
+                cursor.close();
+                isOpen = false;
+            } catch(DatabaseException e) {
+                logger.error(e);
+            }
+        }
+
+        @Override
+        protected void finalize() {
+            if(isOpen) {
+                logger.error("Failure to close cursor, will be forcably closed.");
+                close();
+            }
+
+        }
+
+    }
+
     private static class BdbStoreIterator implements
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
@@ -414,5 +495,4 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
 
     }
-
 }
