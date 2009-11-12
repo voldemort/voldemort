@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
@@ -300,7 +301,8 @@ public class AdminServiceBasicTest extends TestCase {
         AdminClient client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
                                                             server2.getMetadataStore());
 
-        client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+        int id = client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+        client.waitForCompletion(1, id, 5, TimeUnit.SECONDS);
 
         // assert all partition 0, 1 keys present in server 2
         Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);

@@ -360,7 +360,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
      */
     @Override
-    public void fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
+    public int fetchAndUpdateStreams(int donorNodeId, int stealerNodeId, String storeName, List<Integer> stealList, VoldemortFilter filter) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest =
                 VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                 .setNodeId(donorNodeId)
@@ -385,25 +385,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
             throwException(response.getError());
         }
 
-        /**
-         * This uses exponential back off to wait for the request to finish on the stealer node
-         * TODO: make waiting optional, add configurable delay parameters, use DelayQueue
-         */
-        long delay = 250;
-        long maxDelay = 1000*60;
-        int requestId = response.getRequestId();
-        while (true) {
-            AsyncOperationStatus status = getAsyncRequestStatus(stealerNodeId, requestId);
-            if (status.isComplete())
-                break;
-            if (delay < maxDelay)
-                delay *= 2;
-            try {
-                Thread.sleep(delay);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        return response.getRequestId();
     }
 
     @Override

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
@@ -122,7 +123,7 @@ public abstract class AdminClient {
     /**
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
      */
-    public abstract void fetchAndUpdateStreams(int donorNodeId,
+    public abstract int fetchAndUpdateStreams(int donorNodeId,
                                                int stealerNodeId,
                                                String storeName,
                                                List<Integer> stealList,
@@ -155,6 +156,27 @@ public abstract class AdminClient {
      * @return
      */
     protected abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
+
+    public boolean waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+        long delay = 250;
+        long maxDelay = 1000*60;
+        long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+
+        while (System.currentTimeMillis() < waitUntil) {
+            AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+            if (status.isComplete())
+                return true;
+            if (delay < maxDelay)
+                delay <<= 2;
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        return false;
+    }
 
     public MetadataStore getMetadata() {
         return metadata;
