@@ -24,6 +24,7 @@ import java.util.List;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.cluster.Cluster;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -133,7 +134,7 @@ public abstract class AdminClient {
      * @param requestId Previously returned request Id
      * @return A Pair of String (request status) and Boolean (is request complete?)
      */
-    public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, int requestId);
+    public abstract AsyncOperationStatus getAsyncRequestStatus(int nodeId, int requestId);
 
     /**
      * update remote metadata on a particular node

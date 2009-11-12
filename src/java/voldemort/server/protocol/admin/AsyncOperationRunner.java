@@ -48,7 +48,7 @@ public class AsyncOperationRunner {
             throw new VoldemortException("No request with id " + requestId + " found");
         }
 
-        if (requests.get(requestId).getComplete()) {
+        if (requests.get(requestId).getStatus().isComplete()) {
             logger.debug("Request complete " + requestId);
             requests.remove(requestId);
 
@@ -62,6 +62,6 @@ public class AsyncOperationRunner {
             throw new VoldemortException("No request with id " + requestId + " found");
         }
 
-        return requests.get(requestId).getStatus();
+        return requests.get(requestId).getStatus().getStatus();
     }
 }

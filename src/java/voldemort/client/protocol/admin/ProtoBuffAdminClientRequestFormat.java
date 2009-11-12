@@ -29,6 +29,7 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.cluster.Node;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
@@ -392,8 +393,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
         long maxDelay = 1000*60;
         int requestId = response.getRequestId();
         while (true) {
-            Pair<String,Boolean> status = getAsyncRequestStatus(stealerNodeId, requestId);
-            if (status.getSecond())
+            AsyncOperationStatus status = getAsyncRequestStatus(stealerNodeId, requestId);
+            if (status.isComplete())
                 break;
             if (delay < maxDelay)
                 delay *= 2;
@@ -406,7 +407,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     @Override
-    public Pair<String, Boolean> getAsyncRequestStatus(int nodeId, int requestId) {
+    public AsyncOperationStatus getAsyncRequestStatus(int nodeId, int requestId) {
         VAdminProto.AsyncOperationStatusRequest asyncRequest = VAdminProto.AsyncOperationStatusRequest.newBuilder()
                 .setRequestId(requestId)
                 .build();
@@ -420,7 +421,11 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
         if (response.hasError())
             throwException(response.getError());
 
-        return new Pair<String,Boolean>(response.getStatus(), response.getComplete());
+        AsyncOperationStatus status = new AsyncOperationStatus(response.getRequestId(), response.getDescription());
+        status.setStatus(response.getStatus());
+        status.setComplete(response.getComplete());
+
+        return status;
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {

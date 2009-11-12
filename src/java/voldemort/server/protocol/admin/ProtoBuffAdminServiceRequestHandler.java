@@ -263,14 +263,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 .setStatus("started");
 
         try {
-            asyncRunner.startRequest(requestId, new AsyncOperation() {
-                public void run() {
-                    setStatus("Started");
+            asyncRunner.startRequest(requestId, new AsyncOperation(requestId, "Fetch and Update") {
+                public void apply() {
                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                     AdminClient adminClient = adminClientFactory.getAdminClient();
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator =
                             adminClient.fetchPartitionEntries(nodeId, storeName, partitions, filter);
-                    setStatus("Initated fetchPartitionEntries");
+                    updateStatus("Initated fetchPartitionEntries");
                     EventThrottler throttler = new EventThrottler(streamMaxBytesWritesPerSec);
                     for (long i=0; entriesIterator.hasNext(); i++) {
                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
@@ -279,11 +278,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(entry));
 
                         if ((i % 1000) == 0) {
-                            setStatus(i + " entries processed");
+                            updateStatus(i + " entries processed");
                         }
                     }
-                    setStatus("Finished processing");
-                    setComplete();
                 }
             });
 
