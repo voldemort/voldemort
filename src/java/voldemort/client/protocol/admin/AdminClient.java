@@ -157,16 +157,25 @@ public abstract class AdminClient {
      */
     protected abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
 
+    /**
+     * Wait for a task to finish completion, using exponential backoff to poll the task completion
+     * status
+     * @param nodeId Id of the node to poll
+     * @param requestId Id of the request to check
+     * @param maxWait Maximum time we'll keep checking a request until we give up
+     * @param timeUnit Unit in which {@param maxWait} is expressed
+     * @return True if task finished in {@param maxWait}, false otherwise
+     */
     public boolean waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
         long delay = 250;
-        long maxDelay = 1000*60;
+        long maxDelay = 1000*60; /* don't do exponential back off past a certain limit */
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while (System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if (status.isComplete())
                 return true;
-            if (delay < maxDelay)
+            if (delay < maxDelay) /* keep doubling the wait period until we rach maxDelay */
                 delay <<= 2;
             try {
                 Thread.sleep(delay);
