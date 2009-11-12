@@ -12,10 +12,9 @@ import java.util.concurrent.Executors;
  * @author afeinberg
  * Asynchronous job scheduler for admin service requests
  *
- * TODO: purge stale requests
  */
 public class AsyncOperationRunner {
-    private final Map<String, AsyncOperation> requests;
+    private final Map<Integer, AsyncOperation> requests;
     private final ExecutorService executor;
     private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
 
@@ -30,7 +29,7 @@ public class AsyncOperationRunner {
      * @param operation The asynchronous operation to submit
      * @param requestId Id of the request
      */
-    public void startRequest(String requestId, AsyncOperation operation) {
+    public void startRequest(int requestId, AsyncOperation operation) {
         if (requests.containsKey(requestId)) {
             throw new VoldemortException("Request " + requestId + " already submitted to the system");
         }
@@ -44,7 +43,7 @@ public class AsyncOperationRunner {
      * @param requestId Id of the request
      * @return True if request is complete, false otherwise
      */
-    public boolean isComplete(String requestId) {
+    public boolean isComplete(int requestId) {
         if (!requests.containsKey(requestId)) {
             throw new VoldemortException("No request with id " + requestId + " found");
         }
@@ -58,7 +57,7 @@ public class AsyncOperationRunner {
         return false;
     }
 
-    public String getRequestStatus(String requestId) {
+    public String getRequestStatus(int requestId) {
         if (!requests.containsKey(requestId)) {
             throw new VoldemortException("No request with id " + requestId + " found");
         }

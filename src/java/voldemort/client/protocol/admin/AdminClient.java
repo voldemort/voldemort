@@ -133,7 +133,7 @@ public abstract class AdminClient {
      * @param requestId Previously returned request Id
      * @return A Pair of String (request status) and Boolean (is request complete?)
      */
-    public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, String requestId);
+    public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, int requestId);
 
     /**
      * update remote metadata on a particular node

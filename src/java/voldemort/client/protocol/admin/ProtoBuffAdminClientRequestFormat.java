@@ -377,8 +377,8 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
                 .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
                 .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
                 .build();
-        VAdminProto.InitiateFetchAndUpdateResponse.Builder response = sendAndReceive(stealerNodeId, adminRequest,
-                VAdminProto.InitiateFetchAndUpdateResponse.newBuilder());
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealerNodeId, adminRequest,
+                VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
         if (response.hasError()) {
             throwException(response.getError());
@@ -390,7 +390,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
          */
         long delay = 250;
         long maxDelay = 1000*60;
-        String requestId = response.getRequestId();
+        int requestId = response.getRequestId();
         while (true) {
             Pair<String,Boolean> status = getAsyncRequestStatus(stealerNodeId, requestId);
             if (status.getSecond())
@@ -406,21 +406,21 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     @Override
-    public Pair<String, Boolean> getAsyncRequestStatus(int nodeId, String requestId) {
-        VAdminProto.AsyncStatusRequest asyncRequest = VAdminProto.AsyncStatusRequest.newBuilder()
+    public Pair<String, Boolean> getAsyncRequestStatus(int nodeId, int requestId) {
+        VAdminProto.AsyncOperationStatusRequest asyncRequest = VAdminProto.AsyncOperationStatusRequest.newBuilder()
                 .setRequestId(requestId)
                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setType(VAdminProto.AdminRequestType.ASYNC_STATUS)
-                .setAsyncStatus(asyncRequest)
+                .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STATUS)
+                .setAsyncOperationStatus(asyncRequest)
                 .build();
-        VAdminProto.AsyncStatusResponse.Builder response = sendAndReceive(nodeId, adminRequest,
-                VAdminProto.AsyncStatusResponse.newBuilder());
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId, adminRequest,
+                VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
         if (response.hasError())
             throwException(response.getError());
 
-        return new Pair<String,Boolean>(response.getStatus(), response.getIsComplete());
+        return new Pair<String,Boolean>(response.getStatus(), response.getComplete());
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
