@@ -28,10 +28,10 @@ public abstract class AsyncOperation implements Runnable {
 
     public void run() {
         updateStatus("started " + getStatus());
-        apply();
+        operate();
         updateStatus("finished " + getStatus());
         markComplete();
     }
 
-    abstract public void apply();
+    abstract public void operate();
 }

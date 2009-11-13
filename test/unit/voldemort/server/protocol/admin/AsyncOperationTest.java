@@ -16,7 +16,7 @@ public class AsyncOperationTest extends TestCase {
 
 
         AsyncOperation completeLater = new AsyncOperation(0, "test") {
-            public void apply() {
+            public void operate() {
                 try {
                     Thread.sleep(2000);
                 } catch (InterruptedException e) {
@@ -30,12 +30,12 @@ public class AsyncOperationTest extends TestCase {
 
 
         AsyncOperation completeNow = new AsyncOperation(1, "test 2") {
-            public void apply () {
+            public void operate () {
             }
         };
 
         AsyncOperation completeSoon = new AsyncOperation(2, "test3") {
-            public void apply() {
+            public void operate() {
                try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) {

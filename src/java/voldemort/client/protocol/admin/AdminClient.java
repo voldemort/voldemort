@@ -190,20 +190,17 @@ public abstract class AdminClient {
      */
     public boolean waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
         long delay = 250;
-        long maxDelay = 1000 * 60; /*
-                                    * don't do exponential back off past a
-                                    * certain limit
-                                    */
+        // don't do exponential back off past a certain limit
+        long maxDelay = 1000 * 60;
+
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while(System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if(status.isComplete())
                 return true;
-            if(delay < maxDelay) /*
-                                  * keep doubling the wait period until we rach
-                                  * maxDelay
-                                  */
+            if(delay < maxDelay)
+                // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;
             try {
                 Thread.sleep(delay);

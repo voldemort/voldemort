@@ -54,7 +54,7 @@ import com.google.protobuf.Message;
  * Protocol buffers implementation for
  * {@link voldemort.client.protocol.admin.AdminClient} *
  * 
- * @author afeinber
+ * @author afeinberg
  */
 public class ProtoBuffAdminClientRequestFormat extends AdminClient {
 

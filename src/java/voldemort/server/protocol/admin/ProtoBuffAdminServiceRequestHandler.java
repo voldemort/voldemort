@@ -37,7 +37,6 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -241,9 +240,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
         final int nodeId = request.getNodeId();
         Cluster cluster = metadataStore.getCluster();
-        Node remoteNode = cluster.getNodeById(nodeId);
-        String adminUrl = remoteNode.getSocketUrl().toString();
-
         final List<Integer> partitions = request.getPartitionsList();
         final VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter())
                                                           : new DefaultVoldemortFilter();
@@ -259,18 +255,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         try {
             asyncRunner.startRequest(requestId, new AsyncOperation(requestId, "Fetch and Update") {
 
-                public void apply() {
-                    ClientConfig config = new ClientConfig();
-                    config.setMaxConnectionsPerNode(1);
-                    config.setMaxThreads(1);
-                    config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                TimeUnit.MILLISECONDS);
-                    config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
-                                            TimeUnit.MILLISECONDS);
-                    config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-
-                    AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
-                                                                                    config);
+                @Override
+                public void operate() {
+                    AdminClient adminClient = createTempAdminClient();
                     try {
                         StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                         Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
@@ -292,6 +279,19 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     } finally {
                         adminClient.close();
                     }
+                }
+
+                private AdminClient createTempAdminClient() {
+                    ClientConfig config = new ClientConfig();
+                    config.setMaxConnectionsPerNode(1);
+                    config.setMaxThreads(1);
+                    config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
+                                                TimeUnit.MILLISECONDS);
+                    config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
+                                            TimeUnit.MILLISECONDS);
+                    config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+
+                    return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(), config);
                 }
             });
 
