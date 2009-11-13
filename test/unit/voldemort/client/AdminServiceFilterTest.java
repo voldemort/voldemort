@@ -94,7 +94,7 @@ public class AdminServiceFilterTest extends TestCase {
     }
 
     private AdminClient getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
+        return ServerTestUtils.getAdminClient(server.getMetadataStore().getCluster());
     }
 
     public void testFetchAsStreamWithFilter() {
@@ -142,9 +142,9 @@ public class AdminServiceFilterTest extends TestCase {
 
         // make delete stream call with filter
         getAdminClient().deletePartitions(0,
-                                                storeName,
-                                                Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
-                                                filter);
+                                          storeName,
+                                          Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
+                                          filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {

@@ -6,12 +6,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.client.AdminClientFactory;
-import voldemort.client.ClientConfig;
+import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -46,13 +44,7 @@ public class AdminTest {
 
     public AdminTest(String bootstrapUrl, String storeName, boolean useNative) {
         this.storeName = storeName;
-        AdminClientFactory adminClientFactory = new AdminClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)
-                                                                                         .setConnectionTimeout(10000,
-                                                                                                               TimeUnit.MILLISECONDS)
-                                                                                         .setSocketTimeout(100000,
-                                                                                                           TimeUnit.MILLISECONDS)
-                                                                                         .setSocketBufferSize(32 * 1024));
-        this.adminClient = adminClientFactory.getAdminClient();
+        this.adminClient = ServerTestUtils.getAdminClient(bootstrapUrl);
     }
 
     public static void printUsage(PrintStream out, OptionParser parser, String msg)
@@ -71,7 +63,7 @@ public class AdminTest {
 
     private List<Integer> getNodes(int partition) {
         List<Integer> rv = new LinkedList<Integer>();
-        Cluster cluster = adminClient.getMetadata().getCluster();
+        Cluster cluster = adminClient.getCluster();
         for(Node node: cluster.getNodes()) {
             if(node.getPartitionIds().contains(partition))
                 rv.add(node.getId());
@@ -81,7 +73,7 @@ public class AdminTest {
     }
 
     private List<Integer> getPartitions(int nodeId) {
-        Cluster cluster = adminClient.getMetadata().getCluster();
+        Cluster cluster = adminClient.getCluster();
         Node node = cluster.getNodeById(nodeId);
         return node.getPartitionIds();
     }

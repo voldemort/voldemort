@@ -103,10 +103,24 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
+    public MetadataStore(Store<String, String> innerStore,
+                         int nodeId,
+                         Cluster cluster,
+                         List<StoreDefinition> storeDefs) {
+        this.innerStore = innerStore;
+        this.metadataCache = new HashMap<String, Versioned<Object>>();
+        init(nodeId, cluster, storeDefs);
+    }
+
+    @SuppressWarnings("unchecked")
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
-        init(nodeId);
+        // cluster.xml and stores.xml should be present in innerStore.
+        Cluster cluster = (Cluster) convertStringToObject(CLUSTER_KEY, getInnerValue(CLUSTER_KEY)).getValue();
+        List<StoreDefinition> storeDefs = (List<StoreDefinition>) convertStringToObject(STORES_KEY,
+                                                                                        getInnerValue(STORES_KEY)).getValue();
+        init(nodeId, cluster, storeDefs);
     }
 
     public static MetadataStore readFromDirectory(File dir, int nodeId) {
@@ -128,15 +142,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     /**
      * Initializes the metadataCache for MetadataStore
      */
-    private void init(int nodeId) {
+    private void init(int nodeId, Cluster cluster, List<StoreDefinition> storeDefs) {
         logger.info("metadata init().");
 
         // Required keys
-        initCache(CLUSTER_KEY);
-        initCache(STORES_KEY);
+        initCache(CLUSTER_KEY, cluster);
+        initCache(STORES_KEY, storeDefs);
+        initCache(NODE_ID_KEY, nodeId);
 
         // Initialize with default if not present
-        initCache(NODE_ID_KEY, nodeId);
         initCache(REBALANCING_SLAVES_LIST_KEY, new ArrayList<Integer>(0));
         initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());

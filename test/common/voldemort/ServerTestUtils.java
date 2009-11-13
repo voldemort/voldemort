@@ -348,11 +348,20 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(Node identityNode,
-                                                                   MetadataStore metadataStore) {
-        return new ProtoBuffAdminClientRequestFormat(metadataStore, new SocketPool(2,
-                                                                                   10000,
-                                                                                   100000,
-                                                                                   32 * 1024));
+    public static ProtoBuffAdminClientRequestFormat getAdminClient(Cluster cluster) {
+
+        return new ProtoBuffAdminClientRequestFormat(cluster, new SocketPool(2,
+                                                                             10000,
+                                                                             100000,
+                                                                             32 * 1024));
     }
+
+    public static ProtoBuffAdminClientRequestFormat getAdminClient(String bootstrapURL) {
+
+        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, new SocketPool(2,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024));
+    }
+
 }

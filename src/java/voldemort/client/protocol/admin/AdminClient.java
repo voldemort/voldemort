@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
+import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
@@ -46,10 +48,21 @@ public abstract class AdminClient {
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
-    private final MetadataStore metadata;
+    private Cluster cluster;
 
-    public AdminClient(MetadataStore metadata) {
-        this.metadata = metadata;
+    public AdminClient(Cluster cluster) {
+        this.setCluster(cluster);
+    }
+
+    public AdminClient(String bootstrapUrl) {
+        // try to bootstrap metadata from bootstrapUrl
+        ClientConfig config = new ClientConfig().setBootstrapUrls(bootstrapUrl);
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
+
+        // get Cluster from bootStrapUrl
+        String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
+                                                                 factory.validateUrls(config.getBootstrapUrls()));
+        setCluster(clusterMapper.readCluster(new StringReader(clusterXml)));
     }
 
     /**
@@ -98,9 +111,9 @@ public abstract class AdminClient {
      * @throws IOException
      */
     public abstract void updateEntries(int nodeId,
-                                                String storeName,
-                                                Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
-                                                VoldemortFilter filter);
+                                       String storeName,
+                                       Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
+                                       VoldemortFilter filter);
 
     /**
      * Delete all Entries at (remote) node for partitions in partitionList
@@ -114,9 +127,9 @@ public abstract class AdminClient {
      * @throws IOException
      */
     public abstract int deletePartitions(int nodeId,
-                                               String storeName,
-                                               List<Integer> partitionList,
-                                               VoldemortFilter filter);
+                                         String storeName,
+                                         List<Integer> partitionList,
+                                         VoldemortFilter filter);
 
     /**
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
@@ -129,11 +142,13 @@ public abstract class AdminClient {
 
     /**
      * Get the status of asynchornous request
+     * 
      * @param nodeId Node to contact
      * @param requestId Previously returned request Id
-     * @return A Pair of String (request status) and Boolean (is request complete?)
+     * @return A Pair of String (request status) and Boolean (is request
+     *         complete?)
      */
-    public abstract Pair<String,Boolean> getAsyncRequestStatus(int nodeId, String requestId);
+    public abstract Pair<String, Boolean> getAsyncRequestStatus(int nodeId, String requestId);
 
     /**
      * update remote metadata on a particular node
@@ -154,10 +169,6 @@ public abstract class AdminClient {
      * @return
      */
     protected abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
-
-    public MetadataStore getMetadata() {
-        return metadata;
-    }
 
     /* Helper functions */
 
@@ -279,5 +290,13 @@ public abstract class AdminClient {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
         return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                              value.getVersion());
+    }
+
+    public void setCluster(Cluster cluster) {
+        this.cluster = cluster;
+    }
+
+    public Cluster getCluster() {
+        return cluster;
     }
 }

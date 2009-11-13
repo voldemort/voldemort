@@ -82,7 +82,7 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     public AdminClient getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getIdentityNode(), server.getMetadataStore());
+        return ServerTestUtils.getAdminClient(server.getMetadataStore().getCluster());
     }
 
     public void testUpdateClusterMetadata() {
@@ -297,8 +297,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         // use pipeGetAndPutStream to add values to server2
-        AdminClient client = ServerTestUtils.getAdminClient(server2.getIdentityNode(),
-                                                            server2.getMetadataStore());
+        AdminClient client = getAdminClient();
 
         client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
 
