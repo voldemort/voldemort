@@ -75,19 +75,16 @@ message InitiateFetchAndUpdateRequest {
   optional VoldemortFilter filter = 4;
 }
 
-message InitiateFetchAndUpdateResponse {
-  required string request_id = 1;
-  optional Error error = 2;
+message AsyncOperationStatusRequest {
+  required int32 request_id = 1;
 }
 
-message AsyncStatusRequest {
-  required string request_id = 1;
-}
-
-message AsyncStatusResponse {
-  required string status = 1;
-  required bool is_complete = 2;
-  optional Error error = 3;
+message AsyncOperationStatusResponse {
+  required int32 request_id = 1;
+  required string description = 2;
+  required string status = 3;
+  required bool complete = 4;
+  optional Error error = 5;
 }
 
 enum AdminRequestType {
@@ -97,7 +94,7 @@ enum AdminRequestType {
   FETCH_PARTITION_ENTRIES = 3;
   DELETE_PARTITION_ENTRIES = 4;
   INITIATE_FETCH_AND_UPDATE = 5;
-  ASYNC_STATUS = 6;
+  ASYNC_OPERATION_STATUS = 6;
 }
 
 message VoldemortAdminRequest {
@@ -108,7 +105,7 @@ message VoldemortAdminRequest {
   optional FetchPartitionEntriesRequest fetch_partition_entries = 5;
   optional DeletePartitionEntriesRequest delete_partition_entries = 6;
   optional InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
-  optional AsyncStatusRequest async_status = 8;
+  optional AsyncOperationStatusRequest async_operation_status = 8;
 }
 
 

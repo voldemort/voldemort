@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
@@ -54,9 +55,10 @@ public class AdminServiceBasicTest extends TestCase {
     private static String storeName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
-    VoldemortConfig config;
-    VoldemortServer server;
-    Cluster cluster;
+    private VoldemortConfig config;
+    private VoldemortServer server;
+    private Cluster cluster;
+    private AdminClient adminClient;
 
     @Override
     public void setUp() throws IOException {
@@ -74,15 +76,20 @@ public class AdminServiceBasicTest extends TestCase {
                                                     storesXmlfile);
         server = new VoldemortServer(config, cluster);
         server.start();
+
+        // initiate adminClient
+        adminClient = ServerTestUtils.getAdminClient(server.getMetadataStore().getCluster());
     }
 
     @Override
     public void tearDown() throws IOException, InterruptedException {
         server.stop();
+
+        // TODO : release sockets held by AdminClient
     }
 
     public AdminClient getAdminClient() {
-        return ServerTestUtils.getAdminClient(server.getMetadataStore().getCluster());
+        return adminClient;
     }
 
     public void testUpdateClusterMetadata() {
@@ -299,7 +306,8 @@ public class AdminServiceBasicTest extends TestCase {
         // use pipeGetAndPutStream to add values to server2
         AdminClient client = getAdminClient();
 
-        client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+        int id = client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+        client.waitForCompletion(1, id, 5, TimeUnit.SECONDS);
 
         // assert all partition 0, 1 keys present in server 2
         Store<ByteArray, byte[]> store2 = server2.getStoreRepository().getStorageEngine(storeName);

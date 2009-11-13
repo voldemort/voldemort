@@ -15,34 +15,43 @@ public class AsyncOperationTest extends TestCase {
         Map<String, AsyncOperation> operations = new AsyncOperationRepository(2);
 
 
-        AsyncOperation completeLater = new AsyncOperation() {
-            public void run() {
+        AsyncOperation completeLater = new AsyncOperation(0, "test") {
+            public void apply() {
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                } finally {
-                    setComplete();
                 }
             }
         };
 
 
         ExecutorService executorService = Executors.newFixedThreadPool(5);
-        executorService.submit(completeLater);
 
-        AsyncOperation completeNow = new AsyncOperation() {
-            public void run () {
-                setComplete();
+
+        AsyncOperation completeNow = new AsyncOperation(1, "test 2") {
+            public void apply () {
             }
         };
+
+        AsyncOperation completeSoon = new AsyncOperation(2, "test3") {
+            public void apply() {
+               try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
+
+        executorService.submit(completeLater);
         executorService.submit(completeNow);
+        executorService.submit(completeSoon);
 
         operations.put("foo1", completeLater);
-        operations.put("foo3", completeNow);
+        operations.put("foo2", completeNow);
+        operations.put("foo3", completeSoon);
         operations.put("foo4", completeLater);
-
-
         operations.put("foo5", completeLater);
 
 
@@ -56,6 +65,6 @@ public class AsyncOperationTest extends TestCase {
 
         operations.put("foo5", completeLater);
         assertTrue(operations.containsKey("foo5"));
-        assertFalse("Actually does LRU heuristics", operations.containsKey("foo3"));
+        assertFalse("Actually does LRU heuristics", operations.containsKey("foo2"));
     }
 }

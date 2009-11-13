@@ -22,6 +22,7 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
@@ -29,6 +30,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -350,18 +352,23 @@ public class ServerTestUtils {
 
     public static ProtoBuffAdminClientRequestFormat getAdminClient(Cluster cluster) {
 
-        return new ProtoBuffAdminClientRequestFormat(cluster, new SocketPool(2,
-                                                                             10000,
-                                                                             100000,
-                                                                             32 * 1024));
+        ClientConfig config = new ClientConfig();
+        config.setMaxConnectionsPerNode(2);
+        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketBufferSize(32 * 1024);
+
+        return new ProtoBuffAdminClientRequestFormat(cluster, config);
     }
 
     public static ProtoBuffAdminClientRequestFormat getAdminClient(String bootstrapURL) {
+        ClientConfig config = new ClientConfig();
+        config.setMaxConnectionsPerNode(2);
+        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketBufferSize(32 * 1024);
 
-        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, new SocketPool(2,
-                                                                                  10000,
-                                                                                  100000,
-                                                                                  32 * 1024));
+        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);
     }
 
 }

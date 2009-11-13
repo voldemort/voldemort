@@ -21,6 +21,6 @@ public class AsyncOperationRepository extends LRUMap {
     @Override
     protected boolean removeLRU(LinkEntry entry) {
         AsyncOperation operation = (AsyncOperation) entry.getValue();
-        return operation.getComplete();
+        return operation.getStatus().isComplete();
     }
 }

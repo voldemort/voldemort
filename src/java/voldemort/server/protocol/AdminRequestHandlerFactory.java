@@ -38,8 +38,7 @@ public class AdminRequestHandlerFactory implements RequestHandlerFactory {
                 return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
                                                                repository,
                                                                metadata,
-                                                               voldemortConfig.getStreamMaxReadBytesPerSec(),
-                                                               voldemortConfig.getStreamMaxWriteBytesPerSec());
+                                                               voldemortConfig);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }

@@ -4,22 +4,34 @@ package voldemort.server.protocol.admin;
  * @author afeinberg
  */
 public abstract class AsyncOperation implements Runnable {
-    protected boolean complete=false;
-    protected String status;
+    protected final AsyncOperationStatus status;
 
-    public synchronized boolean getComplete() {
-        return complete;
-    }
-    
-    public synchronized void setComplete() {
-        this.complete = true;
+    public AsyncOperation(int id, String description) {
+        this.status = new AsyncOperationStatus(id, description);
     }
 
-    public synchronized String getStatus() {
+    public synchronized AsyncOperationStatus getStatus() {
         return status;
     }
 
-    public synchronized void setStatus(String status) {
-        this.status = status;
+    public void updateStatus(String msg) {
+        synchronized(status) {
+            status.setStatus(msg);
+        }
     }
+
+    public void markComplete() {
+        synchronized(status) {
+            status.setComplete(true);
+        }
+    }
+
+    public void run() {
+        updateStatus("started " + getStatus());
+        apply();
+        updateStatus("finished " + getStatus());
+        markComplete();
+    }
+
+    abstract public void apply();
 }

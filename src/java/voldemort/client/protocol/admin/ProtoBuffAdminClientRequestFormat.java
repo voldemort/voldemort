@@ -22,10 +22,12 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
@@ -33,6 +35,7 @@ import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
@@ -60,20 +63,27 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     private final SocketPool pool;
     private final NetworkClassLoader networkClassLoader;
 
-    public ProtoBuffAdminClientRequestFormat(String bootstrapURL, SocketPool pool) {
+    public ProtoBuffAdminClientRequestFormat(String bootstrapURL, ClientConfig config) {
         super(bootstrapURL);
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = pool;
+        this.pool = createSocketPool(config);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
     }
 
-    public ProtoBuffAdminClientRequestFormat(Cluster cluster, SocketPool pool) {
+    public ProtoBuffAdminClientRequestFormat(Cluster cluster, ClientConfig config) {
         super(cluster);
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = pool;
+        this.pool = createSocketPool(config);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+    }
+
+    private SocketPool createSocketPool(ClientConfig config) {
+        return new SocketPool(config.getMaxConnectionsPerNode(),
+                              config.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                              config.getSocketTimeout(TimeUnit.MILLISECONDS),
+                              config.getSocketBufferSize());
     }
 
     protected <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
@@ -258,6 +268,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      * @return
      * @throws VoldemortException
      */
+    @Override
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
                                                                               String storeName,
                                                                               List<Integer> partitionList,
@@ -321,6 +332,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      * @param filter
      * @return
      */
+    @Override
     public Iterator<ByteArray> fetchPartitionKeys(int nodeId,
                                                   String storeName,
                                                   List<Integer> partitionList,
@@ -375,11 +387,11 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
      */
     @Override
-    public void fetchAndUpdateStreams(int donorNodeId,
-                                      int stealerNodeId,
-                                      String storeName,
-                                      List<Integer> stealList,
-                                      VoldemortFilter filter) {
+    public int fetchAndUpdateStreams(int donorNodeId,
+                                     int stealerNodeId,
+                                     String storeName,
+                                     List<Integer> stealList,
+                                     VoldemortFilter filter) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
                                                                                                                                    .addAllPartitions(stealList)
@@ -396,53 +408,39 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
                                                                                           .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
                                                                                           .build();
-        VAdminProto.InitiateFetchAndUpdateResponse.Builder response = sendAndReceive(stealerNodeId,
-                                                                                     adminRequest,
-                                                                                     VAdminProto.InitiateFetchAndUpdateResponse.newBuilder());
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealerNodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
         if(response.hasError()) {
             throwException(response.getError());
         }
 
-        /**
-         * This uses exponential back off to wait for the request to finish on
-         * the stealer node TODO: make waiting optional, add configurable delay
-         * parameters, use DelayQueue
-         */
-        long delay = 250;
-        long maxDelay = 1000 * 60;
-        String requestId = response.getRequestId();
-        while(true) {
-            Pair<String, Boolean> status = getAsyncRequestStatus(stealerNodeId, requestId);
-            if(status.getSecond())
-                break;
-            if(delay < maxDelay)
-                delay *= 2;
-            try {
-                Thread.sleep(delay);
-            } catch(InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        return response.getRequestId();
     }
 
     @Override
-    public Pair<String, Boolean> getAsyncRequestStatus(int nodeId, String requestId) {
-        VAdminProto.AsyncStatusRequest asyncRequest = VAdminProto.AsyncStatusRequest.newBuilder()
-                                                                                    .setRequestId(requestId)
-                                                                                    .build();
+    public AsyncOperationStatus getAsyncRequestStatus(int nodeId, int requestId) {
+        VAdminProto.AsyncOperationStatusRequest asyncRequest = VAdminProto.AsyncOperationStatusRequest.newBuilder()
+                                                                                                      .setRequestId(requestId)
+                                                                                                      .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_STATUS)
-                                                                                          .setAsyncStatus(asyncRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STATUS)
+                                                                                          .setAsyncOperationStatus(asyncRequest)
                                                                                           .build();
-        VAdminProto.AsyncStatusResponse.Builder response = sendAndReceive(nodeId,
-                                                                          adminRequest,
-                                                                          VAdminProto.AsyncStatusResponse.newBuilder());
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
         if(response.hasError())
             throwException(response.getError());
 
-        return new Pair<String, Boolean>(response.getStatus(), response.getIsComplete());
+        AsyncOperationStatus status = new AsyncOperationStatus(response.getRequestId(),
+                                                               response.getDescription());
+        status.setStatus(response.getStatus());
+        status.setComplete(response.getComplete());
+
+        return status;
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
@@ -506,5 +504,10 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
         } catch(IOException e) {
             logger.warn("Failed to close socket");
         }
+    }
+
+    @Override
+    public void close() {
+        this.pool.close();
     }
 }

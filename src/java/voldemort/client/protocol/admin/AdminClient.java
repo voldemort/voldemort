@@ -20,12 +20,14 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.cluster.Cluster;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -63,6 +65,9 @@ public abstract class AdminClient {
         String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
                                                                  factory.validateUrls(config.getBootstrapUrls()));
         setCluster(clusterMapper.readCluster(new StringReader(clusterXml)));
+
+        // release all threads/sockets hold by the factory.
+        factory.close();
     }
 
     /**
@@ -134,11 +139,11 @@ public abstract class AdminClient {
     /**
      * Pipe fetch from donorNode and update stealerNode in streaming mode.
      */
-    public abstract void fetchAndUpdateStreams(int donorNodeId,
-                                               int stealerNodeId,
-                                               String storeName,
-                                               List<Integer> stealList,
-                                               VoldemortFilter filter);
+    public abstract int fetchAndUpdateStreams(int donorNodeId,
+                                              int stealerNodeId,
+                                              String storeName,
+                                              List<Integer> stealList,
+                                              VoldemortFilter filter);
 
     /**
      * Get the status of asynchornous request
@@ -148,7 +153,7 @@ public abstract class AdminClient {
      * @return A Pair of String (request status) and Boolean (is request
      *         complete?)
      */
-    public abstract Pair<String, Boolean> getAsyncRequestStatus(int nodeId, String requestId);
+    public abstract AsyncOperationStatus getAsyncRequestStatus(int nodeId, int requestId);
 
     /**
      * update remote metadata on a particular node
@@ -169,6 +174,48 @@ public abstract class AdminClient {
      * @return
      */
     protected abstract Versioned<byte[]> doGetRemoteMetadata(int remoteNodeId, ByteArray key);
+
+    /**
+     * Wait for a task to finish completion, using exponential backoff to poll
+     * the task completion status
+     * 
+     * @param nodeId Id of the node to poll
+     * @param requestId Id of the request to check
+     * @param maxWait Maximum time we'll keep checking a request until we give
+     *        up
+     * @param timeUnit Unit in which
+     * @param maxWait is expressed
+     * @return True if task finished in
+     * @param maxWait , false otherwise
+     */
+    public boolean waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+        long delay = 250;
+        long maxDelay = 1000 * 60; /*
+                                    * don't do exponential back off past a
+                                    * certain limit
+                                    */
+        long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+
+        while(System.currentTimeMillis() < waitUntil) {
+            AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+            if(status.isComplete())
+                return true;
+            if(delay < maxDelay) /*
+                                  * keep doubling the wait period until we rach
+                                  * maxDelay
+                                  */
+                delay <<= 2;
+            try {
+                Thread.sleep(delay);
+            } catch(InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        return false;
+    }
+
+    public abstract void close();
 
     /* Helper functions */
 
