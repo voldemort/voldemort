@@ -34,6 +34,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.AdminRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
@@ -60,11 +61,15 @@ public class VoldemortServer extends AbstractService {
     private static final Logger logger = Logger.getLogger(VoldemortServer.class.getName());
     public static final long DEFAULT_PUSHER_POLL_MS = 60 * 1000;
 
+    private final static int ASYNC_REQUEST_THREADS = 8;
+    private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
+
     private final Node identityNode;
     private final List<VoldemortService> services;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
+    private final AsyncOperationRunner asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
@@ -130,7 +135,8 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isAdminServerEnabled()) {
             AdminRequestHandlerFactory adminRequestHandlerFactory = new AdminRequestHandlerFactory(this.storeRepository,
                                                                                                    this.metadata,
-                                                                                                   this.voldemortConfig);
+                                                                                                   this.voldemortConfig,
+                                                                                                   this.asyncRunner);
             services.add(new SocketService(adminRequestHandlerFactory,
                                            identityNode.getAdminPort(),
                                            voldemortConfig.getAdminCoreThreads(),

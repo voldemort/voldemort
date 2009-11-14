@@ -71,22 +71,20 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
 
-    private final static int ASYNC_REQUEST_THREADS = 8;
-    private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
-
-    private final AtomicInteger lastOperationId = new AtomicInteger(0);
+   
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
-                                               VoldemortConfig voldemortConfig) {
+                                               VoldemortConfig voldemortConfig,
+                                               AsyncOperationRunner asyncRunner) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+        this.asyncRunner = asyncRunner;
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -245,7 +243,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
-        int requestId = lastOperationId.getAndIncrement();
+        int requestId = asyncRunner.getRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)

@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author afeinberg
@@ -17,6 +18,7 @@ public class AsyncOperationRunner {
     private final Map<Integer, AsyncOperation> requests;
     private final ExecutorService executor;
     private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
+     private final AtomicInteger lastOperationId = new AtomicInteger(0);
 
     @SuppressWarnings("unchecked") // apache commons collections aren't updated for 1.5 yet
     public AsyncOperationRunner(int poolSize, int cacheSize) {
@@ -63,5 +65,9 @@ public class AsyncOperationRunner {
         }
 
         return requests.get(requestId).getStatus().getStatus();
+    }
+
+    public int getRequestId() {
+        return lastOperationId.getAndIncrement();
     }
 }
