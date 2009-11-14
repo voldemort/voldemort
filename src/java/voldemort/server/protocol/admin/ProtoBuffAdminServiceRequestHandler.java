@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -251,7 +250,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
 
         try {
-            asyncRunner.startRequest(requestId, new AsyncOperation(requestId, "Fetch and Update") {
+            asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, "Fetch and Update") {
 
                 @Override
                 public void operate() {
@@ -304,11 +303,11 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
             int requestId = request.getRequestId();
-            String requestStatus = asyncRunner.getRequestStatus(requestId);
+            AsyncOperationStatus operationStatus = asyncRunner.getOperationStatus(requestId);
             boolean requestComplete = asyncRunner.isComplete(requestId);
-            response.setDescription("description");
+            response.setDescription(operationStatus.getDescription());
             response.setComplete(requestComplete);
-            response.setStatus(requestStatus);
+            response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
