@@ -21,7 +21,6 @@ import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
@@ -45,7 +44,7 @@ public class SocketPoolTest extends TestCase {
         this.port = ServerTestUtils.findFreePort();
         this.pool = new SocketPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
-        RequestHandlerFactory handlerFactory = new SocketRequestHandlerFactory(new StoreRepository());
+        RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = new SocketServer(port,
                                        10,
                                        10 + 3,

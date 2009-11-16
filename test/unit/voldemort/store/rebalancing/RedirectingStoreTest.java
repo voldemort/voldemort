@@ -16,6 +16,7 @@
 
 package voldemort.store.rebalancing;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -23,6 +24,9 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
+
+import org.apache.commons.io.FileUtils;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
@@ -58,6 +62,19 @@ public class RedirectingStoreTest extends TestCase {
         server1 = startServer(1, storesXmlfile, cluster);
     }
 
+    @Override
+    public void tearDown() {
+        try {
+            server0.stop();
+            FileUtils.deleteDirectory(new File(server0.getVoldemortConfig().getVoldemortHome()));
+
+            server1.stop();
+            FileUtils.deleteDirectory(new File(server1.getVoldemortConfig().getVoldemortHome()));
+        } catch(Exception e) {
+            // ignore exceptions here
+        }
+    }
+
     private VoldemortServer startServer(int node, String storesXmlfile, Cluster cluster)
             throws IOException {
         VoldemortConfig config = ServerTestUtils.createServerConfig(node,
@@ -71,12 +88,6 @@ public class RedirectingStoreTest extends TestCase {
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
         return server;
-    }
-
-    @Override
-    public void tearDown() throws IOException, InterruptedException {
-        server0.stop();
-        server1.stop();
     }
 
     private RedirectingStore getRedirectingStore(MetadataStore metadata, String storeName) {

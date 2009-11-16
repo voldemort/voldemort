@@ -16,10 +16,13 @@
 
 package voldemort.client;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Map.Entry;
+
+import org.apache.commons.io.FileUtils;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -66,6 +69,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     public void tearDown() throws IOException, InterruptedException {
         adminClient.stop();
         server.stop();
+        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
     }
 
     @Override

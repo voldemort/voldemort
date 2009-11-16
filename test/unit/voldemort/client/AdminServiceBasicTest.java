@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,9 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
+
+import org.apache.commons.io.FileUtils;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
@@ -83,9 +87,9 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Override
     public void tearDown() throws IOException, InterruptedException {
+        adminClient.stop();
         server.stop();
-
-        // TODO : release sockets held by AdminClient
+        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
     }
 
     public AdminClient getAdminClient() {

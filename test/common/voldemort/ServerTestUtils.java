@@ -100,10 +100,23 @@ public class ServerTestUtils {
                                                          String storesXml,
                                                          String storeName,
                                                          int port) {
-        RequestHandlerFactory factory = new SocketRequestHandlerFactory(getStores(storeName,
-                                                                                  clusterXml,
-                                                                                  storesXml));
+        RequestHandlerFactory factory = getSocketRequestHandlerFactory(clusterXml,
+                                                                       storesXml,
+                                                                       getStores(storeName,
+                                                                                 clusterXml,
+                                                                                 storesXml));
         return getSocketService(useNio, factory, port, 5, 10, 10000);
+    }
+
+    public static RequestHandlerFactory getSocketRequestHandlerFactory(String clusterXml,
+                                                                       String storesXml,
+                                                                       StoreRepository storeRepsitory) {
+
+        return new SocketRequestHandlerFactory(storeRepsitory,
+                                               createMetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
+                                                                   new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml))),
+                                               null,
+                                               null);
     }
 
     public static AbstractSocketService getSocketService(boolean useNio,
@@ -158,7 +171,7 @@ public class ServerTestUtils {
         server.setSendServerVersion(false);
         Context context = new Context(server, "/", Context.NO_SESSIONS);
 
-        RequestHandler handler = new SocketRequestHandlerFactory(repository).getRequestHandler(requestFormat);
+        RequestHandler handler = getSocketRequestHandlerFactory(clusterXml, storesXml, repository).getRequestHandler(requestFormat);
         context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
         server.start();
         return context;
@@ -368,6 +381,10 @@ public class ServerTestUtils {
         config.setSocketBufferSize(32 * 1024);
 
         return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);
+    }
+
+    public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
+        return new SocketRequestHandlerFactory(repository, null, null, null);
     }
 
 }

@@ -120,10 +120,6 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
     public static class VoldemortFilterImpl implements VoldemortFilter {
 
-        public VoldemortFilterImpl() {
-            System.out.println("instantiating voldemortFilter");
-        }
-
         public boolean accept(Object key, Versioned<?> value) {
             String keyString = ByteUtils.getString(((ByteArray) key).get(), "UTF-8");
             if(Integer.parseInt(keyString) % 10 == 3) {

@@ -34,7 +34,6 @@ import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.http.HttpService;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -101,7 +100,7 @@ public class RemoteStoreComparisonTest {
                                                                               RequestFormatType.VOLDEMORT_V1),
                                                         socketPool,
                                                         false);
-        RequestHandlerFactory factory = new SocketRequestHandlerFactory(repository);
+        RequestHandlerFactory factory = ServerTestUtils.getSocketRequestHandlerFactory(repository);
         AbstractSocketService socketService = ServerTestUtils.getSocketService(useNio,
                                                                                factory,
                                                                                6666,
