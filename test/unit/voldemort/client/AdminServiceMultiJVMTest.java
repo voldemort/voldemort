@@ -16,8 +16,10 @@
 
 package voldemort.client;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -67,7 +69,41 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
         System.out.println("command:" + command);
         Process process = Runtime.getRuntime().exec(command);
         waitForServerStart(cluster.getNodeById(nodeId));
+        startOutputErrorConsumption(process);
         return process;
+    }
+
+    private void startOutputErrorConsumption(final Process process) {
+        final InputStream io = new BufferedInputStream(process.getInputStream());
+        new Thread(new Runnable() {
+
+            public void run() {
+                while(true) {
+                    try {
+                        process.exitValue();
+                        try {
+                            io.close();
+                        } catch(IOException e) {
+                            e.printStackTrace();
+                        }
+                        return;
+                    } catch(IllegalThreadStateException e) {
+                        // still running
+                        StringBuffer buffer = new StringBuffer();
+                        try {
+                            int c;
+                            while((c = io.read()) != -1) {
+                                buffer.append((char) c);
+                            }
+                        } catch(Exception e1) {
+                            return;
+                        } finally {
+                            System.out.println(buffer.toString());
+                        }
+                    }
+                }
+            }
+        }).start();
     }
 
     private void waitForServerStart(Node node) {
@@ -104,7 +140,6 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
 
     private void StopServerJVM(Process server) throws IOException {
         System.out.println("killing process" + server);
-
         server.destroy();
 
         try {
