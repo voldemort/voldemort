@@ -64,8 +64,16 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     }
 
     private Process startServerAsNewJVM(int nodeId, String voldemortHome) throws IOException {
-        String command = "java -cp " + System.getProperty("java.class.path")
-                         + " voldemort.server.VoldemortServer " + voldemortHome;
+        String[] classpaths = System.getProperty("java.class.path").split(":");
+        StringBuilder builder = new StringBuilder();
+        for(String path: classpaths) {
+            builder.append(new File(path).getCanonicalPath());
+            builder.append(":");
+        }
+        builder.deleteCharAt(builder.length() - 1);
+
+        String command = "java -cp " + builder.toString() + " voldemort.server.VoldemortServer "
+                         + voldemortHome;
         System.out.println("command:" + command);
         Process process = Runtime.getRuntime().exec(command);
         waitForServerStart(cluster.getNodeById(nodeId));
