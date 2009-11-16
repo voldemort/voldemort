@@ -146,6 +146,11 @@ public abstract class AdminClient {
                                               VoldemortFilter filter);
 
     /**
+     * cleanly close this client, freeing any resource.
+     */
+    public abstract void stop();
+
+    /**
      * Get the status of asynchornous request
      * 
      * @param nodeId Node to contact
@@ -211,8 +216,6 @@ public abstract class AdminClient {
 
         return false;
     }
-
-    public abstract void close();
 
     /* Helper functions */
 

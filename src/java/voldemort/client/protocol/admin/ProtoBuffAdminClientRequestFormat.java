@@ -507,7 +507,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     @Override
-    public void close() {
+    public void stop() {
         this.pool.close();
     }
 }

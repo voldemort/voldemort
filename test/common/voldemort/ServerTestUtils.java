@@ -355,7 +355,7 @@ public class ServerTestUtils {
         ClientConfig config = new ClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
         return new ProtoBuffAdminClientRequestFormat(cluster, config);
@@ -365,7 +365,7 @@ public class ServerTestUtils {
         ClientConfig config = new ClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(10000, TimeUnit.MILLISECONDS);
+        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
         return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);

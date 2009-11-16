@@ -277,7 +277,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                             }
                         }
                     } finally {
-                        adminClient.close();
+                        adminClient.stop();
                     }
                 }
 
