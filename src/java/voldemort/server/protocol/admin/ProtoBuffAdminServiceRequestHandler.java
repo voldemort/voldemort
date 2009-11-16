@@ -70,8 +70,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
 
-   
-
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
@@ -176,6 +174,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                           .build();
 
             ProtoUtils.writeMessage(outputStream, response);
+            logger.error("handleFetchPartitionEntries failed for request(" + request.toString()
+                         + ")", e);
         }
     }
 
@@ -220,6 +220,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleUpdatePartitionEntries failed for request(" + request.toString()
+                         + ")", e);
         } finally {
             ProtoUtils.writeMessage(outputStream, response.build());
         }
@@ -250,50 +252,54 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
 
         try {
-            asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, "Fetch and Update") {
+            asyncRunner.submitOperation(requestId,
+                                        new AsyncOperation(requestId, "Fetch and Update") {
 
-                @Override
-                public void operate() {
-                    AdminClient adminClient = createTempAdminClient();
-                    try {
-                        StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
-                        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
-                                                                                                                         storeName,
-                                                                                                                         partitions,
-                                                                                                                         filter);
-                        updateStatus("Initated fetchPartitionEntries");
-                        EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                        for(long i = 0; entriesIterator.hasNext(); i++) {
-                            Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
-                            storageEngine.put(entry.getFirst(), entry.getSecond());
+                                            @Override
+                                            public void operate() {
+                                                AdminClient adminClient = createTempAdminClient();
+                                                try {
+                                                    StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
+                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
+                                                                                                                                                     storeName,
+                                                                                                                                                     partitions,
+                                                                                                                                                     filter);
+                                                    updateStatus("Initated fetchPartitionEntries");
+                                                    EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
+                                                    for(long i = 0; entriesIterator.hasNext(); i++) {
+                                                        Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+                                                        storageEngine.put(entry.getFirst(),
+                                                                          entry.getSecond());
 
-                            throttler.maybeThrottle(entrySize(entry));
+                                                        throttler.maybeThrottle(entrySize(entry));
 
-                            if((i % 1000) == 0) {
-                                updateStatus(i + " entries processed");
-                            }
-                        }
-                    } finally {
-                        adminClient.stop();
-                    }
-                }
+                                                        if((i % 1000) == 0) {
+                                                            updateStatus(i + " entries processed");
+                                                        }
+                                                    }
+                                                } finally {
+                                                    adminClient.stop();
+                                                }
+                                            }
 
-                private AdminClient createTempAdminClient() {
-                    ClientConfig config = new ClientConfig();
-                    config.setMaxConnectionsPerNode(1);
-                    config.setMaxThreads(1);
-                    config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                TimeUnit.MILLISECONDS);
-                    config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
-                                            TimeUnit.MILLISECONDS);
-                    config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+                                            private AdminClient createTempAdminClient() {
+                                                ClientConfig config = new ClientConfig();
+                                                config.setMaxConnectionsPerNode(1);
+                                                config.setMaxThreads(1);
+                                                config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
+                                                                            TimeUnit.MILLISECONDS);
+                                                config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
+                                                                        TimeUnit.MILLISECONDS);
+                                                config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
-                    return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(), config);
-                }
-            });
+                                                return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
+                                                                                             config);
+                                            }
+                                        });
 
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleFetchAndUpdate failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();
@@ -311,6 +317,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setRequestId(requestId);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();
@@ -346,6 +353,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleDeletePartitionEntries failed for request(" + request.toString()
+                         + ")", e);
         }
 
         return response.build();
@@ -365,6 +374,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleUpdateMetadata failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();
@@ -390,6 +400,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetMetadata failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();
