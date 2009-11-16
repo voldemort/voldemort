@@ -52,7 +52,6 @@ public class MetadataStoreTest extends TestCase {
     public ByteArray getValidKey() {
         int i = (int) (Math.random() * TEST_KEYS.size());
         String key = TEST_KEYS.get(i);
-        System.out.println("valid Key:" + key);
         return new ByteArray(ByteUtils.getBytes(key, "UTF-8"));
     }
 
