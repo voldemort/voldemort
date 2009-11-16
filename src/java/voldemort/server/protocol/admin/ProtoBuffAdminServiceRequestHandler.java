@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -71,22 +70,20 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
 
-    private final static int ASYNC_REQUEST_THREADS = 8;
-    private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
-
-    private final AtomicInteger lastOperationId = new AtomicInteger(0);
+   
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
-                                               VoldemortConfig voldemortConfig) {
+                                               VoldemortConfig voldemortConfig,
+                                               AsyncOperationRunner asyncRunner) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+        this.asyncRunner = asyncRunner;
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -245,7 +242,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
-        int requestId = lastOperationId.getAndIncrement();
+        int requestId = asyncRunner.getRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)
@@ -253,7 +250,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
 
         try {
-            asyncRunner.startRequest(requestId, new AsyncOperation(requestId, "Fetch and Update") {
+            asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, "Fetch and Update") {
 
                 @Override
                 public void operate() {
@@ -306,11 +303,11 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
             int requestId = request.getRequestId();
-            String requestStatus = asyncRunner.getRequestStatus(requestId);
+            AsyncOperationStatus operationStatus = asyncRunner.getOperationStatus(requestId);
             boolean requestComplete = asyncRunner.isComplete(requestId);
-            response.setDescription("description");
+            response.setDescription(operationStatus.getDescription());
             response.setComplete(requestComplete);
-            response.setStatus(requestStatus);
+            response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));

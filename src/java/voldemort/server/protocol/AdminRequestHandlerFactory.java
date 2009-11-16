@@ -4,6 +4,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.ProtoBuffAdminServiceRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
@@ -23,13 +24,16 @@ public class AdminRequestHandlerFactory implements RequestHandlerFactory {
     private final StoreRepository repository;
     private final MetadataStore metadata;
     private final VoldemortConfig voldemortConfig;
+    private final AsyncOperationRunner asyncRunner;
 
     public AdminRequestHandlerFactory(StoreRepository repository,
                                       MetadataStore metadata,
-                                      VoldemortConfig voldemortConfig) {
+                                      VoldemortConfig voldemortConfig,
+                                      AsyncOperationRunner asyncRunner) {
         this.repository = repository;
         this.metadata = metadata;
         this.voldemortConfig = voldemortConfig;
+        this.asyncRunner = asyncRunner;
     }
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
@@ -38,7 +42,8 @@ public class AdminRequestHandlerFactory implements RequestHandlerFactory {
                 return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
                                                                repository,
                                                                metadata,
-                                                               voldemortConfig);
+                                                               voldemortConfig,
+                                                               asyncRunner);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }
