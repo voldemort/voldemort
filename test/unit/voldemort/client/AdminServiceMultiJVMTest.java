@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Map.Entry;
 
@@ -64,18 +65,11 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     }
 
     private Process startServerAsNewJVM(int nodeId, String voldemortHome) throws IOException {
-        String[] classpaths = System.getProperty("java.class.path").split(":");
-        StringBuilder builder = new StringBuilder();
-        for(String path: classpaths) {
-            builder.append(new File(path).getCanonicalPath());
-            builder.append(":");
-        }
-        builder.deleteCharAt(builder.length() - 1);
+        List<String> env = Arrays.asList("CLASSPATH=" + System.getProperty("java.class.path"));
 
-        String command = "java -cp " + builder.toString() + " voldemort.server.VoldemortServer "
-                         + voldemortHome;
-        System.out.println("command:" + command);
-        Process process = Runtime.getRuntime().exec(command);
+        String command = "java  voldemort.server.VoldemortServer " + voldemortHome;
+        System.out.println("command:" + command + " env:" + env);
+        Process process = Runtime.getRuntime().exec(command, env.toArray(new String[0]));
         waitForServerStart(cluster.getNodeById(nodeId));
         startOutputErrorConsumption(process);
         return process;
