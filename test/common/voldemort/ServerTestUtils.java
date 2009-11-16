@@ -18,6 +18,7 @@ package voldemort;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,12 +80,10 @@ public class ServerTestUtils {
         Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
-        MetadataStore metadata = new MetadataStore(new InMemoryStorageEngine<String, String>("metadata"),
-                                                   0);
-        metadata.put(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()),
-                     new Versioned<byte[]>(clusterXml.getBytes()));
-        metadata.put(new ByteArray(MetadataStore.STORES_KEY.getBytes()),
-                     new Versioned<byte[]>(storesXml.getBytes()));
+
+        // create new metadata store.
+        MetadataStore metadata = createMetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
+                                                     new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml)));
         repository.addLocalStore(metadata);
         return repository;
     }
