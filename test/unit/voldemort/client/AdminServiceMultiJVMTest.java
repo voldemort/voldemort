@@ -16,31 +16,23 @@
 
 package voldemort.client;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.Map.Entry;
 
 import org.apache.commons.io.FileUtils;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
-import voldemort.store.UnreachableStoreException;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.utils.ServerJVMTestUtils;
 import voldemort.versioning.Versioned;
-import voldemort.xml.ClusterMapper;
 
 /**
  * Multiple JVM test for {@link AbstractAdminServiceFilterTest}
@@ -59,123 +51,19 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     @Override
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2);
-        voldemortHome = createAndInitializeVoldemortHome(0, storesXmlfile, cluster);
-        pid = startServerAsNewJVM(0, voldemortHome);
+        voldemortHome = ServerJVMTestUtils.createAndInitializeVoldemortHome(0,
+                                                                            storesXmlfile,
+                                                                            cluster);
+        pid = ServerJVMTestUtils.startServerJVM(cluster.getNodeById(0), voldemortHome);
         adminClient = ServerTestUtils.getAdminClient(cluster);
-    }
-
-    private Process startServerAsNewJVM(int nodeId, String voldemortHome) throws IOException {
-        List<String> env = Arrays.asList("CLASSPATH=" + System.getProperty("java.class.path"));
-
-        String command = "java  voldemort.server.VoldemortServer " + voldemortHome;
-        System.out.println("command:" + command + " env:" + env);
-        Process process = Runtime.getRuntime().exec(command, env.toArray(new String[0]));
-        waitForServerStart(cluster.getNodeById(nodeId));
-        startOutputErrorConsumption(process);
-        return process;
-    }
-
-    private void startOutputErrorConsumption(final Process process) {
-        final InputStream io = new BufferedInputStream(process.getInputStream());
-        new Thread(new Runnable() {
-
-            public void run() {
-                while(true) {
-                    try {
-                        process.exitValue();
-                        try {
-                            io.close();
-                        } catch(IOException e) {
-                            e.printStackTrace();
-                        }
-                        return;
-                    } catch(IllegalThreadStateException e) {
-                        // still running
-                        StringBuffer buffer = new StringBuffer();
-                        try {
-                            int c;
-                            while((c = io.read()) != -1) {
-                                buffer.append((char) c);
-                            }
-                        } catch(Exception e1) {
-                            return;
-                        } finally {
-                            System.out.println(buffer.toString());
-                        }
-                    }
-                }
-            }
-        }).start();
-    }
-
-    private void waitForServerStart(Node node) {
-        boolean success = false;
-        int retries = 10;
-        Store store = null;
-        while(retries-- > 0) {
-            store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
-                                                   node.getSocketPort());
-            try {
-                store.get(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()));
-                success = true;
-            } catch(UnreachableStoreException e) {
-                store.close();
-                store = null;
-                System.out.println("UnreachableSocketStore sleeping will try again " + retries
-                                   + " times.");
-                sleep(1000);
-            }
-        }
-
-        store.close();
-        if(!success)
-            throw new RuntimeException("Failed to connect with server:" + node);
     }
 
     @Override
     public void tearDown() throws IOException {
         System.out.println("teardown called");
         adminClient.stop();
-        StopServerJVM(pid);
+        ServerJVMTestUtils.StopServerJVM(pid);
         FileUtils.deleteDirectory(new File(voldemortHome));
-    }
-
-    private void StopServerJVM(Process server) throws IOException {
-        System.out.println("killing process" + server);
-        server.destroy();
-
-        try {
-            server.waitFor();
-        } catch(InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private String createAndInitializeVoldemortHome(int node, String storesXmlfile, Cluster cluster)
-            throws IOException {
-        VoldemortConfig config = ServerTestUtils.createServerConfig(node,
-                                                                    TestUtils.createTempDir()
-                                                                             .getAbsolutePath(),
-                                                                    null,
-                                                                    storesXmlfile);
-
-        // Initialize voldemort config dir with all required files.
-        // cluster.xml
-        File clusterXml = new File(config.getMetadataDirectory() + File.separator + "cluster.xml");
-        FileUtils.writeStringToFile(clusterXml, new ClusterMapper().writeCluster(cluster));
-
-        // stores.xml
-        File storesXml = new File(config.getMetadataDirectory() + File.separator + "stores.xml");
-        FileUtils.copyFile(new File(storesXmlfile), storesXml);
-
-        // server.properties
-        File serverProperties = new File(config.getMetadataDirectory() + File.separator
-                                         + "server.properties");
-        FileUtils.writeLines(serverProperties, Arrays.asList("node.id=" + node,
-                                                             "bdb.cache.size=" + 1024 * 1024,
-                                                             "enable.metadata.checking=" + false));
-
-        return config.getVoldemortHome();
     }
 
     @Override
@@ -200,13 +88,5 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
         Node node = cluster.getNodeById(nodeId);
 
         return ServerTestUtils.getSocketStore(storeName, node.getSocketPort());
-    }
-
-    private void sleep(int milisec) {
-        try {
-            Thread.sleep(milisec);
-        } catch(InterruptedException e1) {
-            // ignore
-        }
     }
 }
