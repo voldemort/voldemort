@@ -1,0 +1,45 @@
+Release 0.57 on 11/16/2009
+ 
+The following changes were made since 0.55:
+ 
+* Fix for issue 164: Changed default bdb.max.logfile.size to 60MB
+* Make file deletes asynchronous in read only store swap
+* Fix for issue 163 (lock mode during get)
+* Fixed an issue in ReadOnlyEngine's close() method
+* Fixed hidden logging in StorageService
+* Added better debug logs for bdb stats
+* Fixed issue in bdb environment stats
+* Fixed race condition in AbstractSocketPoolTest
+* Added improved monitoring for bdb stats
+* Added backoff and retry logic in bootstrap code
+* Not logging obosleteVersionException(s) or counting it in JMX exception count
+* Fixed issue 159
+* C++ client building on OS X
+* Rely only on the number of versions returned to decide whether to retrieve
+  the value for put(K,V)
+* Implemented issue 152: getVersion() API in Store
+ 
+Release 0.55 on 10/7/2009
+ 
+The following changes were made since 0.52 (in summary):
+ 
+* Add an event throttler
+* Added DataCleanupJob
+* Protocol buffers at version 2.2.0
+* BDB JE upgraded to 3.3.87
+* Added data compression support (enable by adding
+    <compression>
+       <type>gzip</type>
+    </compression>
+  to value-serializer or key-serializer sections in stores.xml)
+* Added a resource pool/socket pool implementation (no longer using
+  commons-pool)
+* Added server-side NIO support (enabled by setting
+  enable.nio.connector=true
+  in server.properties)
+* Improved the efficiency of the protocol buffers network protocol by using
+  CodedOutputStream/CodedInputStream (zero copy transfers)
+* Fix for issue #21: incorrectness in vector clock inconsistency resolver
+* Upgrade google-collections
+* Support for building read only stores in Hadoop
+* Added a C++ client
