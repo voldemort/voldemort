@@ -31,7 +31,6 @@ import voldemort.cluster.Node;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
-import voldemort.server.protocol.AdminRequestHandlerFactory;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
@@ -69,7 +68,12 @@ public class VoldemortServer extends AbstractService {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
-    private final AsyncOperationRunner asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+    private final AsyncOperationRunner asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS,
+                                                                              ASYNC_REQUEST_CACHE_SIZE);
+
+    public AsyncOperationRunner getAsyncRunner() {
+        return asyncRunner;
+    }
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
@@ -110,7 +114,10 @@ public class VoldemortServer extends AbstractService {
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
         if(voldemortConfig.isSocketServerEnabled()) {
-            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository);
+            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
+                                                                                                this.metadata,
+                                                                                                this.voldemortConfig,
+                                                                                                this.asyncRunner);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector.");
@@ -133,10 +140,10 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isAdminServerEnabled()) {
-            AdminRequestHandlerFactory adminRequestHandlerFactory = new AdminRequestHandlerFactory(this.storeRepository,
-                                                                                                   this.metadata,
-                                                                                                   this.voldemortConfig,
-                                                                                                   this.asyncRunner);
+            SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
+                                                                                                     this.metadata,
+                                                                                                     this.voldemortConfig,
+                                                                                                     this.asyncRunner);
             services.add(new SocketService(adminRequestHandlerFactory,
                                            identityNode.getAdminPort(),
                                            voldemortConfig.getAdminCoreThreads(),
