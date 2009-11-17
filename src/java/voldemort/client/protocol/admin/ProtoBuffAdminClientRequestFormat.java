@@ -295,7 +295,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
             public Pair<ByteArray, Versioned<byte[]>> computeNext() {
                 try {
                     int size = inputStream.readInt();
-                    if(size <= 0) {
+                    if(size == -1) {
                         pool.checkin(destination, sands);
                         return endOfData();
                     }
@@ -359,7 +359,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
             public ByteArray computeNext() {
                 try {
                     int size = inputStream.readInt();
-                    if(size <= 0) {
+                    if(size == -1) {
                         pool.checkin(destination, sands);
                         return endOfData();
                     }

@@ -86,9 +86,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
             throws IOException {
-        final VoldemortAdminRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
-                                                                               VoldemortAdminRequest.newBuilder());
-
+        // Another protocol buffers bug here, temp. work around
+        VoldemortAdminRequest.Builder request = VoldemortAdminRequest.newBuilder();
+        int size = inputStream.readInt();
+        byte[] input = new byte[size];
+        ByteUtils.read(inputStream, input);
+        request.mergeFrom(input);
         switch(request.getType()) {
             case GET_METADATA:
                 ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));
@@ -205,10 +208,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
                     }
                 }
-
+                
                 int size = inputStream.readInt();
-
-                if(size <= 0)
+                if(size == -1)
                     continueReading = false;
                 else {
                     byte[] input = new byte[size];
@@ -227,18 +229,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         }
     }
 
-    public static String requestToId(String storeName, int nodeId, List<Integer> partitions) {
-        StringBuilder requestIdBuilder = new StringBuilder();
-        for(int partition: partitions) {
-            requestIdBuilder.append('p').append(partition).append(';');
-        }
-        requestIdBuilder.append(storeName).append(nodeId);
-        return requestIdBuilder.toString();
-    }
-
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
         final int nodeId = request.getNodeId();
-        Cluster cluster = metadataStore.getCluster();
         final List<Integer> partitions = request.getPartitionsList();
         final VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter())
                                                           : new DefaultVoldemortFilter();
