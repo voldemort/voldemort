@@ -16,6 +16,7 @@
 
 package voldemort.server.socket;
 
+import voldemort.VoldemortException;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
@@ -54,7 +55,9 @@ public class SocketService extends AbstractSocketService {
     @Override
     protected void startInner() {
         this.server.start();
-        this.server.awaitStartupCompletion();
+        Throwable startupException = this.server.awaitStartupCompletion();
+        if(startupException != null)
+            throw new VoldemortException(startupException);
 
         enableJmx(server);
     }
@@ -63,5 +66,4 @@ public class SocketService extends AbstractSocketService {
     protected void stopInner() {
         this.server.shutdown();
     }
-
 }
