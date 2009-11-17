@@ -157,6 +157,11 @@ public class SocketServer extends Thread {
             throw new VoldemortException(e);
         } catch(Throwable t) {
             startedStatusQueue.offer(t);
+            if(t instanceof Error)
+                throw (Error) t;
+            else if(t instanceof RuntimeException)
+                throw (RuntimeException) t;
+            throw new VoldemortException(t);
         } finally {
             if(serverSocket != null) {
                 try {
