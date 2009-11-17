@@ -1,6 +1,6 @@
 require 'store_client'
 
-s = StoreClient.new("test", [["10.95.2.105", "6666"]])
+s = StoreClient.new("test", [["localhost", "6666"]])
 version = s.put("hello", "1")
 raise "Invalid result" unless s.get("hello")[0][0] == "1"
 s.put("hello", "2", version)
