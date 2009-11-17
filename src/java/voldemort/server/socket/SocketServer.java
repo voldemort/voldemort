@@ -248,18 +248,16 @@ public class SocketServer extends Thread {
      * Blocks until the server has started successfully or an exception is
      * thrown.
      * 
-     * @return {@code null} if the server has started successfully or the
-     *         exception thrown if not.
+     * @throws VoldemortException if a problem occurs during start-up wrapping
+     *         the original exception.
      */
-    public Throwable awaitStartupCompletion() {
+    public void awaitStartupCompletion() {
         try {
             Object obj = startedStatusQueue.take();
             if(obj instanceof Throwable)
-                return (Throwable) obj;
-            else
-                return null;
+                throw new VoldemortException((Throwable) obj);
         } catch(InterruptedException e) {
-            return e;
+            // this is okay, if we are interrupted we can stop waiting
         }
     }
 
