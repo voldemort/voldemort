@@ -43,6 +43,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.VoldemortServer;
 import voldemort.server.http.StoreServlet;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
@@ -385,6 +386,17 @@ public class ServerTestUtils {
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
         return new SocketRequestHandlerFactory(repository, null, null, null);
+    }
+
+    public static void stopVoldemortServer(VoldemortServer server) throws IOException {
+        server.stop();
+        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+    }
+
+    public static VoldemortServer startVoldemortServer(VoldemortConfig config, Cluster cluster) {
+        VoldemortServer server = new VoldemortServer(config, cluster);
+        server.start();
+        return server;
     }
 
 }

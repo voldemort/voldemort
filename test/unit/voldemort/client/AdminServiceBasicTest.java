@@ -16,7 +16,6 @@
 
 package voldemort.client;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -26,9 +25,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
-
-import org.apache.commons.io.FileUtils;
-
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
@@ -49,7 +45,7 @@ import com.google.common.collect.AbstractIterator;
 public class AdminServiceBasicTest extends TestCase {
 
     private static int TEST_STREAM_KEYS_SIZE = 10000;
-    private static String storeName = "test-replication-memory";
+    private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     private VoldemortServer[] servers;
@@ -61,8 +57,18 @@ public class AdminServiceBasicTest extends TestCase {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         servers = new VoldemortServer[2];
 
-        servers[0] = startVoldemortServer(0, cluster);
-        servers[1] = startVoldemortServer(1, cluster);
+        servers[0] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(0,
+                                                                                             TestUtils.createTempDir()
+                                                                                                      .getAbsolutePath(),
+                                                                                             null,
+                                                                                             storesXmlfile),
+                                                          cluster);
+        servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
+                                                                                             TestUtils.createTempDir()
+                                                                                                      .getAbsolutePath(),
+                                                                                             null,
+                                                                                             storesXmlfile),
+                                                          cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
@@ -71,24 +77,8 @@ public class AdminServiceBasicTest extends TestCase {
     public void tearDown() throws IOException, InterruptedException {
         adminClient.stop();
         for(VoldemortServer server: servers) {
-            stopVoldemortServer(server);
+            ServerTestUtils.stopVoldemortServer(server);
         }
-    }
-
-    private void stopVoldemortServer(VoldemortServer server) throws IOException {
-        server.stop();
-        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
-    }
-
-    private VoldemortServer startVoldemortServer(int nodeId, Cluster cluster) throws IOException {
-        VoldemortServer server = new VoldemortServer(ServerTestUtils.createServerConfig(nodeId,
-                                                                                        TestUtils.createTempDir()
-                                                                                                 .getAbsolutePath(),
-                                                                                        null,
-                                                                                        storesXmlfile),
-                                                     cluster);
-        server.start();
-        return server;
     }
 
     private VoldemortServer getVoldemortServer(int nodeId) {
@@ -179,7 +169,7 @@ public class AdminServiceBasicTest extends TestCase {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
         // insert it into server-0 store
-        Store<ByteArray, byte[]> store = getStore(0, storeName);
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
         }
@@ -187,14 +177,14 @@ public class AdminServiceBasicTest extends TestCase {
         List<Integer> deletePartitionsList = Arrays.asList(0, 2);
 
         // do delete partitions request
-        getAdminClient().deletePartitions(0, storeName, deletePartitionsList, null);
+        getAdminClient().deletePartitions(0, testStoreName, deletePartitionsList, null);
 
         RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
-                                                               .getRoutingStrategy(storeName);
+                                                               .getRoutingStrategy(testStoreName);
 
-        store = getStore(0, storeName);
+        store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            if(isKeyPartition(entry.getKey(), 0, storeName, deletePartitionsList)) {
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
                 assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey())
                                                                               .size());
             }
@@ -208,16 +198,16 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, storeName);
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
-            if(isKeyPartition(entry.getKey(), 0, storeName, fetchPartitionsList)) {
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchPartitionsList)) {
                 fetchPartitionKeyCount++;
             }
         }
 
         Iterator<ByteArray> fetchIt = getAdminClient().fetchPartitionKeys(0,
-                                                                          storeName,
+                                                                          testStoreName,
                                                                           fetchPartitionsList,
                                                                           null);
         // check values
@@ -225,7 +215,7 @@ public class AdminServiceBasicTest extends TestCase {
         while(fetchIt.hasNext()) {
             assertEquals("Fetched key should belong to asked partitions",
                          true,
-                         isKeyPartition(fetchIt.next(), 0, storeName, fetchPartitionsList));
+                         isKeyPartition(fetchIt.next(), 0, testStoreName, fetchPartitionsList));
             count++;
         }
 
@@ -241,16 +231,16 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, storeName);
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
-            if(isKeyPartition(entry.getKey(), 0, storeName, fetchPartitionsList)) {
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchPartitionsList)) {
                 fetchPartitionKeyCount++;
             }
         }
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchPartitionEntries(0,
-                                                                                                      storeName,
+                                                                                                      testStoreName,
                                                                                                       fetchPartitionsList,
                                                                                                       null);
         // check values
@@ -259,7 +249,7 @@ public class AdminServiceBasicTest extends TestCase {
             Pair<ByteArray, Versioned<byte[]>> entry = fetchIt.next();
             assertEquals("Fetched entries should belong to asked partitions",
                          true,
-                         isKeyPartition(entry.getFirst(), 0, storeName, fetchPartitionsList));
+                         isKeyPartition(entry.getFirst(), 0, testStoreName, fetchPartitionsList));
             assertEquals("entry value should match",
                          new String(entry.getSecond().getValue()),
                          new String(entrySet.get(entry.getFirst())));
@@ -291,10 +281,10 @@ public class AdminServiceBasicTest extends TestCase {
             }
         };
 
-        getAdminClient().updateEntries(0, storeName, iterator, null);
+        getAdminClient().updateEntries(0, testStoreName, iterator, null);
 
         // check updated values
-        Store<ByteArray, byte[]> store = getStore(0, storeName);
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             assertNotSame("entry should be present at store", 0, store.get(entry.getKey()).size());
             assertEquals("entry value should match",
@@ -312,29 +302,29 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, storeName);
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
-            if(isKeyPartition(entry.getKey(), 0, storeName, fetchAndUpdatePartitionsList)) {
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
                 fetchPartitionKeyCount++;
             }
         }
 
         // assert that server1 is empty.
-        store = getStore(1, storeName);
+        store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet())
             assertEquals("server1 should be empty at start.", 0, store.get(entry.getKey()).size());
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.fetchAndUpdateStreams(0, 1, storeName, Arrays.asList(0, 1), null);
+        int id = client.fetchAndUpdateStreams(0, 1, testStoreName, Arrays.asList(0, 1), null);
         client.waitForCompletion(1, id, 5, TimeUnit.SECONDS);
 
         // check values
         int count = 0;
-        store = getStore(1, storeName);
+        store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            if(isKeyPartition(entry.getKey(), 0, storeName, fetchAndUpdatePartitionsList)) {
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
                 assertEquals("server1 store should contain fetchAndupdated partitions.",
                              1,
                              store.get(entry.getKey()).size());
