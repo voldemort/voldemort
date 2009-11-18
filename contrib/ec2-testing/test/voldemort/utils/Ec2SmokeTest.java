@@ -18,7 +18,6 @@ package voldemort.utils;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
-import static voldemort.utils.Ec2InstanceRemoteTestUtils.listInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
@@ -157,8 +156,7 @@ public class Ec2SmokeTest {
         clusterXmlFile = new File(properties.getProperty("ec2ClusterXmlFile"));
         int ec2InstanceCount = Integer.parseInt(properties.getProperty("ec2InstanceCount"));
 
-        createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
-        hostNamePairs = listInstances(accessId, secretKey);
+        hostNamePairs = createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
 
         hostNames = toHostNames(hostNamePairs);
 
