@@ -199,7 +199,13 @@ public class Ec2SmokeTest {
                               voldemortHomeDirectory,
                               nodeIds);
 
-            executeRemoteTest(hostNamePairs, sshPrivateKey, hostUserId, 10, 10, 100);
+            executeRemoteTest(hostNamePairs,
+                              voldemortRootDirectory,
+                              sshPrivateKey,
+                              hostUserId,
+                              10,
+                              10,
+                              100);
         } finally {
             stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
