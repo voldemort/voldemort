@@ -181,11 +181,12 @@ public class RemoteTestUtils {
                     voldemortRootDirectory);
     }
 
-    public static List<String> toHostNames(List<HostNamePair> hostNamePairs) {
+    public static List<String> toHostNames(List<HostNamePair> hostNamePairs, boolean useExternal) {
         final List<String> hostNames = new ArrayList<String>();
 
         for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getExternalHostName());
+            hostNames.add(useExternal ? hostNamePair.getExternalHostName()
+                                     : hostNamePair.getInternalHostName());
 
         return hostNames;
     }
