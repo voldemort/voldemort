@@ -16,7 +16,7 @@
 #  limitations under the License.
 #
 
-if [ $# != 2 ];
+if [ $# -lt 2 ];
 then
 	echo 'USAGE: bin/voldemort-shell.sh store_name bootstrap_url [command_file]'
 	exit 1
