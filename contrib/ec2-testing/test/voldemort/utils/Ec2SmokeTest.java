@@ -17,6 +17,7 @@
 package voldemort.utils;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
+import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
@@ -114,13 +115,6 @@ import org.junit.Test;
  * <td>ec2InstanceCount</td>
  * <td>The number of instances to create.</td>
  * </tr>
- * <tr>
- * <td>
- * ec2UseExternalHostNames</td>
- * <td>Set to "true" to use external/public host names, or "false" for
- * internal/private host names. Defaults to "true". Useful for when running the
- * tests from an instance of EC2 itself, for example.</td>
- * </tr>
  * </table>
  * 
  * @author Kirk True
@@ -165,8 +159,7 @@ public class Ec2SmokeTest {
 
         hostNamePairs = createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
 
-        hostNames = toHostNames(hostNamePairs, properties.getProperty("ec2UseExternalHostNames",
-                                                                      "true").equals("true"));
+        hostNames = toHostNames(hostNamePairs);
 
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
 
@@ -178,8 +171,8 @@ public class Ec2SmokeTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-    // if(hostNames != null)
-    // destroyInstances(accessId, secretKey, hostNames);
+        if(hostNames != null)
+            destroyInstances(accessId, secretKey, hostNames);
     }
 
     @After
