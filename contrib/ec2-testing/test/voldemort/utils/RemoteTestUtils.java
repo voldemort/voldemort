@@ -52,6 +52,7 @@ public class RemoteTestUtils {
     }
 
     public static void executeRemoteTest(List<HostNamePair> hostNamePairs,
+                                         String voldemortRootDirectory,
                                          File sshPrivateKey,
                                          String hostUserId,
                                          int rampTime,
@@ -67,7 +68,7 @@ public class RemoteTestUtils {
             hostNames.add(hostNamePair.getExternalHostName());
 
         for(HostNamePair hostNamePair: hostNamePairs) {
-            String command = "cd voldemort ; sleep " + (i * rampTime)
+            String command = "cd " + voldemortRootDirectory + " ; sleep " + (i * rampTime)
                              + "; ./bin/voldemort-remote-test.sh -w -d --iterations " + iterations
                              + " --start-key-index " + (i * numRequests) + " tcp://"
                              + bootstrapHostName + ":6666 test " + numRequests;
