@@ -44,7 +44,8 @@ public class SocketService extends AbstractSocketService {
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
-                                       requestHandlerFactory);
+                                       requestHandlerFactory,
+                                       serviceName);
     }
 
     @Override

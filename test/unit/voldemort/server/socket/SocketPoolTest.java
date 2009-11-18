@@ -44,10 +44,13 @@ public class SocketPoolTest extends TestCase {
         this.port = ServerTestUtils.findFreePort();
         this.pool = new SocketPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
-        RequestHandlerFactory handlerFactory = new RequestHandlerFactory(new StoreRepository(),
-                                                                         null,
-                                                                         null);
-        this.server = new SocketServer(port, 10, 10 + 3, 10000, handlerFactory);
+        RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
+        this.server = new SocketServer(port,
+                                       10,
+                                       10 + 3,
+                                       10000,
+                                       handlerFactory,
+                                       "socket-test-server");
         this.server.start();
         this.server.awaitStartupCompletion();
     }
