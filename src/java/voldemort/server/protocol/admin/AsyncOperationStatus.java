@@ -49,8 +49,24 @@ public class AsyncOperationStatus {
     public void setException(Exception exception) {
         this.exception = exception;
     }
+
     public boolean hasException() {
         return exception != null;
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder()
+                .append("id=")
+                .append(id)
+                .append(" description=")
+                .append(description)
+                .append(" complete=")
+                .append(complete.get())
+                .append(" status=")
+                .append(status)
+                .append(" hasException=")
+                .append(hasException());
+        return sb.toString();
     }
 }
 

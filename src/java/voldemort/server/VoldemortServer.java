@@ -40,6 +40,7 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -68,8 +69,7 @@ public class VoldemortServer extends AbstractService {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
-    private final AsyncOperationRunner asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS,
-                                                                              ASYNC_REQUEST_CACHE_SIZE);
+    private final AsyncOperationRunner asyncRunner;
 
     public AsyncOperationRunner getAsyncRunner() {
         return asyncRunner;
@@ -81,7 +81,8 @@ public class VoldemortServer extends AbstractService {
         this.storeRepository = new StoreRepository();
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
-        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
+        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());        
+        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
         this.services = createServices();
     }
 
@@ -96,6 +97,7 @@ public class VoldemortServer extends AbstractService {
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
                                 new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
+        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
         this.services = createServices();
     }
 
@@ -153,8 +155,10 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.isJmxEnabled()));
         }
 
-        if(voldemortConfig.isJmxEnabled())
+        if(voldemortConfig.isJmxEnabled()) {
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
+            JmxUtils.registerMbean("AsyncOperationRunner", asyncRunner);
+        }
 
         return ImmutableList.copyOf(services);
     }

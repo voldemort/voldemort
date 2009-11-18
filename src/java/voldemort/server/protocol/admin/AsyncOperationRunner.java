@@ -2,6 +2,8 @@ package voldemort.server.protocol.admin;
 
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 
 import java.util.Collections;
 import java.util.Map;
@@ -14,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Asynchronous job scheduler for admin service operations
  *
  */
+@JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationRunner {
     private final Map<Integer, AsyncOperation> operations;
     private final ExecutorService executor;
@@ -57,6 +60,16 @@ public class AsyncOperationRunner {
             return true;
         }
         return false;
+    }
+
+    // Wrap getOperationStatus to avoid throwing exception over JMX
+    @JmxOperation(description = "Retrieve operation status")
+    public String getStatus(int id) {
+        try {
+            return getOperationStatus(id).toString();
+        } catch (VoldemortException e) {
+            return "No operation with id " + id + " found";
+        }
     }
 
     public AsyncOperationStatus getOperationStatus(int requestId) {
