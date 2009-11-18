@@ -30,13 +30,97 @@ import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 
 import java.io.File;
+import java.io.FileReader;
+import java.io.Reader;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+/**
+ * Ec2SmokeTest contains two examples that interact with EC2.
+ * 
+ * There are quite a few properties that are needed which are provided in a
+ * *.properties file, the path of which is provided in the "ec2PropertiesFile"
+ * System property. Below is a table of the properties:
+ * 
+ * <table>
+ * <th>Name</th>
+ * <th>Description</th>
+ * <tr>
+ * <td>ec2AccessId</td>
+ * <td>EC2 access ID, provided by Amazon</td>
+ * </tr>
+ * <tr>
+ * <td>ec2SecretKey</td>
+ * <td>EC2 secret key, provided by Amazon</td>
+ * </tr>
+ * <tr>
+ * <td>ec2Ami</td>
+ * <td>ID of the EC2 AMI used for the instances that are started</td>
+ * </tr>
+ * <tr>
+ * <td>ec2KeyPairId</td>
+ * <td>Key pair ID</td>
+ * </tr>
+ * <tr>
+ * <td>ec2SshPrivateKeyPath</td>
+ * <td>SSH private key path to key used to connect to instances (optional)</td>
+ * </tr>
+ * <tr>
+ * <td>ec2HostUserId</td>
+ * <td>User ID on the hosts; for EC2 this is usually "root"</td>
+ * </tr>
+ * <tr>
+ * <td>ec2VoldemortRootDirectory</td>
+ * <td>Root directory on remote instances that points to the the Voldemort
+ * "distribution" directory; relative to the host user ID's home directory. For
+ * example, if the remote user's home directory is /root and the Voldemort
+ * distribution directory is /root/voldemort, ec2VoldemortRootDirectory would be
+ * "voldemort"</td>
+ * </tr>
+ * <tr>
+ * <td>ec2VoldemortHomeDirectory</td>
+ * <td>Home directory on remote instances that points to the configuration
+ * directory, relative to the host user ID's home directory. For example, if the
+ * remote user's home directory is /root and the Voldemort configuration
+ * directory is /root/voldemort/config/single_node_cluster,
+ * ec2VoldemortHomeDirectory would be "voldemort/config/single_node_cluster"</td>
+ * </tr>
+ * <tr>
+ * <td>ec2SourceDirectory</td>
+ * <td>Source directory on <b>local</b> machine from which to copy the Voldemort
+ * "distribution" to the remote hosts; e.g. "/home/kirk/voldemortdev/voldemort"</td>
+ * </tr>
+ * <tr>
+ * <td>ec2ParentDirectory</td>
+ * <td>Parent directory on the <b>remote</b> machine into which to copy the
+ * Voldemort "distribution". For example, if the remote user's home directory is
+ * /root and the Voldemort distribution directory is /root/voldemort,
+ * ec2ParentDirectory would be "." or "/root".</td>
+ * </tr>
+ * <tr>
+ * <td>ec2ClusterXmlFile</td>
+ * <td><b>Local</b> path to which cluster.xml will be written with EC2 hosts;
+ * this needs to live under the ec2SourceDirectory's configuration directory
+ * that is copied to the remote host.</td>
+ * </tr>
+ * <tr>
+ * <td>ec2InstanceCount</td>
+ * <td>The number of instances to create.</td>
+ * </tr>
+ * </table>
+ * 
+ * 
+ * 
+ * @author Kirk True
+ */
 
 public class Ec2SmokeTest {
 
@@ -55,31 +139,33 @@ public class Ec2SmokeTest {
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
+    private static boolean shouldTerminate = false;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        accessId = getSystemProperty("ec2AccessId");
-        secretKey = getSystemProperty("ec2SecretKey");
-        ami = getSystemProperty("ec2Ami");
-        keyPairId = getSystemProperty("ec2KeyPairId");
-        sshPrivateKeyPath = getSystemProperty("ec2SshPrivateKeyPath");
-        hostUserId = "root";
+        Properties properties = getEc2Properties();
+        accessId = properties.getProperty("ec2AccessId");
+        secretKey = properties.getProperty("ec2SecretKey");
+        ami = properties.getProperty("ec2Ami");
+        keyPairId = properties.getProperty("ec2KeyPairId");
+        sshPrivateKeyPath = properties.getProperty("ec2SshPrivateKeyPath");
+        hostUserId = properties.getProperty("ec2HostUserId");
         sshPrivateKey = sshPrivateKeyPath != null ? new File(sshPrivateKeyPath) : null;
-        voldemortRootDirectory = "voldemort";
-        voldemortHomeDirectory = "voldemort/config/single_node_cluster";
-        sourceDirectory = new File(getSystemProperty("user.dir"));
-        parentDirectory = ".";
-        clusterXmlFile = new File(getSystemProperty("user.dir"),
-                                  "config/single_node_cluster/config/cluster.xml");
+        voldemortRootDirectory = properties.getProperty("ec2VoldemortRootDirectory");
+        voldemortHomeDirectory = properties.getProperty("ec2VoldemortHomeDirectory");
+        sourceDirectory = new File(properties.getProperty("ec2SourceDirectory"));
+        parentDirectory = properties.getProperty("ec2ParentDirectory");
+        clusterXmlFile = new File(properties.getProperty("ec2ClusterXmlFile"));
+        int ec2InstanceCount = Integer.parseInt(properties.getProperty("ec2InstanceCount"));
 
         hostNamePairs = listInstances(accessId, secretKey);
-        int existing = hostNamePairs.size();
-        int max = 4;
-        int min = 2;
 
-        if(existing < min) {
-            createInstances(accessId, secretKey, ami, keyPairId, max - existing);
+        if(hostNamePairs.isEmpty()) {
+            createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
             hostNamePairs = listInstances(accessId, secretKey);
+
+            // If we created them, we should delete them...
+            shouldTerminate = true;
         }
 
         hostNames = toHostNames(hostNamePairs);
@@ -89,11 +175,12 @@ public class Ec2SmokeTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        destroyInstances(accessId, secretKey, hostNames);
+        if(hostNames != null && shouldTerminate)
+            destroyInstances(accessId, secretKey, hostNames);
     }
 
-    @Before
-    public void setUp() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
     }
 
@@ -142,13 +229,35 @@ public class Ec2SmokeTest {
         }
     }
 
-    private static String getSystemProperty(String key) {
-        String value = System.getProperty(key);
+    private static Properties getEc2Properties() throws Exception {
+        String propertiesFileName = System.getProperty("ec2PropertiesFile");
 
-        if(value == null || value.trim().length() == 0)
-            throw new RuntimeException("Missing value for system property " + key);
+        String[] requireds = { "ec2AccessId", "ec2SecretKey", "ec2Ami", "ec2KeyPairId",
+                "ec2HostUserId", "ec2VoldemortRootDirectory", "ec2VoldemortHomeDirectory",
+                "ec2SourceDirectory", "ec2ParentDirectory", "ec2ClusterXmlFile", "ec2InstanceCount" };
 
-        return value;
+        if(propertiesFileName == null)
+            throw new Exception("ec2PropertiesFile system property must be defined that "
+                                + "provides the path to file containing the following "
+                                + "required Ec2SmokeTest properties: "
+                                + StringUtils.join(requireds, ", "));
+
+        Properties properties = new Properties();
+        Reader r = null;
+
+        try {
+            r = new FileReader(propertiesFileName);
+            properties.load(r);
+        } finally {
+            IOUtils.closeQuietly(r);
+        }
+
+        for(String required: requireds)
+            if(!properties.containsKey(required))
+                throw new Exception("Required properties for Ec2SmokeTest: "
+                                    + StringUtils.join(requireds, ", ") + "; missing " + required);
+
+        return properties;
     }
 
 }
