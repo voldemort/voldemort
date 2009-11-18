@@ -139,7 +139,6 @@ public class Ec2SmokeTest {
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
-    private static boolean shouldTerminate = false;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -158,15 +157,8 @@ public class Ec2SmokeTest {
         clusterXmlFile = new File(properties.getProperty("ec2ClusterXmlFile"));
         int ec2InstanceCount = Integer.parseInt(properties.getProperty("ec2InstanceCount"));
 
+        createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
         hostNamePairs = listInstances(accessId, secretKey);
-
-        if(hostNamePairs.isEmpty()) {
-            createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
-            hostNamePairs = listInstances(accessId, secretKey);
-
-            // If we created them, we should delete them...
-            shouldTerminate = true;
-        }
 
         hostNames = toHostNames(hostNamePairs);
 
@@ -175,7 +167,7 @@ public class Ec2SmokeTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        if(hostNames != null && shouldTerminate)
+        if(hostNames != null)
             destroyInstances(accessId, secretKey, hostNames);
     }
 
