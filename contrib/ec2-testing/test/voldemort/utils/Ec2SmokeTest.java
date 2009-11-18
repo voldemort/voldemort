@@ -17,7 +17,6 @@
 package voldemort.utils;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
-import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
@@ -171,8 +170,8 @@ public class Ec2SmokeTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        if(hostNames != null)
-            destroyInstances(accessId, secretKey, hostNames);
+    // if(hostNames != null)
+    // destroyInstances(accessId, secretKey, hostNames);
     }
 
     @After
