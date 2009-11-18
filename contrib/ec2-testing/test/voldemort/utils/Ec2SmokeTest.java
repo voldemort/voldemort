@@ -115,6 +115,21 @@ import org.junit.Test;
  * <td>ec2InstanceCount</td>
  * <td>The number of instances to create.</td>
  * </tr>
+ * <tr>
+ * <td>ec2RampTime</td>
+ * <td>For the remote test, the number of seconds to wait for each instance
+ * before connecting to the server. Prevents the server nodes from being flooded
+ * all at once.</td>
+ * </tr>
+ * <tr>
+ * <td>ec2Iterations</td>
+ * <td>For the remote test, the number of remote test iterations.</td>
+ * </tr>
+ * <tr>
+ * <td>ec2NumRequests</td>
+ * <td>For the remote test, the number of remote test requests per each
+ * iteration.</td>
+ * </tr>
  * </table>
  * 
  * @author Kirk True
@@ -134,6 +149,9 @@ public class Ec2SmokeTest {
     private static File sourceDirectory;
     private static String parentDirectory;
     private static File clusterXmlFile;
+    private static int rampTime;
+    private static int iterations;
+    private static int numRequests;
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
@@ -156,6 +174,9 @@ public class Ec2SmokeTest {
         parentDirectory = properties.getProperty("ec2ParentDirectory");
         clusterXmlFile = new File(properties.getProperty("ec2ClusterXmlFile"));
         int ec2InstanceCount = Integer.parseInt(properties.getProperty("ec2InstanceCount"));
+        rampTime = Integer.parseInt(properties.getProperty("ec2RampTime"));
+        iterations = Integer.parseInt(properties.getProperty("ec2Iterations"));
+        numRequests = Integer.parseInt(properties.getProperty("ec2NumRequests"));
 
         hostNamePairs = createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
 
@@ -196,9 +217,9 @@ public class Ec2SmokeTest {
                               voldemortRootDirectory,
                               sshPrivateKey,
                               hostUserId,
-                              10,
-                              10,
-                              100);
+                              rampTime,
+                              iterations,
+                              numRequests);
         } finally {
             stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
@@ -236,7 +257,8 @@ public class Ec2SmokeTest {
 
         String[] requireds = { "ec2AccessId", "ec2SecretKey", "ec2Ami", "ec2KeyPairId",
                 "ec2HostUserId", "ec2VoldemortRootDirectory", "ec2VoldemortHomeDirectory",
-                "ec2SourceDirectory", "ec2ParentDirectory", "ec2ClusterXmlFile", "ec2InstanceCount" };
+                "ec2SourceDirectory", "ec2ParentDirectory", "ec2ClusterXmlFile",
+                "ec2InstanceCount", "ec2RampTime", "ec2Iterations", "ec2NumRequests" };
 
         if(propertiesFileName == null)
             throw new Exception("ec2PropertiesFile system property must be defined that "
