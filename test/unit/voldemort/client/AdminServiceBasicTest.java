@@ -317,7 +317,11 @@ public class AdminServiceBasicTest extends TestCase {
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.fetchAndUpdateStreams(0, 1, testStoreName, Arrays.asList(0, 1), null);
+        int id = client.fetchAndUpdateStreams(0,
+                                              1,
+                                              testStoreName,
+                                              fetchAndUpdatePartitionsList,
+                                              null);
         client.waitForCompletion(1, id, 5, TimeUnit.SECONDS);
 
         // check values

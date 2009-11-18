@@ -282,7 +282,7 @@
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />
     <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="128M">
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
