@@ -10,25 +10,26 @@ public abstract class AsyncOperation implements Runnable {
         this.status = new AsyncOperationStatus(id, description);
     }
 
-    public synchronized AsyncOperationStatus getStatus() {
+    public AsyncOperationStatus getStatus() {
         return status;
     }
 
     public void updateStatus(String msg) {
-        synchronized(status) {
-            status.setStatus(msg);
-        }
+        status.setStatus(msg);
     }
 
     public void markComplete() {
-        synchronized(status) {
-            status.setComplete(true);
-        }
+        status.setComplete(true);
+
     }
 
     public void run() {
         updateStatus("started " + getStatus());
-        operate();
+        try {
+            operate();
+        } catch (Exception e) {
+            status.setException(e);
+        }
         updateStatus("finished " + getStatus());
         markComplete();
     }

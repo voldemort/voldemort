@@ -31,7 +31,7 @@ public class AsyncOperationRunner {
      * @param operation The asynchronous operations to submit
      * @param requestId Id of the request
      */
-    public void submitOperation(int requestId, AsyncOperation operation) {
+    public synchronized void submitOperation(int requestId, AsyncOperation operation) {
         if (this.operations.containsKey(requestId)) {
             throw new VoldemortException("Request " + requestId + " already submitted to the system");
         }

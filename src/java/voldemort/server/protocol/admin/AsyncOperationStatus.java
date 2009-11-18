@@ -1,11 +1,14 @@
 package voldemort.server.protocol.admin;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * @author afeinberg
  */
 public class AsyncOperationStatus {
-    private String status="initializing";
-    private boolean complete=false;
+    private volatile String status="initializing";
+    private AtomicBoolean complete = new AtomicBoolean(false);
+    private volatile Exception exception;
 
     private final int id;
     private final String description;
@@ -28,15 +31,26 @@ public class AsyncOperationStatus {
     }
 
     public boolean isComplete() {
-        return complete;
+        return complete.get();
     }
 
     public void setComplete(boolean complete) {
-        this.complete = complete;
+        this.complete.getAndSet(complete);
     }
 
     public int getId() {
         return id;
+    }
+
+    public Exception getException() {
+        return exception;
+    }
+
+    public void setException(Exception exception) {
+        this.exception = exception;
+    }
+    public boolean hasException() {
+        return exception != null;
     }
 }
 

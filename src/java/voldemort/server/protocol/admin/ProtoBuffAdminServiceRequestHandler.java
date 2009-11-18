@@ -307,6 +307,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setComplete(requestComplete);
             response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
+            if (operationStatus.hasException())
+                throw new VoldemortException(operationStatus.getException());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);
