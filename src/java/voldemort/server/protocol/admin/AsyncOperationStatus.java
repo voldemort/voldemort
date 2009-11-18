@@ -4,7 +4,7 @@ package voldemort.server.protocol.admin;
  * @author afeinberg
  */
 public class AsyncOperationStatus {
-    private String status;
+    private String status="initializing";
     private boolean complete=false;
 
     private final int id;
