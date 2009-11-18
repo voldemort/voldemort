@@ -36,6 +36,7 @@ import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -143,6 +144,8 @@ public class Ec2SmokeTest {
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
 
+    private static final Logger logger = Logger.getLogger(Ec2SmokeTest.class);
+
     @BeforeClass
     public static void setUpClass() throws Exception {
         Properties properties = getEc2Properties();
@@ -166,6 +169,9 @@ public class Ec2SmokeTest {
                                                                       "true").equals("true"));
 
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+
+        if(logger.isInfoEnabled())
+            logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
 
         Thread.sleep(30000);
     }
