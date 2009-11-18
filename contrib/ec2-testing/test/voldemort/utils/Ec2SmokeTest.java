@@ -166,6 +166,8 @@ public class Ec2SmokeTest {
                                                                       "true").equals("true"));
 
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+
+        Thread.sleep(30000);
     }
 
     @AfterClass
