@@ -114,9 +114,14 @@ import org.junit.Test;
  * <td>ec2InstanceCount</td>
  * <td>The number of instances to create.</td>
  * </tr>
+ * <tr>
+ * <td>
+ * ec2UseExternalHostNames</td>
+ * <td>Set to "true" to use external/public host names, or "false" for
+ * internal/private host names. Defaults to "true". Useful for when running the
+ * tests from an instance of EC2 itself, for example.</td>
+ * </tr>
  * </table>
- * 
- * 
  * 
  * @author Kirk True
  */
@@ -158,7 +163,8 @@ public class Ec2SmokeTest {
 
         hostNamePairs = createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
 
-        hostNames = toHostNames(hostNamePairs);
+        hostNames = toHostNames(hostNamePairs, properties.getProperty("ec2UseExternalHostNames",
+                                                                      "true").equals("true"));
 
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
     }
