@@ -107,8 +107,6 @@ public class AdminServiceFailureTest extends TestCase {
             default:
                 throw new RuntimeException("Unknown operation");
         }
-
-        return null;
     }
 
     private void putAlltoStore(int nodeId, String storeName) {
