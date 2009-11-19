@@ -37,6 +37,10 @@ import junit.framework.TestCase;
  */
 public class RebalancingClientTest extends TestCase {
 
+    public void testdummy() {
+    // just a dummy test for this Test class to pass for now.
+    }
+
     // private static String storeName = "test-replication-memory";
     // private static String storesXmlfile =
     // "test/common/voldemort/config/stores.xml";
