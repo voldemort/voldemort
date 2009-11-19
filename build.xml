@@ -236,8 +236,6 @@
     <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
       <syspropertyset>
         <propertyref prefix="ec2" />
-      	<propertyref prefix="log4j" />
-      	<propertyref prefix="org.apache.commons.logging" />
       </syspropertyset>
       <classpath refid="contrib-test-classpath" />
       <formatter type="xml" />

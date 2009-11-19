@@ -276,10 +276,15 @@ public class Ec2SmokeTest {
             IOUtils.closeQuietly(r);
         }
 
-        for(String required: requireds)
+        for(String required: requireds) {
+            // Allow system properties to override
+            if(System.getProperties().containsKey(required))
+                properties.put(required, System.getProperty(required));
+
             if(!properties.containsKey(required))
                 throw new Exception("Required properties for Ec2SmokeTest: "
                                     + StringUtils.join(requireds, ", ") + "; missing " + required);
+        }
 
         return properties;
     }
