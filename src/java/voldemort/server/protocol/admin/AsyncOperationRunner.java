@@ -72,6 +72,11 @@ public class AsyncOperationRunner {
         }
     }
 
+    @JmxOperation(description = "Retrieve all operations")
+    public String getOperations() {
+        return operations.toString();
+    }
+
     public AsyncOperationStatus getOperationStatus(int requestId) {
         if (!operations.containsKey(requestId)) {
             throw new VoldemortException("No operation with id " + requestId + " found");
