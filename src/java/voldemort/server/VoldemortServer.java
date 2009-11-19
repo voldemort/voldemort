@@ -71,17 +71,13 @@ public class VoldemortServer extends AbstractService {
     private final MetadataStore metadata;
     private final AsyncOperationRunner asyncRunner;
 
-    public AsyncOperationRunner getAsyncRunner() {
-        return asyncRunner;
-    }
-
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.storeRepository = new StoreRepository();
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
-        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());        
+        this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
         this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
         this.services = createServices();
     }
@@ -101,6 +97,10 @@ public class VoldemortServer extends AbstractService {
         this.services = createServices();
     }
 
+    public AsyncOperationRunner getAsyncRunner() {
+        return asyncRunner;
+    }
+    
     private List<VoldemortService> createServices() {
 
         /* Services are given in the order they must be started */
@@ -109,6 +109,8 @@ public class VoldemortServer extends AbstractService {
                                                           SystemTime.INSTANCE);
         services.add(new StorageService(storeRepository, metadata, scheduler, voldemortConfig));
         services.add(scheduler);
+        services.add(this.asyncRunner);
+
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,
                                          storeRepository,
@@ -155,10 +157,8 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.isJmxEnabled()));
         }
 
-        if(voldemortConfig.isJmxEnabled()) {
+        if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
-            JmxUtils.registerMbean("AsyncOperationRunner", asyncRunner);
-        }
 
         return ImmutableList.copyOf(services);
     }

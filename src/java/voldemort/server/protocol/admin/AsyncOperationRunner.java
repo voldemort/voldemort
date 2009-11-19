@@ -4,6 +4,8 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
 
 import java.util.Collections;
 import java.util.Map;
@@ -17,16 +19,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  */
 @JmxManaged(description = "Asynchronous operation execution")
-public class AsyncOperationRunner {
+public class AsyncOperationRunner extends AbstractService {
     private final Map<Integer, AsyncOperation> operations;
     private final ExecutorService executor;
     private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
-
+   
     @SuppressWarnings("unchecked") // apache commons collections aren't updated for 1.5 yet
     public AsyncOperationRunner(int poolSize, int cacheSize) {
+        super(ServiceType.ASYNC_SCHEDULER);
         operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
         executor = Executors.newFixedThreadPool(poolSize);
+
     }
 
     /**
@@ -87,5 +91,13 @@ public class AsyncOperationRunner {
 
     public int getRequestId() {
         return lastOperationId.getAndIncrement();
+    }
+
+    protected void startInner() {
+        logger.info("Starting asyncOperationRunner");
+    }
+
+    protected void stopInner() {
+        logger.info("Stopping asyncOperationRunner");
     }
 }
