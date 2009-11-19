@@ -19,7 +19,6 @@ package voldemort.store.readonly;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -71,8 +70,6 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
     private final int numBackups;
-    private final int numFileHandles;
-    private final long bufferWaitTimeoutMs;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private volatile ChunkedFileSet fileSet;
@@ -93,13 +90,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      *        actual size of the cache will be the largest power of two lower
      *        than this number
      */
-    public ReadOnlyStorageEngine(String name,
-                                 File storeDir,
-                                 int numBackups,
-                                 int numFileHandles,
-                                 long bufferWaitTimeoutMs) {
-        this.bufferWaitTimeoutMs = bufferWaitTimeoutMs;
-        this.numFileHandles = numFileHandles;
+    public ReadOnlyStorageEngine(String name, File storeDir, int numBackups) {
         this.storeDir = storeDir;
         this.numBackups = numBackups;
         this.name = Utils.notNull(name);
@@ -126,9 +117,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
             File version0 = new File(storeDir, "version-0");
             version0.mkdirs();
-            this.fileSet = new ChunkedFileSet(version0,
-                                              this.numFileHandles,
-                                              this.bufferWaitTimeoutMs);
+            this.fileSet = new ChunkedFileSet(version0);
             isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();
@@ -146,8 +135,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             if(isOpen) {
                 this.isOpen = false;
                 fileSet.close();
-            }
-            else {
+            } else {
                 logger.debug("Attempt to close already closed store " + getName());
             }
         } finally {
@@ -359,7 +347,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private byte[] readValue(int chunk, int valueLocation) {
-        FileChannel dataFile = fileSet.getDataFile(chunk);
+        FileChannel dataFile = fileSet.dataFileFor(chunk);
         try {
             ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
             dataFile.read(sizeBuffer, valueLocation);
@@ -382,38 +370,34 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * @throws InterruptedException
      */
     private int getValueLocation(int chunk, byte[] keyMd5) {
-        MappedByteBuffer index = fileSet.checkoutIndexFile(chunk);
+        ByteBuffer index = fileSet.indexFileFor(chunk);
         int indexFileSize = fileSet.getIndexFileSize(chunk);
-        try {
-            byte[] keyBuffer = new byte[KEY_HASH_SIZE];
-            int low = 0;
-            int high = indexFileSize / INDEX_ENTRY_SIZE - 1;
-            while(low <= high) {
-                int mid = (low + high) / 2;
-                byte[] foundKey = readKey(index, mid * INDEX_ENTRY_SIZE, keyBuffer);
-                int cmp = ByteUtils.compare(foundKey, keyMd5);
-                if(cmp == 0) {
-                    // they are equal, return the location stored here
-                    index.position(mid * INDEX_ENTRY_SIZE + KEY_HASH_SIZE);
-                    return index.getInt();
-                } else if(cmp > 0) {
-                    // midVal is bigger
-                    high = mid - 1;
-                } else if(cmp < 0) {
-                    // the keyMd5 is bigger
-                    low = mid + 1;
-                }
+        byte[] keyBuffer = new byte[KEY_HASH_SIZE];
+        int low = 0;
+        int high = indexFileSize / INDEX_ENTRY_SIZE - 1;
+        while(low <= high) {
+            int mid = (low + high) / 2;
+            byte[] foundKey = readKey(index, mid * INDEX_ENTRY_SIZE, keyBuffer);
+            int cmp = ByteUtils.compare(foundKey, keyMd5);
+            if(cmp == 0) {
+                // they are equal, return the location stored here
+                index.position(mid * INDEX_ENTRY_SIZE + KEY_HASH_SIZE);
+                return index.getInt();
+            } else if(cmp > 0) {
+                // midVal is bigger
+                high = mid - 1;
+            } else if(cmp < 0) {
+                // the keyMd5 is bigger
+                low = mid + 1;
             }
-            return -1;
-        } finally {
-            fileSet.checkinIndexFile(index, chunk);
         }
+        return -1;
     }
 
     /*
      * Read the key, potentially from the cache
      */
-    private byte[] readKey(MappedByteBuffer index, int indexByteOffset, byte[] foundKey) {
+    private byte[] readKey(ByteBuffer index, int indexByteOffset, byte[] foundKey) {
         index.position(indexByteOffset);
         index.get(foundKey);
         return foundKey;

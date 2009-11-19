@@ -132,7 +132,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
         createStoreFiles(versionDir, indexBytes, dataBytes, 2);
 
         try {
-            new ReadOnlyStorageEngine("test", dir, 1, 1, 1000);
+            new ReadOnlyStorageEngine("test", dir, 1);
             if(!shouldWork)
                 fail("Able to open corrupt read-only store (index size = " + indexBytes
                      + ", data bytes = " + dataBytes + ").");
@@ -144,7 +144,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
 
     public void testSwap() throws IOException {
         createStoreFiles(dir, ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", dir, 2, 2, 1000);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", dir, 2);
         assertVersionsExist(dir, 0);
 
         // swap to a new version

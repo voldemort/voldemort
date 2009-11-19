@@ -35,17 +35,13 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
 
     public static final String TYPE_NAME = "read-only";
 
-    private final int numFileHandles;
     private final int numBackups;
-    private final long fileAccessWaitTimeoutMs;
     private final File storageDir;
     private final Set<ObjectName> registeredBeans;
     private final int nodeId;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
-        this.numFileHandles = config.getReadOnlyStorageFileHandles();
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
-        this.fileAccessWaitTimeoutMs = config.getReadOnlyFileWaitTimeoutMs();
         this.numBackups = config.getReadOnlyBackups();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
         this.nodeId = config.getNodeId();
@@ -60,9 +56,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
                                                                 new File(storageDir, name),
-                                                                numBackups,
-                                                                numFileHandles,
-                                                                fileAccessWaitTimeoutMs);
+                                                                numBackups);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                        name + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),

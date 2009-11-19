@@ -134,9 +134,7 @@ public class ReadOnlyStorageEngineTestInstance {
             nodeStores.put(i,
                            new SerializingStore<String, String>(new ReadOnlyStorageEngine("test",
                                                                                           currNode,
-                                                                                          1,
-                                                                                          3,
-                                                                                          1000),
+                                                                                          1),
                                                                 serializer,
                                                                 serializer));
         }

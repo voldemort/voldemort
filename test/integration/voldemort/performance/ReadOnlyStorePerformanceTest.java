@@ -78,9 +78,7 @@ public class ReadOnlyStorePerformanceTest {
 
         final Store<ByteArray, byte[]> store = new ReadOnlyStorageEngine("test",
                                                                          new File(storeDir),
-                                                                         0,
-                                                                         numThreads,
-                                                                         10000L);
+                                                                         0);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);

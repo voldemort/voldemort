@@ -23,6 +23,9 @@ import java.io.OutputStream;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.management.ObjectName;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -32,8 +35,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.utils.EventThrottler;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -55,6 +60,7 @@ public class HdfsFetcher implements FileFetcher {
     private File tempDir;
     private final Long maxBytesPerSecond;
     private final int bufferSize;
+    private final AtomicInteger copyCount = new AtomicInteger(0);
 
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
@@ -88,15 +94,23 @@ public class HdfsFetcher implements FileFetcher {
         if(maxBytesPerSecond != null)
             throttler = new EventThrottler(maxBytesPerSecond);
 
-        // copy file
-        CopyStats stats = new CopyStats();
-        File destination = new File(this.tempDir, path.getName());
-        fetch(fs, path, destination, throttler, stats);
-        return destination;
+        CopyStats stats = new CopyStats(fileUrl);
+        ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
+                                                    stats);
+        try {
+            File destination = new File(this.tempDir, path.getName());
+            fetch(fs, path, destination, throttler, stats);
+            return destination;
+        } finally {
+            JmxUtils.unregisterMbean(jmxName);
+        }
     }
 
-    private void fetch(FileSystem fs, Path source, File dest, EventThrottler throttler, CopyStats stats)
-            throws IOException {
+    private void fetch(FileSystem fs,
+                       Path source,
+                       File dest,
+                       EventThrottler throttler,
+                       CopyStats stats) throws IOException {
         if(fs.isFile(source)) {
             copyFile(fs, source, dest, throttler, stats);
         } else {
@@ -155,16 +169,18 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private static class CopyStats {
+    public static class CopyStats {
 
-        private long bytesSinceLastReport;
-        private long totalBytesCopied;
-        private long startNs;
+        private final String fileName;
+        private volatile long bytesSinceLastReport;
+        private volatile long totalBytesCopied;
+        private volatile long lastReportNs;
 
-        public CopyStats() {
+        public CopyStats(String fileName) {
+            this.fileName = fileName;
             this.totalBytesCopied = 0L;
             this.bytesSinceLastReport = 0L;
-            this.startNs = System.nanoTime();
+            this.lastReportNs = System.nanoTime();
         }
 
         public void recordBytes(long bytes) {
@@ -174,20 +190,27 @@ public class HdfsFetcher implements FileFetcher {
 
         public void reset() {
             this.bytesSinceLastReport = 0;
-            this.startNs = System.nanoTime();
+            this.lastReportNs = System.nanoTime();
         }
 
         public long getBytesSinceLastReport() {
             return bytesSinceLastReport;
         }
 
+        @JmxGetter(name = "totalBytesCopied", description = "The total number of bytes copied so far in this transfer.")
         public long getTotalBytesCopied() {
             return totalBytesCopied;
         }
 
+        @JmxGetter(name = "bytesPerSecond", description = "The rate of the transfer in bytes/second.")
         public double getBytesPerSecond() {
-            double ellapsedSecs = System.nanoTime() - startNs / (double) Time.NS_PER_SECOND;
+            double ellapsedSecs = System.nanoTime() - lastReportNs / (double) Time.NS_PER_SECOND;
             return bytesSinceLastReport / ellapsedSecs;
+        }
+
+        @JmxGetter(name = "filename", description = "The file path being copied.")
+        public String getFilename() {
+            return this.fileName;
         }
     }
 

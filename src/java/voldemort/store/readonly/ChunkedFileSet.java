@@ -3,19 +3,16 @@ package voldemort.store.readonly;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.PersistenceFailureException;
 import voldemort.utils.Utils;
 
 /**
@@ -29,24 +26,20 @@ public class ChunkedFileSet {
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
     private final int numChunks;
-    private final int numBuffersPerChunk;
     private final File baseDir;
-    private final long bufferWaitTimeoutMs;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
-    private final List<BlockingQueue<MappedByteBuffer>> indexFiles;
+    private final List<MappedByteBuffer> indexFiles;
     private final List<FileChannel> dataFiles;
 
-    public ChunkedFileSet(File directory, int numBuffersPerChunk, long bufferWaitTimeoutMs) {
+    public ChunkedFileSet(File directory) {
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory))
             throw new VoldemortException(directory.getAbsolutePath()
                                          + " is not a readable directory.");
-        this.numBuffersPerChunk = numBuffersPerChunk;
-        this.bufferWaitTimeoutMs = bufferWaitTimeoutMs;
         this.indexFileSizes = new ArrayList<Integer>();
         this.dataFileSizes = new ArrayList<Integer>();
-        this.indexFiles = new ArrayList<BlockingQueue<MappedByteBuffer>>();
+        this.indexFiles = new ArrayList<MappedByteBuffer>();
         this.dataFiles = new ArrayList<FileChannel>();
 
         // if the directory is empty create empty files
@@ -80,15 +73,7 @@ public class ChunkedFileSet {
 
             /* Add the file channel for data */
             dataFiles.add(openChannel(data));
-
-            /*
-             * Add multiple MappedByteBuffers for the index since we cannot
-             * share handles
-             */
-            BlockingQueue<MappedByteBuffer> indexFds = new ArrayBlockingQueue<MappedByteBuffer>(numBuffersPerChunk);
-            for(int i = 0; i < numBuffersPerChunk; i++)
-                indexFds.add(mapFile(index));
-            indexFiles.add(indexFds);
+            indexFiles.add(mapFile(index));
             chunkId++;
         }
         if(chunkId == 0)
@@ -113,14 +98,11 @@ public class ChunkedFileSet {
 
     public void close() {
         for(int chunk = 0; chunk < this.numChunks; chunk++) {
-            for(int i = 0; i < this.numBuffersPerChunk; i++) {
-                checkoutIndexFile(chunk);
-                FileChannel channel = getDataFile(chunk);
-                try {
-                    channel.close();
-                } catch(IOException e) {
-                    logger.error("Error while closing file.", e);
-                }
+            FileChannel channel = dataFileFor(chunk);
+            try {
+                channel.close();
+            } catch(IOException e) {
+                logger.error("Error while closing file.", e);
             }
         }
     }
@@ -152,15 +134,11 @@ public class ChunkedFileSet {
         return ReadOnlyUtils.chunk(key, numChunks);
     }
 
-    public MappedByteBuffer checkoutIndexFile(int chunk) {
-        return checkout(indexFiles.get(chunk));
+    public ByteBuffer indexFileFor(int chunk) {
+        return indexFiles.get(chunk).duplicate();
     }
 
-    public void checkinIndexFile(MappedByteBuffer file, int chunk) {
-        checkin(file, indexFiles.get(chunk));
-    }
-
-    public FileChannel getDataFile(int chunk) {
+    public FileChannel dataFileFor(int chunk) {
         return dataFiles.get(chunk);
     }
 
@@ -172,25 +150,4 @@ public class ChunkedFileSet {
         return this.indexFileSizes.get(chunk);
     }
 
-    private <T> void checkin(T item, BlockingQueue<T> items) {
-        try {
-            items.put(item);
-        } catch(InterruptedException e) {
-            throw new VoldemortException("Interrupted while waiting for file to checking.");
-        }
-    }
-
-    private <T> T checkout(BlockingQueue<T> pool) {
-        try {
-            T item = pool.poll(bufferWaitTimeoutMs, TimeUnit.MILLISECONDS);
-            if(item == null)
-                throw new VoldemortException("Timeout after waiting for " + bufferWaitTimeoutMs
-                                             + " ms to acquire file descriptor");
-            else
-                return item;
-        } catch(InterruptedException e) {
-            throw new PersistenceFailureException("Interrupted while waiting for file descriptor.",
-                                                  e);
-        }
-    }
 }

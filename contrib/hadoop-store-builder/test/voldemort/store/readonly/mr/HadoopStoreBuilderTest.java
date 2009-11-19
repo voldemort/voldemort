@@ -127,9 +127,7 @@ public class HadoopStoreBuilderTest extends TestCase {
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object> store = new SerializingStore<Object, Object>(new ReadOnlyStorageEngine(storeName,
                                                                                                      storeDir,
-                                                                                                     1,
-                                                                                                     3,
-                                                                                                     1000),
+                                                                                                     1),
                                                                            serializer,
                                                                            serializer);
 
