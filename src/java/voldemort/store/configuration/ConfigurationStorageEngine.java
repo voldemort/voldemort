@@ -275,4 +275,8 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
             throw new VoldemortException("Failed to write Version for Key:" + key, e);
         }
     }
+
+    public ClosableIterator<String> keys() {
+        throw new VoldemortException("Keys Iteration  not supported in ConfigurationStorageEngine");
+    }
 }

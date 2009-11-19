@@ -193,7 +193,7 @@ public abstract class AdminClient {
      * @return True if task finished in
      * @param maxWait , false otherwise
      */
-    public boolean waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+    public void waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
         long delay = 250;
         // don't do exponential back off past a certain limit
         long maxDelay = 1000 * 60;
@@ -203,7 +203,7 @@ public abstract class AdminClient {
         while(System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if(status.isComplete())
-                return true;
+                return;
             if(delay < maxDelay)
                 // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;
@@ -213,8 +213,7 @@ public abstract class AdminClient {
                 Thread.currentThread().interrupt();
             }
         }
-
-        return false;
+        throw new VoldemortException("Task requestId:" + requestId + " failed to complete in " + maxWait + " " + timeUnit.toString()) ;
     }
 
     /* Helper functions */
