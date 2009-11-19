@@ -215,7 +215,9 @@ public abstract class VoldemortApp {
             return CmdUtils.valueOf(options, "accessid", "");
         } else {
             File file = new File(CmdUtils.valueOf(options, "accessidfile", ""));
-            return FileUtils.readFileToString(file);
+            String before = FileUtils.readFileToString(file);
+            String after = before.trim();
+            System.out.println("before: \"" + before + "\", after: \"" + after + "\"");
         }
 
         return null;
@@ -232,7 +234,9 @@ public abstract class VoldemortApp {
             return CmdUtils.valueOf(options, "secretkey", "");
         } else {
             File file = new File(CmdUtils.valueOf(options, "secretkeyfile", ""));
-            return FileUtils.readFileToString(file);
+            String before = FileUtils.readFileToString(file);
+            String after = before.trim();
+            System.out.println("before: \"" + before + "\", after: \"" + after + "\"");
         }
 
         return null;
