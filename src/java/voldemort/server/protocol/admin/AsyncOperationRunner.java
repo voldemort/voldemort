@@ -73,7 +73,7 @@ public class AsyncOperationRunner {
     }
 
     @JmxOperation(description = "Retrieve all operations")
-    public String getOperations() {
+    public String getAllAsyncOperations() {
         return operations.toString();
     }
 

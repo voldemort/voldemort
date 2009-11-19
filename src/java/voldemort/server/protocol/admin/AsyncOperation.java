@@ -1,15 +1,19 @@
 package voldemort.server.protocol.admin;
 
+import voldemort.annotations.jmx.JmxGetter;
+
 /**
  * @author afeinberg
  */
 public abstract class AsyncOperation implements Runnable {
+
     protected final AsyncOperationStatus status;
 
     public AsyncOperation(int id, String description) {
         this.status = new AsyncOperationStatus(id, description);
     }
 
+    @JmxGetter(name = "asyncTaskStatus")
     public AsyncOperationStatus getStatus() {
         return status;
     }
@@ -27,7 +31,7 @@ public abstract class AsyncOperation implements Runnable {
         updateStatus("started " + getStatus());
         try {
             operate();
-        } catch (Exception e) {
+        } catch(Exception e) {
             status.setException(e);
         }
         updateStatus("finished " + getStatus());
