@@ -501,8 +501,9 @@ public class JsonTypeSerializer implements Serializer<Object> {
                                                  + " but got " + object);
             for(Map.Entry<String, Object> entry: type.entrySet()) {
                 if(!object.containsKey(entry.getKey()))
-                    throw new SerializationException("Missing property: " + entry.getKey() + " in "
-                                                     + type);
+                    throw new SerializationException("Missing property: " + entry.getKey()
+                                                     + " that is required by the type (" + type
+                                                     + ")");
                 try {
                     write(output, object.get(entry.getKey()), entry.getValue());
                 } catch(SerializationException e) {
