@@ -50,6 +50,10 @@ public abstract class AdminClient {
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
+    // Parameters for exponential back off
+    private static final long INITIAL_DELAY = 250; // Initial delay
+    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential back off once delay reaches this
+    
     private Cluster cluster;
 
     public AdminClient(Cluster cluster) {
@@ -194,17 +198,14 @@ public abstract class AdminClient {
      *         time.
      */
     public void waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
-        long delay = 250;
-        // don't do exponential back off past a certain limit
-        long maxDelay = 1000 * 60;
-
+        long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while(System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if(status.isComplete())
                 return;
-            if(delay < maxDelay)
+            if(delay < MAX_DELAY)
                 // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;
             try {
