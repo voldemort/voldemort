@@ -194,10 +194,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 VectorClock clock = new VectorClock(valueEntry.getData());
                 Occured occured = value.getVersion().compare(clock);
                 if(occured == Occured.BEFORE)
-                    throw new ObsoleteVersionException("Key '"
+                    throw new ObsoleteVersionException("Key "
                                                        + new String(hexCodec.encode(key.get()))
-                                                       + "' " + value.getVersion().toString()
-                                                       + " is obsolete," + " current version is "
+                                                       + " "
+                                                       + value.getVersion().toString()
+                                                       + " is obsolete, it is no greater than the current version of "
                                                        + clock + ".");
                 else if(occured == Occured.AFTER)
                     // best effort delete of obsolete previous value!
