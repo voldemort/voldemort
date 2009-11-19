@@ -31,6 +31,7 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -201,6 +202,40 @@ public abstract class VoldemortApp {
         }
 
         return map;
+    }
+
+    protected String getAccessId(OptionSet options) throws Exception {
+        if(!options.has("accessid") && !options.has("accessidfile")) {
+            System.err.println("Missing required argument accessid or accessidfile");
+            printUsage();
+        } else if(options.has("accessid") && options.has("accessidfile")) {
+            System.err.println("Provide either accessid or accessidfile, not both");
+            printUsage();
+        } else if(options.has("accessid")) {
+            return CmdUtils.valueOf(options, "accessid", "");
+        } else {
+            File file = new File(CmdUtils.valueOf(options, "accessidfile", ""));
+            return FileUtils.readFileToString(file);
+        }
+
+        return null;
+    }
+
+    protected String getSecretKey(OptionSet options) throws Exception {
+        if(!options.has("secretkey") && !options.has("secretkeyfile")) {
+            System.err.println("Missing required argument secretkey or secretkeyfile");
+            printUsage();
+        } else if(options.has("secretkey") && options.has("secretkeyfile")) {
+            System.err.println("Provide either secretkey or secretkeyfile, not both");
+            printUsage();
+        } else if(options.has("secretkey")) {
+            return CmdUtils.valueOf(options, "secretkey", "");
+        } else {
+            File file = new File(CmdUtils.valueOf(options, "secretkeyfile", ""));
+            return FileUtils.readFileToString(file);
+        }
+
+        return null;
     }
 
 }
