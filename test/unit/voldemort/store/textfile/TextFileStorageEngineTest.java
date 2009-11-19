@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.filesystem;
+package voldemort.store.textfile;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,10 +28,11 @@ import org.apache.commons.io.FileDeleteStrategy;
 import voldemort.TestUtils;
 import voldemort.store.AbstractStoreTest;
 import voldemort.store.Store;
+import voldemort.store.textfile.TextFileStorageEngine;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class FilesystemStorageEngineTest extends AbstractStoreTest<String, String> {
+public class TextFileStorageEngineTest extends AbstractStoreTest<String, String> {
 
     private List<File> tempDirs;
 
@@ -57,7 +58,7 @@ public class FilesystemStorageEngineTest extends AbstractStoreTest<String, Strin
     public Store<String, String> getStore() {
         File tempDir = TestUtils.createTempDir();
         tempDirs.add(tempDir);
-        return new FilesystemStorageEngine("test", tempDir.getAbsolutePath());
+        return new TextFileStorageEngine("test", tempDir.getAbsolutePath());
     }
 
     @Override

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.filesystem;
+package voldemort.store.textfile;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,14 +42,14 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class FilesystemStorageEngine implements StorageEngine<String, String> {
+public class TextFileStorageEngine implements StorageEngine<String, String> {
 
     private final String name;
     private final File directory;
 
-    private static final Logger logger = Logger.getLogger(FilesystemStorageEngine.class);
+    private static final Logger logger = Logger.getLogger(TextFileStorageEngine.class);
 
-    public FilesystemStorageEngine(String name, String directory) {
+    public TextFileStorageEngine(String name, String directory) {
         this.name = name;
         this.directory = new File(directory);
         if(!this.directory.exists() && this.directory.canRead())
@@ -205,7 +205,7 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         }
 
         public Pair<String, Versioned<String>> next() {
-            synchronized(FilesystemStorageEngine.this) {
+            synchronized(TextFileStorageEngine.this) {
                 while(true) {
                     if(!hasNext())
                         throw new NoSuchElementException("No more elements in iterator!");

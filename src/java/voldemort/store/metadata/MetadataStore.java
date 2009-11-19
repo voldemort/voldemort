@@ -30,7 +30,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
-import voldemort.store.filesystem.FilesystemStorageEngine;
+import voldemort.store.textfile.TextFileStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -73,8 +73,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(dir.listFiles() == null)
             throw new IllegalArgumentException("No configuration found in " + dir.getAbsolutePath()
                                                + ".");
-        Store<String, String> innerStore = new FilesystemStorageEngine(MetadataStore.METADATA_STORE_NAME,
-                                                                       dir.getAbsolutePath());
+        Store<String, String> innerStore = new TextFileStorageEngine(MetadataStore.METADATA_STORE_NAME,
+                                                                     dir.getAbsolutePath());
         return new MetadataStore(innerStore);
     }
 
