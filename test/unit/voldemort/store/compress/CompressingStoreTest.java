@@ -37,7 +37,7 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true, "lzf" }, { false, "gzip" }, { true, "lzf" },
+        return Arrays.asList(new Object[][] { { true, "gzip" }, { false, "gzip" }, { true, "lzf" },
                 { false, "lzf" } });
     }
 
