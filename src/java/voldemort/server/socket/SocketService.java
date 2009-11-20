@@ -55,7 +55,6 @@ public class SocketService extends AbstractSocketService {
     protected void startInner() {
         this.server.start();
         this.server.awaitStartupCompletion();
-
         enableJmx(server);
     }
 
@@ -63,5 +62,4 @@ public class SocketService extends AbstractSocketService {
     protected void stopInner() {
         this.server.shutdown();
     }
-
 }

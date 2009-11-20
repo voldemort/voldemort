@@ -186,6 +186,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new VoldemortException("You cannot iterate over all entries in Metadata");
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        throw new VoldemortException("You cannot iterate over all keys in Metadata");
+    }
+
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new VoldemortException("You cannot delete your metadata fool !!");
     }

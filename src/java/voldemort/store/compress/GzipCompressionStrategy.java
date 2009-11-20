@@ -1,12 +1,10 @@
 package voldemort.store.compress;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-
-import org.apache.commons.io.IOUtils;
 
 /**
  * Implementation of CompressionStrategy for the gzip format.
@@ -14,21 +12,16 @@ import org.apache.commons.io.IOUtils;
 /*
  * In the future we may want to support different compression levels.
  */
-public class GzipCompressionStrategy implements CompressionStrategy {
+public class GzipCompressionStrategy extends StreamCompressionStrategy {
 
-    public byte[] deflate(byte[] data) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        GZIPOutputStream gos = new GZIPOutputStream(bos);
-        gos.write(data);
-        gos.close();
-        return bos.toByteArray();
+    @Override
+    protected OutputStream wrapOutputStream(OutputStream underlying) throws IOException {
+        return new GZIPOutputStream(underlying);
     }
 
-    public byte[] inflate(byte[] data) throws IOException {
-        GZIPInputStream is = new GZIPInputStream(new ByteArrayInputStream(data));
-        byte[] inflated = IOUtils.toByteArray(is);
-        is.close();
-        return inflated;
+    @Override
+    protected InputStream wrapInputStream(InputStream underlying) throws IOException {
+        return new GZIPInputStream(underlying);
     }
 
     public String getType() {

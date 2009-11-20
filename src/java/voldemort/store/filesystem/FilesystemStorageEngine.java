@@ -185,6 +185,10 @@ public class FilesystemStorageEngine implements StorageEngine<String, String> {
         return null;
     }
 
+    public ClosableIterator<String> keys() {
+        return StoreUtils.keys(entries());
+    }
+
     private class FilesystemClosableIterator implements
             ClosableIterator<Pair<String, Versioned<String>>> {
 
