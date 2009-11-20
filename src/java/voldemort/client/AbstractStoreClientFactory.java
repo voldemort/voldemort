@@ -209,12 +209,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             try {
                 return bootstrapMetadata(key, urls);
             } catch(BootstrapFailureException e) {
-                int backOffTime = 5 * nTries;
-                logger.warn("Failed to bootstrap will try again after" + backOffTime);
-                try {
-                    Thread.sleep(backOffTime * 1000);
-                } catch(InterruptedException e1) {
-                    throw new RuntimeException(e1);
+                if(nTries < this.maxBootstrapRetries) {
+                    int backOffTime = 5 * nTries;
+                    logger.warn("Failed to bootstrap will try again after " + backOffTime + "s.");
+                    try {
+                        Thread.sleep(backOffTime * 1000);
+                    } catch(InterruptedException e1) {
+                        throw new RuntimeException(e1);
+                    }
                 }
             }
         }
