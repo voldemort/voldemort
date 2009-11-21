@@ -127,6 +127,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public void handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request,
                                             DataOutputStream outputStream) throws IOException {
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
+
         try {
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
@@ -139,7 +141,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             // boolean switch to fetchEntries/fetchKeys Only
             boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
 
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
+            iterator = storageEngine.entries();
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
@@ -166,8 +168,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     }
                 }
             }
-
-            iterator.close();
             ProtoUtils.writeEndOfStream(outputStream);
         } catch(VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse response = VAdminProto.FetchPartitionEntriesResponse.newBuilder()
@@ -178,6 +178,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             ProtoUtils.writeMessage(outputStream, response);
             logger.error("handleFetchPartitionEntries failed for request(" + request.toString()
                          + ")", e);
+        } finally {
+            if(null != iterator)
+                iterator.close();
         }
     }
 
@@ -318,7 +321,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.DeletePartitionEntriesResponse handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response = VAdminProto.DeletePartitionEntriesResponse.newBuilder();
-
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
             String storeName = request.getStore();
             List<Integer> partitions = request.getPartitionsList();
@@ -328,7 +331,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
 
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
+            iterator = storageEngine.entries();
             int deleteSuccess = 0;
 
             while(iterator.hasNext()) {
@@ -342,12 +345,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(entry));
                 }
             }
-            iterator.close();
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleDeletePartitionEntries failed for request(" + request.toString()
                          + ")", e);
+        } finally {
+            if(null != iterator)
+                iterator.close();
         }
 
         return response.build();
