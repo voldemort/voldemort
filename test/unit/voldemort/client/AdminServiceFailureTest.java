@@ -17,9 +17,8 @@ import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketService;
-import voldemort.store.FailingDelegatingStore;
+import voldemort.store.RandomlyFailingDelegatingStore;
 import voldemort.store.StorageEngine;
-import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -44,6 +43,7 @@ public class AdminServiceFailureTest extends TestCase {
     private Cluster cluster;
     private SocketService adminServer;
     StorageEngine<ByteArray, byte[]> failingStorageEngine;
+    private Thread thread;
 
     private enum StreamOperations {
         FETCH_ENTRIES,
@@ -57,21 +57,23 @@ public class AdminServiceFailureTest extends TestCase {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         List<StoreDefinition> storeDefs = ServerTestUtils.getStoreDefs(1);
 
-        failingStorageEngine = new FailingDelegatingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>(storeDefs.get(0)
-                                                                                                                                   .getName()));
+        failingStorageEngine = new RandomlyFailingDelegatingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>(storeDefs.get(0)
+                                                                                                                                           .getName()));
         adminServer = getAdminServer(cluster.getNodeById(0),
                                      cluster,
                                      storeDefs,
                                      failingStorageEngine);
-        adminServer.start();
         adminClient = ServerTestUtils.getAdminClient(cluster);
+        adminServer.start();
     }
 
     private SocketService getAdminServer(Node node,
                                          Cluster cluster,
                                          List<StoreDefinition> storeDefs,
-                                         Store<ByteArray, byte[]> storageEngine) throws IOException {
+                                         StorageEngine<ByteArray, byte[]> storageEngine)
+            throws IOException {
         StoreRepository storeRepository = new StoreRepository();
+        storeRepository.addStorageEngine(storageEngine);
         storeRepository.addLocalStore(storageEngine);
 
         return new SocketService(new SocketRequestHandlerFactory(storeRepository,
@@ -118,31 +120,41 @@ public class AdminServiceFailureTest extends TestCase {
         }
     }
 
-    public void testFetchWithFailingStore() {
-        try {
-            doOperation(StreamOperations.FETCH_ENTRIES,
-                        0,
-                        failingStorageEngine.getName(),
-                        Arrays.asList(0, 1));
-            fail();
-        } catch(UnreachableStoreException e) {
-            // ignore
+    // client side should get exceptions from servers
+    public void testFailures() {
+
+        for(StreamOperations operation: StreamOperations.values()) {
+            try {
+                doOperation(operation, 0, failingStorageEngine.getName(), Arrays.asList(0, 1));
+                fail("Unit test should fail here !!");
+            } catch(Exception e) {
+                // ignore
+            }
         }
     }
 
-    private void doOperation(StreamOperations e, int nodeId, String storeName, List<Integer> partitionList) {
+    private void doOperation(StreamOperations e,
+                             int nodeId,
+                             String storeName,
+                             List<Integer> partitionList) {
         switch(e) {
             case DELETE_PARTITIONS:
-                putAlltoStore(nodeId, storeName);
+                putAlltoStore();
                 getAdminClient().deletePartitions(nodeId, storeName, partitionList, null);
                 return;
             case FETCH_ENTRIES:
-                putAlltoStore(nodeId, storeName);
-                getAdminClient().fetchPartitionEntries(nodeId, storeName, partitionList, null);
+                putAlltoStore();
+                consumeIterator(getAdminClient().fetchPartitionEntries(nodeId,
+                                                                       storeName,
+                                                                       partitionList,
+                                                                       null));
                 return;
             case FETCH_KEYS:
-                putAlltoStore(nodeId, storeName);
-                getAdminClient().fetchPartitionKeys(nodeId, storeName, partitionList, null);
+                putAlltoStore();
+                consumeIterator(getAdminClient().fetchPartitionKeys(nodeId,
+                                                                    storeName,
+                                                                    partitionList,
+                                                                    null));
                 return;
             case UPDATE_ENTRIES:
                 getAdminClient().updateEntries(nodeId,
@@ -155,7 +167,12 @@ public class AdminServiceFailureTest extends TestCase {
         }
     }
 
-    private void putAlltoStore(int nodeId, String storeName) {
+    private <K> void consumeIterator(Iterator<K> iterator) {
+        while(iterator.hasNext())
+            iterator.next();
+    }
+
+    private void putAlltoStore() {
         for(Entry<ByteArray, byte[]> entry: ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)
                                                            .entrySet()) {
             try {
