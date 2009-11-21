@@ -50,7 +50,7 @@ public class AdminServiceFailureTest extends TestCase {
         FETCH_KEYS,
         DELETE_PARTITIONS,
         UPDATE_ENTRIES
-    };
+    }
 
     @Override
     public void setUp() throws IOException {
