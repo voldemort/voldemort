@@ -14,6 +14,7 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
+import voldemort.serialization.Compression;
 import voldemort.server.AbstractSocketService;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
@@ -26,22 +27,26 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
     private CompressingStore store;
 
     private final boolean useNio;
+    private final Compression compression;
+    private final CompressionStrategyFactory compressionFactory = new CompressionStrategyFactory();
 
-    public CompressingStoreTest(boolean useNio) {
+    public CompressingStoreTest(boolean useNio, String compressionType) {
         this.useNio = useNio;
+        this.compression = new Compression(compressionType, null);
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { true, "gzip" }, { false, "gzip" }, { true, "lzf" },
+                { false, "lzf" } });
     }
 
     @Override
     @Before
     public void setUp() throws Exception {
         this.store = new CompressingStore(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
-                                          new GzipCompressionStrategy(),
-                                          new GzipCompressionStrategy());
+                                          compressionFactory.get(compression),
+                                          compressionFactory.get(compression));
     }
 
     @Override

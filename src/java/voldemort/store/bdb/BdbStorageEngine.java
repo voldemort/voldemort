@@ -112,7 +112,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
             
             Cursor cursor = bdbDatabase.openCursor(null, null);
-            return new BdbStoreIterator(cursor);
+            return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
@@ -353,141 +353,69 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return stats;
     }
 
-    private static class BdbKeysIterator implements ClosableIterator<ByteArray> {
+    private static abstract class BdbIterator<T> implements ClosableIterator<T> {
 
+        private final boolean noValues;
+        final Cursor cursor;
+
+        private T current;
         private volatile boolean isOpen;
-        private final Cursor cursor;
-        private byte[] current;
 
-        public BdbKeysIterator(Cursor cursor) {
+        public BdbIterator(Cursor cursor, boolean noValues) {
             this.cursor = cursor;
             isOpen = true;
+            this.noValues = noValues;
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
-            valueEntry.setPartial(true);
+            if(noValues)
+                valueEntry.setPartial(true);
             try {
                 cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             } catch(DatabaseException e) {
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }
-            current = keyEntry.getData();
+            if(keyEntry.getData() != null)
+                current = get(keyEntry, valueEntry);
         }
 
-        public boolean hasNext() {
+        protected abstract T get(DatabaseEntry key, DatabaseEntry value);
+
+        protected abstract void moveCursor(DatabaseEntry key, DatabaseEntry value)
+                throws DatabaseException;
+
+        public final boolean hasNext() {
             return current != null;
         }
 
-        public ByteArray next() {
+        public final T next() {
             if(!isOpen)
                 throw new PersistenceFailureException("Call to next() on a closed iterator.");
 
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
-            valueEntry.setPartial(true);
+            if(noValues)
+                valueEntry.setPartial(true);
             try {
-                cursor.getNextNoDup(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
+                moveCursor(keyEntry, valueEntry);
             } catch(DatabaseException e) {
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }
-            byte[] previous = current;
+            T previous = current;
             if(keyEntry.getData() == null)
                 current = null;
             else
-                current = keyEntry.getData();
-
-            return new ByteArray(previous);
-        }
-
-        public void remove() {
-            throw new UnsupportedOperationException("No removal y'all.");
-        }
-
-        public void close() {
-            try {
-                cursor.close();
-                isOpen = false;
-            } catch(DatabaseException e) {
-                logger.error(e);
-            }
-        }
-
-        @Override
-        protected void finalize() {
-            if(isOpen) {
-                logger.error("Failure to close cursor, will be forcably closed.");
-                close();
-            }
-
-        }
-
-    }
-
-    private static class BdbStoreIterator implements
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
-
-        private volatile boolean isOpen;
-        private final Cursor cursor;
-        private Pair<ByteArray, Versioned<byte[]>> current;
-
-        public BdbStoreIterator(Cursor cursor) {
-            this.cursor = cursor;
-            isOpen = true;
-            DatabaseEntry keyEntry = new DatabaseEntry();
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            try {
-                cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
-            } catch(DatabaseException e) {
-                logger.error(e);
-                throw new PersistenceFailureException(e);
-            }
-            current = getPair(keyEntry, valueEntry);
-        }
-
-        private Pair<ByteArray, Versioned<byte[]>> getPair(DatabaseEntry key, DatabaseEntry value) {
-            if(key == null || key.getData() == null) {
-                return null;
-            } else {
-                VectorClock clock = new VectorClock(value.getData());
-                byte[] bytes = ByteUtils.copy(value.getData(),
-                                              clock.sizeInBytes(),
-                                              value.getData().length);
-                return Pair.create(new ByteArray(key.getData()),
-                                   new Versioned<byte[]>(bytes, clock));
-            }
-        }
-
-        public boolean hasNext() {
-            return current != null;
-        }
-
-        public Pair<ByteArray, Versioned<byte[]>> next() {
-            if(!isOpen)
-                throw new PersistenceFailureException("Call to next() on a closed iterator.");
-
-            DatabaseEntry keyEntry = new DatabaseEntry();
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            try {
-                cursor.getNext(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
-            } catch(DatabaseException e) {
-                logger.error(e);
-                throw new PersistenceFailureException(e);
-            }
-            Pair<ByteArray, Versioned<byte[]>> previous = current;
-            if(keyEntry.getData() == null)
-                current = null;
-            else
-                current = getPair(keyEntry, valueEntry);
+                current = get(keyEntry, valueEntry);
 
             return previous;
         }
 
-        public void remove() {
+        public final void remove() {
             throw new UnsupportedOperationException("No removal y'all.");
         }
 
-        public void close() {
+        public final void close() {
             try {
                 cursor.close();
                 isOpen = false;
@@ -497,13 +425,51 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
 
         @Override
-        protected void finalize() {
+        protected final void finalize() {
             if(isOpen) {
                 logger.error("Failure to close cursor, will be forcably closed.");
                 close();
             }
 
         }
+    }
 
+    private static class BdbKeysIterator extends BdbIterator<ByteArray> {
+
+        public BdbKeysIterator(Cursor cursor) {
+            super(cursor, true);
+        }
+
+        @Override
+        protected ByteArray get(DatabaseEntry key, DatabaseEntry value) {
+            return new ByteArray(key.getData());
+        }
+
+        @Override
+        protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
+            cursor.getNextNoDup(key, value, LockMode.READ_UNCOMMITTED);
+        }
+
+    }
+
+    private static class BdbEntriesIterator extends BdbIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        public BdbEntriesIterator(Cursor cursor) {
+            super(cursor, false);
+        }
+
+        @Override
+        protected Pair<ByteArray, Versioned<byte[]>> get(DatabaseEntry key, DatabaseEntry value) {
+            VectorClock clock = new VectorClock(value.getData());
+            byte[] bytes = ByteUtils.copy(value.getData(),
+                                          clock.sizeInBytes(),
+                                          value.getData().length);
+            return Pair.create(new ByteArray(key.getData()), new Versioned<byte[]>(bytes, clock));
+        }
+
+        @Override
+        protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
+            cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
+        }
     }
 }
