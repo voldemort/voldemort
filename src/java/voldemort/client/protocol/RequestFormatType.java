@@ -26,7 +26,7 @@ public enum RequestFormatType {
     VOLDEMORT_V0("vp0", "voldemort-native-v0"),
     VOLDEMORT_V1("vp1", "voldemort-native-v1"),
     PROTOCOL_BUFFERS("pb0", "protocol-buffers-v0"),
-    ADMIN("ad0", "admin-v0");
+    ADMIN_PROTOCOL_BUFFERS("ad1", "admin-v1");
 
     private final String code;
     private final String displayName;

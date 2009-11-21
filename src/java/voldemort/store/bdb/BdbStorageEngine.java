@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.sleepycat.je.*;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
@@ -44,7 +45,6 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
 import com.google.common.collect.Lists;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -73,9 +73,14 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final Environment environment;
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
+    private final boolean cursorPreload;
     private final Serializer<Version> versionSerializer;
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
+        this(name, environment, database, false);
+    }
+
+    public BdbStorageEngine(String name, Environment environment, Database database, boolean cursorPreload) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
@@ -91,6 +96,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
         };
         this.isOpen = new AtomicBoolean(true);
+        this.cursorPreload = cursorPreload;
     }
 
     public String getName() {
@@ -99,6 +105,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
+            if (cursorPreload) {
+                PreloadConfig preloadConfig = new PreloadConfig();
+                preloadConfig.setLoadLNs(true);
+                bdbDatabase.preload(preloadConfig);
+            }
+            
             Cursor cursor = bdbDatabase.openCursor(null, null);
             return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
@@ -338,7 +350,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     @JmxOperation(description = "A variety of stats about the BDB for this store.")
     public String getBdbStats() {
         String stats = getStats(false).toString();
-        logger.debug("Bdb store" + getName() + " stats:\n" + stats + "\n");
         return stats;
     }
 

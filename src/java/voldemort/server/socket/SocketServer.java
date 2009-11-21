@@ -52,7 +52,7 @@ import voldemort.server.protocol.RequestHandlerFactory;
 @JmxManaged
 public class SocketServer extends Thread {
 
-    static final Logger logger = Logger.getLogger(SocketServer.class.getName());
+    private final Logger logger;
 
     /* Used to indicate success in queue */
     private static final Object SUCCESS = new Object();
@@ -67,6 +67,7 @@ public class SocketServer extends Thread {
     private final StatusManager statusManager;
     private final AtomicLong sessionIdSequence;
     private final ConcurrentMap<Long, SocketServerSession> activeSessions;
+    private final String serverName;
 
     private ServerSocket serverSocket = null;
 
@@ -74,7 +75,8 @@ public class SocketServer extends Thread {
                         int defaultThreads,
                         int maxThreads,
                         int socketBufferSize,
-                        RequestHandlerFactory handlerFactory) {
+                        RequestHandlerFactory handlerFactory,
+                        String serverName) {
         this.port = port;
         this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
@@ -90,6 +92,8 @@ public class SocketServer extends Thread {
         this.statusManager = new StatusManager(this.threadPool);
         this.sessionIdSequence = new AtomicLong(0);
         this.activeSessions = new ConcurrentHashMap<Long, SocketServerSession>();
+        this.serverName = serverName;
+        this.logger = Logger.getLogger(SocketServer.class.getName() + "[" + serverName + "]");
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {

@@ -203,18 +203,20 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
 
-    private String bootstrapMetadataWithRetries(String key, URI[] urls) {
+    public String bootstrapMetadataWithRetries(String key, URI[] urls) {
         int nTries = 0;
         while(nTries++ < this.maxBootstrapRetries) {
             try {
                 return bootstrapMetadata(key, urls);
             } catch(BootstrapFailureException e) {
-                int backOffTime = 5 * nTries;
-                logger.warn("Failed to bootstrap will try again after" + backOffTime);
-                try {
-                    Thread.sleep(backOffTime * 1000);
-                } catch(InterruptedException e1) {
-                    throw new RuntimeException(e1);
+                if(nTries < this.maxBootstrapRetries) {
+                    int backOffTime = 5 * nTries;
+                    logger.warn("Failed to bootstrap will try again after " + backOffTime + "s.");
+                    try {
+                        Thread.sleep(backOffTime * 1000);
+                    } catch(InterruptedException e1) {
+                        throw new RuntimeException(e1);
+                    }
                 }
             }
         }
@@ -243,7 +245,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         throw new BootstrapFailureException("No available boostrap servers found!");
     }
 
-    private URI[] validateUrls(String[] urls) {
+    public URI[] validateUrls(String[] urls) {
         if(urls == null || urls.length == 0)
             throw new IllegalArgumentException("Must provide at least one bootstrap URL!");
 

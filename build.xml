@@ -113,9 +113,12 @@
   </target>
   
   <target name="protobuff" description="Generate source files from .proto files">
-    <path id="proto-files">
-      <fileset dir="${protobuff.dir}" />
-    </path>
+    <pathconvert property="proto.sources" pathsep=" ">
+      <path id="proto-files">
+	<fileset dir="${protobuff.dir}" />
+      </path>
+    </pathconvert>
+
     <property name="proto.path" location="${protobuff.dir}"/> 
     <property name="javaout.path" location="${java.dir}"/>
     <property name="pythonout.path" location="${python.dir}"/>
@@ -123,7 +126,7 @@
       <arg value="--proto_path=${proto.path}"/>
       <arg value="--java_out=${javaout.path}"/>
       <arg value="--python_out=${pythonout.path}"/>
-      <arg pathref="proto-files"/>
+      <arg line="${proto.sources}"/>
     </exec>
   </target>
 
@@ -181,6 +184,9 @@
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
     </javac>
+    <copy todir="${contrib.classes.dir}">
+      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
+    </copy>
   </target>
 
   <target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
@@ -276,7 +282,7 @@
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />
     <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true">
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
