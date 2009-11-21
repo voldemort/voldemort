@@ -154,7 +154,6 @@ public class BdbSplitStorageEngineTest extends TestCase {
 
     public void testSharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig = new EnvironmentConfig();
         environmentConfig.setTxnNoSync(true);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
