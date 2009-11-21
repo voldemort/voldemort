@@ -106,7 +106,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
-    @SuppressWarnings("unchecked")
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
@@ -278,7 +277,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return routingStrategyMap.get(storeName);
     }
 
-    @SuppressWarnings("unchecked")
     public void updateRoutingStrategies() {
         VectorClock clock = new VectorClock();
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
