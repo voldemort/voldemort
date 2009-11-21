@@ -56,6 +56,7 @@ import com.google.common.collect.Lists;
  * Metadata is persisted as strings in inner store for ease of readability.<br>
  * Metadata Store keeps a in memory write-through-cache for performance.
  * 
+ * 
  * @author bbansal
  * 
  */
@@ -63,26 +64,28 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
 
-    // need to be in sync with other using gossip
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
     public static final String CLUSTER_STATE_KEY = "cluster.state";
-
-    // server individual values no gossip
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_SLAVES_LIST_KEY = "rebalancing.slave.list";
     public static final String REBALANCING_PARTITIONS_LIST_KEY = "rebalancing.partitions.list";
     public static final String REBALANCING_SLAVE_NODE_ID = "rebalancing.node.id";
 
-    public static final Set<String> METADATA_KEYS = ImmutableSet.of(CLUSTER_KEY,
-                                                                    STORES_KEY,
-                                                                    SERVER_STATE_KEY,
+    public static final Set<String> REQUIRED_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
+
+    public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
                                                                     REBALANCING_SLAVES_LIST_KEY,
                                                                     REBALANCING_PARTITIONS_LIST_KEY,
                                                                     REBALANCING_SLAVE_NODE_ID,
                                                                     CLUSTER_STATE_KEY);
+
+    public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
+                                                                .addAll(REQUIRED_KEYS)
+                                                                .addAll(OPTIONAL_KEYS)
+                                                                .build();
 
     // helper keys for metadataCacheOnly
     private static final String ROUTING_STRATEGY_KEY = "routing.strategy";
@@ -103,24 +106,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
-    public MetadataStore(Store<String, String> innerStore,
-                         int nodeId,
-                         Cluster cluster,
-                         List<StoreDefinition> storeDefs) {
-        this.innerStore = innerStore;
-        this.metadataCache = new HashMap<String, Versioned<Object>>();
-        init(nodeId, cluster, storeDefs);
-    }
-
     @SuppressWarnings("unchecked")
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
-        // cluster.xml and stores.xml should be present in innerStore.
-        Cluster cluster = (Cluster) convertStringToObject(CLUSTER_KEY, getInnerValue(CLUSTER_KEY)).getValue();
-        List<StoreDefinition> storeDefs = (List<StoreDefinition>) convertStringToObject(STORES_KEY,
-                                                                                        getInnerValue(STORES_KEY)).getValue();
-        init(nodeId, cluster, storeDefs);
+
+        init(nodeId);
     }
 
     public static MetadataStore readFromDirectory(File dir, int nodeId) {
@@ -137,40 +128,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public String getName() {
         return METADATA_STORE_NAME;
-    }
-
-    /**
-     * Initializes the metadataCache for MetadataStore
-     */
-    private void init(int nodeId, Cluster cluster, List<StoreDefinition> storeDefs) {
-        logger.info("metadata init().");
-
-        // Required keys
-        initCache(CLUSTER_KEY, cluster);
-        initCache(STORES_KEY, storeDefs);
-        initCache(NODE_ID_KEY, nodeId);
-
-        // Initialize with default if not present
-        initCache(REBALANCING_SLAVES_LIST_KEY, new ArrayList<Integer>(0));
-        initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
-        initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
-        initCache(REBALANCING_SLAVE_NODE_ID, -1);
-
-        // set transient values
-        updateRoutingStrategies();
-    }
-
-    private void initCache(String key) {
-        metadataCache.put(key, convertStringToObject(key, getInnerValue(key)));
-    }
-
-    private void initCache(String key, Object defaultValue) {
-        try {
-            initCache(key);
-        } catch(Exception e) {
-            // put default value if failed to init
-            this.put(key, new Versioned<Object>(defaultValue));
-        }
     }
 
     /**
@@ -195,19 +152,16 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @param value
      */
     public void put(String key, Versioned<Object> value) {
-        try {
-            if(METADATA_KEYS.contains(key)) {
+        if(METADATA_KEYS.contains(key)) {
 
-                // cache all keys
-                metadataCache.put(key, value);
+            // try inserting into inner store first
+            putInner(key, convertObjectToString(key, value));
 
-                innerStore.put(key, convertObjectToString(key, value));
+            // cache all keys if innerStore put succeeded
+            metadataCache.put(key, value);
 
-            } else {
-                throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
-            }
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to put() key:" + key + " with value:" + value, e);
+        } else {
+            throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
         }
     }
 
@@ -336,19 +290,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                                                        System.currentTimeMillis())));
     }
 
-    private Object createRoutingStrategMap() {
-        HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
-
-        for(StoreDefinition store: getStoreDefList()) {
-            map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
-        }
-
-        // add metadata Store route to ALL routing strategy.
-        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
-
-        return map;
-    }
-
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new VoldemortException("You cannot iterate over all entries in Metadata");
     }
@@ -368,7 +309,57 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
+     * Initializes the metadataCache for MetadataStore
+     */
+    private void init(int nodeId) {
+        logger.info("metadata init().");
+
+        // Required keys
+        initCache(CLUSTER_KEY);
+        initCache(STORES_KEY);
+
+        // Initialize with default if not present
+        initCache(NODE_ID_KEY, nodeId);
+        initCache(REBALANCING_SLAVES_LIST_KEY, new ArrayList<Integer>(0));
+        initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
+        initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
+        initCache(REBALANCING_SLAVE_NODE_ID, -1);
+
+        // set transient values
+        updateRoutingStrategies();
+    }
+
+    private void initCache(String key) {
+        metadataCache.put(key, convertStringToObject(key, getInnerValue(key)));
+    }
+
+    private void initCache(String key, Object defaultValue) {
+        try {
+            initCache(key);
+        } catch(Exception e) {
+            // put default value if failed to init
+            this.put(key, new Versioned<Object>(defaultValue));
+        }
+    }
+
+    private Object createRoutingStrategMap() {
+        HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
+
+        for(StoreDefinition store: getStoreDefList()) {
+            map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
+        }
+
+        // add metadata Store route to ALL routing strategy.
+        map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
+
+        return map;
+    }
+
+    /**
      * Converts Object to byte[] depending on the key
+     * <p>
+     * StoreRepository takes only StorageEngine<ByteArray,byte[]> and for
+     * persistence on disk we need to convert them to String.<br>
      * 
      * @param key
      * @param value
@@ -406,6 +397,16 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return new Versioned<String>(valueStr, value.getVersion());
     }
 
+    /**
+     * convert Object to String depending on key.
+     * <p>
+     * StoreRepository takes only StorageEngine<ByteArray,byte[]> and for
+     * persistence on disk we need to convert them to String.<br>
+     * 
+     * @param key
+     * @param value
+     * @return
+     */
     private Versioned<Object> convertStringToObject(String key, Versioned<String> value) {
         Object valueObject = null;
 
@@ -435,6 +436,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
 
         return new Versioned<Object>(valueObject, value.getVersion());
+    }
+
+    private void putInner(String key, Versioned<String> value) {
+        innerStore.put(key, value);
     }
 
     private Versioned<String> getInnerValue(String key) throws VoldemortException {

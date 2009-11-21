@@ -128,14 +128,4 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
         assertEquals("Only one file of name key should be present.", 1, map.get(keyName).size());
         assertEquals("Value should match.", "testValue1", map.get(keyName).get(0).getValue());
     }
-
-    public void testRollBackFeature() {
-        VectorClock clock1 = new VectorClock();
-        getStore().put("test.key", new Versioned<String>("version 1", clock1));
-        getStore().put("test.key", new Versioned<String>("version 2", clock1.incremented(0, 1)));
-
-        // rollback key.
-        ((ConfigurationStorageEngine) getStore()).rollbackFromBackup("test.key");
-        assertEquals("version 1", getStore().get("test.key").get(0).getValue());
-    }
 }

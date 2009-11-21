@@ -23,4 +23,16 @@ public class AsyncOperationRepository extends LRUMap {
         AsyncOperation operation = (AsyncOperation) entry.getValue();
         return operation.getStatus().isComplete();
     }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        for (Object value: values()) {
+            AsyncOperation as = (AsyncOperation) value;
+            sb.append(as.getStatus().toString())
+                    .append(";");
+        }
+
+        return sb.toString();
+    }
 }

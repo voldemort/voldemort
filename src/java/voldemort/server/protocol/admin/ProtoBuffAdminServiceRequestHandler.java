@@ -43,12 +43,7 @@ import voldemort.server.protocol.RequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.EventThrottler;
-import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.Pair;
+import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -307,6 +302,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setComplete(requestComplete);
             response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
+            if (operationStatus.hasException())
+                throw new VoldemortException(operationStatus.getException());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);

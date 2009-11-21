@@ -12,7 +12,8 @@ public enum ServiceType {
     JMX("jmx-service"),
     SCHEDULER("scheduler-service"),
     STORAGE("storage-service"),
-    VOLDEMORT("voldemort-server");
+    VOLDEMORT("voldemort-server"),
+    ASYNC_SCHEDULER("async-scheduler");
 
     private final String display;
 

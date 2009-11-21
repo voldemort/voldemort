@@ -50,6 +50,10 @@ public abstract class AdminClient {
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
+    // Parameters for exponential back off
+    private static final long INITIAL_DELAY = 250; // Initial delay
+    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential back off once delay reaches this
+    
     private Cluster cluster;
 
     public AdminClient(Cluster cluster) {
@@ -190,21 +194,18 @@ public abstract class AdminClient {
      *        up
      * @param timeUnit Unit in which
      * @param maxWait is expressed
-     * @return True if task finished in
-     * @param maxWait , false otherwise
+     * @throws VoldemortException if task failed to finish in specified maxWait
+     *         time.
      */
     public void waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
-        long delay = 250;
-        // don't do exponential back off past a certain limit
-        long maxDelay = 1000 * 60;
-
+        long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while(System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if(status.isComplete())
                 return;
-            if(delay < maxDelay)
+            if(delay < MAX_DELAY)
                 // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;
             try {
@@ -213,7 +214,8 @@ public abstract class AdminClient {
                 Thread.currentThread().interrupt();
             }
         }
-        throw new VoldemortException("Task requestId:" + requestId + " failed to complete in " + maxWait + " " + timeUnit.toString()) ;
+        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
+                                     + maxWait + " " + timeUnit.toString());
     }
 
     /* Helper functions */
