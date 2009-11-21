@@ -27,11 +27,10 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
-import voldemort.utils.ByteArray;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
@@ -42,16 +41,7 @@ import voldemort.versioning.Versioned;
 
 /**
  * A FileSystem based Storage Engine to persist configuration metadata.<br>
- * Creates/updates a File of filename 'key' for each key and write value as UTF
- * strings in it, saves version of latest entry in '.version' directory.<br>
- * Keeps a backup copy of key and old version in '.bak' directory<br>
- * This store is limited as for persisting metadata, hence some simplifications
- * are made.
- * <ul>
- * <li>Delete Operation is not permitted.</li>
- * <li>Iteration over entries is not permitted.</li>
- * <li>Store keeps a backup file and can be rolled back by copying the file to
- * master location.</li>
+ * <imp>Used only by {@link MetadataStore}</imp><br>
  * 
  * @author bbansal
  * 
@@ -60,9 +50,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
 
     private final String name;
     private final File directory;
-    private final File versionDirectory;
-    private final File backupDirectory;
-    private final File backupVersionDirectory;
 
     private static final Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
 
@@ -72,14 +59,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         if(!this.directory.exists() && this.directory.canRead())
             throw new IllegalArgumentException("Directory " + this.directory.getAbsolutePath()
                                                + " does not exist or can not be read.");
-        this.versionDirectory = new File(this.directory, ".version");
-        this.backupDirectory = new File(this.directory, ".bak");
-        this.backupVersionDirectory = new File(this.backupDirectory, ".version");
-
-        // create version and backup directory if not exist.
-        this.versionDirectory.mkdirs();
-        this.backupDirectory.mkdirs();
-        this.backupVersionDirectory.mkdirs();
     }
 
     public ClosableIterator<Pair<String, Versioned<String>>> entries() {
@@ -96,7 +75,72 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
 
     public synchronized List<Versioned<String>> get(String key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        return get(key, this.directory.listFiles());
+        return get(key, getDirectory(key).listFiles());
+    }
+
+    public List<Version> getVersions(String key) {
+        List<Versioned<String>> values = get(key);
+        List<Version> versions = new ArrayList<Version>(values.size());
+        for(Versioned value: values) {
+            versions.add(value.getVersion());
+        }
+        return versions;
+    }
+
+    public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        Map<String, List<Versioned<String>>> result = StoreUtils.newEmptyHashMap(keys);
+        for(String key: keys) {
+            List<Versioned<String>> values = get(key, getDirectory(key).listFiles());
+            if(!values.isEmpty())
+                result.put(key, values);
+        }
+        return result;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public synchronized void put(String key, Versioned<String> value) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+
+        if(null == value.getValue()) {
+            throw new VoldemortException("metadata cannot be null !!");
+        }
+        // Check for obsolete version
+        File[] files = getDirectory(key).listFiles();
+        for(File file: files) {
+            if(file.getName().equals(key)) {
+                VectorClock clock = readVersion(key);
+                if(value.getVersion().compare(clock) == Occured.AFTER) {
+                    // continue
+                } else if(value.getVersion().compare(clock) == Occured.BEFORE) {
+                    throw new ObsoleteVersionException("A successor version to this exists.");
+                } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
+                    throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
+                }
+            }
+        }
+
+        File keyFile = new File(getDirectory(key), key);
+        VectorClock newClock = (VectorClock) value.getVersion();
+        if(!keyFile.exists() || keyFile.delete()) {
+            try {
+                FileUtils.writeStringToFile(keyFile, value.getValue(), "UTF-8");
+                writeVersion(key, newClock);
+            } catch(IOException e) {
+                throw new VoldemortException(e);
+            }
+        }
+    }
+
+    private File getDirectory(String key) {
+        if(MetadataStore.OPTIONAL_KEYS.contains(key))
+            return getTempDirectory();
+        else
+            return this.directory;
     }
 
     private List<Versioned<String>> get(String key, File[] files) {
@@ -117,137 +161,20 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         }
     }
 
-    public List<Version> getVersions(String key) {
-        List<Versioned<String>> values = get(key);
-        List<Version> versions = new ArrayList<Version>(values.size());
-        for(Versioned value: values) {
-            versions.add(value.getVersion());
-        }
-        return versions;
-    }
-
-    public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys)
-            throws VoldemortException {
-        StoreUtils.assertValidKeys(keys);
-        Map<String, List<Versioned<String>>> result = StoreUtils.newEmptyHashMap(keys);
-        for(String key: keys) {
-            List<Versioned<String>> values = get(key, this.directory.listFiles());
-            if(!values.isEmpty())
-                result.put(key, values);
-        }
-        return result;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public synchronized void put(String key, Versioned<String> value) throws VoldemortException {
-        StoreUtils.assertValidKey(key);
-
-        if(null == value.getValue()) {
-            throw new VoldemortException("metadata cannot be null !!");
-        }
-        // Check for obsolete version
-        File[] files = this.directory.listFiles();
-        for(File file: files) {
-            if(file.getName().equals(key)) {
-                VectorClock clock = readVersion(key);
-                if(value.getVersion().compare(clock) == Occured.AFTER)
-                    updateBackup(key);
-                else if(value.getVersion().compare(clock) == Occured.BEFORE) {
-                    throw new ObsoleteVersionException("A successor version to this exists.");
-                } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
-                    throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
-                }
-            }
-        }
-
-        VectorClock clock = (VectorClock) value.getVersion();
-        File keyFile = new File(this.directory, key);
-        if(!keyFile.exists() || keyFile.delete()) {
-            try {
-                FileUtils.writeStringToFile(keyFile, value.getValue(), "UTF-8");
-                writeVersion(key, clock);
-            } catch(IOException e) {
-                try {
-                    rollbackFromBackup(key);
-                } catch(Exception rollbackError) {
-                    logger.error("Failed to rollback with exception ", rollbackError);
-                }
-                throw new VoldemortException(e);
-            }
-        }
-    }
-
     /**
-     * rollback from backup directory
+     * If key is a temp state value write it inside tempDirectory to avoid
+     * clutter.
      * 
      * @param key
+     * @param clock
      */
-    public boolean rollbackFromBackup(String key) {
-        File backupKeyFile = new File(this.backupDirectory, key);
-        File backupVersionFile = new File(this.backupVersionDirectory, key);
+    private void writeValue(String key, Versioned<String> value) {
 
-        if(backupKeyFile.exists() && backupVersionFile.exists()) {
-            File keyFile = new File(this.directory, key);
-            File versionFile = new File(this.versionDirectory, key);
-
-            if(keyFile.delete() && versionFile.delete())
-                return backupKeyFile.renameTo(keyFile) && backupVersionFile.renameTo(versionFile);
-
-        } else {
-            logger.warn("Rollback attempted but no backup File found:" + backupKeyFile);
-        }
-
-        throw new VoldemortException("Failed to rollBack for key:" + key);
-    }
-
-    /**
-     * Saves the key/version file in backup directory
-     * 
-     * @param key
-     * @return
-     */
-    private boolean updateBackup(String key) {
-        File keyFile = new File(this.directory, key);
-        File versionFile = new File(this.versionDirectory, key);
-        if(!versionFile.exists()) {
-            writeVersion(key, new VectorClock());
-            versionFile = new File(this.versionDirectory, key);
-        }
-
-        if(keyFile.exists() && versionFile.exists()) {
-            File backupKeyFile = new File(this.backupDirectory, key);
-            File backupVersionFile = new File(this.backupVersionDirectory, key);
-
-            try {
-                // delete old backup
-                backupKeyFile.delete();
-                backupVersionFile.delete();
-
-                return keyFile.renameTo(backupKeyFile) && versionFile.renameTo(backupVersionFile);
-            } catch(Exception e) {
-                logger.error("Failed to backup with exception ", e);
-            }
-        }
-
-        throw new VoldemortException("Failed to take backup for key:" + key);
-    }
-
-    public Object getCapability(StoreCapabilityType capability) {
-        switch(capability) {
-            case ROLLBACK_FROM_BACKUP:
-                return this;
-            default:
-                throw new NoSuchCapabilityException(capability, getName());
-
-        }
     }
 
     private VectorClock readVersion(String key) {
         try {
-            File versionFile = new File(this.versionDirectory, key);
+            File versionFile = new File(getVersionDirectory(), key);
             if(!versionFile.exists()) {
                 // bootstrap file save default clock as version.
                 VectorClock clock = new VectorClock();
@@ -265,7 +192,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
 
     private void writeVersion(String key, VectorClock version) {
         try {
-            File versionFile = new File(this.versionDirectory, key);
+            File versionFile = new File(getVersionDirectory(), key);
             if(!versionFile.exists() || versionFile.delete()) {
                 // write the version file.
                 String hexCode = new String(Hex.encodeHex(version.toBytes()));
@@ -274,5 +201,29 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         } catch(Exception e) {
             throw new VoldemortException("Failed to write Version for Key:" + key, e);
         }
+    }
+
+    private File getVersionDirectory() {
+        File versionDir = new File(this.directory, ".version");
+        if(!versionDir.exists() || !versionDir.isDirectory()) {
+            versionDir.delete();
+            versionDir.mkdirs();
+        }
+
+        return versionDir;
+    }
+
+    private File getTempDirectory() {
+        File tempDir = new File(this.directory, ".temp");
+        if(!tempDir.exists() || !tempDir.isDirectory()) {
+            tempDir.delete();
+            tempDir.mkdirs();
+        }
+
+        return tempDir;
+    }
+
+    public Object getCapability(StoreCapabilityType capability) {
+        throw new VoldemortException("No extra capability.");
     }
 }
