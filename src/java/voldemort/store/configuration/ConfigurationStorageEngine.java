@@ -81,7 +81,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
     public List<Version> getVersions(String key) {
         List<Versioned<String>> values = get(key);
         List<Version> versions = new ArrayList<Version>(values.size());
-        for(Versioned value: values) {
+        for(Versioned<?> value: values) {
             versions.add(value.getVersion());
         }
         return versions;

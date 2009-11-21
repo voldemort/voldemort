@@ -444,7 +444,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
-        Class cl = filter.getClass();
+        Class<?> cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);
         return VAdminProto.VoldemortFilter.newBuilder()
                                           .setName(cl.getName())

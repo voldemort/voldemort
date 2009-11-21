@@ -74,7 +74,7 @@ public class ServerJVMTestUtils {
     public static void waitForServerStart(Node node) {
         boolean success = false;
         int retries = 10;
-        Store store = null;
+        Store<ByteArray, ?> store = null;
         while(retries-- > 0) {
             store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
                                                    node.getSocketPort());

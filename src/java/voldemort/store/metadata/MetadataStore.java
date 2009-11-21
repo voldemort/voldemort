@@ -224,7 +224,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key);
         List<Version> versions = new ArrayList<Version>(values.size());
-        for(Versioned value: values) {
+        for(Versioned<?> value: values) {
             versions.add(value.getVersion());
         }
         return versions;
