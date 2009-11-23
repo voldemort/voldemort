@@ -43,7 +43,7 @@ public class NetworkClassLoader extends ClassLoader {
         Class<?> loadedClass = super.findLoadedClass(className);
 
         if(null == loadedClass) {
-            return loadedClass = super.defineClass(className, classBuffer, offset, length);
+            return super.defineClass(className, classBuffer, offset, length);
         }
 
         return loadedClass;

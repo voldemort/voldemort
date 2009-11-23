@@ -21,7 +21,6 @@ import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
-import voldemort.VoldemortException;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -122,9 +121,8 @@ public class MetadataStoreTest extends TestCase {
                 assertTrue(true);
                 metadataStore.put(key, value);
                 fail();
-            } catch(VoldemortException e) {
+            } catch(ObsoleteVersionException e) {
                 // expected ObsoleteVersionException
-                assertEquals(e.getCause().getClass(), ObsoleteVersionException.class);
             }
         }
     }

@@ -35,7 +35,6 @@ import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
-import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -140,35 +139,21 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             // boolean switch to fetchEntries/fetchKeys Only
             boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
 
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+            if(fetchValues)
+                fetchEntries(storageEngine,
+                             outputStream,
+                             partitionList,
+                             routingStrategy,
+                             filter,
+                             throttler);
+            else
+                fetchKeys(storageEngine,
+                          outputStream,
+                          partitionList,
+                          routingStrategy,
+                          filter,
+                          throttler);
 
-                if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
-                   && filter.accept(entry.getFirst(), entry.getSecond())) {
-
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-
-                    if(fetchValues) {
-                        VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
-                                                                                              .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                                                                                              .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
-                                                                                              .build();
-                        response.setPartitionEntry(partitionEntry);
-                    } else {
-                        response.setKey(ProtoUtils.encodeBytes(entry.getFirst()));
-                    }
-
-                    Message message = response.build();
-                    ProtoUtils.writeMessage(outputStream, message);
-
-                    if(throttler != null) {
-                        throttler.maybeThrottle(entrySize(entry));
-                    }
-                }
-            }
-
-            iterator.close();
             ProtoUtils.writeEndOfStream(outputStream);
         } catch(VoldemortException e) {
             VAdminProto.FetchPartitionEntriesResponse response = VAdminProto.FetchPartitionEntriesResponse.newBuilder()
@@ -179,6 +164,74 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             ProtoUtils.writeMessage(outputStream, response);
             logger.error("handleFetchPartitionEntries failed for request(" + request.toString()
                          + ")", e);
+        }
+    }
+
+    private void fetchEntries(StorageEngine<ByteArray, byte[]> storageEngine,
+                              DataOutputStream outputStream,
+                              List<Integer> partitionList,
+                              RoutingStrategy routingStrategy,
+                              VoldemortFilter filter,
+                              EventThrottler throttler) throws IOException {
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
+        try {
+            iterator = storageEngine.entries();
+            while(iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+
+                if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
+                   && filter.accept(entry.getFirst(), entry.getSecond())) {
+
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+
+                    VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
+                                                                                          .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
+                                                                                          .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
+                                                                                          .build();
+                    response.setPartitionEntry(partitionEntry);
+
+                    Message message = response.build();
+                    ProtoUtils.writeMessage(outputStream, message);
+
+                    if(throttler != null) {
+                        throttler.maybeThrottle(entrySize(entry));
+                    }
+                }
+            }
+        } finally {
+            if(null != iterator)
+                iterator.close();
+        }
+    }
+
+    private void fetchKeys(StorageEngine<ByteArray, byte[]> storageEngine,
+                           DataOutputStream outputStream,
+                           List<Integer> partitionList,
+                           RoutingStrategy routingStrategy,
+                           VoldemortFilter filter,
+                           EventThrottler throttler) throws IOException {
+        ClosableIterator<ByteArray> iterator = null;
+        try {
+            iterator = storageEngine.keys();
+            while(iterator.hasNext()) {
+                ByteArray key = iterator.next();
+
+                if(validPartition(key.get(), partitionList, routingStrategy)
+                   && filter.accept(key, null)) {
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                    response.setKey(ProtoUtils.encodeBytes(key));
+
+                    Message message = response.build();
+                    ProtoUtils.writeMessage(outputStream, message);
+
+                    if(throttler != null) {
+                        throttler.maybeThrottle(key.length());
+                    }
+                }
+            }
+        } finally {
+            if(null != iterator)
+                iterator.close();
         }
     }
 
@@ -208,7 +261,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
                     }
                 }
-                
+
                 int size = inputStream.readInt();
                 if(size == -1)
                     continueReading = false;
@@ -307,6 +360,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setComplete(requestComplete);
             response.setStatus(operationStatus.getStatus());
             response.setRequestId(requestId);
+            if(operationStatus.hasException())
+                throw new VoldemortException(operationStatus.getException());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);
@@ -317,7 +372,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.DeletePartitionEntriesResponse handleDeletePartitionEntries(VAdminProto.DeletePartitionEntriesRequest request) {
         VAdminProto.DeletePartitionEntriesResponse.Builder response = VAdminProto.DeletePartitionEntriesResponse.newBuilder();
-
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
             String storeName = request.getStore();
             List<Integer> partitions = request.getPartitionsList();
@@ -327,7 +382,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
 
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = storageEngine.entries();
+            iterator = storageEngine.entries();
             int deleteSuccess = 0;
 
             while(iterator.hasNext()) {
@@ -341,12 +396,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                         throttler.maybeThrottle(entrySize(entry));
                 }
             }
-            iterator.close();
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleDeletePartitionEntries failed for request(" + request.toString()
                          + ")", e);
+        } finally {
+            if(null != iterator)
+                iterator.close();
         }
 
         return response.build();

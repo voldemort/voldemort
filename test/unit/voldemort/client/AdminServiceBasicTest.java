@@ -322,7 +322,7 @@ public class AdminServiceBasicTest extends TestCase {
                                               testStoreName,
                                               fetchAndUpdatePartitionsList,
                                               null);
-        client.waitForCompletion(1, id, 5, TimeUnit.SECONDS);
+        client.waitForCompletion(1, id, 60, TimeUnit.SECONDS);
 
         // check values
         int count = 0;

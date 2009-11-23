@@ -53,7 +53,7 @@ public class NetworkClassLoaderTest extends TestCase {
         checkLoadClass(new UserClass().getClass());
     }
 
-    private void checkLoadClass(Class cl) throws IOException {
+    private void checkLoadClass(Class<?> cl) throws IOException {
         byte[] classBytes = networkClassLoader.dumpClass(cl);
 
         // ObjectInputStream oin = new ObjectInputStream(new

@@ -42,10 +42,10 @@ public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {
     @Override
     synchronized public V get(Object key) {
         if(!this.containsKey(key)) {
-            this.put((K) key, readBack((K) key));
+            super.put((K) key, readBack((K) key));
         }
 
-        return this.get(key);
+        return super.get(key);
     }
 
     /**
@@ -55,11 +55,11 @@ public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {
     synchronized public V put(K key, V value) {
         V oldValue = this.get(key);
         try {
-            this.put(key, value);
+            super.put(key, value);
             writeBack(key, value);
             return oldValue;
         } catch(Exception e) {
-            this.put(key, oldValue);
+            super.put(key, oldValue);
             writeBack(key, oldValue);
             throw new VoldemortException("Failed to put(" + key + ", " + value
                                          + ") in write through cache", e);

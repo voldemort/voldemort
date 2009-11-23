@@ -2,6 +2,10 @@ package voldemort.server.protocol.admin;
 
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
+import voldemort.server.AbstractService;
+import voldemort.server.ServiceType;
 
 import java.util.Collections;
 import java.util.Map;
@@ -14,16 +18,19 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Asynchronous job scheduler for admin service operations
  *
  */
-public class AsyncOperationRunner {
+@JmxManaged(description = "Asynchronous operation execution")
+public class AsyncOperationRunner extends AbstractService {
     private final Map<Integer, AsyncOperation> operations;
     private final ExecutorService executor;
     private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
-
+   
     @SuppressWarnings("unchecked") // apache commons collections aren't updated for 1.5 yet
     public AsyncOperationRunner(int poolSize, int cacheSize) {
+        super(ServiceType.ASYNC_SCHEDULER);
         operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
         executor = Executors.newFixedThreadPool(poolSize);
+
     }
 
     /**
@@ -31,7 +38,7 @@ public class AsyncOperationRunner {
      * @param operation The asynchronous operations to submit
      * @param requestId Id of the request
      */
-    public void submitOperation(int requestId, AsyncOperation operation) {
+    public synchronized void submitOperation(int requestId, AsyncOperation operation) {
         if (this.operations.containsKey(requestId)) {
             throw new VoldemortException("Request " + requestId + " already submitted to the system");
         }
@@ -59,6 +66,21 @@ public class AsyncOperationRunner {
         return false;
     }
 
+    // Wrap getOperationStatus to avoid throwing exception over JMX
+    @JmxOperation(description = "Retrieve operation status")
+    public String getStatus(int id) {
+        try {
+            return getOperationStatus(id).toString();
+        } catch (VoldemortException e) {
+            return "No operation with id " + id + " found";
+        }
+    }
+
+    @JmxOperation(description = "Retrieve all operations")
+    public String getAllAsyncOperations() {
+        return operations.toString();
+    }
+
     public AsyncOperationStatus getOperationStatus(int requestId) {
         if (!operations.containsKey(requestId)) {
             throw new VoldemortException("No operation with id " + requestId + " found");
@@ -69,5 +91,13 @@ public class AsyncOperationRunner {
 
     public int getRequestId() {
         return lastOperationId.getAndIncrement();
+    }
+
+    protected void startInner() {
+        logger.info("Starting asyncOperationRunner");
+    }
+
+    protected void stopInner() {
+        logger.info("Stopping asyncOperationRunner");
     }
 }
