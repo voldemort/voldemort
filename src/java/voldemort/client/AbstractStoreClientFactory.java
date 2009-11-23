@@ -89,6 +89,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final MBeanServer mbeanServer;
     private final int jmxId;
     protected final FailureDetector failureDetector;
+    private final int maxBootstrapRetries;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -104,6 +105,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         else
             this.mbeanServer = null;
         this.jmxId = jmxIdCounter.getAndIncrement();
+        this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         registerThreadPoolJmx(threadPool);
 
         failureDetector = initFailureDetector(config);
@@ -133,9 +135,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V> Store<K, V> getRawStore(String storeName,
                                           InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
-        String clusterXml = bootstrapMetadata(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-        String storesXml = bootstrapMetadata(MetadataStore.STORES_KEY, bootstrapUrls);
+        String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml));
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
@@ -206,6 +208,27 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
 
+    public String bootstrapMetadataWithRetries(String key, URI[] urls) {
+        int nTries = 0;
+        while(nTries++ < this.maxBootstrapRetries) {
+            try {
+                return bootstrapMetadata(key, urls);
+            } catch(BootstrapFailureException e) {
+                if(nTries < this.maxBootstrapRetries) {
+                    int backOffTime = 5 * nTries;
+                    logger.warn("Failed to bootstrap will try again after " + backOffTime + "s.");
+                    try {
+                        Thread.sleep(backOffTime * 1000);
+                    } catch(InterruptedException e1) {
+                        throw new RuntimeException(e1);
+                    }
+                }
+            }
+        }
+
+        throw new BootstrapFailureException("No available boostrap servers found!");
+    }
+
     private String bootstrapMetadata(String key, URI[] urls) {
         for(URI url: urls) {
             try {
@@ -227,7 +250,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         throw new BootstrapFailureException("No available boostrap servers found!");
     }
 
-    private URI[] validateUrls(String[] urls) {
+    public URI[] validateUrls(String[] urls) {
         if(urls == null || urls.length == 0)
             throw new IllegalArgumentException("Must provide at least one bootstrap URL!");
 

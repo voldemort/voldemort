@@ -113,6 +113,10 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        return StoreUtils.keys(entries());
+    }
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
         PreparedStatement stmt = null;

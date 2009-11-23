@@ -179,7 +179,7 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         List<Integer> list = new ArrayList<Integer>(tags.length);
         for(int tag: tags)
             list.add(tag);
-        return new Node(id, "localhost", 8080, 6666, list);
+        return new Node(id, "localhost", 8080, 6666, 6667, list);
     }
 
 }

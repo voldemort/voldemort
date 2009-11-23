@@ -70,6 +70,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbOneEnvPerStore;
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
+    private boolean bdbCursorPreload;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -114,6 +115,8 @@ public class VoldemortConfig implements Serializable {
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
     private boolean enableServerRouting;
+    private boolean enableMetadataChecking;
+    private boolean enableRedirectRouting;
 
     private List<String> storageConfigurations;
 
@@ -124,6 +127,24 @@ public class VoldemortConfig implements Serializable {
     private int adminCoreThreads;
     private int adminMaxThreads;
     private int adminStreamBufferSize;
+    private int adminSocketTimeout;
+    private int adminConnectionTimeout;
+
+    public int getAdminSocketTimeout() {
+        return adminSocketTimeout;
+    }
+
+    public void setAdminSocketTimeout(int adminSocketTimeout) {
+        this.adminSocketTimeout = adminSocketTimeout;
+    }
+
+    public int getAdminConnectionTimeout() {
+        return adminConnectionTimeout;
+    }
+
+    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
+        this.adminConnectionTimeout = adminConnectionTimeout;
+    }
 
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
@@ -157,14 +178,17 @@ public class VoldemortConfig implements Serializable {
         this.bdbFlushTransactions = props.getBoolean("bdb.flush.transactions", false);
         this.bdbDataDirectory = props.getString("bdb.data.directory", this.dataDirectory
                                                                       + File.separator + "bdb");
-        this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 1024 * 1024 * 1024);
+        this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 60 * 1024 * 1024);
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
-        setBdbCleanerMinFileUtilization(props.getInt("bdb.cleaner.minFileUtilization", 5));
-        setBdbCleanerMinUtilization(props.getInt("bdb.cleaner.minUtilization", 50));
+        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
+        this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
+
+        // enabling preload make cursor slow for insufficient bdb cache size.
+        this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
         this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
@@ -184,10 +208,13 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
-        this.adminMaxThreads = props.getInt("admin.max.threads", 100);
+        // Admin client should have less threads but very high buffer size.
+        this.adminMaxThreads = props.getInt("admin.max.threads", 10);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
+        this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
+        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
 
         this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 1 * 1000 * 1000);
         this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 1 * 1000 * 1000);
@@ -215,6 +242,8 @@ public class VoldemortConfig implements Serializable {
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
+        this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
+        this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
 
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
@@ -399,7 +428,7 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * The maximum size of a single .jdb log file in bytes. Given by
-     * "bdb.max.logfile.size" default: 1G
+     * "bdb.max.logfile.size" default: 60MB
      */
     public long getBdbMaxLogFileSize() {
         return this.bdbMaxLogFileSize;
@@ -414,10 +443,10 @@ public class VoldemortConfig implements Serializable {
      * value, irrespective of total utilization.
      * 
      * <ul>
-     * <li> property: "bdb.cleaner.minFileUtilization"</li>
-     * <li> default: 5</li>
-     * <li> minimum: 0</li>
-     * <li> maximum: 50</li>
+     * <li>property: "bdb.cleaner.minFileUtilization"</li>
+     * <li>default: 5</li>
+     * <li>minimum: 0</li>
+     * <li>maximum: 50</li>
      * </ul>
      */
     public int getBdbCleanerMinFileUtilization() {
@@ -431,14 +460,15 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * 
      * The cleaner will keep the total disk space utilization percentage above
      * this value.
      * 
      * <ul>
-     * <li> property: "bdb.cleaner.minUtilization"</li>
-     * <li> default: 50</li>
-     * <li> minimum: 0</li>
-     * <li> maximum: 90</li>
+     * <li>property: "bdb.cleaner.minUtilization"</li>
+     * <li>default: 50</li>
+     * <li>minimum: 0</li>
+     * <li>maximum: 90</li>
      * </ul>
      */
     public int getBdbCleanerMinUtilization() {
@@ -452,6 +482,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * 
      * The btree node fanout. Given by "bdb.btree.fanout". default: 512
      */
     public int getBdbBtreeFanout() {
@@ -460,6 +491,21 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
+    }
+
+    /**
+     * Do we preload the cursor or not? The advantage of preloading for cursor
+     * is faster streaming performance, as entries are fetched in disk order.
+     * Incidentally, pre-loading is only a side-effect of what we're really
+     * trying to do: fetch in disk (as opposed to key) order, but there doesn't
+     * seem to be an easy/intuitive way to do for BDB JE.
+     */
+    public boolean getBdbCursorPreload() {
+        return this.bdbCursorPreload;
+    }
+
+    public void setBdbCursorPreload(boolean bdbCursorPreload) {
+        this.bdbCursorPreload = bdbCursorPreload;
     }
 
     /**
@@ -486,12 +532,6 @@ public class VoldemortConfig implements Serializable {
     public void setMaxThreads(int maxThreads) {
         this.maxThreads = maxThreads;
     }
-
-    /**
-     * Admin Threads count setting default is core=1 , max = 2
-     * 
-     * @return
-     */
 
     public int getAdminCoreThreads() {
         return adminCoreThreads;
@@ -703,6 +743,22 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableStatTracking(boolean enableStatTracking) {
         this.enableStatTracking = enableStatTracking;
+    }
+
+    public boolean isMetadataCheckingEnabled() {
+        return enableMetadataChecking;
+    }
+
+    public void setEnableMetadataChecking(boolean enableMetadataChecking) {
+        this.enableMetadataChecking = enableMetadataChecking;
+    }
+
+    public boolean isRedirectRoutingEnabled() {
+        return enableRedirectRouting;
+    }
+
+    public void setEnableRedirectRouting(boolean enableRedirectRouting) {
+        this.enableRedirectRouting = enableRedirectRouting;
     }
 
     public long getBdbCheckpointBytes() {

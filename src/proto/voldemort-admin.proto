@@ -1,0 +1,114 @@
+package voldemort;
+
+option java_package = "voldemort.client.protocol.pb";
+option java_outer_classname = "VAdminProto";
+option optimize_for = SPEED;
+
+import "voldemort-client.proto";
+
+message GetMetadataRequest {
+  required bytes key = 1;
+}
+
+message GetMetadataResponse {
+  optional Versioned version = 1;
+  optional Error error = 2;
+}
+
+message UpdateMetadataRequest {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message UpdateMetadataResponse {
+  optional Error error = 1;
+}
+
+message PartitionEntry {
+  required bytes key = 1;
+  required Versioned versioned = 2;
+}
+
+message UpdatePartitionEntriesRequest {
+  required string store = 1;
+  required PartitionEntry partition_entry = 2;
+  optional VoldemortFilter filter = 3;
+}
+
+message UpdatePartitionEntriesResponse {
+  optional Error error = 1;
+}
+
+message VoldemortFilter {
+  required string name = 1;
+  required bytes data = 2;
+}
+
+message FetchPartitionEntriesRequest {
+  repeated int32 partitions = 1;
+  required string store = 2;
+  optional VoldemortFilter filter = 3;
+  optional bool fetch_values = 4;
+}
+
+message FetchPartitionEntriesResponse {
+  optional PartitionEntry partition_entry = 1;
+  optional bytes key = 2;
+  optional Error error = 3;
+}
+
+message DeletePartitionEntriesRequest {
+  required string store = 1;
+	repeated int32 partitions = 2;
+	optional VoldemortFilter filter = 3; 
+}
+
+message DeletePartitionEntriesResponse {
+  required int32 count = 1;
+  optional Error error = 2;
+}
+
+message InitiateFetchAndUpdateRequest {
+  required int32 node_id = 1;
+  repeated int32 partitions = 2;
+  required string store = 3;
+  optional VoldemortFilter filter = 4;
+}
+
+message AsyncOperationStatusRequest {
+  required int32 request_id = 1;
+}
+
+message AsyncOperationStatusResponse {
+  required int32 request_id = 1;
+  required string description = 2;
+  required string status = 3;
+  required bool complete = 4;
+  optional Error error = 5;
+}
+
+enum AdminRequestType {
+  GET_METADATA = 0;
+  UPDATE_METADATA = 1;
+  UPDATE_PARTITION_ENTRIES = 2;
+  FETCH_PARTITION_ENTRIES = 3;
+  DELETE_PARTITION_ENTRIES = 4;
+  INITIATE_FETCH_AND_UPDATE = 5;
+  ASYNC_OPERATION_STATUS = 6;
+}
+
+message VoldemortAdminRequest {
+  required AdminRequestType type = 1;
+  optional GetMetadataRequest get_metadata = 2;
+  optional UpdateMetadataRequest update_metadata = 3;
+  optional UpdatePartitionEntriesRequest update_partition_entries = 4;
+  optional FetchPartitionEntriesRequest fetch_partition_entries = 5;
+  optional DeletePartitionEntriesRequest delete_partition_entries = 6;
+  optional InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
+  optional AsyncOperationStatusRequest async_operation_status = 8;
+}
+
+
+  
+
+

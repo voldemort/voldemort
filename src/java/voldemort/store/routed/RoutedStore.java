@@ -174,7 +174,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.cluster = cluster;
         this.storeDef = storeDef;
         this.failureDetector = failureDetector;
-        this.routingStrategy = new RoutingStrategyFactory(this.cluster).getRoutingStrategy(storeDef);
+        this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
@@ -694,7 +694,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         failureDetector.recordException(node, e);
                         failures.add(e);
                     } catch (ObsoleteVersionException e) {
-                        // Do not log or consider an obsoleteVersionException a failure
+                        // Do not log ObsoleteVersionException
+                        failures.add(e);
                     }
                     catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()

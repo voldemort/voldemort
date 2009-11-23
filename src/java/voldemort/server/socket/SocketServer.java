@@ -23,9 +23,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
@@ -51,18 +52,22 @@ import voldemort.server.protocol.RequestHandlerFactory;
 @JmxManaged
 public class SocketServer extends Thread {
 
-    static final Logger logger = Logger.getLogger(SocketServer.class.getName());
+    private final Logger logger;
+
+    /* Used to indicate success in queue */
+    private static final Object SUCCESS = new Object();
+    private final BlockingQueue<Object> startedStatusQueue = new LinkedBlockingQueue<Object>();
 
     private final ThreadPoolExecutor threadPool;
     private final int port;
     private final ThreadGroup threadGroup;
-    private final CountDownLatch isStarted = new CountDownLatch(1);
     private final int socketBufferSize;
     private final RequestHandlerFactory handlerFactory;
     private final int maxThreads;
     private final StatusManager statusManager;
     private final AtomicLong sessionIdSequence;
     private final ConcurrentMap<Long, SocketServerSession> activeSessions;
+    private final String serverName;
 
     private ServerSocket serverSocket = null;
 
@@ -70,7 +75,8 @@ public class SocketServer extends Thread {
                         int defaultThreads,
                         int maxThreads,
                         int socketBufferSize,
-                        RequestHandlerFactory handlerFactory) {
+                        RequestHandlerFactory handlerFactory,
+                        String serverName) {
         this.port = port;
         this.socketBufferSize = socketBufferSize;
         this.threadGroup = new ThreadGroup("voldemort-socket-server");
@@ -86,6 +92,8 @@ public class SocketServer extends Thread {
         this.statusManager = new StatusManager(this.threadPool);
         this.sessionIdSequence = new AtomicLong(0);
         this.activeSessions = new ConcurrentHashMap<Long, SocketServerSession>();
+        this.serverName = serverName;
+        this.logger = Logger.getLogger(SocketServer.class.getName() + "[" + serverName + "]");
     }
 
     private final ThreadFactory threadFactory = new ThreadFactory() {
@@ -129,7 +137,7 @@ public class SocketServer extends Thread {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
             serverSocket.setReceiveBufferSize(this.socketBufferSize);
-            isStarted.countDown();
+            startedStatusQueue.put(SUCCESS);
             while(!isInterrupted() && !serverSocket.isClosed()) {
                 final Socket socket = serverSocket.accept();
                 configureSocket(socket);
@@ -141,13 +149,23 @@ public class SocketServer extends Thread {
             }
         } catch(BindException e) {
             logger.error("Could not bind to port " + port + ".");
+            startedStatusQueue.offer(e);
             throw new VoldemortException(e);
         } catch(SocketException e) {
+            startedStatusQueue.offer(e);
             // If we have been manually shutdown, ignore
             if(!isInterrupted())
                 logger.error("Error in server: ", e);
         } catch(IOException e) {
+            startedStatusQueue.offer(e);
             throw new VoldemortException(e);
+        } catch(Throwable t) {
+            startedStatusQueue.offer(t);
+            if(t instanceof Error)
+                throw (Error) t;
+            else if(t instanceof RuntimeException)
+                throw (RuntimeException) t;
+            throw new VoldemortException(t);
         } finally {
             if(serverSocket != null) {
                 try {
@@ -230,9 +248,18 @@ public class SocketServer extends Thread {
         return getMaxThreads() - getCurrentThreads();
     }
 
+    /**
+     * Blocks until the server has started successfully or an exception is
+     * thrown.
+     * 
+     * @throws VoldemortException if a problem occurs during start-up wrapping
+     *         the original exception.
+     */
     public void awaitStartupCompletion() {
         try {
-            isStarted.await();
+            Object obj = startedStatusQueue.take();
+            if(obj instanceof Throwable)
+                throw new VoldemortException((Throwable) obj);
         } catch(InterruptedException e) {
             // this is okay, if we are interrupted we can stop waiting
         }
@@ -241,5 +268,4 @@ public class SocketServer extends Thread {
     public StatusManager getStatusManager() {
         return statusManager;
     }
-
 }

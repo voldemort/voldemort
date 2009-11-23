@@ -50,18 +50,24 @@ public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
 
+    private static DefaultStoreClient<Object, Object> client;
+
     public static void main(String[] args) throws Exception {
         if(args.length < 2 || args.length > 3)
             Utils.croak("USAGE: java VoldemortClientShell store_name bootstrap_url [command_file]");
 
         String storeName = args[0];
         String bootstrapUrl = args[1];
-        BufferedReader reader = null;
+        String commandsFileName = "";
+        BufferedReader fileReader = null;
+        BufferedReader inputReader = null;
         try {
-            if(args.length == 3)
-                reader = new BufferedReader(new FileReader(args[2]));
-            else
-                reader = new BufferedReader(new InputStreamReader(System.in));
+            if(args.length == 3) {
+                commandsFileName = args[2];
+                fileReader = new BufferedReader(new FileReader(commandsFileName));
+            }
+
+            inputReader = new BufferedReader(new InputStreamReader(System.in));
         } catch(IOException e) {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
@@ -78,9 +84,20 @@ public class VoldemortClientShell {
 
         System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
         System.out.print(PROMPT);
+        if(fileReader != null) {
+            processCommands(fileReader, true);
+            fileReader.close();
+        }
+        processCommands(inputReader, false);
+    }
+
+    private static void processCommands(BufferedReader reader, boolean printCommands)
+            throws IOException {
         for(String line = reader.readLine(); line != null; line = reader.readLine()) {
             if(line.trim().equals(""))
                 continue;
+            if(printCommands)
+                System.out.println(line);
             try {
                 if(line.toLowerCase().startsWith("put")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
@@ -96,10 +113,14 @@ public class VoldemortClientShell {
                         // this is okay, just means we are done reading
                     }
                     Map<Object, Versioned<Object>> vals = client.getAll(keys);
-                    for(Map.Entry<Object, Versioned<Object>> entry: vals.entrySet()) {
-                        System.out.print(entry.getKey());
-                        System.out.print(" => ");
-                        printVersioned(entry.getValue());
+                    if(vals.size() > 0) {
+                        for(Map.Entry<Object, Versioned<Object>> entry: vals.entrySet()) {
+                            System.out.print(entry.getKey());
+                            System.out.print(" => ");
+                            printVersioned(entry.getValue());
+                        }
+                    } else {
+                        System.out.println("null");
                     }
                 } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
@@ -107,8 +128,8 @@ public class VoldemortClientShell {
                 } else if(line.toLowerCase().startsWith("delete")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
                     client.delete(tightenNumericTypes(jsonReader.read()));
-                } else if(line.startsWith("locate")) {
-                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("locate".length())));
+                } else if(line.startsWith("preflist")) {
+                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
                     printNodeList(client.getResponsibleNodes(key),
                                   factory.getFailureDetector());
@@ -116,8 +137,9 @@ public class VoldemortClientShell {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");
                     System.out.println("get key -- Retrieve the value associated with the key.");
+                    System.out.println("getall key -- Retrieve the value(s) associated with the key.");
                     System.out.println("delete key -- Remove all values associated with the key.");
-                    System.out.println("locate key -- Determine which servers host the give key.");
+                    System.out.println("preflist key -- Get node preference list for given key.");
                     System.out.println("help -- Print this message.");
                     System.out.println("exit -- Exit from this shell.");
                     System.out.println();

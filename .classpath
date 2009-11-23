@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src/java"/>
+	<classpathentry kind="src" path="contrib/ec2-testing/resources"/>
+	<classpathentry kind="src" path="contrib/ec2-testing/src/java"/>
+	<classpathentry kind="src" path="contrib/ec2-testing/test"/>
 	<classpathentry kind="src" path="contrib/hadoop-store-builder/test"/>
 	<classpathentry kind="src" path="contrib/hadoop-store-builder/src/java"/>
 	<classpathentry kind="src" path="contrib/mongodb/example"/>
@@ -40,5 +43,7 @@
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/je-3.3.87.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.2.0.jar"/>
+	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
+	<classpathentry kind="lib" path="lib/h2-lzf.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

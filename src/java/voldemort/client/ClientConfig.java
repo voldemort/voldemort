@@ -53,6 +53,7 @@ public class ClientConfig {
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
     private String failureDetector = BannagePeriodFailureDetector.class.getName();
+    private volatile int maxBootstrapRetries = 1;
 
     public ClientConfig() {}
 
@@ -73,6 +74,7 @@ public class ClientConfig {
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
     public static final String NODE_AVAILABILITY_DETECTOR_PROPERTY = "node_availability_detector";
+    public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
 
     /**
      * Initiate the client config from a set of properties. This is useful for
@@ -132,6 +134,9 @@ public class ClientConfig {
 
         if(props.containsKey(NODE_AVAILABILITY_DETECTOR_PROPERTY))
             this.setFailureDetector(props.getString(NODE_AVAILABILITY_DETECTOR_PROPERTY));
+
+        if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
+            this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
     }
 
     public int getMaxConnectionsPerNode() {
@@ -387,6 +392,17 @@ public class ClientConfig {
     public ClientConfig setFailureDetector(String failureDetector) {
         this.failureDetector = failureDetector;
         return this;
+    }
+
+    public int getMaxBootstrapRetries() {
+        return maxBootstrapRetries;
+    }
+
+    public void setMaxBootstrapRetries(int maxBootstrapRetries) {
+        if(maxBootstrapRetries < 1)
+            throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
+
+        this.maxBootstrapRetries = maxBootstrapRetries;
     }
 
 }
