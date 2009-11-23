@@ -6,6 +6,7 @@
     <host>localhost</host>
     <http-port>8080</http-port>
     <socket-port>6666</socket-port>
+    <admin-port>7666</admin-port>
     <partitions>0, 3</partitions>
   </server>
   <server>
@@ -13,6 +14,7 @@
     <host>localhost</host>
     <http-port>8080</http-port>
     <socket-port>6667</socket-port>
+    <admin-port>7667</admin-port>
     <partitions>1, 4</partitions>
   </server>
   <server>
@@ -20,6 +22,7 @@
     <host>localhost</host>
     <http-port>8080</http-port>
     <socket-port>6668</socket-port>
+    <admin-port>7668</admin-port>
     <partitions>2, 5</partitions>
   </server>
 </cluster>

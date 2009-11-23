@@ -62,7 +62,7 @@ public class AdminServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         Map<String, Object> params = Maps.newHashMap();
-        params.put("cluster", server.getVoldemortMetadata().getCurrentCluster());
+        params.put("cluster", server.getMetadataStore().getCluster());
         params.put("repository", server.getStoreRepository());
         params.put("services", server.getServices());
         velocityEngine.render("admin.vm", params, response.getOutputStream());

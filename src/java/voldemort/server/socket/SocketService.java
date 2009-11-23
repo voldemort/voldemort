@@ -43,7 +43,8 @@ public class SocketService extends AbstractSocketService {
                                        coreConnections,
                                        maxConnections,
                                        socketBufferSize,
-                                       requestHandlerFactory);
+                                       requestHandlerFactory,
+                                       serviceName);
     }
 
     @Override
@@ -55,7 +56,6 @@ public class SocketService extends AbstractSocketService {
     protected void startInner() {
         this.server.start();
         this.server.awaitStartupCompletion();
-
         enableJmx(server);
     }
 
@@ -63,5 +63,4 @@ public class SocketService extends AbstractSocketService {
     protected void stopInner() {
         this.server.shutdown();
     }
-
 }

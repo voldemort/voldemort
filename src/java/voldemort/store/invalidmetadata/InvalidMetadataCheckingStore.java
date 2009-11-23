@@ -14,12 +14,16 @@
  * the License.
  */
 
-package voldemort.store;
+package voldemort.store.invalidmetadata;
 
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.server.VoldemortMetadata;
+import voldemort.store.DelegatingStore;
+import voldemort.store.InvalidMetadataException;
+import voldemort.store.Store;
+import voldemort.store.StoreUtils;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -35,7 +39,7 @@ import voldemort.versioning.Versioned;
 public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private final int nodeId;
-    private final VoldemortMetadata metadata;
+    private final MetadataStore metadata;
 
     /**
      * Create a store which delegates its operations to its inner store and
@@ -49,7 +53,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
      */
     public InvalidMetadataCheckingStore(int node,
                                         Store<ByteArray, byte[]> innerStore,
-                                        VoldemortMetadata metadata) {
+                                        MetadataStore metadata) {
         super(innerStore);
         this.metadata = metadata;
         this.nodeId = node;

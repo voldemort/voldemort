@@ -35,9 +35,10 @@ public class RequestCounter {
 
     public float getThroughput() {
         Accumulator oldv = getValidAccumulator();
-        float elapsed = (System.currentTimeMillis() - oldv.startTimeMS) / Time.MS_PER_SECOND;
+        double elapsed = (System.currentTimeMillis() - oldv.startTimeMS)
+                         / (double) Time.MS_PER_SECOND;
         if(elapsed > 0f) {
-            return oldv.count / elapsed;
+            return (float) (oldv.count / elapsed);
         } else {
             return -1f;
         }
@@ -65,14 +66,15 @@ public class RequestCounter {
         long now = System.currentTimeMillis();
 
         /*
-         *  if still in the window, just return it
+         * if still in the window, just return it
          */
         if(now - accum.startTimeMS <= durationMS) {
             return accum;
         }
 
         /*
-         * try to set.  if we fail, then someone else set it, so just return that new one
+         * try to set. if we fail, then someone else set it, so just return that
+         * new one
          */
 
         Accumulator newWithTotal = accum.newWithTotal();

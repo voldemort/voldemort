@@ -9,6 +9,8 @@ public class CompressionStrategyFactory {
             return new NoopCompressionStrategy();
         if(compression.getType().equals("gzip"))
             return new GzipCompressionStrategy();
+        if(compression.getType().equals("lzf"))
+            return new LzfCompressionStrategy();
         throw new IllegalArgumentException("Unsupported compression algorithm: "
                                            + compression.getType());
     }
