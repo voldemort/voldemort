@@ -40,6 +40,8 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.versioning.Versioned;
@@ -92,19 +94,18 @@ public class HadoopStoreBuilderTest extends TestCase {
         String storeName = "test";
         SerializerDefinition serDef = new SerializerDefinition("string");
         Cluster cluster = ServerTestUtils.getLocalCluster(1);
-        StoreDefinition def = new StoreDefinition(storeName,
-                                                  "read-only",
-                                                  serDef,
-                                                  serDef,
-                                                  RoutingTier.CLIENT,
-                                                  RoutingStrategyType.CONSISTENT_STRATEGY,
-                                                  1,
-                                                  1,
-                                                  1,
-                                                  1,
-                                                  1,
-                                                  null,
-                                                  null);
+        StoreDefinition def = new StoreDefinitionBuilder().setName(storeName)
+                                                          .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                          .setKeySerializer(serDef)
+                                                          .setValueSerializer(serDef)
+                                                          .setRoutingPolicy(RoutingTier.CLIENT)
+                                                          .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                          .setReplicationFactor(1)
+                                                          .setPreferredReads(1)
+                                                          .setRequiredReads(1)
+                                                          .setPreferredWrites(1)
+                                                          .setRequiredWrites(1)
+                                                          .build();
         HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
                                                             TextStoreMapper.class,
                                                             TextInputFormat.class,
@@ -125,11 +126,11 @@ public class HadoopStoreBuilderTest extends TestCase {
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Store<Object, Object> store = new SerializingStore<Object, Object>(new ReadOnlyStorageEngine(storeName,
-                                                                                                     storeDir,
-                                                                                                     1),
-                                                                           serializer,
-                                                                           serializer);
+        Store<Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
+                                                                                      storeDir,
+                                                                                      1),
+                                                            serializer,
+                                                            serializer);
 
         // check values
         for(Map.Entry<String, String> entry: values.entrySet()) {

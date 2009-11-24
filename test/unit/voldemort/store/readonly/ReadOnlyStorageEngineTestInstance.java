@@ -24,6 +24,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.Utils;
 
@@ -92,19 +93,19 @@ public class ReadOnlyStorageEngineTestInstance {
         }
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
-        StoreDefinition storeDef = new StoreDefinition("test",
-                                                       ReadOnlyStorageConfiguration.TYPE_NAME,
-                                                       serDef,
-                                                       serDef,
-                                                       RoutingTier.CLIENT,
-                                                       RoutingStrategyType.CONSISTENT_STRATEGY,
-                                                       repFactor,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1);
+        StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
+                                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                               .setKeySerializer(serDef)
+                                                               .setValueSerializer(serDef)
+                                                               .setRoutingPolicy(RoutingTier.CLIENT)
+                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                               .setReplicationFactor(repFactor)
+                                                               .setPreferredReads(1)
+                                                               .setRequiredReads(1)
+                                                               .setPreferredWrites(1)
+                                                               .setRequiredWrites(1)
+                                                               .build();
+
         RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
 
         // build store files in outputDir
@@ -131,12 +132,9 @@ public class ReadOnlyStorageEngineTestInstance {
             currNode.deleteOnExit();
             Utils.move(new File(outputDir, "node-" + Integer.toString(i)), new File(currNode,
                                                                                     "version-0"));
-            nodeStores.put(i,
-                           new SerializingStore<String, String>(new ReadOnlyStorageEngine("test",
-                                                                                          currNode,
-                                                                                          1),
-                                                                serializer,
-                                                                serializer));
+            nodeStores.put(i, SerializingStore.wrap(new ReadOnlyStorageEngine("test", currNode, 1),
+                                                    serializer,
+                                                    serializer));
         }
 
         return new ReadOnlyStorageEngineTestInstance(data, baseDir, nodeStores, router, serializer);

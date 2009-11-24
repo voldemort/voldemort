@@ -41,6 +41,7 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.SleepyStore;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
@@ -572,19 +573,18 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     public void testPutTimeout() {
         int timeout = 50;
-        StoreDefinition definition = new StoreDefinition("test",
-                                                         "foo",
-                                                         new SerializerDefinition("test"),
-                                                         new SerializerDefinition("test"),
-                                                         RoutingTier.CLIENT,
-                                                         RoutingStrategyType.CONSISTENT_STRATEGY,
-                                                         3,
-                                                         3,
-                                                         3,
-                                                         3,
-                                                         3,
-                                                         0,
-                                                         1);
+        StoreDefinition definition = new StoreDefinitionBuilder().setName("test")
+                                                                 .setType("foo")
+                                                                 .setKeySerializer(new SerializerDefinition("test"))
+                                                                 .setValueSerializer(new SerializerDefinition("test"))
+                                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(3)
+                                                                 .setPreferredReads(3)
+                                                                 .setRequiredReads(3)
+                                                                 .setPreferredWrites(3)
+                                                                 .setRequiredWrites(3)
+                                                                 .build();
         Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
         List<Node> nodes = new ArrayList<Node>();
         int totalDelay = 0;

@@ -17,11 +17,13 @@ public class FsKeyPathTest extends TestCase {
     private FsKeyPath path;
     private File[] dirs;
 
+    @Override
     public void setUp() {
         dirs = new File[] { TestUtils.createTempDir(), TestUtils.createTempDir() };
         path = FsKeyPath.forKey(key, dirs, depth, fanOut, 10);
     }
 
+    @Override
     public void tearDown() {
         Utils.rm(Arrays.asList(dirs));
     }

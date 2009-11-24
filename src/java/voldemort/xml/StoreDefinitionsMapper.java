@@ -46,6 +46,11 @@ import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.StoreUtils;
+import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.store.views.ViewTransformation;
+import voldemort.utils.ReflectUtils;
 
 /**
  * Parses a stores.xml file
@@ -75,6 +80,10 @@ public class StoreDefinitionsMapper {
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
     public final static String STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT = "retention-scan-throttle-rate";
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
+    public final static String VIEW_ELMT = "view";
+    public final static String VIEW_TARGET_ELMT = "view-of";
+    public final static String VIEW_KEY_TRANS_ELMT = "key-transformation";
+    public final static String VIEW_VALUE_TRANS_ELMT = "value-transformation";
     private final static String STORE_VERSION_ATTR = "version";
 
     private final Schema schema;
@@ -114,6 +123,8 @@ public class StoreDefinitionsMapper {
             List<StoreDefinition> stores = new ArrayList<StoreDefinition>();
             for(Object store: root.getChildren(STORE_ELMT))
                 stores.add(readStore((Element) store));
+            for(Object view: root.getChildren(VIEW_ELMT))
+                stores.add(readView((Element) view, stores));
             return stores;
         } catch(JDOMException e) {
             throw new MappingException(e);
@@ -170,19 +181,82 @@ public class StoreDefinitionsMapper {
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
         }
 
-        return new StoreDefinition(name,
-                                   storeType,
-                                   keySerializer,
-                                   valueSerializer,
-                                   routingTier,
-                                   routingStrategyType,
-                                   replicationFactor,
-                                   preferredReads,
-                                   requiredReads,
-                                   preferredWrites,
-                                   requiredWrites,
-                                   retentionPolicyDays,
-                                   retentionThrottleRate);
+        return new StoreDefinitionBuilder().setName(name)
+                                           .setType(storeType)
+                                           .setKeySerializer(keySerializer)
+                                           .setValueSerializer(valueSerializer)
+                                           .setRoutingPolicy(routingTier)
+                                           .setRoutingStrategyType(routingStrategyType)
+                                           .setReplicationFactor(replicationFactor)
+                                           .setPreferredReads(preferredReads)
+                                           .setRequiredReads(requiredReads)
+                                           .setPreferredWrites(preferredWrites)
+                                           .setRequiredWrites(requiredWrites)
+                                           .setRetentionPeriodDays(retentionPolicyDays)
+                                           .setRetentionScanThrottleRate(retentionThrottleRate)
+                                           .build();
+    }
+
+    private StoreDefinition readView(Element store, List<StoreDefinition> stores) {
+        String name = store.getChildText(STORE_NAME_ELMT);
+        String targetName = store.getChildText(VIEW_TARGET_ELMT);
+        StoreDefinition target = StoreUtils.getStoreDef(stores, targetName);
+        if(target == null)
+            throw new MappingException("View \"" + name + "\" has target store \"" + targetName
+                                       + "\" but no such store exists");
+
+        int requiredReads = getChildWithDefault(store,
+                                                STORE_REQUIRED_READS_ELMT,
+                                                target.getRequiredReads());
+        int preferredReads = getChildWithDefault(store,
+                                                 STORE_PREFERRED_READS_ELMT,
+                                                 target.getRequiredReads());
+        int requiredWrites = getChildWithDefault(store,
+                                                 STORE_REQUIRED_WRITES_ELMT,
+                                                 target.getRequiredReads());
+        int preferredWrites = getChildWithDefault(store,
+                                                  STORE_PREFERRED_WRITES_ELMT,
+                                                  target.getRequiredReads());
+
+        SerializerDefinition keySerializer = target.getKeySerializer();
+        if(store.getChild(STORE_KEY_SERIALIZER_ELMT) != null)
+            keySerializer = readSerializer(store.getChild(STORE_KEY_SERIALIZER_ELMT));
+        if(keySerializer.getAllSchemaInfoVersions().size() > 1)
+            throw new MappingException("Only a single schema is allowed for the store key.");
+        SerializerDefinition valueSerializer = target.getValueSerializer();
+        if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
+            keySerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
+
+        RoutingTier policy = target.getRoutingPolicy();
+        if(store.getChild(STORE_ROUTING_STRATEGY) != null)
+            policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
+
+        // get transformations
+        ViewTransformation<?, ?> keyTrans = loadTransformation(store.getChildText(VIEW_KEY_TRANS_ELMT));
+        ViewTransformation<?, ?> valTrans = loadTransformation(store.getChildText(VIEW_VALUE_TRANS_ELMT));
+
+        return new StoreDefinitionBuilder().setName(name)
+                                           .setViewOf(targetName)
+                                           .setType(ViewStorageConfiguration.TYPE)
+                                           .setRoutingPolicy(policy)
+                                           .setRoutingStrategyType(target.getRoutingStrategyType())
+                                           .setKeySerializer(keySerializer)
+                                           .setValueSerializer(valueSerializer)
+                                           .setReplicationFactor(target.getReplicationFactor())
+                                           .setPreferredReads(preferredReads)
+                                           .setRequiredReads(requiredReads)
+                                           .setPreferredWrites(preferredWrites)
+                                           .setRequiredWrites(requiredWrites)
+                                           .setKeyTransformation(keyTrans)
+                                           .setValueTransformation(valTrans)
+                                           .build();
+    }
+
+    private ViewTransformation<?, ?> loadTransformation(String className) {
+        if(className == null)
+            return null;
+        Class<?> transClass = ReflectUtils.loadClass(className.trim());
+        return (ViewTransformation<?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -291,4 +365,12 @@ public class StoreDefinitionsMapper {
             parent.addContent(compressionElmt);
         }
     }
+
+    public Integer getChildWithDefault(Element elmt, String property, Integer defaultVal) {
+        if(elmt.getChildText(property) == null)
+            return defaultVal;
+        else
+            return Integer.parseInt(elmt.getChildText(property));
+    }
+
 }

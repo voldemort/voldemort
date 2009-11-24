@@ -57,12 +57,12 @@ import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
-import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
+import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.EventThrottler;
@@ -141,21 +141,37 @@ public class StorageService extends AbstractService {
         for(String configClassName: voldemortConfig.getStorageConfigurations())
             initStorageConfig(configClassName);
 
-        /* Register slop stores */
+        /* Initialize view storage configuration */
+        storageConfigs.put(ViewStorageConfiguration.TYPE,
+                           new ViewStorageConfiguration(voldemortConfig,
+                                                        new ArrayList<StoreDefinition>(metadata.getStoreDefs()
+                                                                                               .values()),
+                                                        storeRepository));
+
+        /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
             StorageEngine<ByteArray, byte[]> slopEngine = getStorageEngine("slop",
                                                                            voldemortConfig.getSlopStoreType());
             registerEngine(slopEngine);
-            storeRepository.setSlopStore(new SerializingStorageEngine<ByteArray, Slop>(slopEngine,
-                                                                                       new ByteArraySerializer(),
-                                                                                       new SlopSerializer()));
+            storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
+                                                                       new ByteArraySerializer(),
+                                                                       new SlopSerializer()));
         }
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefs()
                                                                                       .values());
         logger.info("Initializing stores:");
-        for(StoreDefinition def: storeDefs) {
-            openStore(def);
-        }
+
+        // first initialize non-view stores
+        for(StoreDefinition def: storeDefs)
+            if(!def.isView())
+                openStore(def);
+
+        // now that we have all our stores, we can initialize views pointing at
+        // those stores
+        for(StoreDefinition def: storeDefs)
+            if(def.isView())
+                openStore(def);
+
         logger.info("All stores initialized.");
     }
 

@@ -9,5 +9,6 @@ public enum StoreCapabilityType {
     INCONSISTENCY_RESOLVER,
     LOGGER,
     SOCKET_POOL,
-    VERSION_INCREMENTING;
+    VERSION_INCREMENTING,
+    VIEW_TARGET;
 }
