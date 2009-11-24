@@ -73,6 +73,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String REBALANCING_PARTITIONS_LIST_KEY = "rebalancing.partitions.list";
     public static final String REBALANCING_SLAVE_NODE_ID = "rebalancing.node.id";
 
+    public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY,
+                                                                  STORES_KEY,
+                                                                  CLUSTER_STATE_KEY);
+
     public static final Set<String> REQUIRED_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
@@ -152,6 +156,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      */
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
+
+            // checkValidValueTransition(key, value);
 
             // try inserting into inner store first
             putInner(key, convertObjectToString(key, value));
