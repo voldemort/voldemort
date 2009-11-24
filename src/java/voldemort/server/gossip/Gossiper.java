@@ -44,7 +44,6 @@ public class Gossiper implements Runnable {
         running.set(false);
     }
 
-    @Override
     public void run() {
         while (running.get()) {
             Node node = selectPeer();
