@@ -52,8 +52,10 @@ public abstract class AdminClient {
 
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
-    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential back off once delay reaches this
-    
+    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential
+    // back off once delay
+    // reaches this
+
     private Cluster cluster;
 
     public AdminClient(Cluster cluster) {
@@ -336,6 +338,33 @@ public abstract class AdminClient {
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
+        return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
+                                             value.getVersion());
+    }
+
+    /**
+     * update serverState on a remote node.
+     * 
+     * @param nodeId
+     * @param state
+     */
+    public void updateRemoteClusterState(int nodeId, MetadataStore.VoldemortState state) {
+        VectorClock oldClock = (VectorClock) getRemoteClusterState(nodeId).getVersion();
+
+        updateRemoteMetadata(nodeId,
+                             MetadataStore.CLUSTER_STATE_KEY,
+                             new Versioned<String>(state.toString(),
+                                                   oldClock.incremented(nodeId, 1)));
+    }
+
+    /**
+     * get serverState from a remoteNode.
+     * 
+     * @param nodeId
+     * @return
+     */
+    public Versioned<VoldemortState> getRemoteClusterState(int nodeId) {
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_STATE_KEY);
         return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                              value.getVersion());
     }

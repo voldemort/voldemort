@@ -37,6 +37,7 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -116,11 +117,15 @@ public class RedirectingStoreTest extends TestCase {
         checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0, 1), Arrays.asList(-1));
 
         // set rebalancing 0 <-- 1 for partitions 2 only.
-        server0.getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-        server0.getMetadataStore().put(MetadataStore.REBALANCING_SLAVE_NODE_ID, new Integer(1));
-        server0.getMetadataStore().put(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                       Arrays.asList(1));
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_SLAVE_NODE_ID,
+                               new Integer(1));
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                               Arrays.asList(1));
 
         // for Rebalancing State we should see proxyGet()
         checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
@@ -151,11 +156,15 @@ public class RedirectingStoreTest extends TestCase {
         }
 
         // set rebalancing 0 <-- 1 for partitions 2 only.
-        server0.getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-        server0.getMetadataStore().put(MetadataStore.REBALANCING_SLAVE_NODE_ID, new Integer(1));
-        server0.getMetadataStore().put(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                       Arrays.asList(1));
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_SLAVE_NODE_ID,
+                               new Integer(1));
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                               Arrays.asList(1));
 
         // for Rebalancing State we should see proxyPut()
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
@@ -225,6 +234,20 @@ public class RedirectingStoreTest extends TestCase {
                 fail("This case should not come for this test.");
             }
         }
+    }
 
+    /**
+     * helper function to auto update version and put()
+     * 
+     * @param key
+     * @param value
+     */
+    private void incrementVersionAndPut(MetadataStore metadataStore, String keyString, Object value) {
+        ByteArray key = new ByteArray(ByteUtils.getBytes(keyString, "UTF-8"));
+        VectorClock current = (VectorClock) metadataStore.getVersions(key).get(0);
+
+        metadataStore.put(keyString,
+                          new Versioned<Object>(value,
+                                                current.incremented(0, System.currentTimeMillis())));
     }
 }

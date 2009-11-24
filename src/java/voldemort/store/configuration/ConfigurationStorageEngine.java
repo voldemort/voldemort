@@ -70,7 +70,20 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
     }
 
     public synchronized boolean delete(String key, Version version) throws VoldemortException {
-        throw new VoldemortException("Attempt to delete metadata for key:" + key);
+        StoreUtils.assertValidKey(key);
+        for(File file: getDirectory(key).listFiles()) {
+            if(file.getName().equals(key)) {
+                try {
+                    // delete the file and the version file
+                    return file.delete()
+                           && new File(getVersionDirectory(), file.getName()).delete();
+                } catch(Exception e) {
+                    logger.error("Error while attempt to delete key:" + key, e);
+                }
+            }
+        }
+
+        return false;
     }
 
     public synchronized List<Versioned<String>> get(String key) throws VoldemortException {
@@ -159,17 +172,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
-    }
-
-    /**
-     * If key is a temp state value write it inside tempDirectory to avoid
-     * clutter.
-     * 
-     * @param key
-     * @param clock
-     */
-    private void writeValue(String key, Versioned<String> value) {
-
     }
 
     private VectorClock readVersion(String key) {

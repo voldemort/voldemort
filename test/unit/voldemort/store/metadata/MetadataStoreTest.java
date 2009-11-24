@@ -16,6 +16,7 @@
 
 package voldemort.store.metadata;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -37,7 +38,6 @@ public class MetadataStoreTest extends TestCase {
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
-                                                   MetadataStore.SERVER_STATE_KEY,
                                                    MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
                                                    MetadataStore.REBALANCING_SLAVES_LIST_KEY);
 
@@ -145,6 +145,44 @@ public class MetadataStoreTest extends TestCase {
         }
     }
 
+    public void testCleanAllStates() {
+        // put state entries.
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.CLUSTER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_CLUSTER);
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
+                               Arrays.asList(1, 2, 3, 4));
+
+        assertEquals("Values should match.",
+                     metadataStore.getClusterState(),
+                     VoldemortState.REBALANCING_CLUSTER);
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.REBALANCING_MASTER_SERVER);
+        assertEquals("Values should match.",
+                     metadataStore.getRebalancingPartitionList(),
+                     Arrays.asList(1, 2, 3, 4));
+
+        // do clean
+        metadataStore.cleanAllRebalancingState();
+
+        // check all values revert back to default.
+        assertEquals("Values should match.",
+                     metadataStore.getClusterState(),
+                     VoldemortState.NORMAL_CLUSTER);
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.NORMAL_SERVER);
+        assertEquals("Values should match.",
+                     metadataStore.getRebalancingPartitionList(),
+                     new ArrayList<Integer>(0));
+
+    }
+
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {
         assertEquals("should return exactly one value ", 1, list.size());
 
@@ -154,5 +192,20 @@ public class MetadataStoreTest extends TestCase {
                              + ByteUtils.getString(key.get(), "UTF-8") + ")",
                      new String(value.getValue()),
                      new String(list.get(0).getValue()));
+    }
+
+    /**
+     * helper function to auto update version and put()
+     * 
+     * @param key
+     * @param value
+     */
+    private void incrementVersionAndPut(MetadataStore metadataStore, String keyString, Object value) {
+        ByteArray key = new ByteArray(ByteUtils.getBytes(keyString, "UTF-8"));
+        VectorClock current = (VectorClock) metadataStore.getVersions(key).get(0);
+
+        metadataStore.put(keyString,
+                          new Versioned<Object>(value,
+                                                current.incremented(0, System.currentTimeMillis())));
     }
 }

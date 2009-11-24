@@ -18,6 +18,7 @@ package voldemort.client.rebalance;
 
 import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.cluster.Cluster;
+import voldemort.store.rebalancing.RedirectingStore;
 
 /**
  * The cluster rebalancing Interface.
@@ -27,56 +28,22 @@ import voldemort.cluster.Cluster;
 public interface RebalanceClient {
 
     /**
-     * Steal partitions and update stealerNodeId <br>
-     * partitions are stolen from cluster to balance load on all nodes equally
-     * while respecting the replication strategy.
+     * Voldemort online rebalancing mechanism. <br>
+     * Compares the provided currentCluster and targetCluster and makes a list
+     * of partitions need to be stolen Or donated <br>
+     * The stolen partitions are fetched from other nodes and saved at
+     * requestNodeId<br>
+     * The donated partitions are donated to other nodes from requestNodeId<br>
+     * The cluster is kept consistent during rebalancing using a proxy mechanism
+     * via {@link RedirectingStore}
      * 
-     * @param stealerNodeID : The nodeId where partitions will be copied
+     * @param requesterNodeId : The nodeId who will steal/donate partitions.
      * @param storeName : store to be rebalanced
-     * @param currentCluster: Current Cluster configuration
-     */
-    public void stealPartitions(final int stealerNodeID,
-                                final String storeName,
-                                final Cluster currentCluster);
-
-    /**
-     * update stealerNodeId by fetching and updating given list of partitions
-     * <br>
-     * 
-     * @param stealerNodeID : The nodeId where partitions will be copied
-     * @param storeName : store to be rebalanced
-     * @param currentCluster: Current Cluster configuration
      * @param targetCluster: target Cluster configuration
      */
-    public void stealPartitions(final int stealerNodeID,
-                                final String storeName,
-                                final Cluster currentCluster,
-                                final Cluster targetCluster);
+    public void rebalance(final int requesterNodeId,
+                          final String storeName,
+                          final Cluster currentCluster,
+                          final Cluster targetCluster);
 
-    /**
-     * donate partitions from donorNodeId <br>
-     * partitions are dopnated from donorNodeId and updated to different nodes
-     * in cluster to balance load on all nodes equally while respecting the
-     * replication strategy.
-     * 
-     * @param donorNodeId : The nodeId from where partitions will be copied.
-     * @param storeName : store to be rebalanced
-     * @param currentCluster: Current Cluster configuration
-     */
-    public void donatePartitions(final int donorNodeId,
-                                 final String storeName,
-                                 final Cluster currentCluster);
-
-    /**
-     * donate all partitions listed in partitionList from donorNodeId <br>
-     * 
-     * @param donorNodeId : The nodeId from where partitions will be copied.
-     * @param storeName : store to be rebalanced
-     * @param currentCluster: Current Cluster configuration
-     * @param targetCluster: target Cluster configuration
-     */
-    public void donatePartitions(final int donorNodeId,
-                                 final String storeName,
-                                 final Cluster currentCluster,
-                                 final Cluster targetCluster);
 }
