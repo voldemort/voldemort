@@ -73,7 +73,7 @@ public class ClientConfig {
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
-    public static final String NODE_AVAILABILITY_DETECTOR_PROPERTY = "node_availability_detector";
+    public static final String FAILURE_DETECTOR_PROPERTY = "failure_detector";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
 
     /**
@@ -132,8 +132,8 @@ public class ClientConfig {
         if(props.containsKey(ENABLE_JMX_PROPERTY))
             this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
 
-        if(props.containsKey(NODE_AVAILABILITY_DETECTOR_PROPERTY))
-            this.setFailureDetector(props.getString(NODE_AVAILABILITY_DETECTOR_PROPERTY));
+        if(props.containsKey(FAILURE_DETECTOR_PROPERTY))
+            this.setFailureDetector(props.getString(FAILURE_DETECTOR_PROPERTY));
 
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));

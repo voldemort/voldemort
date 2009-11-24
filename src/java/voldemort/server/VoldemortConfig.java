@@ -272,8 +272,8 @@ public class VoldemortConfig implements Serializable {
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
-        this.failureDetector = props.getString("node.availability.detector",
-                                                        BannagePeriodFailureDetector.class.getName());
+        this.failureDetector = props.getString("failure.detector",
+                                               BannagePeriodFailureDetector.class.getName());
 
         validateParams();
     }

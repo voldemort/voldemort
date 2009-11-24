@@ -85,14 +85,15 @@ public class VoldemortClientShell {
         System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
         System.out.print(PROMPT);
         if(fileReader != null) {
-            processCommands(fileReader, true);
+            processCommands(factory, fileReader, true);
             fileReader.close();
         }
-        processCommands(inputReader, false);
+        processCommands(factory,inputReader, false);
     }
 
-    private static void processCommands(BufferedReader reader, boolean printCommands)
-            throws IOException {
+    private static void processCommands(StoreClientFactory factory,
+                                        BufferedReader reader,
+                                        boolean printCommands) throws IOException {
         for(String line = reader.readLine(); line != null; line = reader.readLine()) {
             if(line.trim().equals(""))
                 continue;
@@ -131,8 +132,7 @@ public class VoldemortClientShell {
                 } else if(line.startsWith("preflist")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
-                    printNodeList(client.getResponsibleNodes(key),
-                                  factory.getFailureDetector());
+                    printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
                 } else if(line.startsWith("help")) {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");
@@ -167,8 +167,7 @@ public class VoldemortClientShell {
         }
     }
 
-    private static void printNodeList(List<Node> nodes,
-                                      FailureDetector failureDetector) {
+    private static void printNodeList(List<Node> nodes, FailureDetector failureDetector) {
         if(nodes.size() > 0) {
             for(int i = 0; i < nodes.size(); i++) {
                 Node node = nodes.get(i);

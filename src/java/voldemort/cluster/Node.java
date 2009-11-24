@@ -47,7 +47,12 @@ public class Node implements Serializable {
     private final int adminPort;
     private final List<Integer> partitions;
 
-    public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
+                List<Integer> partitions) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;

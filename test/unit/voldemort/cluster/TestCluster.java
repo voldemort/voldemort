@@ -104,6 +104,10 @@ public class TestCluster extends TestCase {
 
                 public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
 
+                public List<Version> getVersions(ByteArray key) {
+                    return null;
+                }
+
             });
         }
 

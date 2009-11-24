@@ -664,7 +664,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                        new SleepyStore<ByteArray, byte[]>(delay,
                                                           new InMemoryStorageEngine<ByteArray, byte[]>("test")));
             List<Integer> partitions = Arrays.asList(i);
-            nodes.add(new Node(i, "none", 0, 0, partitions));
+            nodes.add(new Node(i, "none", 0, 0, 0, partitions));
         }
 
         setFailureDetector(stores);

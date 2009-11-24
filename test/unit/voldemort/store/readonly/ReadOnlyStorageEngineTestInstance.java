@@ -85,10 +85,12 @@ public class ReadOnlyStorageEngineTestInstance {
         // set up definitions for cluster and store
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numNodes; i++) {
-            nodes.add(new Node(i, "localhost", 8080 + i, 6666 + i, Arrays.asList(4 * i,
-                                                                                 4 * i + 1,
-                                                                                 4 * i + 2,
-                                                                                 4 * i + 3)));
+            nodes.add(new Node(i,
+                               "localhost",
+                               8080 + i,
+                               6666 + i,
+                               7000 + i,
+                               Arrays.asList(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3)));
         }
         Cluster cluster = new Cluster("test", nodes);
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
