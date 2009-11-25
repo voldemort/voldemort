@@ -8,15 +8,15 @@ import voldemort.VoldemortException;
  * @author jay
  * 
  */
-public class UnsupportedViewOperation extends VoldemortException {
+public class UnsupportedViewOperationException extends VoldemortException {
 
     private static final long serialVersionUID = 1;
 
-    public UnsupportedViewOperation() {
+    public UnsupportedViewOperationException() {
         super();
     }
 
-    public UnsupportedViewOperation(String s) {
+    public UnsupportedViewOperationException(String s) {
         super(s);
     }
 

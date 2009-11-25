@@ -82,7 +82,6 @@ public class StoreDefinitionsMapper {
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     public final static String VIEW_ELMT = "view";
     public final static String VIEW_TARGET_ELMT = "view-of";
-    public final static String VIEW_KEY_TRANS_ELMT = "key-transformation";
     public final static String VIEW_VALUE_TRANS_ELMT = "value-transformation";
     private final static String STORE_VERSION_ATTR = "version";
 
@@ -232,8 +231,7 @@ public class StoreDefinitionsMapper {
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
 
         // get transformations
-        ViewTransformation<?, ?> keyTrans = loadTransformation(store.getChildText(VIEW_KEY_TRANS_ELMT));
-        ViewTransformation<?, ?> valTrans = loadTransformation(store.getChildText(VIEW_VALUE_TRANS_ELMT));
+        ViewTransformation<?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_VALUE_TRANS_ELMT));
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
@@ -247,16 +245,16 @@ public class StoreDefinitionsMapper {
                                            .setRequiredReads(requiredReads)
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
-                                           .setKeyTransformation(keyTrans)
                                            .setValueTransformation(valTrans)
                                            .build();
     }
 
-    private ViewTransformation<?, ?> loadTransformation(String className) {
+    private ViewTransformation<?, ?, ?> loadTransformation(String className) {
         if(className == null)
             return null;
         Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (ViewTransformation<?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
+        return (ViewTransformation<?, ?, ?>) ReflectUtils.callConstructor(transClass,
+                                                                          new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {

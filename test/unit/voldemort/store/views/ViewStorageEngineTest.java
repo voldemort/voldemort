@@ -10,7 +10,6 @@ import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
@@ -28,39 +27,23 @@ public class ViewStorageEngineTest extends TestCase {
     private Store<String, String> target = SerializingStore.wrap(targetRaw,
                                                                  new StringSerializer(),
                                                                  new StringSerializer());
-    private Store<String, String> keyView = getEngine(transform, null);
-    private Store<String, String> valView = getEngine(null, transform);
+    private Store<String, String> valView = getEngine(transform);
 
     @Override
     public void setUp() {
         target.put("hello", Versioned.value("world"));
     }
 
-    public Store<String, String> getEngine(ViewTransformation<?, ?> keyTrans,
-                                           ViewTransformation<?, ?> valTrans) {
+    public Store<String, String> getEngine(ViewTransformation<?, ?, ?> valTrans) {
         Serializer<String> s = new StringSerializer();
-        return SerializingStore.wrap(new ViewStorageEngine("test",
-                                                           targetRaw,
-                                                           s,
-                                                           s,
-                                                           s,
-                                                           s,
-                                                           keyTrans,
-                                                           valTrans), s, s);
+        return SerializingStore.wrap(new ViewStorageEngine("test", targetRaw, s, s, s, valTrans),
+                                     s,
+                                     s);
     }
 
     public void testGetWithValueTransform() {
         assertEquals("View should add 42", "world42", valView.get("hello").get(0).getValue());
         assertEquals("Null value should return empty list", 0, valView.get("laksjdf").size());
-    }
-
-    public void testGetWithKeyTransform() {
-        target.put("test", Versioned.value("you"));
-        assertEquals("Should not find test after tranformation of key", 0, keyView.get("test")
-                                                                                  .size());
-        assertEquals("Should find test42 after transformation of key", "you", keyView.get("test42")
-                                                                                     .get(0)
-                                                                                     .getValue());
     }
 
     public void testGetAll() {
@@ -78,12 +61,8 @@ public class ViewStorageEngineTest extends TestCase {
         assertEquals("c", target.get("abc").get(0).getValue());
     }
 
-    public void testDelete() {
-        keyView.delete("hello42", new VectorClock());
-    }
-
     /* A view that just adds or subtracts the given string */
-    private static class AddStrViewTrans implements ViewTransformation<String, String> {
+    private static class AddStrViewTrans implements ViewTransformation<String, String, String> {
 
         private String str;
 
@@ -91,14 +70,14 @@ public class ViewStorageEngineTest extends TestCase {
             this.str = str;
         }
 
-        public String fromStore(String s) {
+        public String fromStoreToView(String k, String s) {
             if(s == null)
                 return str;
             else
                 return s + str;
         }
 
-        public String fromView(String v) {
+        public String fromViewToStore(String k, String v) {
             if(v == null)
                 return null;
             else

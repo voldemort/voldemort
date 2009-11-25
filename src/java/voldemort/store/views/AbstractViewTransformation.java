@@ -6,17 +6,18 @@ package voldemort.store.views;
  * 
  * @author jay
  * 
+ * @param <K> The type of the key
  * @param <V> The type of objects in the view
  * @param <S> The type of objects in the store
  */
-public class AbstractViewTransformation<V, S> implements ViewTransformation<V, S> {
+public class AbstractViewTransformation<K, V, S> implements ViewTransformation<K, V, S> {
 
-    public V fromStore(S s) {
-        throw new UnsupportedViewOperation("Read attempt on write-only view!");
+    public V fromStoreToView(K k, S s) {
+        throw new UnsupportedViewOperationException("Read attempt on write-only view!");
     }
 
-    public S fromView(V v) {
-        throw new UnsupportedViewOperation("Write attempt on read-only view!");
+    public S fromViewToStore(K k, V v) {
+        throw new UnsupportedViewOperationException("Write attempt on read-only view!");
     }
 
 }

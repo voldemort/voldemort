@@ -6,14 +6,14 @@ package voldemort.store.views;
  * @author jay
  * 
  */
-public class UpperCaseViewTransform implements ViewTransformation<String, String> {
+public class UpperCaseViewTransform implements ViewTransformation<String, String, String> {
 
-    public String fromStore(String s) {
+    public String fromStoreToView(String k, String s) {
         return s.toUpperCase();
     }
 
-    public String fromView(String v) {
-        throw new UnsupportedOperationException("View not writable");
+    public String fromViewToStore(String k, String v) {
+        throw new UnsupportedViewOperationException("View not writable");
     }
 
 }

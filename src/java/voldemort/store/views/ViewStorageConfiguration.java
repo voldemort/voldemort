@@ -42,11 +42,9 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         SerializerFactory factory = new DefaultSerializerFactory();
         return new ViewStorageEngine(name,
                                      target,
-                                     factory.getSerializer(def.getKeySerializer()),
                                      factory.getSerializer(def.getValueSerializer()),
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
-                                     def.getKeyTransformation(),
                                      def.getValueTransformation());
     }
 

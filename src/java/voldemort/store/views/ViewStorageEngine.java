@@ -27,42 +27,36 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
     private final StorageEngine<ByteArray, byte[]> target;
-    private final Serializer<Object> keySerializer;
     private final Serializer<Object> valSerializer;
     private final Serializer<Object> targetKeySerializer;
     private final Serializer<Object> targetValSerializer;
-    private final ViewTransformation<Object, Object> keyTrans;
-    private final ViewTransformation<Object, Object> valueTrans;
+    private final ViewTransformation<Object, Object, Object> valueTrans;
 
     @SuppressWarnings("unchecked")
     public ViewStorageEngine(String name,
                              StorageEngine<ByteArray, byte[]> target,
-                             Serializer<?> keySerializer,
                              Serializer<?> valSerializer,
                              Serializer<?> targetKeySerializer,
                              Serializer<?> targetValSerializer,
-                             ViewTransformation<?, ?> keyTrans,
-                             ViewTransformation<?, ?> valueTrans) {
+                             ViewTransformation<?, ?, ?> valueTrans) {
         this.name = name;
         this.target = Utils.notNull(target);
-        this.keySerializer = (Serializer<Object>) keySerializer;
         this.valSerializer = (Serializer<Object>) valSerializer;
         this.targetKeySerializer = (Serializer<Object>) targetKeySerializer;
         this.targetValSerializer = (Serializer<Object>) targetValSerializer;
-        this.keyTrans = (ViewTransformation<Object, Object>) keyTrans;
-        this.valueTrans = (ViewTransformation<Object, Object>) valueTrans;
-        if(keyTrans == null && valueTrans == null)
+        this.valueTrans = (ViewTransformation<Object, Object, Object>) valueTrans;
+        if(valueTrans == null)
             throw new IllegalArgumentException("View without either a key transformation or a value transformation.");
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
-        return target.delete(keyFromViewSchema(key), version);
+        return target.delete(key, version);
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        List<Versioned<byte[]>> values = target.get(keyFromViewSchema(key));
+        List<Versioned<byte[]>> values = target.get(key);
         for(Versioned<byte[]> v: values)
-            v.setObject(valueToViewSchema(v.getValue()));
+            v.setObject(valueToViewSchema(key, v.getValue()));
         return values;
     }
 
@@ -76,12 +70,12 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return target.getVersions(keyFromViewSchema(key));
+        return target.getVersions(key);
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        target.put(keyFromViewSchema(key), Versioned.value(valueFromViewSchema(value.getValue()),
-                                                           value.getVersion()));
+        target.put(key, Versioned.value(valueFromViewSchema(key, value.getValue()),
+                                        value.getVersion()));
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -97,32 +91,20 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void close() throws VoldemortException {}
 
-    private ByteArray keyFromViewSchema(ByteArray key) {
-        if(keyTrans == null)
-            return key;
-        else
-            return new ByteArray(this.targetKeySerializer.toBytes(this.keyTrans.fromView(this.keySerializer.toObject(key.get()))));
-    }
-
-    private ByteArray keyToViewSchema(ByteArray key) {
-        if(this.keyTrans == null)
-            return key;
-        else
-            return new ByteArray(this.keySerializer.toBytes(this.keyTrans.fromView(this.targetKeySerializer.toObject(key.get()))));
-    }
-
-    private byte[] valueFromViewSchema(byte[] value) {
+    private byte[] valueFromViewSchema(ByteArray key, byte[] value) {
         if(this.valueTrans == null)
             return value;
         else
-            return this.targetValSerializer.toBytes(this.valueTrans.fromView(this.valSerializer.toObject(value)));
+            return this.targetValSerializer.toBytes(this.valueTrans.fromViewToStore(this.targetKeySerializer.toObject(key.get()),
+                                                                             this.valSerializer.toObject(value)));
     }
 
-    private byte[] valueToViewSchema(byte[] value) {
+    private byte[] valueToViewSchema(ByteArray key, byte[] value) {
         if(this.valueTrans == null)
             return value;
         else
-            return this.valSerializer.toBytes(this.valueTrans.fromStore(this.targetValSerializer.toObject(value)));
+            return this.valSerializer.toBytes(this.valueTrans.fromStoreToView(this.targetKeySerializer.toObject(key.get()),
+                                                                        this.targetValSerializer.toObject(value)));
     }
 
     private class ViewIterator extends AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>
@@ -141,10 +123,10 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         @Override
         protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
             Pair<ByteArray, Versioned<byte[]>> p = inner.next();
-            ByteArray newKey = keyToViewSchema(p.getFirst());
-            Versioned<byte[]> newVal = Versioned.value(valueToViewSchema(p.getSecond().getValue()),
+            Versioned<byte[]> newVal = Versioned.value(valueToViewSchema(p.getFirst(),
+                                                                         p.getSecond().getValue()),
                                                        p.getSecond().getVersion());
-            return Pair.create(newKey, newVal);
+            return Pair.create(p.getFirst(), newVal);
         }
     }
 }

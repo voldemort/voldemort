@@ -28,8 +28,7 @@ public class StoreDefinitionBuilder {
     private Integer retentionScanThrottleRate = null;
     private String routingStrategyType = null;
     private String viewOf = null;
-    private ViewTransformation<?, ?> keyTransformation = null;
-    private ViewTransformation<?, ?> valueTransformation = null;
+    private ViewTransformation<?, ?, ?> valueTransformation = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -173,20 +172,11 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public ViewTransformation<?, ?> getKeyTransformation() {
-        return keyTransformation;
-    }
-
-    public StoreDefinitionBuilder setKeyTransformation(ViewTransformation<?, ?> keyTransformation) {
-        this.keyTransformation = keyTransformation;
-        return this;
-    }
-
-    public ViewTransformation<?, ?> getValueTransformation() {
+    public ViewTransformation<?, ?, ?> getValueTransformation() {
         return valueTransformation;
     }
 
-    public StoreDefinitionBuilder setValueTransformation(ViewTransformation<?, ?> valueTransformation) {
+    public StoreDefinitionBuilder setValueTransformation(ViewTransformation<?, ?, ?> valueTransformation) {
         this.valueTransformation = valueTransformation;
         return this;
     }
@@ -204,7 +194,6 @@ public class StoreDefinitionBuilder {
                                    this.getPreferredWrites(),
                                    this.getRequiredWrites(),
                                    this.getViewOf(),
-                                   this.getKeyTransformation(),
                                    this.getValueTransformation(),
                                    this.getRetentionPeriodDays(),
                                    this.getRetentionScanThrottleRate());
