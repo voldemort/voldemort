@@ -27,8 +27,8 @@ public class GossipService extends AbstractService {
         executor = Executors.newSingleThreadExecutor();
 
         ClientConfig clientConfig = new ClientConfig()
-                .setMaxConnectionsPerNode(1)
-                .setMaxThreads(1)
+                .setMaxConnectionsPerNode(3)
+                .setMaxThreads(3)
                 .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(), TimeUnit.MILLISECONDS)
                 .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(), TimeUnit.MILLISECONDS)
                 .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());

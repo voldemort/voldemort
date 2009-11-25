@@ -8,6 +8,8 @@ import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -46,8 +48,14 @@ public class Gossiper implements Runnable {
 
     public void run() {
         while (running.get()) {
+            try {
+                Thread.sleep(gossipInterval);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
             Node node = selectPeer();
-            logger.info("Starting gossip with " + node);
+            logger.info(metadataStore.getNodeId() + " starting gossip with " + node);
             for (String key: MetadataStore.GOSSIP_KEYS) {
                 try {
                     doPull(node, key);
@@ -55,11 +63,7 @@ public class Gossiper implements Runnable {
                     logger.error(e);
                 }
             }
-            try {
-                Thread.sleep(gossipInterval);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+
         }
     }
 
@@ -67,20 +71,30 @@ public class Gossiper implements Runnable {
         Cluster cluster = metadataStore.getCluster();
         int nodes = cluster.getNumberOfNodes();
 
-        return cluster.getNodeById(random.nextInt(nodes));
+        Node node;
+        do {
+            node = cluster.getNodeById(random.nextInt(nodes));
+        } while (node.getId() == metadataStore.getNodeId());
+
+        return node;
     }
 
     private void doPull(Node node, String key) {
+        logger.info(metadataStore.getNodeId() + " pulling " + key + " from " + node);
+        
         Versioned<String> remoteVersioned = adminClient.getRemoteMetadata(node.getId(), key);
-        List<Versioned<byte[]>> versionedList = metadataStore.get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")));
-        Versioned<byte[]> localVersioned = versionedList.get(0);
+        Versioned<String> localVersioned = adminClient.getRemoteMetadata(metadataStore.getNodeId(), key);
         Version localVersion = localVersioned.getVersion();
         Version remoteVersion = remoteVersioned.getVersion();
 
         switch (localVersion.compare(remoteVersion)) {
             case BEFORE: {
-                metadataStore.put(key, remoteVersioned);
-                logger.info("My " + key + " occured BEFORE the key from " + node + ". Accepted theirs.");
+                VectorClock remoteVectorClock = (VectorClock) remoteVersion;
+                VectorClock localVectorClock = (VectorClock) localVersion;
+                if (localVectorClock.getTimestamp() < remoteVectorClock.getTimestamp()) {
+                    adminClient.updateRemoteMetadata(metadataStore.getNodeId(), key, remoteVersioned);
+                    logger.info("My " + key + " occured BEFORE the key from " + node + ". Accepted theirs.");
+                }
                 break;
             }
             case AFTER: {
