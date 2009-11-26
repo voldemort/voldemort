@@ -129,31 +129,14 @@ public class VoldemortConfig implements Serializable {
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
 
-    public int getAdminSocketTimeout() {
-        return adminSocketTimeout;
-    }
-
-    public void setAdminSocketTimeout(int adminSocketTimeout) {
-        this.adminSocketTimeout = adminSocketTimeout;
-    }
-
-    public int getAdminConnectionTimeout() {
-        return adminConnectionTimeout;
-    }
-
-    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
-        this.adminConnectionTimeout = adminConnectionTimeout;
-    }
-
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
 
-    public VoldemortConfig(int nodeId, String voldemortHome) {
-        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
-    }
+    private int maxRebalancingAttempt;
+    private int rebalancingTimeoutInSeconds;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -269,6 +252,10 @@ public class VoldemortConfig implements Serializable {
         String requestFormatName = props.getString("request.format",
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
+
+        // rebalancing parameters
+        this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
+        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
 
         validateParams();
     }
@@ -919,4 +906,41 @@ public class VoldemortConfig implements Serializable {
     public void setRetentionCleanupScheduledPeriodInHour(int retentionCleanupScheduledPeriodInHour) {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
     }
+
+    public int getAdminSocketTimeout() {
+        return adminSocketTimeout;
+    }
+
+    public void setAdminSocketTimeout(int adminSocketTimeout) {
+        this.adminSocketTimeout = adminSocketTimeout;
+    }
+
+    public int getAdminConnectionTimeout() {
+        return adminConnectionTimeout;
+    }
+
+    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
+        this.adminConnectionTimeout = adminConnectionTimeout;
+    }
+
+    public void setMaxRebalancingAttempt(int maxRebalancingAttempt) {
+        this.maxRebalancingAttempt = maxRebalancingAttempt;
+    }
+
+    public int getMaxRebalancingAttempt() {
+        return this.maxRebalancingAttempt;
+    }
+
+    public int getRebalancingTimeout() {
+        return rebalancingTimeoutInSeconds;
+    }
+
+    public void setRebalancingTimeout(int rebalancingTimeout) {
+        this.rebalancingTimeoutInSeconds = rebalancingTimeout;
+    }
+
+    public VoldemortConfig(int nodeId, String voldemortHome) {
+        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
+
 }

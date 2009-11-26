@@ -21,11 +21,15 @@ import static voldemort.utils.Utils.croak;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.rebalance.RebalanceClient;
+import voldemort.client.rebalance.RebalanceClientConfig;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.http.HttpService;
@@ -40,7 +44,6 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -100,7 +103,7 @@ public class VoldemortServer extends AbstractService {
     public AsyncOperationRunner getAsyncRunner() {
         return asyncRunner;
     }
-    
+
     private List<VoldemortService> createServices() {
 
         /* Services are given in the order they must be started */
@@ -175,8 +178,47 @@ public class VoldemortServer extends AbstractService {
         // check serverState
         if(!metadata.getServerState().equals(VoldemortState.NORMAL_SERVER)) {
             logger.warn("Server started in " + metadata.getServerState() + " state.");
-            // TODO fix me : handle server start in not normal state aka
-            // rebalancing
+            RebalanceStealInfo stealInfo = metadata.getRebalancingStealInfo();
+
+            boolean success = false;
+            while(!success && stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
+                success = attemptRebalance(stealInfo);
+            }
+
+            // if failed more than maxAttempts
+            if(!success) {
+                logger.info("Force starting into NORMAL mode !!");
+            }
+
+            // clean all rebalancing state
+            metadata.cleanAllRebalancingState();
+        }
+    }
+
+    private boolean attemptRebalance(RebalanceStealInfo stealInfo) {
+        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
+        logger.info("Restarting rebalance from node:" + stealInfo.getDonorId()
+                    + " for partitionList:" + stealInfo.getPartitionList() + " as "
+                    + stealInfo.getAttempt() + " attempt.");
+
+        // restart rebalancing
+        RebalanceClient rebalanceClient = new RebalanceClient(metadata.getCluster(),
+                                                              new RebalanceClientConfig());
+        try {
+            int asyncTaskId = rebalanceClient.rebalancePartitionAtNode(metadata, stealInfo);
+            rebalanceClient.getAdminClient()
+                           .waitForCompletion(getIdentityNode().getId(),
+                                              asyncTaskId,
+                                              voldemortConfig.getRebalancingTimeout(),
+                                              TimeUnit.SECONDS);
+            return true;
+        } catch(Exception e) {
+            logger.error("Failed to rebalance from node:" + stealInfo.getDonorId()
+                         + " for partitionList:" + stealInfo.getPartitionList() + " in "
+                         + stealInfo.getAttempt() + " attempts.", e);
+            return false;
+        } finally {
+            rebalanceClient.stop();
         }
     }
 

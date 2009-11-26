@@ -22,6 +22,8 @@ public class RebalanceClientConfig extends ClientConfig {
     private double clusterMajorityThresholdPercentage = 0.75;
     private int maxParallelRebalancingNodes = 1;
 
+    public RebalanceClientConfig() {}
+
     public RebalanceClientConfig(Properties properties) {
         super(properties);
 

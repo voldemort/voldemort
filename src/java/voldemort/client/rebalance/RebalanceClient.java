@@ -1,31 +1,54 @@
-/*
- * Copyright 2008-2009 LinkedIn, Inc
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
-
 package voldemort.client.rebalance;
 
-import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.cluster.Cluster;
-import voldemort.store.rebalancing.RedirectingStore;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
-/**
- * The cluster rebalancing Interface.
- * 
- */
-@Threadsafe
-public interface RebalanceClient {
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.cluster.Cluster;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.rebalancing.RedirectingStore;
+import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
+
+public class RebalanceClient {
+
+    private static Logger logger = Logger.getLogger(RebalanceClient.class);
+
+    private final ExecutorService executor;
+    private final AdminClient adminClient;
+
+    public RebalanceClient(String bootstrapUrl, RebalanceClientConfig config) {
+        this.adminClient = new ProtoBuffAdminClientRequestFormat(bootstrapUrl, config);
+        this.executor = Executors.newFixedThreadPool(config.getMaxParallelRebalancingNodes());
+    }
+
+    public RebalanceClient(Cluster cluster, RebalanceClientConfig config) {
+        this.adminClient = new ProtoBuffAdminClientRequestFormat(cluster, config);
+        this.executor = Executors.newFixedThreadPool(config.getMaxParallelRebalancingNodes());
+    }
+
+    private Version getIncrementedVersion(int randomNodeId, String clusterStateKey, int requesterID) {
+        Version currentVersion = adminClient.getRemoteMetadata(randomNodeId, clusterStateKey)
+                                            .getVersion();
+        return ((VectorClock) currentVersion).incremented(requesterID, System.currentTimeMillis());
+    }
+
+    private void waitToFinish(Semaphore semaphore, int numberOfNodes) {
+        try {
+            semaphore.acquire(numberOfNodes);
+        } catch(InterruptedException e) {
+            logger.warn("Thread interrupted while waiting for semaphore to acquire.", e);
+        }
+    }
 
     /**
      * Voldemort online rebalancing mechanism. <br>
@@ -40,6 +63,55 @@ public interface RebalanceClient {
      */
     public void rebalance(final String storeName,
                           final Cluster currentCluster,
-                          final Cluster targetCluster);
+                          final Cluster targetCluster) {
+        // update cluster info for adminClient
+        adminClient.setCluster(currentCluster);
 
+        if(!RebalanceUtils.getClusterRebalancingToken()) {
+            throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
+        }
+
+        Map<Integer, Map<Integer, List<Integer>>> stealPartitionsMap = RebalanceUtils.getStealPartitionsMap(currentCluster,
+                                                                                                            targetCluster);
+        logger.info(RebalanceUtils.getStealPartitionsMapAsString(stealPartitionsMap));
+
+        // TODO : rest of me
+    }
+
+    /**
+     * Rebalance logic at single node level.<br>
+     * <imp> should be called by the rebalancing node itself</imp><br>
+     * Attempt to rebalance from node {@link RebalanceStealInfo#getDonorId()}
+     * for partitionList {@link RebalanceStealInfo#getPartitionList()}
+     * <p>
+     * Force Sets serverState to rebalancing, Sets stealInfo in MetadataStore,
+     * fetch keys from remote node and upsert them locally.
+     * 
+     * @param metadataStore
+     * @param stealInfo
+     * @return taskId for asynchronous task.
+     */
+    public int rebalancePartitionAtNode(MetadataStore metadataStore, RebalanceStealInfo stealInfo) {
+        return 1;
+    }
+
+    private RebalanceStealInfo updateStealInfo(MetadataStore metadata, RebalanceStealInfo stealInfo) {
+        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
+        VectorClock currentVersion = (VectorClock) metadata.get(MetadataStore.REBALANCING_STEAL_INFO)
+                                                           .get(0)
+                                                           .getVersion();
+        metadata.put(MetadataStore.REBALANCING_STEAL_INFO,
+                     new Versioned<Object>(stealInfo,
+                                           currentVersion.incremented(metadata.getNodeId(),
+                                                                      System.currentTimeMillis())));
+        return stealInfo;
+    }
+
+    public AdminClient getAdminClient() {
+        return adminClient;
+    }
+
+    public void stop() {
+        adminClient.stop();
+    }
 }

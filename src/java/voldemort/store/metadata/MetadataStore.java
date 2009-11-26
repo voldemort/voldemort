@@ -212,6 +212,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     }
 
+    public List<Versioned<byte[]>> get(String key) throws VoldemortException {
+        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")));
+    }
+
     @JmxOperation(description = "Clean all rebalancing server/cluster states from this node.", impact = MBeanOperationInfo.ACTION)
     public void cleanAllRebalancingState() {
         for(String key: OPTIONAL_KEYS) {
