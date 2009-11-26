@@ -444,7 +444,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             expectedValues.put(key, value);
         }
 
-        failureDetector.recordException(cluster.getNodes().iterator().next(), null);
+        recordException(failureDetector, cluster.getNodes().iterator().next());
 
         Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet());
         assertEquals(expectedValues.size(), all.size());
@@ -538,7 +538,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
         store.put(aKey, Versioned.value(aValue));
-        failureDetector.recordException(cluster.getNodes().iterator().next(), null);
+        recordException(failureDetector, cluster.getNodes().iterator().next());
         Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(Arrays.asList(aKey));
         assertEquals(1, all.size());
         assertTrue(Arrays.equals(aValue, all.values().iterator().next().get(0).getValue()));
