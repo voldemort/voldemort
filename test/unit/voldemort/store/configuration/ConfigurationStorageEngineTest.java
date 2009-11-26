@@ -16,6 +16,8 @@
 
 package voldemort.store.configuration;
 
+import static voldemort.TestUtils.getClock;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -68,13 +70,20 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
 
     @Override
     public void testDelete() {
-        // deletes are not supported for configurationEngine.
-        try {
-            super.testDelete();
-            fail();
-        } catch(Exception e) {
-            // expected
-        }
+        String key = getKey();
+        Store<String, String> store = getStore();
+        VectorClock c1 = getClock(1, 1);
+        String value = getValue();
+
+        // can't delete something that isn't there
+        assertTrue(!store.delete(key, c1));
+
+        store.put(key, new Versioned<String>(value, c1));
+        assertEquals(1, store.get(key).size());
+
+        // now delete that version too
+        assertTrue("Delete failed!", store.delete(key, c1));
+        assertEquals(0, store.get(key).size());
     }
 
     @Override
