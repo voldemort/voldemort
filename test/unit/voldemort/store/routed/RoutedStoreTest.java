@@ -36,7 +36,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -60,6 +59,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
@@ -96,7 +96,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     public void setUp() throws Exception {
         super.setUp();
         cluster = getNineNodeCluster();
-        time = new MockTime();
+        time = SystemTime.INSTANCE;
     }
 
     @Override
