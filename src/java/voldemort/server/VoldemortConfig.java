@@ -117,6 +117,16 @@ public class VoldemortConfig implements Serializable {
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
 
+    public boolean isGossipEnabled() {
+        return enableGossip;
+    }
+
+    public void setEnableGossip(boolean enableGossip) {
+        this.enableGossip = enableGossip;
+    }
+
+    private boolean enableGossip;
+    
     private List<String> storageConfigurations;
 
     private Props allProps;
@@ -147,6 +157,16 @@ public class VoldemortConfig implements Serializable {
 
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
+
+    public int getGossipInterval() {
+        return gossipInterval;
+    }
+
+    public void setGossipInterval(int gossipInterval) {
+        this.gossipInterval = gossipInterval;
+    }
+
+    private int gossipInterval;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
@@ -242,7 +262,9 @@ public class VoldemortConfig implements Serializable {
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
+        this.enableGossip = props.getBoolean("enable.gossip", true);
 
+        this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 3);

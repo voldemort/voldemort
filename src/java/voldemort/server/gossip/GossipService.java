@@ -1,5 +1,6 @@
 package voldemort.server.gossip;
 
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
@@ -16,11 +17,10 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author afeinberg
  */
+@JmxManaged(description = "Epidemic (gossip) protocol for propagating state/configuration to the cluster.")
 public class GossipService extends AbstractService {
     private final ExecutorService executor;
     private final Gossiper gossiper;
-
-    private final static int GOSSIP_INTERVAL = 30 * 1000;
 
     public GossipService(MetadataStore metadataStore, VoldemortConfig voldemortConfig) {
         super(ServiceType.GOSSIP);
@@ -34,7 +34,7 @@ public class GossipService extends AbstractService {
                 .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
         AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
                 clientConfig);
-        gossiper = new Gossiper(metadataStore, adminClient, GOSSIP_INTERVAL);
+        gossiper = new Gossiper(metadataStore, adminClient, voldemortConfig.getGossipInterval());
     }
     
     @Override

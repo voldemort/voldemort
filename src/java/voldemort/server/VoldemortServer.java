@@ -28,6 +28,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
@@ -157,6 +158,9 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.isJmxEnabled()));
         }
 
+        if (voldemortConfig.isGossipEnabled())
+            services.add(new GossipService(this.metadata, voldemortConfig));
+        
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
