@@ -101,7 +101,11 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
-                failureDetectorConfig.getTime().sleep(failureDetectorConfig.getNodeBannagePeriod());
+                if(logger.isInfoEnabled()) {
+                    logger.info("Sleeping for " + getConfig().getNodeBannagePeriod()
+                                + " ms before checking node availability");
+                }
+                getConfig().getTime().sleep(getConfig().getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }
@@ -116,7 +120,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 if(logger.isInfoEnabled())
                     logger.info("Checking previously unavailable node " + node);
 
-                Store<ByteArray, byte[]> store = failureDetectorConfig.getStore(node);
+                Store<ByteArray, byte[]> store = getConfig().getStore(node);
 
                 if(store == null) {
                     if(logger.isEnabledFor(Level.WARN))

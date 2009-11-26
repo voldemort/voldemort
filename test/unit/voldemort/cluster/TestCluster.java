@@ -16,6 +16,10 @@
 
 package voldemort.cluster;
 
+import static voldemort.MutableFailureDetectorConfig.createFailureDetector;
+import static voldemort.MutableFailureDetectorConfig.recordException;
+import static voldemort.MutableFailureDetectorConfig.recordSuccess;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -35,10 +39,7 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.VoldemortException;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
-import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.utils.ByteArray;
@@ -52,7 +53,6 @@ import com.google.common.collect.ImmutableList;
 @RunWith(Parameterized.class)
 public class TestCluster extends TestCase {
 
-    private static final int BANNAGE_TIME = 1000;
     private String clusterName = "test";
     private List<Node> nodes;
     private Cluster cluster;
@@ -74,10 +74,10 @@ public class TestCluster extends TestCase {
         this.cluster = new Cluster(clusterName, nodes);
         this.time = SystemTime.INSTANCE;
 
-        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, Store<ByteArray, byte[]>> subStores = new HashMap<Integer, Store<ByteArray, byte[]>>();
 
         for(Node node: nodes) {
-            stores.put(node.getId(), new Store<ByteArray, byte[]>() {
+            subStores.put(node.getId(), new Store<ByteArray, byte[]>() {
 
                 public void close() throws VoldemortException {}
 
@@ -111,11 +111,7 @@ public class TestCluster extends TestCase {
             });
         }
 
-        FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                      BANNAGE_TIME,
-                                                                      stores,
-                                                                      time);
-        failureDetector = FailureDetectorUtils.create(config);
+        failureDetector = createFailureDetector(failureDetectorClass, subStores, time);
     }
 
     @Override
@@ -153,16 +149,12 @@ public class TestCluster extends TestCase {
         assertTrue(failureDetector.isAvailable(n));
 
         // if set unavailable, is unavailable
-        failureDetector.recordException(n, null);
+        recordException(failureDetector, n);
 
         assertFalse(failureDetector.isAvailable(n));
 
         // if we set it back to available then it is available again
-        failureDetector.recordSuccess(n);
-
-        // Some implementations require a sleep time, so let's wait a little
-        // before checking.
-        time.sleep(BANNAGE_TIME * 2);
+        recordSuccess(failureDetector, n);
 
         assertTrue(failureDetector.isAvailable(n));
     }

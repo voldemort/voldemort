@@ -139,9 +139,13 @@ public interface FailureDetector {
 
     public void recordSuccess(Node node);
 
+    public void waitFor(Node node) throws InterruptedException;
+
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener);
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener);
+
+    public FailureDetectorConfig getConfig();
 
     public void destroy();
 

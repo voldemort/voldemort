@@ -55,8 +55,8 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
         if(logger.isEnabledFor(Level.WARN))
             logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                        + " marking as unavailable for "
-                        + failureDetectorConfig.getNodeBannagePeriod() + " ms.", e);
+                        + " marking as unavailable for " + getConfig().getNodeBannagePeriod()
+                        + " ms.", e);
 
         if(logger.isDebugEnabled())
             logger.debug(e);

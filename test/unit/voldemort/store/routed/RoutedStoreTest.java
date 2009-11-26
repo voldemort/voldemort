@@ -16,6 +16,9 @@
 
 package voldemort.store.routed;
 
+import static voldemort.MutableFailureDetectorConfig.createFailureDetector;
+import static voldemort.MutableFailureDetectorConfig.recordException;
+import static voldemort.MutableFailureDetectorConfig.recordSuccess;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
@@ -43,10 +46,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
-import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
@@ -558,7 +558,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                            1,
                                            0);
         // Disable node 1 so that the first put also goes to the last node
-        failureDetector.recordException(Iterables.get(cluster.getNodes(), 1), null);
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
         Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                                             new VectorClockInconsistencyResolver<byte[]>());
         store.put(aKey, new Versioned<byte[]>(aValue));
@@ -567,16 +567,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         // Disable the last node and enable node 1 to prevent the last node from
         // getting the new version
-        failureDetector.recordException(Iterables.getLast(cluster.getNodes()), null);
-        failureDetector.recordSuccess(Iterables.get(cluster.getNodes(), 1));
+        recordException(failureDetector, Iterables.getLast(cluster.getNodes()));
+        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 1));
         VectorClock clock = getClock(1);
         store.put(aKey, new Versioned<byte[]>(anotherValue, clock));
 
         // Enable last node and disable node 1, the following get should cause a
         // read repair on the last node in the code path that is only executed
         // if there are failures.
-        failureDetector.recordException(Iterables.get(cluster.getNodes(), 1), null);
-        failureDetector.recordSuccess(Iterables.getLast(cluster.getNodes()));
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
+        recordSuccess(failureDetector, Iterables.getLast(cluster.getNodes()));
         List<Versioned<byte[]>> versioneds = store.get(aKey);
         assertEquals(1, versioneds.size());
         assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
@@ -704,10 +704,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         if(failureDetector != null)
             failureDetector.destroy();
 
-        FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                      10000,
-                                                                      subStores,
-                                                                      time);
-        failureDetector = FailureDetectorUtils.create(config);
+        failureDetector = createFailureDetector(failureDetectorClass, subStores, time);
     }
+
 }

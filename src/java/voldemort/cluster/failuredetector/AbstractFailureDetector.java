@@ -43,7 +43,7 @@ import voldemort.cluster.Node;
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public abstract class AbstractFailureDetector implements FailureDetector {
 
-    protected final FailureDetectorConfig failureDetectorConfig;
+    private final FailureDetectorConfig failureDetectorConfig;
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
@@ -59,6 +59,15 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     public long getLastChecked(Node node) {
         return getNodeStatus(node).getLastCheckedMs();
+    }
+
+    public void waitFor(Node node) throws InterruptedException {
+        while(!isAvailable(node)) {
+            if(logger.isInfoEnabled())
+                logger.info("Sleeping for 1 second to check " + node);
+
+            failureDetectorConfig.getTime().sleep(1000);
+        }
     }
 
     @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of available nodes")
@@ -88,6 +97,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
         listeners.remove(failureDetectorListener);
+    }
+
+    public FailureDetectorConfig getConfig() {
+        return failureDetectorConfig;
     }
 
     protected void setAvailable(Node node) {

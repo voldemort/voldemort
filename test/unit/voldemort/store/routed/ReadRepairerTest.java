@@ -18,6 +18,9 @@ package voldemort.store.routed;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static voldemort.MutableFailureDetectorConfig.createFailureDetector;
+import static voldemort.MutableFailureDetectorConfig.recordException;
+import static voldemort.MutableFailureDetectorConfig.recordSuccess;
 import static voldemort.TestUtils.getClock;
 
 import java.util.ArrayList;
@@ -43,10 +46,7 @@ import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
-import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -133,11 +133,7 @@ public class ReadRepairerTest extends TestCase {
                           new InMemoryStorageEngine<ByteArray, byte[]>("test"));
         }
 
-        FailureDetectorConfig config = new BasicFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                      1000,
-                                                                      subStores,
-                                                                      time);
-        failureDetector = FailureDetectorUtils.create(config);
+        failureDetector = createFailureDetector(failureDetectorClass, subStores, time);
 
         RoutedStore store = new RoutedStore("test",
                                             subStores,
@@ -148,9 +144,9 @@ public class ReadRepairerTest extends TestCase {
                                             1000L,
                                             failureDetector);
 
-        failureDetector.recordException(Iterables.get(cluster.getNodes(), 0), null);
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value));
-        failureDetector.recordSuccess(Iterables.get(cluster.getNodes(), 0));
+        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
         time.sleep(2000);
 
         assertEquals(2, store.get(key).size());
@@ -160,9 +156,9 @@ public class ReadRepairerTest extends TestCase {
 
         ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
         // Try again, now use getAll to read repair
-        failureDetector.recordException(Iterables.get(cluster.getNodes(), 0), null);
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(anotherKey, new Versioned<byte[]>(value));
-        failureDetector.recordSuccess(Iterables.get(cluster.getNodes(), 0));
+        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
         assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
         assertEquals(3, store.get(anotherKey).size());
     }

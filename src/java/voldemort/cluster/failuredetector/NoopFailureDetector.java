@@ -35,9 +35,15 @@ public class NoopFailureDetector implements FailureDetector {
         return false;
     }
 
+    public FailureDetectorConfig getConfig() {
+        return null;
+    }
+
     public void recordException(Node node, Exception e) {}
 
     public void recordSuccess(Node node) {}
+
+    public void waitFor(Node node) {}
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {}
 
