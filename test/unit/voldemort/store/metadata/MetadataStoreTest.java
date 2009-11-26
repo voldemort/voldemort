@@ -22,6 +22,7 @@ import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -38,8 +39,7 @@ public class MetadataStoreTest extends TestCase {
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
-                                                   MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                                   MetadataStore.REBALANCING_SLAVES_LIST_KEY);
+                                                   MetadataStore.REBALANCING_STEAL_INFO);
 
     @Override
     public void setUp() throws Exception {
@@ -66,17 +66,17 @@ public class MetadataStoreTest extends TestCase {
         } else if(MetadataStore.SERVER_STATE_KEY.equals(keyString)) {
             int i = (int) (Math.random() * VoldemortState.values().length);
             return ByteUtils.getBytes(VoldemortState.values()[i].toString(), "UTF-8");
-        } else if(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY.equals(keyString)) {
+        } else if(MetadataStore.REBALANCING_STEAL_INFO.equals(keyString)) {
             int size = (int) (Math.random() * 10);
-            String partitionsList = "";
+            List<Integer> partition = new ArrayList<Integer>();
             for(int i = 0; i < size; i++) {
-                partitionsList += "" + ((int) Math.random() * 100);
-                if(i < size - 1)
-                    partitionsList += ",";
+                partition.add((int) Math.random() * 10);
             }
-            return ByteUtils.getBytes(partitionsList, "UTF-8");
-        } else if(MetadataStore.REBALANCING_SLAVES_LIST_KEY.equals(keyString)) {
-            return ByteUtils.getBytes("" + ((int) Math.random() * 100), "UTF-8");
+
+            return ByteUtils.getBytes(new RebalanceStealInfo((int) Math.random() * 5,
+                                                             partition,
+                                                             (int) Math.random() * 3).toString(),
+                                      "UTF-8");
         }
 
         throw new RuntimeException("Unhandled key:" + keyString + " passed");
@@ -153,9 +153,6 @@ public class MetadataStoreTest extends TestCase {
         incrementVersionAndPut(metadataStore,
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-        incrementVersionAndPut(metadataStore,
-                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                               Arrays.asList(1, 2, 3, 4));
 
         assertEquals("Values should match.",
                      metadataStore.getClusterState(),
@@ -163,9 +160,6 @@ public class MetadataStoreTest extends TestCase {
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.REBALANCING_MASTER_SERVER);
-        assertEquals("Values should match.",
-                     metadataStore.getRebalancingPartitionList(),
-                     Arrays.asList(1, 2, 3, 4));
 
         // do clean
         metadataStore.cleanAllRebalancingState();
@@ -177,10 +171,6 @@ public class MetadataStoreTest extends TestCase {
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.NORMAL_SERVER);
-        assertEquals("Values should match.",
-                     metadataStore.getRebalancingPartitionList(),
-                     new ArrayList<Integer>(0));
-
     }
 
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {

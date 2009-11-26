@@ -118,15 +118,15 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
 
-        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingSlaveNodeId())) {
+        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingDonorNodeId())) {
             throw new VoldemortException("Node Store not present in storeRepository for (store,nodeId) pair ("
                                          + getName()
                                          + ","
-                                         + metadata.getRebalancingSlaveNodeId()
+                                         + metadata.getRebalancingDonorNodeId()
                                          + ").");
         }
 
-        return storeRepository.getNodeStore(getName(), metadata.getRebalancingSlaveNodeId())
+        return storeRepository.getNodeStore(getName(), metadata.getRebalancingDonorNodeId())
                               .get(key);
     }
 

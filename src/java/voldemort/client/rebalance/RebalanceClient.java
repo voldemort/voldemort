@@ -30,19 +30,15 @@ public interface RebalanceClient {
     /**
      * Voldemort online rebalancing mechanism. <br>
      * Compares the provided currentCluster and targetCluster and makes a list
-     * of partitions need to be stolen Or donated <br>
-     * The stolen partitions are fetched from other nodes and saved at
-     * requestNodeId<br>
-     * The donated partitions are donated to other nodes from requestNodeId<br>
+     * of partitions need to be transferred <br>
      * The cluster is kept consistent during rebalancing using a proxy mechanism
      * via {@link RedirectingStore}
      * 
-     * @param requesterNodeId : The nodeId who will steal/donate partitions.
      * @param storeName : store to be rebalanced
+     * @param currentCluster: currentCluster configuration.
      * @param targetCluster: target Cluster configuration
      */
-    public void rebalance(final int requesterNodeId,
-                          final String storeName,
+    public void rebalance(final String storeName,
                           final Cluster currentCluster,
                           final Cluster targetCluster);
 

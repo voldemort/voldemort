@@ -30,6 +30,7 @@ import org.apache.commons.io.FileUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
@@ -121,11 +122,8 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
-                               MetadataStore.REBALANCING_SLAVE_NODE_ID,
-                               new Integer(1));
-        incrementVersionAndPut(server0.getMetadataStore(),
-                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                               Arrays.asList(1));
+                               MetadataStore.REBALANCING_STEAL_INFO,
+                               new RebalanceStealInfo(1, Arrays.asList(1), 0));
 
         // for Rebalancing State we should see proxyGet()
         checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
@@ -160,11 +158,8 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
-                               MetadataStore.REBALANCING_SLAVE_NODE_ID,
-                               new Integer(1));
-        incrementVersionAndPut(server0.getMetadataStore(),
-                               MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                               Arrays.asList(1));
+                               MetadataStore.REBALANCING_STEAL_INFO,
+                               new RebalanceStealInfo(1, Arrays.asList(1), 0));
 
         // for Rebalancing State we should see proxyPut()
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
