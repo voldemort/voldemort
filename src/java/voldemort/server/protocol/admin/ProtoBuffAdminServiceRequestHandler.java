@@ -35,6 +35,9 @@ import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
+import voldemort.client.rebalance.RebalanceClient;
+import voldemort.client.rebalance.RebalanceClientConfig;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -118,6 +121,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             case ASYNC_OPERATION_STATUS:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncStatus(request.getAsyncOperationStatus()));
+                break;
+            case INITIATE_REBALANCE_NODE:
+                ProtoUtils.writeMessage(outputStream,handleRebalanceNode(request.getInitiateRebalanceNode()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -280,6 +286,27 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } finally {
             ProtoUtils.writeMessage(outputStream, response.build());
         }
+    }
+
+    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+
+        try {
+            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getDonorId(), request.getPartitionsList(),
+                    request.getAttempt());
+            RebalanceClient rebalanceClient = new RebalanceClient(metadataStore.getCluster(), new RebalanceClientConfig());
+            int requestId = rebalanceClient.rebalancePartitionAtNode(metadataStore, rebalanceStealInfo);
+
+            response.setRequestId(requestId)
+                    .setDescription(rebalanceStealInfo.toString())
+                    .setStatus("started")
+                    .setComplete(false);
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
     }
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {

@@ -26,6 +26,7 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.protocol.VoldemortFilter;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.StoreDefinition;
@@ -150,6 +151,8 @@ public abstract class AdminClient {
                                               String storeName,
                                               List<Integer> stealList,
                                               VoldemortFilter filter);
+
+    public abstract int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo);
 
     /**
      * cleanly close this client, freeing any resource.

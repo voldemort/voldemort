@@ -59,8 +59,8 @@ message FetchPartitionEntriesResponse {
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-	repeated int32 partitions = 2;
-	optional VoldemortFilter filter = 3; 
+  repeated int32 partitions = 2;
+  optional VoldemortFilter filter = 3; 
 }
 
 message DeletePartitionEntriesResponse {
@@ -79,6 +79,12 @@ message AsyncOperationStatusRequest {
   required int32 request_id = 1;
 }
 
+message InitiateRebalanceNodeRequest {
+  required int32 donor_id = 1;
+  repeated int32 partitions = 2;
+  required int32 attempt = 3;
+}
+
 message AsyncOperationStatusResponse {
   required int32 request_id = 1;
   required string description = 2;
@@ -95,6 +101,7 @@ enum AdminRequestType {
   DELETE_PARTITION_ENTRIES = 4;
   INITIATE_FETCH_AND_UPDATE = 5;
   ASYNC_OPERATION_STATUS = 6;
+  INITIATE_REBALANCE_NODE = 7;
 }
 
 message VoldemortAdminRequest {
@@ -106,6 +113,7 @@ message VoldemortAdminRequest {
   optional DeletePartitionEntriesRequest delete_partition_entries = 6;
   optional InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
   optional AsyncOperationStatusRequest async_operation_status = 8;
+  optional InitiateRebalanceNodeRequest initiate_rebalance_node = 9;
 }
 
 

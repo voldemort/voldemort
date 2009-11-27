@@ -33,6 +33,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -417,6 +418,29 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
         }
 
         return response.getRequestId();
+    }
+
+    @Override
+    public int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo) {
+        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
+                .newBuilder()
+                .setAttempt(stealInfo.getAttempt())
+                .setDonorId(stealInfo.getDonorId())
+                .addAllPartitions(stealInfo.getPartitionList())
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                .setInitiateRebalanceNode(rebalanceNodeRequest)
+                .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                adminRequest,
+                VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if (response.hasError())
+            throwException(response.getError());
+
+        return response.getRequestId();
+
     }
 
     @Override
