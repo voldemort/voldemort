@@ -237,6 +237,7 @@
       <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
         <exclude name="${dist.dir}/*classes"/>
         <exclude name="bin/*"/>
+        <exclude name=".git*/**"/>
       </zipfileset>
     </zip>
     <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
@@ -245,6 +246,7 @@
         <exclude name="${dist.dir}/*classes"/>
         <exclude name="${dist.dir}/*.zip"/>
         <exclude name="bin/*"/>
+        <exclude name=".git*/**"/>
       </tarfileset>
     </tar>
     </sequential>
