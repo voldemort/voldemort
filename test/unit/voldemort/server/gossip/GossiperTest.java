@@ -1,10 +1,8 @@
 package voldemort.server.gossip;
 
-import com.sun.java_cup.internal.version;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
@@ -21,7 +19,6 @@ import voldemort.versioning.Versioned;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -131,6 +128,7 @@ public class GossiperTest extends TestCase {
             gossipers.add(gossiper);
         }
 
+        int serversSeen = 0;
         // Wait a second for gossip to spread
         try {
             Thread.sleep(1000);
@@ -145,6 +143,7 @@ public class GossiperTest extends TestCase {
                 assertEquals("server " + nodeId + " has heard " + " the gossip about partitions",
                         clusterAtServer.getNodeById(nodeId).getPartitionIds(),
                         newCluster.getNodeById(nodeId).getPartitionIds());
+                serversSeen++;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -152,7 +151,6 @@ public class GossiperTest extends TestCase {
             for (Gossiper gossiper: gossipers)
                 gossiper.stop();
         }
+        assertEquals("saw all servers", serversSeen, servers.size());
     }
-    
-
 }
