@@ -19,7 +19,6 @@ package voldemort.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -80,11 +79,6 @@ public class VoldemortConfig implements Serializable {
 
     private int readOnlyBackups;
     private String readOnlyStorageDir;
-
-    private List<String> fsStorageDirs;
-    private int fsStorageDirDepth;
-    private int fsStorageDirFanOut;
-    private int fsStorageNumLockStripes;
 
     private int coreThreads;
     private int maxThreads;
@@ -196,13 +190,6 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
-
-        this.fsStorageDirs = props.getList("fs.storage.dirs",
-                                           Collections.singletonList(this.dataDirectory
-                                                                     + File.separator + "fs"));
-        this.fsStorageDirDepth = props.getInt("fs.storage.dir.depth", 2);
-        this.fsStorageDirFanOut = props.getInt("fs.storage.dir.fan.out", 1000);
-        this.fsStorageNumLockStripes = props.getInt("fs.storage.lock.stripes", 200);
 
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
 
@@ -911,38 +898,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setRetentionCleanupScheduledPeriodInHour(int retentionCleanupScheduledPeriodInHour) {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
-    }
-
-    public List<String> getFsStorageDirs() {
-        return fsStorageDirs;
-    }
-
-    public void setFsStorageDirs(List<String> fsStorageDirs) {
-        this.fsStorageDirs = fsStorageDirs;
-    }
-
-    public int getFsStorageDirDepth() {
-        return fsStorageDirDepth;
-    }
-
-    public void setFsStorageDirDepth(int fsStorageDirDepth) {
-        this.fsStorageDirDepth = fsStorageDirDepth;
-    }
-
-    public int getFsStorageDirFanOut() {
-        return fsStorageDirFanOut;
-    }
-
-    public void setFsStorageDirFanOut(int fsStorageDirFanOut) {
-        this.fsStorageDirFanOut = fsStorageDirFanOut;
-    }
-
-    public int getFsStorageNumLockStripes() {
-        return fsStorageNumLockStripes;
-    }
-
-    public void setFsStorageNumLockStripes(int fsStorageNumLockStripes) {
-        this.fsStorageNumLockStripes = fsStorageNumLockStripes;
     }
 
 }
