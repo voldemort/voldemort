@@ -29,9 +29,8 @@ import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 
 import java.io.File;
-import java.io.InputStream;
 import java.io.FileInputStream;
-import java.io.Reader;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -268,13 +267,13 @@ public class Ec2SmokeTest {
                                 + StringUtils.join(requireds, ", "));
 
         Properties properties = new Properties();
-        InputStream r = null;
+        InputStream in = null;
 
         try {
-            r = new FileInputStream(propertiesFileName);
-            properties.load(r);
+            in = new FileInputStream(propertiesFileName);
+            properties.load(in);
         } finally {
-            IOUtils.closeQuietly(r);
+            IOUtils.closeQuietly(in);
         }
 
         for(String required: requireds) {
