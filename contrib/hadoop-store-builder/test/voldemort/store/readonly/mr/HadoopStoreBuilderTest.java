@@ -41,6 +41,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.serialized.SerializingStore;
@@ -127,6 +128,7 @@ public class HadoopStoreBuilderTest extends TestCase {
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
+                                                                                      new BinarySearchStrategy(),
                                                                                       storeDir,
                                                                                       1),
                                                             serializer,

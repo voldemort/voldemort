@@ -27,6 +27,7 @@ import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
@@ -79,6 +80,7 @@ public class VoldemortConfig implements Serializable {
 
     private int readOnlyBackups;
     private String readOnlyStorageDir;
+    private String readOnlySearchStrategy;
 
     private int coreThreads;
     private int maxThreads;
@@ -187,6 +189,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
+        this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
+                                                      BinarySearchStrategy.class.getName());
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
@@ -898,6 +902,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setRetentionCleanupScheduledPeriodInHour(int retentionCleanupScheduledPeriodInHour) {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
+    }
+
+    public String getReadOnlySearchStrategy() {
+        return readOnlySearchStrategy;
+    }
+
+    public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
+        this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
 }

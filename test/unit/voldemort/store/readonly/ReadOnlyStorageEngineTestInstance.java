@@ -75,7 +75,8 @@ public class ReadOnlyStorageEngineTestInstance {
         return new JsonReader(reader);
     }
 
-    public static ReadOnlyStorageEngineTestInstance create(File baseDir,
+    public static ReadOnlyStorageEngineTestInstance create(SearchStrategy strategy,
+                                                           File baseDir,
                                                            int testSize,
                                                            int numNodes,
                                                            int repFactor) throws Exception {
@@ -132,7 +133,10 @@ public class ReadOnlyStorageEngineTestInstance {
             currNode.deleteOnExit();
             Utils.move(new File(outputDir, "node-" + Integer.toString(i)), new File(currNode,
                                                                                     "version-0"));
-            nodeStores.put(i, SerializingStore.wrap(new ReadOnlyStorageEngine("test", currNode, 1),
+            nodeStores.put(i, SerializingStore.wrap(new ReadOnlyStorageEngine("test",
+                                                                              strategy,
+                                                                              currNode,
+                                                                              1),
                                                     serializer,
                                                     serializer));
         }

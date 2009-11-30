@@ -74,6 +74,20 @@ public class ByteUtilsTest extends TestCase {
         assertEquals("Read value not equal to written value.", value, ByteUtils.readInt(bytes, 0));
     }
 
+    public void testReadUnsignedInt() {
+        byte[] bytes = new byte[4];
+        bytes[0] = (byte) 0xFF;
+        bytes[1] = (byte) 0xFF;
+        bytes[2] = (byte) 0xFF;
+        bytes[3] = (byte) 0xFF;
+        assertEquals(0xFFFFFFFF, ByteUtils.readInt(bytes, 0));
+        bytes[0] = (byte) 0x01;
+        bytes[1] = (byte) 0x23;
+        bytes[2] = (byte) 0x45;
+        bytes[3] = (byte) 0x67;
+        assertEquals(0x01234567, ByteUtils.readInt(bytes, 0));
+    }
+
     public void testReadWriteBytes() {
         byte[] bytes = new byte[8];
         ByteUtils.writeBytes(bytes, 5, 0, 8);

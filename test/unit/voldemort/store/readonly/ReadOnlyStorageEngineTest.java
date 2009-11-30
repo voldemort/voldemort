@@ -1,15 +1,27 @@
 package voldemort.store.readonly;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
@@ -17,18 +29,26 @@ import voldemort.store.Store;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
-public class ReadOnlyStorageEngineTest extends TestCase {
+@RunWith(Parameterized.class)
+public class ReadOnlyStorageEngineTest {
 
     private static int TEST_SIZE = 10;
 
-    private File dir;
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { new BinarySearchStrategy() },
+                { new InterpolationSearchStrategy() } });
+    }
 
-    @Override
-    public void setUp() {
+    private File dir;
+    private SearchStrategy strategy;
+
+    public ReadOnlyStorageEngineTest(SearchStrategy strategy) {
+        this.strategy = strategy;
         this.dir = TestUtils.createTempDir();
     }
 
-    @Override
+    @After
     public void tearDown() {
         Utils.rm(dir);
     }
@@ -37,8 +57,10 @@ public class ReadOnlyStorageEngineTest extends TestCase {
      * For each key/value pair we built into the store, look it up and test that
      * the correct value is returned
      */
-    public void testCanGetGoodValues() throws Exception {
-        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
+    @Test
+    public void canGetGoodValues() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
                                                                                               TEST_SIZE,
                                                                                               2,
                                                                                               2);
@@ -62,8 +84,10 @@ public class ReadOnlyStorageEngineTest extends TestCase {
     /**
      * Do lookups on keys not in the store and test that the keys are not found.
      */
-    public void testCantGetBadValues() throws Exception {
-        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
+    @Test
+    public void cantGetBadValues() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
                                                                                               TEST_SIZE,
                                                                                               2,
                                                                                               2);
@@ -82,8 +106,10 @@ public class ReadOnlyStorageEngineTest extends TestCase {
         testData.delete();
     }
 
-    public void testCanMultigetGoodValues() throws Exception {
-        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(dir,
+    @Test
+    public void canMultigetGoodValues() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
                                                                                               TEST_SIZE,
                                                                                               2,
                                                                                               2);
@@ -109,21 +135,22 @@ public class ReadOnlyStorageEngineTest extends TestCase {
         testData.delete();
     }
 
-    public void testOpenInvalidStoreFails() throws Exception {
+    @Test
+    public void openInvalidStoreFails() throws Exception {
         // empty is okay
         testOpenInvalidStoreFails(0, 0, true);
         // two entries with 1 byte each of data
-        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 2,
-                                  ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * +2,
+        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE * 2,
+                                  ReadOnlyUtils.INDEX_ENTRY_SIZE * +2,
                                   true);
 
         // okay these are corrupt:
         // invalid index size
         testOpenInvalidStoreFails(73, 1024, false);
         // too little data for index (1 byte short for all empty values)
-        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 10, 10 * 4 - 1, false);
+        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE * 10, 10 * 4 - 1, false);
         // empty index implies no data
-        testOpenInvalidStoreFails(ReadOnlyStorageEngine.INDEX_ENTRY_SIZE, 0, false);
+        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE, 0, false);
     }
 
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
@@ -132,7 +159,7 @@ public class ReadOnlyStorageEngineTest extends TestCase {
         createStoreFiles(versionDir, indexBytes, dataBytes, 2);
 
         try {
-            new ReadOnlyStorageEngine("test", dir, 1);
+            new ReadOnlyStorageEngine("test", strategy, dir, 1);
             if(!shouldWork)
                 fail("Able to open corrupt read-only store (index size = " + indexBytes
                      + ", data bytes = " + dataBytes + ").");
@@ -142,9 +169,10 @@ public class ReadOnlyStorageEngineTest extends TestCase {
         }
     }
 
+    @Test
     public void testSwap() throws IOException {
-        createStoreFiles(dir, ReadOnlyStorageEngine.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", dir, 2);
+        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
         assertVersionsExist(dir, 0);
 
         // swap to a new version

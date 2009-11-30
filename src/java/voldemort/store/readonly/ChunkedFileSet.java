@@ -86,12 +86,12 @@ public class ChunkedFileSet {
         if(indexLength > Integer.MAX_VALUE || dataLength > Integer.MAX_VALUE)
             throw new VoldemortException("Index or data file exceeds " + Integer.MAX_VALUE
                                          + " bytes.");
-        if(indexLength % ReadOnlyStorageEngine.INDEX_ENTRY_SIZE != 0L)
+        if(indexLength % ReadOnlyUtils.INDEX_ENTRY_SIZE != 0L)
             throw new VoldemortException("Invalid index file, file length must be a multiple of "
-                                         + (ReadOnlyStorageEngine.KEY_HASH_SIZE + ReadOnlyStorageEngine.POSITION_SIZE)
+                                         + (ReadOnlyUtils.KEY_HASH_SIZE + ReadOnlyUtils.POSITION_SIZE)
                                          + " but is only " + indexLength + " bytes.");
 
-        if(dataLength < 4 * indexLength / ReadOnlyStorageEngine.INDEX_ENTRY_SIZE)
+        if(dataLength < 4 * indexLength / ReadOnlyUtils.INDEX_ENTRY_SIZE)
             throw new VoldemortException("Invalid data file, file length must not be less than num_index_entries * 4 bytes, but data file is only "
                                          + dataLength + " bytes.");
     }
