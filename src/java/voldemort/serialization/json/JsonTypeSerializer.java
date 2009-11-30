@@ -45,6 +45,7 @@ import voldemort.utils.ByteUtils;
  */
 public class JsonTypeSerializer implements Serializer<Object> {
 
+    // TODO: not correct, should be less than this
     private static final int MAX_SEQ_LENGTH = Integer.MAX_VALUE;
 
     private final boolean hasVersion;
@@ -470,7 +471,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
     }
 
     private byte[] readBytes(DataInputStream stream) throws IOException {
-        int size = stream.readShort();
+        int size = readLength(stream);
         if(size < 0)
             return null;
         byte[] bytes = new byte[size];
@@ -548,10 +549,13 @@ public class JsonTypeSerializer implements Serializer<Object> {
     }
 
     private void writeLength(DataOutputStream stream, int size) throws IOException {
-        if(size < Short.MAX_VALUE)
+        if(size < Short.MAX_VALUE) {
             stream.writeShort(size);
-        else if(size > MAX_SEQ_LENGTH)
-            stream.writeInt(size);
+        } else if(size < MAX_SEQ_LENGTH) {
+            stream.writeInt(size | 0xC0000000);
+        } else {
+            throw new SerializationException("Invalid length: maximum is " + MAX_SEQ_LENGTH);
+        }
     }
 
     int readLength(DataInputStream stream) throws IOException {
@@ -561,9 +565,9 @@ public class JsonTypeSerializer implements Serializer<Object> {
             return -1;
         } else if(size < -1) {
             // mask off first two bits, remainder is the size
-            int fixedSize = size & 0;
+            int fixedSize = size & 0x3FFF;
             fixedSize <<= 16;
-            fixedSize += stream.readShort();
+            fixedSize += stream.readShort() & 0xFFFF;
             return fixedSize;
         } else {
             return size;

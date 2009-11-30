@@ -22,9 +22,11 @@ import static voldemort.serialization.json.JsonTypeDefinition.fromJson;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import junit.framework.TestCase;
+import voldemort.TestUtils;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 
@@ -237,6 +239,17 @@ public class JsonTypeSerializerTest extends TestCase {
 
         // map missing type
         assertToBytesFails("{\"bar\":\"string\"}", ImmutableMap.of("foo", 43));
+    }
+
+    public void testLargeSequences() {
+        for(int size: new int[] { Short.MAX_VALUE - 1, 2 * Short.MAX_VALUE }) {
+            String s = TestUtils.randomString(TestUtils.LETTERS, size);
+            assertInverse("'string'", s);
+            List<Byte> vals = new ArrayList<Byte>(size);
+            for(int i = 0; i < size; i++)
+                vals.add(Byte.valueOf((byte) 9));
+            assertInverse("['int8']", vals);
+        }
     }
 
     public void assertInvalidTypeDef(String typeDef) {
