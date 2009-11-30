@@ -70,14 +70,14 @@ public class ViewStorageEngineTest extends TestCase {
             this.str = str;
         }
 
-        public String fromStoreToView(String k, String s) {
+        public String fromStoreToView(Store<String, String> store, String k, String s) {
             if(s == null)
                 return str;
             else
                 return s + str;
         }
 
-        public String fromViewToStore(String k, String v) {
+        public String fromViewToStore(Store<String, String> store, String k, String v) {
             if(v == null)
                 return null;
             else

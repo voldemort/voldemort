@@ -6,8 +6,10 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
 import voldemort.store.StorageEngine;
+import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -26,6 +28,7 @@ import com.google.common.collect.AbstractIterator;
 public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
+    private final Store<Object, Object> serializingStore;
     private final StorageEngine<ByteArray, byte[]> target;
     private final Serializer<Object> valSerializer;
     private final Serializer<Object> targetKeySerializer;
@@ -41,6 +44,9 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
                              ViewTransformation<?, ?, ?> valueTrans) {
         this.name = name;
         this.target = Utils.notNull(target);
+        this.serializingStore = new SerializingStore(target,
+                                                     targetKeySerializer,
+                                                     targetValSerializer);
         this.valSerializer = (Serializer<Object>) valSerializer;
         this.targetKeySerializer = (Serializer<Object>) targetKeySerializer;
         this.targetValSerializer = (Serializer<Object>) targetValSerializer;
@@ -99,7 +105,8 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         if(this.valueTrans == null)
             return value;
         else
-            return this.targetValSerializer.toBytes(this.valueTrans.fromViewToStore(this.targetKeySerializer.toObject(key.get()),
+            return this.targetValSerializer.toBytes(this.valueTrans.fromViewToStore(this.serializingStore,
+                                                                                    this.targetKeySerializer.toObject(key.get()),
                                                                                     this.valSerializer.toObject(value)));
     }
 
@@ -107,7 +114,8 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         if(this.valueTrans == null)
             return value;
         else
-            return this.valSerializer.toBytes(this.valueTrans.fromStoreToView(this.targetKeySerializer.toObject(key.get()),
+            return this.valSerializer.toBytes(this.valueTrans.fromStoreToView(this.serializingStore,
+                                                                              this.targetKeySerializer.toObject(key.get()),
                                                                               this.targetValSerializer.toObject(value)));
     }
 

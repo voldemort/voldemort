@@ -1,5 +1,7 @@
 package voldemort.store.views;
 
+import voldemort.store.Store;
+
 /**
  * The interface for defining a view. A separate transformation may be needed
  * for the keys and the values, and one can do just one or the other if needed.
@@ -20,21 +22,26 @@ public interface ViewTransformation<K, V, S> {
     /**
      * Translate from the store type to the view type
      * 
+     * @param targetStore The store behind the view
      * @param s The value for the store
      * @return The value for the view
-     * @throws UnsupportedViewOperationException If this direction of translation is not
-     *         allowed
+     * @throws UnsupportedViewOperationException If this direction of
+     *         translation is not allowed
      */
-    public V fromStoreToView(K k, S s) throws UnsupportedViewOperationException;
+    public V fromStoreToView(Store<K, S> targetStore, K k, S s)
+            throws UnsupportedViewOperationException;
 
     /**
      * Translate from the view type to the store type
      * 
-     * @param v The view type
+     * @param targetStore The store behind the view
+     * @param k The key
+     * @param v The value
      * @return The store type
-     * @throws UnsupportedViewOperationException If this direction of translation is not
-     *         allowed
+     * @throws UnsupportedViewOperationException If this direction of
+     *         translation is not allowed
      */
-    public S fromViewToStore(K k, V v) throws UnsupportedViewOperationException;
+    public S fromViewToStore(Store<K, S> targetStore, K k, V v)
+            throws UnsupportedViewOperationException;
 
 }

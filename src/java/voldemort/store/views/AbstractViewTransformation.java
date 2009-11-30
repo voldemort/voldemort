@@ -1,5 +1,7 @@
 package voldemort.store.views;
 
+import voldemort.store.Store;
+
 /**
  * A view that fails all operations. Override one of the methods to add either
  * reads or writes.
@@ -12,11 +14,11 @@ package voldemort.store.views;
  */
 public class AbstractViewTransformation<K, V, S> implements ViewTransformation<K, V, S> {
 
-    public V fromStoreToView(K k, S s) {
+    public V fromStoreToView(Store<K, S> store, K k, S s) {
         throw new UnsupportedViewOperationException("Read attempt on write-only view!");
     }
 
-    public S fromViewToStore(K k, V v) {
+    public S fromViewToStore(Store<K, S> store, K k, V v) {
         throw new UnsupportedViewOperationException("Write attempt on read-only view!");
     }
 

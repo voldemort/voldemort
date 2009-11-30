@@ -1,5 +1,7 @@
 package voldemort.store.views;
 
+import voldemort.store.Store;
+
 /**
  * A simple test view that translates all reads into uppercase
  * 
@@ -8,11 +10,11 @@ package voldemort.store.views;
  */
 public class UpperCaseViewTransform implements ViewTransformation<String, String, String> {
 
-    public String fromStoreToView(String k, String s) {
+    public String fromStoreToView(Store<String, String> store, String k, String s) {
         return s.toUpperCase();
     }
 
-    public String fromViewToStore(String k, String v) {
+    public String fromViewToStore(Store<String, String> store, String k, String v) {
         throw new UnsupportedViewOperationException("View not writable");
     }
 
