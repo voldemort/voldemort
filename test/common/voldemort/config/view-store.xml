@@ -21,11 +21,7 @@
   <view>
     <name>test-view</name>
     <view-of>test</view-of>
-    <key-transformation>com.x.y.Z</key-transformation>
-    <value-transformation>com.x.y.Z</value-transformation>
-    <key-serializer>
-      <type>string</type>
-    </key-serializer>
+    <value-transformation>voldemort.store.views.UpperCaseViewTransform</value-transformation>
     <value-serializer>
       <type>string</type>
     </value-serializer>

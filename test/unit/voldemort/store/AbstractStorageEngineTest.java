@@ -52,6 +52,38 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         }
     }
 
+    public void testGetNoKeys() {
+        ClosableIterator<ByteArray> it = null;
+        try {
+            StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+            it = engine.keys();
+            while(it.hasNext())
+                fail("There shouldn't be any entries in this store.");
+        } finally {
+            if(it != null)
+                it.close();
+        }
+    }
+
+    public void testKeyIterationWithSerialization() {
+        StorageEngine<ByteArray, byte[]> store = getStorageEngine();
+        StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
+                                                                                                 new StringSerializer(),
+                                                                                                 new StringSerializer());
+        Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
+        for(Map.Entry<String, String> entry: vals.entrySet())
+            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));
+        ClosableIterator<String> iter = stringStore.keys();
+        int count = 0;
+        while(iter.hasNext()) {
+            String key = iter.next();
+            assertTrue(vals.containsKey(key));
+            count++;
+        }
+        assertEquals(count, vals.size());
+        iter.close();
+    }
+
     public void testIterationWithSerialization() {
         StorageEngine<ByteArray, byte[]> store = getStorageEngine();
         StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,

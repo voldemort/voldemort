@@ -52,14 +52,46 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
-        return new DelegatingClosableIterator(storageEngine.entries());
+        return new EntriesIterator(storageEngine.entries());
     }
 
-    private class DelegatingClosableIterator implements ClosableIterator<Pair<K, Versioned<V>>> {
+    public ClosableIterator<K> keys() {
+        return new KeysIterator(storageEngine.keys());
+    }
+
+    private class KeysIterator implements ClosableIterator<K> {
+
+        private final ClosableIterator<ByteArray> iterator;
+
+        public KeysIterator(ClosableIterator<ByteArray> iterator) {
+            this.iterator = iterator;
+        }
+
+        public boolean hasNext() {
+            return iterator.hasNext();
+        }
+
+        public K next() {
+            ByteArray key = iterator.next();
+            if(key == null)
+                return null;
+            return getKeySerializer().toObject(key.get());
+        }
+
+        public void remove() {
+            iterator.remove();
+        }
+
+        public void close() {
+            iterator.close();
+        }
+    }
+
+    private class EntriesIterator implements ClosableIterator<Pair<K, Versioned<V>>> {
 
         private final ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
 
-        public DelegatingClosableIterator(ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator) {
+        public EntriesIterator(ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator) {
             this.iterator = iterator;
         }
 

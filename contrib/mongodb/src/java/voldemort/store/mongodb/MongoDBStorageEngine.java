@@ -122,6 +122,10 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        return StoreUtils.keys(entries());
+    }
+
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         DirectBufferTLS tls = getTLS();

@@ -48,6 +48,7 @@
     <fileset dir="${dist.dir}">
       <include name="${name}-contrib-${curr.release}.jar" />
     </fileset>
+    <pathelement path="${testclasses.dir}" />
   </path>
 
   <macrodef name="replace-dir">
@@ -113,9 +114,12 @@
   </target>
   
   <target name="protobuff" description="Generate source files from .proto files">
-    <path id="proto-files">
-      <fileset dir="${protobuff.dir}" />
-    </path>
+    <pathconvert property="proto.sources" pathsep=" ">
+      <path id="proto-files">
+	<fileset dir="${protobuff.dir}" />
+      </path>
+    </pathconvert>
+
     <property name="proto.path" location="${protobuff.dir}"/> 
     <property name="javaout.path" location="${java.dir}"/>
     <property name="pythonout.path" location="${python.dir}"/>
@@ -123,7 +127,7 @@
       <arg value="--proto_path=${proto.path}"/>
       <arg value="--java_out=${javaout.path}"/>
       <arg value="--python_out=${pythonout.path}"/>
-      <arg pathref="proto-files"/>
+      <arg line="${proto.sources}"/>
     </exec>
   </target>
 
@@ -181,6 +185,9 @@
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
     </javac>
+    <copy todir="${contrib.classes.dir}">
+      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
+    </copy>
   </target>
 
   <target name="contrib-jar" depends="contrib-build" description="Build contrib jar file">
@@ -200,7 +207,7 @@
     </jar>
   </target>
 
-  <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests.">
+  <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests except EC2 tests.">
     <replace-dir dir="${contribtestreport.dir}" />
     <replace-dir dir="${contribtesthtml.dir}" />
     <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
@@ -210,6 +217,8 @@
         <fileset dir="${contrib.classes.dir}">
           <include name="**/*Test.class" />
           <exclude name="**/*PerformanceTest.class" />
+          <exclude name="**/*RemoteTest.class" />
+          <exclude name="**/Ec2*Test.class" />
         </fileset>
       </batchtest>
     </junit>
@@ -220,7 +229,32 @@
       <report todir="${contribtesthtml.dir}" format="frames" />
     </junitreport>
   </target>
-  
+
+  <target name="ec2testing-junit" depends="contrib-jar" description="Run EC2 testing contrib junit tests.">
+    <copy todir="${testclasses.dir}">
+      <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
+    </copy>
+    <replace-dir dir="${contribtestreport.dir}" />
+    <replace-dir dir="${contribtesthtml.dir}" />
+    <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
+      <syspropertyset>
+        <propertyref prefix="ec2" />
+      </syspropertyset>
+      <classpath refid="contrib-test-classpath" />
+      <formatter type="xml" />
+      <batchtest fork="yes" todir="${contribtestreport.dir}">
+        <fileset dir="${contrib.classes.dir}">
+          <include name="**/Ec2*Test.class" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${contribtesthtml.dir}">
+      <fileset dir="${contribtestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${contribtesthtml.dir}" format="frames" />
+    </junitreport>
+  </target>
   
   <macrodef name="create-release-artifacts">
     <attribute name="version" />
@@ -276,7 +310,7 @@
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />
     <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true">
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">

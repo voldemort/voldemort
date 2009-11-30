@@ -218,13 +218,9 @@ public class StoreDefinitionsMapper {
                                                   target.getRequiredReads());
 
         SerializerDefinition keySerializer = target.getKeySerializer();
-        if(store.getChild(STORE_KEY_SERIALIZER_ELMT) != null)
-            keySerializer = readSerializer(store.getChild(STORE_KEY_SERIALIZER_ELMT));
-        if(keySerializer.getAllSchemaInfoVersions().size() > 1)
-            throw new MappingException("Only a single schema is allowed for the store key.");
         SerializerDefinition valueSerializer = target.getValueSerializer();
         if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
-            keySerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
+            valueSerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
 
         RoutingTier policy = target.getRoutingPolicy();
         if(store.getChild(STORE_ROUTING_STRATEGY) != null)
@@ -292,18 +288,25 @@ public class StoreDefinitionsMapper {
 
     public String writeStoreList(List<StoreDefinition> stores) {
         Element root = new Element(STORES_ELMT);
-        for(StoreDefinition def: stores)
-            root.addContent(toElement(def));
+        for(StoreDefinition def: stores) {
+            if(def.isView())
+                root.addContent(viewToElement(def));
+            else
+                root.addContent(storeToElement(def));
+        }
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
         return serializer.outputString(root);
     }
 
     public String writeStore(StoreDefinition store) {
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
-        return serializer.outputString(toElement(store));
+        if(store.isView())
+            return serializer.outputString(viewToElement(store));
+        else
+            return serializer.outputString(storeToElement(store));
     }
 
-    private Element toElement(StoreDefinition storeDefinition) {
+    private Element storeToElement(StoreDefinition storeDefinition) {
         Element store = new Element(STORE_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()));
@@ -330,6 +333,29 @@ public class StoreDefinitionsMapper {
 
         if(storeDefinition.hasRetentionScanThrottleRate())
             store.addContent(new Element(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionScanThrottleRate())));
+
+        return store;
+    }
+
+    private Element viewToElement(StoreDefinition storeDefinition) {
+        Element store = new Element(VIEW_ELMT);
+        store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
+        store.addContent(new Element(VIEW_TARGET_ELMT).setText(storeDefinition.getViewTargetStoreName()));
+        store.addContent(new Element(VIEW_VALUE_TRANS_ELMT).setText(storeDefinition.getValueTransformation()
+                                                                                   .getClass()
+                                                                                   .getName()));
+        store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
+                                                                                     .toDisplay()));
+        if(storeDefinition.hasPreferredReads())
+            store.addContent(new Element(STORE_PREFERRED_READS_ELMT).setText(Integer.toString(storeDefinition.getPreferredReads())));
+        store.addContent(new Element(STORE_REQUIRED_READS_ELMT).setText(Integer.toString(storeDefinition.getRequiredReads())));
+        if(storeDefinition.hasPreferredWrites())
+            store.addContent(new Element(STORE_PREFERRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getPreferredWrites())));
+        store.addContent(new Element(STORE_REQUIRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getRequiredWrites())));
+
+        Element valueSerializer = new Element(STORE_VALUE_SERIALIZER_ELMT);
+        addSerializer(valueSerializer, storeDefinition.getValueSerializer());
+        store.addContent(valueSerializer);
 
         return store;
     }

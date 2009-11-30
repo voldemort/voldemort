@@ -189,7 +189,8 @@ public class JsonStoreBuilder {
             if(!outputDir.exists())
                 Utils.croak("Directory \"" + outputDir.getAbsolutePath() + " does not exist.");
 
-            RoutingStrategy routingStrategy = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
+            RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                 cluster);
 
             new JsonStoreBuilder(reader,
                                  cluster,

@@ -271,6 +271,10 @@ public class FsStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return new FsStorageEngineIterator();
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        return StoreUtils.keys(entries());
+    }
+
     /**
      * An iterator over all the files in this store that reads the values in the
      * files and turns them into key/value pairs.

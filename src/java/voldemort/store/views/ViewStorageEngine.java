@@ -82,6 +82,10 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return new ViewIterator(target.entries());
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        return StoreUtils.keys(entries());
+    }
+
     public Object getCapability(StoreCapabilityType capability) {
         if(capability == StoreCapabilityType.VIEW_TARGET)
             return this.target;
@@ -96,7 +100,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
             return value;
         else
             return this.targetValSerializer.toBytes(this.valueTrans.fromViewToStore(this.targetKeySerializer.toObject(key.get()),
-                                                                             this.valSerializer.toObject(value)));
+                                                                                    this.valSerializer.toObject(value)));
     }
 
     private byte[] valueToViewSchema(ByteArray key, byte[] value) {
@@ -104,7 +108,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
             return value;
         else
             return this.valSerializer.toBytes(this.valueTrans.fromStoreToView(this.targetKeySerializer.toObject(key.get()),
-                                                                        this.targetValSerializer.toObject(value)));
+                                                                              this.targetValSerializer.toObject(value)));
     }
 
     private class ViewIterator extends AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>

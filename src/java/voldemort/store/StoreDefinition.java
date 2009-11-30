@@ -206,7 +206,8 @@ public class StoreDefinition implements Serializable {
             return false;
 
         StoreDefinition def = (StoreDefinition) o;
-        return getName().equals(def.getName()) && getType().equals(def.getType())
+        return getName().equals(def.getName())
+               && getType().equals(def.getType())
                && getReplicationFactor() == def.getReplicationFactor()
                && getRequiredReads() == def.getRequiredReads()
                && Objects.equal(getPreferredReads(), def.getPreferredReads())
@@ -216,7 +217,10 @@ public class StoreDefinition implements Serializable {
                && getValueSerializer().equals(def.getValueSerializer())
                && getRoutingPolicy() == def.getRoutingPolicy()
                && Objects.equal(getViewTargetStoreName(), def.getViewTargetStoreName())
-               && Objects.equal(getValueTransformation(), def.getValueTransformation())
+               && Objects.equal(getValueTransformation() != null ? getValueTransformation().getClass()
+                                                                : null,
+                                def.getValueTransformation() != null ? def.getValueTransformation()
+                                                                          .getClass() : null)
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
                && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
     }
@@ -234,8 +238,22 @@ public class StoreDefinition implements Serializable {
                                 getPreferredReads(),
                                 getPreferredWrites(),
                                 getViewTargetStoreName(),
-                                getValueTransformation(),
+                                getValueTransformation() == null ? null
+                                                                : getValueTransformation().getClass(),
                                 getRetentionDays(),
                                 getRetentionScanThrottleRate());
+    }
+
+    @Override
+    public String toString() {
+        return "StoreDefinition(name = " + getName() + ", type = " + getType()
+               + ", key-serializer = " + getKeySerializer() + ", value-serializer = "
+               + getValueSerializer() + ", routing = " + getRoutingPolicy() + ", replication = "
+               + getReplicationFactor() + ", required-reads = " + getRequiredReads()
+               + ", preferred-reads = " + getPreferredReads() + ", required-writes = "
+               + getRequiredWrites() + ", preferred-writes = " + getPreferredWrites()
+               + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
+               + getValueTransformation() + ", retention-days = " + getRetentionDays()
+               + ", throttle-rate = " + getRetentionScanThrottleRate() + ")";
     }
 }

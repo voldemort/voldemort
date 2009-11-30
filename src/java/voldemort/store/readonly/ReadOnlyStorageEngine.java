@@ -302,6 +302,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         source.renameTo(dest);
     }
 
+    public ClosableIterator<ByteArray> keys() {
+        throw new UnsupportedOperationException("Iteration is not supported for "
+                                                + getClass().getName());
+    }
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new UnsupportedOperationException("Iteration is not supported for "
                                                 + getClass().getName());

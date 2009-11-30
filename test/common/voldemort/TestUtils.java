@@ -40,7 +40,6 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
-import voldemort.server.VoldemortMetadata;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -305,7 +304,8 @@ public class TestUtils {
                                                                .setPreferredWrites(1)
                                                                .setRequiredWrites(1)
                                                                .build();
-        RoutingStrategy router = new RoutingStrategyFactory(cluster).getRoutingStrategy(storeDef);
+        RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                    cluster);
 
         // make a temp dir
         File dataDir = new File(baseDir + File.separatorChar + "read-only-temp-index-"
@@ -324,12 +324,6 @@ public class TestUtils {
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();
-    }
-
-    public static VoldemortMetadata createMetadata(int[][] partitionMap, StoreDefinition storeDef) {
-        return new VoldemortMetadata(new Cluster("test-cluster", createNodes(partitionMap)),
-                                     Arrays.asList(storeDef),
-                                     0);
     }
 
     public static List<Node> createNodes(int[][] partitionMap) {

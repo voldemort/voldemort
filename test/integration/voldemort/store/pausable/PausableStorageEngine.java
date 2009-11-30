@@ -79,6 +79,11 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
         return inner.entries();
     }
 
+    public ClosableIterator<K> keys() {
+        blockIfNecessary();
+        return inner.keys();
+    }
+
     public List<Version> getVersions(K key) {
         blockIfNecessary();
         return inner.getVersions(key);
