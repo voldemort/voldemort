@@ -9,13 +9,12 @@ package org.h2.compress;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.h2.engine.Constants;
-
 /**
  * An output stream to write an LZF stream.
  * The data is automatically compressed.
  */
 public class LZFOutputStream extends OutputStream {
+    final static int IO_BUFFER_SIZE_COMPRESS = 4096;
 
     /**
      * The file header of a LZF file.
@@ -30,7 +29,7 @@ public class LZFOutputStream extends OutputStream {
 
     public LZFOutputStream(OutputStream out) throws IOException {
         this.out = out;
-        int len = Constants.IO_BUFFER_SIZE_COMPRESS;
+        int len = IO_BUFFER_SIZE_COMPRESS;
         buffer = new byte[len];
         ensureOutput(len);
         writeInt(MAGIC);

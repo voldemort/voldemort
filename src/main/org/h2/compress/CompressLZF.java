@@ -37,22 +37,14 @@ package org.h2.compress;
  * This class implements the LZF lossless data compression algorithm.
  * LZF is optimized for speed.
  */
-public class CompressLZF implements Compressor {
-
+public class CompressLZF
+{
     private static final int HASH_SIZE = 1 << 14;
-    private static final int MAX_LITERAL = 1 << 5;
-    private static final int MAX_OFF = 1 << 13;
-    private static final int MAX_REF = (1 << 8) + (1 << 3);
+    private static final int MAX_LITERAL = 1 << 5; // 32
+    private static final int MAX_OFF = 1 << 13; // 8k
+    private static final int MAX_REF = (1 << 8) + (1 << 3); // 264
 
     private int[] cachedHashTable;
-
-    public void setOptions(String options) {
-        // nothing to do
-    }
-
-    public int getAlgorithm() {
-        return Compressor.LZF;
-    }
 
     private int first(byte[] in, int inPos) {
         return (in[inPos] << 8) + (in[inPos + 1] & 255);
@@ -145,10 +137,14 @@ public class CompressLZF implements Compressor {
         return outPos;
     }
 
-    public void expand(byte[] in, int inPos, int inLen, byte[] out, int outPos, int outLen) {
+    /**
+     *<p>
+     * Note: since there is no state, expand method can be static
+     */
+    public static void expand(byte[] in, int inPos, int inLen, byte[] out, int outPos, int outLen) {
         do {
             int ctrl = in[inPos++] & 255;
-            if (ctrl < (1 << 5)) {
+            if (ctrl < MAX_LITERAL) {
                 // literal run
                 ctrl += inPos;
                 do {
