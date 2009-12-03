@@ -36,7 +36,7 @@ public class GossiperTest extends TestCase {
 
     @Override
     public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
+        cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 } });
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(0,
                 TestUtils.createTempDir()
                         .getAbsolutePath(),
@@ -71,18 +71,19 @@ public class GossiperTest extends TestCase {
             ports[portIdx++] = node.getSocketPort();
             ports[portIdx++] = node.getAdminPort();
         }
-        
-        ports[portIdx++] = ServerTestUtils.findFreePort();
-        ports[portIdx++] = ServerTestUtils.findFreePort();
-        ports[portIdx] = ServerTestUtils.findFreePort();
+
+        int[] freeports = ServerTestUtils.findFreePorts(3);
+        ports[portIdx++] = freeports[0];
+        ports[portIdx++] = freeports[1];
+        ports[portIdx] = freeports[2];
 
         // Create a new partitioning scheme with room for a new server
         Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
-                ports, new int[][] { {0, 1, 2}, {3, 4, 5}, {6, 7} });
+                ports, new int[][] { {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, 10, 11} });
 
         // Start the new server
         VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils
-                .createServerConfig(2, TestUtils.createTempDir()
+                .createServerConfig(3, TestUtils.createTempDir()
                 .getAbsolutePath(),
                 null,
                 storesXmlfile),
@@ -99,16 +100,16 @@ public class GossiperTest extends TestCase {
         // Get the new cluster.XML
         AdminClient localAdminClient = getAdminClient(newCluster, newServer.getVoldemortConfig());
 
-        Versioned<String> versionedClusterXML = localAdminClient.getRemoteMetadata(2, MetadataStore.CLUSTER_KEY);
+        Versioned<String> versionedClusterXML = localAdminClient.getRemoteMetadata(3, MetadataStore.CLUSTER_KEY);
 
         // Increment the version, let what would be the "donor node" know about it
         // (this will seed the gossip)
         Version version = versionedClusterXML.getVersion();
-        ((VectorClock) version).incrementVersion(2, ((VectorClock) version).getTimestamp() + 1);
+        ((VectorClock) version).incrementVersion(3, ((VectorClock) version).getTimestamp() + 1);
         ((VectorClock) version).incrementVersion(0, ((VectorClock) version).getTimestamp() + 1);
 
         localAdminClient.updateRemoteMetadata(0, MetadataStore.CLUSTER_KEY, versionedClusterXML);
-        localAdminClient.updateRemoteMetadata(2, MetadataStore.CLUSTER_KEY, versionedClusterXML);
+        localAdminClient.updateRemoteMetadata(3, MetadataStore.CLUSTER_KEY, versionedClusterXML);
 
         try {
             Thread.sleep(500);
