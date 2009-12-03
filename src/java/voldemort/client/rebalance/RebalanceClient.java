@@ -12,6 +12,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
+import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
@@ -91,7 +92,9 @@ public class RebalanceClient {
      * @param stealInfo
      * @return taskId for asynchronous task.
      */
-    public int rebalancePartitionAtNode(MetadataStore metadataStore, RebalanceStealInfo stealInfo) {
+    public int rebalancePartitionAtNode(MetadataStore metadataStore,
+                                        RebalanceStealInfo stealInfo,
+                                        AsyncOperationRunner asyncRunner) {
         return 1;
     }
 

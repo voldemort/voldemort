@@ -89,7 +89,7 @@ public class AsyncOperationRunner extends AbstractService {
         return operations.get(requestId).getStatus();
     }
 
-    public int getRequestId() {
+    public int getUniqueRequestId() {
         return lastOperationId.getAndIncrement();
     }
 

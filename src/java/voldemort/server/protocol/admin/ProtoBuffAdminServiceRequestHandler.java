@@ -123,7 +123,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                         handleAsyncStatus(request.getAsyncOperationStatus()));
                 break;
             case INITIATE_REBALANCE_NODE:
-                ProtoUtils.writeMessage(outputStream,handleRebalanceNode(request.getInitiateRebalanceNode()));
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceNode(request.getInitiateRebalanceNode()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -290,20 +291,26 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+        RebalanceClient rebalanceClient = new RebalanceClient(metadataStore.getCluster(),
+                                                              new RebalanceClientConfig());
 
         try {
-            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getDonorId(), request.getPartitionsList(),
-                    request.getAttempt());
-            RebalanceClient rebalanceClient = new RebalanceClient(metadataStore.getCluster(), new RebalanceClientConfig());
-            int requestId = rebalanceClient.rebalancePartitionAtNode(metadataStore, rebalanceStealInfo);
+            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getDonorId(),
+                                                                           request.getPartitionsList(),
+                                                                           request.getAttempt());
+            int requestId = rebalanceClient.rebalancePartitionAtNode(metadataStore,
+                                                                     rebalanceStealInfo,
+                                                                     asyncRunner);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
                     .setStatus("started")
                     .setComplete(false);
-        } catch (VoldemortException e) {
+        } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
+        } finally {
+            rebalanceClient.stop();
         }
 
         return response.build();
@@ -316,7 +323,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
-        int requestId = asyncRunner.getRequestId();
+        int requestId = asyncRunner.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)
