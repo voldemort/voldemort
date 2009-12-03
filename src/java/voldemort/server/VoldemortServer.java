@@ -26,7 +26,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalanceStealInfo;
@@ -161,8 +164,17 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.isJmxEnabled()));
         }
 
-        if (voldemortConfig.isGossipEnabled())
-            services.add(new GossipService(this.metadata, voldemortConfig));
+        if (voldemortConfig.isGossipEnabled()) {
+              ClientConfig clientConfig = new ClientConfig()
+                .setMaxConnectionsPerNode(1)
+                .setMaxThreads(1)
+                .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(), TimeUnit.MILLISECONDS)
+                .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(), TimeUnit.MILLISECONDS)
+                .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),
+                    clientConfig);
+            services.add(new GossipService(this.metadata, adminClient, scheduler, voldemortConfig));
+        }
         
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));

@@ -245,7 +245,7 @@ public class VoldemortConfig implements Serializable {
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
-        this.enableGossip = props.getBoolean("enable.gossip", true);
+        this.enableGossip = props.getBoolean("enable.gossip", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
