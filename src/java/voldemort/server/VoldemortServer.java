@@ -165,14 +165,13 @@ public class VoldemortServer extends AbstractService {
         }
 
         if (voldemortConfig.isGossipEnabled()) {
-              ClientConfig clientConfig = new ClientConfig()
-                .setMaxConnectionsPerNode(1)
-                .setMaxThreads(1)
-                .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(), TimeUnit.MILLISECONDS)
-                .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(), TimeUnit.MILLISECONDS)
-                .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),
-                    clientConfig);
+            ClientConfig clientConfig = new ClientConfig()
+                    .setMaxConnectionsPerNode(1)
+                    .setMaxThreads(1)
+                    .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(), TimeUnit.MILLISECONDS)
+                    .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(), TimeUnit.MILLISECONDS)
+                    .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),clientConfig);
             services.add(new GossipService(this.metadata, adminClient, scheduler, voldemortConfig));
         }
         

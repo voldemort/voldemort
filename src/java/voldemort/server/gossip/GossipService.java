@@ -12,16 +12,13 @@ import voldemort.store.metadata.MetadataStore;
  * @author afeinberg
  */
 @JmxManaged(description = "Epidemic (gossip) protocol for propagating state/configuration to the cluster.")
-public class
-        GossipService extends AbstractService {
+public class GossipService extends AbstractService {
     private final SchedulerService schedulerService;
     private final Gossiper gossiper;
 
     public GossipService(MetadataStore metadataStore, AdminClient adminClient, SchedulerService service, VoldemortConfig voldemortConfig) {
         super(ServiceType.GOSSIP);
         schedulerService = service;
-
-      
         gossiper = new Gossiper(metadataStore, adminClient, voldemortConfig.getGossipInterval());
     }
     
