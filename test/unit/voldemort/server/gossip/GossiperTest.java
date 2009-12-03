@@ -1,6 +1,7 @@
 package voldemort.server.gossip;
 
 import junit.framework.TestCase;
+import voldemort.Attempt;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
@@ -61,7 +62,7 @@ public class GossiperTest extends TestCase {
         return new ProtoBuffAdminClientRequestFormat(newCluster, clientConfig);
     }
 
-    public void testGossiper() throws IOException {
+    public void testGossiper() throws Exception {
         // First create a new cluster:
         // Allocate ports for all nodes in the new cluster, to match existing cluster
         int portIdx = 0;
@@ -78,7 +79,7 @@ public class GossiperTest extends TestCase {
         ports[portIdx] = freeports[2];
 
         // Create a new partitioning scheme with room for a new server
-        Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
+        final Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
                 ports, new int[][] { {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, 10, 11} });
 
         // Start the new server
@@ -129,29 +130,33 @@ public class GossiperTest extends TestCase {
             gossipers.add(gossiper);
         }
 
-        int serversSeen = 0;
-        // Wait a second for gossip to spread
-        try {
-            Thread.sleep(1000);
 
-            // Now verify that we have gossiped correctly
-            for (VoldemortServer server: servers) {
-                Cluster clusterAtServer = server.getMetadataStore().getCluster();
-                int nodeId = server.getMetadataStore().getNodeId();
-                assertEquals("server " + nodeId + " has heard " +
-                        " the gossip about number of nodes", clusterAtServer.getNumberOfNodes(),
-                        newCluster.getNumberOfNodes());
-                assertEquals("server " + nodeId + " has heard " + " the gossip about partitions",
-                        clusterAtServer.getNodeById(nodeId).getPartitionIds(),
-                        newCluster.getNodeById(nodeId).getPartitionIds());
-                serversSeen++;
-            }
+        // Wait up to a second for gossip to spread
+        try {
+            TestUtils.assertWithBackoff(1000, new Attempt() {
+                public void checkCondition() {
+                    int serversSeen = 0;
+                    // Now verify that we have gossiped correctly
+                    for (VoldemortServer server: servers) {
+                        Cluster clusterAtServer = server.getMetadataStore().getCluster();
+                        int nodeId = server.getMetadataStore().getNodeId();
+                        assertEquals("server " + nodeId + " has heard " +
+                                " the gossip about number of nodes", clusterAtServer.getNumberOfNodes(),
+                                newCluster.getNumberOfNodes());
+                        assertEquals("server " + nodeId + " has heard " + " the gossip about partitions",
+                                clusterAtServer.getNodeById(nodeId).getPartitionIds(),
+                                newCluster.getNodeById(nodeId).getPartitionIds());
+                        serversSeen++;
+                    }
+                    assertEquals("saw all servers", serversSeen, servers.size());
+                }
+            });
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        } finally {
+        }
+        finally {
             for (Gossiper gossiper: gossipers)
                 gossiper.stop();
         }
-        assertEquals("saw all servers", serversSeen, servers.size());
     }
 }

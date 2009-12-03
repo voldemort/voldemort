@@ -116,7 +116,6 @@ public class TestUtils {
     /**
      * Create a string with some random letters
      * 
-     * @param SEEDED_RANDOM The Random number generator to use
      * @param length The length of the string to create
      * @return The string
      */
@@ -273,7 +272,6 @@ public class TestUtils {
      * @param cluster
      * @param data
      * @param baseDir
-     * @param TEST_SIZE
      * @return the directory where the index is created
      * @throws Exception
      */
@@ -378,4 +376,31 @@ public class TestUtils {
         }
     }
 
+    public static void assertWithBackoff(long timeout, Attempt attempt) throws Exception {
+        assertWithBackoff(30, timeout, attempt);
+    }
+
+    public static void assertWithBackoff(long initialDelay, long timeout, Attempt attempt) throws Exception {
+        long delay = initialDelay;
+        long finishBy = System.currentTimeMillis() + timeout;
+
+        while (true) {
+            try {
+                attempt.checkCondition();
+                return;
+            } catch (AssertionFailedError e) {
+                if (System.currentTimeMillis() < finishBy) {
+                    try {
+                        Thread.sleep(delay);
+                        delay <<= 1;
+                    } catch (InterruptedException ie) {
+                        throw new RuntimeException(ie);
+                    }
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+    }
 }
