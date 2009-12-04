@@ -5,13 +5,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 
 public class RebalanceUtils {
+
+    private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
     /**
      * Compares the currentCluster configuration with the desired
@@ -129,4 +135,102 @@ public class RebalanceUtils {
         return true;
     }
 
+    public static Cluster updateAndPropagateCluster(AdminClient adminClient,
+                                                    Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo) {
+        synchronized(adminClient) {
+            if(!containsNode(adminClient.getCluster(), rebalanceNodeInfo.getFirst())) {
+                throw new VoldemortException("StealerNodeId:" + rebalanceNodeInfo.getFirst()
+                                             + " not present in the currentCluster:"
+                                             + adminClient.getCluster());
+            }
+
+            List<Integer> stealerPartitionList = new ArrayList<Integer>(adminClient.getCluster()
+                                                                                   .getNodeById(rebalanceNodeInfo.getFirst())
+                                                                                   .getPartitionIds());
+            stealerPartitionList.addAll(rebalanceNodeInfo.getSecond().getPartitionList());
+            Node stealerNode = updatePartitionList(adminClient.getCluster()
+                                                              .getNodeById(rebalanceNodeInfo.getFirst()),
+                                                   stealerPartitionList);
+
+            List<Integer> donorPartitionList = new ArrayList<Integer>(adminClient.getCluster()
+                                                                                 .getNodeById(rebalanceNodeInfo.getSecond()
+                                                                                                               .getDonorId())
+                                                                                 .getPartitionIds());
+            stealerPartitionList.removeAll(rebalanceNodeInfo.getSecond().getPartitionList());
+            Node donorNode = updatePartitionList(adminClient.getCluster()
+                                                            .getNodeById(rebalanceNodeInfo.getSecond()
+                                                                                          .getDonorId()),
+                                                 donorPartitionList);
+
+            List<Node> currentNodeList = new ArrayList<Node>(adminClient.getCluster().getNodes());
+            // node equals method uses id match only
+            currentNodeList.remove(stealerNode);
+            currentNodeList.remove(donorNode);
+
+            currentNodeList.add(stealerNode);
+            currentNodeList.add(donorNode);
+
+            Cluster currentCluster = new Cluster(adminClient.getCluster().getName(),
+                                                 currentNodeList);
+            propagateCluster(currentCluster, adminClient);
+            return currentCluster;
+        }
+    }
+
+    private static Node updatePartitionList(Node node, List<Integer> partitionsList) {
+        return new Node(node.getId(),
+                        node.getHost(),
+                        node.getHttpPort(),
+                        node.getSocketPort(),
+                        node.getAdminPort(),
+                        partitionsList,
+                        node.getStatus());
+    }
+
+    public static void propagateCluster(Cluster currentCluster, AdminClient adminClient) {
+        AtomicInteger failures = new AtomicInteger(0);
+        for(Node node: currentCluster.getNodes()) {
+            try {
+                adminClient.updateRemoteCluster(node.getId(), currentCluster);
+            } catch(VoldemortException e) {
+                logger.warn("Failed to copy new cluster.xml(" + currentCluster
+                            + ") to remote node:" + node, e);
+                failures.incrementAndGet();
+            }
+        }
+
+        if(failures.get() == currentCluster.getNumberOfNodes())
+            throw new VoldemortException("Failed to propagate new cluster.xml(" + currentCluster
+                                         + ") to any node");
+    }
+
+    /**
+     * Pick and remove the RebalanceStealInfo from the List<RebalanceStealInfo>
+     * tail for the given stealerNodeId<br>
+     * Deletes the entire key from map if the resultant list becomes empty.
+     * 
+     * @param stealPartitionsMap
+     * @return
+     */
+    public static Pair<Integer, RebalanceStealInfo> getOneStealInfoAndupdateStealMap(int stealerNodeId,
+                                                                                     Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
+        synchronized(stealPartitionsMap) {
+            List<RebalanceStealInfo> stealInfoList = stealPartitionsMap.get(stealerNodeId);
+            int stealInfoIndex = stealInfoList.size() - 1;
+            RebalanceStealInfo stealInfo = stealInfoList.get(stealInfoIndex);
+            stealInfoList.remove(stealInfoIndex);
+
+            if(stealInfoList.isEmpty()) {
+                stealPartitionsMap.remove(stealerNodeId);
+            }
+
+            return new Pair<Integer, RebalanceStealInfo>(stealerNodeId, stealInfo);
+        }
+    }
+
+    public static int getRandomStealerNodeId(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
+        int size = stealPartitionsMap.keySet().size();
+        int randomIndex = (int) (Math.random() * size);
+        return stealPartitionsMap.keySet().toArray(new Integer[0])[randomIndex];
+    }
 }

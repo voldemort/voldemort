@@ -72,9 +72,11 @@ public class RebalanceClient {
         logger.info("Rebalancing plan:\n"
                     + RebalanceUtils.getStealPartitionsMapAsString(stealPartitionsMap));
 
+        // rebalancing lock for each node
         final Map<Integer, AtomicBoolean> nodeLock = new HashMap<Integer, AtomicBoolean>();
-        final List<Exception> failures = new ArrayList<Exception>();
+        // semaphore to control total number of rebalancing in parallel
         final Semaphore semaphore = new Semaphore(config.getMaxParallelRebalancingNodes());
+        final List<Exception> failures = new ArrayList<Exception>();
 
         // initialize nodeLocks
         for(int stealerNode: stealPartitionsMap.keySet()) {
@@ -87,22 +89,30 @@ public class RebalanceClient {
                 public void run() {
                     if(acquireSemaphore(semaphore)) {
                         try {
-                            int stealerNodeId = getRandomStealerNodeId(stealPartitionsMap);
-                            if(nodeLock.get(stealerNodeId).compareAndSet(false, true)) {
-                                Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo = getOneStealInfoAndupdateStealMap(stealerNodeId,
-                                                                                                                       stealPartitionsMap);
+                            int stealerNodeId = RebalanceUtils.getRandomStealerNodeId(stealPartitionsMap);
 
+                            if(nodeLock.get(stealerNodeId).compareAndSet(false, true)) {
+                                // get one set of partitions to transfer
+                                Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo = RebalanceUtils.getOneStealInfoAndupdateStealMap(stealerNodeId,
+                                                                                                                                      stealPartitionsMap);
+                                // update cluster.xml and tell all Nodes
+                                adminClient.setCluster(RebalanceUtils.updateAndPropagateCluster(adminClient,
+                                                                                                rebalanceNodeInfo));
+                                // attempt data transfer untill succeed or fail
                                 attemptOneRebalanceTransfer(rebalanceNodeInfo.getFirst(),
                                                             rebalanceNodeInfo.getSecond());
+
+                                // free rebalancing lock for this node.
                                 nodeLock.get(stealerNodeId).set(false);
                             }
                         } catch(Exception e) {
                             failures.add(e);
                         } finally {
                             semaphore.release();
+                            logger.debug("rebalancing semaphore released.");
                         }
                     } else {
-                        failures.add(new VoldemortException("Failed to get rebalance task permit."));
+                        logger.warn(new VoldemortException("Failed to get rebalance task permit."));
                     }
                 }
 
@@ -133,37 +143,6 @@ public class RebalanceClient {
                                                  + " partitions:" + stealInfo.getPartitionList()
                                                  + ")");
                 }
-
-                /**
-                 * Pick and remove the RebalanceStealInfo from the
-                 * List<RebalanceStealInfo> tail for the given stealerNodeId<br>
-                 * Deletes the entire key from map if the resultant list becomes
-                 * empty.
-                 * 
-                 * @param stealPartitionsMap
-                 * @return
-                 */
-                private Pair<Integer, RebalanceStealInfo> getOneStealInfoAndupdateStealMap(int stealerNodeId,
-                                                                                           Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
-                    synchronized(stealPartitionsMap) {
-                        List<RebalanceStealInfo> stealInfoList = stealPartitionsMap.get(stealerNodeId);
-                        int stealInfoIndex = stealInfoList.size() - 1;
-                        RebalanceStealInfo stealInfo = stealInfoList.get(stealInfoIndex);
-                        stealInfoList.remove(stealInfoIndex);
-
-                        if(stealInfoList.isEmpty()) {
-                            stealPartitionsMap.remove(stealerNodeId);
-                        }
-
-                        return new Pair<Integer, RebalanceStealInfo>(stealerNodeId, stealInfo);
-                    }
-                }
-
-                private int getRandomStealerNodeId(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
-                    int size = stealPartitionsMap.keySet().size();
-                    int randomIndex = (int) (Math.random() * size);
-                    return stealPartitionsMap.keySet().toArray(new Integer[0])[randomIndex];
-                }
             });
         }
 
@@ -171,7 +150,9 @@ public class RebalanceClient {
 
     private boolean acquireSemaphore(Semaphore semaphore) {
         try {
+            logger.debug("Request to acquire rebalancing semaphore.");
             semaphore.acquire();
+            logger.debug("rebalancing semaphore acquired.");
             return true;
         } catch(InterruptedException e) {
             // ignore
