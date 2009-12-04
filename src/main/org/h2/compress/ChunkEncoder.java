@@ -5,6 +5,8 @@ package org.h2.compress;
  * Resulting chunks can be compressed or non-compressed; compression
  * is only used if it actually reduces chunk size (including overhead
  * of additional header bytes)
+ *<p>
+ * Code based on H2 Java LZF implementation.
  * 
  * @author Tatu Saloranta
  */
@@ -53,19 +55,17 @@ public class ChunkEncoder
      */
     public LZFChunk encodeChunk(byte[] data, int offset, int len)
     {
-        // sanity check: no need to check tiniest of blocks
-        if (len < MIN_BLOCK_TO_COMPRESS) {
-            return LZFChunk.createNonCompressed(data, offset, len);
+        if (len >= MIN_BLOCK_TO_COMPRESS) {
+            /* If we have non-trivial block, and can compress it by at least
+             * 2 bytes (since header is 2 bytes longer), let's compress:
+             */
+            int compLen = tryCompress(data, offset, offset+len, _encodeBuffer, 0);
+            if (compLen < (len-2)) { // nah; just return uncompressed
+                return LZFChunk.createCompressed(len, _encodeBuffer, 0, compLen);
+            }
         }
-        /* And then see if we can compress the block by 2 bytes (since header is
-         * 2 bytes longer)
-         */
-        int compLen = tryCompress(data, offset, offset+len, _encodeBuffer, 0);
-        if (compLen > (len-2)) { // nah; just return uncompressed
-            return LZFChunk.createNonCompressed(data, offset, len);
-        }
-        // yes, worth the trouble:
-        return LZFChunk.createCompressed(len, _encodeBuffer, 0, compLen);
+        // Otherwise leave uncompressed:
+        return LZFChunk.createNonCompressed(data, offset, len);
     }
     
     private static int calcHashLen(int chunkSize)
@@ -107,6 +107,7 @@ public class ChunkEncoder
         outPos++;
         int hash = first(in, 0);
         inEnd -= 4;
+        final int firstPos = inPos; // so that we won't have back references across block boundary
         while (inPos < inEnd) {
             byte p2 = in[inPos + 2];
             // next
@@ -115,7 +116,7 @@ public class ChunkEncoder
             int ref = _hashTable[off];
             _hashTable[off] = inPos;
             if (ref < inPos
-                        && ref > 0
+                        && ref >= firstPos
                         && (off = inPos - ref - 1) < MAX_OFF
                         && in[ref + 2] == p2
                         && in[ref + 1] == (byte) (hash >> 8)

@@ -5,6 +5,8 @@ import java.io.IOException;
 /**
  * Decoder that handles decoding of sequence of encoded LZF chunks,
  * combining them into a single contiguous result byte array
+ *<p>
+ * Code based on H2 Java LZF implementation.
  * 
  * @author Tatu Saloranta
  */

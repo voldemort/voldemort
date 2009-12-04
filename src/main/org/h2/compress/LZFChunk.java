@@ -56,7 +56,7 @@ public class LZFChunk
         result[2] = BLOCK_TYPE_NON_COMPRESSED;
         result[3] = (byte) (len >> 8);
         result[4] = (byte) len;
-        System.arraycopy(plainData, 0, result, 5, len);
+        System.arraycopy(plainData, ptr, result, 5, len);
         return new LZFChunk(result);
     }
     

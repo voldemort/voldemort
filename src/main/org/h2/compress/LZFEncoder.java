@@ -6,6 +6,8 @@ import java.io.IOException;
  * Encoder that handles splitting of input into chunks to encode,
  * calls {@link ChunkEncoder} to compress individual chunks and
  * combines resulting chunks into contiguous output byte array.
+ *<p>
+ * Code based on H2 Java LZF implementation.
  * 
  * @author tsaloranta@gmail.com
  */
