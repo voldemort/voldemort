@@ -1,38 +1,20 @@
 package org.h2.compress;
 
-import java.io.*;
+import java.io.IOException;
 
-/**
- * Simple non-streaming compressor that can compress and uncompress
- * blocks of varying sizes efficiently.
- */
-public final class LZFBlockCodec
+public class LZFDecoder
 {
-    private static final int HASH_SIZE = (1 << 14); // 16k
-    private static final int MAX_LITERAL = 1 << 5; // 32
-    private static final int MAX_OFF = 1 << 13; // 8k
-    private static final int MAX_REF = (1 << 8) + (1 << 3); // 264
+    final static byte BYTE_NULL = 0;    
 
-    final static byte BYTE_NULL = 0;
-
-    final static byte BYTE_Z = 'Z';
-    final static byte BYTE_V = 'V';
-
-    final static int BLOCK_TYPE_UNCOMPRESSED = 0;
-    final static int BLOCK_TYPE_COMPRESSED = 1;
-
-    public LZFBlockCodec() { }
-
-    // // // Compress:
-
-    // // // Decompress:
-
+    // static methods, no need to instantiate
+    private LZFDecoder() { }
+    
     /**
      * Method for decompressing whole input data, which encoded in LZF
      * block structure (compatible with lzf command line utility),
      * and can consist of any number of blocks
      */
-    public byte[] decompress(byte[] data) throws IOException
+    public static byte[] decompress(byte[] data) throws IOException
     {
         /* First: let's calculate actual size, so we can allocate
          * exact result size. Also useful for basic sanity checking;
@@ -48,7 +30,7 @@ public final class LZFBlockCodec
             int type = data[inPtr++];
             int len = uint16(data, inPtr);
             inPtr += 2;
-            if (type == BLOCK_TYPE_UNCOMPRESSED) { // uncompressed
+            if (type == LZFChunk.BLOCK_TYPE_NON_COMPRESSED) { // uncompressed
                 System.arraycopy(data, inPtr, result, outPtr, len);
                 outPtr += len;
             } else { // compressed
@@ -62,6 +44,47 @@ public final class LZFBlockCodec
         return result;
     }
 
+    private static int calculateUncompressedSize(byte[] data) throws IOException
+    {
+        int uncompressedSize = 0;
+        int ptr = 0;
+        int blockNr = 0;
+
+        while (ptr < data.length) {
+            // can use optional end marker
+            if (ptr == (data.length + 1) && data[ptr] == BYTE_NULL) {
+                ++ptr; // so that we'll be at end
+                break;
+            }
+            // simpler to handle bounds checks by catching exception here...
+            try {
+                if (data[ptr] != LZFChunk.BYTE_Z || data[ptr+1] != LZFChunk.BYTE_V) {
+                    throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): did not start with 'ZV' signature bytes");
+                }
+                int type = (int) data[ptr+2];
+                int blockLen = uint16(data, ptr+3);
+                if (type == LZFChunk.BLOCK_TYPE_NON_COMPRESSED) { // uncompressed
+                    ptr += 5;
+                    uncompressedSize += blockLen;
+                } else if (type == LZFChunk.BLOCK_TYPE_COMPRESSED) { // compressed
+                    uncompressedSize += uint16(data, ptr+5);
+                    ptr += 7;
+                } else { // unknown... CRC-32 would be 2, but that's not implemented by cli tool
+                    throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): unrecognized block type "+(type & 0xFF));
+                }
+                ptr += blockLen;
+            } catch (ArrayIndexOutOfBoundsException e) {
+                throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): truncated block header");
+            }
+            ++blockNr;
+        }
+        // one more sanity check:
+        if (ptr != data.length) {
+            throw new IOException("Corrupt input data: block #"+blockNr+" extends "+(data.length - ptr)+" beyond end of input");
+        }
+        return uncompressedSize;
+    }
+
     /**
      * Main decompress method for individual blocks/chunks.
      */
@@ -70,8 +93,7 @@ public final class LZFBlockCodec
     {
         do {
             int ctrl = in[inPos++] & 255;
-            if (ctrl < MAX_LITERAL) {
-                // literal run
+            if (ctrl < MAX_LITERAL) { // literal run
                 ctrl += inPos;
                 do {
                     out[outPos++] = in[inPos];
@@ -106,54 +128,9 @@ public final class LZFBlockCodec
         // sanity check to guard against corrupt data:
         if (outPos != outEnd) throw new IOException("Corrupt data: overrun in decompress, input offset "+inPos+", output offset "+outPos);
     }
-
-    // // // Helper methods
-
-    private int calculateUncompressedSize(byte[] data) throws IOException
-    {
-        int uncompressedSize = 0;
-        int ptr = 0;
-        int blockNr = 0;
-
-        while (ptr < data.length) {
-            // can use optional end marker
-            if (ptr == (data.length + 1) && data[ptr] == BYTE_NULL) {
-                ++ptr; // so that we'll be at end
-                break;
-            }
-            // simpler to handle bounds checks by catching exception here...
-            try {
-                if (data[ptr] != BYTE_Z || data[ptr+1] != BYTE_V) {
-                    throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): did not start with 'ZV' signature bytes");
-                }
-                int type = (int) data[ptr+2];
-                int blockLen = uint16(data, ptr+3);
-                if (type == BLOCK_TYPE_UNCOMPRESSED) { // uncompressed
-                    ptr += 5;
-                    uncompressedSize += blockLen;
-                } else if (type == BLOCK_TYPE_COMPRESSED) { // compressed
-                    uncompressedSize += uint16(data, ptr+5);
-                    ptr += 7;
-                } else { // unknown... CRC-32 would be 2, but that's not implemented by cli tool
-                    throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): unrecognized block type "+(type & 0xFF));
-                }
-                ptr += blockLen;
-            } catch (ArrayIndexOutOfBoundsException e) {
-                throw new IOException("Corrupt input data, block #"+blockNr+" (at offset "+ptr+"): truncated block header");
-            }
-            ++blockNr;
-        }
-        // one more sanity check:
-        if (ptr != data.length) {
-            throw new IOException("Corrupt input data: block #"+blockNr+" extends "+(data.length - ptr)+" beyond end of input");
-        }
-        return uncompressedSize;
-    }
-
+    
     private static int uint16(byte[] data, int ptr)
     {
         return ((data[ptr] & 0xFF) << 8) + (data[ptr+1] & 0xFF);
-    }
-    
+    }    
 }
-   

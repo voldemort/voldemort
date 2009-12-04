@@ -1,7 +1,8 @@
 package org.h2.compress;
 
 /**
- * Helper class used to store encoded (or at least stored) segments
+ * Helper class used to store LZF encoded segments (compressed and non-compressed)
+ * that can be sequenced to produce LZF files/streams.
  */
 public class LZFChunk
 {
