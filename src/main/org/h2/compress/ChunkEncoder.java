@@ -1,5 +1,13 @@
 package org.h2.compress;
 
+/**
+ * Class that handles actual encoding of individual chunks.
+ * Resulting chunks can be compressed or non-compressed; compression
+ * is only used if it actually reduces chunk size (including overhead
+ * of additional header bytes)
+ * 
+ * @author Tatu Saloranta
+ */
 public class ChunkEncoder
 {
     // Beyond certain point we won't be able to compress:

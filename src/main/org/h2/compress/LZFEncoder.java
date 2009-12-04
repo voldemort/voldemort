@@ -4,8 +4,8 @@ import java.io.IOException;
 
 /**
  * Encoder that handles splitting of input into chunks to encode,
- * uses {@link ChunkEncoder} to compress individual chunks and
- * combines resulting chunks into contiguous output byte array
+ * calls {@link ChunkEncoder} to compress individual chunks and
+ * combines resulting chunks into contiguous output byte array.
  * 
  * @author tsaloranta@gmail.com
  */
@@ -17,7 +17,7 @@ public class LZFEncoder
     /**
      * Method for compressing given input data using LZF encoding and
      * block structure (compatible with lzf command line utility).
-     * Result consists of sequence of chunks.
+     * Result consists of a sequence of chunks.
      */
     public static byte[] compress(byte[] data) throws IOException
     {

@@ -2,6 +2,12 @@ package org.h2.compress;
 
 import java.io.IOException;
 
+/**
+ * Decoder that handles decoding of sequence of encoded LZF chunks,
+ * combining them into a single contiguous result byte array
+ * 
+ * @author Tatu Saloranta
+ */
 public class LZFDecoder
 {
     final static byte BYTE_NULL = 0;    
@@ -36,7 +42,7 @@ public class LZFDecoder
             } else { // compressed
                 int uncompLen = uint16(data, inPtr);
                 inPtr += 2;
-                decompressBlock(data, inPtr, result, outPtr, outPtr+uncompLen);
+                decompressChunk(data, inPtr, result, outPtr, outPtr+uncompLen);
                 outPtr += uncompLen;
             }
             inPtr += len;
@@ -86,9 +92,9 @@ public class LZFDecoder
     }
 
     /**
-     * Main decompress method for individual blocks/chunks.
+     * Main decode method for individual chunks.
      */
-    public static void decompressBlock(byte[] in, int inPos, byte[] out, int outPos, int outEnd)
+    public static void decompressChunk(byte[] in, int inPos, byte[] out, int outPos, int outEnd)
         throws IOException
     {
         do {
