@@ -83,6 +83,7 @@ message InitiateRebalanceNodeRequest {
   required int32 donor_id = 1;
   repeated int32 partitions = 2;
   required int32 attempt = 3;
+  required string store = 4;
 }
 
 message AsyncOperationStatusResponse {
