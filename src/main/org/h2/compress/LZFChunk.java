@@ -6,12 +6,21 @@ package org.h2.compress;
  */
 public class LZFChunk
 {
+    /**
+     * Maximum length of literal run for LZF encoding.
+     */
+    public static final int MAX_LITERAL = 1 << 5; // 32
+
+    // Chunk length is limited by 2-byte length indicator, to 64k
+    public static final int MAX_CHUNK_LEN = 0xFFFF;
+
     public final static byte BYTE_Z = 'Z';
     public final static byte BYTE_V = 'V';
 
     public final static int BLOCK_TYPE_NON_COMPRESSED = 0;
     public final static int BLOCK_TYPE_COMPRESSED = 1;
 
+    
     final byte[] _data;
     LZFChunk _next;
 
@@ -53,6 +62,7 @@ public class LZFChunk
 
     public LZFChunk next() { return _next; }
     public int length() { return _data.length; }
+    public byte[] getData() { return _data; }
 
     public int copyTo(byte[] dst, int ptr) {
         int len = _data.length;

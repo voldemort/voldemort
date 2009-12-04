@@ -34,6 +34,10 @@ public class ChunkEncoder
         int hashLen = calcHashLen(largestChunkLen);
         _hashTable = new int[hashLen];
         _hashModulo = hashLen-1;
+        // Ok, then, what's the worst case output buffer length?
+        // length indicator for each 32 literals, so:
+        int bufferLen = largestChunkLen + ((largestChunkLen + 31) >> 5);
+        _encodeBuffer = new byte[bufferLen];
     }
 
     /**
@@ -44,12 +48,6 @@ public class ChunkEncoder
         // sanity check: no need to check tiniest of blocks
         if (len < MIN_BLOCK_TO_COMPRESS) {
             return LZFChunk.createNonCompressed(data, offset, len);
-        }
-        // Ok, then, what's the worst case output buffer length?
-        // length indicator for each 32 literals, so:
-        int bufferLen = len + ((len + 31) >> 5);
-        if (_encodeBuffer == null || _encodeBuffer.length < bufferLen) {
-            _encodeBuffer = new byte[bufferLen];
         }
         /* And then see if we can compress the block by 2 bytes (since header is
          * 2 bytes longer)

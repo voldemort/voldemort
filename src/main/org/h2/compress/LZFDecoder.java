@@ -93,7 +93,7 @@ public class LZFDecoder
     {
         do {
             int ctrl = in[inPos++] & 255;
-            if (ctrl < MAX_LITERAL) { // literal run
+            if (ctrl < LZFChunk.MAX_LITERAL) { // literal run
                 ctrl += inPos;
                 do {
                     out[outPos++] = in[inPos];
