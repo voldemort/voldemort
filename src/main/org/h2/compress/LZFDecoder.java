@@ -20,7 +20,7 @@ public class LZFDecoder
      * block structure (compatible with lzf command line utility),
      * and can consist of any number of blocks
      */
-    public static byte[] decompress(byte[] data) throws IOException
+    public static byte[] decode(byte[] data) throws IOException
     {
         /* First: let's calculate actual size, so we can allocate
          * exact result size. Also useful for basic sanity checking;

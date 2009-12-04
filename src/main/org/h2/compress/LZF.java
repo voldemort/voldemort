@@ -30,7 +30,7 @@ public class LZF
                 }
                 byte[] data = readData(src);
                 System.out.println("Read "+data.length+" bytes.");
-                byte[] result = compress ? LZFEncoder.compress(data) : LZFDecoder.decompress(data);
+                byte[] result = compress ? LZFEncoder.encode(data) : LZFDecoder.decode(data);
                 System.out.println("Processed into "+result.length+" bytes.");
                 File resultFile =  compress ? new File(filename+SUFFIX) : new File(filename.substring(0, filename.length() - SUFFIX.length()));
                 FileOutputStream out = new FileOutputStream(resultFile);

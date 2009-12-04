@@ -19,11 +19,11 @@ public class LZFEncoder
      * block structure (compatible with lzf command line utility).
      * Result consists of a sequence of chunks.
      */
-    public static byte[] compress(byte[] data) throws IOException
+    public static byte[] encode(byte[] data) throws IOException
     {
         int left = data.length;
         ChunkEncoder enc = new ChunkEncoder(left);
-        int chunkLen = Math.max(LZFChunk.MAX_CHUNK_LEN, left);
+        int chunkLen = Math.min(LZFChunk.MAX_CHUNK_LEN, left);
         LZFChunk first = enc.encodeChunk(data, 0, chunkLen);
         left -= chunkLen;
         // shortcut: if it all fit in, no need to coalesce:
