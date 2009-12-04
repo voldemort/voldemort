@@ -295,7 +295,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                               new RebalanceClientConfig());
 
         try {
-            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getDonorId(),
+            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStore(),
+                                                                           request.getDonorId(),
                                                                            request.getPartitionsList(),
                                                                            request.getAttempt());
             int requestId = rebalanceClient.rebalancePartitionAtNode(metadataStore,

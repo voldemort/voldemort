@@ -38,5 +38,5 @@ public abstract class AsyncOperation implements Runnable {
         markComplete();
     }
 
-    abstract public void operate();
+    abstract public void operate() throws Exception;
 }
