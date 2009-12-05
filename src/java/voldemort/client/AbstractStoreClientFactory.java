@@ -76,9 +76,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
 
-    private static final ClusterMapper clusterMapper = new ClusterMapper();
+    protected static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
-    private static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
+    protected static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
     private final URI[] bootstrapUrls;
     private final int routingTimeoutMs;
@@ -88,7 +88,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
-    protected final FailureDetector failureDetector;
+    protected FailureDetector failureDetector;
     private final int maxBootstrapRetries;
 
     public AbstractStoreClientFactory(ClientConfig config) {
@@ -107,8 +107,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         registerThreadPoolJmx(threadPool);
-
-        failureDetector = initFailureDetector(config);
     }
 
     private void registerThreadPoolJmx(ExecutorService threadPool) {
@@ -229,6 +227,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         throw new BootstrapFailureException("No available boostrap servers found!");
     }
 
+    public String bootstrapMetadataWithRetries(String key) {
+        return bootstrapMetadataWithRetries(key, bootstrapUrls);
+    }
+
     private String bootstrapMetadata(String key, URI[] urls) {
         for(URI url: urls) {
             try {
@@ -284,8 +286,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          String host,
                                                          int port,
                                                          RequestFormatType type);
-
-    protected abstract FailureDetector initFailureDetector(ClientConfig config);
 
     protected abstract int getPort(Node node);
 

@@ -65,7 +65,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         isRunning = true;
 
-        recoveryThread = new Thread(this);
+        recoveryThread = new Thread(this, "AsyncRecoveryFailureDetector");
         recoveryThread.setDaemon(true);
         recoveryThread.start();
     }
@@ -105,7 +105,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                     logger.info("Sleeping for " + getConfig().getNodeBannagePeriod()
                                 + " ms before checking node availability");
                 }
-                getConfig().getTime().sleep(getConfig().getNodeBannagePeriod());
+                Thread.sleep(getConfig().getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }

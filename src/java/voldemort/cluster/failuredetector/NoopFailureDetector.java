@@ -49,6 +49,14 @@ public class NoopFailureDetector implements FailureDetector {
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {}
 
+    public int getAvailableNodeCount() {
+        return -1;
+    }
+
+    public int getNodeCount() {
+        return -1;
+    }
+
     public void destroy() {}
 
 }

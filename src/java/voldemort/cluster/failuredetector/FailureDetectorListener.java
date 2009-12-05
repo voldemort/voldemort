@@ -18,10 +18,26 @@ package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
 
+/**
+ * FailureDetectorListener is a simple means by which interested parties can
+ * listen for changes to the availability of nodes.
+ * 
+ * <p/>
+ * 
+ * <b>Note for implementors</b>: Make sure that the FailureDetectorListener
+ * implementation properly implements the hashCode/equals methods to ensure
+ * adding and removing instances from the FailureDetector work as expected.
+ * 
+ * @author Kirk True
+ * 
+ * @see FailureDetector#addFailureDetectorListener
+ * @see FailureDetector#removeFailureDetectorListener
+ */
+
 public interface FailureDetectorListener {
 
-    public void nodeOffline(Node node);
+    public void nodeUnavailable(Node node);
 
-    public void nodeOnline(Node node);
+    public void nodeAvailable(Node node);
 
 }

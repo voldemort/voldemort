@@ -16,12 +16,12 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.Collection;
 import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 
 /**
  * BasicFailureDetectorConfig simply holds all the data that was available to it
@@ -37,18 +37,18 @@ public class BasicFailureDetectorConfig implements FailureDetectorConfig {
 
     private final long nodeBannagePeriod;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Collection<Node> nodes;
 
-    private final Time time;
+    private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
     public BasicFailureDetectorConfig(String implementationClassName,
                                       long nodeBannagePeriod,
-                                      Map<Integer, Store<ByteArray, byte[]>> stores,
-                                      Time time) {
+                                      Collection<Node> nodes,
+                                      Map<Integer, Store<ByteArray, byte[]>> stores) {
         this.implementationClassName = implementationClassName;
         this.nodeBannagePeriod = nodeBannagePeriod;
+        this.nodes = nodes;
         this.stores = stores;
-        this.time = time;
     }
 
     public String getImplementationClassName() {
@@ -59,12 +59,12 @@ public class BasicFailureDetectorConfig implements FailureDetectorConfig {
         return nodeBannagePeriod;
     }
 
-    public Store<ByteArray, byte[]> getStore(Node node) {
-        return stores.get(node.getId());
+    public Collection<Node> getNodes() {
+        return nodes;
     }
 
-    public Time getTime() {
-        return time;
+    public Store<ByteArray, byte[]> getStore(Node node) {
+        return stores.get(node.getId());
     }
 
 }

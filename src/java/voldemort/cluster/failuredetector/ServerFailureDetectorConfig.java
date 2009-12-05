@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,8 +26,6 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 /**
  * ServerFailureDetectorConfig is used to retrieve configuration data for a
@@ -43,21 +42,16 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
     private final StoreRepository storeRepository;
 
+    private final Collection<Node> nodes;
+
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
-
-    private final Time time;
-
-    public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
-                                       StoreRepository storeRepository) {
-        this(voldemortConfig, storeRepository, SystemTime.INSTANCE);
-    }
 
     public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
                                        StoreRepository storeRepository,
-                                       Time time) {
+                                       Collection<Node> nodes) {
         this.voldemortConfig = voldemortConfig;
         this.storeRepository = storeRepository;
-        this.time = time;
+        this.nodes = nodes;
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
@@ -67,6 +61,10 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
     public long getNodeBannagePeriod() {
         return voldemortConfig.getClientNodeBannageMs();
+    }
+
+    public Collection<Node> getNodes() {
+        return nodes;
     }
 
     public Store<ByteArray, byte[]> getStore(Node node) {
@@ -85,10 +83,6 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
             return store;
         }
-    }
-
-    public Time getTime() {
-        return time;
     }
 
 }

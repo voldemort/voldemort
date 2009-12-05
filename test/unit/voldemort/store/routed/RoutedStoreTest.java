@@ -59,8 +59,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -81,7 +79,6 @@ import com.google.common.collect.Maps;
 public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     private Cluster cluster;
-    private Time time;
     private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
     private final Class<FailureDetector> failureDetectorClass;
@@ -96,7 +93,6 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     public void setUp() throws Exception {
         super.setUp();
         cluster = getNineNodeCluster();
-        time = SystemTime.INSTANCE;
     }
 
     @Override
@@ -697,14 +693,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertEquals("Number of operational nodes not what was expected.", expected, found);
     }
 
-    private void setFailureDetector(final Map<Integer, Store<ByteArray, byte[]>> subStores)
+    private void setFailureDetector(Map<Integer, Store<ByteArray, byte[]>> subStores)
             throws Exception {
         // Destroy any previous failure detector before creating the next one
         // (the final one is destroyed in tearDown).
         if(failureDetector != null)
             failureDetector.destroy();
 
-        failureDetector = createFailureDetector(failureDetectorClass, subStores, time);
+        failureDetector = createFailureDetector(failureDetectorClass, cluster.getNodes(), subStores);
     }
 
 }

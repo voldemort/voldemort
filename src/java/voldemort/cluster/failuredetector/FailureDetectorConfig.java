@@ -16,12 +16,13 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.Collection;
+
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 
 /**
  * FailureDetectorConfig abstracts away the complexities of configuring the
@@ -62,6 +63,16 @@ public interface FailureDetectorConfig {
     public long getNodeBannagePeriod();
 
     /**
+     * Returns a list of nodes in the cluster represented by this failure
+     * detector configuration.
+     * 
+     * @return Collection of Node instances, usually determined from the Cluster
+     *         object (except in the case of unit tests, perhaps)
+     */
+
+    public Collection<Node> getNodes();
+
+    /**
      * Returns a Store for this node. This is used by some FailureDetector
      * implementations to attempt contact with the node before marking said node
      * as available.
@@ -72,7 +83,5 @@ public interface FailureDetectorConfig {
      */
 
     public Store<ByteArray, byte[]> getStore(Node node);
-
-    public Time getTime();
 
 }

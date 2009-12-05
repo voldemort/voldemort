@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -26,8 +27,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 /**
  * ClientFailureDetectorConfig is used to retrieve configuration data for a
@@ -44,17 +43,13 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
 
     protected final ClientConfig clientConfig;
 
-    protected final Time time;
+    protected final Collection<Node> nodes;
 
     protected final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    protected ClientFailureDetectorConfig(ClientConfig clientConfig) {
-        this(clientConfig, SystemTime.INSTANCE);
-    }
-
-    protected ClientFailureDetectorConfig(ClientConfig clientConfig, Time time) {
+    protected ClientFailureDetectorConfig(ClientConfig clientConfig, Collection<Node> nodes) {
         this.clientConfig = clientConfig;
-        this.time = time;
+        this.nodes = nodes;
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
@@ -64,6 +59,10 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
 
     public long getNodeBannagePeriod() {
         return clientConfig.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
+    }
+
+    public Collection<Node> getNodes() {
+        return nodes;
     }
 
     public Store<ByteArray, byte[]> getStore(Node node) {
@@ -77,10 +76,6 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
 
             return store;
         }
-    }
-
-    public Time getTime() {
-        return time;
     }
 
     protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);

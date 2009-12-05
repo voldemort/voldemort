@@ -398,11 +398,12 @@ public class ClientConfig {
         return maxBootstrapRetries;
     }
 
-    public void setMaxBootstrapRetries(int maxBootstrapRetries) {
+    public ClientConfig setMaxBootstrapRetries(int maxBootstrapRetries) {
         if(maxBootstrapRetries < 1)
             throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
 
         this.maxBootstrapRetries = maxBootstrapRetries;
+        return this;
     }
 
 }

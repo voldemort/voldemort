@@ -16,7 +16,9 @@
 
 package voldemort.client;
 
+import java.io.StringReader;
 import java.net.URI;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
@@ -31,6 +33,7 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -81,6 +84,11 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                config.getMaxConnectionsPerNode());
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
+
+        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+
+        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -96,9 +104,9 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                              reroute);
     }
 
-    @Override
-    protected FailureDetector initFailureDetector(final ClientConfig config) {
-        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config) {
+    protected FailureDetector initFailureDetector(final ClientConfig config,
+                                                  final Collection<Node> nodes) {
+        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config, nodes) {
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {

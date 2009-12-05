@@ -139,13 +139,104 @@ public interface FailureDetector {
 
     public void recordSuccess(Node node);
 
+    /**
+     * Allows the calling thread to block until the given node is marked as
+     * available. If the node is already available, this method simply exits.
+     * 
+     * @param node Node for which to wait for availability
+     * 
+     * @throws InterruptedException Thrown if the thread blocked is interrupted
+     */
+
     public void waitFor(Node node) throws InterruptedException;
+
+    /**
+     * Adds a FailureDetectorListener instance that can receive event callbacks
+     * about node availability state changes.
+     * 
+     * <p/>
+     * 
+     * <b>Notes</b>:
+     * <ol>
+     * <li>Make sure to clean up the listener by invoking
+     * removeFailureDetectorListener
+     * <li>Make sure that the FailureDetectorListener implementation properly
+     * implements the hashCode/equals methods
+     * <ol>
+     * 
+     * <p/>
+     * 
+     * <b>Note for implementors</b>: When adding a FailureDetectorListener that
+     * has already been added, this should not add a second instance but should
+     * effectively be a no-op.
+     * 
+     * @param failureDetectorListener FailureDetectorListener that receives
+     *        events
+     * 
+     * @see #removeFailureDetectorListener
+     */
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener);
 
+    /**
+     * Removes a FailureDetectorListener instance from the event listener list.
+     * 
+     * <p/>
+     * 
+     * <b>Note for implementors</b>: When removing a FailureDetectorListener
+     * that has already been removed or was never in the list, this should not
+     * raise any errors but should effectively be a no-op.
+     * 
+     * @param failureDetectorListener FailureDetectorListener that was receiving
+     *        events
+     * 
+     * @see #addFailureDetectorListener
+     */
+
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener);
 
+    /**
+     * Retrieves the FailureDetectorConfig instance with which this
+     * FailureDetector was constructed.
+     * 
+     * @return FailureDetectorConfig
+     */
+
     public FailureDetectorConfig getConfig();
+
+    /**
+     * Returns the number of nodes that are considered to be available at the
+     * time of calling. Letting <code>n</code> = the results of
+     * <code>getNodeCount()</code>, the return value is bounded in the range
+     * <code>[0..n]</code>.
+     * 
+     * @return Number of available nodes
+     * 
+     * @see #getNodeCount()
+     */
+
+    public int getAvailableNodeCount();
+
+    /**
+     * Returns the number of nodes that are in the set of all nodes at the time
+     * of calling.
+     * 
+     * @return Number of nodes
+     * 
+     * @see #getAvailableNodeCount()
+     */
+
+    public int getNodeCount();
+
+    /**
+     * Cleans up any open resources in preparation for shutdown.
+     * 
+     * <p/>
+     * 
+     * <b>Note for implementors</b>: After this method is called it is assumed
+     * that attempts to call the other methods will either silently fail, throw
+     * errors, or return stale information.
+     */
 
     public void destroy();
 

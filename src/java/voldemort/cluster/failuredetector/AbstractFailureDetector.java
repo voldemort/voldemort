@@ -16,13 +16,11 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.MBeanOperationInfo;
 
@@ -53,7 +51,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         this.failureDetectorConfig = failureDetectorConfig;
-        nodeStatusMap = new HashMap<Node, NodeStatus>();
+        nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
+
+        for(Node node: failureDetectorConfig.getNodes())
+            nodeStatusMap.put(node, new NodeStatus());
+
         listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
     }
 
@@ -62,33 +64,36 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     public void waitFor(Node node) throws InterruptedException {
-        while(!isAvailable(node)) {
-            if(logger.isInfoEnabled())
-                logger.info("Sleeping for 1 second to check " + node);
+        NodeStatus nodeStatus = getNodeStatus(node);
 
-            failureDetectorConfig.getTime().sleep(1000);
+        synchronized(nodeStatus) {
+            while(!isAvailable(nodeStatus)) {
+                if(logger.isInfoEnabled())
+                    logger.info("Waiting for node " + node);
+
+                nodeStatus.wait();
+            }
         }
     }
 
     @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of available nodes")
-    public int getNumberOfAvailableNodes() {
-        List<NodeStatus> nodeStatuses = null;
-
-        synchronized(nodeStatusMap) {
-            nodeStatuses = new ArrayList<NodeStatus>(nodeStatusMap.values());
-        }
-
+    public int getAvailableNodeCount() {
         int available = 0;
 
-        for(NodeStatus nodeStatus: nodeStatuses)
+        for(NodeStatus nodeStatus: nodeStatusMap.values())
             if(nodeStatus.isAvailable())
                 available++;
 
         return available;
     }
 
+    @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of nodes")
+    public int getNodeCount() {
+        return nodeStatusMap.size();
+    }
+
     public boolean isAvailable(Node node) {
-        return !getNodeStatus(node).isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+        return isAvailable(getNodeStatus(node));
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -104,17 +109,22 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected void setAvailable(Node node) {
-        getNodeStatus(node).setAvailable();
+        NodeStatus nodeStatus = getNodeStatus(node);
+        nodeStatus.setAvailable();
 
         Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
 
         for(FailureDetectorListener fdl: listenersCopy) {
             try {
-                fdl.nodeOnline(node);
+                fdl.nodeAvailable(node);
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn(e, e);
             }
+        }
+
+        synchronized(nodeStatus) {
+            nodeStatus.notifyAll();
         }
     }
 
@@ -125,7 +135,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         for(FailureDetectorListener fdl: listenersCopy) {
             try {
-                fdl.nodeOffline(node);
+                fdl.nodeUnavailable(node);
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn(e, e);
@@ -133,17 +143,17 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         }
     }
 
+    private boolean isAvailable(NodeStatus nodeStatus) {
+        return !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+    }
+
     private NodeStatus getNodeStatus(Node node) {
-        synchronized(nodeStatusMap) {
-            NodeStatus nodeStatus = nodeStatusMap.get(node);
+        NodeStatus nodeStatus = nodeStatusMap.get(node);
 
-            if(nodeStatus == null) {
-                nodeStatus = new NodeStatus();
-                nodeStatusMap.put(node, nodeStatus);
-            }
-
-            return nodeStatus;
-        }
+        if(nodeStatus == null)
+            throw new IllegalArgumentException(node.getId()
+                                               + " is not a valid node for this cluster");
+        return nodeStatus;
     }
 
 }

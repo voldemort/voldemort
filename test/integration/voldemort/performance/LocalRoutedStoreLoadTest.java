@@ -42,7 +42,6 @@ import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
-import voldemort.utils.SystemTime;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -67,8 +66,8 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
         FailureDetectorConfig config = new BasicFailureDetectorConfig(voldemortConfig.getFailureDetector(),
                                                                       voldemortConfig.getClientNodeBannageMs(),
-                                                                      clientMapping,
-                                                                      SystemTime.INSTANCE);
+                                                                      cluster.getNodes(),
+                                                                      clientMapping);
         FailureDetector failureDetector = FailureDetectorUtils.create(config);
 
         Store<ByteArray, byte[]> store = new RoutedStore("test",

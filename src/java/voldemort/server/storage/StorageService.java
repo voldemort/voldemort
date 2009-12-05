@@ -120,7 +120,9 @@ public class StorageService extends AbstractService {
                                          config.getSocketBufferSize());
 
         FailureDetectorConfig failureDetectorConfig = new ServerFailureDetectorConfig(voldemortConfig,
-                                                                                      storeRepository);
+                                                                                      storeRepository,
+                                                                                      metadata.getCluster()
+                                                                                              .getNodes());
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }
 

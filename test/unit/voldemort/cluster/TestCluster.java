@@ -22,10 +22,8 @@ import static voldemort.MutableFailureDetectorConfig.recordSuccess;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 import junit.framework.TestCase;
 
@@ -36,17 +34,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import voldemort.VoldemortException;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.store.Store;
-import voldemort.store.StoreCapabilityType;
-import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.versioning.Version;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
 
@@ -74,44 +66,7 @@ public class TestCluster extends TestCase {
         this.cluster = new Cluster(clusterName, nodes);
         this.time = SystemTime.INSTANCE;
 
-        Map<Integer, Store<ByteArray, byte[]>> subStores = new HashMap<Integer, Store<ByteArray, byte[]>>();
-
-        for(Node node: nodes) {
-            subStores.put(node.getId(), new Store<ByteArray, byte[]>() {
-
-                public void close() throws VoldemortException {}
-
-                public boolean delete(ByteArray key, Version version) throws VoldemortException {
-                    return false;
-                }
-
-                public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-                    return null;
-                }
-
-                public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
-                        throws VoldemortException {
-                    return null;
-                }
-
-                public Object getCapability(StoreCapabilityType capability) {
-                    return null;
-                }
-
-                public String getName() {
-                    return null;
-                }
-
-                public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
-
-                public List<Version> getVersions(ByteArray key) {
-                    return null;
-                }
-
-            });
-        }
-
-        failureDetector = createFailureDetector(failureDetectorClass, subStores, time);
+        failureDetector = createFailureDetector(failureDetectorClass, cluster.getNodes());
     }
 
     @Override

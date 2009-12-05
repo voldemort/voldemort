@@ -16,10 +16,13 @@
 
 package voldemort.client;
 
+import java.io.StringReader;
 import java.net.URI;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -59,6 +62,11 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                          config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketBufferSize());
         registerJmx(JmxUtils.createObjectName(SocketPool.class), socketPool);
+
+        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+
+        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -72,15 +80,19 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                RoutingTier.SERVER.equals(routingTier));
     }
 
-    @Override
-    protected FailureDetector initFailureDetector(final ClientConfig config) {
+    protected FailureDetector initFailureDetector(final ClientConfig config,
+                                                  final Collection<Node> nodes) {
         failureDetectorListener = new FailureDetectorListener() {
 
-            public void nodeOnline(Node node) {
+            public void nodeAvailable(Node node) {
 
             }
 
-            public void nodeOffline(Node node) {
+            public void nodeUnavailable(Node node) {
+                if(logger.isInfoEnabled())
+                    logger.info("Node " + node
+                                + " has been marked as unavailable, destroying socket pool");
+
                 // Kill the socket pool for this node...
                 SocketDestination destination = new SocketDestination(node.getHost(),
                                                                       node.getSocketPort(),
@@ -90,7 +102,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
         };
 
-        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config) {
+        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config, nodes) {
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
