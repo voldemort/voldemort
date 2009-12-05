@@ -16,6 +16,7 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -46,11 +47,15 @@ public class RebalanceClient {
     }
 
     /**
-     * Voldemort online rebalancing mechanism. <br>
-     * Compares the provided currentCluster and targetCluster and makes a list
-     * of partitions need to be transferred <br>
+     * Voldemort dynamic cluster membership rebalancing mechanism. <br>
+     * Migrate partitions across nodes to managed changes in cluster
+     * memberships. <br>
+     * Takes two cluster configuration currentCluster and targetCluster as
+     * parameters compares and makes a list of partitions need to be
+     * transferred.<br>
      * The cluster is kept consistent during rebalancing using a proxy mechanism
-     * via {@link RedirectingStore}
+     * via {@link RedirectingStore}<br>
+     * 
      * 
      * @param storeName : store to be rebalanced
      * @param currentCluster: currentCluster configuration.
@@ -59,7 +64,7 @@ public class RebalanceClient {
     public void rebalance(final String storeName,
                           final Cluster currentCluster,
                           final Cluster targetCluster) {
-        // update cluster info for adminClient
+        // update adminClient with currentCluster
         adminClient.setCluster(currentCluster);
 
         if(!RebalanceUtils.getClusterRebalancingToken()) {
@@ -72,16 +77,14 @@ public class RebalanceClient {
         logger.info("Rebalancing plan:\n"
                     + RebalanceUtils.getStealPartitionsMapAsString(stealPartitionsMap));
 
-        // rebalancing lock for each node
-        final Map<Integer, AtomicBoolean> nodeLock = new HashMap<Integer, AtomicBoolean>();
-        // semaphore to control total number of rebalancing in parallel
+        // instantiate and intialize rebalancing locks per node.
+        final Map<Integer, AtomicBoolean> nodeRebalancingLock = new HashMap<Integer, AtomicBoolean>();
+        for(int stealerNode: stealPartitionsMap.keySet()) {
+            nodeRebalancingLock.put(stealerNode, new AtomicBoolean(false));
+        }
+
         final Semaphore semaphore = new Semaphore(config.getMaxParallelRebalancingNodes());
         final List<Exception> failures = new ArrayList<Exception>();
-
-        // initialize nodeLocks
-        for(int stealerNode: stealPartitionsMap.keySet()) {
-            nodeLock.put(stealerNode, new AtomicBoolean(false));
-        }
 
         while(!stealPartitionsMap.isEmpty()) {
             this.executor.execute(new Runnable() {
@@ -89,21 +92,24 @@ public class RebalanceClient {
                 public void run() {
                     if(acquireSemaphore(semaphore)) {
                         try {
+                            // get one target stealer(destination) node
                             int stealerNodeId = RebalanceUtils.getRandomStealerNodeId(stealPartitionsMap);
 
-                            if(nodeLock.get(stealerNodeId).compareAndSet(false, true)) {
-                                // get one set of partitions to transfer
-                                Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo = RebalanceUtils.getOneStealInfoAndupdateStealMap(stealerNodeId,
+                            if(nodeRebalancingLock.get(stealerNodeId).compareAndSet(false, true)) {
+                                Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo = RebalanceUtils.getOneStealInfoAndUpdateStealMap(stealerNodeId,
                                                                                                                                       stealPartitionsMap);
                                 // update cluster.xml and tell all Nodes
                                 adminClient.setCluster(RebalanceUtils.updateAndPropagateCluster(adminClient,
-                                                                                                rebalanceNodeInfo));
+                                                                                                getStealerNode(currentCluster,
+                                                                                                               targetCluster,
+                                                                                                               rebalanceNodeInfo.getFirst()),
+                                                                                                rebalanceNodeInfo.getSecond()));
                                 // attempt data transfer untill succeed or fail
                                 attemptOneRebalanceTransfer(rebalanceNodeInfo.getFirst(),
                                                             rebalanceNodeInfo.getSecond());
 
                                 // free rebalancing lock for this node.
-                                nodeLock.get(stealerNodeId).set(false);
+                                nodeRebalancingLock.get(stealerNodeId).set(false);
                             }
                         } catch(Exception e) {
                             failures.add(e);
@@ -114,6 +120,16 @@ public class RebalanceClient {
                     } else {
                         logger.warn(new VoldemortException("Failed to get rebalance task permit."));
                     }
+                }
+
+                private Node getStealerNode(Cluster currentCluster,
+                                            Cluster targetCluster,
+                                            int stealerNodeId) {
+                    if(RebalanceUtils.containsNode(currentCluster, stealerNodeId))
+                        return currentCluster.getNodeById(stealerNodeId);
+                    else
+                        return RebalanceUtils.updateNode(targetCluster.getNodeById(stealerNodeId),
+                                                         new ArrayList<Integer>());
                 }
 
                 /**

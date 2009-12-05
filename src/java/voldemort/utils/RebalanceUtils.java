@@ -1,6 +1,7 @@
 package voldemort.utils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.versioning.VectorClock;
 
 public class RebalanceUtils {
 
@@ -101,7 +103,7 @@ public class RebalanceUtils {
         return stealInfoList;
     }
 
-    private static boolean containsNode(Cluster cluster, int nodeId) {
+    public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
             cluster.getNodeById(nodeId);
             return true;
@@ -135,49 +137,64 @@ public class RebalanceUtils {
         return true;
     }
 
+    /**
+     * Update the cluster with desired changes as marked in rebalanceNodeInfo
+     * rebalanceNodeInfo.getFirst() is the stealerNode (destinationNode) <br>
+     * rebalanceNodeInfo.getSecond() is the rebalance steal info contatining
+     * donorId, partitionList<br>
+     * Creates a new cluster Object with above partition list changes.<br>
+     * Propagates the new cluster on all nodes
+     * 
+     * @param adminClient
+     * @param rebalanceNodeInfo
+     * @return
+     */
     public static Cluster updateAndPropagateCluster(AdminClient adminClient,
-                                                    Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo) {
+                                                    Node stealerNode,
+                                                    RebalanceStealInfo rebalanceNodeInfo) {
         synchronized(adminClient) {
-            if(!containsNode(adminClient.getCluster(), rebalanceNodeInfo.getFirst())) {
-                throw new VoldemortException("StealerNodeId:" + rebalanceNodeInfo.getFirst()
-                                             + " not present in the currentCluster:"
-                                             + adminClient.getCluster());
-            }
 
-            List<Integer> stealerPartitionList = new ArrayList<Integer>(adminClient.getCluster()
-                                                                                   .getNodeById(rebalanceNodeInfo.getFirst())
-                                                                                   .getPartitionIds());
-            stealerPartitionList.addAll(rebalanceNodeInfo.getSecond().getPartitionList());
-            Node stealerNode = updatePartitionList(adminClient.getCluster()
-                                                              .getNodeById(rebalanceNodeInfo.getFirst()),
-                                                   stealerPartitionList);
+            Cluster currentCluster = adminClient.getCluster();
 
+            // add new partitions to stealerNode
+            List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
+            stealerPartitionList.addAll(rebalanceNodeInfo.getPartitionList());
+            stealerNode = updateNode(stealerNode, stealerPartitionList);
+
+            // remove partitions from donorNode
             List<Integer> donorPartitionList = new ArrayList<Integer>(adminClient.getCluster()
-                                                                                 .getNodeById(rebalanceNodeInfo.getSecond()
-                                                                                                               .getDonorId())
+                                                                                 .getNodeById(rebalanceNodeInfo.getDonorId())
                                                                                  .getPartitionIds());
-            stealerPartitionList.removeAll(rebalanceNodeInfo.getSecond().getPartitionList());
-            Node donorNode = updatePartitionList(adminClient.getCluster()
-                                                            .getNodeById(rebalanceNodeInfo.getSecond()
-                                                                                          .getDonorId()),
+            stealerPartitionList.removeAll(rebalanceNodeInfo.getPartitionList());
+            Node donorNode = updateNode(adminClient.getCluster()
+                                                            .getNodeById(rebalanceNodeInfo.getDonorId()),
                                                  donorPartitionList);
 
-            List<Node> currentNodeList = new ArrayList<Node>(adminClient.getCluster().getNodes());
-            // node equals method uses id match only
-            currentNodeList.remove(stealerNode);
-            currentNodeList.remove(donorNode);
+            currentCluster = updateCluster(currentCluster, Arrays.asList(stealerNode, donorNode));
 
-            currentNodeList.add(stealerNode);
-            currentNodeList.add(donorNode);
-
-            Cluster currentCluster = new Cluster(adminClient.getCluster().getName(),
-                                                 currentNodeList);
-            propagateCluster(currentCluster, adminClient);
+            // create target vectorClock increment version on stealerNode.
+            VectorClock clock = (VectorClock) adminClient.getRemoteCluster(stealerNode.getId())
+                                                         .getVersion();
+            propagateCluster(adminClient,
+                             currentCluster,
+                             clock.incremented(stealerNode.getId(), System.currentTimeMillis()));
             return currentCluster;
         }
     }
 
-    private static Node updatePartitionList(Node node, List<Integer> partitionsList) {
+    private static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
+        List<Node> currentNodeList = new ArrayList<Node>(currentCluster.getNodes());
+        for(Node updatedNode: updatedNodeList) {
+            for(Node currentNode: currentNodeList)
+                if(currentNode.getId() == updatedNode.getId())
+                    currentNodeList.remove(currentNode);
+        }
+
+        currentNodeList.addAll(updatedNodeList);
+        return new Cluster(currentCluster.getName(), currentNodeList);
+    }
+
+    public static Node updateNode(Node node, List<Integer> partitionsList) {
         return new Node(node.getId(),
                         node.getHost(),
                         node.getHttpPort(),
@@ -187,11 +204,19 @@ public class RebalanceUtils {
                         node.getStatus());
     }
 
-    public static void propagateCluster(Cluster currentCluster, AdminClient adminClient) {
+    /**
+     * 
+     * @param adminClient
+     * @param masterNodeId
+     * @param currentCluster
+     */
+    public static void propagateCluster(AdminClient adminClient,
+                                        Cluster currentCluster,
+                                        VectorClock clock) {
         AtomicInteger failures = new AtomicInteger(0);
         for(Node node: currentCluster.getNodes()) {
             try {
-                adminClient.updateRemoteCluster(node.getId(), currentCluster);
+                adminClient.updateRemoteCluster(node.getId(), currentCluster, clock);
             } catch(VoldemortException e) {
                 logger.warn("Failed to copy new cluster.xml(" + currentCluster
                             + ") to remote node:" + node, e);
@@ -205,14 +230,17 @@ public class RebalanceUtils {
     }
 
     /**
-     * Pick and remove the RebalanceStealInfo from the List<RebalanceStealInfo>
-     * tail for the given stealerNodeId<br>
-     * Deletes the entire key from map if the resultant list becomes empty.
+     * Remove and return one stealInfo from the list of rebalancingStealInfos
+     * for the passed stealerNodeId in the stealPartitionsMap.<br>
+     * The stealerPartitionsMap is updated with the new list<br>
+     * The stealerNodeId empty is deleted from the map entirely if the resultant
+     * list becomes empty
      * 
+     * @param stealerNodeId : nodeId
      * @param stealPartitionsMap
      * @return
      */
-    public static Pair<Integer, RebalanceStealInfo> getOneStealInfoAndupdateStealMap(int stealerNodeId,
+    public static Pair<Integer, RebalanceStealInfo> getOneStealInfoAndUpdateStealMap(int stealerNodeId,
                                                                                      Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
         synchronized(stealPartitionsMap) {
             List<RebalanceStealInfo> stealInfoList = stealPartitionsMap.get(stealerNodeId);

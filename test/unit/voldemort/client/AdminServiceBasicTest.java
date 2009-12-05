@@ -35,6 +35,7 @@ import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
@@ -113,7 +114,10 @@ public class AdminServiceBasicTest extends TestCase {
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
-        client.updateRemoteCluster(0, updatedCluster);
+        client.updateRemoteCluster(0,
+                                   updatedCluster,
+                                   ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
+                                                                                                       System.currentTimeMillis()));
 
         assertEquals("Cluster should match",
                      updatedCluster,
@@ -129,7 +133,9 @@ public class AdminServiceBasicTest extends TestCase {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         MetadataStore.VoldemortState state = getVoldemortServer(0).getMetadataStore()
                                                                   .getServerState();
@@ -139,7 +145,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // change back to NORMAL state
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -148,7 +156,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
 
@@ -157,7 +167,9 @@ public class AdminServiceBasicTest extends TestCase {
                      state);
 
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",

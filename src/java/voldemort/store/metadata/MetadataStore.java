@@ -391,14 +391,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                && !value.getValue().equals(VoldemortState.NORMAL_CLUSTER))
                 throw new VoldemortException("Transition for " + key + " from " + currentValue
                                              + " to" + value.getValue() + " is not allowed.");
-        } else if(key.equals(SERVER_STATE_KEY)) {
-            String currentValue = getInnerValue(key).getValue();
-            if(currentValue.equals(VoldemortState.REBALANCING_MASTER_SERVER.toString())
-               && !value.getValue().equals(VoldemortState.NORMAL_SERVER))
-                throw new VoldemortException("Transition for " + key + " from " + currentValue
-                                             + " to " + value.getValue() + " is not allowed.");
         }
-
     }
 
     /**

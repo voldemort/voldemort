@@ -35,7 +35,7 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
-import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -262,14 +262,11 @@ public abstract class AdminClient {
      * @param cluster
      * @throws VoldemortException
      */
-    public void updateRemoteCluster(int nodeId, Cluster cluster) throws VoldemortException {
-        // get current version.
-        VectorClock oldClock = (VectorClock) getRemoteCluster(nodeId).getVersion();
-
+    public void updateRemoteCluster(int nodeId, Cluster cluster, Version clock)
+            throws VoldemortException {
         updateRemoteMetadata(nodeId,
                              MetadataStore.CLUSTER_KEY,
-                             new Versioned<String>(clusterMapper.writeCluster(cluster),
-                                                   oldClock.incremented(nodeId, 1)));
+                             new Versioned<String>(clusterMapper.writeCluster(cluster), clock));
     }
 
     /**
@@ -284,24 +281,6 @@ public abstract class AdminClient {
         Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
         return new Versioned<Cluster>(cluster, value.getVersion());
 
-    }
-
-    /**
-     * update store definitions on remote node.
-     * 
-     * @param nodeId
-     * @param storesList
-     * @throws VoldemortException
-     */
-    public void updateRemoteStoreDefList(int nodeId, List<StoreDefinition> storesList)
-            throws VoldemortException {
-        // get current version.
-        VectorClock oldClock = (VectorClock) getRemoteStoreDefList(nodeId).getVersion();
-
-        updateRemoteMetadata(nodeId,
-                             MetadataStore.STORES_KEY,
-                             new Versioned<String>(storeMapper.writeStoreList(storesList),
-                                                   oldClock.incremented(nodeId, 1)));
     }
 
     /**
@@ -324,13 +303,12 @@ public abstract class AdminClient {
      * @param nodeId
      * @param state
      */
-    public void updateRemoteServerState(int nodeId, MetadataStore.VoldemortState state) {
-        VectorClock oldClock = (VectorClock) getRemoteServerState(nodeId).getVersion();
-
+    public void updateRemoteServerState(int nodeId,
+                                        MetadataStore.VoldemortState state,
+                                        Version clock) {
         updateRemoteMetadata(nodeId,
                              MetadataStore.SERVER_STATE_KEY,
-                             new Versioned<String>(state.toString(),
-                                                   oldClock.incremented(nodeId, 1)));
+                             new Versioned<String>(state.toString(), clock));
     }
 
     /**
@@ -351,13 +329,12 @@ public abstract class AdminClient {
      * @param nodeId
      * @param state
      */
-    public void updateRemoteClusterState(int nodeId, MetadataStore.VoldemortState state) {
-        VectorClock oldClock = (VectorClock) getRemoteClusterState(nodeId).getVersion();
-
+    public void updateRemoteClusterState(int nodeId,
+                                         MetadataStore.VoldemortState state,
+                                         Version clock) {
         updateRemoteMetadata(nodeId,
                              MetadataStore.CLUSTER_STATE_KEY,
-                             new Versioned<String>(state.toString(),
-                                                   oldClock.incremented(nodeId, 1)));
+                             new Versioned<String>(state.toString(), clock));
     }
 
     /**
