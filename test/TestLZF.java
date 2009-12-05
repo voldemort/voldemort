@@ -14,7 +14,7 @@ import java.io.*;
 import junit.framework.TestCase;
 import static org.junit.Assert.*;
 
-import org.h2.compress.*;
+import voldemort.store.compress.lzf.*;
 
 public class TestLZF extends TestCase
 {
