@@ -86,7 +86,7 @@ public class LZFDecoder {
                     throw new IOException("Corrupt input data, block #" + blockNr + " (at offset "
                                           + ptr + "): did not start with 'ZV' signature bytes");
                 }
-                int type = (int) data[ptr + 2];
+                int type = data[ptr + 2];
                 int blockLen = uint16(data, ptr + 3);
                 if(type == LZFChunk.BLOCK_TYPE_NON_COMPRESSED) { // uncompressed
                     ptr += 5;
