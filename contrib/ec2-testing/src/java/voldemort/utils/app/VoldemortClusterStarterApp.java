@@ -56,7 +56,8 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                        "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
-        parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
+        parser.accepts("sshprivatekey", "File containing SSH private key (optional)")
+              .withRequiredArg();
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
         parser.accepts("voldemortroot", "Voldemort's root directory on remote host")
               .withRequiredArg();
@@ -78,7 +79,7 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
             internalHostNames.add(hostNamePair.getInternalHostName());
         }
 
-        final File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
+        final File sshPrivateKey = getInputFile(options, "sshprivatekey");
         final String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
         final String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
@@ -94,7 +95,8 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                 RemoteOperation operation = new SshClusterStopper(externalHostNames,
                                                                   sshPrivateKey,
                                                                   hostUserId,
-                                                                  voldemortRootDirectory);
+                                                                  voldemortRootDirectory,
+                                                                  true);
                 try {
                     operation.execute();
                 } catch(RemoteOperationException e) {

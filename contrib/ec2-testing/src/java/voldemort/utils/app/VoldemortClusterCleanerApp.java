@@ -44,14 +44,15 @@ public class VoldemortClusterCleanerApp extends VoldemortApp {
                        "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
-        parser.accepts("sshprivatekey", "File containing SSH private key").withRequiredArg();
+        parser.accepts("sshprivatekey", "File containing SSH private key (optional)")
+              .withRequiredArg();
         parser.accepts("hostuserid", "User ID on remote host").withRequiredArg();
         parser.accepts("voldemorthome", "Voldemort's home directory on remote host")
               .withRequiredArg();
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
-        File sshPrivateKey = getRequiredInputFile(options, "sshprivatekey");
+        File sshPrivateKey = getInputFile(options, "sshprivatekey");
         String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
 

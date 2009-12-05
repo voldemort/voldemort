@@ -41,8 +41,12 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         parser.accepts("logging",
                        "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
-        parser.accepts("accessid", "Access ID").withRequiredArg();
-        parser.accepts("secretkey", "SecretKey").withRequiredArg();
+        parser.accepts("accessid", "Access ID (used instead of accessidfile)").withRequiredArg();
+        parser.accepts("accessidfile", "Access ID file (used instead of accessid)")
+              .withRequiredArg();
+        parser.accepts("secretkey", "Secret key (used instead of secretkeyfile)").withRequiredArg();
+        parser.accepts("secretkeyfile", "Secret key file (used instead of secretkey)")
+              .withRequiredArg();
         parser.accepts("ami", "AMI").withRequiredArg();
         parser.accepts("keypairid", "KeyPairID").withRequiredArg();
         parser.accepts("instances", "Number of instances (default 1)")
@@ -56,8 +60,8 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
                                + Ec2Connection.Ec2InstanceType.XLARGE_HCPU).withRequiredArg();
 
         OptionSet options = parse(args);
-        String accessId = getRequiredString(options, "accessid");
-        String secretKey = getRequiredString(options, "secretkey");
+        String accessId = getAccessId(options);
+        String secretKey = getSecretKey(options);
         String ami = getRequiredString(options, "ami");
         String keypairId = getRequiredString(options, "keypairid");
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
