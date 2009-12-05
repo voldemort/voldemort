@@ -1,6 +1,7 @@
 package voldemort.client.rebalance;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.VectorClock;
 
 public class RebalanceClient {
 
@@ -110,22 +112,47 @@ public class RebalanceClient {
                 private boolean rebalanceCommit(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
                                                 int stealerNodeId,
                                                 RebalanceStealInfo rebalanceStealInfo) {
-                    try {
-                        // update cluster.xml and tell all Nodes
-                        adminClient.setCluster(RebalanceUtils.updateAndPropagateCluster(adminClient,
-                                                                                        getStealerNode(currentCluster,
-                                                                                                       targetCluster,
-                                                                                                       stealerNodeId),
-                                                                                        rebalanceStealInfo));
-                        return true;
-                    } catch(Exception e) {
-                        logger.warn("Failed to commit rebalance on node:" + stealerNodeId, e);
-                        RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
-                                                                stealerNodeId,
-                                                                rebalanceStealInfo);
-                    }
+                    synchronized(stealPartitionsMap) {
+                        VectorClock clock = (VectorClock) adminClient.getRemoteCluster(rebalanceStealInfo.getDonorId())
+                                                                     .getVersion();
+                        Cluster oldCluster = adminClient.getCluster();
 
-                    return false;
+                        try {
+                            // update cluster.xml and tell all Nodes
+                            Cluster newCluster = RebalanceUtils.createUpdatedCluster(oldCluster,
+                                                                                     getStealerNode(currentCluster,
+                                                                                                    targetCluster,
+                                                                                                    stealerNodeId),
+                                                                                     currentCluster.getNodeById(rebalanceStealInfo.getDonorId()),
+                                                                                     rebalanceStealInfo.getPartitionList());
+                            // increment clock version on stealerNodeId
+                            clock.incrementVersion(stealerNodeId, System.currentTimeMillis());
+                            RebalanceUtils.propagateCluster(adminClient,
+                                                            newCluster,
+                                                            clock,
+                                                            Arrays.asList(stealerNodeId,
+                                                                          rebalanceStealInfo.getDonorId()));
+
+                            // set new cluster in adminClient
+                            adminClient.setCluster(newCluster);
+                            return true;
+                        } catch(Exception e) {
+                            logger.warn("Failed to commit rebalance on node:" + stealerNodeId, e);
+                            // revert stealPartitions changes
+                            RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
+                                                                    stealerNodeId,
+                                                                    rebalanceStealInfo);
+                            // revert cluster changes.
+                            clock.incrementVersion(stealerNodeId, System.currentTimeMillis());
+                            RebalanceUtils.propagateCluster(adminClient,
+                                                            oldCluster,
+                                                            clock,
+                                                            new ArrayList<Integer>());
+
+                        }
+
+                        return false;
+                    }
                 }
 
                 private Node getStealerNode(Cluster currentCluster,

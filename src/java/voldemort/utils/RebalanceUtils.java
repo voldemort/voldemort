@@ -158,39 +158,21 @@ public class RebalanceUtils {
      * @param rebalanceNodeInfo
      * @return
      */
-    public static Cluster updateAndPropagateCluster(AdminClient adminClient,
-                                                    Node stealerNode,
-                                                    RebalanceStealInfo rebalanceNodeInfo) {
-        synchronized(adminClient) {
+    public static Cluster createUpdatedCluster(Cluster cluster,
+                                               Node stealerNode,
+                                               Node donorNode,
+                                               List<Integer> partitionList) {
+        // add new partitions to stealerNode
+        List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
+        stealerPartitionList.addAll(partitionList);
+        stealerNode = updateNode(stealerNode, stealerPartitionList);
 
-            Cluster currentCluster = adminClient.getCluster();
+        // remove partitions from donorNode
+        List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
+        stealerPartitionList.removeAll(partitionList);
+        donorNode = updateNode(donorNode, donorPartitionList);
 
-            // add new partitions to stealerNode
-            List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
-            stealerPartitionList.addAll(rebalanceNodeInfo.getPartitionList());
-            stealerNode = updateNode(stealerNode, stealerPartitionList);
-
-            // remove partitions from donorNode
-            List<Integer> donorPartitionList = new ArrayList<Integer>(adminClient.getCluster()
-                                                                                 .getNodeById(rebalanceNodeInfo.getDonorId())
-                                                                                 .getPartitionIds());
-            stealerPartitionList.removeAll(rebalanceNodeInfo.getPartitionList());
-            Node donorNode = updateNode(adminClient.getCluster()
-                                                   .getNodeById(rebalanceNodeInfo.getDonorId()),
-                                        donorPartitionList);
-
-            currentCluster = updateCluster(currentCluster, Arrays.asList(stealerNode, donorNode));
-
-            // get VectorClock from donorNode
-            VectorClock clock = (VectorClock) adminClient.getRemoteCluster(donorNode.getId())
-                                                         .getVersion();
-            // increment version mastered at stealerNode.
-            clock = clock.incremented(stealerNode.getId(), System.currentTimeMillis());
-
-            propagateCluster(adminClient, currentCluster, clock, Arrays.asList(stealerNode.getId(),
-                                                                               donorNode.getId()));
-            return currentCluster;
-        }
+        return updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
     }
 
     public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
@@ -221,21 +203,21 @@ public class RebalanceUtils {
      * 
      * @param adminClient
      * @param masterNodeId
-     * @param currentCluster
+     * @param cluster
      */
     public static void propagateCluster(AdminClient adminClient,
-                                        Cluster currentCluster,
+                                        Cluster cluster,
                                         VectorClock clock,
                                         List<Integer> requiredNodeIds) {
-        for(Node node: currentCluster.getNodes()) {
+        for(Node node: cluster.getNodes()) {
             try {
-                adminClient.updateRemoteCluster(node.getId(), currentCluster, clock);
+                adminClient.updateRemoteCluster(node.getId(), cluster, clock);
             } catch(VoldemortException e) {
                 if(requiredNodeIds.contains(node.getId())) {
-                    throw new VoldemortException("Failed to copy new cluster.xml(" + currentCluster
+                    throw new VoldemortException("Failed to copy new cluster.xml(" + cluster
                                                  + ") on required node:" + node, e);
                 } else {
-                    logger.warn("Failed to copy new cluster.xml(" + currentCluster
+                    logger.warn("Failed to copy new cluster.xml(" + cluster
                                 + ") on non-required node:" + node, e);
                 }
             }
