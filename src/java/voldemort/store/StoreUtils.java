@@ -181,4 +181,18 @@ public class StoreUtils {
                                                         SerializerDefinition serializerDefinition) {
         return (Serializer<T>) serializerFactory.getSerializer(serializerDefinition);
     }
+
+    /**
+     * Get a store definition from the given list of store definitions
+     * 
+     * @param list A list of store definitions
+     * @param name The name of the store
+     * @return The store definition
+     */
+    public static StoreDefinition getStoreDef(List<StoreDefinition> list, String name) {
+        for(StoreDefinition def: list)
+            if(def.getName().equals(name))
+                return def;
+        return null;
+    }
 }

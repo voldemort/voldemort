@@ -52,6 +52,7 @@ import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -270,19 +271,18 @@ public class ServerTestUtils {
         List<StoreDefinition> defs = new ArrayList<StoreDefinition>();
         SerializerDefinition serDef = new SerializerDefinition("string");
         for(int i = 0; i < numStores; i++)
-            defs.add(new StoreDefinition("test" + i,
-                                         InMemoryStorageConfiguration.TYPE_NAME,
-                                         serDef,
-                                         serDef,
-                                         RoutingTier.SERVER,
-                                         RoutingStrategyType.CONSISTENT_STRATEGY,
-                                         2,
-                                         1,
-                                         1,
-                                         1,
-                                         1,
-                                         1,
-                                         1));
+            defs.add(new StoreDefinitionBuilder().setName("test" + i)
+                                                 .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                 .setKeySerializer(serDef)
+                                                 .setValueSerializer(serDef)
+                                                 .setRoutingPolicy(RoutingTier.SERVER)
+                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                 .setReplicationFactor(2)
+                                                 .setPreferredReads(1)
+                                                 .setRequiredReads(1)
+                                                 .setPreferredWrites(1)
+                                                 .setRequiredWrites(1)
+                                                 .build());
         return defs;
     }
 
@@ -294,19 +294,18 @@ public class ServerTestUtils {
                                               int rwrites,
                                               String strategyType) {
         SerializerDefinition serDef = new SerializerDefinition("string");
-        return new StoreDefinition(storeName,
-                                   InMemoryStorageConfiguration.TYPE_NAME,
-                                   serDef,
-                                   serDef,
-                                   RoutingTier.SERVER,
-                                   strategyType,
-                                   replicationFactor,
-                                   preads,
-                                   rreads,
-                                   pwrites,
-                                   rwrites,
-                                   1,
-                                   1);
+        return new StoreDefinitionBuilder().setName(storeName)
+                                           .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                           .setKeySerializer(serDef)
+                                           .setValueSerializer(serDef)
+                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingStrategyType(strategyType)
+                                           .setReplicationFactor(replicationFactor)
+                                           .setPreferredReads(preads)
+                                           .setRequiredReads(rreads)
+                                           .setPreferredWrites(pwrites)
+                                           .setRequiredWrites(rwrites)
+                                           .build();
     }
 
     public static HashMap<ByteArray, byte[]> createRandomKeyValuePairs(int numKeys) {

@@ -1,3 +1,4 @@
+#!/bin/sh
 # Written by Matthew Garcia
 # Creates a .pg file based on the datafile given by the user.
 # The program then runs the .pg file and outputs the data to
@@ -16,12 +17,12 @@ if [ "$1" = "" ]
         exit 1
 fi
 
-groovy graph99percentile.groovy $@ > $DATA_FILE
+`dirname $0`/graph99percentile.scala $@ > $DATA_FILE
 
 # Creates a .pg file by outputting the file strings to it.
 
 cat > $PG_FILE <<End-of-Message
-#!/usr/bin/gnuplot
+#!`which gnuplot`
 reset
 set terminal png
 set xlabel "Test Number"

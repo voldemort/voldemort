@@ -42,14 +42,18 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
         parser.accepts("logging",
                        "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
               .withRequiredArg();
-        parser.accepts("accessid", "Access ID").withRequiredArg();
-        parser.accepts("secretkey", "SecretKey").withRequiredArg();
+        parser.accepts("accessid", "Access ID (used instead of accessidfile)").withRequiredArg();
+        parser.accepts("accessidfile", "Access ID file (used instead of accessid)")
+              .withRequiredArg();
+        parser.accepts("secretkey", "Secret key (used instead of secretkeyfile)").withRequiredArg();
+        parser.accepts("secretkeyfile", "Secret key file (used instead of secretkey)")
+              .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("force", "Use option to force deletion of *all* instances");
 
         OptionSet options = parse(args);
-        String accessId = getRequiredString(options, "accessid");
-        String secretKey = getRequiredString(options, "secretkey");
+        String accessId = getAccessId(options);
+        String secretKey = getSecretKey(options);
 
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
 

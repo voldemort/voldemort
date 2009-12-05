@@ -169,6 +169,18 @@ public class ByteUtils {
     }
 
     /**
+     * Read an unsigned integer from the given byte array
+     * 
+     * @param bytes The bytes to read from
+     * @param offset The offset to begin reading at
+     * @return The integer as a long
+     */
+    public static long readUnsignedInt(byte[] bytes, int offset) {
+        return (((bytes[offset + 0] & 0xffL) << 24) | ((bytes[offset + 1] & 0xffL) << 16)
+                | ((bytes[offset + 2] & 0xffL) << 8) | (bytes[offset + 3] & 0xffL));
+    }
+
+    /**
      * Read a long from the byte array starting at the given offset
      * 
      * @param bytes The byte array to read from

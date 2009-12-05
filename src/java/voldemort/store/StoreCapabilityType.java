@@ -10,5 +10,6 @@ public enum StoreCapabilityType {
     LOGGER,
     SOCKET_POOL,
     VERSION_INCREMENTING,
+    VIEW_TARGET,
     ROLLBACK_FROM_BACKUP;
 }

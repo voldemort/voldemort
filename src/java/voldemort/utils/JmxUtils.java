@@ -302,13 +302,14 @@ public class JmxUtils {
      * @param typeName The name of the type to register
      * @param obj The object to register as an mbean
      */
-    public static void registerMbean(String typeName, Object obj) {
+    public static ObjectName registerMbean(String typeName, Object obj) {
         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
         ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(obj.getClass()),
                                                     typeName);
         if(mbeanServer.isRegistered(name))
             JmxUtils.unregisterMbean(mbeanServer, name);
         JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(obj), name);
+        return name;
     }
 
     /**
@@ -320,6 +321,21 @@ public class JmxUtils {
     public static void unregisterMbean(MBeanServer server, ObjectName name) {
         try {
             server.unregisterMBean(name);
+        } catch(InstanceNotFoundException e) {
+            throw new VoldemortException(e);
+        } catch(MBeanRegistrationException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    /**
+     * Unregister the mbean with the given name from the platform mbean server
+     * 
+     * @param name The name of the mbean to unregister
+     */
+    public static void unregisterMbean(ObjectName name) {
+        try {
+            ManagementFactory.getPlatformMBeanServer().unregisterMBean(name);
         } catch(InstanceNotFoundException e) {
             throw new VoldemortException(e);
         } catch(MBeanRegistrationException e) {

@@ -150,4 +150,10 @@ public class SerializerDefinition {
         return Arrays.hashCode(new Object[] { name, this.schemaInfoByVersion, compression,
                 hasVersion });
     }
+
+    @Override
+    public String toString() {
+        return "SerializerDefinition(name = " + this.name + ", schema-info = "
+               + this.schemaInfoByVersion + ", compression = " + compression + ")";
+    }
 }

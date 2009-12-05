@@ -54,7 +54,7 @@ public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteT
      * @param hostNames External host names for servers that make up the
      *        Voldemort cluster
      * @param sshPrivateKey SSH private key file on local filesystem that can
-     *        access all of the remote hosts
+     *        access all of the remote hosts, or null if not needed
      * @param hostUserId User ID on the remote hosts; assumed to be the same for
      *        all of the remote hosts
      * @param commands Per-test host commands to run, specific to each host
@@ -76,7 +76,9 @@ public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteT
         if(logger.isInfoEnabled())
             logger.info("Executing remote tests");
 
-        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshRemoteTest.ssh");
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshRemoteTest.ssh"
+                                                                                         + (sshPrivateKey != null ? ""
+                                                                                                                 : ".nokey"));
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
         int index = 0;
@@ -85,7 +87,8 @@ public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteT
             Map<String, String> parameters = new HashMap<String, String>();
             parameters.put(HOST_NAME_PARAM, hostName);
             parameters.put(HOST_USER_ID_PARAM, hostUserId);
-            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(SSH_PRIVATE_KEY_PARAM,
+                           sshPrivateKey != null ? sshPrivateKey.getAbsolutePath() : null);
             parameters.put(TEST_COMMAND_PARAM, commands.get(hostName));
 
             hostNameCommandLineMap.put(hostName, commandLineParameterizer.parameterize(parameters));
@@ -101,14 +104,7 @@ public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteT
 
     @Override
     protected Callable<?> getCallable(UnixCommand command) {
-        CommandOutputListener commandOutputListener = new CommandOutputListener() {
-
-            public void outputReceived(String hostName, String line) {
-                System.out.println(hostName + ": " + line);
-            }
-
-        };
-
+        CommandOutputListener commandOutputListener = new StdOutCommandOutputListener(null, true);
         return new ExitCodeCallable(command, commandOutputListener);
     }
 
