@@ -14,7 +14,6 @@
 
 package voldemort.store.compress.lzf;
 
-import java.io.IOException;
 
 /**
  * Encoder that handles splitting of input into chunks to encode, calls
@@ -38,7 +37,7 @@ public class LZFEncoder {
      * structure (compatible with lzf command line utility). Result consists of
      * a sequence of chunks.
      */
-    public static byte[] encode(byte[] data) throws IOException {
+    public static byte[] encode(byte[] data) {
         int left = data.length;
         ChunkEncoder enc = new ChunkEncoder(left);
         int chunkLen = Math.min(LZFChunk.MAX_CHUNK_LEN, left);
