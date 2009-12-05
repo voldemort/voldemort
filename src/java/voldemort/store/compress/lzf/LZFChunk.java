@@ -1,24 +1,27 @@
-/* Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
- * file except in compliance with the License. You may obtain a copy of the License at
- *
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
- * OF ANY KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package voldemort.store.compress.lzf;
 
 /**
- * Helper class used to store LZF encoded segments (compressed and non-compressed)
- * that can be sequenced to produce LZF files/streams.
- *
+ * Helper class used to store LZF encoded segments (compressed and
+ * non-compressed) that can be sequenced to produce LZF files/streams.
+ * 
  * @author Tatu Saloranta
  */
-public class LZFChunk
-{
+public class LZFChunk {
+
     /**
      * Maximum length of literal run for LZF encoding.
      */
@@ -33,17 +36,17 @@ public class LZFChunk
     public final static int BLOCK_TYPE_NON_COMPRESSED = 0;
     public final static int BLOCK_TYPE_COMPRESSED = 1;
 
-    
     final byte[] _data;
     LZFChunk _next;
 
-    private LZFChunk(byte[] data) { _data = data; }
+    private LZFChunk(byte[] data) {
+        _data = data;
+    }
 
     /**
      * Factory method for constructing compressed chunk
      */
-    public static LZFChunk createCompressed(int origLen, byte[] encData, int encPtr, int encLen)
-    {
+    public static LZFChunk createCompressed(int origLen, byte[] encData, int encPtr, int encLen) {
         byte[] result = new byte[encLen + 7];
         result[0] = BYTE_Z;
         result[1] = BYTE_V;
@@ -59,8 +62,7 @@ public class LZFChunk
     /**
      * Factory method for constructing compressed chunk
      */
-    public static LZFChunk createNonCompressed(byte[] plainData, int ptr, int len)
-    {
+    public static LZFChunk createNonCompressed(byte[] plainData, int ptr, int len) {
         byte[] result = new byte[len + 5];
         result[0] = BYTE_Z;
         result[1] = BYTE_V;
@@ -70,16 +72,26 @@ public class LZFChunk
         System.arraycopy(plainData, ptr, result, 5, len);
         return new LZFChunk(result);
     }
-    
-    public void setNext(LZFChunk next) { _next = next; }
 
-    public LZFChunk next() { return _next; }
-    public int length() { return _data.length; }
-    public byte[] getData() { return _data; }
+    public void setNext(LZFChunk next) {
+        _next = next;
+    }
+
+    public LZFChunk next() {
+        return _next;
+    }
+
+    public int length() {
+        return _data.length;
+    }
+
+    public byte[] getData() {
+        return _data;
+    }
 
     public int copyTo(byte[] dst, int ptr) {
         int len = _data.length;
         System.arraycopy(_data, 0, dst, ptr, len);
-        return ptr+len;
+        return ptr + len;
     }
 }
