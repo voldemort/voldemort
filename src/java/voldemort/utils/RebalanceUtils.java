@@ -7,16 +7,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -179,17 +181,19 @@ public class RebalanceUtils {
 
             currentCluster = updateCluster(currentCluster, Arrays.asList(stealerNode, donorNode));
 
-            // create target vectorClock increment version on stealerNode.
-            VectorClock clock = (VectorClock) adminClient.getRemoteCluster(stealerNode.getId())
+            // get VectorClock from donorNode
+            VectorClock clock = (VectorClock) adminClient.getRemoteCluster(donorNode.getId())
                                                          .getVersion();
-            propagateCluster(adminClient,
-                             currentCluster,
-                             clock.incremented(stealerNode.getId(), System.currentTimeMillis()));
+            // increment version mastered at stealerNode.
+            clock = clock.incremented(stealerNode.getId(), System.currentTimeMillis());
+
+            propagateCluster(adminClient, currentCluster, clock, Arrays.asList(stealerNode.getId(),
+                                                                               donorNode.getId()));
             return currentCluster;
         }
     }
 
-    private static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
+    public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
         List<Node> currentNodeList = new ArrayList<Node>(currentCluster.getNodes());
         for(Node updatedNode: updatedNodeList) {
             for(Node currentNode: currentNodeList)
@@ -212,6 +216,8 @@ public class RebalanceUtils {
     }
 
     /**
+     * propagate the cluster configuration to all nodes.<br>
+     * throws an exception if failed to propagate on any of the required nodes.
      * 
      * @param adminClient
      * @param masterNodeId
@@ -219,21 +225,21 @@ public class RebalanceUtils {
      */
     public static void propagateCluster(AdminClient adminClient,
                                         Cluster currentCluster,
-                                        VectorClock clock) {
-        AtomicInteger failures = new AtomicInteger(0);
+                                        VectorClock clock,
+                                        List<Integer> requiredNodeIds) {
         for(Node node: currentCluster.getNodes()) {
             try {
                 adminClient.updateRemoteCluster(node.getId(), currentCluster, clock);
             } catch(VoldemortException e) {
-                logger.warn("Failed to copy new cluster.xml(" + currentCluster
-                            + ") to remote node:" + node, e);
-                failures.incrementAndGet();
+                if(requiredNodeIds.contains(node.getId())) {
+                    throw new VoldemortException("Failed to copy new cluster.xml(" + currentCluster
+                                                 + ") on required node:" + node, e);
+                } else {
+                    logger.warn("Failed to copy new cluster.xml(" + currentCluster
+                                + ") on non-required node:" + node, e);
+                }
             }
         }
-
-        if(failures.get() == currentCluster.getNumberOfNodes())
-            throw new VoldemortException("Failed to propagate new cluster.xml(" + currentCluster
-                                         + ") to any node");
     }
 
     /**
@@ -247,8 +253,8 @@ public class RebalanceUtils {
      * @param stealPartitionsMap
      * @return
      */
-    public static Pair<Integer, RebalanceStealInfo> getOneStealInfoAndUpdateStealMap(int stealerNodeId,
-                                                                                     Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
+    public static RebalanceStealInfo getOneStealInfoAndUpdateStealMap(int stealerNodeId,
+                                                                      Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
         synchronized(stealPartitionsMap) {
             List<RebalanceStealInfo> stealInfoList = stealPartitionsMap.get(stealerNodeId);
             int stealInfoIndex = stealInfoList.size() - 1;
@@ -259,10 +265,17 @@ public class RebalanceUtils {
                 stealPartitionsMap.remove(stealerNodeId);
             }
 
-            return new Pair<Integer, RebalanceStealInfo>(stealerNodeId, stealInfo);
+            return stealInfo;
         }
     }
 
+    /**
+     * Returns one key randomly from the stealPartitionsMap. This is used to
+     * start parallel rebalancing requests on different nodes.
+     * 
+     * @param stealPartitionsMap
+     * @return
+     */
     public static int getRandomStealerNodeId(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
         int size = stealPartitionsMap.keySet().size();
         int randomIndex = (int) (Math.random() * size);
@@ -354,5 +367,28 @@ public class RebalanceUtils {
                                     });
 
         return requestId;
+    }
+
+    public static void revertStealPartitionsMap(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
+                                                int stealerNodeId,
+                                                RebalanceStealInfo rebalanceStealInfo) {
+        synchronized(rebalanceStealInfo) {
+            List<RebalanceStealInfo> stealList = (stealPartitionsMap.containsKey(stealerNodeId)) ? stealPartitionsMap.get(stealerNodeId)
+                                                                                                : new ArrayList<RebalanceStealInfo>();
+            stealList.add(rebalanceStealInfo);
+            stealPartitionsMap.put(stealerNodeId, stealList);
+        }
+    }
+
+    public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
+        ClientConfig config = new ClientConfig();
+        config.setMaxConnectionsPerNode(1);
+        config.setMaxThreads(1);
+        config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
+                                    TimeUnit.MILLISECONDS);
+        config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(), TimeUnit.MILLISECONDS);
+        config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+
+        return new ProtoBuffAdminClientRequestFormat(cluster, config);
     }
 }

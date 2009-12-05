@@ -30,8 +30,6 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
-import voldemort.client.rebalance.RebalanceClient;
-import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -198,14 +196,10 @@ public class VoldemortServer extends AbstractService {
             logger.warn("Server started in " + metadata.getServerState() + " state.");
             RebalanceStealInfo stealInfo = metadata.getRebalancingStealInfo();
 
-            boolean success = false;
-            while(!success && stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
-                success = attemptRebalance(stealInfo);
-            }
-
-            // if failed more than maxAttempts
-            if(!success) {
-                logger.info("Force starting into NORMAL mode !!");
+            if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
+                attemptRebalance(stealInfo);
+            } else {
+                logger.warn("Rebalancing failed multiple times, Force starting into NORMAL mode !!");
             }
 
             // clean all rebalancing state
@@ -218,20 +212,17 @@ public class VoldemortServer extends AbstractService {
         logger.info("Restarting rebalance from node:" + stealInfo.getDonorId()
                     + " for partitionList:" + stealInfo.getPartitionList() + " as "
                     + stealInfo.getAttempt() + " attempt.");
-
-        // restart rebalancing
-        RebalanceClient rebalanceClient = new RebalanceClient(metadata.getCluster(),
-                                                              new RebalanceClientConfig());
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadata.getCluster());
         try {
             int asyncTaskId = RebalanceUtils.rebalanceLocalNode(metadata,
                                                                 stealInfo,
                                                                 asyncRunner,
-                                                                rebalanceClient.getAdminClient());
-            rebalanceClient.getAdminClient()
-                           .waitForCompletion(getIdentityNode().getId(),
-                                              asyncTaskId,
-                                              voldemortConfig.getRebalancingTimeout(),
-                                              TimeUnit.SECONDS);
+                                                                adminClient);
+            adminClient.waitForCompletion(getIdentityNode().getId(),
+                                          asyncTaskId,
+                                          voldemortConfig.getRebalancingTimeout(),
+                                          TimeUnit.SECONDS);
             return true;
         } catch(Exception e) {
             logger.error("Failed to rebalance from node:" + stealInfo.getDonorId()
@@ -239,8 +230,9 @@ public class VoldemortServer extends AbstractService {
                          + stealInfo.getAttempt() + " attempts.", e);
             return false;
         } finally {
-            rebalanceClient.stop();
+            adminClient.stop();
         }
+
     }
 
     /**

@@ -22,21 +22,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
-import voldemort.client.rebalance.RebalanceClient;
-import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
@@ -292,10 +287,11 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
-        RebalanceClient rebalanceClient = new RebalanceClient(metadataStore.getCluster(),
-                                                              new RebalanceClientConfig());
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadataStore.getCluster());
 
         try {
+
             RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStore(),
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
@@ -303,7 +299,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             int requestId = RebalanceUtils.rebalanceLocalNode(metadataStore,
                                                               rebalanceStealInfo,
                                                               asyncRunner,
-                                                              rebalanceClient.getAdminClient());
+                                                              adminClient);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
@@ -313,7 +309,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
         } finally {
-            rebalanceClient.stop();
+            adminClient.stop();
         }
 
         return response.build();
@@ -339,7 +335,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
                                             @Override
                                             public void operate() {
-                                                AdminClient adminClient = createTempAdminClient();
+                                                AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                                                               metadataStore.getCluster());
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
@@ -362,20 +359,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                 } finally {
                                                     adminClient.stop();
                                                 }
-                                            }
-
-                                            private AdminClient createTempAdminClient() {
-                                                ClientConfig config = new ClientConfig();
-                                                config.setMaxConnectionsPerNode(1);
-                                                config.setMaxThreads(1);
-                                                config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                                            TimeUnit.MILLISECONDS);
-                                                config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
-                                                                        TimeUnit.MILLISECONDS);
-                                                config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-
-                                                return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
-                                                                                             config);
                                             }
                                         });
 

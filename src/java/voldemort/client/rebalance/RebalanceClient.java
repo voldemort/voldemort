@@ -18,7 +18,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.rebalancing.RedirectingStore;
-import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 
 public class RebalanceClient {
@@ -72,14 +71,8 @@ public class RebalanceClient {
         logger.info("Rebalancing plan:\n"
                     + RebalanceUtils.getStealPartitionsMapAsString(stealPartitionsMap));
 
-        // instantiate and intialize rebalancing locks per node.
-        final Map<Integer, AtomicBoolean> nodeRebalancingLock = new HashMap<Integer, AtomicBoolean>();
-        for(int stealerNode: stealPartitionsMap.keySet()) {
-            nodeRebalancingLock.put(stealerNode, new AtomicBoolean(false));
-        }
-
+        final Map<Integer, AtomicBoolean> nodeRebalancingLock = createRebalancingLocks(stealPartitionsMap);
         final Semaphore semaphore = new Semaphore(config.getMaxParallelRebalancingNodes());
-        final List<Exception> failures = new ArrayList<Exception>();
 
         while(!stealPartitionsMap.isEmpty()) {
             this.executor.execute(new Runnable() {
@@ -91,23 +84,20 @@ public class RebalanceClient {
                             int stealerNodeId = RebalanceUtils.getRandomStealerNodeId(stealPartitionsMap);
 
                             if(nodeRebalancingLock.get(stealerNodeId).compareAndSet(false, true)) {
-                                Pair<Integer, RebalanceStealInfo> rebalanceNodeInfo = RebalanceUtils.getOneStealInfoAndUpdateStealMap(stealerNodeId,
-                                                                                                                                      stealPartitionsMap);
-                                // update cluster.xml and tell all Nodes
-                                adminClient.setCluster(RebalanceUtils.updateAndPropagateCluster(adminClient,
-                                                                                                getStealerNode(currentCluster,
-                                                                                                               targetCluster,
-                                                                                                               rebalanceNodeInfo.getFirst()),
-                                                                                                rebalanceNodeInfo.getSecond()));
-                                // attempt data transfer untill succeed or fail
-                                attemptOneRebalanceTransfer(rebalanceNodeInfo.getFirst(),
-                                                            rebalanceNodeInfo.getSecond());
+                                RebalanceStealInfo rebalanceStealInfo = RebalanceUtils.getOneStealInfoAndUpdateStealMap(stealerNodeId,
+                                                                                                                        stealPartitionsMap);
+                                if(rebalanceCommit(stealPartitionsMap,
+                                                   stealerNodeId,
+                                                   rebalanceStealInfo)) {
+                                    // attempt data transfer
+                                    attemptOneRebalanceTransfer(stealerNodeId, rebalanceStealInfo);
+                                }
 
                                 // free rebalancing lock for this node.
                                 nodeRebalancingLock.get(stealerNodeId).set(false);
                             }
                         } catch(Exception e) {
-                            failures.add(e);
+                            logger.warn("Rebalance step failed", e);
                         } finally {
                             semaphore.release();
                             logger.debug("rebalancing semaphore released.");
@@ -115,6 +105,27 @@ public class RebalanceClient {
                     } else {
                         logger.warn(new VoldemortException("Failed to get rebalance task permit."));
                     }
+                }
+
+                private boolean rebalanceCommit(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
+                                                int stealerNodeId,
+                                                RebalanceStealInfo rebalanceStealInfo) {
+                    try {
+                        // update cluster.xml and tell all Nodes
+                        adminClient.setCluster(RebalanceUtils.updateAndPropagateCluster(adminClient,
+                                                                                        getStealerNode(currentCluster,
+                                                                                                       targetCluster,
+                                                                                                       stealerNodeId),
+                                                                                        rebalanceStealInfo));
+                        return true;
+                    } catch(Exception e) {
+                        logger.warn("Failed to commit rebalance on node:" + stealerNodeId, e);
+                        RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
+                                                                stealerNodeId,
+                                                                rebalanceStealInfo);
+                    }
+
+                    return false;
                 }
 
                 private Node getStealerNode(Cluster currentCluster,
@@ -173,6 +184,14 @@ public class RebalanceClient {
             });
         }
 
+    }
+
+    private Map<Integer, AtomicBoolean> createRebalancingLocks(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
+        Map<Integer, AtomicBoolean> map = new HashMap<Integer, AtomicBoolean>();
+        for(int stealerNode: stealPartitionsMap.keySet()) {
+            map.put(stealerNode, new AtomicBoolean(false));
+        }
+        return map;
     }
 
     private boolean acquireSemaphore(Semaphore semaphore) {
