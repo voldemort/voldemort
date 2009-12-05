@@ -59,8 +59,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
-           && checkKeyBelongsToStolenPartitions(key)) {
+        if(redirectingKey(key)) {
             // if I am rebalancing for this key, try to do remote get() , put it
             // locally first to get the correct version ignoring any
             // ObsoleteVersionExceptions.
@@ -70,10 +69,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         getInnerStore().put(key, value);
     }
 
+    private boolean redirectingKey(ByteArray key) {
+        return MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
+               && checkKeyBelongsToStolenPartitions(key);
+    }
+
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        if(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
-           && checkKeyBelongsToStolenPartitions(key)) {
+        if(redirectingKey(key)) {
             // if I am rebalancing for this key, try to do remote get() , put it
             // locally first to get the correct version ignoring any
             // ObsoleteVersionExceptions.
@@ -102,7 +105,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     protected boolean checkKeyBelongsToStolenPartitions(ByteArray key) {
         for(int partitionId: metadata.getRoutingStrategy(getName()).getPartitionList(key.get())) {
-            if(metadata.getRebalancingPartitionList().contains(partitionId)) {
+            if(metadata.getRebalancingStealInfo().getPartitionList().contains(partitionId)) {
                 return true;
             }
         }
@@ -118,15 +121,15 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
 
-        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingDonorNodeId())) {
+        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingStealInfo().getDonorId())) {
             throw new VoldemortException("Node Store not present in storeRepository for (store,nodeId) pair ("
                                          + getName()
                                          + ","
-                                         + metadata.getRebalancingDonorNodeId()
-                                         + ").");
+                                         + metadata.getRebalancingStealInfo().getDonorId() + ").");
         }
 
-        return storeRepository.getNodeStore(getName(), metadata.getRebalancingDonorNodeId())
+        return storeRepository.getNodeStore(getName(),
+                                            metadata.getRebalancingStealInfo().getDonorId())
                               .get(key);
     }
 

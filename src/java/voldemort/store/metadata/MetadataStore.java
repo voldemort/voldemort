@@ -153,6 +153,23 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
+     * helper function to read current version and put() after incrementing it
+     * for local node.
+     * 
+     * @param key
+     * @param value
+     */
+    public void put(String key, Object value) {
+        if(METADATA_KEYS.contains(key)) {
+            VectorClock version = (VectorClock) get(key).get(0).getVersion();
+            put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
+                                                                      System.currentTimeMillis())));
+        } else {
+            throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
+        }
+    }
+
+    /**
      * A write through put to inner-store.
      * 
      * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
@@ -272,18 +289,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return (RebalanceStealInfo) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
-    public List<Integer> getRebalancingPartitionList() {
-        return getRebalancingStealInfo().getPartitionList();
-    }
-
-    public int getRebalancingDonorNodeId() {
-        return getRebalancingStealInfo().getDonorId();
-    }
-
-    public int getRebalancingAttemptCount() {
-        return getRebalancingStealInfo().getAttempt();
-    }
-
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
         Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
@@ -336,7 +341,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + " as node:" + nodeId + " aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo(-1, new ArrayList<Integer>(0), 0));
+        initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo("",
+                                                                 -1,
+                                                                 new ArrayList<Integer>(0),
+                                                                 0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 

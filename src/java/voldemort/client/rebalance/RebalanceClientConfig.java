@@ -17,10 +17,12 @@ public class RebalanceClientConfig extends ClientConfig {
     // Rebalance client configurations
     private static final String CLUSTER_MAJORITY_THRESHOLD_PERCENTAGE = "cluster.majority.threshold.percentage";
     private static final String MAX_PARALLEL_REBALANCING_NODES = "max.parallel.rebalancing.node";
+    private static final String MAX_REBALANCING_ATTEMPTS = "max.rebalancing.attempts";
 
     // Rebalance properties
     private double clusterMajorityThresholdPercentage = 0.75;
     private int maxParallelRebalancingNodes = 1;
+    private int maxRebalancingAttempt = 3;
 
     public RebalanceClientConfig() {}
 
@@ -34,6 +36,9 @@ public class RebalanceClientConfig extends ClientConfig {
 
         if(properties.containsKey(MAX_PARALLEL_REBALANCING_NODES))
             this.setMaxParallelRebalancingNodes(props.getInt(MAX_PARALLEL_REBALANCING_NODES));
+
+        if(properties.containsKey(MAX_REBALANCING_ATTEMPTS))
+            this.setMaxRebalancingAttempt(props.getInt(MAX_REBALANCING_ATTEMPTS));
     }
 
     public void setClusterMajorityThresholdPercentage(double clusterMajorityThresholdPercentage) {
@@ -50,5 +55,13 @@ public class RebalanceClientConfig extends ClientConfig {
 
     public int getMaxParallelRebalancingNodes() {
         return maxParallelRebalancingNodes;
+    }
+
+    public void setMaxRebalancingAttempt(int maxRebalancingAttempt) {
+        this.maxRebalancingAttempt = maxRebalancingAttempt;
+    }
+
+    public int getMaxRebalancingAttempt() {
+        return this.maxRebalancingAttempt;
     }
 }

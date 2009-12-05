@@ -164,17 +164,19 @@ public class VoldemortServer extends AbstractService {
                                            voldemortConfig.isJmxEnabled()));
         }
 
-        if (voldemortConfig.isGossipEnabled()) {
-            ClientConfig clientConfig = new ClientConfig()
-                    .setMaxConnectionsPerNode(1)
-                    .setMaxThreads(1)
-                    .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(), TimeUnit.MILLISECONDS)
-                    .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(), TimeUnit.MILLISECONDS)
-                    .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),clientConfig);
+        if(voldemortConfig.isGossipEnabled()) {
+            ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(1)
+                                                          .setMaxThreads(1)
+                                                          .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
+                                                                                TimeUnit.MILLISECONDS)
+                                                          .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(),
+                                                                            TimeUnit.MILLISECONDS)
+                                                          .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),
+                                                                            clientConfig);
             services.add(new GossipService(this.metadata, adminClient, scheduler, voldemortConfig));
         }
-        
+
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
@@ -220,7 +222,9 @@ public class VoldemortServer extends AbstractService {
         RebalanceClient rebalanceClient = new RebalanceClient(metadata.getCluster(),
                                                               new RebalanceClientConfig());
         try {
-            int asyncTaskId = rebalanceClient.rebalancePartitionAtNode(metadata, stealInfo);
+            int asyncTaskId = rebalanceClient.rebalancePartitionAtNode(metadata,
+                                                                       stealInfo,
+                                                                       asyncRunner);
             rebalanceClient.getAdminClient()
                            .waitForCompletion(getIdentityNode().getId(),
                                               asyncTaskId,
