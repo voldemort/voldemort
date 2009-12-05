@@ -210,6 +210,9 @@ public abstract class AdminClient {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
             if(status.isComplete())
                 return;
+            if(status.hasException())
+                throw new VoldemortException(status.getException());
+
             if(delay < MAX_DELAY)
                 // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;

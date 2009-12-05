@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -144,7 +145,23 @@ public class RebalanceClient {
 
                     while(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
                         try {
-                            getAdminClient().rebalanceNode(stealerNodeId, stealInfo);
+                            stealInfo.setAttempt(stealInfo.getAttempt() + 1);
+                            int rebalanceAsyncId = getAdminClient().rebalanceNode(stealerNodeId,
+                                                                                  stealInfo);
+                            AsyncOperationStatus status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
+                                                                                                 rebalanceAsyncId);
+                            while(!status.isComplete()) {
+                                logger.info("Rebalance transfer " + stealerNodeId + " status:"
+                                            + status.getStatus());
+                                try {
+                                    Thread.sleep(60 * 1000);
+                                } catch(InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+
+                                status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
+                                                                                rebalanceAsyncId);
+                            }
                             return;
                         } catch(Exception e) {
                             logger.warn("Failed Attempt number " + stealInfo.getAttempt()
@@ -209,6 +226,11 @@ public class RebalanceClient {
                                             }
                                             fetchAndUpdateAsyncId = startAsyncPartitionFetch(metadataStore,
                                                                                              stealInfo);
+                                            getAdminClient().waitForCompletion(metadataStore.getNodeId(),
+                                                                               fetchAndUpdateAsyncId,
+                                                                               24 * 60 * 60,
+                                                                               TimeUnit.SECONDS);
+
                                             metadataStore.cleanAllRebalancingState();
                                         }
 
