@@ -9,6 +9,7 @@
  * governing permissions and limitations under the License.
  */
 
+package voldemort.store.compress.lzf;
 import java.io.*;
 
 import junit.framework.TestCase;
