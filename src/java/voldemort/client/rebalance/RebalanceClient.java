@@ -7,22 +7,16 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.protocol.admin.AsyncOperation;
-import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
@@ -192,92 +186,6 @@ public class RebalanceClient {
         }
 
         return false;
-    }
-
-    /**
-     * Rebalance logic at single node level.<br>
-     * <imp> should be called by the rebalancing node itself</imp><br>
-     * Attempt to rebalance from node {@link RebalanceStealInfo#getDonorId()}
-     * for partitionList {@link RebalanceStealInfo#getPartitionList()}
-     * <p>
-     * Force Sets serverState to rebalancing, Sets stealInfo in MetadataStore,
-     * fetch keys from remote node and upsert them locally.<br>
-     * On success clean all states it changed
-     * 
-     * @param metadataStore
-     * @param stealInfo
-     * @return taskId for asynchronous task.
-     */
-    public int rebalancePartitionAtNode(final MetadataStore metadataStore,
-                                        final RebalanceStealInfo stealInfo,
-                                        AsyncOperationRunner asyncRunner) {
-        int requestId = asyncRunner.getUniqueRequestId();
-        asyncRunner.submitOperation(requestId,
-                                    new AsyncOperation(requestId, "rebalanceNode:"
-                                                                  + stealInfo.toString()) {
-
-                                        private int fetchAndUpdateAsyncId = -1;
-
-                                        @Override
-                                        public void operate() throws Exception {
-                                            synchronized(metadataStore) {
-                                                checkCurrentState(metadataStore, stealInfo);
-                                                setRebalancingState(metadataStore, stealInfo);
-                                            }
-                                            fetchAndUpdateAsyncId = startAsyncPartitionFetch(metadataStore,
-                                                                                             stealInfo);
-                                            getAdminClient().waitForCompletion(metadataStore.getNodeId(),
-                                                                               fetchAndUpdateAsyncId,
-                                                                               24 * 60 * 60,
-                                                                               TimeUnit.SECONDS);
-
-                                            metadataStore.cleanAllRebalancingState();
-                                        }
-
-                                        @Override
-                                        @JmxGetter(name = "asyncTaskStatus")
-                                        public AsyncOperationStatus getStatus() {
-                                            return getAdminClient().getAsyncRequestStatus(metadataStore.getNodeId(),
-                                                                                          fetchAndUpdateAsyncId);
-                                        }
-
-                                        private int startAsyncPartitionFetch(MetadataStore metadataStore,
-                                                                             RebalanceStealInfo stealInfo)
-                                                throws Exception {
-                                            return getAdminClient().fetchAndUpdateStreams(metadataStore.getNodeId(),
-                                                                                          stealInfo.getDonorId(),
-                                                                                          stealInfo.getStoreName(),
-                                                                                          stealInfo.getPartitionList(),
-                                                                                          null);
-                                        }
-
-                                        private void setRebalancingState(MetadataStore metadataStore,
-                                                                         RebalanceStealInfo stealInfo)
-                                                throws Exception {
-                                            metadataStore.put(MetadataStore.SERVER_STATE_KEY,
-                                                              VoldemortState.REBALANCING_MASTER_SERVER);
-                                            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                              stealInfo);
-                                        }
-
-                                        private void checkCurrentState(MetadataStore metadataStore,
-                                                                       RebalanceStealInfo stealInfo)
-                                                throws Exception {
-                                            if(metadataStore.getServerState()
-                                                            .equals(VoldemortState.REBALANCING_MASTER_SERVER)
-                                               && metadataStore.getRebalancingStealInfo()
-                                                               .getDonorId() != stealInfo.getDonorId())
-                                                throw new VoldemortException("Server "
-                                                                             + metadataStore.getNodeId()
-                                                                             + " is already rebalancing from:"
-                                                                             + metadataStore.getRebalancingStealInfo()
-                                                                             + " rejecting rebalance request:"
-                                                                             + stealInfo);
-                                        }
-
-                                    });
-
-        return requestId;
     }
 
     public AdminClient getAdminClient() {

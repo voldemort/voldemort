@@ -51,6 +51,7 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -299,9 +300,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
                                                                            request.getAttempt());
-            int requestId = rebalanceClient.rebalancePartitionAtNode(metadataStore,
-                                                                     rebalanceStealInfo,
-                                                                     asyncRunner);
+            int requestId = RebalanceUtils.rebalanceLocalNode(metadataStore,
+                                                              rebalanceStealInfo,
+                                                              asyncRunner,
+                                                              rebalanceClient.getAdminClient());
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())

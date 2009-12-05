@@ -48,6 +48,7 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -222,9 +223,10 @@ public class VoldemortServer extends AbstractService {
         RebalanceClient rebalanceClient = new RebalanceClient(metadata.getCluster(),
                                                               new RebalanceClientConfig());
         try {
-            int asyncTaskId = rebalanceClient.rebalancePartitionAtNode(metadata,
-                                                                       stealInfo,
-                                                                       asyncRunner);
+            int asyncTaskId = RebalanceUtils.rebalanceLocalNode(metadata,
+                                                                stealInfo,
+                                                                asyncRunner,
+                                                                rebalanceClient.getAdminClient());
             rebalanceClient.getAdminClient()
                            .waitForCompletion(getIdentityNode().getId(),
                                               asyncTaskId,
