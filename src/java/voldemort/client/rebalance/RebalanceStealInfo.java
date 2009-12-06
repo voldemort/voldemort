@@ -7,10 +7,11 @@ import voldemort.VoldemortException;
 
 public class RebalanceStealInfo {
 
-    private final static String DELIMITER = "#";
     private final int donorId;
     private final List<Integer> partitionList;
     private final String storeName;
+
+    private final static String DELIMITER = "#";
 
     public String getStoreName() {
         return storeName;

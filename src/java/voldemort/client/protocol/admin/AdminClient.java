@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
@@ -48,6 +50,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  */
 public abstract class AdminClient {
 
+    private static final Logger logger = Logger.getLogger(AdminClient.class);
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
@@ -213,6 +216,9 @@ public abstract class AdminClient {
             if(status.hasException())
                 throw new VoldemortException(status.getException());
 
+            logger.info("Waiting for AsyncTask " + requestId + " description("
+                        + status.getDescription() + ") to finish currentStatus:"
+                        + status.getStatus());
             if(delay < MAX_DELAY)
                 // keep doubling the wait period until we rach maxDelay
                 delay <<= 2;
