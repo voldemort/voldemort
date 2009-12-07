@@ -18,6 +18,7 @@ package voldemort.cluster.failuredetector;
 
 import org.apache.log4j.Level;
 
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -45,6 +46,7 @@ import voldemort.store.UnreachableStoreException;
  * @see FailureDetectorConfig#getNodeBannagePeriod
  */
 
+@JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
     public BannagePeriodFailureDetector(FailureDetectorConfig failureDetectorConfig) {

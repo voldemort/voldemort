@@ -80,6 +80,10 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
         }
     }
 
+    public boolean isJmxEnabled() {
+        return clientConfig.isJmxEnabled();
+    }
+
     public Time getTime() {
         return SystemTime.INSTANCE;
     }

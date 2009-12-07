@@ -16,6 +16,12 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.lang.management.ManagementFactory;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
+import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 
 /**
@@ -32,6 +38,18 @@ public class FailureDetectorUtils {
         FailureDetector fd = (FailureDetector) ReflectUtils.callConstructor(clazz,
                                                                             new Class[] { FailureDetectorConfig.class },
                                                                             new Object[] { failureDetectorConfig });
+
+        if(failureDetectorConfig.isJmxEnabled()) {
+            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(fd.getClass()),
+                                                        fd.getClass().getSimpleName());
+
+            if(mbeanServer.isRegistered(name))
+                JmxUtils.unregisterMbean(mbeanServer, name);
+
+            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(fd), name);
+        }
+
         return fd;
     }
 

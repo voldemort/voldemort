@@ -22,13 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.management.MBeanOperationInfo;
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxOperation;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.cluster.Node;
 
 /**
@@ -38,7 +35,6 @@ import voldemort.cluster.Node;
  * @author Kirk True
  */
 
-@JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public abstract class AbstractFailureDetector implements FailureDetector {
 
     private final FailureDetectorConfig failureDetectorConfig;
@@ -76,7 +72,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         }
     }
 
-    @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of available nodes")
+    @JmxGetter(name = "availableNodeCount", description = "The number of available nodes")
     public int getAvailableNodeCount() {
         int available = 0;
 
@@ -87,7 +83,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         return available;
     }
 
-    @JmxOperation(impact = MBeanOperationInfo.INFO, description = "The number of nodes")
+    @JmxGetter(name = "nodeCount", description = "The number of total nodes")
     public int getNodeCount() {
         return nodeStatusMap.size();
     }

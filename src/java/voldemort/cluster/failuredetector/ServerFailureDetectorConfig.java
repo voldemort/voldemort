@@ -87,6 +87,10 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
         }
     }
 
+    public boolean isJmxEnabled() {
+        return voldemortConfig.isJmxEnabled();
+    }
+
     public Time getTime() {
         return SystemTime.INSTANCE;
     }

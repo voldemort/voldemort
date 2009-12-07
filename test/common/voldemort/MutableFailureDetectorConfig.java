@@ -27,7 +27,7 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
                                         Collection<Node> nodes,
                                         Map<Integer, Store<ByteArray, byte[]>> stores,
                                         Time time) {
-        super(implementationClassName, nodeBannagePeriod, nodes, stores, time);
+        super(implementationClassName, nodeBannagePeriod, nodes, stores, false, time);
         nullStores = new HashMap<Integer, Boolean>();
     }
 

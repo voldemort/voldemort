@@ -85,6 +85,8 @@ public interface FailureDetectorConfig {
 
     public Store<ByteArray, byte[]> getStore(Node node);
 
+    public boolean isJmxEnabled();
+
     public Time getTime();
 
 }

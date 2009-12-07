@@ -21,6 +21,7 @@ import java.util.Set;
 
 import org.apache.log4j.Level;
 
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -39,6 +40,7 @@ import voldemort.utils.ByteArray;
  * @author Kirk True
  */
 
+@JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
     /**

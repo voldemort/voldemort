@@ -43,24 +43,34 @@ public class BasicFailureDetectorConfig implements FailureDetectorConfig {
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
+    private final boolean isJmxEnabled;
+
     private final Time time;
 
     public BasicFailureDetectorConfig(String implementationClassName,
                                       long nodeBannagePeriod,
                                       Collection<Node> nodes,
-                                      Map<Integer, Store<ByteArray, byte[]>> stores) {
-        this(implementationClassName, nodeBannagePeriod, nodes, stores, SystemTime.INSTANCE);
+                                      Map<Integer, Store<ByteArray, byte[]>> stores,
+                                      boolean isJmxEnabled) {
+        this(implementationClassName,
+             nodeBannagePeriod,
+             nodes,
+             stores,
+             isJmxEnabled,
+             SystemTime.INSTANCE);
     }
 
     public BasicFailureDetectorConfig(String implementationClassName,
                                       long nodeBannagePeriod,
                                       Collection<Node> nodes,
                                       Map<Integer, Store<ByteArray, byte[]>> stores,
+                                      boolean isJmxEnabled,
                                       Time time) {
         this.implementationClassName = implementationClassName;
         this.nodeBannagePeriod = nodeBannagePeriod;
         this.nodes = nodes;
         this.stores = stores;
+        this.isJmxEnabled = isJmxEnabled;
         this.time = time;
     }
 
@@ -78,6 +88,10 @@ public class BasicFailureDetectorConfig implements FailureDetectorConfig {
 
     public Store<ByteArray, byte[]> getStore(Node node) {
         return stores.get(node.getId());
+    }
+
+    public boolean isJmxEnabled() {
+        return isJmxEnabled;
     }
 
     public Time getTime() {

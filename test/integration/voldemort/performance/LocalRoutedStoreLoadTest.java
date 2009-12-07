@@ -67,7 +67,8 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         FailureDetectorConfig config = new BasicFailureDetectorConfig(voldemortConfig.getFailureDetector(),
                                                                       voldemortConfig.getClientNodeBannageMs(),
                                                                       cluster.getNodes(),
-                                                                      clientMapping);
+                                                                      clientMapping,
+                                                                      false);
         FailureDetector failureDetector = FailureDetectorUtils.create(config);
 
         Store<ByteArray, byte[]> store = new RoutedStore("test",
