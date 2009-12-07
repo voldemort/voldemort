@@ -265,6 +265,94 @@ public class RebalanceUtils {
     }
 
     /**
+     * Does an atomic commit or revert for the intended partitions ownership
+     * changes.<br>
+     * creates a new cluster metadata by moving partitions list passed in
+     * parameter rebalanceStealInfo and propagates it to all nodes.<br>
+     * Revert all changes if failed to copy on required copies (stealerNode and
+     * donorNode).<br>
+     * holds a lock untill the commit/revert finishes.
+     * 
+     * @param stealPartitionsMap
+     * @param stealerNodeId
+     * @param rebalanceStealInfo
+     * @return
+     */
+    public static boolean rebalanceCommitOrRevert(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
+                                                  Node stealerNode,
+                                                  RebalanceStealInfo rebalanceStealInfo,
+                                                  AdminClient adminClient) {
+        synchronized(stealPartitionsMap) {
+            VectorClock clock = (VectorClock) adminClient.getRemoteCluster(rebalanceStealInfo.getDonorId())
+                                                         .getVersion();
+            Cluster oldCluster = adminClient.getCluster();
+
+            try {
+                // update cluster.xml and tell all Nodes
+                Cluster newCluster = RebalanceUtils.createUpdatedCluster(oldCluster,
+                                                                         stealerNode,
+                                                                         oldCluster.getNodeById(rebalanceStealInfo.getDonorId()),
+                                                                         rebalanceStealInfo.getPartitionList());
+                // increment clock version on stealerNodeId
+                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+                RebalanceUtils.propagateCluster(adminClient,
+                                                newCluster,
+                                                clock,
+                                                Arrays.asList(stealerNode.getId(),
+                                                              rebalanceStealInfo.getDonorId()));
+
+                // set new cluster in adminClient
+                adminClient.setCluster(newCluster);
+                return true;
+            } catch(Exception e) {
+                logger.warn("Failed to commit rebalance on node:" + stealerNode.getId(), e);
+                // revert stealPartitions changes
+                RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
+                                                        stealerNode.getId(),
+                                                        rebalanceStealInfo);
+                // revert cluster changes.
+                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+                RebalanceUtils.propagateCluster(adminClient,
+                                                oldCluster,
+                                                clock,
+                                                new ArrayList<Integer>());
+
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Attempt the data transfer on the stealerNode through the
+     * {@link AdminClient#rebalanceNode()} api.<br>
+     * Blocks untill the AsyncStatus is set to success or exception <br>
+     * 
+     * @param stealerNodeId
+     * @param stealPartitionsMap
+     * @return success: true or false
+     */
+    public static boolean attemptRebalanceTransfer(Node stealerNode,
+                                                   RebalanceStealInfo stealInfo,
+                                                   AdminClient adminClient) {
+        try {
+            int rebalanceAsyncId = adminClient.rebalanceNode(stealerNode.getId(), stealInfo);
+
+            adminClient.waitForCompletion(stealerNode.getId(),
+                                          rebalanceAsyncId,
+                                          24 * 60 * 60,
+                                          TimeUnit.SECONDS);
+            return true;
+        } catch(Exception e) {
+            logger.warn("Failed Attempt number " + stealInfo.getAttempt() + " Rebalance transfer "
+                        + stealerNode.getId() + " <== " + stealInfo.getDonorId() + " "
+                        + stealInfo.getPartitionList() + " with exception:", e);
+        }
+
+        return false;
+    }
+
+    /**
      * Rebalance logic at single node level.<br>
      * <imp> should be called by the rebalancing node itself</imp><br>
      * Attempt to rebalance from node {@link RebalanceStealInfo#getDonorId()}
