@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -17,7 +18,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
@@ -88,11 +88,25 @@ public class RebalanceClient {
                             if(nodeRebalancingLock.get(stealerNodeId).compareAndSet(false, true)) {
                                 RebalanceStealInfo rebalanceStealInfo = RebalanceUtils.getOneStealInfoAndUpdateStealMap(stealerNodeId,
                                                                                                                         stealPartitionsMap);
-                                if(rebalanceCommit(stealPartitionsMap,
-                                                   stealerNodeId,
-                                                   rebalanceStealInfo)) {
-                                    // attempt data transfer
-                                    attemptOneRebalanceTransfer(stealerNodeId, rebalanceStealInfo);
+                                if(rebalanceCommitOrRevert(stealPartitionsMap,
+                                                           stealerNodeId,
+                                                           rebalanceStealInfo)) {
+                                    boolean success = attemptRebalanceTransfer(stealerNodeId,
+                                                                               rebalanceStealInfo);
+
+                                    if(!success) {
+                                        if(rebalanceStealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
+                                            // increment attempt and add back.
+                                            rebalanceStealInfo.setAttempt(rebalanceStealInfo.getAttempt() + 1);
+                                            RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
+                                                                                    stealerNodeId,
+                                                                                    rebalanceStealInfo);
+                                        } else {
+                                            logger.error("Rebalance attempt for node:"
+                                                         + stealerNodeId + " failed max times.");
+                                        }
+
+                                    }
                                 }
 
                                 // free rebalancing lock for this node.
@@ -109,9 +123,24 @@ public class RebalanceClient {
                     }
                 }
 
-                private boolean rebalanceCommit(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
-                                                int stealerNodeId,
-                                                RebalanceStealInfo rebalanceStealInfo) {
+                /**
+                 * Does an atomic commit or revert for the intended partitions
+                 * ownership changes.<br>
+                 * creates a new cluster metadata by moving partitions list
+                 * passed in parameter rebalanceStealInfo and propagates it to
+                 * all nodes.<br>
+                 * Revert all changes if failed to copy on required copies
+                 * (stealerNode and donorNode).<br>
+                 * holds a lock untill the commit/revert finishes.
+                 * 
+                 * @param stealPartitionsMap
+                 * @param stealerNodeId
+                 * @param rebalanceStealInfo
+                 * @return
+                 */
+                private boolean rebalanceCommitOrRevert(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
+                                                        int stealerNodeId,
+                                                        RebalanceStealInfo rebalanceStealInfo) {
                     synchronized(stealPartitionsMap) {
                         VectorClock clock = (VectorClock) adminClient.getRemoteCluster(rebalanceStealInfo.getDonorId())
                                                                      .getVersion();
@@ -166,35 +195,27 @@ public class RebalanceClient {
                 }
 
                 /**
-                 * Given a stealerNode and stealInfo {@link RebalanceStealInfo}
-                 * tries stealing unless succeed or failed max number of allowed
-                 * tries.
+                 * Attempt the data transfer on the stealerNode through the
+                 * {@link AdminClient#rebalanceNode()} api.<br>
+                 * Blocks untill the AsyncStatus is set to success or exception <br>
                  * 
+                 * @param stealerNodeId
                  * @param stealPartitionsMap
+                 * @return success: true or false
                  */
-                private void attemptOneRebalanceTransfer(int stealerNodeId,
+                private boolean attemptRebalanceTransfer(int stealerNodeId,
                                                          RebalanceStealInfo stealInfo) {
 
-                    while(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
+                    if(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
                         try {
-                            stealInfo.setAttempt(stealInfo.getAttempt() + 1);
                             int rebalanceAsyncId = getAdminClient().rebalanceNode(stealerNodeId,
                                                                                   stealInfo);
-                            AsyncOperationStatus status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
-                                                                                                 rebalanceAsyncId);
-                            while(!status.isComplete()) {
-                                logger.info("Rebalance transfer " + stealerNodeId + " status:"
-                                            + status.getStatus());
-                                try {
-                                    Thread.sleep(60 * 1000);
-                                } catch(InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                }
 
-                                status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
-                                                                                rebalanceAsyncId);
-                            }
-                            return;
+                            adminClient.waitForCompletion(stealerNodeId,
+                                                          rebalanceAsyncId,
+                                                          24 * 60 * 60,
+                                                          TimeUnit.SECONDS);
+                            return true;
                         } catch(Exception e) {
                             logger.warn("Failed Attempt number " + stealInfo.getAttempt()
                                         + " Rebalance transfer " + stealerNodeId + " <== "
@@ -202,12 +223,9 @@ public class RebalanceClient {
                                         + stealInfo.getPartitionList() + " with exception:", e);
                         }
                     }
-
-                    throw new VoldemortException("Failed rebalance transfer to:" + stealerNodeId
-                                                 + " <== from:" + stealInfo.getDonorId()
-                                                 + " partitions:" + stealInfo.getPartitionList()
-                                                 + ")");
+                    return false;
                 }
+
             });
         }
 
