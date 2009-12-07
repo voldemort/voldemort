@@ -111,7 +111,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
             if(logger.isInfoEnabled())
                 logger.info("Checking previously unavailable node " + node);
 
-            Store<ByteArray, byte[]> store = getConfig().getStore(node);
+            Store<ByteArray, byte[]> store = getConfig().getStoreResolver().getStore(node);
 
             if(store == null) {
                 if(logger.isEnabledFor(Level.WARN))

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.BasicFailureDetectorConfig;
+import voldemort.cluster.failuredetector.BasicStoreResolver;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
@@ -18,16 +18,12 @@ import voldemort.utils.Time;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
+public class MutableStoreResolver extends BasicStoreResolver {
 
     private Map<Integer, Boolean> nullStores;
 
-    public MutableFailureDetectorConfig(String implementationClassName,
-                                        long nodeBannagePeriod,
-                                        Collection<Node> nodes,
-                                        Map<Integer, Store<ByteArray, byte[]>> stores,
-                                        Time time) {
-        super(implementationClassName, nodeBannagePeriod, nodes, stores, false, time);
+    public MutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
+        super(stores);
         nullStores = new HashMap<Integer, Boolean>();
     }
 
@@ -48,12 +44,12 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
                                                         Map<Integer, Store<ByteArray, byte[]>> subStores,
                                                         Time time,
                                                         long bannageMillis) {
-        FailureDetectorConfig config = new MutableFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                        bannageMillis,
-                                                                        nodes,
-                                                                        subStores,
-                                                                        time);
-        return FailureDetectorUtils.create(config);
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                 .setNodeBannagePeriod(bannageMillis)
+                                                                                 .setNodes(nodes)
+                                                                                 .setStoreResolver(new MutableStoreResolver(subStores))
+                                                                                 .setTime(time);
+        return FailureDetectorUtils.create(failureDetectorConfig);
     }
 
     public static FailureDetector createFailureDetector(Class<?> failureDetectorClass,
@@ -107,7 +103,8 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
     public static void recordException(FailureDetector failureDetector,
                                        Node node,
                                        UnreachableStoreException e) {
-        ((MutableFailureDetectorConfig) failureDetector.getConfig()).setReturnNullStore(node, true);
+        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
+                                                                                                   true);
         failureDetector.recordException(node, e);
     }
 
@@ -117,7 +114,8 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
 
     public static void recordSuccess(FailureDetector failureDetector, Node node, boolean shouldWait)
             throws Exception {
-        ((MutableFailureDetectorConfig) failureDetector.getConfig()).setReturnNullStore(node, false);
+        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
+                                                                                                   false);
         failureDetector.recordSuccess(node);
 
         if(shouldWait)

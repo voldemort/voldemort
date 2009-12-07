@@ -35,8 +35,9 @@ import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
+import voldemort.cluster.failuredetector.ClientStoreResolver;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
@@ -106,7 +107,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
     protected FailureDetector initFailureDetector(final ClientConfig config,
                                                   final Collection<Node> nodes) {
-        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config, nodes) {
+        ClientStoreResolver storeResolver = new ClientStoreResolver() {
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
@@ -116,7 +117,15 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                             config.getRequestFormatType());
             }
 
-        });
+        };
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(config.getFailureDetector())
+                                                                                 .setJmxEnabled(config.isJmxEnabled())
+                                                                                 .setNodeBannagePeriod(config.getNodeBannagePeriod(TimeUnit.MILLISECONDS))
+                                                                                 .setNodes(nodes)
+                                                                                 .setStoreResolver(storeResolver);
+
+        return FailureDetectorUtils.create(failureDetectorConfig);
     }
 
     @Override

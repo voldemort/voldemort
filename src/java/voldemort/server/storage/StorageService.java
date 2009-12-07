@@ -45,7 +45,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
-import voldemort.cluster.failuredetector.ServerFailureDetectorConfig;
+import voldemort.cluster.failuredetector.ServerStoreResolver;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -119,10 +119,13 @@ public class StorageService extends AbstractService {
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());
 
-        FailureDetectorConfig failureDetectorConfig = new ServerFailureDetectorConfig(voldemortConfig,
-                                                                                      storeRepository,
-                                                                                      metadata.getCluster()
-                                                                                              .getNodes());
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(voldemortConfig.getFailureDetector())
+                                                                                 .setJmxEnabled(voldemortConfig.isJmxEnabled())
+                                                                                 .setNodeBannagePeriod(voldemortConfig.getClientNodeBannageMs())
+                                                                                 .setNodes(metadata.getCluster()
+                                                                                                   .getNodes())
+                                                                                 .setStoreResolver(new ServerStoreResolver(storeRepository,
+                                                                                                                           voldemortConfig.getNodeId()));
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }
 

@@ -21,24 +21,29 @@ import java.util.Collection;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
-import voldemort.store.Store;
-import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
 /**
- * FailureDetectorConfig abstracts away the complexities of configuring the
- * FailureDetector implementation between server, client, and testing
- * environments.
- * 
- * <p/>
- * 
- * Not all data provided by the FailureDetectorConfig need be used by all
- * FailureDetector implementations.
+ * FailureDetectorConfig simply holds all the data that was available to it upon
+ * construction.
  * 
  * @author Kirk True
  */
 
-public interface FailureDetectorConfig {
+public class FailureDetectorConfig {
+
+    protected String implementationClassName;
+
+    protected long nodeBannagePeriod = 30000;
+
+    protected Collection<Node> nodes;
+
+    protected StoreResolver storeResolver;
+
+    protected boolean isJmxEnabled = false;
+
+    protected Time time = SystemTime.INSTANCE;
 
     /**
      * Returns the fully-qualified class name of the FailureDetector
@@ -47,7 +52,14 @@ public interface FailureDetectorConfig {
      * @return Class name to instantiate for the FailureDetector
      */
 
-    public String getImplementationClassName();
+    public String getImplementationClassName() {
+        return implementationClassName;
+    }
+
+    public FailureDetectorConfig setImplementationClassName(String implementationClassName) {
+        this.implementationClassName = implementationClassName;
+        return this;
+    }
 
     /**
      * Returns the node bannage period (in milliseconds) as defined by the
@@ -61,7 +73,14 @@ public interface FailureDetectorConfig {
      * @see ClientConfig#getNodeBannagePeriod
      */
 
-    public long getNodeBannagePeriod();
+    public long getNodeBannagePeriod() {
+        return nodeBannagePeriod;
+    }
+
+    public FailureDetectorConfig setNodeBannagePeriod(long nodeBannagePeriod) {
+        this.nodeBannagePeriod = nodeBannagePeriod;
+        return this;
+    }
 
     /**
      * Returns a list of nodes in the cluster represented by this failure
@@ -71,22 +90,40 @@ public interface FailureDetectorConfig {
      *         object (except in the case of unit tests, perhaps)
      */
 
-    public Collection<Node> getNodes();
+    public Collection<Node> getNodes() {
+        return nodes;
+    }
 
-    /**
-     * Returns a Store for this node. This is used by some FailureDetector
-     * implementations to attempt contact with the node before marking said node
-     * as available.
-     * 
-     * @param node Node to access
-     * 
-     * @return Store to access to determine node availability
-     */
+    public FailureDetectorConfig setNodes(Collection<Node> nodes) {
+        this.nodes = nodes;
+        return this;
+    }
 
-    public Store<ByteArray, byte[]> getStore(Node node);
+    public StoreResolver getStoreResolver() {
+        return storeResolver;
+    }
 
-    public boolean isJmxEnabled();
+    public FailureDetectorConfig setStoreResolver(StoreResolver storeResolver) {
+        this.storeResolver = storeResolver;
+        return this;
+    }
 
-    public Time getTime();
+    public boolean isJmxEnabled() {
+        return isJmxEnabled;
+    }
+
+    public FailureDetectorConfig setJmxEnabled(boolean isJmxEnabled) {
+        this.isJmxEnabled = isJmxEnabled;
+        return this;
+    }
+
+    public Time getTime() {
+        return time;
+    }
+
+    public FailureDetectorConfig setTime(Time time) {
+        this.time = time;
+        return this;
+    }
 
 }

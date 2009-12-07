@@ -16,9 +16,9 @@
 
 package voldemort.cluster;
 
-import static voldemort.MutableFailureDetectorConfig.createFailureDetector;
-import static voldemort.MutableFailureDetectorConfig.recordException;
-import static voldemort.MutableFailureDetectorConfig.recordSuccess;
+import static voldemort.MutableStoreResolver.createFailureDetector;
+import static voldemort.MutableStoreResolver.recordException;
+import static voldemort.MutableStoreResolver.recordSuccess;
 
 import java.util.Arrays;
 import java.util.Collection;

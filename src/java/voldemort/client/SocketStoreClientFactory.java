@@ -24,8 +24,9 @@ import java.util.concurrent.TimeUnit;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.ClientFailureDetectorConfig;
+import voldemort.cluster.failuredetector.ClientStoreResolver;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
@@ -102,7 +103,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
         };
 
-        return FailureDetectorUtils.create(new ClientFailureDetectorConfig(config, nodes) {
+        ClientStoreResolver storeResolver = new ClientStoreResolver() {
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
@@ -112,7 +113,15 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                               config.getRequestFormatType());
             }
 
-        }, failureDetectorListener);
+        };
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(config.getFailureDetector())
+                                                                                 .setJmxEnabled(config.isJmxEnabled())
+                                                                                 .setNodeBannagePeriod(config.getNodeBannagePeriod(TimeUnit.MILLISECONDS))
+                                                                                 .setNodes(nodes)
+                                                                                 .setStoreResolver(storeResolver);
+
+        return FailureDetectorUtils.create(failureDetectorConfig, failureDetectorListener);
     }
 
     @Override

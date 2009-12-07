@@ -18,9 +18,9 @@ package voldemort.store.routed;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static voldemort.MutableFailureDetectorConfig.createFailureDetector;
-import static voldemort.MutableFailureDetectorConfig.recordException;
-import static voldemort.MutableFailureDetectorConfig.recordSuccess;
+import static voldemort.MutableStoreResolver.createFailureDetector;
+import static voldemort.MutableStoreResolver.recordException;
+import static voldemort.MutableStoreResolver.recordSuccess;
 import static voldemort.TestUtils.getClock;
 
 import java.util.ArrayList;

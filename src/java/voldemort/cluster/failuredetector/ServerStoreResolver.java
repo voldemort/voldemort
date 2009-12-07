@@ -16,57 +16,35 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
-import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 /**
- * ServerFailureDetectorConfig is used to retrieve configuration data for a
- * server environment. The node->store mapping is not known at the early point
- * in the client lifecycle that it can be provided, so it is performed on
- * demand.
+ * ServerStoreResolver is used to retrieve configuration data for a server
+ * environment. The node->store mapping is not known at the early point in the
+ * client lifecycle that it can be provided, so it is performed on demand.
  * 
  * @author Kirk True
  */
 
-public class ServerFailureDetectorConfig implements FailureDetectorConfig {
-
-    private final VoldemortConfig voldemortConfig;
+public class ServerStoreResolver implements StoreResolver {
 
     private final StoreRepository storeRepository;
 
-    private final Collection<Node> nodes;
+    private final int nodeId;
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public ServerFailureDetectorConfig(VoldemortConfig voldemortConfig,
-                                       StoreRepository storeRepository,
-                                       Collection<Node> nodes) {
-        this.voldemortConfig = voldemortConfig;
+    public ServerStoreResolver(StoreRepository storeRepository, int nodeId) {
         this.storeRepository = storeRepository;
-        this.nodes = nodes;
+        this.nodeId = nodeId;
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
-    }
-
-    public String getImplementationClassName() {
-        return voldemortConfig.getFailureDetector();
-    }
-
-    public long getNodeBannagePeriod() {
-        return voldemortConfig.getClientNodeBannageMs();
-    }
-
-    public Collection<Node> getNodes() {
-        return nodes;
     }
 
     public Store<ByteArray, byte[]> getStore(Node node) {
@@ -74,7 +52,7 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
             Store<ByteArray, byte[]> store = stores.get(node.getId());
 
             if(store == null) {
-                if(node.getId() == voldemortConfig.getNodeId())
+                if(node.getId() == nodeId)
                     store = storeRepository.getLocalStore(MetadataStore.METADATA_STORE_NAME);
                 else
                     store = storeRepository.getNodeStore(MetadataStore.METADATA_STORE_NAME,
@@ -85,14 +63,6 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
             return store;
         }
-    }
-
-    public boolean isJmxEnabled() {
-        return voldemortConfig.isJmxEnabled();
-    }
-
-    public Time getTime() {
-        return SystemTime.INSTANCE;
     }
 
 }
