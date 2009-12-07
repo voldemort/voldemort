@@ -23,6 +23,7 @@ import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 
 /**
  * FailureDetectorConfig abstracts away the complexities of configuring the
@@ -83,5 +84,7 @@ public interface FailureDetectorConfig {
      */
 
     public Store<ByteArray, byte[]> getStore(Node node);
+
+    public Time getTime();
 
 }

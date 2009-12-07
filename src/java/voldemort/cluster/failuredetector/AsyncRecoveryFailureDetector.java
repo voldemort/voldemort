@@ -77,7 +77,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         }
     }
 
-    public void recordException(Node node, Exception e) {
+    public void recordException(Node node, UnreachableStoreException e) {
         synchronized(unavailableNodes) {
             unavailableNodes.add(node);
         }
@@ -96,58 +96,63 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         isRunning = false;
     }
 
-    public void run() {
+    private void check() {
+        Set<Node> unavailableNodesCopy = new HashSet<Node>();
+
+        synchronized(unavailableNodes) {
+            unavailableNodesCopy.addAll(unavailableNodes);
+        }
+
         ByteArray key = new ByteArray((byte) 1);
 
+        for(Node node: unavailableNodesCopy) {
+            if(logger.isInfoEnabled())
+                logger.info("Checking previously unavailable node " + node);
+
+            Store<ByteArray, byte[]> store = getConfig().getStore(node);
+
+            if(store == null) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(node + " store is null; cannot determine node availability");
+
+                continue;
+            }
+
+            try {
+                store.get(key);
+
+                synchronized(unavailableNodes) {
+                    unavailableNodes.remove(node);
+                }
+
+                setAvailable(node);
+
+                if(logger.isInfoEnabled())
+                    logger.info(node + " now available");
+            } catch(UnreachableStoreException e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(node + " still unavailable");
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(node + " unavailable due to error", e);
+            }
+        }
+    }
+
+    public void run() {
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
                 if(logger.isInfoEnabled()) {
                     logger.info("Sleeping for " + getConfig().getNodeBannagePeriod()
                                 + " ms before checking node availability");
                 }
-                Thread.sleep(getConfig().getNodeBannagePeriod());
+
+                getConfig().getTime().sleep(getConfig().getNodeBannagePeriod());
             } catch(InterruptedException e) {
                 break;
             }
 
-            Set<Node> unavailableNodesCopy = new HashSet<Node>();
-
-            synchronized(unavailableNodes) {
-                unavailableNodesCopy.addAll(unavailableNodes);
-            }
-
-            for(Node node: unavailableNodesCopy) {
-                if(logger.isInfoEnabled())
-                    logger.info("Checking previously unavailable node " + node);
-
-                Store<ByteArray, byte[]> store = getConfig().getStore(node);
-
-                if(store == null) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(node + " store is null; cannot determine node availability");
-
-                    continue;
-                }
-
-                try {
-                    store.get(key);
-
-                    synchronized(unavailableNodes) {
-                        unavailableNodes.remove(node);
-                    }
-
-                    setAvailable(node);
-
-                    if(logger.isInfoEnabled())
-                        logger.info(node + " now available");
-                } catch(UnreachableStoreException e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(node + " still unavailable");
-                } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.ERROR))
-                        logger.error(node + " unavailable due to error", e);
-                }
-            }
+            check();
         }
     }
 

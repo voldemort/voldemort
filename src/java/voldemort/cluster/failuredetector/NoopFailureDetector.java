@@ -17,6 +17,7 @@
 package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * NoopFailureDetector is used for testing classes which don't actually need a
@@ -39,7 +40,7 @@ public class NoopFailureDetector implements FailureDetector {
         return null;
     }
 
-    public void recordException(Node node, Exception e) {}
+    public void recordException(Node node, UnreachableStoreException e) {}
 
     public void recordSuccess(Node node) {}
 

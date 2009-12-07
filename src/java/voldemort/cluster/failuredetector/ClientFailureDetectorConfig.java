@@ -27,6 +27,8 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
 
 /**
  * ClientFailureDetectorConfig is used to retrieve configuration data for a
@@ -76,6 +78,10 @@ public abstract class ClientFailureDetectorConfig implements FailureDetectorConf
 
             return store;
         }
+    }
+
+    public Time getTime() {
+        return SystemTime.INSTANCE;
     }
 
     protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);

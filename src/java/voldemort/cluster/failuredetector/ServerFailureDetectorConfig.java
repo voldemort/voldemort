@@ -26,6 +26,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
 
 /**
  * ServerFailureDetectorConfig is used to retrieve configuration data for a
@@ -83,6 +85,10 @@ public class ServerFailureDetectorConfig implements FailureDetectorConfig {
 
             return store;
         }
+    }
+
+    public Time getTime() {
+        return SystemTime.INSTANCE;
     }
 
 }

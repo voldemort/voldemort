@@ -54,7 +54,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
 
         for(Node node: failureDetectorConfig.getNodes())
-            nodeStatusMap.put(node, new NodeStatus());
+            nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
 
         listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
     }
@@ -81,7 +81,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         int available = 0;
 
         for(NodeStatus nodeStatus: nodeStatusMap.values())
-            if(nodeStatus.isAvailable())
+            if(isAvailable(nodeStatus))
                 available++;
 
         return available;

@@ -14,6 +14,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -24,8 +25,9 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
     public MutableFailureDetectorConfig(String implementationClassName,
                                         long nodeBannagePeriod,
                                         Collection<Node> nodes,
-                                        Map<Integer, Store<ByteArray, byte[]>> stores) {
-        super(implementationClassName, nodeBannagePeriod, nodes, stores);
+                                        Map<Integer, Store<ByteArray, byte[]>> stores,
+                                        Time time) {
+        super(implementationClassName, nodeBannagePeriod, nodes, stores, time);
         nullStores = new HashMap<Integer, Boolean>();
     }
 
@@ -43,16 +45,21 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
 
     public static FailureDetector createFailureDetector(Class<?> failureDetectorClass,
                                                         Collection<Node> nodes,
-                                                        Map<Integer, Store<ByteArray, byte[]>> subStores) {
+                                                        Map<Integer, Store<ByteArray, byte[]>> subStores,
+                                                        Time time,
+                                                        long bannageMillis) {
         FailureDetectorConfig config = new MutableFailureDetectorConfig(failureDetectorClass.getName(),
-                                                                        1000,
+                                                                        bannageMillis,
                                                                         nodes,
-                                                                        subStores);
+                                                                        subStores,
+                                                                        time);
         return FailureDetectorUtils.create(config);
     }
 
     public static FailureDetector createFailureDetector(Class<?> failureDetectorClass,
-                                                        Collection<Node> nodes) {
+                                                        Collection<Node> nodes,
+                                                        Time time,
+                                                        long bannageMillis) {
         Map<Integer, Store<ByteArray, byte[]>> subStores = new HashMap<Integer, Store<ByteArray, byte[]>>();
 
         for(Node node: nodes) {
@@ -90,7 +97,7 @@ public class MutableFailureDetectorConfig extends BasicFailureDetectorConfig {
             });
         }
 
-        return createFailureDetector(failureDetectorClass, nodes, subStores);
+        return createFailureDetector(failureDetectorClass, nodes, subStores, time, bannageMillis);
     }
 
     public static void recordException(FailureDetector failureDetector, Node node) {

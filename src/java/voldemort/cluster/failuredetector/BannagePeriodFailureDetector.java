@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * BannagePeriodFailureDetector relies on external callers to notify it of
@@ -50,7 +51,7 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         super(failureDetectorConfig);
     }
 
-    public void recordException(Node node, Exception e) {
+    public void recordException(Node node, UnreachableStoreException e) {
         setUnavailable(node);
 
         if(logger.isEnabledFor(Level.WARN))

@@ -133,7 +133,11 @@ public class ReadRepairerTest extends TestCase {
                           new InMemoryStorageEngine<ByteArray, byte[]>("test"));
         }
 
-        failureDetector = createFailureDetector(failureDetectorClass, cluster.getNodes(), subStores);
+        failureDetector = createFailureDetector(failureDetectorClass,
+                                                cluster.getNodes(),
+                                                subStores,
+                                                time,
+                                                1000L);
 
         RoutedStore store = new RoutedStore("test",
                                             subStores,

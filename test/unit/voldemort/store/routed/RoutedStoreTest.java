@@ -59,6 +59,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -700,7 +701,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         if(failureDetector != null)
             failureDetector.destroy();
 
-        failureDetector = createFailureDetector(failureDetectorClass, cluster.getNodes(), subStores);
+        failureDetector = createFailureDetector(failureDetectorClass,
+                                                cluster.getNodes(),
+                                                subStores,
+                                                SystemTime.INSTANCE,
+                                                1000);
     }
 
 }

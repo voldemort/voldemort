@@ -17,6 +17,7 @@
 package voldemort.cluster.failuredetector;
 
 import voldemort.cluster.Node;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.RoutedStore;
 
 /**
@@ -117,7 +118,7 @@ public interface FailureDetector {
      * @param e Exception that occurred when trying to access the node
      */
 
-    public void recordException(Node node, Exception e);
+    public void recordException(Node node, UnreachableStoreException e);
 
     /**
      * Allows external callers to provide input to the FailureDetector that an

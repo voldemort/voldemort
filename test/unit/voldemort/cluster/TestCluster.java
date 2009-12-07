@@ -66,7 +66,10 @@ public class TestCluster extends TestCase {
         this.cluster = new Cluster(clusterName, nodes);
         this.time = SystemTime.INSTANCE;
 
-        failureDetector = createFailureDetector(failureDetectorClass, cluster.getNodes());
+        failureDetector = createFailureDetector(failureDetectorClass,
+                                                cluster.getNodes(),
+                                                time,
+                                                1000);
     }
 
     @Override
