@@ -155,7 +155,16 @@ public abstract class AdminClient {
                                               List<Integer> stealList,
                                               VoldemortFilter filter);
 
-    public abstract int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo);
+    /**
+     * Rebalance a stealer,donor node pair for the given storeName.<br>
+     * stealInfo also have a storeName list, this is passed to client to persist
+     * in case of failure and start balancing all the stores in the list only.
+     * 
+     * @param storeName
+     * @param stealInfo
+     * @return
+     */
+    public abstract int rebalanceNode(String storeName, RebalanceStealInfo stealInfo);
 
     /**
      * cleanly close this client, freeing any resource.

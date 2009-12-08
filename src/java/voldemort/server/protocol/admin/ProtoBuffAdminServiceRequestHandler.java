@@ -37,6 +37,7 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.server.rebalance.Rebalancer;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
@@ -292,14 +293,16 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
         try {
 
-            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStore(),
+            RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStealerId(),
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
+                                                                           request.getUnbalancedStoreList(),
                                                                            request.getAttempt());
-            int requestId = RebalanceUtils.rebalanceLocalNode(metadataStore,
-                                                              rebalanceStealInfo,
-                                                              asyncRunner,
-                                                              adminClient);
+            int requestId = new Rebalancer().rebalanceLocalNode(metadataStore,
+                                                                request.getCurrentStore(),
+                                                                rebalanceStealInfo,
+                                                                asyncRunner,
+                                                                adminClient);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())

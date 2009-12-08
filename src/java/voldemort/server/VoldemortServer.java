@@ -40,6 +40,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
+import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
@@ -199,7 +200,8 @@ public class VoldemortServer extends AbstractService {
             if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                 attemptRebalance(stealInfo);
             } else {
-                logger.warn("Rebalancing failed multiple times, Force starting into NORMAL mode !!");
+                logger.warn("Rebalancing for rebalancing task:" + stealInfo
+                            + " failed multiple times, Force starting into NORMAL mode !!");
             }
 
             // clean all rebalancing state
@@ -207,32 +209,32 @@ public class VoldemortServer extends AbstractService {
         }
     }
 
-    private boolean attemptRebalance(RebalanceStealInfo stealInfo) {
-        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
-        logger.info("Restarting rebalance from node:" + stealInfo.getDonorId()
-                    + " for partitionList:" + stealInfo.getPartitionList() + " as "
-                    + stealInfo.getAttempt() + " attempt.");
+    private void attemptRebalance(RebalanceStealInfo stealInfo) {
+        logger.info("Restarting rebalance for rebalanceSubTask:" + stealInfo);
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                        metadata.getCluster());
-        try {
-            int asyncTaskId = RebalanceUtils.rebalanceLocalNode(metadata,
-                                                                stealInfo,
-                                                                asyncRunner,
-                                                                adminClient);
-            adminClient.waitForCompletion(getIdentityNode().getId(),
-                                          asyncTaskId,
-                                          voldemortConfig.getRebalancingTimeout(),
-                                          TimeUnit.SECONDS);
-            return true;
-        } catch(Exception e) {
-            logger.error("Failed to rebalance from node:" + stealInfo.getDonorId()
-                         + " for partitionList:" + stealInfo.getPartitionList() + " in "
-                         + stealInfo.getAttempt() + " attempts.", e);
-            return false;
-        } finally {
-            adminClient.stop();
-        }
+        Rebalancer rebalancer = new Rebalancer();
+        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
 
+        List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
+        for(String storeName: unbalanceStoreList) {
+            try {
+                int rebalanceAsyncId = rebalancer.rebalanceLocalNode(metadata,
+                                                                     storeName,
+                                                                     stealInfo,
+                                                                     asyncRunner,
+                                                                     adminClient);
+
+                adminClient.waitForCompletion(stealInfo.getStealerId(),
+                                              rebalanceAsyncId,
+                                              24 * 60 * 60,
+                                              TimeUnit.SECONDS);
+                // remove store from rebalance list
+                stealInfo.getUnbalancedStoreList().remove(storeName);
+            } catch(Exception e) {
+                logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:" + storeName, e);
+            }
+        }
     }
 
     /**

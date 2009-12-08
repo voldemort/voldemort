@@ -421,22 +421,21 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     @Override
-    public int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo) {
-        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
-                .newBuilder()
-                .setAttempt(stealInfo.getAttempt())
-                .setDonorId(stealInfo.getDonorId())
-                .addAllPartitions(stealInfo.getPartitionList())
-                .build();
+    public int rebalanceNode(String storeName, RebalanceStealInfo stealInfo) {
+        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
+                                                                                                                .setAttempt(stealInfo.getAttempt())
+                                                                                                                .setDonorId(stealInfo.getDonorId())
+                                                                                                                .addAllPartitions(stealInfo.getPartitionList())
+                                                                                                                .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
-                .setInitiateRebalanceNode(rebalanceNodeRequest)
-                .build();
-        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
-                adminRequest,
-                VAdminProto.AsyncOperationStatusResponse.newBuilder());
+                                                                                          .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                                                                                          .setInitiateRebalanceNode(rebalanceNodeRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealInfo.getStealerId(),
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
-        if (response.hasError())
+        if(response.hasError())
             throwException(response.getError());
 
         return response.getRequestId();

@@ -19,6 +19,7 @@ package voldemort.store.metadata;
 import java.io.File;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -341,9 +342,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + " as node:" + nodeId + " aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo("",
+        initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo(-1,
                                                                  -1,
                                                                  new ArrayList<Integer>(0),
+                                                                 Arrays.asList(""),
                                                                  0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());

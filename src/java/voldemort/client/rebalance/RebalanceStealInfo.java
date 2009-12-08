@@ -1,51 +1,45 @@
 package voldemort.client.rebalance;
 
-import java.util.ArrayList;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.List;
+import java.util.Map;
 
-import voldemort.VoldemortException;
+import voldemort.serialization.json.JsonReader;
+import voldemort.serialization.json.JsonWriter;
+
+import com.google.common.collect.ImmutableMap;
 
 public class RebalanceStealInfo {
 
+    private final int stealerId;
     private final int donorId;
     private final List<Integer> partitionList;
-    private final String storeName;
-
-    private final static String DELIMITER = "#";
-
-    public String getStoreName() {
-        return storeName;
-    }
+    private final List<String> unbalancedStoreList;
 
     private int attempt;
 
-    public RebalanceStealInfo(String storeName,
+    public RebalanceStealInfo(int stealerNodeId,
                               int donorId,
                               List<Integer> partitionList,
+                              List<String> unbalancedStorList,
                               int attempt) {
         super();
+        this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.partitionList = partitionList;
         this.attempt = attempt;
-        this.storeName = storeName;
+        this.unbalancedStoreList = unbalancedStorList;
     }
 
     public RebalanceStealInfo(String line) {
-        try {
-            String[] tokens = line.split(DELIMITER);
-            this.storeName = tokens[0];
-            this.donorId = Integer.parseInt(tokens[1].trim());
-            this.partitionList = new ArrayList<Integer>();
-            String listString = tokens[2].replace("[", "").replace("]", "");
-            for(String pString: listString.split(",")) {
-                if(pString.trim().length() > 0)
-                    partitionList.add(Integer.parseInt(pString.trim()));
-            }
-            this.attempt = Integer.parseInt(tokens[3].trim());
-        } catch(Exception e) {
-            throw new VoldemortException("Cannot create RebalanceStealInfo from String:'" + line
-                                         + "'", e);
-        }
+        JsonReader reader = new JsonReader(new StringReader(line));
+        Map<String, Object> map = (Map<String, Object>) reader.read();
+        this.stealerId = (Integer) map.get("stealerId");
+        this.donorId = (Integer) map.get("donorId");
+        this.partitionList = (List<Integer>) map.get("partitionList");
+        this.attempt = (Integer) map.get("attempt");
+        this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
     }
 
     public void setAttempt(int attempt) {
@@ -64,9 +58,32 @@ public class RebalanceStealInfo {
         return attempt;
     }
 
+    public int getStealerId() {
+        return stealerId;
+    }
+
+    public List<String> getUnbalancedStoreList() {
+        return unbalancedStoreList;
+    }
+
     @Override
     public String toString() {
-        return "" + storeName + DELIMITER + donorId + DELIMITER + partitionList + DELIMITER
-               + attempt;
+        /*
+         * return "{stealerId:" + stealerId + " ,donorId:" + donorId +
+         * " ,partitionList:" + partitionList + " ,storeList:" +
+         * unbalancedStorList + ",attempt:" + attempt + "}";
+         */
+        Map map = ImmutableMap.builder()
+                              .put("stealerId", stealerId)
+                              .put("donorId", donorId)
+                              .put("partitionList", partitionList)
+                              .put("unbalancedStoreList", unbalancedStoreList)
+                              .put("attempt", attempt)
+                              .build();
+
+        StringWriter writer = new StringWriter();
+        new JsonWriter(writer).write(map);
+        writer.flush();
+        return writer.toString();
     }
 }

@@ -71,6 +71,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private boolean redirectingKey(ByteArray key) {
         return MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
+               && metadata.getRebalancingStealInfo().getUnbalancedStoreList().contains(getName())
                && checkKeyBelongsToStolenPartitions(key);
     }
 
