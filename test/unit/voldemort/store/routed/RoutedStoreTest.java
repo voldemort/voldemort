@@ -16,11 +16,12 @@
 
 package voldemort.store.routed;
 
-import static voldemort.MutableStoreResolver.createFailureDetector;
-import static voldemort.MutableStoreResolver.recordException;
-import static voldemort.MutableStoreResolver.recordSuccess;
+import static voldemort.FailureDetectorTestUtils.recordException;
+import static voldemort.FailureDetectorTestUtils.recordSuccess;
+import static voldemort.MutableStoreResolver.createMutableStoreResolver;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,9 +44,9 @@ import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.AbstractByteArrayStoreTest;
@@ -59,7 +60,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
-import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -105,8 +105,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { AsyncRecoveryFailureDetector.class },
-                { BannagePeriodFailureDetector.class } });
+        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class } });
     }
 
     @Override
@@ -701,11 +700,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         if(failureDetector != null)
             failureDetector.destroy();
 
-        failureDetector = createFailureDetector(failureDetectorClass,
-                                                cluster.getNodes(),
-                                                subStores,
-                                                SystemTime.INSTANCE,
-                                                1000);
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setStoreResolver(createMutableStoreResolver(subStores));
+        failureDetector = create(failureDetectorConfig);
     }
 
 }

@@ -7,14 +7,9 @@ import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.BasicStoreResolver;
-import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -22,7 +17,7 @@ public class MutableStoreResolver extends BasicStoreResolver {
 
     private Map<Integer, Boolean> nullStores;
 
-    public MutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
+    private MutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
         super(stores);
         nullStores = new HashMap<Integer, Boolean>();
     }
@@ -39,27 +34,15 @@ public class MutableStoreResolver extends BasicStoreResolver {
         nullStores.put(node.getId(), shouldReturnNullStore);
     }
 
-    public static FailureDetector createFailureDetector(Class<?> failureDetectorClass,
-                                                        Collection<Node> nodes,
-                                                        Map<Integer, Store<ByteArray, byte[]>> subStores,
-                                                        Time time,
-                                                        long bannageMillis) {
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
-                                                                                 .setNodeBannagePeriod(bannageMillis)
-                                                                                 .setNodes(nodes)
-                                                                                 .setStoreResolver(new MutableStoreResolver(subStores))
-                                                                                 .setTime(time);
-        return FailureDetectorUtils.create(failureDetectorConfig);
+    public static MutableStoreResolver createMutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
+        return new MutableStoreResolver(stores);
     }
 
-    public static FailureDetector createFailureDetector(Class<?> failureDetectorClass,
-                                                        Collection<Node> nodes,
-                                                        Time time,
-                                                        long bannageMillis) {
-        Map<Integer, Store<ByteArray, byte[]>> subStores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+    public static MutableStoreResolver createMutableStoreResolver(Collection<Node> nodes) {
+        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
 
         for(Node node: nodes) {
-            subStores.put(node.getId(), new Store<ByteArray, byte[]>() {
+            stores.put(node.getId(), new Store<ByteArray, byte[]>() {
 
                 public void close() throws VoldemortException {}
 
@@ -93,33 +76,7 @@ public class MutableStoreResolver extends BasicStoreResolver {
             });
         }
 
-        return createFailureDetector(failureDetectorClass, nodes, subStores, time, bannageMillis);
-    }
-
-    public static void recordException(FailureDetector failureDetector, Node node) {
-        recordException(failureDetector, node, null);
-    }
-
-    public static void recordException(FailureDetector failureDetector,
-                                       Node node,
-                                       UnreachableStoreException e) {
-        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
-                                                                                                   true);
-        failureDetector.recordException(node, e);
-    }
-
-    public static void recordSuccess(FailureDetector failureDetector, Node node) throws Exception {
-        recordSuccess(failureDetector, node, true);
-    }
-
-    public static void recordSuccess(FailureDetector failureDetector, Node node, boolean shouldWait)
-            throws Exception {
-        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
-                                                                                                   false);
-        failureDetector.recordSuccess(node);
-
-        if(shouldWait)
-            failureDetector.waitFor(node);
+        return new MutableStoreResolver(stores);
     }
 
 }

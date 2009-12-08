@@ -41,6 +41,12 @@ public class FailureDetectorConfig {
 
     protected StoreResolver storeResolver;
 
+    protected long thresholdInterval = 10000;
+
+    protected int threshold = 80;
+
+    protected int thresholdCountMinimum = 10;
+
     protected boolean isJmxEnabled = false;
 
     protected Time time = SystemTime.INSTANCE;
@@ -105,6 +111,33 @@ public class FailureDetectorConfig {
 
     public FailureDetectorConfig setStoreResolver(StoreResolver storeResolver) {
         this.storeResolver = storeResolver;
+        return this;
+    }
+
+    public long getThresholdInterval() {
+        return thresholdInterval;
+    }
+
+    public FailureDetectorConfig setThresholdInterval(long thresholdInterval) {
+        this.thresholdInterval = thresholdInterval;
+        return this;
+    }
+
+    public int getThreshold() {
+        return threshold;
+    }
+
+    public FailureDetectorConfig setThreshold(int threshold) {
+        this.threshold = threshold;
+        return this;
+    }
+
+    public int getThresholdCountMinimum() {
+        return thresholdCountMinimum;
+    }
+
+    public FailureDetectorConfig setThresholdCountMinimum(int thresholdCountMinimum) {
+        this.thresholdCountMinimum = thresholdCountMinimum;
         return this;
     }
 

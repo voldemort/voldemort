@@ -18,10 +18,11 @@ package voldemort.store.routed;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static voldemort.MutableStoreResolver.createFailureDetector;
-import static voldemort.MutableStoreResolver.recordException;
-import static voldemort.MutableStoreResolver.recordSuccess;
+import static voldemort.FailureDetectorTestUtils.recordException;
+import static voldemort.FailureDetectorTestUtils.recordSuccess;
+import static voldemort.MutableStoreResolver.createMutableStoreResolver;
 import static voldemort.TestUtils.getClock;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +48,7 @@ import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -133,11 +135,13 @@ public class ReadRepairerTest extends TestCase {
                           new InMemoryStorageEngine<ByteArray, byte[]>("test"));
         }
 
-        failureDetector = createFailureDetector(failureDetectorClass,
-                                                cluster.getNodes(),
-                                                subStores,
-                                                time,
-                                                1000L);
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setStoreResolver(createMutableStoreResolver(subStores))
+                                                                                 .setTime(time);
+
+        failureDetector = create(failureDetectorConfig);
 
         RoutedStore store = new RoutedStore("test",
                                             subStores,

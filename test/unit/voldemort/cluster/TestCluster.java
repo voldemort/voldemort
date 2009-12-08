@@ -16,9 +16,10 @@
 
 package voldemort.cluster;
 
-import static voldemort.MutableStoreResolver.createFailureDetector;
-import static voldemort.MutableStoreResolver.recordException;
-import static voldemort.MutableStoreResolver.recordSuccess;
+import static voldemort.FailureDetectorTestUtils.recordException;
+import static voldemort.FailureDetectorTestUtils.recordSuccess;
+import static voldemort.MutableStoreResolver.createMutableStoreResolver;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,6 +38,8 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.cluster.failuredetector.AsyncRecoveryFailureDetector;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
@@ -66,10 +69,13 @@ public class TestCluster extends TestCase {
         this.cluster = new Cluster(clusterName, nodes);
         this.time = SystemTime.INSTANCE;
 
-        failureDetector = createFailureDetector(failureDetectorClass,
-                                                cluster.getNodes(),
-                                                time,
-                                                1000);
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
+                                                                                 .setTime(time);
+
+        create(failureDetectorConfig);
     }
 
     @Override
@@ -82,7 +88,7 @@ public class TestCluster extends TestCase {
     @Parameters
     public static Collection<Object[]> configs() {
         return Arrays.asList(new Object[][] { { AsyncRecoveryFailureDetector.class },
-                { BannagePeriodFailureDetector.class } });
+                { BannagePeriodFailureDetector.class }, { ThresholdFailureDetector.class } });
     }
 
     @Test

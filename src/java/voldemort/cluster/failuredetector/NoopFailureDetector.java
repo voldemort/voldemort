@@ -44,8 +44,6 @@ public class NoopFailureDetector implements FailureDetector {
 
     public void recordSuccess(Node node) {}
 
-    public void waitFor(Node node) {}
-
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {}
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {}

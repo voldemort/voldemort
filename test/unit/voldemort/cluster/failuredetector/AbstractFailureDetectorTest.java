@@ -16,6 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
@@ -32,12 +33,17 @@ import voldemort.utils.Time;
 
 public abstract class AbstractFailureDetectorTest {
 
-    protected Time time = new MockTime();
+    protected static final int BANNAGE_MILLIS = 10000;
+
+    protected Time time;
+
     protected Cluster cluster;
+
     protected FailureDetector failureDetector;
 
     @Before
     public void setUp() throws Exception {
+        time = new MockTime(0);
         cluster = getNineNodeCluster();
         failureDetector = setUpFailureDetector();
     }
@@ -50,6 +56,18 @@ public abstract class AbstractFailureDetectorTest {
 
     protected Cluster setUpCluster() throws Exception {
         return getNineNodeCluster();
+    }
+
+    protected void assertAvailable(Node node) {
+        assertEquals(9, failureDetector.getAvailableNodeCount());
+        assertEquals(9, failureDetector.getNodeCount());
+        assertEquals(true, failureDetector.isAvailable(node));
+    }
+
+    protected void assertUnavailable(Node node) {
+        assertEquals(8, failureDetector.getAvailableNodeCount());
+        assertEquals(9, failureDetector.getNodeCount());
+        assertEquals(false, failureDetector.isAvailable(node));
     }
 
     @Test
@@ -85,13 +103,6 @@ public abstract class AbstractFailureDetectorTest {
         try {
             failureDetector.recordSuccess(invalidNode);
             fail("Should not be able to call recordSuccess on invalid node");
-        } catch(IllegalArgumentException e) {
-            // Expected...
-        }
-
-        try {
-            failureDetector.waitFor(invalidNode);
-            fail("Should not be able to call waitFor on invalid node");
         } catch(IllegalArgumentException e) {
             // Expected...
         }

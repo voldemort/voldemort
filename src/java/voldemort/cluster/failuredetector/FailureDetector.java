@@ -141,17 +141,6 @@ public interface FailureDetector {
     public void recordSuccess(Node node);
 
     /**
-     * Allows the calling thread to block until the given node is marked as
-     * available. If the node is already available, this method simply exits.
-     * 
-     * @param node Node for which to wait for availability
-     * 
-     * @throws InterruptedException Thrown if the thread blocked is interrupted
-     */
-
-    public void waitFor(Node node) throws InterruptedException;
-
-    /**
      * Adds a FailureDetectorListener instance that can receive event callbacks
      * about node availability state changes.
      * 

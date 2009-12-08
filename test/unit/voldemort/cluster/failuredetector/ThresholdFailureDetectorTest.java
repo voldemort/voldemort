@@ -27,11 +27,11 @@ import voldemort.cluster.Node;
 
 import com.google.common.collect.Iterables;
 
-public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTest {
+public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
     @Override
     public FailureDetector setUpFailureDetector() throws Exception {
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setNodeBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
@@ -40,51 +40,67 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
     }
 
     @Test
-    public void testTimeout() throws Exception {
+    public void testCliff() throws Exception {
+        int minimum = failureDetector.getConfig().getThresholdCountMinimum();
+
         Node node = Iterables.get(cluster.getNodes(), 8);
 
-        recordException(failureDetector, node);
-        assertUnavailable(node);
+        for(int i = 0; i < minimum - 1; i++)
+            recordException(failureDetector, node);
 
-        time.sleep(BANNAGE_MILLIS / 2);
-        assertUnavailable(node);
-
-        time.sleep((BANNAGE_MILLIS / 2) + 1);
         assertAvailable(node);
+
+        recordException(failureDetector, node);
+
+        assertUnavailable(node);
     }
 
     @Test
-    public void testCumulativeFailures() throws Exception {
+    public void testStartOffDownComeBackOnline() throws Exception {
+        failureDetector.getConfig().setThreshold(80);
+        failureDetector.getConfig().setThresholdCountMinimum(10);
+
+        int failureCount = 20;
+        int successCount = 80;
+
         Node node = Iterables.get(cluster.getNodes(), 8);
 
-        recordException(failureDetector, node);
+        // Force the first 20 as failed to achieve an offline node...
+        for(int i = 0; i < failureCount; i++)
+            recordException(failureDetector, node);
+
         assertUnavailable(node);
 
-        time.sleep(BANNAGE_MILLIS / 2);
+        // Then mark the 79 (out of 80) to be success...
+        for(int i = 0; i < successCount - 1; i++)
+            recordSuccess(failureDetector, node, false);
 
-        // OK, now record another exception
-        recordException(failureDetector, node);
+        // ...which still isn't enough to bring us back up...
         assertUnavailable(node);
 
-        // If it's not cumulative, it would pass after sleeping the rest of the
-        // initial period but it's still unavailable...
-        time.sleep((BANNAGE_MILLIS / 2) + 1);
-        assertUnavailable(node);
-
-        // ...so sleep for the whole bannage period at which point it will
-        // become available.
-        time.sleep(BANNAGE_MILLIS);
-        assertAvailable(node);
-    }
-
-    @Test
-    public void testForceSuccess() throws Exception {
-        Node node = Iterables.get(cluster.getNodes(), 8);
-
-        recordException(failureDetector, node);
-        assertUnavailable(node);
-
+        // ...but force another success which will bring the node back up...
         recordSuccess(failureDetector, node, false);
+        assertAvailable(node);
+
+        // ...and another failure will bring the node back down...
+        recordException(failureDetector, node);
+        assertUnavailable(node);
+    }
+
+    @Test
+    public void testBorder() throws Exception {
+        Node node = Iterables.get(cluster.getNodes(), 8);
+
+        for(int i = 0; i < failureDetector.getConfig().getThresholdCountMinimum(); i++)
+            recordException(failureDetector, node);
+
+        // Move to right before the new interval...
+        time.sleep(failureDetector.getConfig().getThresholdInterval() - 1);
+        assertUnavailable(node);
+
+        // Move to the new interval...
+        time.sleep(1);
+
         assertAvailable(node);
     }
 

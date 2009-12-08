@@ -41,7 +41,8 @@ import voldemort.utils.ByteArray;
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
-public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
+public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetector implements
+        Runnable {
 
     /**
      * A set of nodes that have been marked as unavailable. As nodes go offline
