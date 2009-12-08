@@ -108,20 +108,6 @@ public interface FailureDetector {
 
     /**
      * Allows external callers to provide input to the FailureDetector that an
-     * error occurred when trying to access the node. The implementation is free
-     * to use or ignore this input. It can be considered a "hint" to the
-     * FailureDetector rather than an absolute truth. For example, it is
-     * possible to call recordException for a given node and have an immediate
-     * call to isAvailable return true, depending on the implementation.
-     * 
-     * @param node Node to check
-     * @param e Exception that occurred when trying to access the node
-     */
-
-    public void recordException(Node node, UnreachableStoreException e);
-
-    /**
-     * Allows external callers to provide input to the FailureDetector that an
      * access to the node succeeded. As with recordException, the implementation
      * is free to use or ignore this input. It can be considered a "hint" to the
      * FailureDetector rather than gospel truth.
@@ -139,6 +125,20 @@ public interface FailureDetector {
      */
 
     public void recordSuccess(Node node);
+
+    /**
+     * Allows external callers to provide input to the FailureDetector that an
+     * error occurred when trying to access the node. The implementation is free
+     * to use or ignore this input. It can be considered a "hint" to the
+     * FailureDetector rather than an absolute truth. For example, it is
+     * possible to call recordException for a given node and have an immediate
+     * call to isAvailable return true, depending on the implementation.
+     * 
+     * @param node Node to check
+     * @param e Exception that occurred when trying to access the node
+     */
+
+    public void recordException(Node node, UnreachableStoreException e);
 
     /**
      * Adds a FailureDetectorListener instance that can receive event callbacks

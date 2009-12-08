@@ -75,6 +75,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected void notifyAvailable(Node node) {
+        if(logger.isInfoEnabled())
+            logger.info(node + " now available");
+
         Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
 
         for(FailureDetectorListener fdl: listenersCopy) {
@@ -88,6 +91,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected void notifyUnavailable(Node node) {
+        if(logger.isInfoEnabled())
+            logger.info(node + " now unavailable");
+
         Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
 
         for(FailureDetectorListener fdl: listenersCopy) {

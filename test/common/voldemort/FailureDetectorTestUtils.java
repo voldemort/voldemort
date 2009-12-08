@@ -32,10 +32,8 @@ public class FailureDetectorTestUtils {
         if(shouldWait) {
             Time time = failureDetector.getConfig().getTime();
 
-            while(!failureDetector.isAvailable(node)) {
-                time.sleep(1000);
-                System.out.println("Slept until " + time.getCurrentDate());
-            }
+            while(!failureDetector.isAvailable(node))
+                time.sleep(50);
         }
     }
 

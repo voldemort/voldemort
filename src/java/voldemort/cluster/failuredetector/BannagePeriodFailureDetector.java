@@ -54,15 +54,17 @@ public class BannagePeriodFailureDetector extends AbstractNodeStatusFailureDetec
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
-        setUnavailable(node);
+        if(e != null) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e, e);
+        }
 
         if(logger.isEnabledFor(Level.WARN))
             logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
                         + " marking as unavailable for " + getConfig().getNodeBannagePeriod()
-                        + " ms.", e);
+                        + " ms.");
 
-        if(logger.isDebugEnabled())
-            logger.debug(e);
+        setUnavailable(node);
     }
 
     public void recordSuccess(Node node) {

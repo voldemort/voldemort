@@ -47,6 +47,8 @@ public class FailureDetectorConfig {
 
     protected int thresholdCountMinimum = 10;
 
+    protected long asyncScanInterval = 10000;
+
     protected boolean isJmxEnabled = false;
 
     protected Time time = SystemTime.INSTANCE;
@@ -138,6 +140,15 @@ public class FailureDetectorConfig {
 
     public FailureDetectorConfig setThresholdCountMinimum(int thresholdCountMinimum) {
         this.thresholdCountMinimum = thresholdCountMinimum;
+        return this;
+    }
+
+    public long getAsyncScanInterval() {
+        return asyncScanInterval;
+    }
+
+    public FailureDetectorConfig setAsyncScanInterval(long asyncScanInterval) {
+        this.asyncScanInterval = asyncScanInterval;
         return this;
     }
 

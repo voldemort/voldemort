@@ -75,6 +75,8 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
 
     @Override
     public boolean isAvailable(Node node) {
+        // We override the default behavior and keep track of the unavailable
+        // nodes in our set.
         synchronized(unavailableNodes) {
             return !unavailableNodes.contains(node);
         }
@@ -86,9 +88,6 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
         }
 
         setUnavailable(node);
-
-        if(logger.isInfoEnabled())
-            logger.info(node + " now unavailable");
     }
 
     public void recordSuccess(Node node) {
@@ -100,10 +99,10 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
     }
 
     private void check() {
-        Set<Node> unavailableNodesCopy = new HashSet<Node>();
+        Set<Node> unavailableNodesCopy = null;
 
-        synchronized(unavailableNodes) {
-            unavailableNodesCopy.addAll(unavailableNodes);
+        synchronized(this) {
+            unavailableNodesCopy = new HashSet<Node>(unavailableNodes);
         }
 
         ByteArray key = new ByteArray((byte) 1);
@@ -129,9 +128,6 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
                 }
 
                 setAvailable(node);
-
-                if(logger.isInfoEnabled())
-                    logger.info(node + " now available");
             } catch(UnreachableStoreException e) {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn(node + " still unavailable");
@@ -143,14 +139,16 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
     }
 
     public void run() {
+        long asyncScanInterval = getConfig().getAsyncScanInterval();
+
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
                 if(logger.isInfoEnabled()) {
-                    logger.info("Sleeping for " + getConfig().getNodeBannagePeriod()
+                    logger.info("Sleeping for " + asyncScanInterval
                                 + " ms before checking node availability");
                 }
 
-                getConfig().getTime().sleep(getConfig().getNodeBannagePeriod());
+                getConfig().getTime().sleep(asyncScanInterval);
             } catch(InterruptedException e) {
                 break;
             }

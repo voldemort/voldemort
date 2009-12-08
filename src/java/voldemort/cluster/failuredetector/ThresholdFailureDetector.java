@@ -35,7 +35,7 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         nodeDataMap = new ConcurrentHashMap<Node, NodeData>();
 
         for(Node node: failureDetectorConfig.getNodes())
-            nodeDataMap.put(node, new NodeData(node));
+            nodeDataMap.put(node, new NodeData());
     }
 
     public long getLastChecked(Node node) {
@@ -43,15 +43,15 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
-        getNodeData(node).update(0, 1, e);
+        update(node, 0, 1, e);
     }
 
     public void recordSuccess(Node node) {
-        getNodeData(node).update(1, 1, null);
+        update(node, 1, 1, null);
     }
 
-    public boolean isAvailable(Node node) {
-        return getNodeData(node).update(0, 0, null);
+    public synchronized boolean isAvailable(Node node) {
+        return update(node, 0, 0, null);
     }
 
     public void destroy() {}
@@ -62,12 +62,56 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         if(nodeData == null)
             throw new IllegalArgumentException(node.getId()
                                                + " is not a valid node for this cluster");
+
         return nodeData;
     }
 
-    private class NodeData {
+    private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
+        if(e != null) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e, e);
+        }
 
-        private final Node node;
+        NodeData nd = getNodeData(node);
+        nd.lastChecked = getConfig().getTime().getMilliseconds();
+
+        if(nd.lastChecked >= nd.startMillis + getConfig().getThresholdInterval()) {
+            nd.startMillis = nd.lastChecked;
+            nd.success = successDelta;
+            nd.total = totalDelta;
+            nd.isAvailable = true;
+        } else {
+            nd.success += successDelta;
+            nd.total += totalDelta;
+        }
+
+        if(nd.total >= getConfig().getThresholdCountMinimum()) {
+            long threshold = nd.total >= getConfig().getThresholdCountMinimum() ? (nd.success * 100)
+                                                                                  / nd.total
+                                                                               : 100;
+            boolean isAvailable = threshold >= getConfig().getThreshold();
+
+            if(isAvailable && !nd.isAvailable) {
+                if(logger.isInfoEnabled())
+                    logger.info("Threshold for node " + node.getId() + " at " + node.getHost()
+                                + " now " + threshold + "%; marking as available");
+
+                notifyAvailable(node);
+            } else if(!isAvailable && nd.isAvailable) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn("Threshold for node " + node.getId() + " at " + node.getHost()
+                                + " now " + threshold + "%; marking as unavailable");
+
+                notifyUnavailable(node);
+            }
+
+            nd.isAvailable = isAvailable;
+        }
+
+        return nd.isAvailable;
+    }
+
+    private class NodeData {
 
         private volatile long startMillis;
 
@@ -79,56 +123,12 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
 
         private volatile boolean isAvailable;
 
-        public NodeData(Node node) {
-            this.node = node;
+        public NodeData() {
             this.startMillis = getConfig().getTime().getMilliseconds();
             this.lastChecked = startMillis;
             this.isAvailable = true;
         }
 
-        private boolean update(int successDelta, int totalDelta, UnreachableStoreException e) {
-            long currTime = getConfig().getTime().getMilliseconds();
-
-            if(currTime >= startMillis + getConfig().getThresholdInterval()) {
-                startMillis = currTime;
-                success = successDelta;
-                total = totalDelta;
-                isAvailable = true;
-            } else {
-                success += successDelta;
-                total += totalDelta;
-            }
-
-            lastChecked = currTime;
-
-            if(total >= getConfig().getThresholdCountMinimum()) {
-                long newThreshold = total >= getConfig().getThresholdCountMinimum() ? (success * 100)
-                                                                                      / total
-                                                                                   : 100;
-                boolean newAvailable = newThreshold >= getConfig().getThreshold();
-
-                if(newAvailable && !isAvailable) {
-                    if(logger.isInfoEnabled())
-                        logger.info("Threshold for node " + node.getId() + " at " + node.getHost()
-                                    + " now " + newThreshold + "%; marking as available");
-
-                    notifyAvailable(node);
-                } else if(!newAvailable && isAvailable) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn("Threshold for node " + node.getId() + " at " + node.getHost()
-                                    + " now " + newThreshold + "%; marking as unavailable", e);
-
-                    if(logger.isDebugEnabled())
-                        logger.debug(e);
-
-                    notifyUnavailable(node);
-                }
-
-                isAvailable = newAvailable;
-            }
-
-            return isAvailable;
-        }
     }
 
 }
