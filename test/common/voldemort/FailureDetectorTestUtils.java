@@ -3,7 +3,6 @@ package voldemort;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.UnreachableStoreException;
-import voldemort.utils.Time;
 
 public class FailureDetectorTestUtils {
 
@@ -29,12 +28,8 @@ public class FailureDetectorTestUtils {
                                                                                                    false);
         failureDetector.recordSuccess(node);
 
-        if(shouldWait) {
-            Time time = failureDetector.getConfig().getTime();
-
-            while(!failureDetector.isAvailable(node))
-                time.sleep(50);
-        }
+        if(shouldWait)
+            failureDetector.waitForAvailability(node);
     }
 
 }

@@ -16,10 +16,13 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.net.SocketTimeoutException;
+import static voldemort.MutableStoreResolver.createMutableStoreResolver;
+import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
+import java.util.concurrent.CountDownLatch;
+
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.store.UnreachableStoreException;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Iterables;
@@ -28,42 +31,111 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
     private final long unavailabilityMillis;
 
-    public TimedUnavailabilityTest(long unavailabilityMillis) {
+    private TimedUnavailabilityTest(long unavailabilityMillis) {
         this.unavailabilityMillis = unavailabilityMillis;
     }
 
+    public static void main(String[] args) throws Throwable {
+        Cluster cluster = getNineNodeCluster();
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                 .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
+                                                                                 .setAsyncScanInterval(5000)
+                                                                                 .setNodeBannagePeriod(5000);
+
+        Class<?>[] classes = new Class[] { AsyncRecoveryFailureDetector.class,
+                BannagePeriodFailureDetector.class, ThresholdFailureDetector.class };
+
+        for(Class<?> implClass: classes) {
+            failureDetectorConfig.setImplementationClassName(implClass.getName());
+            new TimedUnavailabilityTest(2522).run(failureDetectorConfig);
+        }
+    }
+
     @Override
-    public void test(final FailureDetector failureDetector,
-                     final PerformanceTestFailureDetectorListener listener,
-                     final Time time) throws Exception {
-        final FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
-        final Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
+    public String test(final FailureDetector failureDetector, final Time time) throws Exception {
+        FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
+        Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Listener listener = new Listener(time);
+        failureDetector.addFailureDetectorListener(listener);
 
-        Thread t = new Thread(new Runnable() {
+        Thread nodeAvailabilityThread = new Thread(new XXX(failureDetector, node, countDownLatch));
+        Thread nodeAccessorThread = new Thread(new NodeAccessorRunnable(failureDetector,
+                                                                        node,
+                                                                        countDownLatch,
+                                                                        null,
+                                                                        null,
+                                                                        null,
+                                                                        10,
+                                                                        10));
 
-            public void run() {
-                try {
-                    updateNodeStoreAvailability(failureDetectorConfig, node, false);
-                    failureDetector.recordException(node,
-                                                    new UnreachableStoreException("This is part of the test",
-                                                                                  new SocketTimeoutException("This is part of the test")));
+        nodeAvailabilityThread.start();
+        nodeAccessorThread.start();
 
-                    time.sleep(unavailabilityMillis);
-                    updateNodeStoreAvailability(failureDetectorConfig, node, true);
+        nodeAvailabilityThread.join();
+        nodeAccessorThread.join();
 
-                    while(!failureDetector.isAvailable(node))
-                        time.sleep(10);
+        return Class.forName(failureDetectorConfig.getImplementationClassName()).getSimpleName()
+               + ", " + listener.getDelta();
+    }
 
-                    failureDetector.recordSuccess(node);
-                } catch(Exception e) {
-                    e.printStackTrace();
-                }
+    private class XXX implements Runnable {
+
+        private final FailureDetector failureDetector;
+
+        private final Node node;
+
+        private final CountDownLatch countDownLatch;
+
+        public XXX(FailureDetector failureDetector, Node node, CountDownLatch countDownLatch) {
+            this.failureDetector = failureDetector;
+            this.node = node;
+            this.countDownLatch = countDownLatch;
+        }
+
+        public void run() {
+            FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
+
+            try {
+                updateNodeStoreAvailability(failureDetectorConfig, node, false);
+                failureDetectorConfig.getTime().sleep(unavailabilityMillis);
+                updateNodeStoreAvailability(failureDetectorConfig, node, true);
+
+                failureDetector.waitForAvailability(node);
+
+                countDownLatch.countDown();
+            } catch(Exception e) {
+                e.printStackTrace();
             }
+        }
 
-        });
+    }
 
-        t.start();
-        t.join();
+    private static class Listener implements FailureDetectorListener {
+
+        private final Time time;
+
+        private long markedAvailable;
+
+        private long markedUnavailable;
+
+        public Listener(Time time) {
+            this.time = time;
+        }
+
+        public void nodeAvailable(Node node) {
+            markedAvailable = time.getMilliseconds();
+        }
+
+        public void nodeUnavailable(Node node) {
+            markedUnavailable = time.getMilliseconds();
+        }
+
+        public long getDelta() {
+            return markedAvailable - markedUnavailable;
+        }
+
     }
 
 }

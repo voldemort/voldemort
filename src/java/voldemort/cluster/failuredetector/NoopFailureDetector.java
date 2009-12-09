@@ -56,6 +56,8 @@ public class NoopFailureDetector implements FailureDetector {
         return -1;
     }
 
+    public void waitForAvailability(Node node) {}
+
     public void destroy() {}
 
 }

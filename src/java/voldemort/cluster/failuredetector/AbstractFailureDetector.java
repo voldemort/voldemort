@@ -18,7 +18,9 @@ package voldemort.cluster.failuredetector;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -37,13 +39,20 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected final FailureDetectorConfig failureDetectorConfig;
 
-    protected final Set<FailureDetectorListener> listeners;
+    private final Set<FailureDetectorListener> listeners;
+
+    private final Map<Node, Object> nodeLockMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
+
+        nodeLockMap = new ConcurrentHashMap<Node, Object>();
+
+        for(Node node: failureDetectorConfig.getNodes())
+            nodeLockMap.put(node, new Object());
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -74,9 +83,24 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         return getConfig().getNodes().size();
     }
 
+    public void waitForAvailability(Node node) throws InterruptedException {
+        Object nodeLock = getNodeLock(node);
+
+        synchronized(nodeLock) {
+            if(!isAvailable(node))
+                nodeLock.wait();
+        }
+    }
+
     protected void notifyAvailable(Node node) {
         if(logger.isInfoEnabled())
             logger.info(node + " now available");
+
+        Object nodeLock = getNodeLock(node);
+
+        synchronized(nodeLock) {
+            nodeLock.notifyAll();
+        }
 
         Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
 
@@ -104,6 +128,15 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                     logger.warn(e, e);
             }
         }
+    }
+
+    private Object getNodeLock(Node node) {
+        Object nodeLock = nodeLockMap.get(node);
+
+        if(nodeLock == null)
+            throw new IllegalArgumentException(node.getId()
+                                               + " is not a valid node for this cluster");
+        return nodeLock;
     }
 
 }

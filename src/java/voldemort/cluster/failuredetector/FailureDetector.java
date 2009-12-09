@@ -218,6 +218,8 @@ public interface FailureDetector {
 
     public int getNodeCount();
 
+    public void waitForAvailability(Node node) throws InterruptedException;
+
     /**
      * Cleans up any open resources in preparation for shutdown.
      * 

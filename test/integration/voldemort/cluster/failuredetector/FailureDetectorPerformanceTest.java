@@ -17,58 +17,35 @@
 package voldemort.cluster.failuredetector;
 
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import voldemort.MockTime;
 import voldemort.MutableStoreResolver;
 import voldemort.cluster.Node;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
 public abstract class FailureDetectorPerformanceTest {
 
-    public long run(final FailureDetectorConfig failureDetectorConfig) throws Exception {
+    public abstract String test(FailureDetector failureDetector, Time time) throws Exception;
+
+    protected String run(FailureDetectorConfig failureDetectorConfig) throws Exception {
+        failureDetectorConfig.setTime(new MockTime(0));
+        failureDetectorConfig.setTime(SystemTime.INSTANCE);
+
         Time time = failureDetectorConfig.getTime();
-        PerformanceTestFailureDetectorListener listener = new PerformanceTestFailureDetectorListener(time);
-        FailureDetector failureDetector = create(failureDetectorConfig, listener);
-        test(failureDetector, listener, time);
-        failureDetector.destroy();
+        FailureDetector failureDetector = create(failureDetectorConfig);
 
-        return listener.getDelta();
+        try {
+            return test(failureDetector, time);
+        } finally {
+            failureDetector.destroy();
+        }
     }
-
-    public abstract void test(FailureDetector failureDetector,
-                              PerformanceTestFailureDetectorListener listener,
-                              Time time) throws Exception;
 
     protected void updateNodeStoreAvailability(FailureDetectorConfig failureDetectorConfig,
                                                Node node,
                                                boolean shouldMarkAvailable) {
         ((MutableStoreResolver) failureDetectorConfig.getStoreResolver()).setReturnNullStore(node,
                                                                                              !shouldMarkAvailable);
-    }
-
-    protected static class PerformanceTestFailureDetectorListener implements
-            FailureDetectorListener {
-
-        private final Time time;
-
-        private long markedAvailable;
-
-        private long markedUnavailable;
-
-        public PerformanceTestFailureDetectorListener(Time time) {
-            this.time = time;
-        }
-
-        public void nodeAvailable(Node node) {
-            markedAvailable = time.getMilliseconds();
-        }
-
-        public void nodeUnavailable(Node node) {
-            markedUnavailable = time.getMilliseconds();
-        }
-
-        public long getDelta() {
-            return markedAvailable - markedUnavailable;
-        }
-
     }
 
 }

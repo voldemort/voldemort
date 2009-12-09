@@ -35,7 +35,7 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         nodeDataMap = new ConcurrentHashMap<Node, NodeData>();
 
         for(Node node: failureDetectorConfig.getNodes())
-            nodeDataMap.put(node, new NodeData());
+            nodeDataMap.put(node, new NodeData(getConfig().getTime().getMilliseconds()));
     }
 
     public long getLastChecked(Node node) {
@@ -50,11 +50,76 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         update(node, 1, 1, null);
     }
 
-    public synchronized boolean isAvailable(Node node) {
+    public boolean isAvailable(Node node) {
         return update(node, 0, 0, null);
     }
 
     public void destroy() {}
+
+    private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
+        if(e != null) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e, e);
+        }
+
+        NodeData nd = getNodeData(node);
+
+        // We don't actually call the needsNotifyAvailable or notifyUnavailable
+        // *after* we exit the synchronized block to avoid nested locks.
+        boolean needsNotifyAvailable = false;
+        boolean needsNotifyUnavailable = false;
+        long threshold = 0;
+        boolean isAvailable = false;
+
+        synchronized(nd) {
+            nd.lastChecked = getConfig().getTime().getMilliseconds();
+
+            if(nd.lastChecked >= nd.startMillis + getConfig().getThresholdInterval()) {
+                // If the node was not previously available and is now, then we
+                // need to notify everyone of that fact.
+                needsNotifyAvailable = !nd.isAvailable;
+
+                nd.isAvailable = true;
+                nd.startMillis = nd.lastChecked;
+                nd.success = successDelta;
+                nd.total = totalDelta;
+            } else {
+                nd.success += successDelta;
+                nd.total += totalDelta;
+            }
+
+            int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
+
+            if(nd.total >= thresholdCountMinimum) {
+                threshold = nd.total >= thresholdCountMinimum ? (nd.success * 100) / nd.total : 100;
+                boolean previouslyAvailable = nd.isAvailable;
+                nd.isAvailable = threshold >= getConfig().getThreshold();
+
+                if(nd.isAvailable && !previouslyAvailable)
+                    needsNotifyAvailable = true;
+                else if(!nd.isAvailable && previouslyAvailable)
+                    needsNotifyUnavailable = true;
+            }
+
+            isAvailable = nd.isAvailable;
+        }
+
+        if(needsNotifyAvailable) {
+            if(logger.isInfoEnabled())
+                logger.info("Threshold for node " + node.getId() + " at " + node.getHost()
+                            + " now " + threshold + "%; marking as available");
+
+            notifyAvailable(node);
+        } else if(needsNotifyUnavailable) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn("Threshold for node " + node.getId() + " at " + node.getHost()
+                            + " now " + threshold + "%; marking as unavailable");
+
+            notifyUnavailable(node);
+        }
+
+        return isAvailable;
+    }
 
     private NodeData getNodeData(Node node) {
         NodeData nodeData = nodeDataMap.get(node);
@@ -66,65 +131,20 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         return nodeData;
     }
 
-    private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
-        if(e != null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e, e);
-        }
+    private static class NodeData {
 
-        NodeData nd = getNodeData(node);
-        nd.lastChecked = getConfig().getTime().getMilliseconds();
+        private long startMillis;
 
-        if(nd.lastChecked >= nd.startMillis + getConfig().getThresholdInterval()) {
-            nd.startMillis = nd.lastChecked;
-            nd.success = successDelta;
-            nd.total = totalDelta;
-            nd.isAvailable = true;
-        } else {
-            nd.success += successDelta;
-            nd.total += totalDelta;
-        }
+        private long lastChecked;
 
-        if(nd.total >= getConfig().getThresholdCountMinimum()) {
-            long threshold = nd.total >= getConfig().getThresholdCountMinimum() ? (nd.success * 100)
-                                                                                  / nd.total
-                                                                               : 100;
-            boolean isAvailable = threshold >= getConfig().getThreshold();
+        private long success;
 
-            if(isAvailable && !nd.isAvailable) {
-                if(logger.isInfoEnabled())
-                    logger.info("Threshold for node " + node.getId() + " at " + node.getHost()
-                                + " now " + threshold + "%; marking as available");
+        private long total;
 
-                notifyAvailable(node);
-            } else if(!isAvailable && nd.isAvailable) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Threshold for node " + node.getId() + " at " + node.getHost()
-                                + " now " + threshold + "%; marking as unavailable");
+        private boolean isAvailable;
 
-                notifyUnavailable(node);
-            }
-
-            nd.isAvailable = isAvailable;
-        }
-
-        return nd.isAvailable;
-    }
-
-    private class NodeData {
-
-        private volatile long startMillis;
-
-        private volatile long lastChecked;
-
-        private volatile long success;
-
-        private volatile long total;
-
-        private volatile boolean isAvailable;
-
-        public NodeData() {
-            this.startMillis = getConfig().getTime().getMilliseconds();
+        public NodeData(long startMillis) {
+            this.startMillis = startMillis;
             this.lastChecked = startMillis;
             this.isAvailable = true;
         }

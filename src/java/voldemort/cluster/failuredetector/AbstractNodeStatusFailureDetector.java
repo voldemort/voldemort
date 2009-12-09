@@ -42,59 +42,68 @@ public abstract class AbstractNodeStatusFailureDetector extends AbstractFailureD
 
     public long getLastChecked(Node node) {
         NodeStatus nodeStatus = getNodeStatus(node);
-        return nodeStatus.getLastCheckedMs();
+
+        synchronized(nodeStatus) {
+            return nodeStatus.getLastCheckedMs();
+        }
     }
 
     public boolean isAvailable(Node node) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        // The node can be available in one of two ways: a) it's actually
-        // available, or b) it was unavailable but our "bannage" period has
-        // expired so we're free to consider it as available.
-        boolean isAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+        synchronized(nodeStatus) {
+            // The node can be available in one of two ways: a) it's actually
+            // available, or b) it was unavailable but our "bannage" period has
+            // expired so we're free to consider it as available.
+            boolean isAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
 
-        // If we're now considered available but our actual status is *not*
-        // available, this means we've become available via a timeout. We act
-        // like we're fully available in that we send out the availability
-        // event.
-        if(isAvailable && !nodeStatus.isAvailable())
-            notifyAvailable(node);
+            // If we're now considered available but our actual status is *not*
+            // available, this means we've become available via a timeout. We
+            // act like we're fully available in that we send out the
+            // availability event.
+            if(isAvailable && !nodeStatus.isAvailable())
+                setAvailable(node);
 
-        return isAvailable;
+            return isAvailable;
+        }
     }
 
-    public void setAvailable(Node node) {
+    protected void setAvailable(Node node) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        // We need to distinguish the case where we're newly available and the
-        // case where we're getting redundant availability notices. So let's
-        // check the node status before we update it.
-        boolean previouslyAvailable = nodeStatus.isAvailable();
+        synchronized(nodeStatus) {
+            // We need to distinguish the case where we're newly available and
+            // the case where we're getting redundant availability notices. So
+            // let's check the node status before we update it.
+            boolean previouslyAvailable = nodeStatus.isAvailable();
 
-        // Update our state to be available.
-        nodeStatus.setAvailable();
+            // Update our state to be available.
+            nodeStatus.setAvailable();
 
-        // If we were not previously available, we've just switched state, so
-        // notify any listeners.
-        if(!previouslyAvailable)
-            notifyAvailable(node);
+            // If we were not previously available, we've just switched state,
+            // so notify any listeners.
+            if(!previouslyAvailable)
+                notifyAvailable(node);
+        }
     }
 
-    public void setUnavailable(Node node) {
+    protected void setUnavailable(Node node) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        // The node can be available in one of two ways: a) it's actually
-        // available, or b) it was unavailable but our "bannage" period has
-        // expired so we're free to consider it as available.
-        boolean previouslyAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+        synchronized(nodeStatus) {
+            // The node can be available in one of two ways: a) it's actually
+            // available, or b) it was unavailable but our "bannage" period has
+            // expired so we're free to consider it as available.
+            boolean previouslyAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
 
-        // Update our state to be unavailable.
-        nodeStatus.setUnavailable();
+            // Update our state to be unavailable.
+            nodeStatus.setUnavailable();
 
-        // If we were previously available, we've just switched state from
-        // available to unavailable, so notify any listeners.
-        if(previouslyAvailable)
-            notifyUnavailable(node);
+            // If we were previously available, we've just switched state from
+            // available to unavailable, so notify any listeners.
+            if(previouslyAvailable)
+                notifyUnavailable(node);
+        }
     }
 
     protected NodeStatus getNodeStatus(Node node) {
@@ -103,6 +112,7 @@ public abstract class AbstractNodeStatusFailureDetector extends AbstractFailureD
         if(nodeStatus == null)
             throw new IllegalArgumentException(node.getId()
                                                + " is not a valid node for this cluster");
+
         return nodeStatus;
     }
 
