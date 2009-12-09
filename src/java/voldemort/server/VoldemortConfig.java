@@ -116,6 +116,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
+    private boolean enableNetworkClassLoader;
 
     private List<String> storageConfigurations;
 
@@ -128,23 +129,6 @@ public class VoldemortConfig implements Serializable {
     private int adminStreamBufferSize;
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
-
-    public int getAdminSocketTimeout() {
-        return adminSocketTimeout;
-    }
-
-    public void setAdminSocketTimeout(int adminSocketTimeout) {
-        this.adminSocketTimeout = adminSocketTimeout;
-    }
-
-    public int getAdminConnectionTimeout() {
-        return adminConnectionTimeout;
-    }
-
-    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
-        this.adminConnectionTimeout = adminConnectionTimeout;
-    }
-
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
 
@@ -269,6 +253,9 @@ public class VoldemortConfig implements Serializable {
         String requestFormatName = props.getString("request.format",
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
+
+        // network class loader disable by default.
+        this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
         validateParams();
     }
@@ -904,6 +891,22 @@ public class VoldemortConfig implements Serializable {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
     }
 
+    public int getAdminSocketTimeout() {
+        return adminSocketTimeout;
+    }
+
+    public void setAdminSocketTimeout(int adminSocketTimeout) {
+        this.adminSocketTimeout = adminSocketTimeout;
+    }
+
+    public int getAdminConnectionTimeout() {
+        return adminConnectionTimeout;
+    }
+
+    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
+        this.adminConnectionTimeout = adminConnectionTimeout;
+    }
+
     public String getReadOnlySearchStrategy() {
         return readOnlySearchStrategy;
     }
@@ -912,4 +915,11 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
+    public boolean isNetworkClassLoaderEnabled() {
+        return enableNetworkClassLoader;
+    }
+
+    public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
+        this.enableNetworkClassLoader = enableNetworkClassLoader;
+    }
 }

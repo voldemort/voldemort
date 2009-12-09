@@ -473,14 +473,21 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     /* Private helper methods */
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
         VoldemortFilter filter;
-        byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
-        String className = request.getName();
+        if(voldemortConfig.isNetworkClassLoaderEnabled()) {
+            byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
+            String className = request.getName();
 
-        try {
-            Class<?> cl = networkClassLoader.loadClass(className, classBytes, 0, classBytes.length);
-            filter = (VoldemortFilter) cl.newInstance();
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to load and instantiate the filter class", e);
+            try {
+                Class<?> cl = networkClassLoader.loadClass(className,
+                                                           classBytes,
+                                                           0,
+                                                           classBytes.length);
+                filter = (VoldemortFilter) cl.newInstance();
+            } catch(Exception e) {
+                throw new VoldemortException("Failed to load and instantiate the filter class", e);
+            }
+        } else {
+            throw new VoldemortException("NetworkLoader is experimental and disabled by default.");
         }
 
         return filter;

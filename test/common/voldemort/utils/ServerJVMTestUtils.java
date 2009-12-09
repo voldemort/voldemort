@@ -133,7 +133,8 @@ public class ServerJVMTestUtils {
                                          + "server.properties");
         FileUtils.writeLines(serverProperties, Arrays.asList("node.id=" + node,
                                                              "bdb.cache.size=" + 1024 * 1024,
-                                                             "enable.metadata.checking=" + false));
+                                                             "enable.metadata.checking=" + false,
+                                                             "enable.network.classloader=" + true));
 
         return config.getVoldemortHome();
     }
