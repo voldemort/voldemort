@@ -2,6 +2,7 @@ package voldemort.utils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -157,29 +158,33 @@ public class RebalanceUtils {
                                                Node stealerNode,
                                                Node donorNode,
                                                List<Integer> partitionList) {
-        // add new partitions to stealerNode
         List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
-        stealerPartitionList.addAll(partitionList);
-        stealerNode = updateNode(stealerNode, stealerPartitionList);
-
-        // remove partitions from donorNode
         List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
-        stealerPartitionList.removeAll(partitionList);
+
+        for(int p: partitionList) {
+            donorPartitionList.remove(p);
+            if(!stealerPartitionList.contains(p))
+                stealerPartitionList.add(p);
+        }
+
+        // sort both list
+        Collections.sort(stealerPartitionList);
+        Collections.sort(donorPartitionList);
+
+        // update both nodes
+        stealerNode = updateNode(stealerNode, stealerPartitionList);
         donorNode = updateNode(donorNode, donorPartitionList);
 
         return updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
     }
 
     public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
-        List<Node> currentNodeList = new ArrayList<Node>(currentCluster.getNodes());
-        for(Node updatedNode: updatedNodeList) {
-            for(Node currentNode: currentNodeList)
-                if(currentNode.getId() == updatedNode.getId())
-                    currentNodeList.remove(currentNode);
+        List<Node> newNodeList = new ArrayList<Node>(updatedNodeList);
+        for(Node currentNode: currentCluster.getNodes()) {
+            if(!updatedNodeList.contains(currentNode))
+                newNodeList.add(currentNode);
         }
-
-        currentNodeList.addAll(updatedNodeList);
-        return new Cluster(currentCluster.getName(), currentNodeList);
+        return new Cluster(currentCluster.getName(), newNodeList);
     }
 
     public static Node updateNode(Node node, List<Integer> partitionsList) {
@@ -208,6 +213,7 @@ public class RebalanceUtils {
         for(int nodeId: requiredNodeIds) {
             Node node = cluster.getNodeById(nodeId);
             try {
+                logger.debug("Updating remote node:" + nodeId + " with cluster:" + cluster);
                 adminClient.updateRemoteCluster(node.getId(), cluster, clock);
             } catch(Exception e) {
                 throw new VoldemortException("Failed to copy new cluster.xml(" + cluster

@@ -48,6 +48,7 @@ import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -68,6 +69,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
+    private final AdminClient adminClient;
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
@@ -81,6 +83,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.asyncRunner = asyncRunner;
+        this.adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                metadataStore.getCluster());
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -91,6 +95,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         byte[] input = new byte[size];
         ByteUtils.read(inputStream, input);
         request.mergeFrom(input);
+
+        logger.debug("AdminClient recieved request:" + request);
         switch(request.getType()) {
             case GET_METADATA:
                 ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));
@@ -288,9 +294,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadataStore.getCluster());
-
         try {
 
             RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStealerId(),
@@ -299,10 +302,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                            request.getUnbalancedStoreList(),
                                                                            request.getAttempt());
             int requestId = new Rebalancer().rebalanceLocalNode(metadataStore,
+                                                                voldemortConfig,
                                                                 request.getCurrentStore(),
                                                                 rebalanceStealInfo,
-                                                                asyncRunner,
-                                                                adminClient);
+                                                                asyncRunner);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
@@ -311,8 +314,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
-        } finally {
-            adminClient.stop();
         }
 
         return response.build();
@@ -350,8 +351,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
                                                     for(long i = 0; entriesIterator.hasNext(); i++) {
                                                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
-                                                        storageEngine.put(entry.getFirst(),
-                                                                          entry.getSecond());
+
+                                                        try {
+                                                            storageEngine.put(entry.getFirst(),
+                                                                              entry.getSecond());
+                                                        } catch(ObsoleteVersionException e) {
+                                                            // log and ignore
+                                                            logger.warn("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                        }
 
                                                         throttler.maybeThrottle(entrySize(entry));
 
@@ -387,7 +394,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException(operationStatus.getException());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);
+            logger.error("handleAsyncStatus failed for request(" + request.toString().trim() + ")",
+                         e);
         }
 
         return response.build();
@@ -495,15 +503,23 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     /* Private helper methods */
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
-        VoldemortFilter filter;
-        byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
-        String className = request.getName();
+        VoldemortFilter filter = new DefaultVoldemortFilter();
 
-        try {
-            Class<?> cl = networkClassLoader.loadClass(className, classBytes, 0, classBytes.length);
-            filter = (VoldemortFilter) cl.newInstance();
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to load and instantiate the filter class", e);
+        if(voldemortConfig.isNetworkClassLoaderEnabled()) {
+            byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
+            String className = request.getName();
+
+            try {
+                Class<?> cl = networkClassLoader.loadClass(className,
+                                                           classBytes,
+                                                           0,
+                                                           classBytes.length);
+                filter = (VoldemortFilter) cl.newInstance();
+            } catch(Exception e) {
+                throw new VoldemortException("Failed to load and instantiate the filter class", e);
+            }
+        } else {
+            throw new VoldemortException("Network class loader is not enabled yet !!");
         }
 
         return filter;

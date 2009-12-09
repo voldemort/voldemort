@@ -68,11 +68,11 @@ public class RebalanceStealInfo {
 
     @Override
     public String toString() {
-        /*
-         * return "{stealerId:" + stealerId + " ,donorId:" + donorId +
-         * " ,partitionList:" + partitionList + " ,storeList:" +
-         * unbalancedStorList + ",attempt:" + attempt + "}";
-         */
+        return "RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId() + " partitions:"
+               + getPartitionList() + " stores:" + getUnbalancedStoreList() + ")";
+    }
+
+    public String toJsonString() {
         Map map = ImmutableMap.builder()
                               .put("stealerId", stealerId)
                               .put("donorId", donorId)

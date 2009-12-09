@@ -33,6 +33,6 @@ public class RebalanceUtilsTest extends TestCase {
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
-                     (new RebalanceStealInfo(info.toString())).toString());
+                     (new RebalanceStealInfo(info.toJsonString())).toString());
     }
 }

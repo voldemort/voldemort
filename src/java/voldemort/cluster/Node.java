@@ -78,8 +78,8 @@ public class Node implements Serializable {
         // fix default value for adminPort if not defined
         if(adminPort == -1) {
             adminPort = socketPort + 1;
-            logger.warn("admin-port not defined for node:" + id + " using default value:"
-                        + adminPort + " as (socket_port + 1):");
+            logger.warn("admin-port not defined for node:" + id
+                        + " using default value(socket_port + 1):" + adminPort);
         }
 
         this.adminPort = adminPort;
@@ -135,7 +135,7 @@ public class Node implements Serializable {
 
     @Override
     public String toString() {
-        return "Node" + getId();
+        return "Node" + getId() + " partitionList:" + partitions;
     }
 
     @Override

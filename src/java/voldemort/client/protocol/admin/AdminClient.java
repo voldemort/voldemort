@@ -225,11 +225,10 @@ public abstract class AdminClient {
             if(status.hasException())
                 throw new VoldemortException(status.getException());
 
-            logger.info("Waiting for AsyncTask " + requestId + " description("
-                        + status.getDescription() + ") to finish currentStatus:"
-                        + status.getStatus());
+            logger.info("Waiting for AsyncTask to finish taskId:" + requestId + " description("
+                        + status.getDescription() + ")  currentStatus:" + status.getStatus());
             if(delay < MAX_DELAY)
-                // keep doubling the wait period until we rach maxDelay
+                // keep doubling the wait period until we reach maxDelay
                 delay <<= 2;
             try {
                 Thread.sleep(delay);
@@ -295,10 +294,13 @@ public abstract class AdminClient {
      * @throws VoldemortException
      */
     public Versioned<Cluster> getRemoteCluster(int nodeId) throws VoldemortException {
-        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
-        return new Versioned<Cluster>(cluster, value.getVersion());
-
+        try {
+            Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+            Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
+            return new Versioned<Cluster>(cluster, value.getVersion());
+        } catch(VoldemortException e) {
+            throw new VoldemortException("Failed to get remote cluster for node:" + nodeId, e);
+        }
     }
 
     /**

@@ -16,6 +16,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.socket.AdminService;
 import voldemort.server.socket.SocketService;
 import voldemort.store.RandomlyFailingDelegatingStore;
 import voldemort.store.StorageEngine;
@@ -67,30 +68,30 @@ public class AdminServiceFailureTest extends TestCase {
         adminServer.start();
     }
 
-    private SocketService getAdminServer(Node node,
-                                         Cluster cluster,
-                                         List<StoreDefinition> storeDefs,
-                                         StorageEngine<ByteArray, byte[]> storageEngine)
+    private AdminService getAdminServer(Node node,
+                                        Cluster cluster,
+                                        List<StoreDefinition> storeDefs,
+                                        StorageEngine<ByteArray, byte[]> storageEngine)
             throws IOException {
         StoreRepository storeRepository = new StoreRepository();
         storeRepository.addStorageEngine(storageEngine);
         storeRepository.addLocalStore(storageEngine);
 
-        return new SocketService(new SocketRequestHandlerFactory(storeRepository,
-                                                                 ServerTestUtils.createMetadataStore(cluster,
-                                                                                                     storeDefs),
-                                                                 ServerTestUtils.createServerConfig(0,
-                                                                                                    TestUtils.createTempDir()
-                                                                                                             .getAbsolutePath(),
-                                                                                                    null,
-                                                                                                    null),
-                                                                 null),
-                                 node.getAdminPort(),
-                                 2,
-                                 2,
-                                 10000,
-                                 "test-admin-service",
-                                 false);
+        return new AdminService(new SocketRequestHandlerFactory(storeRepository,
+                                                                ServerTestUtils.createMetadataStore(cluster,
+                                                                                                    storeDefs),
+                                                                ServerTestUtils.createServerConfig(0,
+                                                                                                   TestUtils.createTempDir()
+                                                                                                            .getAbsolutePath(),
+                                                                                                   null,
+                                                                                                   null),
+                                                                null),
+                                node.getAdminPort(),
+                                2,
+                                2,
+                                10000,
+                                "test-admin-service",
+                                false);
     }
 
     @Override

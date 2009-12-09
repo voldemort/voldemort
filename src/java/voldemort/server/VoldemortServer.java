@@ -42,6 +42,7 @@ import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.server.socket.AdminService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
@@ -155,13 +156,13 @@ public class VoldemortServer extends AbstractService {
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
                                                                                                      this.asyncRunner);
-            services.add(new SocketService(adminRequestHandlerFactory,
-                                           identityNode.getAdminPort(),
-                                           voldemortConfig.getAdminCoreThreads(),
-                                           voldemortConfig.getAdminMaxThreads(),
-                                           voldemortConfig.getAdminSocketBufferSize(),
-                                           "admin-server",
-                                           voldemortConfig.isJmxEnabled()));
+            services.add(new AdminService(adminRequestHandlerFactory,
+                                          identityNode.getAdminPort(),
+                                          voldemortConfig.getAdminCoreThreads(),
+                                          voldemortConfig.getAdminMaxThreads(),
+                                          voldemortConfig.getAdminSocketBufferSize(),
+                                          "admin-server",
+                                          voldemortConfig.isJmxEnabled()));
         }
 
         if(voldemortConfig.isGossipEnabled()) {
@@ -211,29 +212,34 @@ public class VoldemortServer extends AbstractService {
 
     private void attemptRebalance(RebalanceStealInfo stealInfo) {
         logger.info("Restarting rebalance for rebalanceSubTask:" + stealInfo);
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster());
         Rebalancer rebalancer = new Rebalancer();
         stealInfo.setAttempt(stealInfo.getAttempt() + 1);
 
         List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
-        for(String storeName: unbalanceStoreList) {
-            try {
-                int rebalanceAsyncId = rebalancer.rebalanceLocalNode(metadata,
-                                                                     storeName,
-                                                                     stealInfo,
-                                                                     asyncRunner,
-                                                                     adminClient);
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadata.getCluster());
+        try {
+            for(String storeName: unbalanceStoreList) {
+                try {
+                    int rebalanceAsyncId = rebalancer.rebalanceLocalNode(metadata,
+                                                                         voldemortConfig,
+                                                                         storeName,
+                                                                         stealInfo,
+                                                                         asyncRunner);
 
-                adminClient.waitForCompletion(stealInfo.getStealerId(),
-                                              rebalanceAsyncId,
-                                              24 * 60 * 60,
-                                              TimeUnit.SECONDS);
-                // remove store from rebalance list
-                stealInfo.getUnbalancedStoreList().remove(storeName);
-            } catch(Exception e) {
-                logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:" + storeName, e);
+                    adminClient.waitForCompletion(stealInfo.getStealerId(),
+                                                  rebalanceAsyncId,
+                                                  24 * 60 * 60,
+                                                  TimeUnit.SECONDS);
+                    // remove store from rebalance list
+                    stealInfo.getUnbalancedStoreList().remove(storeName);
+                } catch(Exception e) {
+                    logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:" + storeName,
+                                e);
+                }
             }
+        } finally {
+            adminClient.stop();
         }
     }
 

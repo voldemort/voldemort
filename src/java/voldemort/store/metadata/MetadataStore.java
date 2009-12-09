@@ -338,8 +338,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
         initCache(NODE_ID_KEY, nodeId);
         if(getNodeId() != nodeId)
-            throw new RuntimeException("Attempt to start previous node:" + getNodeId()
-                                       + " as node:" + nodeId + " aborting ...");
+            throw new RuntimeException("Attempt to start previous node:"
+                                       + getNodeId()
+                                       + " as node:"
+                                       + nodeId
+                                       + " (delete .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
         initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo(-1,
@@ -415,7 +418,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueStr = ((RebalanceStealInfo) value.getValue()).toString();
+            valueStr = ((RebalanceStealInfo) value.getValue()).toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)
                   || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
