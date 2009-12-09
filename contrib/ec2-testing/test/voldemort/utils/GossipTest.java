@@ -1,6 +1,5 @@
 package voldemort.utils;
 
-import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -8,17 +7,10 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import voldemort.Attempt;
-import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
-import voldemort.store.metadata.MetadataStore;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -28,10 +20,6 @@ import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
-import static voldemort.utils.RemoteTestUtils.stopCluster;
-import static voldemort.utils.RemoteTestUtils.deploy;
-
-import static voldemort.TestUtils.assertWithBackoff;
 
 /**
  * @author afeinberg
@@ -90,6 +78,11 @@ public class GossipTest {
 
     }
 
+    @Test
+    public static void testGossip() throws Exception {
+
+    }
+
     @AfterClass
     public static void tearDownClass() throws Exception {
         if (hostNames != null)
@@ -100,47 +93,6 @@ public class GossipTest {
     public void tearDown() throws Exception {
         stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
     }
-
-    @Test
-    public static void testGossip() throws Exception {
-        // First deploy a fixed size cluster to a number of machines
-        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
-
-        List<HostNamePair> newInstance = createInstances(accessId, secretKey, ami, keyPairId, 1);
-        List<String> newHostname = toHostNames(newInstance);
-
-        deploy(newHostname, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
-
-        ClusterGenerator clusterGenerator = new ClusterGenerator();
-
-        final List<String> allHostnames = new LinkedList<String>(hostNames);
-        allHostnames.addAll(newHostname);
-        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(allHostnames,
-                                                                                          allHostnames.size());
-        String newClusterXml = clusterGenerator.createClusterDescriptor("test", nodes);
-        AdminClient newAdminClient = getAdminClient(newHostname.get(0));
-        newAdminClient.getRemoteMetadata(allHostnames.size(),MetadataStore.CLUSTER_KEY);
-        // Now add another machine to the mix
-        try {
-            assertWithBackoff(5000, new Attempt() {
-                public void checkCondition() {
-                    for (String hostname: allHostnames) {
-                        AdminClient adminClient = getAdminClient(hostname);
-                    }
-                }
-            });
-        } finally {
-            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
-        }
-    }
-
-
-    public static AdminClient getAdminClient(String hostname) {
-        AdminClient adminClient = new ProtoBuffAdminClientRequestFormat("tcp://" + hostname + ":6666",
-                new ClientConfig());
-        return adminClient;
-    }
-    
     private static Properties getEc2Properties() throws Exception {
         String propertiesFileName = System.getProperty("ec2PropertiesFile");
 
