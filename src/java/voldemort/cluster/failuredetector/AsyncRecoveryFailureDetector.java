@@ -16,7 +16,9 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Level;
@@ -41,8 +43,7 @@ import voldemort.utils.ByteArray;
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
-public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetector implements
-        Runnable {
+public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
     /**
      * A set of nodes that have been marked as unavailable. As nodes go offline
@@ -71,6 +72,11 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
         recoveryThread = new Thread(this, "AsyncRecoveryFailureDetector");
         recoveryThread.setDaemon(true);
         recoveryThread.start();
+
+        Map<Node, NodeStatus> nodeStatusMap = new HashMap<Node, NodeStatus>();
+
+        for(Node node: failureDetectorConfig.getNodes())
+            nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
     }
 
     @Override
@@ -87,7 +93,7 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
             unavailableNodes.add(node);
         }
 
-        setUnavailable(node);
+        setUnavailable(node, e);
     }
 
     public void recordSuccess(Node node) {
@@ -108,8 +114,8 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
         ByteArray key = new ByteArray((byte) 1);
 
         for(Node node: unavailableNodesCopy) {
-            if(logger.isInfoEnabled())
-                logger.info("Checking previously unavailable node " + node);
+            if(logger.isDebugEnabled())
+                logger.debug("Checking previously unavailable node " + node);
 
             Store<ByteArray, byte[]> store = getConfig().getStoreResolver().getStore(node);
 
@@ -143,9 +149,9 @@ public class AsyncRecoveryFailureDetector extends AbstractNodeStatusFailureDetec
 
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
-                if(logger.isInfoEnabled()) {
-                    logger.info("Sleeping for " + asyncScanInterval
-                                + " ms before checking node availability");
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Sleeping for " + asyncScanInterval
+                                 + " ms before checking node availability");
                 }
 
                 getConfig().getTime().sleep(asyncScanInterval);

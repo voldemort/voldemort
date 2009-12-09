@@ -36,9 +36,9 @@ class NodeStatus implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    private final Time time;
-    private volatile long lastChecked;
-    private volatile boolean isAvailable;
+    protected final Time time;
+    protected volatile long lastChecked;
+    protected volatile boolean isAvailable;
 
     public NodeStatus() {
         this(SystemTime.INSTANCE, System.currentTimeMillis(), true);
@@ -56,6 +56,14 @@ class NodeStatus implements Serializable {
 
     public long getLastCheckedMs() {
         return lastChecked;
+    }
+
+    public long getLastChecked() {
+        return lastChecked;
+    }
+
+    public void setLastChecked(long lastChecked) {
+        this.lastChecked = lastChecked;
     }
 
     public long getMsSinceLastCheck() {

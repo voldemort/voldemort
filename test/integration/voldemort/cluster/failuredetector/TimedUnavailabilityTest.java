@@ -48,7 +48,7 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
         for(Class<?> implClass: classes) {
             failureDetectorConfig.setImplementationClassName(implClass.getName());
-            new TimedUnavailabilityTest(2522).run(failureDetectorConfig);
+            System.out.println(new TimedUnavailabilityTest(2522).run(failureDetectorConfig));
         }
     }
 

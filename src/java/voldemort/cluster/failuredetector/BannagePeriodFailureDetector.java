@@ -16,8 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import org.apache.log4j.Level;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
@@ -47,24 +45,14 @@ import voldemort.store.UnreachableStoreException;
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
-public class BannagePeriodFailureDetector extends AbstractNodeStatusFailureDetector {
+public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
     public BannagePeriodFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
-        if(e != null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e, e);
-        }
-
-        if(logger.isEnabledFor(Level.WARN))
-            logger.warn("Could not connect to node " + node.getId() + " at " + node.getHost()
-                        + " marking as unavailable for " + getConfig().getNodeBannagePeriod()
-                        + " ms.");
-
-        setUnavailable(node);
+        setUnavailable(node, e);
     }
 
     public void recordSuccess(Node node) {
