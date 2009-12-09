@@ -132,7 +132,7 @@ public class SocketServer extends Thread {
 
     @Override
     public void run() {
-        logger.info("Starting voldemort socket server on port " + port);
+        logger.info("Starting  " + serverName + " on port " + port);
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
@@ -160,6 +160,7 @@ public class SocketServer extends Thread {
             startedStatusQueue.offer(e);
             throw new VoldemortException(e);
         } catch(Throwable t) {
+            logger.error(t);
             startedStatusQueue.offer(t);
             if(t instanceof Error)
                 throw (Error) t;

@@ -62,22 +62,27 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     private final ErrorCodeMapper errorMapper;
     private final static Logger logger = Logger.getLogger(ProtoBuffAdminClientRequestFormat.class);
     private final SocketPool pool;
+
     private final NetworkClassLoader networkClassLoader;
 
     public ProtoBuffAdminClientRequestFormat(String bootstrapURL, ClientConfig config) {
         super(bootstrapURL);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(config);
+
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+
     }
 
     public ProtoBuffAdminClientRequestFormat(Cluster cluster, ClientConfig config) {
         super(cluster);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(config);
+
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+
     }
 
     private SocketPool createSocketPool(ClientConfig config) {
@@ -421,22 +426,24 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     @Override
-    public int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo) {
-        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest
-                .newBuilder()
-                .setAttempt(stealInfo.getAttempt())
-                .setDonorId(stealInfo.getDonorId())
-                .addAllPartitions(stealInfo.getPartitionList())
-                .build();
+    public int rebalanceNode(String storeName, RebalanceStealInfo stealInfo) {
+        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
+                                                                                                                .setAttempt(stealInfo.getAttempt())
+                                                                                                                .setDonorId(stealInfo.getDonorId())
+                                                                                                                .setStealerId(stealInfo.getStealerId())
+                                                                                                                .setCurrentStore(storeName)
+                                                                                                                .addAllPartitions(stealInfo.getPartitionList())
+                                                                                                                .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
+                                                                                                                .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
-                .setInitiateRebalanceNode(rebalanceNodeRequest)
-                .build();
-        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
-                adminRequest,
-                VAdminProto.AsyncOperationStatusResponse.newBuilder());
+                                                                                          .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                                                                                          .setInitiateRebalanceNode(rebalanceNodeRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealInfo.getStealerId(),
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
 
-        if (response.hasError())
+        if(response.hasError())
             throwException(response.getError());
 
         return response.getRequestId();
@@ -468,6 +475,7 @@ public class ProtoBuffAdminClientRequestFormat extends AdminClient {
     }
 
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
+
         Class<?> cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);
         return VAdminProto.VoldemortFilter.newBuilder()

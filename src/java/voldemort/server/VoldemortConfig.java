@@ -116,17 +116,9 @@ public class VoldemortConfig implements Serializable {
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
-
-    public boolean isGossipEnabled() {
-        return enableGossip;
-    }
-
-    public void setEnableGossip(boolean enableGossip) {
-        this.enableGossip = enableGossip;
-    }
-
+    private boolean enableNetworkClassLoader;
     private boolean enableGossip;
-    
+
     private List<String> storageConfigurations;
 
     private Props allProps;
@@ -217,8 +209,10 @@ public class VoldemortConfig implements Serializable {
         this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 1 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 1 * 1000 * 1000);
+        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec",
+                                                     10 * 8 * 1024 * 1024);
+        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec",
+                                                      10 * 8 * 1024 * 1024);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -279,6 +273,8 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
 
+        // network class loader disable by default.
+        this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
         validateParams();
     }
 
@@ -963,6 +959,22 @@ public class VoldemortConfig implements Serializable {
 
     public VoldemortConfig(int nodeId, String voldemortHome) {
         this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
+
+    public boolean isGossipEnabled() {
+        return enableGossip;
+    }
+
+    public void setEnableGossip(boolean enableGossip) {
+        this.enableGossip = enableGossip;
+    }
+
+    public boolean isNetworkClassLoaderEnabled() {
+        return enableNetworkClassLoader;
+    }
+
+    public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
+        this.enableNetworkClassLoader = enableNetworkClassLoader;
     }
 
 }

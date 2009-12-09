@@ -155,7 +155,16 @@ public abstract class AdminClient {
                                               List<Integer> stealList,
                                               VoldemortFilter filter);
 
-    public abstract int rebalanceNode(int nodeId, RebalanceStealInfo stealInfo);
+    /**
+     * Rebalance a stealer,donor node pair for the given storeName.<br>
+     * stealInfo also have a storeName list, this is passed to client to persist
+     * in case of failure and start balancing all the stores in the list only.
+     * 
+     * @param storeName
+     * @param stealInfo
+     * @return
+     */
+    public abstract int rebalanceNode(String storeName, RebalanceStealInfo stealInfo);
 
     /**
      * cleanly close this client, freeing any resource.
@@ -216,11 +225,10 @@ public abstract class AdminClient {
             if(status.hasException())
                 throw new VoldemortException(status.getException());
 
-            logger.info("Waiting for AsyncTask " + requestId + " description("
-                        + status.getDescription() + ") to finish currentStatus:"
-                        + status.getStatus());
+            logger.info("Waiting for AsyncTask to finish taskId:" + requestId + " description("
+                        + status.getDescription() + ")  currentStatus:" + status.getStatus());
             if(delay < MAX_DELAY)
-                // keep doubling the wait period until we rach maxDelay
+                // keep doubling the wait period until we reach maxDelay
                 delay <<= 2;
             try {
                 Thread.sleep(delay);
@@ -286,10 +294,13 @@ public abstract class AdminClient {
      * @throws VoldemortException
      */
     public Versioned<Cluster> getRemoteCluster(int nodeId) throws VoldemortException {
-        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
-        return new Versioned<Cluster>(cluster, value.getVersion());
-
+        try {
+            Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+            Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
+            return new Versioned<Cluster>(cluster, value.getVersion());
+        } catch(VoldemortException e) {
+            throw new VoldemortException("Failed to get remote cluster for node:" + nodeId, e);
+        }
     }
 
     /**

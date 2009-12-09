@@ -334,6 +334,8 @@ public class ServerTestUtils {
         props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
+        props.put("stream.read.byte.per.sec", 500 * 8 * 1024 * 1024);
+        props.put("stream.write.byte.per.sec", 500 * 8 * 1024 * 1024);
 
         VoldemortConfig config = new VoldemortConfig(props);
         config.setMysqlDatabaseName("voldemort");

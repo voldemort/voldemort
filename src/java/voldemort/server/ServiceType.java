@@ -9,6 +9,7 @@ package voldemort.server;
 public enum ServiceType {
     HTTP("http-service"),
     SOCKET("socket-service"),
+    ADMIN("admin-service"),
     JMX("jmx-service"),
     SCHEDULER("scheduler-service"),
     STORAGE("storage-service"),

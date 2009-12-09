@@ -2,13 +2,11 @@ package voldemort.client.rebalance;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -17,10 +15,13 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.rebalancing.RedirectingStore;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
+
+import com.google.common.collect.ImmutableList;
 
 public class RebalanceClient {
 
@@ -28,18 +29,21 @@ public class RebalanceClient {
 
     private final ExecutorService executor;
     private final AdminClient adminClient;
-    private final RebalanceClientConfig config;
+    private final AdminClientConfig config;
+    private final int maxParallelRebalancing;
 
-    public RebalanceClient(String bootstrapUrl, RebalanceClientConfig config) {
+    public RebalanceClient(String bootstrapUrl, int maxParallelRebalancing, AdminClientConfig config) {
         this.adminClient = new ProtoBuffAdminClientRequestFormat(bootstrapUrl, config);
-        this.executor = Executors.newFixedThreadPool(config.getMaxParallelRebalancingNodes());
+        this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
         this.config = config;
+        this.maxParallelRebalancing = maxParallelRebalancing;
     }
 
-    public RebalanceClient(Cluster cluster, RebalanceClientConfig config) {
+    public RebalanceClient(Cluster cluster, int maxParallelRebalancing, AdminClientConfig config) {
         this.adminClient = new ProtoBuffAdminClientRequestFormat(cluster, config);
-        this.executor = Executors.newFixedThreadPool(config.getMaxParallelRebalancingNodes());
+        this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
         this.config = config;
+        this.maxParallelRebalancing = maxParallelRebalancing;
     }
 
     /**
@@ -53,13 +57,12 @@ public class RebalanceClient {
      * via {@link RedirectingStore}<br>
      * 
      * 
-     * @param storeName : store to be rebalanced
      * @param currentCluster: currentCluster configuration.
      * @param targetCluster: target Cluster configuration
      */
-    public void rebalance(final String storeName,
-                          final Cluster currentCluster,
-                          final Cluster targetCluster) {
+    public void rebalance(final Cluster currentCluster,
+                          final Cluster targetCluster,
+                          final List<String> storeList) {
         // update adminClient with currentCluster
         adminClient.setCluster(currentCluster);
 
@@ -67,171 +70,73 @@ public class RebalanceClient {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
         }
 
-        final Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap = RebalanceUtils.getStealPartitionsMap(storeName,
-                                                                                                               currentCluster,
-                                                                                                               targetCluster);
-        logger.info("Rebalancing plan:\n"
-                    + RebalanceUtils.getStealPartitionsMapAsString(stealPartitionsMap));
+        final Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
+                                                                                                                       targetCluster,
+                                                                                                                       storeList);
+        logRebalancingPlan(rebalanceTaskQueue);
 
-        final Map<Integer, AtomicBoolean> nodeRebalancingLock = createRebalancingLocks(stealPartitionsMap);
-        final Semaphore semaphore = new Semaphore(config.getMaxParallelRebalancingNodes());
-
-        while(!stealPartitionsMap.isEmpty()) {
+        // start all threads
+        for(int nThreads = 0; nThreads < this.maxParallelRebalancing; nThreads++) {
             this.executor.execute(new Runnable() {
 
                 public void run() {
-                    if(acquireSemaphore(semaphore)) {
-                        try {
-                            // get one target stealer(destination) node
-                            int stealerNodeId = RebalanceUtils.getRandomStealerNodeId(stealPartitionsMap);
+                    // pick one node to rebalance from queue
+                    while(!rebalanceTaskQueue.isEmpty()) {
+                        Pair<Integer, List<RebalanceStealInfo>> rebalanceTask = rebalanceTaskQueue.poll();
+                        if(null != rebalanceTask) {
+                            int stealerNodeId = rebalanceTask.getFirst();
+                            addNodeIfnotPresent(targetCluster, stealerNodeId);
+                            Node stealerNode = adminClient.getCluster().getNodeById(stealerNodeId);
+                            List<RebalanceStealInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
-                            if(nodeRebalancingLock.get(stealerNodeId).compareAndSet(false, true)) {
-                                RebalanceStealInfo rebalanceStealInfo = RebalanceUtils.getOneStealInfoAndUpdateStealMap(stealerNodeId,
-                                                                                                                        stealPartitionsMap);
-                                if(rebalanceCommit(stealPartitionsMap,
-                                                   stealerNodeId,
-                                                   rebalanceStealInfo)) {
-                                    // attempt data transfer
-                                    attemptOneRebalanceTransfer(stealerNodeId, rebalanceStealInfo);
-                                }
+                            logger.debug("Starting rebalancing for stealerNode (" + stealerNode
+                                         + ")");
+                            while(rebalanceSubTaskList.size() > 0) {
+                                logger.debug("rebalanceSubTaskList:" + rebalanceSubTaskList);
 
-                                // free rebalancing lock for this node.
-                                nodeRebalancingLock.get(stealerNodeId).set(false);
-                            }
-                        } catch(Exception e) {
-                            logger.warn("Rebalance step failed", e);
-                        } finally {
-                            semaphore.release();
-                            logger.debug("rebalancing semaphore released.");
-                        }
-                    } else {
-                        logger.warn(new VoldemortException("Failed to get rebalance task permit."));
-                    }
-                }
-
-                private boolean rebalanceCommit(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap,
-                                                int stealerNodeId,
-                                                RebalanceStealInfo rebalanceStealInfo) {
-                    synchronized(stealPartitionsMap) {
-                        VectorClock clock = (VectorClock) adminClient.getRemoteCluster(rebalanceStealInfo.getDonorId())
-                                                                     .getVersion();
-                        Cluster oldCluster = adminClient.getCluster();
-
-                        try {
-                            // update cluster.xml and tell all Nodes
-                            Cluster newCluster = RebalanceUtils.createUpdatedCluster(oldCluster,
-                                                                                     getStealerNode(currentCluster,
-                                                                                                    targetCluster,
-                                                                                                    stealerNodeId),
-                                                                                     currentCluster.getNodeById(rebalanceStealInfo.getDonorId()),
-                                                                                     rebalanceStealInfo.getPartitionList());
-                            // increment clock version on stealerNodeId
-                            clock.incrementVersion(stealerNodeId, System.currentTimeMillis());
-                            RebalanceUtils.propagateCluster(adminClient,
-                                                            newCluster,
-                                                            clock,
-                                                            Arrays.asList(stealerNodeId,
-                                                                          rebalanceStealInfo.getDonorId()));
-
-                            // set new cluster in adminClient
-                            adminClient.setCluster(newCluster);
-                            return true;
-                        } catch(Exception e) {
-                            logger.warn("Failed to commit rebalance on node:" + stealerNodeId, e);
-                            // revert stealPartitions changes
-                            RebalanceUtils.revertStealPartitionsMap(stealPartitionsMap,
-                                                                    stealerNodeId,
-                                                                    rebalanceStealInfo);
-                            // revert cluster changes.
-                            clock.incrementVersion(stealerNodeId, System.currentTimeMillis());
-                            RebalanceUtils.propagateCluster(adminClient,
-                                                            oldCluster,
-                                                            clock,
-                                                            new ArrayList<Integer>());
-
-                        }
-
-                        return false;
-                    }
-                }
-
-                private Node getStealerNode(Cluster currentCluster,
-                                            Cluster targetCluster,
-                                            int stealerNodeId) {
-                    if(RebalanceUtils.containsNode(currentCluster, stealerNodeId))
-                        return currentCluster.getNodeById(stealerNodeId);
-                    else
-                        return RebalanceUtils.updateNode(targetCluster.getNodeById(stealerNodeId),
-                                                         new ArrayList<Integer>());
-                }
-
-                /**
-                 * Given a stealerNode and stealInfo {@link RebalanceStealInfo}
-                 * tries stealing unless succeed or failed max number of allowed
-                 * tries.
-                 * 
-                 * @param stealPartitionsMap
-                 */
-                private void attemptOneRebalanceTransfer(int stealerNodeId,
-                                                         RebalanceStealInfo stealInfo) {
-
-                    while(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
-                        try {
-                            stealInfo.setAttempt(stealInfo.getAttempt() + 1);
-                            int rebalanceAsyncId = getAdminClient().rebalanceNode(stealerNodeId,
-                                                                                  stealInfo);
-                            AsyncOperationStatus status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
-                                                                                                 rebalanceAsyncId);
-                            while(!status.isComplete()) {
-                                logger.info("Rebalance transfer " + stealerNodeId + " status:"
-                                            + status.getStatus());
+                                RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(0);
                                 try {
-                                    Thread.sleep(60 * 1000);
-                                } catch(InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                }
+                                    logger.debug("Starting RebalanceSubTask attempt ("
+                                                 + rebalanceSubTask + ")");
 
-                                status = getAdminClient().getAsyncRequestStatus(stealerNodeId,
-                                                                                rebalanceAsyncId);
+                                    // first commit cluster changes on nodes.
+                                    commitClusterChanges(stealerNode, rebalanceSubTask);
+                                    // attempt to rebalance for all stores.
+                                    attemptRebalanceSubTask(rebalanceSubTask);
+
+                                    logger.debug("Successfully finished RebalanceSubTask attempt:"
+                                                 + rebalanceSubTask);
+                                } catch(Exception e) {
+                                    logger.warn("rebalancing task (" + rebalanceSubTask
+                                                + ") failed with exception:", e);
+                                }
                             }
-                            return;
-                        } catch(Exception e) {
-                            logger.warn("Failed Attempt number " + stealInfo.getAttempt()
-                                        + " Rebalance transfer " + stealerNodeId + " <== "
-                                        + stealInfo.getDonorId() + " "
-                                        + stealInfo.getPartitionList() + " with exception:", e);
                         }
                     }
-
-                    throw new VoldemortException("Failed rebalance transfer to:" + stealerNodeId
-                                                 + " <== from:" + stealInfo.getDonorId()
-                                                 + " partitions:" + stealInfo.getPartitionList()
-                                                 + ")");
                 }
             });
-        }
+        }// for (nThreads ..
 
+        executorShutDown(executor);
     }
 
-    private Map<Integer, AtomicBoolean> createRebalancingLocks(Map<Integer, List<RebalanceStealInfo>> stealPartitionsMap) {
-        Map<Integer, AtomicBoolean> map = new HashMap<Integer, AtomicBoolean>();
-        for(int stealerNode: stealPartitionsMap.keySet()) {
-            map.put(stealerNode, new AtomicBoolean(false));
+    private void logRebalancingPlan(Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue) {
+        logger.info("Rebalancing Plan:");
+        for(Pair<Integer, List<RebalanceStealInfo>> pair: rebalanceTaskQueue) {
+            logger.info("StealerNode:" + pair.getFirst());
+            for(RebalanceStealInfo stealInfo: pair.getSecond()) {
+                logger.info("\t" + stealInfo);
+            }
         }
-        return map;
     }
 
-    private boolean acquireSemaphore(Semaphore semaphore) {
+    private void executorShutDown(ExecutorService executorService) {
         try {
-            logger.debug("Request to acquire rebalancing semaphore.");
-            semaphore.acquire();
-            logger.debug("rebalancing semaphore acquired.");
-            return true;
-        } catch(InterruptedException e) {
-            // ignore
+            logger.debug("Attempting to stop executor service.");
+            executorService.shutdown();
+        } catch(Exception e) {
+            logger.warn("Error while stoping executor service .. ", e);
         }
-
-        return false;
     }
 
     public AdminClient getAdminClient() {
@@ -240,5 +145,119 @@ public class RebalanceClient {
 
     public void stop() {
         adminClient.stop();
+    }
+
+    /* package level function to ease of unit testing */
+
+    /**
+     * Does an atomic commit or revert for the intended partitions ownership
+     * changes.<br>
+     * creates a new cluster metadata by moving partitions list passed in
+     * parameter rebalanceStealInfo and propagates it to all nodes.<br>
+     * Revert all changes if failed to copy on required copies (stealerNode and
+     * donorNode).<br>
+     * holds a lock untill the commit/revert finishes.
+     * 
+     * @param stealPartitionsMap
+     * @param stealerNodeId
+     * @param rebalanceStealInfo
+     */
+    void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo) {
+        synchronized(adminClient) {
+            VectorClock clock = getLatestClusterClock(stealerNode.getId(),
+                                                      rebalanceStealInfo.getDonorId());
+            Cluster oldCluster = adminClient.getCluster();
+
+            try {
+                Cluster newCluster = RebalanceUtils.createUpdatedCluster(oldCluster,
+                                                                         stealerNode,
+                                                                         oldCluster.getNodeById(rebalanceStealInfo.getDonorId()),
+                                                                         rebalanceStealInfo.getPartitionList());
+                // increment clock version on stealerNodeId
+                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+
+                // propogates changes to all nodes.
+                RebalanceUtils.propagateCluster(adminClient,
+                                                newCluster,
+                                                clock,
+                                                Arrays.asList(stealerNode.getId(),
+                                                              rebalanceStealInfo.getDonorId()));
+
+                // set new cluster in adminClient
+                adminClient.setCluster(newCluster);
+            } catch(Exception e) {
+                // revert cluster changes.
+                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+                RebalanceUtils.propagateCluster(adminClient,
+                                                oldCluster,
+                                                clock,
+                                                new ArrayList<Integer>());
+
+                throw new VoldemortException("Failed to commit rebalance on node:"
+                                             + stealerNode.getId(), e);
+            }
+        }
+    }
+
+    private VectorClock getLatestClusterClock(int stealerId, int donorId) {
+        VectorClock clock1 = (VectorClock) adminClient.getRemoteCluster(stealerId).getVersion();
+        VectorClock clock2 = (VectorClock) adminClient.getRemoteCluster(donorId).getVersion();
+
+        Occured occured = clock1.compare(clock2);
+
+        if(occured.equals(Occured.AFTER))
+            return clock1;
+        else if(occured.equals(Occured.BEFORE))
+            return clock2;
+        else if(occured.equals(Occured.CONCURRENTLY))
+            throw new VoldemortException("Concurrent cluster vector clock for stealerNode:"
+                                         + stealerId + "(" + clock1 + ") donorNode:" + donorId
+                                         + "( " + clock2 + " )");
+        else
+            throw new VoldemortException("Invalid state clock1:" + clock1 + " clock2:" + clock2
+                                         + " Occured:" + occured);
+    }
+
+    /**
+     * Attempt the data transfer on the stealerNode through the
+     * {@link AdminClient#rebalanceNode()} api for all stores in
+     * rebalanceSubTask.<br>
+     * Blocks untill the AsyncStatus is set to success or exception <br>
+     * 
+     * @param stealerNodeId
+     * @param stealPartitionsMap
+     */
+    void attemptRebalanceSubTask(RebalanceStealInfo rebalanceSubTask) {
+        boolean success = true;
+        List<String> rebalanceStoreList = ImmutableList.copyOf(rebalanceSubTask.getUnbalancedStoreList());
+
+        for(String storeName: rebalanceStoreList) {
+            try {
+                int rebalanceAsyncId = adminClient.rebalanceNode(storeName, rebalanceSubTask);
+
+                adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
+                                              rebalanceAsyncId,
+                                              24 * 60 * 60,
+                                              TimeUnit.SECONDS);
+                // remove store from rebalance list
+                rebalanceSubTask.getUnbalancedStoreList().remove(storeName);
+            } catch(Exception e) {
+                logger.warn("rebalanceSubTask:" + rebalanceSubTask + " failed for store:"
+                            + storeName, e);
+                success = false;
+            }
+        }
+
+        if(!success)
+            throw new VoldemortException("rebalanceSubTask:" + rebalanceSubTask
+                                         + " failed incomplete.");
+    }
+
+    private void addNodeIfnotPresent(Cluster targetCluster, int stealerNodeId) {
+        if(!RebalanceUtils.containsNode(adminClient.getCluster(), stealerNodeId)) {
+            // add stealerNode from targertCluster here
+            adminClient.setCluster(RebalanceUtils.updateCluster(adminClient.getCluster(),
+                                                                Arrays.asList(targetCluster.getNodeById(stealerNodeId))));
+        }
     }
 }

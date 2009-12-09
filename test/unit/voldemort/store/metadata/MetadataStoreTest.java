@@ -73,9 +73,10 @@ public class MetadataStoreTest extends TestCase {
                 partition.add((int) Math.random() * 10);
             }
 
-            return ByteUtils.getBytes(new RebalanceStealInfo("test-store",
+            return ByteUtils.getBytes(new RebalanceStealInfo(0,
                                                              (int) Math.random() * 5,
                                                              partition,
+                                                             Arrays.asList("testStoreName"),
                                                              (int) Math.random() * 3).toString(),
                                       "UTF-8");
         }
