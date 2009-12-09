@@ -51,6 +51,32 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         super(failureDetectorConfig);
     }
 
+    public boolean isAvailable(Node node) {
+        long bannagePeriod = failureDetectorConfig.getNodeBannagePeriod();
+        long currentTime = failureDetectorConfig.getTime().getMilliseconds();
+
+        NodeStatus nodeStatus = getNodeStatus(node);
+
+        synchronized(nodeStatus) {
+            // The node can be available in one of two ways: a) it's actually
+            // available, or...
+            if(nodeStatus.isAvailable())
+                return true;
+
+            // ...b) it was unavailable but our "bannage" period has expired so
+            // we're free to consider it as available. If we're now considered
+            // available but our actual status is *not* available, this means
+            // we've become available via a timeout. We act like we're fully
+            // available in that we send out the availability event.
+            if(nodeStatus.getLastChecked() + bannagePeriod < currentTime) {
+                setAvailable(node);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
     public void recordException(Node node, UnreachableStoreException e) {
         setUnavailable(node, e);
     }

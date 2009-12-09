@@ -79,7 +79,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
             nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
     }
 
-    @Override
     public boolean isAvailable(Node node) {
         // We override the default behavior and keep track of the unavailable
         // nodes in our set.

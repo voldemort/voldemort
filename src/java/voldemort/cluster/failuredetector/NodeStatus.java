@@ -16,10 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.io.Serializable;
-import java.util.Date;
-
-import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 
@@ -32,30 +28,27 @@ import voldemort.utils.Utils;
  * @author jay
  * 
  */
-class NodeStatus implements Serializable {
+class NodeStatus {
 
-    private static final long serialVersionUID = 1;
+    private final Time time;
 
-    protected final Time time;
-    protected volatile long lastChecked;
-    protected volatile boolean isAvailable;
+    private long lastChecked;
 
-    public NodeStatus() {
-        this(SystemTime.INSTANCE, System.currentTimeMillis(), true);
-    }
+    private boolean isAvailable;
+
+    private long startMillis;
+
+    private long success;
+
+    private long total;
 
     public NodeStatus(Time time) {
-        this(time, time.getMilliseconds(), true);
-    }
+        long currTime = time.getMilliseconds();
 
-    public NodeStatus(Time time, long lastChecked, boolean isAvailable) {
         this.time = Utils.notNull(time);
-        this.lastChecked = lastChecked;
-        this.isAvailable = isAvailable;
-    }
-
-    public long getLastCheckedMs() {
-        return lastChecked;
+        this.lastChecked = currTime;
+        this.startMillis = currTime;
+        this.isAvailable = true;
     }
 
     public long getLastChecked() {
@@ -66,36 +59,49 @@ class NodeStatus implements Serializable {
         this.lastChecked = lastChecked;
     }
 
-    public long getMsSinceLastCheck() {
-        return time.getMilliseconds() - lastChecked;
-    }
-
-    public boolean isUnavailable(long msExpiration) {
-        boolean isExpired = time.getMilliseconds() > lastChecked + msExpiration;
-        return !isAvailable && !isExpired;
-    }
-
     public boolean isAvailable() {
         return isAvailable;
     }
 
-    public boolean isUnavailable() {
-        return !isAvailable;
-    }
-
-    public void setUnavailable() {
-        this.isAvailable = false;
+    public void setAvailable(boolean isAvailable) {
+        this.isAvailable = isAvailable;
         this.lastChecked = time.getMilliseconds();
     }
 
-    public void setAvailable() {
-        this.isAvailable = true;
-        this.lastChecked = time.getMilliseconds();
+    public long getStartMillis() {
+        return startMillis;
     }
 
-    @Override
-    public String toString() {
-        return "Status(" + (isAvailable ? "available" : "down") + ", " + new Date(lastChecked);
+    public void setStartMillis(long startMillis) {
+        this.startMillis = startMillis;
+    }
+
+    public long getSuccess() {
+        return success;
+    }
+
+    public void setSuccess(long success) {
+        this.success = success;
+    }
+
+    public void incrementSuccess(long delta) {
+        this.success += delta;
+    }
+
+    public long getTotal() {
+        return total;
+    }
+
+    public void setTotal(long total) {
+        this.total = total;
+    }
+
+    public void incrementTotal(long delta) {
+        this.total += delta;
+    }
+
+    public Time getTime() {
+        return time;
     }
 
 }

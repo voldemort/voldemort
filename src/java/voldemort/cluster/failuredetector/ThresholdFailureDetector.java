@@ -21,13 +21,12 @@ import org.apache.log4j.Level;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
-import voldemort.utils.Time;
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public class ThresholdFailureDetector extends AbstractFailureDetector {
 
     public ThresholdFailureDetector(FailureDetectorConfig failureDetectorConfig) {
-        super(failureDetectorConfig, ThresholdNodeStatus.class);
+        super(failureDetectorConfig);
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
@@ -38,7 +37,6 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         update(node, 1, 1, null);
     }
 
-    @Override
     public boolean isAvailable(Node node) {
         return update(node, 0, 0, null);
     }
@@ -46,7 +44,7 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
     public void destroy() {}
 
     private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
-        ThresholdNodeStatus nodeStatus = (ThresholdNodeStatus) getNodeStatus(node);
+        NodeStatus nodeStatus = getNodeStatus(node);
 
         // We don't actually call the needsNotifyAvailable or notifyUnavailable
         // *after* we exit the synchronized block to avoid nested locks.
@@ -58,36 +56,37 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         synchronized(nodeStatus) {
             nodeStatus.setLastChecked(getConfig().getTime().getMilliseconds());
 
-            if(nodeStatus.lastChecked >= nodeStatus.startMillis
-                                         + getConfig().getThresholdInterval()) {
+            if(nodeStatus.getLastChecked() >= nodeStatus.getStartMillis()
+                                              + getConfig().getThresholdInterval()) {
                 // If the node was not previously available and is now, then we
                 // need to notify everyone of that fact.
-                needsNotifyAvailable = !nodeStatus.isAvailable;
+                needsNotifyAvailable = !nodeStatus.isAvailable();
 
-                nodeStatus.isAvailable = true;
-                nodeStatus.startMillis = nodeStatus.lastChecked;
-                nodeStatus.success = successDelta;
-                nodeStatus.total = totalDelta;
+                nodeStatus.setAvailable(true);
+                nodeStatus.setStartMillis(nodeStatus.getLastChecked());
+                nodeStatus.setSuccess(successDelta);
+                nodeStatus.setTotal(totalDelta);
             } else {
-                nodeStatus.success += successDelta;
-                nodeStatus.total += totalDelta;
+                nodeStatus.incrementSuccess(successDelta);
+                nodeStatus.incrementTotal(totalDelta);
             }
 
             int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
 
-            if(nodeStatus.total >= thresholdCountMinimum) {
-                threshold = nodeStatus.total >= thresholdCountMinimum ? (nodeStatus.success * 100)
-                                                                        / nodeStatus.total : 100;
-                boolean previouslyAvailable = nodeStatus.isAvailable;
-                nodeStatus.isAvailable = threshold >= getConfig().getThreshold();
+            if(nodeStatus.getTotal() >= thresholdCountMinimum) {
+                threshold = nodeStatus.getTotal() >= thresholdCountMinimum ? (nodeStatus.getSuccess() * 100)
+                                                                             / nodeStatus.getTotal()
+                                                                          : 100;
+                boolean previouslyAvailable = nodeStatus.isAvailable();
+                nodeStatus.setAvailable(threshold >= getConfig().getThreshold());
 
-                if(nodeStatus.isAvailable && !previouslyAvailable)
+                if(nodeStatus.isAvailable() && !previouslyAvailable)
                     needsNotifyAvailable = true;
-                else if(!nodeStatus.isAvailable && previouslyAvailable)
+                else if(!nodeStatus.isAvailable() && previouslyAvailable)
                     needsNotifyUnavailable = true;
             }
 
-            isAvailable = nodeStatus.isAvailable;
+            isAvailable = nodeStatus.isAvailable();
         }
 
         if(needsNotifyAvailable) {
@@ -106,23 +105,4 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
 
         return isAvailable;
     }
-
-    @SuppressWarnings("serial")
-    public static class ThresholdNodeStatus extends NodeStatus {
-
-        private long startMillis;
-
-        private long success;
-
-        private long total;
-
-        public ThresholdNodeStatus(Time time) {
-            super(time);
-
-            this.startMillis = time.getMilliseconds();
-            this.lastChecked = startMillis;
-        }
-
-    }
-
 }

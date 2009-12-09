@@ -218,6 +218,16 @@ public interface FailureDetector {
 
     public int getNodeCount();
 
+    /**
+     * waitForAvailability causes the calling thread to block until the given
+     * Node is available. If the node is <i>already</i> available, this will
+     * simply return.
+     * 
+     * @param node Node on which to wait
+     * 
+     * @throws InterruptedException Thrown if the thread is interrupted
+     */
+
     public void waitForAvailability(Node node) throws InterruptedException;
 
     /**

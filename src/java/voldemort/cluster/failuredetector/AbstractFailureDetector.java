@@ -16,7 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,11 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
-import voldemort.utils.Time;
 
 /**
  * AbstractFailureDetector serves as a building block for FailureDetector
@@ -50,28 +47,13 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
-        this(failureDetectorConfig, NodeStatus.class);
-    }
-
-    protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig,
-                                      Class<? extends NodeStatus> nodeStatusClass) {
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
 
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
 
-        for(Node node: failureDetectorConfig.getNodes()) {
-            NodeStatus nodeStatus = null;
-
-            try {
-                Constructor<? extends NodeStatus> nodeStatusCtor = nodeStatusClass.getConstructor(Time.class);
-                nodeStatus = nodeStatusCtor.newInstance(failureDetectorConfig.getTime());
-            } catch(Exception e) {
-                throw new VoldemortException(e);
-            }
-
-            nodeStatusMap.put(node, nodeStatus);
-        }
+        for(Node node: failureDetectorConfig.getNodes())
+            nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -115,27 +97,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            return nodeStatus.getLastCheckedMs();
-        }
-    }
-
-    public boolean isAvailable(Node node) {
-        NodeStatus nodeStatus = getNodeStatus(node);
-
-        synchronized(nodeStatus) {
-            // The node can be available in one of two ways: a) it's actually
-            // available, or b) it was unavailable but our "bannage" period has
-            // expired so we're free to consider it as available.
-            boolean isAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
-
-            // If we're now considered available but our actual status is *not*
-            // available, this means we've become available via a timeout. We
-            // act like we're fully available in that we send out the
-            // availability event.
-            if(isAvailable && !nodeStatus.isAvailable())
-                setAvailable(node);
-
-            return isAvailable;
+            return nodeStatus.getLastChecked();
         }
     }
 
@@ -149,7 +111,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
             boolean previouslyAvailable = nodeStatus.isAvailable();
 
             // Update our state to be available.
-            nodeStatus.setAvailable();
+            nodeStatus.setAvailable(true);
 
             // If we were not previously available, we've just switched state,
             // so notify any listeners.
@@ -167,13 +129,13 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            // The node can be available in one of two ways: a) it's actually
-            // available, or b) it was unavailable but our "bannage" period has
-            // expired so we're free to consider it as available.
-            boolean previouslyAvailable = !nodeStatus.isUnavailable(failureDetectorConfig.getNodeBannagePeriod());
+            // We need to distinguish the case where we're newly unavailable and
+            // the case where we're getting redundant failure notices. So let's
+            // check the node status before we update it.
+            boolean previouslyAvailable = nodeStatus.isAvailable();
 
             // Update our state to be unavailable.
-            nodeStatus.setUnavailable();
+            nodeStatus.setAvailable(false);
 
             // If we were previously available, we've just switched state from
             // available to unavailable, so notify any listeners.
