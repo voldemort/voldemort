@@ -16,18 +16,13 @@
 
 package voldemort.cluster.failuredetector;
 
-import static voldemort.MutableStoreResolver.createMutableStoreResolver;
-import static voldemort.VoldemortTestConstants.getNineNodeCluster;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.utils.Time;
 
 import com.google.common.collect.Iterables;
 
@@ -35,48 +30,21 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
 
     private final long[][] milliPairGroups;
 
-    private FlappingTest(long[][] milliPairGroups) {
+    private FlappingTest(String[] args, long[][] milliPairGroups) {
+        super(args);
         this.milliPairGroups = milliPairGroups;
     }
 
     public static void main(String[] args) throws Throwable {
-        Cluster cluster = getNineNodeCluster();
-
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                 .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
-                                                                                 .setAsyncScanInterval(1000)
-                                                                                 .setNodeBannagePeriod(1000)
-                                                                                 .setThresholdInterval(1000);
-
-        Class<?>[] classes = new Class[] { AsyncRecoveryFailureDetector.class,
-                BannagePeriodFailureDetector.class, ThresholdFailureDetector.class };
-
-        // classes = new Class[] { ThresholdFailureDetector.class };
-
         long[][] milliPairGroups = new long[][] { { 66, 710 }, { 11, 981 }, { 45, 734 },
                 { 33, 309 }, { 19, 511 }, { 4, 445 }, { 5, 645 }, { 964, 1220 }, { 143, 346 },
                 { 55, 260 } };
-
-        System.out.println("FailureDetector Type, Milliseconds, Outages, Successes, Failures");
-
-        for(Class<?> implClass: classes) {
-            failureDetectorConfig.setImplementationClassName(implClass.getName());
-            FlappingTest flappingTest = new FlappingTest(milliPairGroups);
-            String result = null;
-
-            try {
-                result = flappingTest.run(failureDetectorConfig);
-            } catch(Exception e) {
-                result = "ERROR: " + e.getMessage();
-            }
-
-            System.out.println(result);
-        }
+        FailureDetectorPerformanceTest test = new FlappingTest(args, milliPairGroups);
+        test.test();
     }
 
     @Override
-    public String test(FailureDetector failureDetector, Time time) throws Exception {
-        FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
+    public String test(FailureDetector failureDetector) throws Exception {
         Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);
         Listener listener = new Listener();
@@ -103,8 +71,12 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
 
         threadPool.shutdown();
 
-        if(!threadPool.awaitTermination(60, TimeUnit.SECONDS))
+        // If we get stuck, we should give the user the opportunity to get a
+        // thread dump.
+        if(!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
             System.out.println("Threads appear to be stuck");
+            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+        }
 
         long end = System.currentTimeMillis();
 
@@ -133,8 +105,6 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
         }
 
         public void run() {
-            FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
-
             try {
                 for(long[] milliPairs: milliPairGroups) {
                     updateNodeStoreAvailability(failureDetectorConfig, node, false);
@@ -154,7 +124,7 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
 
     }
 
-    private static class Listener implements FailureDetectorListener {
+    private class Listener implements FailureDetectorListener {
 
         private AtomicInteger availableCount = new AtomicInteger();
 

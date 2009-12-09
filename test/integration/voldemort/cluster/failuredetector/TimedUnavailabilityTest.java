@@ -16,12 +16,8 @@
 
 package voldemort.cluster.failuredetector;
 
-import static voldemort.MutableStoreResolver.createMutableStoreResolver;
-import static voldemort.VoldemortTestConstants.getNineNodeCluster;
-
 import java.util.concurrent.CountDownLatch;
 
-import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.utils.Time;
 
@@ -31,33 +27,21 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
     private final long unavailabilityMillis;
 
-    private TimedUnavailabilityTest(long unavailabilityMillis) {
+    private TimedUnavailabilityTest(String[] args, long unavailabilityMillis) {
+        super(args);
         this.unavailabilityMillis = unavailabilityMillis;
     }
 
     public static void main(String[] args) throws Throwable {
-        Cluster cluster = getNineNodeCluster();
-
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                 .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
-                                                                                 .setAsyncScanInterval(5000)
-                                                                                 .setNodeBannagePeriod(5000);
-
-        Class<?>[] classes = new Class[] { AsyncRecoveryFailureDetector.class,
-                BannagePeriodFailureDetector.class, ThresholdFailureDetector.class };
-
-        for(Class<?> implClass: classes) {
-            failureDetectorConfig.setImplementationClassName(implClass.getName());
-            System.out.println(new TimedUnavailabilityTest(2522).run(failureDetectorConfig));
-        }
+        FailureDetectorPerformanceTest test = new TimedUnavailabilityTest(args, 2522);
+        test.test();
     }
 
     @Override
-    public String test(final FailureDetector failureDetector, final Time time) throws Exception {
-        FailureDetectorConfig failureDetectorConfig = failureDetector.getConfig();
+    public String test(FailureDetector failureDetector) throws Exception {
         Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        Listener listener = new Listener(time);
+        Listener listener = new Listener(failureDetectorConfig.getTime());
         failureDetector.addFailureDetectorListener(listener);
 
         Thread nodeAvailabilityThread = new Thread(new XXX(failureDetector, node, countDownLatch));
