@@ -16,8 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import org.apache.log4j.Level;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
@@ -46,63 +44,34 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
     private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        // We don't actually call the needsNotifyAvailable or notifyUnavailable
-        // *after* we exit the synchronized block to avoid nested locks.
-        boolean needsNotifyAvailable = false;
-        boolean needsNotifyUnavailable = false;
-        long threshold = 0;
-        boolean isAvailable = false;
-
         synchronized(nodeStatus) {
             nodeStatus.setLastChecked(getConfig().getTime().getMilliseconds());
 
             if(nodeStatus.getLastChecked() >= nodeStatus.getStartMillis()
                                               + getConfig().getThresholdInterval()) {
-                // If the node was not previously available and is now, then we
-                // need to notify everyone of that fact.
-                needsNotifyAvailable = !nodeStatus.isAvailable();
-
-                nodeStatus.setAvailable(true);
+                // We've passed into a new interval, so we're by default
+                // available. Reset our counts appropriately.
                 nodeStatus.setStartMillis(nodeStatus.getLastChecked());
                 nodeStatus.setSuccess(successDelta);
                 nodeStatus.setTotal(totalDelta);
+
+                setAvailable(node);
             } else {
                 nodeStatus.incrementSuccess(successDelta);
                 nodeStatus.incrementTotal(totalDelta);
+                int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
+
+                if(nodeStatus.getTotal() >= thresholdCountMinimum) {
+                    long threshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
+
+                    if(threshold >= getConfig().getThreshold())
+                        setAvailable(node);
+                    else
+                        setUnavailable(node, e);
+                }
             }
 
-            int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
-
-            if(nodeStatus.getTotal() >= thresholdCountMinimum) {
-                threshold = nodeStatus.getTotal() >= thresholdCountMinimum ? (nodeStatus.getSuccess() * 100)
-                                                                             / nodeStatus.getTotal()
-                                                                          : 100;
-                boolean previouslyAvailable = nodeStatus.isAvailable();
-                nodeStatus.setAvailable(threshold >= getConfig().getThreshold());
-
-                if(nodeStatus.isAvailable() && !previouslyAvailable)
-                    needsNotifyAvailable = true;
-                else if(!nodeStatus.isAvailable() && previouslyAvailable)
-                    needsNotifyUnavailable = true;
-            }
-
-            isAvailable = nodeStatus.isAvailable();
+            return nodeStatus.isAvailable();
         }
-
-        if(needsNotifyAvailable) {
-            if(logger.isInfoEnabled())
-                logger.info("Threshold for node " + node.getId() + " at " + node.getHost()
-                            + " now " + threshold + "%; marking as available");
-
-            notifyAvailable(node);
-        } else if(needsNotifyUnavailable) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Threshold for node " + node.getId() + " at " + node.getHost()
-                            + " now " + threshold + "%; marking as unavailable");
-
-            notifyUnavailable(node);
-        }
-
-        return isAvailable;
     }
 }

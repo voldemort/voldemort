@@ -130,6 +130,9 @@ public class FailureDetectorConfig {
     }
 
     public FailureDetectorConfig setThreshold(int threshold) {
+        if(threshold <= 0)
+            throw new IllegalArgumentException("threshold must be greater than 0");
+
         this.threshold = threshold;
         return this;
     }
@@ -139,6 +142,9 @@ public class FailureDetectorConfig {
     }
 
     public FailureDetectorConfig setThresholdCountMinimum(int thresholdCountMinimum) {
+        if(threshold <= 0)
+            throw new IllegalArgumentException("thresholdCountMinimum must be greater than 0");
+
         this.thresholdCountMinimum = thresholdCountMinimum;
         return this;
     }

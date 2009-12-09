@@ -44,15 +44,16 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setNodes(cluster.getNodes())
                                                                                  .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
-                                                                                 .setAsyncScanInterval(5000)
-                                                                                 .setNodeBannagePeriod(5000);
+                                                                                 .setAsyncScanInterval(1000)
+                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setThresholdInterval(1000);
 
         Class<?>[] classes = new Class[] { AsyncRecoveryFailureDetector.class,
                 BannagePeriodFailureDetector.class, ThresholdFailureDetector.class };
 
         // classes = new Class[] { ThresholdFailureDetector.class };
 
-        long[][] milliPairGroups = new long[][] { { 66, 71 }, { 11, 981 }, { 45, 734 },
+        long[][] milliPairGroups = new long[][] { { 66, 710 }, { 11, 981 }, { 45, 734 },
                 { 33, 309 }, { 19, 511 }, { 4, 445 }, { 5, 645 }, { 964, 1220 }, { 143, 346 },
                 { 55, 260 } };
 
@@ -96,7 +97,7 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
                                                        failureCounter,
                                                        null,
                                                        0,
-                                                       50));
+                                                       5));
 
         threadPool.submit(new NodeAvailability(failureDetector, node, countDownLatch));
 
