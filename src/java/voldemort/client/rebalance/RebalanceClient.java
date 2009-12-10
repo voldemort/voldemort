@@ -91,8 +91,8 @@ public class RebalanceClient {
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(0);
-                                logger.debug("Starting rebalancing for stealerNode:" + stealerNode
-                                             + " rebalanceInfo:" + rebalanceSubTask);
+                                logger.info("Starting rebalancing for stealerNode:" + stealerNode
+                                            + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
 
@@ -101,8 +101,8 @@ public class RebalanceClient {
                                     // attempt to rebalance for all stores.
                                     attemptRebalanceSubTask(rebalanceSubTask);
 
-                                    logger.debug("Successfully finished RebalanceSubTask attempt:"
-                                                 + rebalanceSubTask);
+                                    logger.info("Successfully finished RebalanceSubTask attempt:"
+                                                + rebalanceSubTask);
                                 } catch(Exception e) {
                                     logger.warn("rebalancing task (" + rebalanceSubTask
                                                 + ") failed with exception:", e);

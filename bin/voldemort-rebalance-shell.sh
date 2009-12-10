@@ -16,9 +16,9 @@
 #  limitations under the License.
 #
 
-if [ $# -lt 2 ];
+if [ $# -lt 3 ];
 then
-	echo 'USAGE: bin/voldemort-shell.sh currentCluster.xml targetCluster.xml stores.xml'
+	echo 'USAGE: bin/voldemort-shell.sh currentCluster.xml targetCluster.xml stores.xml numParallelRebalancing'
 	exit 1
 fi
 

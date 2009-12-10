@@ -264,7 +264,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
                 if(filter.accept(key, value)) {
-                    storageEngine.put(key, value);
+                    try {
+                        storageEngine.put(key, value);
+
+                    } catch(ObsoleteVersionException e) {
+                        // log and ignore
+                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException .. Ignoring.");
+                    }
 
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
@@ -298,12 +304,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
-            if(!rebalancer.acquireRebalancingPermit()) {
-                throw new VoldemortException("Node:"
-                                             + metadataStore.getNodeId()
-                                             + " is already rebalancing cannot start new rebalancing request.");
-            }
-
             RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStealerId(),
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
@@ -312,6 +312,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
             int requestId = rebalancer.rebalanceLocalNode(request.getCurrentStore(),
                                                           rebalanceStealInfo);
+
+            if(-1 == requestId) {
+                throw new VoldemortException("Node:"
+                                             + metadataStore.getNodeId()
+                                             + " is already rebalancing cannot start new rebalancing request.");
+            }
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
@@ -363,7 +369,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                               entry.getSecond());
                                                         } catch(ObsoleteVersionException e) {
                                                             // log and ignore
-                                                            logger.warn("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                            logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
                                                         }
 
                                                         throttler.maybeThrottle(entrySize(entry));

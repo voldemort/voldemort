@@ -275,7 +275,7 @@ public class VoldemortConfig implements Serializable {
         // rebalancing parameters
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
-        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 5 * 60 * 1000);
+        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
