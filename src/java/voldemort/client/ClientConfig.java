@@ -239,6 +239,7 @@ public class ClientConfig {
     /**
      * @deprecated Use {@link #getFailureDetectorBannagePeriod()} instead
      */
+    @Deprecated
     public int getNodeBannagePeriod(TimeUnit unit) {
         return toInt(unit.convert(failureDetectorBannagePeriod, TimeUnit.MILLISECONDS));
     }
@@ -251,6 +252,7 @@ public class ClientConfig {
      * 
      * @deprecated Use {@link #setFailureDetectorBannagePeriod(long)} instead
      */
+    @Deprecated
     public ClientConfig setNodeBannagePeriod(int nodeBannagePeriod, TimeUnit unit) {
         this.failureDetectorBannagePeriod = unit.toMillis(nodeBannagePeriod);
         return this;

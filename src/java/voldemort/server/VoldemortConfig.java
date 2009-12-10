@@ -703,6 +703,7 @@ public class VoldemortConfig implements Serializable {
      * @deprecated Use {@link #getFailureDetectorBannagePeriod()} instead
      */
 
+    @Deprecated
     public int getClientNodeBannageMs() {
         return (int) failureDetectorBannagePeriod;
     }
@@ -711,6 +712,7 @@ public class VoldemortConfig implements Serializable {
      * @deprecated Use {@link #setFailureDetectorBannagePeriod(long)} instead
      */
 
+    @Deprecated
     public void setClientNodeBannageMs(int nodeBannageMs) {
         this.failureDetectorBannagePeriod = nodeBannageMs;
     }
