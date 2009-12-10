@@ -357,18 +357,6 @@ public abstract class AdminClient {
                              new Versioned<String>(state.toString(), clock));
     }
 
-    /**
-     * get serverState from a remoteNode.
-     * 
-     * @param nodeId
-     * @return
-     */
-    public Versioned<VoldemortState> getRemoteClusterState(int nodeId) {
-        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_STATE_KEY);
-        return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
-                                             value.getVersion());
-    }
-
     public void setCluster(Cluster cluster) {
         this.cluster = cluster;
     }

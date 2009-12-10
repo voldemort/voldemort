@@ -61,11 +61,12 @@ public class Rebalancer {
                                                                               storeName,
                                                                               stealInfo.getPartitionList(),
                                                                               null);
-                    logger.info("rebalance internal async Id:" + fetchAndUpdateAsyncId);
+                    logger.debug("rebalance internal async Id:" + fetchAndUpdateAsyncId);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
                                                   fetchAndUpdateAsyncId,
                                                   24 * 60 * 60,
                                                   TimeUnit.SECONDS);
+                    logger.info("rebalance " + stealInfo + " completed successfully.");
 
                 } finally {
                     adminClient.stop();
@@ -85,7 +86,7 @@ public class Rebalancer {
             }
         });
 
-        logger.info("rebalance node request_id:" + requestId);
+        logger.debug("rebalance node request_id:" + requestId);
         return requestId;
     }
 
