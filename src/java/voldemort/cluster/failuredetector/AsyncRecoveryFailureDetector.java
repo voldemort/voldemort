@@ -99,6 +99,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     // Do nothing. Nodes only become available in our thread...
     }
 
+    @Override
     public void destroy() {
         isRunning = false;
     }

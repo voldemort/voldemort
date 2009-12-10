@@ -39,19 +39,19 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
         return update(node, 0, 0, null);
     }
 
-    public void destroy() {}
-
     private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
+        final long currentTime = getConfig().getTime().getMilliseconds();
+        final long thresholdInterval = getConfig().getThresholdInterval();
+        final int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
+        final int threshold = getConfig().getThreshold();
+
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            nodeStatus.setLastChecked(getConfig().getTime().getMilliseconds());
-
-            if(nodeStatus.getLastChecked() >= nodeStatus.getStartMillis()
-                                              + getConfig().getThresholdInterval()) {
+            if(currentTime >= nodeStatus.getStartMillis() + thresholdInterval) {
                 // We've passed into a new interval, so we're by default
                 // available. Reset our counts appropriately.
-                nodeStatus.setStartMillis(nodeStatus.getLastChecked());
+                nodeStatus.setStartMillis(currentTime);
                 nodeStatus.setSuccess(successDelta);
                 nodeStatus.setTotal(totalDelta);
 
@@ -59,12 +59,11 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
             } else {
                 nodeStatus.incrementSuccess(successDelta);
                 nodeStatus.incrementTotal(totalDelta);
-                int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
 
                 if(nodeStatus.getTotal() >= thresholdCountMinimum) {
-                    long threshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
+                    long newThreshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
-                    if(threshold >= getConfig().getThreshold())
+                    if(newThreshold >= threshold)
                         setAvailable(node);
                     else
                         setUnavailable(node, e);
@@ -74,4 +73,5 @@ public class ThresholdFailureDetector extends AbstractFailureDetector {
             return nodeStatus.isAvailable();
         }
     }
+
 }

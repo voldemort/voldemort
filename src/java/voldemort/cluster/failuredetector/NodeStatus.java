@@ -55,10 +55,6 @@ class NodeStatus {
         return lastChecked;
     }
 
-    public void setLastChecked(long lastChecked) {
-        this.lastChecked = lastChecked;
-    }
-
     public boolean isAvailable() {
         return isAvailable;
     }

@@ -17,6 +17,9 @@
 package voldemort.cluster.failuredetector;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.cluster.Node;
 import voldemort.utils.Time;
@@ -44,27 +47,34 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
         Listener listener = new Listener(failureDetectorConfig.getTime());
         failureDetector.addFailureDetectorListener(listener);
 
-        Thread nodeAvailabilityThread = new Thread(new XXX(failureDetector, node, countDownLatch));
-        Thread nodeAccessorThread = new Thread(new NodeAccessorRunnable(failureDetector,
-                                                                        node,
-                                                                        countDownLatch,
-                                                                        null,
-                                                                        null,
-                                                                        null,
-                                                                        10,
-                                                                        10));
+        ExecutorService threadPool = Executors.newFixedThreadPool(11);
 
-        nodeAvailabilityThread.start();
-        nodeAccessorThread.start();
+        for(int i = 0; i < 10; i++)
+            threadPool.submit(new NodeAccessorRunnable(failureDetector,
+                                                       node,
+                                                       countDownLatch,
+                                                       null,
+                                                       null,
+                                                       null,
+                                                       0,
+                                                       10));
 
-        nodeAvailabilityThread.join();
-        nodeAccessorThread.join();
+        threadPool.submit(new TimedUnavailability(failureDetector, node, countDownLatch));
+
+        threadPool.shutdown();
+
+        // If we get stuck, we should give the user the opportunity to get a
+        // thread dump.
+        if(!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+            System.out.println("Threads appear to be stuck");
+            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+        }
 
         return Class.forName(failureDetectorConfig.getImplementationClassName()).getSimpleName()
                + ", " + listener.getDelta();
     }
 
-    private class XXX implements Runnable {
+    private class TimedUnavailability implements Runnable {
 
         private final FailureDetector failureDetector;
 
@@ -72,7 +82,7 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
         private final CountDownLatch countDownLatch;
 
-        public XXX(FailureDetector failureDetector, Node node, CountDownLatch countDownLatch) {
+        public TimedUnavailability(FailureDetector failureDetector, Node node, CountDownLatch countDownLatch) {
             this.failureDetector = failureDetector;
             this.node = node;
             this.countDownLatch = countDownLatch;

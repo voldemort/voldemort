@@ -85,6 +85,4 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         setAvailable(node);
     }
 
-    public void destroy() {}
-
 }

@@ -101,6 +101,8 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         }
     }
 
+    public void destroy() {}
+
     protected void setAvailable(Node node) {
         NodeStatus nodeStatus = getNodeStatus(node);
 

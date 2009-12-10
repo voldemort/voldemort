@@ -65,7 +65,7 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
                                                        failureCounter,
                                                        null,
                                                        0,
-                                                       5));
+                                                       10));
 
         threadPool.submit(new NodeAvailability(failureDetector, node, countDownLatch));
 
