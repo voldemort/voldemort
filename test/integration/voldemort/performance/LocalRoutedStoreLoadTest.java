@@ -89,9 +89,9 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory
          * storeFactory, int maxMetadataRefreshAttempts) {
          */
-        Store<String, String> serializingStore = new SerializingStore<String, String>(store,
-                                                                                      new StringSerializer(),
-                                                                                      new StringSerializer());
+        Store<String, String> serializingStore = SerializingStore.wrap(store,
+                                                                       new StringSerializer(),
+                                                                       new StringSerializer());
         Store<String, String> resolvingStore = new InconsistencyResolvingStore<String, String>(serializingStore,
                                                                                                resolver);
         StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);

@@ -1,0 +1,142 @@
+11/09/2009
+
+------------------------------------------------
+SECTION 1: INTRODUCTION
+------------------------------------------------
+
+The ec2-testing infrastructure allows users to create (via EC2), configure, 
+deploy, and execute remote tests against a cluster of remote machines. The 
+cluster can live on a set of EC2 instances, but has been designed to be 
+portable to other platform as a service vendors as well as internal networks.
+
+This directory contains an example usage of the ec2-testing utilities by
+executing a remote test against the cluster via invoking the existing
+voldemort-remote-test.sh performance test.
+
+For more information on the EC2 Testing Infrastructure see:
+
+    http://wiki.github.com/kirktrue/voldemort/ec2-testing-infrastructure
+
+------------------------------------------------
+SECTION 2: PREREQUISITES
+------------------------------------------------
+
+For this utility most of the programs will be run from the Voldemort root 
+directory (which is the main Voldemort directory under which all the 
+sub-directories (bin, contrib, src, etc.) lie. For this utility you will 
+also need to know your Voldemort home directory (the directory
+under which the config and data subdirectories lie).
+  
+The example script must be run from the Voldemort root directory:
+
+    $ ./contrib/ec2-testing/examples/remotetest/remotetest.sh
+
+You will need to have a 1.5+ JDK installed and configured and Scala 
+installed and configured.
+
+------------------------------------------------
+SECTION 3: CLUSTER SET UP
+------------------------------------------------
+
+As mentioned above, the ec2-testing utilities can be used with EC2 as
+well as in other environments.
+
+If you're using EC2 to run this utility, you first need to start one or more 
+EC2 instances and then generate a file containing the external/public and 
+internal/private host names of those instances. 
+
+To start instances you run the utility:
+ 
+    $ ./contrib/ec2-testing/bin/voldemort-ec2instancecreator.sh
+
+This will create the instances and will output the external/internal host name 
+pairs. For example: 
+
+    ec2-75-101-207-45.compute-1.amazonaws.com=domU-12-31-39-07-CD-57.compute-1.internal
+    ec2-75-432-54-543.compute-1.amazonaws.com=domU-342-312-81-34-CD-57.compute-1.internal
+
+The remotetest.sh script requires that these host name mappings be present in a 
+file, so it's best to redirect output of voldemort-ec2instancecreator.sh to a 
+file. 
+
+Depending on your test set up, you may need to run the 
+voldemort-ec2instancecreator.sh utility more than once. For example, if you 
+want your servers and clients to reside on separate instances, you'd want to 
+run voldemort-ec2instancecreator.sh twice, once to create a list of servers and 
+then again to create a list of clients, saving each invocation to separate 
+files. 
+
+If you choose not to run the tests using EC2 (or another remote hosting 
+provider) you can instead use machines residing on a local network. However, 
+when using your own network you will still need to provide a list of the client 
+names as well as the server names. However, the format of the host names file 
+will be slightly different depending on if the machine on which you're 
+executing the test is on the same network as the cluster machines. If it is 
+then the file is simple and will look something like this:
+
+    test01.example.com
+    test02.example.com
+
+If the machine isn't on the same network then you will have to write it 
+differently by mapping the file of external name to internal name. The file 
+might look something like this:
+
+    test01.yourcompany.hostingcompany.com=u3526.hostingcompany.local
+    test02.yourcompany.hostingcompany.com=u2511.hostingcompany.local 
+
+The network layout, naming convention, and so on will be completely up to the 
+hosting company and your use therein.
+
+For example, Amazon's EC2 has the concept of a "public" DNS and a "private" 
+DNS. In the above example EC2 mapping file the public DNS is the external host 
+name and the private DNS is the internal host name.
+
+------------------------------------------------
+SECTION 4: RUNNING THE REMOTE TEST
+------------------------------------------------
+
+The next step is to run remotetest.sh. Each argument is required (note that the 
+"config_dir" is the Voldemort home directory referred to above. The script must 
+be run from the voldemort root directory.  If all the arguments have been 
+entered appropriately then the program should print out the results of the 
+tests you ran. If the file seems to be taking too long then you can check the 
+progress by looking at the /tmp/logging-servers and /tmp/logging-client files. 
+After you run the remote tests you don't need to worry about shutting down the 
+voldemort servers as remoteTest.sh deploys voldemort, runs the remote tests, 
+and afterwards stops the voldemort servers on the remote instances.
+
+The remotetest.sh outputs two logging files: /tmp/logging-servers and 
+/tmp/logging-client. /tmp/logging-servers is used to log the various set up 
+actions (initialization, deployment, cluster start/stop, etc.) and 
+/tmp/logging-client is used to log the output of the voldemort-remote-test.sh 
+client. The latter is used to determine metrics for the test run.
+
+------------------------------------------------
+SECTION 5: GRAPHING RESULTS
+------------------------------------------------
+
+If you wish to use this information in the graphing utilities then you should 
+redirect the output of remotetest.sh to a file (if you wish to do this then you 
+must either already have gnuplot on your machine or download it, also if you 
+want to make good use of the graphAverageTime.sh and graph99percentile.sh then 
+you should execute multiple test runs).
+
+If you wish to graph this data then take the file that holds the test 
+information and run any one of the graphing shell scripts (the 
+graph99percentile, and graphAverageTime scripts can take multiple files as 
+arguments). The graph99percentile.sh returns a graph of the 99th percent 
+highest result of each test for all transactions (reads, writes, and deletes). 
+The graphAverageTime.sh returns a graph of the average time for each test for 
+each transaction. The graphMultiHostTest.sh scripts returns results for only 
+one test and takes only one file as an argument. It will return a graph for one 
+test but using each iteration for each write transaction made. 
+
+------------------------------------------------
+SECTION 6: CLUSTER TEARDOWN
+------------------------------------------------
+
+If you are using EC2 then when you are finished be sure to close your 
+instances. In the contrib/ec2-testing/bin directory there is a script named 
+voldemort-ec2instanceterminator.sh and it will automatically shut-down the 
+instances you started, as long as you provide the lists with the clients and 
+servers.

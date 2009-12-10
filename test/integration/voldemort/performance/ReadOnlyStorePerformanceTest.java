@@ -36,9 +36,12 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.Store;
+import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.SearchStrategy;
 import voldemort.utils.ByteArray;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.ReflectUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
@@ -56,6 +59,9 @@ public class ReadOnlyStorePerformanceTest {
         parser.accepts("store-dir", "[REQUIRED] store directory")
               .withRequiredArg()
               .describedAs("directory");
+        parser.accepts("search-strategy", "class of the search strategy to use")
+              .withRequiredArg()
+              .describedAs("class_name");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
         OptionSet options = parser.parse(args);
 
@@ -74,13 +80,16 @@ public class ReadOnlyStorePerformanceTest {
         final int numThreads = CmdUtils.valueOf(options, "threads", 10);
         final int numRequests = (Integer) options.valueOf("requests");
         final String inputFile = (String) options.valueOf("request-file");
+        final String searcherClass = CmdUtils.valueOf(options,
+                                                      "search-strategy",
+                                                      BinarySearchStrategy.class.getName()).trim();
+        final SearchStrategy searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(searcherClass));
         String storeDir = (String) options.valueOf("store-dir");
 
         final Store<ByteArray, byte[]> store = new ReadOnlyStorageEngine("test",
+                                                                         searcher,
                                                                          new File(storeDir),
-                                                                         0,
-                                                                         numThreads,
-                                                                         10000L);
+                                                                         0);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);

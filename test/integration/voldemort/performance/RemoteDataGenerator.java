@@ -7,18 +7,18 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.PseudoRandom;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Random;
 
 /**
  * @author afeinber
  * Generate data pseudo-random data with desired parameters on a remote cluster
  */
 public class RemoteDataGenerator {
-    private final PseudoRandom prng = new PseudoRandom();
+    private final Random prng = new Random();
     private final String url;
     private final String storeName;
     private final int workers;
@@ -93,7 +93,7 @@ public class RemoteDataGenerator {
 
         // Java Strings are two bytes per character
         while(output.length() < size*2) {
-            output.append(prng.random());
+            output.append(prng.nextInt());
         }
 
         return output.toString();

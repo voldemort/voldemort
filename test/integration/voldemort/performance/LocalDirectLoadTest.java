@@ -37,9 +37,9 @@ public class LocalDirectLoadTest extends AbstractLoadTestHarness {
     @Override
     public StoreClient<String, String> getStore(Props propsA, Props propsB) throws Exception {
         StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
-        Store<String, String> store = new SerializingStore<String, String>(conf.getStore("test" + 0),
-                                                                           new StringSerializer(),
-                                                                           new StringSerializer());
+        Store<String, String> store = SerializingStore.wrap(conf.getStore("test" + 0),
+                                                            new StringSerializer(),
+                                                            new StringSerializer());
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
         Store<String, String> resolvingStore = new InconsistencyResolvingStore<String, String>(store,
                                                                                                resolver);

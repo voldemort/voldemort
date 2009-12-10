@@ -61,9 +61,9 @@ public class CatBdbStore {
         StorageEngine<ByteArray, byte[]> store = new BdbStorageEngine(storeName,
                                                                       environment,
                                                                       database);
-        StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
-                                                                                                 new StringSerializer(),
-                                                                                                 new StringSerializer());
+        StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,
+                                                                                  new StringSerializer(),
+                                                                                  new StringSerializer());
         Iterator<Pair<String, Versioned<String>>> iter = stringStore.entries();
         while(iter.hasNext()) {
             Pair<String, Versioned<String>> entry = iter.next();

@@ -45,6 +45,8 @@ import voldemort.utils.ByteUtils;
  */
 public class JsonTypeSerializer implements Serializer<Object> {
 
+    private static final int MAX_SEQ_LENGTH = 0x3FFFFFFF;
+
     private final boolean hasVersion;
     private final SortedMap<Integer, JsonTypeDefinition> typeDefVersions;
 
@@ -468,7 +470,7 @@ public class JsonTypeSerializer implements Serializer<Object> {
     }
 
     private byte[] readBytes(DataInputStream stream) throws IOException {
-        int size = stream.readShort();
+        int size = readLength(stream);
         if(size < 0)
             return null;
         byte[] bytes = new byte[size];
@@ -478,13 +480,10 @@ public class JsonTypeSerializer implements Serializer<Object> {
 
     private void writeBytes(DataOutputStream output, byte[] b) throws IOException {
         if(b == null) {
-            output.writeShort(-1);
-        } else if(b.length < Short.MAX_VALUE) {
-            output.writeShort(b.length);
-            output.write(b);
+            writeLength(output, -1);
         } else {
-            throw new SerializationException("Array has length " + b.length
-                                             + " which is too large to serialize.");
+            writeLength(output, b.length);
+            output.write(b);
         }
     }
 
@@ -501,8 +500,9 @@ public class JsonTypeSerializer implements Serializer<Object> {
                                                  + " but got " + object);
             for(Map.Entry<String, Object> entry: type.entrySet()) {
                 if(!object.containsKey(entry.getKey()))
-                    throw new SerializationException("Missing property: " + entry.getKey() + " in "
-                                                     + type);
+                    throw new SerializationException("Missing property: " + entry.getKey()
+                                                     + " that is required by the type (" + type
+                                                     + ")");
                 try {
                     write(output, object.get(entry.getKey()), entry.getValue());
                 } catch(SerializationException e) {
@@ -528,19 +528,16 @@ public class JsonTypeSerializer implements Serializer<Object> {
                                              + type);
         Object entryType = type.get(0);
         if(objects == null) {
-            output.writeShort(-1);
-        } else if(objects.size() < Short.MAX_VALUE) {
-            output.writeShort(objects.size());
+            writeLength(output, -1);
+        } else {
+            writeLength(output, objects.size());
             for(Object o: objects)
                 write(output, o, entryType);
-        } else {
-            throw new SerializationException("List has length " + objects.size()
-                                             + " which is too large to serialize.");
         }
     }
 
     private List<?> readList(DataInputStream stream, List<?> type) throws IOException {
-        int size = stream.readShort();
+        int size = readLength(stream);
         if(size < 0)
             return null;
         List<Object> items = new ArrayList<Object>(size);
@@ -550,4 +547,29 @@ public class JsonTypeSerializer implements Serializer<Object> {
         return items;
     }
 
+    private void writeLength(DataOutputStream stream, int size) throws IOException {
+        if(size < Short.MAX_VALUE) {
+            stream.writeShort(size);
+        } else if(size <= MAX_SEQ_LENGTH) {
+            stream.writeInt(size | 0xC0000000);
+        } else {
+            throw new SerializationException("Invalid length: maximum is " + MAX_SEQ_LENGTH);
+        }
+    }
+
+    int readLength(DataInputStream stream) throws IOException {
+        short size = stream.readShort();
+        // this is a hack for backwards compatibility
+        if(size == -1) {
+            return -1;
+        } else if(size < -1) {
+            // mask off first two bits, remainder is the size
+            int fixedSize = size & 0x3FFF;
+            fixedSize <<= 16;
+            fixedSize += stream.readShort() & 0xFFFF;
+            return fixedSize;
+        } else {
+            return size;
+        }
+    }
 }

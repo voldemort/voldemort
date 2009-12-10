@@ -155,11 +155,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             clientMapping.put(node.getId(), store);
         }
 
+        boolean repairReads = !storeDef.isView();
         Store<ByteArray, byte[]> store = new RoutedStore(storeName,
                                                          clientMapping,
                                                          cluster,
                                                          storeDef,
-                                                         true,
+                                                         repairReads,
                                                          threadPool,
                                                          routingTimeoutMs,
                                                          failureDetector,
@@ -184,9 +185,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Store<K, V> serializedStore = new SerializingStore<K, V>(store,
-                                                                 keySerializer,
-                                                                 valueSerializer);
+        Store<K, V> serializedStore = SerializingStore.wrap(store, keySerializer, valueSerializer);
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
@@ -214,7 +213,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             } catch(BootstrapFailureException e) {
                 if(nTries < this.maxBootstrapRetries) {
                     int backOffTime = 5 * nTries;
-                    logger.warn("Failed to bootstrap will try again after " + backOffTime + "s.");
+                    logger.warn("Failed to bootstrap will try again after " + backOffTime
+                                + " seconds.");
                     try {
                         Thread.sleep(backOffTime * 1000);
                     } catch(InterruptedException e1) {
@@ -238,9 +238,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                 url.getHost(),
                                                                 url.getPort(),
                                                                 this.requestFormatType);
-                Store<String, String> store = new SerializingStore<String, String>(remoteStore,
-                                                                                   new StringSerializer("UTF-8"),
-                                                                                   new StringSerializer("UTF-8"));
+                Store<String, String> store = SerializingStore.wrap(remoteStore,
+                                                                    new StringSerializer("UTF-8"),
+                                                                    new StringSerializer("UTF-8"));
                 List<Versioned<String>> found = store.get(key);
                 if(found.size() == 1)
                     return found.get(0).getValue();

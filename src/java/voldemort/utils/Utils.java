@@ -21,7 +21,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -70,6 +69,17 @@ public class Utils {
     }
 
     /**
+     * Delete an array of files
+     * 
+     * @param files Files to delete
+     */
+    public static void rm(File[] files) {
+        if(files != null)
+            for(File f: files)
+                rm(f);
+    }
+
+    /**
      * Delete the given file
      * 
      * @param file The file to delete
@@ -84,7 +94,7 @@ public class Utils {
      * 
      * @param files A collection of files to delete
      */
-    public static void rm(Collection<File> files) {
+    public static void rm(Iterable<File> files) {
         if(files != null) {
             for(File f: files) {
                 if(f.isDirectory()) {
@@ -192,6 +202,25 @@ public class Utils {
         if(t == null)
             throw new IllegalArgumentException("This object MUST be non-null.");
         return t;
+    }
+
+    /**
+     * Return the value v if min <= v <= max, otherwise throw an exception
+     * 
+     * @param value The value to check
+     * @param min The minimum allowable value
+     * @param max The maximum allowable value
+     * @return The value, if it is in the range
+     */
+    public static int inRange(int value, int min, int max) {
+        if(value < min)
+            throw new IllegalArgumentException("The value " + value
+                                               + " is lower than the minimum value of " + min);
+        else if(value > max)
+            throw new IllegalArgumentException("The value " + value
+                                               + " is greater than the maximum value of " + max);
+        else
+            return value;
     }
 
     /**

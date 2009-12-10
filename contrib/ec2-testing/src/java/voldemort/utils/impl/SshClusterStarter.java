@@ -66,7 +66,7 @@ public class SshClusterStarter extends CommandLineRemoteOperation implements Clu
      * @param hostNames External host names for servers that make up the
      *        Voldemort cluster
      * @param sshPrivateKey SSH private key file on local filesystem that can
-     *        access all of the remote hosts
+     *        access all of the remote hosts, or null if not needed
      * @param hostUserId User ID on the remote hosts; assumed to be the same for
      *        all of the remote hosts
      * @param voldemortRootDirectory Directory pointing to the Voldemort
@@ -101,14 +101,17 @@ public class SshClusterStarter extends CommandLineRemoteOperation implements Clu
         if(logger.isInfoEnabled())
             logger.info("Starting Voldemort cluster");
 
-        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterStarter.ssh");
+        CommandLineParameterizer commandLineParameterizer = new CommandLineParameterizer("SshClusterStarter.ssh"
+                                                                                         + (sshPrivateKey != null ? ""
+                                                                                                                 : ".nokey"));
         Map<String, String> hostNameCommandLineMap = new HashMap<String, String>();
 
         for(String hostName: hostNames) {
             Map<String, String> parameters = new HashMap<String, String>();
             parameters.put(HOST_NAME_PARAM, hostName);
             parameters.put(HOST_USER_ID_PARAM, hostUserId);
-            parameters.put(SSH_PRIVATE_KEY_PARAM, sshPrivateKey.getAbsolutePath());
+            parameters.put(SSH_PRIVATE_KEY_PARAM,
+                           sshPrivateKey != null ? sshPrivateKey.getAbsolutePath() : null);
             parameters.put(VOLDEMORT_ROOT_DIRECTORY_PARAM, voldemortRootDirectory);
             parameters.put(VOLDEMORT_HOME_DIRECTORY_PARAM, voldemortHomeDirectory);
             parameters.put(VOLDEMORT_NODE_ID_PARAM, nodeIds.get(hostName).toString());
@@ -166,8 +169,10 @@ public class SshClusterStarter extends CommandLineRemoteOperation implements Clu
             int exitCode = command.execute(commandOutputListener);
 
             // If the user hits Ctrl+C after startup, we get an exit code of
-            // 255, so don't throw an exception in this case.
-            if(!(exitCode == 255 && hasStartupCompleted()))
+            // 255, so don't throw an exception in this case. Also, if we kill
+            // the process via its PID, we can get an error code of 143 (see
+            // http://forums.sun.com/thread.jspa?threadID=5136911).
+            if(!((exitCode == 143 || exitCode == 255) && hasStartupCompleted()))
                 throw new Exception("Process on " + command.getHostName() + " exited with code "
                                     + exitCode + ". Please check the logs for details.");
 

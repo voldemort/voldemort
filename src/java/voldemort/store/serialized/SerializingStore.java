@@ -55,6 +55,12 @@ public class SerializingStore<K, V> implements Store<K, V> {
         this.valueSerializer = Utils.notNull(valueSerializer);
     }
 
+    public static <K1, V1> SerializingStore<K1, V1> wrap(Store<ByteArray, byte[]> s,
+                                                         Serializer<K1> k,
+                                                         Serializer<V1> v) {
+        return new SerializingStore<K1, V1>(s, k, v);
+    }
+
     public boolean delete(K key, Version version) throws VoldemortException {
         return store.delete(keyToBytes(key), version);
     }

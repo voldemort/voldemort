@@ -1,3 +1,9 @@
+Release 0.57.1 on 11/27/2009
+
+Minor change made since 0.57:
+
+* Modified build.xml to exclude .git directory from release tarballs/zipfiles
+
 Release 0.57 on 11/16/2009
  
 The following changes were made since 0.56:
