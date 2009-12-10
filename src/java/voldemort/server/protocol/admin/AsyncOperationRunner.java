@@ -65,8 +65,7 @@ public class AsyncOperationRunner extends AbstractService {
 
         if(operations.get(requestId).getStatus().isComplete()) {
             logger.debug("Operation complete " + requestId);
-            // TODO: HIGH talk to alex, we should not remove values if complete
-            // operations.remove(requestId);
+            operations.remove(requestId);
 
             return true;
         }
