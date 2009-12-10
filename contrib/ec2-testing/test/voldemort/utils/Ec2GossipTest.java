@@ -10,18 +10,23 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import voldemort.annotations.concurrency.Immutable;
+
+import voldemort.Attempt;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.*;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
@@ -34,6 +39,8 @@ import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
 import static voldemort.utils.RemoteTestUtils.startClusterNode;
 import static voldemort.TestUtils.assertWithBackoff;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author afeinberg
@@ -51,8 +58,7 @@ public class Ec2GossipTest {
     private static File sourceDirectory;
     private static String parentDirectory;
     private static File clusterXmlFile;
-    private static int rampTime;
-    
+
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
@@ -77,7 +83,6 @@ public class Ec2GossipTest {
         parentDirectory = properties.getProperty("ec2ParentDirectory");
         clusterXmlFile = new File(properties.getProperty("ec2ClusterXmlFile"));
         int ec2InstanceCount = Integer.parseInt(properties.getProperty("ec2InstanceCount"));
-        rampTime = Integer.parseInt(properties.getProperty("ec2RampTime"));
 
         hostNamePairs = createInstances(accessId, secretKey, ami, keyPairId, ec2InstanceCount);
 
@@ -100,7 +105,7 @@ public class Ec2GossipTest {
             startClusterAsync(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory,
                     voldemortHomeDirectory, nodeIds);
             Pair<HostNamePair, Integer> newInstance = createAndDeployNewInstance();
-            String newHostname = newInstance.getFirst().getExternalHostName();
+            final String newHostname = newInstance.getFirst().getExternalHostName();
             final int nodeId = newInstance.getSecond();
 
             startClusterNode(newHostname, sshPrivateKey, hostUserId, voldemortRootDirectory,
@@ -110,7 +115,7 @@ public class Ec2GossipTest {
             if (logger.isInfoEnabled())
                 logger.info("Sleeping for 5 seconds to start Voldemort on the new node.");
 
-            AdminClient adminClient = getAdminClient(newHostname);
+            final AdminClient adminClient = getAdminClient(newHostname);
             Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
 
             // Find a node that isn't the new node we added
@@ -127,6 +132,29 @@ public class Ec2GossipTest {
             adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
             adminClient.updateRemoteMetadata(seedNode, MetadataStore.CLUSTER_KEY, versioned);
 
+            assertWithBackoff(500, 10000, new Attempt() {
+                public void checkCondition() {
+                    int nodesAware = 0;
+                    for (int testNodeId: nodeIds.values()) {
+                        ClusterMapper clusterMapper = new ClusterMapper();
+                        Versioned<String> clusterXml = adminClient.getRemoteMetadata(testNodeId,
+                                MetadataStore.CLUSTER_KEY);
+                        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml.getValue()));
+                        boolean foundNode = false;
+                        for (Node node: cluster.getNodes()) {
+                            if (node.getHost().equals(newHostname) &&
+                                    node.getId() == nodeId) {
+                                foundNode = true;
+                                break;
+                            }
+                        }
+                        if (foundNode)
+                            nodesAware++;
+
+                    }
+                    assertEquals ("All nodes aware of " + nodeId, nodesAware, nodeIds.size());
+                }
+            });
 
         }  finally {
             stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
