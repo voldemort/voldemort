@@ -118,6 +118,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableRedirectRouting;
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
+    private boolean enableRebalanceService;
 
     private List<String> storageConfigurations;
 
@@ -149,6 +150,7 @@ public class VoldemortConfig implements Serializable {
 
     private int maxRebalancingAttempt;
     private int rebalancingTimeoutInSeconds;
+    private int rebalancingServicePeriod;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -240,6 +242,7 @@ public class VoldemortConfig implements Serializable {
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
+        this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
@@ -272,6 +275,7 @@ public class VoldemortConfig implements Serializable {
         // rebalancing parameters
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
+        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 5 * 60 * 1000);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -975,6 +979,18 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
         this.enableNetworkClassLoader = enableNetworkClassLoader;
+    }
+
+    public int getRebalancingServicePeriod() {
+        return rebalancingServicePeriod;
+    }
+
+    public void setEnableRebalanceService(boolean enableRebalanceService) {
+        this.enableRebalanceService = enableRebalanceService;
+    }
+
+    public boolean isEnableRebalanceService() {
+        return enableRebalanceService;
     }
 
 }

@@ -15,7 +15,8 @@ public enum ServiceType {
     STORAGE("storage-service"),
     VOLDEMORT("voldemort-server"),
     ASYNC_SCHEDULER("async-scheduler"),
-    GOSSIP("gossip-service");
+    GOSSIP("gossip-service"),
+    REBALANCE("rebalance-service");
 
     private final String display;
 

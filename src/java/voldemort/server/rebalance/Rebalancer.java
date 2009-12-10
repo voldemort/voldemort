@@ -1,6 +1,8 @@
 package voldemort.server.rebalance;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -16,9 +18,93 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
 
-public class Rebalancer {
+import com.google.common.collect.ImmutableList;
+
+public class Rebalancer implements Runnable {
 
     private final static Logger logger = Logger.getLogger(Rebalancer.class);
+
+    private final AtomicBoolean rebalancePermit = new AtomicBoolean(false);
+    private final MetadataStore metadataStore;
+    private final AdminClient adminClient;
+    private final AsyncOperationRunner asyncRunner;
+    private final VoldemortConfig config;
+
+    public Rebalancer(MetadataStore metadataStore,
+                      VoldemortConfig config,
+                      AsyncOperationRunner asyncRunner) {
+        this.metadataStore = metadataStore;
+        this.asyncRunner = asyncRunner;
+        this.config = config;
+        this.adminClient = RebalanceUtils.createTempAdminClient(config, metadataStore.getCluster());
+    }
+
+    public void start() {
+    // add startup time stuff here.
+    }
+
+    /**
+     * After the current operation finishes, no longer gossip.
+     */
+    public void stop() {
+        try {
+            adminClient.stop();
+        } catch(Exception e) {
+            logger.error("Error while closing adminClient.", e);
+        }
+    }
+
+    public boolean acquireRebalancingPermit() {
+        if(rebalancePermit.compareAndSet(false, true))
+            return true;
+
+        return false;
+    }
+
+    public void releaseRebalancingPermit() {
+        if(!rebalancePermit.compareAndSet(true, false)) {
+            throw new VoldemortException("Invalid state rebalancePermit must be true here.");
+        }
+    }
+
+    public void run() {
+        if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadataStore.getServerState())
+           && acquireRebalancingPermit()) {
+            RebalanceStealInfo stealInfo = metadataStore.getRebalancingStealInfo();
+            logger.warn("Rebalance server found incomplete rebalancing attempt restarting "
+                        + stealInfo);
+
+            if(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
+                attemptRebalance(stealInfo);
+            } else {
+                logger.warn("Rebalancing for rebalancing task:" + stealInfo
+                            + " failed multiple times, Aborting more trials...");
+            }
+
+            // clean all rebalancing state
+            metadataStore.cleanAllRebalancingState();
+        }
+    }
+
+    private void attemptRebalance(RebalanceStealInfo stealInfo) {
+        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
+        List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
+
+        for(String storeName: unbalanceStoreList) {
+            try {
+                int rebalanceAsyncId = rebalanceLocalNode(storeName, stealInfo);
+
+                adminClient.waitForCompletion(stealInfo.getStealerId(),
+                                              rebalanceAsyncId,
+                                              24 * 60 * 60,
+                                              TimeUnit.SECONDS);
+                // remove store from rebalance list
+                stealInfo.getUnbalancedStoreList().remove(storeName);
+            } catch(Exception e) {
+                logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:" + storeName, e);
+            }
+        }
+    }
 
     /**
      * Rebalance logic at single node level.<br>
@@ -34,11 +120,7 @@ public class Rebalancer {
      * @param stealInfo
      * @return taskId for asynchronous task.
      */
-    public int rebalanceLocalNode(final MetadataStore metadataStore,
-                                  final VoldemortConfig config,
-                                  final String storeName,
-                                  final RebalanceStealInfo stealInfo,
-                                  final AsyncOperationRunner asyncRunner) {
+    public int rebalanceLocalNode(final String storeName, final RebalanceStealInfo stealInfo) {
         int requestId = asyncRunner.getUniqueRequestId();
 
         asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
@@ -47,15 +129,11 @@ public class Rebalancer {
 
             @Override
             public void operate() throws Exception {
-                synchronized(metadataStore) {
+                try {
+
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
-                }
 
-                AdminClient adminClient = RebalanceUtils.createTempAdminClient(config,
-                                                                               metadataStore.getCluster());
-
-                try {
                     fetchAndUpdateAsyncId = adminClient.fetchAndUpdateStreams(stealInfo.getDonorId(),
                                                                               metadataStore.getNodeId(),
                                                                               storeName,
@@ -67,12 +145,12 @@ public class Rebalancer {
                                                   24 * 60 * 60,
                                                   TimeUnit.SECONDS);
 
-                } finally {
-                    adminClient.stop();
-                }
+                    // clean state only if successfull.
+                    metadataStore.cleanAllRebalancingState();
 
-                // clean state only if successfull.
-                metadataStore.cleanAllRebalancingState();
+                } finally {
+
+                }
             }
 
             @Override
