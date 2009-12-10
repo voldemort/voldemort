@@ -1,5 +1,8 @@
 package voldemort.utils;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -7,25 +10,36 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import voldemort.annotations.concurrency.Immutable;
+import voldemort.client.ClientConfig;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
+import static voldemort.utils.RemoteTestUtils.deploy;
+import static voldemort.utils.RemoteTestUtils.stopCluster;
+import static voldemort.utils.RemoteTestUtils.startClusterAsync;
+import static voldemort.utils.RemoteTestUtils.startClusterNode;
+import static voldemort.TestUtils.assertWithBackoff;
 
 /**
  * @author afeinberg
  */
-public class GossipTest {
-  private static String accessId;
+public class Ec2GossipTest {
+    private static String accessId;
     private static String secretKey;
     private static String ami;
     private static String keyPairId;
@@ -43,7 +57,7 @@ public class GossipTest {
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
 
-    private static final Logger logger = Logger.getLogger(GossipTest.class);
+    private static final Logger logger = Logger.getLogger(Ec2GossipTest.class);
     
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -75,12 +89,70 @@ public class GossipTest {
             logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
 
         Thread.sleep(30000);
-
     }
 
     @Test
     public static void testGossip() throws Exception {
+        // First deploy an initial cluster
+        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
 
+        try {
+            startClusterAsync(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory,
+                    voldemortHomeDirectory, nodeIds);
+            Pair<HostNamePair, Integer> newInstance = createAndDeployNewInstance();
+            String newHostname = newInstance.getFirst().getExternalHostName();
+            final int nodeId = newInstance.getSecond();
+
+            startClusterNode(newHostname, sshPrivateKey, hostUserId, voldemortRootDirectory,
+                    voldemortHomeDirectory, nodeId);
+
+            Thread.sleep(5000);
+            if (logger.isInfoEnabled())
+                logger.info("Sleeping for 5 seconds to start Voldemort on the new node.");
+
+            AdminClient adminClient = getAdminClient(newHostname);
+            Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+
+            // Find a node that isn't the new node we added
+            Integer seedNode = Iterables.find(nodeIds.values(), new Predicate<Integer> () {
+                public boolean apply(Integer input) {
+                    return !input.equals(nodeId);
+                }
+            });
+
+            Version version = versioned.getVersion();
+            ((VectorClock) version).incrementVersion(nodeId, ((VectorClock) version).getTimestamp() + 1);
+            ((VectorClock) version).incrementVersion(seedNode, ((VectorClock) version).getTimestamp() + 1);
+
+            adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
+            adminClient.updateRemoteMetadata(seedNode, MetadataStore.CLUSTER_KEY, versioned);
+
+
+        }  finally {
+            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
+        }
+        
+    }
+
+    private static Pair<HostNamePair, Integer> createAndDeployNewInstance() throws Exception {
+        HostNamePair newInstance = createInstances(accessId, secretKey, ami, keyPairId, 1).get(0);
+        hostNamePairs.add(newInstance);
+        hostNames = toHostNames(hostNamePairs);
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+
+        Thread.sleep(15000);
+
+        if (logger.isInfoEnabled())
+            logger.info("Sleep for 15 seconds to give the new EC2 instance some time to startup");
+
+        deploy(ImmutableList.of(newInstance.getExternalHostName()), sshPrivateKey, hostUserId, sourceDirectory,
+                parentDirectory);
+        
+        return new Pair<HostNamePair, Integer>(newInstance, nodeIds.get(newInstance.getExternalHostName()));
+    }
+
+    private static AdminClient getAdminClient(String hostname) {
+        return new ProtoBuffAdminClientRequestFormat("tcp://" + hostname + ":6666", new ClientConfig());
     }
 
     @AfterClass
@@ -93,6 +165,7 @@ public class GossipTest {
     public void tearDown() throws Exception {
         stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
     }
+
     private static Properties getEc2Properties() throws Exception {
         String propertiesFileName = System.getProperty("ec2PropertiesFile");
 
