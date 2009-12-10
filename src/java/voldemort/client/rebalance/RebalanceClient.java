@@ -89,23 +89,20 @@ public class RebalanceClient {
                             Node stealerNode = adminClient.getCluster().getNodeById(stealerNodeId);
                             List<RebalanceStealInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
-                            logger.debug("Starting rebalancing for stealerNode (" + stealerNode
-                                         + ")");
                             while(rebalanceSubTaskList.size() > 0) {
-                                logger.debug("rebalanceSubTaskList:" + rebalanceSubTaskList);
-
                                 RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(0);
+                                logger.info("Starting rebalancing for stealerNode:" + stealerNode
+                                            + " rebalanceInfo:" + rebalanceSubTask);
+
                                 try {
-                                    logger.debug("Starting RebalanceSubTask attempt ("
-                                                 + rebalanceSubTask + ")");
 
                                     // first commit cluster changes on nodes.
                                     commitClusterChanges(stealerNode, rebalanceSubTask);
                                     // attempt to rebalance for all stores.
                                     attemptRebalanceSubTask(rebalanceSubTask);
 
-                                    logger.debug("Successfully finished RebalanceSubTask attempt:"
-                                                 + rebalanceSubTask);
+                                    logger.info("Successfully finished RebalanceSubTask attempt:"
+                                                + rebalanceSubTask);
                                 } catch(Exception e) {
                                     logger.warn("rebalancing task (" + rebalanceSubTask
                                                 + ") failed with exception:", e);
@@ -121,18 +118,21 @@ public class RebalanceClient {
     }
 
     private void logRebalancingPlan(Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue) {
-        logger.info("Rebalancing Plan:");
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("Rebalancing Plan:\n");
         for(Pair<Integer, List<RebalanceStealInfo>> pair: rebalanceTaskQueue) {
-            logger.info("StealerNode:" + pair.getFirst());
+            builder.append("StealerNode:" + pair.getFirst() + "\n");
             for(RebalanceStealInfo stealInfo: pair.getSecond()) {
-                logger.info("\t" + stealInfo);
+                builder.append("\t" + stealInfo + "\n");
             }
         }
+
+        logger.info(builder.toString());
     }
 
     private void executorShutDown(ExecutorService executorService) {
         try {
-            logger.debug("Attempting to stop executor service.");
             executorService.shutdown();
         } catch(Exception e) {
             logger.warn("Error while stoping executor service .. ", e);
@@ -164,8 +164,8 @@ public class RebalanceClient {
      */
     void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo) {
         synchronized(adminClient) {
-            VectorClock clock = getLatestClusterClock(stealerNode.getId(),
-                                                      rebalanceStealInfo.getDonorId());
+            VectorClock clock = getLatestClusterClock(Arrays.asList(stealerNode.getId(),
+                                                                    rebalanceStealInfo.getDonorId()));
             Cluster oldCluster = adminClient.getCluster();
 
             try {
@@ -186,6 +186,8 @@ public class RebalanceClient {
                 // set new cluster in adminClient
                 adminClient.setCluster(newCluster);
             } catch(Exception e) {
+                logger.error("Failed to commit rebalance on node:" + stealerNode.getId()
+                             + " REVERTING cluster changes ...", e);
                 // revert cluster changes.
                 clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
                 RebalanceUtils.propagateCluster(adminClient,
@@ -193,29 +195,65 @@ public class RebalanceClient {
                                                 clock,
                                                 new ArrayList<Integer>());
 
-                throw new VoldemortException("Failed to commit rebalance on node:"
-                                             + stealerNode.getId(), e);
+                throw new VoldemortException(e);
             }
         }
     }
 
-    private VectorClock getLatestClusterClock(int stealerId, int donorId) {
-        VectorClock clock1 = (VectorClock) adminClient.getRemoteCluster(stealerId).getVersion();
-        VectorClock clock2 = (VectorClock) adminClient.getRemoteCluster(donorId).getVersion();
+    /**
+     * Get the latest cluster version from all available nodes in the cluster<br>
+     * Throws exception if:<br>
+     * stealerNode or donorNode fail to respond.<br>
+     * Cluster is in inconsistent state with concurrent versions for cluster
+     * metadata on any two nodes.<br>
+     * 
+     * @param stealerId
+     * @param donorId
+     * @return
+     */
+    private VectorClock getLatestClusterClock(List<Integer> requiredNodes) {
+        VectorClock latestClock = new VectorClock();
+        ArrayList<VectorClock> clockList = new ArrayList<VectorClock>();
 
-        Occured occured = clock1.compare(clock2);
+        clockList.add(latestClock);
+        for(Node node: adminClient.getCluster().getNodes()) {
+            VectorClock newClock = null;
+            try {
+                newClock = (VectorClock) adminClient.getRemoteCluster(node.getId()).getVersion();
+            } catch(Exception e) {
+                if(requiredNodes.contains(node.getId()))
+                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
+                                                 e);
+                else
+                    logger.debug("Failed to get Cluster version from node:" + node, e);
+            }
+            logger.debug("latestClock:" + latestClock + " clockList:" + clockList + " newClock:"
+                         + newClock);
+            if(null != newClock && !clockList.contains(newClock)) {
+                // check no two clocks are concurrent.
+                checkNotConcurrent(clockList, newClock);
 
-        if(occured.equals(Occured.AFTER))
-            return clock1;
-        else if(occured.equals(Occured.BEFORE))
-            return clock2;
-        else if(occured.equals(Occured.CONCURRENTLY))
-            throw new VoldemortException("Concurrent cluster vector clock for stealerNode:"
-                                         + stealerId + "(" + clock1 + ") donorNode:" + donorId
-                                         + "( " + clock2 + " )");
-        else
-            throw new VoldemortException("Invalid state clock1:" + clock1 + " clock2:" + clock2
-                                         + " Occured:" + occured);
+                // add to clock list
+                clockList.add(newClock);
+
+                // update latestClock
+                Occured occured = newClock.compare(latestClock);
+                if(Occured.AFTER.equals(occured))
+                    latestClock = newClock;
+            }
+
+        }
+
+        return latestClock;
+    }
+
+    private void checkNotConcurrent(ArrayList<VectorClock> clockList, VectorClock newClock) {
+        for(VectorClock clock: clockList) {
+            if(Occured.CONCURRENTLY.equals(clock.equals(newClock)))
+                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
+                                             + clock + " and " + newClock);
+
+        }
     }
 
     /**

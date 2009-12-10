@@ -81,8 +81,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
-        this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
-                                                               .getContextClassLoader());
+        this.networkClassLoader = null;
         this.asyncRunner = asyncRunner;
         this.rebalancer = rebalancer;
     }
@@ -265,7 +264,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
                 if(filter.accept(key, value)) {
-                    storageEngine.put(key, value);
+                    try {
+                        storageEngine.put(key, value);
+
+                    } catch(ObsoleteVersionException e) {
+                        // log and ignore
+                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException .. Ignoring.");
+                    }
 
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
@@ -299,12 +304,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
-            if(!rebalancer.acquireRebalancingPermit()) {
-                throw new VoldemortException("Node:"
-                                             + metadataStore.getNodeId()
-                                             + " is already rebalancing cannot start new rebalancing request.");
-            }
-
             RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStealerId(),
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
@@ -313,6 +312,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
             int requestId = rebalancer.rebalanceLocalNode(request.getCurrentStore(),
                                                           rebalanceStealInfo);
+
+            if(-1 == requestId) {
+                throw new VoldemortException("Node:"
+                                             + metadataStore.getNodeId()
+                                             + " is already rebalancing cannot start new rebalancing request.");
+            }
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
@@ -364,7 +369,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                               entry.getSecond());
                                                         } catch(ObsoleteVersionException e) {
                                                             // log and ignore
-                                                            logger.warn("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                            logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
                                                         }
 
                                                         throttler.maybeThrottle(entrySize(entry));
@@ -510,23 +515,30 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     /* Private helper methods */
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
-        VoldemortFilter filter = new DefaultVoldemortFilter();
+        VoldemortFilter filter = null;
 
-        if(voldemortConfig.isNetworkClassLoaderEnabled()) {
-            byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
-            String className = request.getName();
+        byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
+        String className = request.getName();
 
-            try {
-                Class<?> cl = networkClassLoader.loadClass(className,
-                                                           classBytes,
-                                                           0,
-                                                           classBytes.length);
+        try {
+            if(voldemortConfig.isNetworkClassLoaderEnabled()) {
+                // TODO: network class loader was throwing NoClassDefFound for
+                // voldemort.server package classes, Need testing and fixes
+                // before can be reenabled.
+
+                // Class<?> cl = networkClassLoader.loadClass(className,
+                // classBytes,
+                // 0,
+                // classBytes.length);
+                // filter = (VoldemortFilter) cl.newInstance();
+                //                
+                throw new VoldemortException("NetworkLoader is experimental and is disabled for now.");
+            } else {
+                Class<?> cl = Thread.currentThread().getContextClassLoader().loadClass(className);
                 filter = (VoldemortFilter) cl.newInstance();
-            } catch(Exception e) {
-                throw new VoldemortException("Failed to load and instantiate the filter class", e);
             }
-        } else {
-            throw new VoldemortException("Network class loader is not enabled yet !!");
+        } catch(Exception e) {
+            throw new VoldemortException("Failed to load and instantiate the filter class", e);
         }
 
         return filter;

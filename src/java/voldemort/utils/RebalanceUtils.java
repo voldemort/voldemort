@@ -227,8 +227,9 @@ public class RebalanceUtils {
                 try {
                     adminClient.updateRemoteCluster(node.getId(), cluster, clock);
                 } catch(VoldemortException e) {
-                    logger.warn("Failed to copy new cluster.xml(" + cluster
-                                + ") on non-required node:" + node, e);
+                    // ignore these
+                    logger.debug("Failed to copy new cluster.xml(" + cluster
+                                 + ") on non-required node:" + node, e);
                 }
             }
         }

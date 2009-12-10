@@ -45,6 +45,7 @@ import com.google.common.collect.AbstractIterator;
  */
 public class AdminServiceBasicTest extends TestCase {
 
+    private static int NUM_RUNS = 100;
     private static int TEST_STREAM_KEYS_SIZE = 10000;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -114,18 +115,22 @@ public class AdminServiceBasicTest extends TestCase {
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
-        client.updateRemoteCluster(0,
-                                   updatedCluster,
-                                   ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
-                                                                                                       System.currentTimeMillis()));
+        for(int i = 0; i < NUM_RUNS; i++) {
+            VectorClock clock = ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
+                                                                                                    System.currentTimeMillis());
+            client.updateRemoteCluster(0, updatedCluster, clock);
 
-        assertEquals("Cluster should match",
-                     updatedCluster,
-                     getVoldemortServer(0).getMetadataStore().getCluster());
-        assertEquals("AdminClient.getMetdata() should match",
-                     client.getRemoteCluster(getVoldemortServer(0).getIdentityNode().getId())
-                           .getValue(),
-                     updatedCluster);
+            assertEquals("Cluster should match",
+                         updatedCluster,
+                         getVoldemortServer(0).getMetadataStore().getCluster());
+            assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
+                                                                        .getValue(), updatedCluster);
+
+            System.out.println(clock);
+            // version should match
+            assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
+                                                                        .getVersion());
+        }
 
     }
 

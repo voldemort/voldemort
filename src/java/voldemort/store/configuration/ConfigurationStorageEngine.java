@@ -132,7 +132,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
                 } else if(value.getVersion().compare(clock) == Occured.BEFORE) {
                     throw new ObsoleteVersionException("A successor version " + clock
                                                        + "  to this " + value.getVersion()
-                                                       + "exists for key " + key);
+                                                       + " exists for key " + key);
                 } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
                     throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
                 }

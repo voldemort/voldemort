@@ -16,33 +16,12 @@
 #  limitations under the License.
 #
 
-if [ $# -gt 1 ];
+if [ $# -lt 3 ];
 then
-	echo 'USAGE: bin/voldemort-server.sh [voldemort_home]'
+	echo 'USAGE: bin/voldemort-shell.sh currentCluster.xml targetCluster.xml stores.xml numParallelRebalancing'
 	exit 1
 fi
 
 base_dir=$(dirname $0)/..
 
-for file in $base_dir/dist/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/contrib/hadoop-store-builder/lib/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-
-CLASSPATH=$CLASSPATH:$base_dir/dist/resources
-
-if [ -z $VOLD_OPTS ]; then
-  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
-fi
-
-java -Dlog4j.configuration=src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
+$base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.client.rebalance.RebalanceCommandShell $@
