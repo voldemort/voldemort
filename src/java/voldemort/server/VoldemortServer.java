@@ -21,16 +21,11 @@ import static voldemort.utils.Utils.croak;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
-import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.gossip.GossipService;
@@ -41,14 +36,13 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.AdminService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -129,7 +123,8 @@ public class VoldemortServer extends AbstractService {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
                                                                                                 this.metadata,
                                                                                                 this.voldemortConfig,
-                                                                                                this.asyncRunner);
+                                                                                                this.asyncRunner,
+                                                                                                null);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector.");
@@ -152,10 +147,21 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isAdminServerEnabled()) {
+            Rebalancer rebalancer = null;
+            if(voldemortConfig.isEnableRebalanceService()) {
+                RebalancerService rebalancerService = new RebalancerService(metadata,
+                                                                            voldemortConfig,
+                                                                            asyncRunner,
+                                                                            scheduler);
+                services.add(rebalancerService);
+                rebalancer = rebalancerService.getRebalancer();
+            }
+
             SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
-                                                                                                     this.asyncRunner);
+                                                                                                     this.asyncRunner,
+                                                                                                     rebalancer);
             services.add(new AdminService(adminRequestHandlerFactory,
                                           identityNode.getAdminPort(),
                                           voldemortConfig.getAdminCoreThreads(),
@@ -166,16 +172,7 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isGossipEnabled()) {
-            ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(1)
-                                                          .setMaxThreads(1)
-                                                          .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                                                TimeUnit.MILLISECONDS)
-                                                          .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(),
-                                                                            TimeUnit.MILLISECONDS)
-                                                          .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-            AdminClient adminClient = new ProtoBuffAdminClientRequestFormat(this.metadata.getCluster(),
-                                                                            clientConfig);
-            services.add(new GossipService(this.metadata, adminClient, scheduler, voldemortConfig));
+            services.add(new GossipService(this.metadata, scheduler, voldemortConfig));
         }
 
         if(voldemortConfig.isJmxEnabled())
@@ -192,55 +189,6 @@ public class VoldemortServer extends AbstractService {
             service.start();
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
-
-        // check serverState
-        if(!metadata.getServerState().equals(VoldemortState.NORMAL_SERVER)) {
-            logger.warn("Server started in " + metadata.getServerState() + " state.");
-            RebalanceStealInfo stealInfo = metadata.getRebalancingStealInfo();
-
-            if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
-                attemptRebalance(stealInfo);
-            } else {
-                logger.warn("Rebalancing for rebalancing task:" + stealInfo
-                            + " failed multiple times, Force starting into NORMAL mode !!");
-            }
-
-            // clean all rebalancing state
-            metadata.cleanAllRebalancingState();
-        }
-    }
-
-    private void attemptRebalance(RebalanceStealInfo stealInfo) {
-        logger.info("Restarting rebalance for rebalanceSubTask:" + stealInfo);
-        Rebalancer rebalancer = new Rebalancer();
-        stealInfo.setAttempt(stealInfo.getAttempt() + 1);
-
-        List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster());
-        try {
-            for(String storeName: unbalanceStoreList) {
-                try {
-                    int rebalanceAsyncId = rebalancer.rebalanceLocalNode(metadata,
-                                                                         voldemortConfig,
-                                                                         storeName,
-                                                                         stealInfo,
-                                                                         asyncRunner);
-
-                    adminClient.waitForCompletion(stealInfo.getStealerId(),
-                                                  rebalanceAsyncId,
-                                                  24 * 60 * 60,
-                                                  TimeUnit.SECONDS);
-                    // remove store from rebalance list
-                    stealInfo.getUnbalancedStoreList().remove(storeName);
-                } catch(Exception e) {
-                    logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:" + storeName,
-                                e);
-                }
-            }
-        } finally {
-            adminClient.stop();
-        }
     }
 
     /**

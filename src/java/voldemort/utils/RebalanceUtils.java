@@ -236,13 +236,13 @@ public class RebalanceUtils {
     }
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
-        ClientConfig config = new ClientConfig();
-        config.setMaxConnectionsPerNode(1);
-        config.setMaxThreads(1);
-        config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                    TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(), TimeUnit.MILLISECONDS);
-        config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+        ClientConfig config = new ClientConfig().setMaxConnectionsPerNode(1)
+                                                .setMaxThreads(1)
+                                                .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
+                                                                      TimeUnit.MILLISECONDS)
+                                                .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(),
+                                                                  TimeUnit.MILLISECONDS)
+                                                .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
         return new ProtoBuffAdminClientRequestFormat(cluster, config);
     }

@@ -117,6 +117,7 @@ public class ServerTestUtils {
                                                createMetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
                                                                    new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml))),
                                                null,
+                                               null,
                                                null);
     }
 
@@ -387,7 +388,7 @@ public class ServerTestUtils {
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
-        return new SocketRequestHandlerFactory(repository, null, null, null);
+        return new SocketRequestHandlerFactory(repository, null, null, null, null);
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
