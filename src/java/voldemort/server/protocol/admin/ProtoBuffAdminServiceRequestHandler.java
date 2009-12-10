@@ -69,13 +69,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
-    private final AdminClient adminClient;
+    private final Rebalancer rebalancer;
 
     public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
                                                VoldemortConfig voldemortConfig,
-                                               AsyncOperationRunner asyncRunner) {
+                                               AsyncOperationRunner asyncRunner,
+                                               Rebalancer rebalancer) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
@@ -83,8 +84,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.asyncRunner = asyncRunner;
-        this.adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                metadataStore.getCluster());
+        this.rebalancer = rebalancer;
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -295,17 +295,24 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
+            if(!voldemortConfig.isEnableRebalanceService())
+                throw new VoldemortException("Rebalance service is not enabled for node:"
+                                             + metadataStore.getNodeId());
+
+            if(!rebalancer.acquireRebalancingPermit()) {
+                throw new VoldemortException("Node:"
+                                             + metadataStore.getNodeId()
+                                             + " is already rebalancing cannot start new rebalancing request.");
+            }
 
             RebalanceStealInfo rebalanceStealInfo = new RebalanceStealInfo(request.getStealerId(),
                                                                            request.getDonorId(),
                                                                            request.getPartitionsList(),
                                                                            request.getUnbalancedStoreList(),
                                                                            request.getAttempt());
-            int requestId = new Rebalancer().rebalanceLocalNode(metadataStore,
-                                                                voldemortConfig,
-                                                                request.getCurrentStore(),
-                                                                rebalanceStealInfo,
-                                                                asyncRunner);
+
+            int requestId = rebalancer.rebalanceLocalNode(request.getCurrentStore(),
+                                                          rebalanceStealInfo);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())

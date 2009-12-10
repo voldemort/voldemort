@@ -85,6 +85,7 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                             .getAbsolutePath(),
                                                                                                    null,
                                                                                                    null),
+                                                                null,
                                                                 null),
                                 node.getAdminPort(),
                                 2,

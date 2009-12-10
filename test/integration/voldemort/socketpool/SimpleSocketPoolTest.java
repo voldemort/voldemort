@@ -71,6 +71,7 @@ public class SimpleSocketPoolTest extends TestCase {
                                                new SocketRequestHandlerFactory(null,
                                                                                null,
                                                                                null,
+                                                                               null,
                                                                                null),
                                                "test");
         server.start();
