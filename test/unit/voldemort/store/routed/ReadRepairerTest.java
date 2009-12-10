@@ -136,7 +136,7 @@ public class ReadRepairerTest extends TestCase {
         }
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
-                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setBannagePeriod(1000)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreResolver(createMutableStoreResolver(subStores))
                                                                                  .setTime(time);

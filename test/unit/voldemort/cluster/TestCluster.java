@@ -70,7 +70,7 @@ public class TestCluster extends TestCase {
         this.time = SystemTime.INSTANCE;
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
-                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setBannagePeriod(1000)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
                                                                                  .setTime(time);

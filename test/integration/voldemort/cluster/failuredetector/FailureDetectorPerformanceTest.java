@@ -39,12 +39,12 @@ public abstract class FailureDetectorPerformanceTest {
         OptionParser parser = new OptionParser();
         parser.accepts("async-scan-interval",
                        "Time interval (in milliseconds) at which the AsyncRecoveryFailureDetector checks for recovered nodes. Default: "
-                               + failureDetectorConfig.getAsyncScanInterval())
+                               + failureDetectorConfig.getAsyncRecoveryInterval())
               .withRequiredArg()
               .ofType(Long.class);
-        parser.accepts("node-bannage-period",
+        parser.accepts("bannage-period",
                        "Time period (in milliseconds) for which a failed node is marked unavailable for the BannagePeriodFailureDetector. Default: "
-                               + failureDetectorConfig.getNodeBannagePeriod())
+                               + failureDetectorConfig.getBannagePeriod())
               .withRequiredArg()
               .ofType(Long.class);
         parser.accepts("threshold-interval",
@@ -60,10 +60,10 @@ public abstract class FailureDetectorPerformanceTest {
 
         Long asyncScanInterval = CmdUtils.valueOf(options,
                                                   "async-scan-interval",
-                                                  failureDetectorConfig.getAsyncScanInterval());
-        Long nodeBannagePeriod = CmdUtils.valueOf(options,
-                                                  "node-bannage-period",
-                                                  failureDetectorConfig.getNodeBannagePeriod());
+                                                  failureDetectorConfig.getAsyncRecoveryInterval());
+        Long bannagePeriod = CmdUtils.valueOf(options,
+                                              "bannage-period",
+                                              failureDetectorConfig.getBannagePeriod());
         Long thresholdInterval = CmdUtils.valueOf(options,
                                                   "threshold-interval",
                                                   failureDetectorConfig.getThresholdInterval());
@@ -71,10 +71,12 @@ public abstract class FailureDetectorPerformanceTest {
 
         failureDetectorConfig.setNodes(cluster.getNodes())
                              .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
-                             .setAsyncScanInterval(asyncScanInterval)
-                             .setNodeBannagePeriod(nodeBannagePeriod)
+                             .setAsyncRecoveryInterval(asyncScanInterval)
+                             .setBannagePeriod(bannagePeriod)
                              .setThresholdInterval(thresholdInterval);
     }
+
+    protected abstract String getTestHeaders();
 
     public abstract String test(FailureDetector failureDetector) throws Exception;
 
@@ -97,7 +99,7 @@ public abstract class FailureDetectorPerformanceTest {
     }
 
     protected void test() {
-        System.out.println("FailureDetector Type, Milliseconds, Outages, Successes, Failures");
+        System.out.println(getTestHeaders());
 
         for(Class<?> implClass: getClasses()) {
             failureDetectorConfig.setImplementationClassName(implClass.getName());

@@ -119,11 +119,8 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
         };
 
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(config.getFailureDetector())
-                                                                                 .setJmxEnabled(config.isJmxEnabled())
-                                                                                 .setNodeBannagePeriod(config.getNodeBannagePeriod(TimeUnit.MILLISECONDS))
-                                                                                 .setNodes(nodes)
-                                                                                 .setStoreResolver(storeResolver);
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
+                                                                                       .setStoreResolver(storeResolver);
 
         return FailureDetectorUtils.create(failureDetectorConfig);
     }

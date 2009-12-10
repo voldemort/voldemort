@@ -64,10 +64,8 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
 
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(voldemortConfig.getFailureDetector())
-                                                                                 .setNodeBannagePeriod(voldemortConfig.getClientNodeBannageMs())
-                                                                                 .setNodes(cluster.getNodes())
-                                                                                 .setStoreResolver(new BasicStoreResolver(clientMapping));
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(cluster.getNodes())
+                                                                                                .setStoreResolver(new BasicStoreResolver(clientMapping));
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
 
         Store<ByteArray, byte[]> store = new RoutedStore("test",

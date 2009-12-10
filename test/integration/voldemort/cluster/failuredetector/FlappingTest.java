@@ -44,6 +44,11 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
     }
 
     @Override
+    protected String getTestHeaders() {
+        return "FailureDetector Type, Milliseconds, Outages, Successes, Failures";
+    }
+
+    @Override
     public String test(FailureDetector failureDetector) throws Exception {
         Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);

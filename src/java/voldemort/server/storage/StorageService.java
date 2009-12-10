@@ -119,13 +119,10 @@ public class StorageService extends AbstractService {
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());
 
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(voldemortConfig.getFailureDetector())
-                                                                                 .setJmxEnabled(voldemortConfig.isJmxEnabled())
-                                                                                 .setNodeBannagePeriod(voldemortConfig.getClientNodeBannageMs())
-                                                                                 .setNodes(metadata.getCluster()
-                                                                                                   .getNodes())
-                                                                                 .setStoreResolver(new ServerStoreResolver(storeRepository,
-                                                                                                                           voldemortConfig.getNodeId()));
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
+                                                                                                                  .getNodes())
+                                                                                                .setStoreResolver(new ServerStoreResolver(storeRepository,
+                                                                                                                                          voldemortConfig.getNodeId()));
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }
 

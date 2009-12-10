@@ -145,16 +145,16 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     }
 
     public void run() {
-        long asyncScanInterval = getConfig().getAsyncScanInterval();
+        long asyncRecoveryInterval = getConfig().getAsyncRecoveryInterval();
 
         while(!Thread.currentThread().isInterrupted() && isRunning) {
             try {
                 if(logger.isDebugEnabled()) {
-                    logger.debug("Sleeping for " + asyncScanInterval
+                    logger.debug("Sleeping for " + asyncRecoveryInterval
                                  + " ms before checking node availability");
                 }
 
-                getConfig().getTime().sleep(asyncScanInterval);
+                getConfig().getTime().sleep(asyncRecoveryInterval);
             } catch(InterruptedException e) {
                 break;
             }

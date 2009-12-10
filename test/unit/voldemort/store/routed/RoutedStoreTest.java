@@ -701,7 +701,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             failureDetector.destroy();
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
-                                                                                 .setNodeBannagePeriod(1000)
+                                                                                 .setBannagePeriod(1000)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreResolver(createMutableStoreResolver(subStores));
         failureDetector = create(failureDetectorConfig);

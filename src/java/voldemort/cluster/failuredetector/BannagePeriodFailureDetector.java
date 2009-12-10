@@ -52,7 +52,7 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
     }
 
     public boolean isAvailable(Node node) {
-        long bannagePeriod = failureDetectorConfig.getNodeBannagePeriod();
+        long bannagePeriod = failureDetectorConfig.getBannagePeriod();
         long currentTime = failureDetectorConfig.getTime().getMilliseconds();
 
         NodeStatus nodeStatus = getNodeStatus(node);

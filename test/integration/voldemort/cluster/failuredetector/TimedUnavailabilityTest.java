@@ -41,6 +41,11 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
     }
 
     @Override
+    protected String getTestHeaders() {
+        return "FailureDetector Type, Delta";
+    }
+
+    @Override
     public String test(FailureDetector failureDetector) throws Exception {
         Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -82,7 +87,9 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
         private final CountDownLatch countDownLatch;
 
-        public TimedUnavailability(FailureDetector failureDetector, Node node, CountDownLatch countDownLatch) {
+        public TimedUnavailability(FailureDetector failureDetector,
+                                   Node node,
+                                   CountDownLatch countDownLatch) {
             this.failureDetector = failureDetector;
             this.node = node;
             this.countDownLatch = countDownLatch;

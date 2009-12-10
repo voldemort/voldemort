@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -95,7 +95,6 @@ public class VoldemortConfig implements Serializable {
     private int clientRoutingTimeoutMs;
     private int clientMaxConnectionsPerNode;
     private int clientConnectionTimeoutMs;
-    private int clientNodeBannageMs;
     private int clientMaxThreads;
     private int clientThreadIdleMs;
     private int clientMaxQueuedRequests;
@@ -132,7 +131,13 @@ public class VoldemortConfig implements Serializable {
     private int adminConnectionTimeout;
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
-    private String failureDetector;
+
+    private String failureDetectorImplementation;
+    private long failureDetectorBannagePeriod;
+    private int failureDetectorThreshold;
+    private int failureDetectorThresholdCountMinimum;
+    private long failureDetectorThresholdInterval;
+    private long failureDetectorAsyncRecoveryInterval;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
@@ -213,7 +218,6 @@ public class VoldemortConfig implements Serializable {
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
-        this.clientNodeBannageMs = props.getInt("client.node.bannage.ms", 10000);
         this.clientMaxThreads = props.getInt("client.max.threads", 100);
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 5000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
@@ -256,8 +260,27 @@ public class VoldemortConfig implements Serializable {
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
-        this.failureDetector = props.getString("failure.detector",
-                                               BannagePeriodFailureDetector.class.getName());
+        this.failureDetectorImplementation = props.getString("failuredetector.implementation",
+                                                             FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
+
+        // We're changing the property from "client.node.bannage.ms" to
+        // "failuredetector.bannage.period" so if we have the old one, migrate
+        // it over.
+        if(props.containsKey("client.node.bannage.ms")
+           && !props.containsKey("failuredetector.bannage.period")) {
+            props.put("failuredetector.bannage.period", props.get("client.node.bannage.ms"));
+        }
+
+        this.failureDetectorBannagePeriod = props.getLong("failuredetector.bannage.period",
+                                                          FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD);
+        this.failureDetectorThreshold = props.getInt("failuredetector.threshold",
+                                                     FailureDetectorConfig.DEFAULT_THRESHOLD);
+        this.failureDetectorThresholdCountMinimum = props.getInt("failuredetector.threshold.countminimum",
+                                                                 FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM);
+        this.failureDetectorThresholdInterval = props.getLong("failuredetector.threshold.interval",
+                                                              FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
+        this.failureDetectorAsyncRecoveryInterval = props.getLong("failuredetector.asyncrecovery.interval",
+                                                                  FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -676,12 +699,20 @@ public class VoldemortConfig implements Serializable {
         this.clientConnectionTimeoutMs = connectionTimeoutMs;
     }
 
+    /**
+     * @deprecated Use {@link #getFailureDetectorBannagePeriod()} instead
+     */
+
     public int getClientNodeBannageMs() {
-        return clientNodeBannageMs;
+        return (int) failureDetectorBannagePeriod;
     }
 
+    /**
+     * @deprecated Use {@link #setFailureDetectorBannagePeriod(long)} instead
+     */
+
     public void setClientNodeBannageMs(int nodeBannageMs) {
-        this.clientNodeBannageMs = nodeBannageMs;
+        this.failureDetectorBannagePeriod = nodeBannageMs;
     }
 
     public int getClientMaxThreads() {
@@ -880,12 +911,52 @@ public class VoldemortConfig implements Serializable {
         this.numCleanupPermits = numCleanupPermits;
     }
 
-    public String getFailureDetector() {
-        return failureDetector;
+    public String getFailureDetectorImplementation() {
+        return failureDetectorImplementation;
     }
 
-    public void setFailureDetector(String failureDetector) {
-        this.failureDetector = failureDetector;
+    public void setFailureDetectorImplementation(String failureDetectorImplementation) {
+        this.failureDetectorImplementation = failureDetectorImplementation;
+    }
+
+    public long getFailureDetectorBannagePeriod() {
+        return failureDetectorBannagePeriod;
+    }
+
+    public void setFailureDetectorBannagePeriod(long failureDetectorBannagePeriod) {
+        this.failureDetectorBannagePeriod = failureDetectorBannagePeriod;
+    }
+
+    public int getFailureDetectorThreshold() {
+        return failureDetectorThreshold;
+    }
+
+    public void setFailureDetectorThreshold(int failureDetectorThreshold) {
+        this.failureDetectorThreshold = failureDetectorThreshold;
+    }
+
+    public int getFailureDetectorThresholdCountMinimum() {
+        return failureDetectorThresholdCountMinimum;
+    }
+
+    public void setFailureDetectorThresholdCountMinimum(int failureDetectorThresholdCountMinimum) {
+        this.failureDetectorThresholdCountMinimum = failureDetectorThresholdCountMinimum;
+    }
+
+    public long getFailureDetectorThresholdInterval() {
+        return failureDetectorThresholdInterval;
+    }
+
+    public void setFailureDetectorThresholdInterval(long failureDetectorThresholdInterval) {
+        this.failureDetectorThresholdInterval = failureDetectorThresholdInterval;
+    }
+
+    public long getFailureDetectorAsyncRecoveryInterval() {
+        return failureDetectorAsyncRecoveryInterval;
+    }
+
+    public void setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
+        this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
     }
 
     public int getRetentionCleanupFirstStartTimeInHour() {
