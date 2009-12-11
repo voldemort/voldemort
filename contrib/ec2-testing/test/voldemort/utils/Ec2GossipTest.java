@@ -97,23 +97,26 @@ public class Ec2GossipTest {
     }
 
     @Test
-    public static void testGossip() throws Exception {
+    public void testGossip() throws Exception {
         // First deploy an initial cluster
         deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
 
         try {
             startClusterAsync(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory,
                     voldemortHomeDirectory, nodeIds);
-            Pair<HostNamePair, Integer> newInstance = createAndDeployNewInstance();
+            
+            final Pair<HostNamePair, Integer> newInstance = createAndDeployNewInstance();
             final String newHostname = newInstance.getFirst().getExternalHostName();
             final int nodeId = newInstance.getSecond();
 
             startClusterNode(newHostname, sshPrivateKey, hostUserId, voldemortRootDirectory,
                     voldemortHomeDirectory, nodeId);
 
-            Thread.sleep(5000);
-            if (logger.isInfoEnabled())
+             if (logger.isInfoEnabled())
                 logger.info("Sleeping for 5 seconds to start Voldemort on the new node.");
+            
+            Thread.sleep(5000);
+
 
             final AdminClient adminClient = getAdminClient(newHostname);
             Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
@@ -142,7 +145,7 @@ public class Ec2GossipTest {
                         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml.getValue()));
                         boolean foundNode = false;
                         for (Node node: cluster.getNodes()) {
-                            if (node.getHost().equals(newHostname) &&
+                            if (node.getHost().equals(newInstance.getFirst().getInternalHostName()) &&
                                     node.getId() == nodeId) {
                                 foundNode = true;
                                 break;
@@ -168,10 +171,10 @@ public class Ec2GossipTest {
         hostNames = toHostNames(hostNamePairs);
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
 
-        Thread.sleep(15000);
-
         if (logger.isInfoEnabled())
             logger.info("Sleep for 15 seconds to give the new EC2 instance some time to startup");
+
+        Thread.sleep(15000);
 
         deploy(ImmutableList.of(newInstance.getExternalHostName()), sshPrivateKey, hostUserId, sourceDirectory,
                 parentDirectory);
@@ -200,8 +203,8 @@ public class Ec2GossipTest {
 
         String[] requireds = { "ec2AccessId", "ec2SecretKey", "ec2Ami", "ec2KeyPairId",
                 "ec2HostUserId", "ec2VoldemortRootDirectory", "ec2VoldemortHomeDirectory",
-                "ec2SourceDirectory", "ec2ParentDirectory", "ec2ClusterXmlFile",
-                "ec2InstanceCount", "ec2RampTime"  };
+                "ec2SourceDirectory", "ec2ParentDirectory",
+                "ec2InstanceCount" };
 
         if(propertiesFileName == null)
                throw new Exception("ec2PropertiesFile system property must be defined that "
