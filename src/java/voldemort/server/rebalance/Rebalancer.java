@@ -161,6 +161,15 @@ public class Rebalancer implements Runnable {
 
                     // clean state only if successfull.
                     metadataStore.cleanAllRebalancingState();
+                    if(config.isDeleteAfterRebalancingEnabled()) {
+                        logger.warn("Deleting data from donorNode after rebalancing !!");
+                        adminClient.deletePartitions(stealInfo.getDonorId(),
+                                                     storeName,
+                                                     stealInfo.getPartitionList(),
+                                                     null);
+                        logger.info("Deleted partitions " + stealInfo.getPartitionList()
+                                    + " from donorNode:" + stealInfo.getDonorId());
+                    }
 
                 } finally {
                     // free the permit in all cases.
