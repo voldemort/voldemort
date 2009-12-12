@@ -31,6 +31,10 @@ _REQUESTTYPE = descriptor.EnumDescriptor(
       name='GET_VERSION', index=4, number=4,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='GET_UNCHECKED', index=5, number=5,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -41,6 +45,7 @@ GET_ALL = 1
 PUT = 2
 DELETE = 3
 GET_VERSION = 4
+GET_UNCHECKED = 5
 
 
 
