@@ -128,15 +128,17 @@ public class StoreUtils {
      */
     public static void assertValidMetadata(ByteArray key,
                                            RoutingStrategy routingStrategy,
-                                           int currentNodeId) {
+                                           Node currentNode) {
         List<Node> nodes = routingStrategy.routeRequest(key.get());
         for(Node node: nodes) {
-            if(node.getId() == currentNodeId) {
+            if(node.getId() == currentNode.getId()) {
                 return;
             }
         }
 
-        throw new InvalidMetadataException("client routing strategy not in sync with store routing strategy!");
+        throw new InvalidMetadataException("client attempt accessing key belonging to partition:"
+                                           + routingStrategy.getPartitionList(key.get())
+                                           + " at Node:" + currentNode);
     }
 
     public static <V> List<Version> getVersions(List<Versioned<V>> versioneds) {
