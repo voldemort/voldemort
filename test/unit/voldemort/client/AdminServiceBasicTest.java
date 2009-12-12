@@ -28,6 +28,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
@@ -308,6 +309,17 @@ public class AdminServiceBasicTest extends TestCase {
                          new String(entry.getValue()),
                          new String(store.get(entry.getKey()).get(0).getValue()));
         }
+    }
+
+    // check the basic rebalanceNode call.
+    public void testRebalanceNode() {
+        RebalanceStealInfo stealInfo = new RebalanceStealInfo(1,
+                                                              0,
+                                                              Arrays.asList(1, 3),
+                                                              Arrays.asList(testStoreName),
+                                                              0);
+        int asyncId = adminClient.rebalanceNode(testStoreName, stealInfo);
+        assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
     }
 
     /**

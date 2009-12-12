@@ -35,6 +35,7 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
@@ -55,10 +56,13 @@ public class RedirectingStoreTest extends TestCase {
 
     VoldemortServer server0;
     VoldemortServer server1;
+    Cluster targetCluster;
 
     @Override
     public void setUp() throws IOException {
-        Cluster cluster = ServerTestUtils.getLocalCluster(2);
+        Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { {}, { 0, 1 } });
+        targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 } });
+
         server0 = startServer(0, storesXmlfile, cluster);
 
         server1 = startServer(1, storesXmlfile, cluster);
@@ -84,8 +88,9 @@ public class RedirectingStoreTest extends TestCase {
                                                                              .getAbsolutePath(),
                                                                     null,
                                                                     storesXmlfile);
-        // disable metadata checking for this test.
-        config.setEnableMetadataChecking(false);
+        // enable metadata checking for this test.
+        config.setEnableMetadataChecking(true);
+        config.setEnableRebalanceService(false);
 
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
@@ -115,7 +120,15 @@ public class RedirectingStoreTest extends TestCase {
         }
 
         // for normal state server0 should be empty
-        checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0, 1), Arrays.asList(-1));
+        checkGetEntries(entryMap,
+                        server0,
+                        server0.getStoreRepository().getStorageEngine(testStoreName),
+                        Arrays.asList(0, 1),
+                        Arrays.asList(-1));
+
+        // set cluster.xml for invalidMetadata sake
+        server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+        server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
 
         // set rebalancing 0 <-- 1 for partitions 2 only.
         incrementVersionAndPut(server0.getMetadataStore(),
@@ -130,7 +143,11 @@ public class RedirectingStoreTest extends TestCase {
                                                       0));
 
         // for Rebalancing State we should see proxyGet()
-        checkGetEntries(entryMap, server0, testStoreName, Arrays.asList(0), Arrays.asList(1));
+        checkGetEntries(entryMap,
+                        server0,
+                        getRedirectingStore(server0.getMetadataStore(), testStoreName),
+                        Arrays.asList(0),
+                        Arrays.asList(1));
     }
 
     public void testProxyPut() {
@@ -175,26 +192,28 @@ public class RedirectingStoreTest extends TestCase {
 
     private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
                                  VoldemortServer server,
-                                 String storeName,
+                                 Store<ByteArray, byte[]> store,
                                  List<Integer> unavailablePartitions,
                                  List<Integer> availablePartitions) {
-        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(storeName);
-        RedirectingStore redirectingStore = getRedirectingStore(server0.getMetadataStore(),
-                                                                storeName);
+        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(store.getName());
 
         for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
             List<Integer> partitions = routing.getPartitionList(entry.getKey().get());
             if(unavailablePartitions.containsAll(partitions)) {
-                assertEquals("Keys for partition:" + partitions + " should not be present.",
-                             0,
-                             redirectingStore.get(entry.getKey()).size());
+                try {
+                    assertEquals("Keys for partition:" + partitions + " should not be present.",
+                                 0,
+                                 store.get(entry.getKey()).size());
+                } catch(InvalidMetadataException e) {
+                    // ignore
+                }
             } else if(availablePartitions.containsAll(partitions)) {
                 assertEquals("Keys for partition:" + partitions + " should be present.",
                              1,
-                             redirectingStore.get(entry.getKey()).size());
+                             store.get(entry.getKey()).size());
                 assertEquals("Values should match.",
                              new String(entry.getValue()),
-                             new String(redirectingStore.get(entry.getKey()).get(0).getValue()));
+                             new String(store.get(entry.getKey()).get(0).getValue()));
             } else {
                 fail("This case should not come for this test partitions:" + partitions);
             }
