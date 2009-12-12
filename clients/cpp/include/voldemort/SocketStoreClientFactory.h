@@ -56,9 +56,9 @@ public:
     // StoreClientFactory interface
     virtual StoreClient* getStoreClient(const std::string& storeName);
     virtual StoreClient* getStoreClient(const std::string& storeName,
-                                        shared_ptr<InconsistencyResolver>& resolver);
+                                        boost::shared_ptr<InconsistencyResolver>& resolver);
     virtual Store* getRawStore(const std::string& storeName,
-                               shared_ptr<InconsistencyResolver>& resolver);
+                               boost::shared_ptr<InconsistencyResolver>& resolver);
 
 private:
     /** Internal implementation details */
