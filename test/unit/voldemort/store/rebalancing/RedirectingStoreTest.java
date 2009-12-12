@@ -166,13 +166,9 @@ public class RedirectingStoreTest extends TestCase {
         // for normal state server0 should not
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(0, 1), Arrays.asList(-1));
 
-        // clear server0 store now.
-        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            server0.getStoreRepository()
-                   .getLocalStore(testStoreName)
-                   .delete(entry.getKey(),
-                           new VectorClock().incremented(0, System.currentTimeMillis()));
-        }
+        // set cluster.xml for invalidMetadata sake
+        server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+        server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
 
         // set rebalancing 0 <-- 1 for partitions 2 only.
         incrementVersionAndPut(server0.getMetadataStore(),
@@ -240,6 +236,8 @@ public class RedirectingStoreTest extends TestCase {
                                                                                        System.currentTimeMillis())));
                 } catch(ObsoleteVersionException e) {
                     fail("should NOT see obsoleteVersionException for unavailablePartitions.");
+                } catch(InvalidMetadataException e) {
+                    // ignore
                 }
             } else if(availablePartitions.containsAll(partitions)) {
                 try {

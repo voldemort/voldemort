@@ -105,10 +105,22 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+        return get(key, false);
+    }
+
+    protected List<Versioned<byte[]>> get(ByteArray key, boolean ignoreInvalidMetadaException)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, reroute);
+            if(ignoreInvalidMetadaException)
+                requestFormat.writeGetIgnoreInvalidMetadataRequest(sands.getOutputStream(),
+                                                                      name,
+                                                                      key,
+                                                                      reroute);
+            else
+                requestFormat.writeGetRequest(sands.getOutputStream(), name, key, reroute);
+
             sands.getOutputStream().flush();
             return requestFormat.readGetResponse(sands.getInputStream());
         } catch(IOException e) {

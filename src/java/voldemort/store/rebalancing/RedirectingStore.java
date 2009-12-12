@@ -25,6 +25,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -122,16 +123,18 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
 
-        if(!storeRepository.hasNodeStore(getName(), metadata.getRebalancingStealInfo().getDonorId())) {
-            throw new VoldemortException("Node Store not present in storeRepository for (store,nodeId) pair ("
+        if(!storeRepository.hasRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo()
+                                                                         .getDonorId())) {
+            throw new VoldemortException("RedirectingSocketStore not present in storeRepository for (store,nodeId) pair ("
                                          + getName()
                                          + ","
                                          + metadata.getRebalancingStealInfo().getDonorId() + ").");
         }
 
-        return storeRepository.getNodeStore(getName(),
-                                            metadata.getRebalancingStealInfo().getDonorId())
-                              .get(key);
+        RedirectingSocketStore redirecingSocketStore = (RedirectingSocketStore) storeRepository.getRedirectingSocketStore(getName(),
+                                                                                                                          metadata.getRebalancingStealInfo()
+                                                                                                                                  .getDonorId());
+        return redirecingSocketStore.getIgnoreInvalidMetadata(key);
     }
 
     /**

@@ -64,6 +64,8 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                 case GET_VERSION:
                     response = handleGetVersion(request.getGet(), store);
                     break;
+                case GET_UNCHECKED:
+                    response = handleGetUncheckedMetadata(request.getGet(), store);
                 default:
                     throw new VoldemortException("Unknown operation " + request.getType());
             }
@@ -148,6 +150,11 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
         return response.build();
+    }
+
+    private Message handleGetUncheckedMetadata(GetRequest request, Store<ByteArray, byte[]> store) {
+        Store<ByteArray, byte[]> uncheckedStore = getStoreRepository().getStorageEngine(store.getName());
+        return handleGet(request, uncheckedStore);
     }
 
     public Message unknownStore(String storeName, RequestType type) {

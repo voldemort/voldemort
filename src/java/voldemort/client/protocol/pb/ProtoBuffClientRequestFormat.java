@@ -94,6 +94,21 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .build());
     }
 
+    public void writeGetIgnoreInvalidMetadataRequest(DataOutputStream output,
+                                                        String storeName,
+                                                        ByteArray key,
+                                                        boolean shouldReroute) throws IOException {
+        StoreUtils.assertValidKey(key);
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.GET_UNCHECKED)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(shouldReroute)
+                                                       .setGet(VProto.GetRequest.newBuilder()
+                                                                                .setKey(ByteString.copyFrom(key.get())))
+                                                       .build());
+    }
+
     public List<Versioned<byte[]>> readGetResponse(DataInputStream input) throws IOException {
         GetResponse.Builder response = ProtoUtils.readToBuilder(input, GetResponse.newBuilder());
         if(response.hasError())

@@ -17,7 +17,6 @@ public class RedirectingSocketStore extends SocketStore {
 
     public List<Versioned<byte[]>> getIgnoreInvalidMetadata(ByteArray key)
             throws VoldemortException {
-        // TODO : fix me
-        return super.get(key);
+        return super.get(key, true);
     }
 }

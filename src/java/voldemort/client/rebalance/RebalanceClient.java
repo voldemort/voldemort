@@ -90,7 +90,8 @@ public class RebalanceClient {
                             List<RebalanceStealInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
                             while(rebalanceSubTaskList.size() > 0) {
-                                RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(0);
+                                int index = (int) Math.random() * rebalanceSubTaskList.size();
+                                RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNode
                                             + " rebalanceInfo:" + rebalanceSubTask);
 

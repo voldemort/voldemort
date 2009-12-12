@@ -192,4 +192,16 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         output.writeInt(key.length());
         output.write(key.get());
     }
+
+    public void writeGetIgnoreInvalidMetadataRequest(DataOutputStream output,
+                                                     String storeName,
+                                                     ByteArray key,
+                                                     boolean shouldReroute) throws IOException {
+        StoreUtils.assertValidKey(key);
+        output.writeByte(VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE);
+        output.writeUTF(storeName);
+        output.writeBoolean(shouldReroute);
+        output.writeInt(key.length());
+        output.write(key.get());
+    }
 }
