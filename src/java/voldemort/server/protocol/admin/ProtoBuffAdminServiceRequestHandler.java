@@ -472,22 +472,30 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
     /* Private helper methods */
     private VoldemortFilter getFilterFromRequest(VAdminProto.VoldemortFilter request) {
-        VoldemortFilter filter;
-        if(voldemortConfig.isNetworkClassLoaderEnabled()) {
-            byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
-            String className = request.getName();
+        VoldemortFilter filter = null;
 
-            try {
-                Class<?> cl = networkClassLoader.loadClass(className,
-                                                           classBytes,
-                                                           0,
-                                                           classBytes.length);
+        byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
+        String className = request.getName();
+
+        try {
+            if(voldemortConfig.isNetworkClassLoaderEnabled()) {
+                // TODO: network class loader was throwing NoClassDefFound for
+                // voldemort.server package classes, Need testing and fixes
+                // before can be reenabled.
+
+                // Class<?> cl = networkClassLoader.loadClass(className,
+                // classBytes,
+                // 0,
+                // classBytes.length);
+                // filter = (VoldemortFilter) cl.newInstance();
+                //                
+                throw new VoldemortException("NetworkLoader is experimental and is disabled for now.");
+            } else {
+                Class<?> cl = Thread.currentThread().getContextClassLoader().loadClass(className);
                 filter = (VoldemortFilter) cl.newInstance();
-            } catch(Exception e) {
-                throw new VoldemortException("Failed to load and instantiate the filter class", e);
             }
-        } else {
-            throw new VoldemortException("NetworkLoader is experimental and disabled by default.");
+        } catch(Exception e) {
+            throw new VoldemortException("Failed to load and instantiate the filter class", e);
         }
 
         return filter;
