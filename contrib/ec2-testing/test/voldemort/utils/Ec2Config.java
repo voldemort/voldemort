@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -224,17 +225,20 @@ public class Ec2Config extends RemoteTestConfig {
     }
 
     protected List<String> getRequiredPropertyNames() {
-        return Arrays.asList("ec2AccessId",
-                             "ec2SecretKey",
-                             "ec2Ami",
-                             "ec2KeyPairId",
-                             "ec2HostUserId",
-                             "ec2VoldemortRootDirectory",
-                             "ec2VoldemortHomeDirectory",
-                             "ec2SourceDirectory",
-                             "ec2ParentDirectory",
-                             "ec2ClusterXmlFile",
-                             "ec2InstanceCount");
+        // There's a reason we're making two lists: Arrays.asList makes an
+        // immutable list. However, we want to return a mutable list to the
+        // caller as subclasses may modify the list "in place."
+        return new ArrayList<String>(Arrays.asList("ec2AccessId",
+                                                   "ec2SecretKey",
+                                                   "ec2Ami",
+                                                   "ec2KeyPairId",
+                                                   "ec2HostUserId",
+                                                   "ec2VoldemortRootDirectory",
+                                                   "ec2VoldemortHomeDirectory",
+                                                   "ec2SourceDirectory",
+                                                   "ec2ParentDirectory",
+                                                   "ec2ClusterXmlFile",
+                                                   "ec2InstanceCount"));
     }
 
 }
