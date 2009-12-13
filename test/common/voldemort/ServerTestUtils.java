@@ -338,8 +338,8 @@ public class ServerTestUtils {
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
-        config.setStreamMaxReadBytesPerSec(10 * 1000);
-        config.setStreamMaxWriteBytesPerSec(10 * 1000);
+        config.setStreamMaxReadBytesPerSec(10 * 1000 * 1000);
+        config.setStreamMaxWriteBytesPerSec(10 * 1000 * 1000);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
