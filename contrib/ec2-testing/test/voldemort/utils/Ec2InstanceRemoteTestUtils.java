@@ -28,25 +28,25 @@ import voldemort.utils.impl.TypicaEc2Connection;
 
 public class Ec2InstanceRemoteTestUtils {
 
-    public static List<HostNamePair> createInstances(String ec2AccessId,
-                                                     String ec2SecretKey,
-                                                     String ec2Ami,
-                                                     String ec2KeyPairId,
-                                                     int count) throws Exception {
-        Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
-        return ec2.create(ec2Ami, ec2KeyPairId, Ec2Connection.Ec2InstanceType.DEFAULT, count);
+    public static List<HostNamePair> createInstances(Ec2Config ec2Config) throws Exception {
+        Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
+                                                    ec2Config.getSecretKey());
+        return ec2.create(ec2Config.getAmi(),
+                          ec2Config.getKeyPairId(),
+                          Ec2Connection.Ec2InstanceType.DEFAULT,
+                          ec2Config.getInstanceCount());
     }
 
-    public static void destroyInstances(String ec2AccessId,
-                                        String ec2SecretKey,
-                                        List<String> hostNames) throws Exception {
-        Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
+    public static void destroyInstances(List<String> hostNames, Ec2Config ec2Config)
+            throws Exception {
+        Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
+                                                    ec2Config.getSecretKey());
         ec2.delete(hostNames);
     }
 
-    public static List<HostNamePair> listInstances(String ec2AccessId, String ec2SecretKey)
-            throws Exception {
-        Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
+    public static List<HostNamePair> listInstances(Ec2Config ec2Config) throws Exception {
+        Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
+                                                    ec2Config.getSecretKey());
         return ec2.list();
     }
 
