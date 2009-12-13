@@ -20,7 +20,7 @@ import java.io.Serializable;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.store.views.ViewTransformation;
+import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -49,7 +49,7 @@ public class StoreDefinition implements Serializable {
     private final Integer retentionScanThrottleRate;
     private final String routingStrategyType;
     private final String viewOf;
-    private final ViewTransformation<?, ?, ?> valueTransformation;
+    private final View<?, ?, ?> valueTransformation;
 
     public StoreDefinition(String name,
                            String type,
@@ -63,7 +63,7 @@ public class StoreDefinition implements Serializable {
                            Integer preferredWrites,
                            int requiredWrites,
                            String viewOfStore,
-                           ViewTransformation<?, ?, ?> valTrans,
+                           View<?, ?, ?> valTrans,
                            Integer retentionDays,
                            Integer retentionThrottleRate) {
         this.name = Utils.notNull(name);
@@ -192,7 +192,7 @@ public class StoreDefinition implements Serializable {
         return this.valueTransformation != null;
     }
 
-    public ViewTransformation<?, ?, ?> getValueTransformation() {
+    public View<?, ?, ?> getValueTransformation() {
         return valueTransformation;
     }
 
