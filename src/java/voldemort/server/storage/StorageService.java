@@ -271,16 +271,19 @@ public class StorageService extends AbstractService {
     public void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store;
-            if(node.getId() != localNode
-               && !this.storeRepository.hasRedirectingSocketStore(def.getName(), node.getId())) {
-                store = new RedirectingSocketStore(def.getName(),
-                                                   new SocketDestination(node.getHost(),
-                                                                         node.getSocketPort(),
-                                                                         voldemortConfig.getRequestFormatType()),
-                                                   socketPool,
-                                                   false);
-                this.storeRepository.addRedirectingSocketStore(node.getId(), store);
-            }
+            // TODO: fix me
+            // if(node.getId() != localNode
+            // && !this.storeRepository.hasRedirectingSocketStore(def.getName(),
+            // node.getId())) {
+            // store = new RedirectingSocketStore(def.getName(),
+            // new SocketDestination(node.getHost(),
+            // node.getSocketPort(),
+            // voldemortConfig.getRequestFormatType()),
+            // socketPool,
+            // false);
+            // this.storeRepository.addRedirectingSocketStore(node.getId(),
+            // store);
+            // }
         }
     }
 
