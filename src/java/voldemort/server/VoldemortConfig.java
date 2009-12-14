@@ -116,6 +116,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
+    private boolean enableNetworkClassLoader;
 
     private List<String> storageConfigurations;
 
@@ -128,23 +129,6 @@ public class VoldemortConfig implements Serializable {
     private int adminStreamBufferSize;
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
-
-    public int getAdminSocketTimeout() {
-        return adminSocketTimeout;
-    }
-
-    public void setAdminSocketTimeout(int adminSocketTimeout) {
-        this.adminSocketTimeout = adminSocketTimeout;
-    }
-
-    public int getAdminConnectionTimeout() {
-        return adminConnectionTimeout;
-    }
-
-    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
-        this.adminConnectionTimeout = adminConnectionTimeout;
-    }
-
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
 
@@ -214,8 +198,8 @@ public class VoldemortConfig implements Serializable {
         this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 1 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 1 * 1000 * 1000);
+        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 10 * 1000 * 1000);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -269,6 +253,9 @@ public class VoldemortConfig implements Serializable {
         String requestFormatName = props.getString("request.format",
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
+
+        // network class loader disable by default.
+        this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
         validateParams();
     }
@@ -904,6 +891,22 @@ public class VoldemortConfig implements Serializable {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
     }
 
+    public int getAdminSocketTimeout() {
+        return adminSocketTimeout;
+    }
+
+    public void setAdminSocketTimeout(int adminSocketTimeout) {
+        this.adminSocketTimeout = adminSocketTimeout;
+    }
+
+    public int getAdminConnectionTimeout() {
+        return adminConnectionTimeout;
+    }
+
+    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
+        this.adminConnectionTimeout = adminConnectionTimeout;
+    }
+
     public String getReadOnlySearchStrategy() {
         return readOnlySearchStrategy;
     }
@@ -912,4 +915,11 @@ public class VoldemortConfig implements Serializable {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
     }
 
+    public boolean isNetworkClassLoaderEnabled() {
+        return enableNetworkClassLoader;
+    }
+
+    public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
+        this.enableNetworkClassLoader = enableNetworkClassLoader;
+    }
 }
