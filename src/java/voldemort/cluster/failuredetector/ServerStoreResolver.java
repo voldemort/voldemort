@@ -28,7 +28,8 @@ import voldemort.utils.ByteArray;
 /**
  * ServerStoreResolver is used to retrieve configuration data for a server
  * environment. The node->store mapping is not known at the early point in the
- * client lifecycle that it can be provided, so it is performed on demand.
+ * client lifecycle that it can be provided, so it is performed on demand using
+ * the {@link StoreRepository}.
  * 
  * @author Kirk True
  */

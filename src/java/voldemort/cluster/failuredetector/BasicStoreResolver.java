@@ -22,6 +22,14 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
+/**
+ * BasicStoreResolver is used to resolve Node->Store mappings when the mappings
+ * are already present at the time of FailureDetector implementation creation.
+ * This is usually (always) in the case of tests rather than running "live."
+ * 
+ * @author Kirk True
+ */
+
 public class BasicStoreResolver implements StoreResolver {
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;

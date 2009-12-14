@@ -20,12 +20,25 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
 
+/**
+ * A StoreResolver is used to return a Store given a Node. The act of resolving
+ * a store for a given node is not the same depending on your environment (in
+ * the server itself, on a client (and even further it depends on what transport
+ * is used for connecting to the server), unit tests, etc.). This helps to
+ * extract away the differences.
+ * 
+ * <p/>
+ * 
+ * This is used by some FailureDetector implementations to attempt contact with
+ * the node before marking said node as available.
+ * 
+ * @author Kirk True
+ */
+
 public interface StoreResolver {
 
     /**
-     * Returns a Store for this node. This is used by some FailureDetector
-     * implementations to attempt contact with the node before marking said node
-     * as available.
+     * Returns a Store for this node.
      * 
      * @param node Node to access
      * 

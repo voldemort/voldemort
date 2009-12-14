@@ -39,9 +39,9 @@ import voldemort.store.UnreachableStoreException;
  * @author jay
  * @author Kirk True
  * 
- * @see VoldemortConfig#getClientNodeBannageMs
- * @see ClientConfig#getNodeBannagePeriod
- * @see FailureDetectorConfig#getNodeBannagePeriod
+ * @see VoldemortConfig#getFailureDetectorBannagePeriod
+ * @see ClientConfig#getFailureDetectorBannagePeriod
+ * @see FailureDetectorConfig#getBannagePeriod
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")

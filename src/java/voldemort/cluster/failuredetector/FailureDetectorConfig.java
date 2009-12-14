@@ -27,7 +27,9 @@ import voldemort.utils.Utils;
 
 /**
  * FailureDetectorConfig simply holds all the data that was available to it upon
- * construction.
+ * construction. A FailureDetectorConfig is usually passed to
+ * {@link FailureDetectorUtils}'s {@link FailureDetectorUtils#create create}
+ * method to create a full-blown {@link FailureDetector} instance.
  * 
  * @author Kirk True
  */
@@ -68,9 +70,33 @@ public class FailureDetectorConfig {
 
     protected Time time = SystemTime.INSTANCE;
 
+    /**
+     * Constructs a new FailureDetectorConfig using all the defaults. This is
+     * usually used in the case of unit tests.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: the {@link #setNodes(Collection)} and
+     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * <i>complete</i> configuration.
+     */
+
     public FailureDetectorConfig() {
 
     }
+
+    /**
+     * Constructs a new FailureDetectorConfig from a server perspective (via
+     * {@link VoldemortConfig}).
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: the {@link #setNodes(Collection)} and
+     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * <i>complete</i> configuration.
+     * 
+     * @param config {@link VoldemortConfig} instance
+     */
 
     public FailureDetectorConfig(VoldemortConfig config) {
         setImplementationClassName(config.getFailureDetectorImplementation());
@@ -81,6 +107,19 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setJmxEnabled(config.isJmxEnabled());
     }
+
+    /**
+     * Constructs a new FailureDetectorConfig from a client perspective (via
+     * {@link ClientConfig}).
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: the {@link #setNodes(Collection)} and
+     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * <i>complete</i> configuration.
+     * 
+     * @param config {@link ClientConfig} instance
+     */
 
     public FailureDetectorConfig(ClientConfig config) {
         setImplementationClassName(config.getFailureDetectorImplementation());
@@ -97,11 +136,25 @@ public class FailureDetectorConfig {
      * implementation.
      * 
      * @return Class name to instantiate for the FailureDetector
+     * 
+     * @see VoldemortConfig#getFailureDetectorImplementation
+     * @see ClientConfig#getFailureDetectorImplementation
      */
 
     public String getImplementationClassName() {
         return implementationClassName;
     }
+
+    /**
+     * Assigns the fully-qualified class name of the FailureDetector
+     * implementation.
+     * 
+     * @param implementationClassName Class name to instantiate for the
+     *        FailureDetector
+     * 
+     * @see VoldemortConfig#getFailureDetectorImplementation
+     * @see ClientConfig#getFailureDetectorImplementation
+     */
 
     public FailureDetectorConfig setImplementationClassName(String implementationClassName) {
         this.implementationClassName = Utils.notNull(implementationClassName);
@@ -114,40 +167,141 @@ public class FailureDetectorConfig {
      * for a specified period of time before attempting to access the node again
      * once it has become unavailable.
      * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link BannagePeriodFailureDetector} implementation.
+     * 
      * @return Period of bannage of a node, in milliseconds
      * 
-     * @see VoldemortConfig#getClientNodeBannageMs
-     * @see ClientConfig#getNodeBannagePeriod
+     * @see BannagePeriodFailureDetector
+     * @see VoldemortConfig#getFailureDetectorBannagePeriod
+     * @see ClientConfig#getFailureDetectorBannagePeriod
      */
 
     public long getBannagePeriod() {
         return bannagePeriod;
     }
 
+    /**
+     * Assigns the node bannage period (in milliseconds) as defined by the
+     * client or server configuration. Some FailureDetector implementations wait
+     * for a specified period of time before attempting to access the node again
+     * once it has become unavailable.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link BannagePeriodFailureDetector} implementation.
+     * 
+     * @param bannagePeriod Period of bannage of a node, in milliseconds
+     * 
+     * @see BannagePeriodFailureDetector
+     * @see VoldemortConfig#getFailureDetectorBannagePeriod
+     * @see ClientConfig#getFailureDetectorBannagePeriod
+     */
+
     public FailureDetectorConfig setBannagePeriod(long bannagePeriod) {
         this.bannagePeriod = bannagePeriod;
         return this;
     }
 
+    /**
+     * Returns the success threshold percentage with an integer value between 0
+     * and 100. Some FailureDetector implementations will mark a node as
+     * unavailable if the ratio of successes to total requests for that node
+     * falls under this threshold.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Integer percentage representing success threshold
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThreshold
+     * @see ClientConfig#getFailureDetectorThreshold
+     */
+
     public int getThreshold() {
         return threshold;
     }
 
+    /**
+     * Assigns the success threshold percentage with an integer value between 0
+     * and 100. Some FailureDetector implementations will mark a node as
+     * unavailable if the ratio of successes to total requests for that node
+     * falls under this threshold.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param threshold Integer percentage representing success threshold
+     * 
+     * @exception IllegalArgumentException Thrown if the threshold parameter is
+     *            outside the range [0..100]
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThreshold
+     * @see ClientConfig#getFailureDetectorThreshold
+     */
+
     public FailureDetectorConfig setThreshold(int threshold) {
-        if(threshold <= 0)
-            throw new IllegalArgumentException("threshold must be greater than 0");
+        if(threshold < 0 || threshold > 100)
+            throw new IllegalArgumentException("threshold must be in the range (0..100)");
 
         this.threshold = threshold;
         return this;
     }
 
+    /**
+     * Returns the minimum number of requests that must occur before the success
+     * ratio is calculated to compare against the success threshold percentage.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Integer representing the minimum number of requests (per node)
+     *         that must be processed before the threshold is checked
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThreshold
+     * @see ClientConfig#getFailureDetectorThreshold
+     */
+
     public int getThresholdCountMinimum() {
         return thresholdCountMinimum;
     }
 
+    /**
+     * Assigns the minimum number of requests that must occur before the success
+     * ratio is calculated to compare against the success threshold percentage.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param thresholdCountMinimum Integer representing the minimum number of
+     *        requests (per node) that must be processed before the threshold is
+     *        checked
+     * 
+     * @exception IllegalArgumentException Thrown if the thresholdCountMinimum
+     *            parameter is outside the range [0..Integer.MAX_VALUE]
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThreshold
+     * @see ClientConfig#getFailureDetectorThreshold
+     */
+
     public FailureDetectorConfig setThresholdCountMinimum(int thresholdCountMinimum) {
-        if(threshold <= 0)
-            throw new IllegalArgumentException("thresholdCountMinimum must be greater than 0");
+        if(threshold < 0)
+            throw new IllegalArgumentException("thresholdCountMinimum must be greater than or equal to 0");
 
         this.thresholdCountMinimum = thresholdCountMinimum;
         return this;
@@ -185,12 +339,19 @@ public class FailureDetectorConfig {
      * detector configuration.
      * 
      * @return Collection of Node instances, usually determined from the Cluster
-     *         object (except in the case of unit tests, perhaps)
      */
 
     public Collection<Node> getNodes() {
         return nodes;
     }
+
+    /**
+     * Assigns a list of nodes in the cluster represented by this failure
+     * detector configuration.
+     * 
+     * @param nodes Collection of Node instances, usually determined from the
+     *        Cluster; must be non-null
+     */
 
     public FailureDetectorConfig setNodes(Collection<Node> nodes) {
         this.nodes = Utils.notNull(nodes);

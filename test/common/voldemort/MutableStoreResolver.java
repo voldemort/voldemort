@@ -13,6 +13,16 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+/**
+ * MutableStoreResolver is used when we want to simulate a downed node during
+ * testing. For a given Node we can update this StoreResolver to return a null
+ * Store instance. This will cause implementations that use Stores as a means of
+ * node availability discovery to fail (which we want to be able to control for
+ * our tests).
+ * 
+ * @author Kirk True
+ */
+
 public class MutableStoreResolver extends BasicStoreResolver {
 
     private Map<Integer, Boolean> nullStores;
