@@ -272,6 +272,13 @@ public class StorageService extends AbstractService {
         return store;
     }
 
+    /**
+     *TODO: we need to add new node as redirecting Store here as well.
+     * 
+     * @param def
+     * @param cluster
+     * @param localNode
+     */
     public void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store;
