@@ -230,19 +230,58 @@ public class StorageService extends AbstractService {
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
+        if(!this.storeRepository.hasRoutedStore(def.getName())) {
+            Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
+                                                                   nodeStores,
+                                                                   cluster,
+                                                                   def,
+                                                                   true,
+                                                                   this.clientThreadPool,
+                                                                   voldemortConfig.getRoutingTimeoutMs(),
+                                                                   voldemortConfig.getClientNodeBannageMs(),
+                                                                   SystemTime.INSTANCE);
+            routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                             new VectorClockInconsistencyResolver<byte[]>());
+            this.storeRepository.addRoutedStore(routedStore);
+        }
+    }
 
-        Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
-                                                               nodeStores,
-                                                               cluster,
-                                                               def,
-                                                               true,
-                                                               this.clientThreadPool,
-                                                               voldemortConfig.getRoutingTimeoutMs(),
-                                                               voldemortConfig.getClientNodeBannageMs(),
-                                                               SystemTime.INSTANCE);
-        routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                         new VectorClockInconsistencyResolver<byte[]>());
-        this.storeRepository.addRoutedStore(routedStore);
+    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node, int localNode) {
+        Store<ByteArray, byte[]> store;
+        if(node.getId() == localNode) {
+            store = this.storeRepository.getLocalStore(storeName);
+        } else {
+            store = new SocketStore(storeName,
+                                    new SocketDestination(node.getHost(),
+                                                          node.getSocketPort(),
+                                                          voldemortConfig.getRequestFormatType()),
+                                    socketPool,
+                                    false);
+        }
+        return store;
+    }
+
+    /**
+     *TODO: we need to add new node as redirecting Store here as well.
+     * 
+     * @param def
+     * @param cluster
+     * @param localNode
+     */
+    public void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
+        for(Node node: cluster.getNodes()) {
+            Store<ByteArray, byte[]> store;
+            if(node.getId() != localNode
+               && !this.storeRepository.hasRedirectingSocketStore(def.getName(), node.getId())) {
+                store = new RedirectingSocketStore(def.getName(),
+                                                   new SocketDestination(node.getHost(),
+                                                                         node.getSocketPort(),
+                                                                         voldemortConfig.getRequestFormatType()),
+                                                   socketPool,
+                                                   false);
+                this.storeRepository.addRedirectingSocketStore(node.getId(), store);
+            }
+        }
     }
 
     /**

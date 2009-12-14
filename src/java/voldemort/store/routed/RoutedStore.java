@@ -95,10 +95,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private final long timeoutMs;
     private final long nodeBannageMs;
     private final Time time;
-    private final Cluster cluster;
     private final StoreDefinition storeDef;
 
-    private final RoutingStrategy routingStrategy;
+    private RoutingStrategy routingStrategy;
 
     /**
      * Create a RoutedStoreClient
@@ -172,10 +171,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.timeoutMs = timeoutMs;
         this.nodeBannageMs = nodeBannageMs;
         this.time = Utils.notNull(time);
-        this.cluster = cluster;
         this.storeDef = storeDef;
 
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
+    }
+
+    protected void updateRoutingStrategy(RoutingStrategy routingStrategy) {
+        logger.info("Updating routing strategy for RoutedStore:" + getName());
+        this.routingStrategy = routingStrategy;
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
@@ -694,11 +697,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
                         failures.add(e);
-                    } catch (ObsoleteVersionException e) {
+                    } catch(ObsoleteVersionException e) {
                         // Do not log ObsoleteVersionException
                         failures.add(e);
-                    }
-                    catch(Exception e) {
+                    } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
                                     + ")", e);
                         failures.add(e);
