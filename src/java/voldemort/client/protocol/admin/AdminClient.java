@@ -482,6 +482,31 @@ public class AdminClient {
     }
 
     /**
+     * Delete the store completely (<b>Deletes all Data</b>) from the remote
+     * node.
+     * <p>
+     * 
+     * @param nodeId
+     * @param storeName
+     */
+    public void truncate(int nodeId, String storeName) {
+        VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
+                                                                                                       .setStore(storeName);
+
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                     .setType(VAdminProto.AdminRequestType.TRUNCATE_ENTRIES)
+                                                                                     .setTruncateEntries(truncateRequest)
+                                                                                     .build();
+        VAdminProto.TruncateEntriesResponse.Builder response = sendAndReceive(nodeId,
+                                                                              request,
+                                                                              VAdminProto.TruncateEntriesResponse.newBuilder());
+
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+    }
+
+    /**
      * Get the status of an Async Operation running at (remote) node.
      * 
      * <b>If The operation is complete, then the operation will be removed from

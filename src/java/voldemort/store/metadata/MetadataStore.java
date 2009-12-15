@@ -297,6 +297,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new VoldemortException("You cannot iterate over all keys in Metadata");
     }
 
+    public void truncate() {
+        throw new VoldemortException("You cannot truncate entries in Metadata");
+    }
+
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new VoldemortException("You cannot delete your metadata fool !!");
     }

@@ -313,6 +313,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                                 + getClass().getName());
     }
 
+    public void truncate() {
+        throw new UnsupportedOperationException("Truncation is not supported for "
+                                                + getClass().getName());
+    }
+
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         byte[] keyMd5 = ByteUtils.md5(key.get());

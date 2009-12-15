@@ -84,6 +84,11 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
         return inner.keys();
     }
 
+    public void truncate() {
+        blockIfNecessary();
+        inner.deleteAll();
+    }
+
     public List<Version> getVersions(K key) {
         blockIfNecessary();
         return inner.getVersions(key);

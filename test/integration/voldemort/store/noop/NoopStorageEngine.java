@@ -61,6 +61,10 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return null;
     }
 
+    public void truncate() {
+
+    }
+
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         return dataList;
     }

@@ -117,6 +117,23 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return StoreUtils.keys(entries());
     }
 
+    public void truncate() {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        String select = "delete from " + name;
+        try {
+            conn = datasource.getConnection();
+            stmt = conn.prepareStatement(select);
+            stmt.executeUpdate();
+        } catch(SQLException e) {
+            throw new PersistenceFailureException("Fix me!", e);
+        }
+        finally {
+            tryClose(stmt);
+            tryClose(conn);
+        }
+    }
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
         PreparedStatement stmt = null;

@@ -48,7 +48,8 @@ public class AdminServiceFailureTest extends TestCase {
         FETCH_ENTRIES,
         FETCH_KEYS,
         DELETE_PARTITIONS,
-        UPDATE_ENTRIES
+        UPDATE_ENTRIES,
+        TRUNCATE_ENTRIES
     }
 
     @Override
@@ -161,6 +162,11 @@ public class AdminServiceFailureTest extends TestCase {
                                                getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
                                                null);
                 return;
+            case TRUNCATE_ENTRIES:
+                putAlltoStore();
+                getAdminClient().truncate(nodeId, storeName);
+                return;
+
             default:
                 throw new RuntimeException("Unknown operation");
         }

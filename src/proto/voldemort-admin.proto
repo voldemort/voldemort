@@ -87,6 +87,14 @@ message AsyncOperationStatusResponse {
   optional Error error = 5;
 }
 
+message TruncateEntriesRequest {
+  required string store = 1;
+}
+
+message TruncateEntriesResponse {
+  optional Error error = 1;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -95,6 +103,7 @@ enum AdminRequestType {
   DELETE_PARTITION_ENTRIES = 4;
   INITIATE_FETCH_AND_UPDATE = 5;
   ASYNC_OPERATION_STATUS = 6;
+  TRUNCATE_ENTRIES = 7;
 }
 
 message VoldemortAdminRequest {
@@ -106,6 +115,7 @@ message VoldemortAdminRequest {
   optional DeletePartitionEntriesRequest delete_partition_entries = 6;
   optional InitiateFetchAndUpdateRequest initiate_fetch_and_update = 7;
   optional AsyncOperationStatusRequest async_operation_status = 8;
+  optional TruncateEntriesRequest truncate_entries = 9;
 }
 
 
