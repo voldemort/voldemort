@@ -59,10 +59,12 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 /**
- * AdminClient is intended for administrative functionality that is useful and often needed, but should be used
- * sparingly (if at all) at the application level. Some of the uses of AdminClient include the extraction of data,
- * backups, bulk loads as well as the (presently in development) rebalancing feature.
- *
+ * AdminClient is intended for administrative functionality that is useful and
+ * often needed, but should be used sparingly (if at all) at the application
+ * level. Some of the uses of AdminClient include the extraction of data,
+ * backups, bulk loads as well as the (presently in development) rebalancing
+ * feature.
+ * 
  * @author afeinberg,bbansal
  */
 public class AdminClient {
@@ -72,21 +74,23 @@ public class AdminClient {
     private final SocketPool pool;
     private final NetworkClassLoader networkClassLoader;
     private static final ClusterMapper clusterMapper = new ClusterMapper();
-    private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();                           
+    private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
-    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential back off once we're waiting this long
-
+    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential
+    // back off once we're
+    // waiting this long
 
     private Cluster cluster;
 
     /**
-     * Create an instance of Admin Client given a cluster-wide bootstrap URL. In this case,
-     * we will obtain the cluster metadata by contacting the boostrap node.
-     *
+     * Create an instance of Admin Client given a bootstrap server URL. The
+     * bootstrap URL is used to get the cluster metadata.
+     * 
      * @param bootstrapURL URL pointing to the boostrap node
-     * @param config Configuration for a Voldemort client (not specific to Admin API)
+     * @param config Configuration for a Voldemort client (not specific to Admin
+     *        API)
      */
     public AdminClient(String bootstrapURL, ClientConfig config) {
         config.setBootstrapUrls(bootstrapURL);
@@ -98,10 +102,12 @@ public class AdminClient {
     }
 
     /**
-     * Create an instance of Admin Client given the metadata in a cluster object.
-     *
-     * @param cluster Initialized cluster object, describing the nodes we wish to contact
-     * @param config Configuration for a Voldemort client (not specific to Admin API)
+     * Create an instance of AdminClient given a {@link Cluster} object.
+     * 
+     * @param cluster Initialized cluster object, describing the nodes we wish
+     *        to contact
+     * @param config Configuration for a Voldemort client (not specific to Admin
+     *        API)
      */
     public AdminClient(Cluster cluster, ClientConfig config) {
         this.cluster = cluster;
@@ -153,22 +159,28 @@ public class AdminClient {
     }
 
     /**
-     * Update key/value entries for a specific store on a remote node given an iterator of the entries.
-     * The entries are <em>streamed</em> from the client to the server:
+     * Update key/value entries for a specific store on a remote node given an
+     * iterator of the entries. The entries are <em>streamed</em> from the
+     * client to the server:
      * <ol>
-     * <li>Client performs a handshake with the server (sending in the update entries request with a
-     * store name and a {@link VoldemortFilter} instance.</li>
-     * <li>While {@param entryIterator} has entries, the client will keep sending the updates one after
-     * another to the server, buffering the data, without waiting for a response from the server.</li>
-     * <li>After iteration is complete, send an end of stream message, force a flush of the buffer, check the
-     * response on the server to check if a {@link VoldemortException} has occured.</li>
-     * </ol>
+     * <li>Client performs a handshake with the server (sending in the update
+     * entries request with a store name and a {@link VoldemortFilter} instance.
+     * </li>
+     * <li>While
+     * 
+     * @param entryIterator has entries, the client will keep sending the
+     *        updates one after another to the server, buffering the data,
+     *        without waiting for a response from the server.</li> <li>After
+     *        iteration is complete, send an end of stream message, force a
+     *        flush of the buffer, check the response on the server to check if
+     *        a {@link VoldemortException} has occured.</li>
+     *        </ol>
      * 
      * @param nodeId Id of the remote node (where we wish to update the entries)
      * @param storeName Store name for the entries
      * @param entryIterator Iterator of key-value pairs for the entries
-     * @param filter: <imp>Do not Update entries filtered out (returned false)
-     *        from the {@link VoldemortFilter} implementation</imp>
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be updated.
      * @throws VoldemortException
      */
     public void updateEntries(int nodeId,
@@ -250,7 +262,8 @@ public class AdminClient {
     }
 
     private VAdminProto.FetchPartitionEntriesResponse responseFromStream(DataInputStream inputStream,
-                                                                 int size) throws IOException {
+                                                                         int size)
+            throws IOException {
         byte[] input = new byte[size];
         ByteUtils.read(inputStream, input);
         VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -260,26 +273,32 @@ public class AdminClient {
     }
 
     /**
-     * Fetch all key/value entries belong to the partitions listed from the server to the client. Just like
-     * {@link AdminClient#updateEntries}, this is a streaming API. The server keeps sending the messages as it's
-     * iterating over the data. Once iteration has finished, the server sends an "end of stream" marker and flushes its
-     * buffer. A response indicating a {@link VoldemortException} may be sent at any time during the process.
-     *
-     * Entries are being streamed <em>as the iteration happens</em>; that is, the whole result set is <b>not</b>
-     * buffered in memory.
+     * Fetch all key/value entries belong to the partitions listed from the
+     * server to the client.
+     * <p>
+     * 
+     * <b>this is a streaming API.</b> The server keeps sending the messages as
+     * it's iterating over the data. Once iteration has finished, the server
+     * sends an "end of stream" marker and flushes its buffer. A response
+     * indicating a {@link VoldemortException} may be sent at any time during
+     * the process.<br>
+     * 
+     * Entries are being streamed <em>as the iteration happens</em> the whole
+     * result set is <b>not</b> buffered in memory.
      * 
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param partitionList List of the partitions
-     * @param filter: <imp>Do not fetch entries filtered out (returned false)
-     *        from the {@link VoldemortFilter} implementation</imp>
-     * @return An iterator which allows entries to be streamed as they're being iterated over.
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
      * @throws VoldemortException
      */
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchPartitionEntries(int nodeId,
-                                                                              String storeName,
-                                                                              List<Integer> partitionList,
-                                                                              VoldemortFilter filter) {
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitionList,
+                                                                     VoldemortFilter filter) {
         Node node = this.getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -330,18 +349,20 @@ public class AdminClient {
     }
 
     /**
-     * Identical to {@link AdminClient#fetchPartitionEntries} but will <em>only fetch the keys</em>
-     *
-     * @param nodeId See documentation for {@link AdminClient#fetchPartitionEntries}
-     * @param storeName See documentation for {@link AdminClient#fetchPartitionEntries}
-     * @param partitionList See documentation for {@link AdminClient#fetchPartitionEntries}
-     * @param filter See documentation for {@link AdminClient#fetchPartitionEntries}
-     * @return See documentation for {@link AdminClient#fetchPartitionEntries}
+     * Identical to {@link AdminClient#fetchEntries} but will
+     * <em>only fetch the keys</em>
+     * 
+     * @param nodeId See documentation for {@link AdminClient#fetchEntries}
+     * @param storeName See documentation for {@link AdminClient#fetchEntries}
+     * @param partitionList See documentation for
+     *        {@link AdminClient#fetchEntries}
+     * @param filter See documentation for {@link AdminClient#fetchEntries}
+     * @return See documentation for {@link AdminClient#fetchEntries}
      */
-    public Iterator<ByteArray> fetchPartitionKeys(int nodeId,
-                                                  String storeName,
-                                                  List<Integer> partitionList,
-                                                  VoldemortFilter filter) {
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         List<Integer> partitionList,
+                                         VoldemortFilter filter) {
         Node node = this.getCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -389,19 +410,26 @@ public class AdminClient {
     }
 
     /**
-     * Update entries in a list of partitions on one node as we're streaming them from another. This is
-     * a background operation (see {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the node on
-     * which the updates are performed (the "stealer" node). See {@link AdminClient#updateEntries} for
-     * more informaiton on the "streaming" mode.
-     *  
-     * @param donorNodeId Node <em>from</em> which the partitions are to be streamed.
-     * @param stealerNodeId Node <em>to</em> which the partitions are to be streamed.
+     * Fetch key/value entries from donorNodeId and Update entries at
+     * stealerNodeId for the requested storeName and given partitionList.
+     * <p>
+     * This is a background operation (see
+     * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
+     * node on which the updates are performed (the "stealer" node). See
+     * {@link AdminClient#updateEntries} for more informaiton on the "streaming"
+     * mode.
+     * 
+     * @param donorNodeId Node <em>from</em> which the partitions are to be
+     *        streamed.
+     * @param stealerNodeId Node <em>to</em> which the partitions are to be
+     *        streamed.
      * @param storeName Name of the store to stream.
      * @param stealList List of partitions to stream.
-     * @param filter <imp>Do not stream entries filtered out (returned false)
-     *        from the {@link VoldemortFilter} implementation</imp>.
-     * @return The value of the {@link voldemort.server.protocol.admin.AsyncOperation} created on stealerNodeId which
-     * is performing the operation.
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be deleted.
+     * @return The value of the
+     *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
+     *         stealerNodeId which is performing the operation.
      */
     public int fetchAndUpdateStreams(int donorNodeId,
                                      int stealerNodeId,
@@ -436,9 +464,12 @@ public class AdminClient {
     }
 
     /**
-     * Get the status of an {@link voldemort.server.protocol.admin.AsyncOperation} which is running on nodeId. If
-     * The operation is complete, then the operation will be removed from a list of currently running operations.
-     *
+     * Get the status of an
+     * {@link voldemort.server.protocol.admin.AsyncOperation} which is running
+     * on nodeId.<br>
+     * <b>If The operation is complete, then the operation will be removed from
+     * a list of currently running operations.</b>
+     * 
      * @param nodeId Id on which the operation is running
      * @param requestId Id of the operation itself
      * @return The status of the operation
@@ -476,14 +507,14 @@ public class AdminClient {
     }
 
     /**
-     * Delete all entries in store storeName on (remote) node nodeId which are specified in the list of
-     * partitions (partitionList).
+     * Delete all entries belonging to partitions in requested partitionList for
+     * given storeName on (remote) node nodeId.
      * 
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
      * @param partitionList List of partitions to delete.
-     * @param filter: <imp>Do not Delete entries filtered out (returned false)
-     *        from the {@link VoldemortFilter} implementation</imp>
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be deleted.
      * @throws VoldemortException
      * @return Number of partitions deleted
      */
@@ -534,8 +565,11 @@ public class AdminClient {
     }
 
     /**
-     * Wait for a task to finish completion, using exponential backoff to poll
-     * the task completion status.
+     * Wait for async task at (remote) nodeId to finish completion, using
+     * exponential backoff to poll the task completion status.
+     * <p>
+     * 
+     * <i>Logs the status at each status check if debug is enabled.</i>
      * 
      * @param nodeId Id of the node to poll
      * @param requestId Id of the request to check
@@ -551,6 +585,8 @@ public class AdminClient {
 
         while(System.currentTimeMillis() < waitUntil) {
             AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+            logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
+                         + status);
             if(status.isComplete())
                 return;
             if(delay < MAX_DELAY) {
@@ -567,11 +603,14 @@ public class AdminClient {
                                      + maxWait + " " + timeUnit.toString());
     }
 
-
     /**
-     * Update metadata on a remote node. Metadata includes information about cluster geometry,
-     * the stores available, the present state of the cluster. See {@link voldemort.store.metadata.MetadataStore}
-     * for more information.
+     * Update metadata at the given remoteNodeId.<br>
+     * 
+     * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
+     * eg.<br>
+     * <li>cluster metadata (cluster.xml as string) <li>stores definitions
+     * (stores.xml as string) <li>Server states <br <br>
+     * See {@link voldemort.store.metadata.MetadataStore} for more information.
      * 
      * @param remoteNodeId Id of the node
      * @param key Metadata key to update
@@ -598,10 +637,13 @@ public class AdminClient {
     }
 
     /**
-     * Get the metadata on a remote node. See {@link AdminClient#updateRemoteMetadata)} for more documentation.
+     * Get the metadata on a remote node. See
+     * {@link AdminClient#updateRemoteMetadata)} for more documentation.
      * 
-     * @param remoteNodeId See {@link AdminClient#updateRemoteMetadata)} for documentation.
-     * @param key See {@link AdminClient#updateRemoteMetadata)} for documentation.
+     * @param remoteNodeId See {@link AdminClient#updateRemoteMetadata)} for
+     *        documentation.
+     * @param key See {@link AdminClient#updateRemoteMetadata)} for
+     *        documentation.
      * @return Metadata with its associated {@link voldemort.versioning.Version}
      */
     public Versioned<String> getRemoteMetadata(int remoteNodeId, String key) {
@@ -624,7 +666,8 @@ public class AdminClient {
     }
 
     /**
-     * Update the cluster information {@link MetadataStore#CLUSTER_KEY} on a remote node.
+     * Update the cluster information {@link MetadataStore#CLUSTER_KEY} on a
+     * remote node.
      * 
      * @param nodeId Id of the remote node
      * @param cluster The new cluster object
@@ -679,7 +722,9 @@ public class AdminClient {
     }
 
     /**
-     * Update the server state ({@link voldemort.store.metadata.MetadataStore.VoldemortState}) on a remote node.
+     * Update the server state (
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) on a
+     * remote node.
      */
     public void updateRemoteServerState(int nodeId, MetadataStore.VoldemortState state) {
         VectorClock oldClock = (VectorClock) getRemoteServerState(nodeId).getVersion();
@@ -691,8 +736,9 @@ public class AdminClient {
     }
 
     /**
-     * Retrieve the server state ({@link voldemort.store.metadata.MetadataStore.VoldemortState} from
-     * a remote node.
+     * Retrieve the server state (
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState} from a
+     * remote node.
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);

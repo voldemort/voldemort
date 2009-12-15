@@ -35,8 +35,7 @@ public class AdminTest {
         void apply();
     }
 
-    private static final String usageStr = "Usage: $VOLDEMORT_HOME/bin/admin-test.sh \\\n"
-                                           + "\t [options] bootstrapUrl storeName";
+    private static final String usageStr = "Usage: $VOLDEMORT_HOME/bin/admin-test.sh  [options] bootstrapUrl storeName";
 
     public AdminTest(String bootstrapUrl, String storeName) {
         this(bootstrapUrl, storeName, false);
@@ -133,7 +132,7 @@ public class AdminTest {
 
                 public long apply() {
                     long i = 0;
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchPartitionEntries(node,
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
                                                                                                             storeName,
                                                                                                             new ArrayList<Integer>(nodePartitions.get(node)),
                                                                                                             null);
@@ -183,6 +182,11 @@ public class AdminTest {
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = options.nonOptionArguments();
+
+        if(args.length < 2) {
+            System.out.println(usageStr);
+            return;
+        }
 
         String bootstrapUrl = nonOptions.get(0);
         String storeName = nonOptions.get(1);

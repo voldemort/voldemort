@@ -304,10 +304,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                 AdminClient adminClient = createTempAdminClient();
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
-                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
-                                                                                                                                                     storeName,
-                                                                                                                                                     partitions,
-                                                                                                                                                     filter);
+                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                                            storeName,
+                                                                                                                                            partitions,
+                                                                                                                                            filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
                                                     for(long i = 0; entriesIterator.hasNext(); i++) {

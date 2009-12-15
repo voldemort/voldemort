@@ -203,7 +203,7 @@ public class AdminServiceBasicTest extends TestCase {
             }
         }
 
-        Iterator<ByteArray> fetchIt = getAdminClient().fetchPartitionKeys(0,
+        Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
                                                                           testStoreName,
                                                                           fetchPartitionsList,
                                                                           null);
@@ -236,7 +236,7 @@ public class AdminServiceBasicTest extends TestCase {
             }
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchPartitionEntries(0,
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
                                                                                                       testStoreName,
                                                                                                       fetchPartitionsList,
                                                                                                       null);

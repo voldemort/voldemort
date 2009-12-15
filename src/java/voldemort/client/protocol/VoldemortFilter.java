@@ -16,31 +16,18 @@
 
 package voldemort.client.protocol;
 
+import voldemort.server.VoldemortConfig;
 import voldemort.versioning.Versioned;
 
 /**
  * A filter API to provide client a way to filter entries on server side for
- * streaming APIs.<br>
- * Clients can write custom implementation of FilterRequest to implement server
- * side filtering for
- * <ul>
- * <li>
- * {@link AdminClientOLD#deletePartitions(int, String, java.util.List, VoldemortFilter)}
- * </li>
- * <li>
- * {@link AdminClientOLD#fetchPartitionEntries(int, String, java.util.List, VoldemortFilter)}
- * </li>
- * <li>
- * {@link AdminClientOLD#fetchPartitionKeys(int, String, java.util.List, VoldemortFilter)}
- * </li>
- * <li>
- * {@link AdminClientOLD#updateEntries(int, String, java.util.Iterator, VoldemortFilter)}
- * </li>
- * </ul>
+ * streaming APIs.
+ * <p>
  * 
- * <imp> The implementation class maybe transferred over wire and loaded in a
- * different JVM. please make sure to make the class either public or a static
- * inner class so that it can be loaded w/o parent object if needed. </imp>
+ * <i> If {@link VoldemortConfig#isNetworkClassLoaderEnabled()} is enabled, then
+ * implementation class maybe transferred over wire and loaded in a different
+ * JVM. please make sure to make the class either public or a static inner class
+ * so that it can be loaded w/o parent object if needed. </i>
  * 
  * @author bbansal
  */
