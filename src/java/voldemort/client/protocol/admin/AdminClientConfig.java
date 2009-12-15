@@ -1,10 +1,9 @@
-package voldemort.client.rebalance;
+package voldemort.client.protocol.admin;
 
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.ClientConfig;
-import voldemort.client.protocol.admin.AdminClient;
 import voldemort.utils.Props;
 
 /**
