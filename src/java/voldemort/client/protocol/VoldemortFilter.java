@@ -16,7 +16,6 @@
 
 package voldemort.client.protocol;
 
-import voldemort.client.protocol.admin.AdminClient;
 import voldemort.versioning.Versioned;
 
 /**
@@ -26,16 +25,16 @@ import voldemort.versioning.Versioned;
  * side filtering for
  * <ul>
  * <li>
- * {@link AdminClient#deletePartitions(int, String, java.util.List, VoldemortFilter)}
+ * {@link AdminClientOLD#deletePartitions(int, String, java.util.List, VoldemortFilter)}
  * </li>
  * <li>
- * {@link AdminClient#fetchPartitionEntries(int, String, java.util.List, VoldemortFilter)}
+ * {@link AdminClientOLD#fetchPartitionEntries(int, String, java.util.List, VoldemortFilter)}
  * </li>
  * <li>
- * {@link AdminClient#fetchPartitionKeys(int, String, java.util.List, VoldemortFilter)}
+ * {@link AdminClientOLD#fetchPartitionKeys(int, String, java.util.List, VoldemortFilter)}
  * </li>
  * <li>
- * {@link AdminClient#updateEntries(int, String, java.util.Iterator, VoldemortFilter)}
+ * {@link AdminClientOLD#updateEntries(int, String, java.util.Iterator, VoldemortFilter)}
  * </li>
  * </ul>
  * 

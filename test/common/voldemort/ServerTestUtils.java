@@ -35,7 +35,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -362,7 +362,7 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(Cluster cluster) {
+    public static AdminClient getAdminClient(Cluster cluster) {
 
         ClientConfig config = new ClientConfig();
         config.setMaxConnectionsPerNode(2);
@@ -370,17 +370,17 @@ public class ServerTestUtils {
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
-        return new ProtoBuffAdminClientRequestFormat(cluster, config);
+        return new AdminClient(cluster, config);
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(String bootstrapURL) {
+    public static AdminClient getAdminClient(String bootstrapURL) {
         ClientConfig config = new ClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
-        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);
+        return new AdminClient(bootstrapURL, config);
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {

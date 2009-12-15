@@ -30,7 +30,6 @@ import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -337,8 +336,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                         TimeUnit.MILLISECONDS);
                                                 config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
-                                                return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
-                                                                                             config);
+                                                return new AdminClient(metadataStore.getCluster(),
+                                                                       config);
                                             }
                                         });
 

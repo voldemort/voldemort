@@ -43,7 +43,6 @@ public class AdminServiceFailureTest extends TestCase {
     private Cluster cluster;
     private SocketService adminServer;
     StorageEngine<ByteArray, byte[]> failingStorageEngine;
-    private Thread thread;
 
     private enum StreamOperations {
         FETCH_ENTRIES,

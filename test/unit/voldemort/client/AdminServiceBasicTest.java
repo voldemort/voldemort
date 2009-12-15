@@ -179,9 +179,6 @@ public class AdminServiceBasicTest extends TestCase {
         // do delete partitions request
         getAdminClient().deletePartitions(0, testStoreName, deletePartitionsList, null);
 
-        RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
-                                                               .getRoutingStrategy(testStoreName);
-
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
@@ -191,7 +188,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
-    public void testFetchPartitionKeys() throws IOException {
+    public void testFetchPartitionKeys() {
 
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
@@ -225,7 +222,7 @@ public class AdminServiceBasicTest extends TestCase {
                      count);
     }
 
-    public void testFetch() throws IOException {
+    public void testFetch() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
 

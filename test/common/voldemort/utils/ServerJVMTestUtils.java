@@ -99,7 +99,7 @@ public class ServerJVMTestUtils {
             throw new RuntimeException("Failed to connect with server:" + node);
     }
 
-    public static void StopServerJVM(Process server) throws IOException {
+    public static void StopServerJVM(Process server) {
         System.out.println("killing process" + server);
         server.destroy();
 
