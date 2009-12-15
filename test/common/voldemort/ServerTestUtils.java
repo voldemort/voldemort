@@ -31,11 +31,11 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -364,7 +364,7 @@ public class ServerTestUtils {
 
     public static AdminClient getAdminClient(Cluster cluster) {
 
-        ClientConfig config = new ClientConfig();
+        AdminClientConfig config = new AdminClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
@@ -374,7 +374,7 @@ public class ServerTestUtils {
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
-        ClientConfig config = new ClientConfig();
+        AdminClientConfig config = new AdminClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);

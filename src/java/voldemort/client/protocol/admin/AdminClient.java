@@ -89,14 +89,20 @@ public class AdminClient {
      * bootstrap URL is used to get the cluster metadata.
      * 
      * @param bootstrapURL URL pointing to the bootstrap node
-     * @param ClientConfig Configuration for a AdminClient specifying number of
-     *        threads, number of sockets per node etc.
+     * @param adminClientConfig Configuration for AdminClient specifying client
+     *        parameters eg. <br>
+     *        <ul>
+     *        <t>
+     *        <li>number of threads</li>
+     *        <li>number of sockets per node</li>
+     *        <li>socket buffer size</li>
+     *        </ul>
      */
-    public AdminClient(String bootstrapURL, ClientConfig config) {
-        config.setBootstrapUrls(bootstrapURL);
-        this.cluster = getClusterFromBootstrapURL(bootstrapURL, config);
+    public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
+        adminClientConfig.setBootstrapUrls(bootstrapURL);
+        this.cluster = getClusterFromBootstrapURL(bootstrapURL, adminClientConfig);
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = createSocketPool(config);
+        this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
     }
@@ -106,13 +112,19 @@ public class AdminClient {
      * 
      * @param cluster Initialized cluster object, describing the nodes we wish
      *        to contact
-     * @param config Configuration for a Voldemort client (not specific to Admin
-     *        API)
+     * @param adminClientConfig Configuration for AdminClient specifying client
+     *        parameters eg. <br>
+     *        <ul>
+     *        <t>
+     *        <li>number of threads</li>
+     *        <li>number of sockets per node</li>
+     *        <li>socket buffer size</li>
+     *        </ul>
      */
-    public AdminClient(Cluster cluster, ClientConfig config) {
+    public AdminClient(Cluster cluster, AdminClientConfig adminClientConfig) {
         this.cluster = cluster;
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = createSocketPool(config);
+        this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
     }

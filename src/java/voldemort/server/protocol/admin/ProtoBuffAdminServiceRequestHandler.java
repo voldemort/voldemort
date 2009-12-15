@@ -27,9 +27,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -327,7 +327,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                             }
 
                                             private AdminClient createTempAdminClient() {
-                                                ClientConfig config = new ClientConfig();
+                                                AdminClientConfig config = new AdminClientConfig();
                                                 config.setMaxConnectionsPerNode(1);
                                                 config.setMaxThreads(1);
                                                 config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
