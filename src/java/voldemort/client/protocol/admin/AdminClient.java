@@ -78,6 +78,7 @@ public class AdminClient {
     private static final long INITIAL_DELAY = 250; // Initial delay
     private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential back off once we're waiting this long
 
+
     private Cluster cluster;
 
     /**
@@ -88,6 +89,7 @@ public class AdminClient {
      * @param config Configuration for a Voldemort client (not specific to Admin API)
      */
     public AdminClient(String bootstrapURL, ClientConfig config) {
+        config.setBootstrapUrls(bootstrapURL);
         this.cluster = getClusterFromBootstrapURL(bootstrapURL, config);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(config);
