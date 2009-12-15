@@ -105,7 +105,7 @@ import voldemort.VoldemortException;
  * @author Kirk True
  */
 
-public class Ec2Config extends RemoteTestConfig {
+public class Ec2RemoteTestConfig extends RemoteTestConfig {
 
     protected String accessId;
 
@@ -117,7 +117,7 @@ public class Ec2Config extends RemoteTestConfig {
 
     protected int instanceCount;
 
-    public Ec2Config() {
+    public Ec2RemoteTestConfig() {
         Properties properties = getEc2Properties();
         init(properties);
     }

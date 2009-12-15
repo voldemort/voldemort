@@ -26,9 +26,9 @@ import org.apache.commons.io.FileUtils;
 
 import voldemort.utils.impl.TypicaEc2Connection;
 
-public class Ec2InstanceRemoteTestUtils {
+public class Ec2RemoteTestUtils {
 
-    public static List<HostNamePair> createInstances(Ec2Config ec2Config) throws Exception {
+    public static List<HostNamePair> createInstances(Ec2RemoteTestConfig ec2Config) throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey());
         return ec2.create(ec2Config.getAmi(),
@@ -37,14 +37,14 @@ public class Ec2InstanceRemoteTestUtils {
                           ec2Config.getInstanceCount());
     }
 
-    public static void destroyInstances(List<String> hostNames, Ec2Config ec2Config)
+    public static void destroyInstances(List<String> hostNames, Ec2RemoteTestConfig ec2Config)
             throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey());
         ec2.delete(hostNames);
     }
 
-    public static List<HostNamePair> listInstances(Ec2Config ec2Config) throws Exception {
+    public static List<HostNamePair> listInstances(Ec2RemoteTestConfig ec2Config) throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey());
         return ec2.list();

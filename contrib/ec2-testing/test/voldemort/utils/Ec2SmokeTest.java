@@ -16,8 +16,8 @@
 
 package voldemort.utils;
 
-import static voldemort.utils.Ec2InstanceRemoteTestUtils.createInstances;
-import static voldemort.utils.Ec2InstanceRemoteTestUtils.destroyInstances;
+import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
+import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
@@ -130,7 +130,7 @@ public class Ec2SmokeTest {
      * There are quite a few properties that are needed which are provided in a
      * *.properties file, the path of which is provided in the
      * "ec2PropertiesFile" System property. Below is a table of the properties
-     * <i>in addition to those from {@link Ec2Config}</i>:
+     * <i>in addition to those from {@link Ec2RemoteTestConfig}</i>:
      * 
      * <table>
      * <th>Name</th>
@@ -155,7 +155,7 @@ public class Ec2SmokeTest {
      * @author Kirk True
      */
 
-    private static class Ec2SmokeTestConfig extends Ec2Config {
+    private static class Ec2SmokeTestConfig extends Ec2RemoteTestConfig {
 
         private int rampTime;
 
