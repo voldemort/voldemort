@@ -76,10 +76,10 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         }
 
         Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
-        List<HostNamePair> hostNamePairs = ec2Connection.create(ami,
-                                                                keypairId,
-                                                                instanceType,
-                                                                instanceCount);
+        List<HostNamePair> hostNamePairs = ec2Connection.createInstances(ami,
+                                                                         keypairId,
+                                                                         instanceType,
+                                                                         instanceCount);
 
         StringBuilder s = new StringBuilder();
 

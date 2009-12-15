@@ -63,7 +63,7 @@ if [ $exitCode -ne 0 ]
 fi
 
 # We can't easily check the exit code as we run this in the background...
-./contrib/ec2-testing/bin/voldemort-clusterstarter.sh --hostnames $hostsServers $sshPrivateKey --voldemortroot "server/voldemort" --voldemorthome "testconfig" --clusterxml $configDir/config/cluster.xml --logging debug 2>> $LOG_SERVERS_FILE &
+./contrib/ec2-testing/bin/voldemort-clusterstarter.sh --hostnames $hostsServers $sshPrivateKey --voldemortroot "server/$(basename `pwd`)" --voldemorthome "testconfig" --clusterxml $configDir/config/cluster.xml --logging debug 2>> $LOG_SERVERS_FILE &
 
 sleep 10
 
@@ -85,7 +85,7 @@ do
 	startKeyIndex=$(($numRequests * $counter))
 	counter=$(($counter + 1))
 	externalHost=`echo $line | cut -d'=' -f1`
-	echo "$externalHost=cd client/voldemort ; sleep $rampSeconds ; ./bin/voldemort-remote-test.sh -r -w -d --iterations $iterations --start-key-index $startKeyIndex tcp://${bootstrapHost}:6666 test $numRequests" >> $COMMANDS_FILE
+	echo "$externalHost=cd "client/$(basename `pwd`)" ; sleep $rampSeconds ; ./bin/voldemort-remote-test.sh -r -w -d --iterations $iterations --start-key-index $startKeyIndex tcp://${bootstrapHost}:6666 test $numRequests" >> $COMMANDS_FILE
 done
 
 ./contrib/ec2-testing/bin/voldemort-clusterremotetest.sh --hostnames $hostsClients $sshPrivateKey --commands $COMMANDS_FILE --logging debug 2>> $LOG_SERVERS_FILE > $LOG_CLIENTS_FILE
