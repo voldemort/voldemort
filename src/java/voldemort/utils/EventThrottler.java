@@ -58,8 +58,9 @@ public class EventThrottler {
                 long ellapsedMs = ellapsedNs / Time.NS_PER_MS;
                 long sleepTime = Math.round(eventsSeenInLastInterval / maxEventsPerMs - ellapsedMs);
                 if(logger.isDebugEnabled())
-                    logger.debug("Natural I/O rate is " + eventsPerSec
-                                 + " bytes/sec, sleeping for " + sleepTime + " ms to compensate.");
+                    logger.debug("Natural rate is " + eventsPerSec
+                                 + " events/sec max allowed rate is " + ratesPerSecond
+                                 + " events/sec, sleeping for " + sleepTime + " ms to compensate.");
                 if(sleepTime > 0) {
                     try {
                         time.sleep(sleepTime);

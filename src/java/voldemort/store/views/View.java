@@ -1,10 +1,10 @@
 package voldemort.store.views;
 
+import voldemort.annotations.Experimental;
 import voldemort.store.Store;
 
 /**
- * The interface for defining a view. A separate transformation may be needed
- * for the keys and the values, and one can do just one or the other if needed.
+ * The interface for defining a view.
  * 
  * This interface provides a translation from the view's type to the target
  * store's type and vice versa. If one direction is not supported, the
@@ -17,7 +17,8 @@ import voldemort.store.Store;
  * @param <V> The type of things in the view
  * @param <S> The type of things in the store
  */
-public interface ViewTransformation<K, V, S> {
+@Experimental
+public interface View<K, V, S> {
 
     /**
      * Translate from the store type to the view type
@@ -28,7 +29,7 @@ public interface ViewTransformation<K, V, S> {
      * @throws UnsupportedViewOperationException If this direction of
      *         translation is not allowed
      */
-    public V fromStoreToView(Store<K, S> targetStore, K k, S s)
+    public V storeToView(Store<K, S> targetStore, K k, S s)
             throws UnsupportedViewOperationException;
 
     /**
@@ -41,7 +42,7 @@ public interface ViewTransformation<K, V, S> {
      * @throws UnsupportedViewOperationException If this direction of
      *         translation is not allowed
      */
-    public S fromViewToStore(Store<K, S> targetStore, K k, V v)
+    public S viewToStore(Store<K, S> targetStore, K k, V v)
             throws UnsupportedViewOperationException;
 
 }

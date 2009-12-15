@@ -34,7 +34,7 @@ public class ViewStorageEngineTest extends TestCase {
         target.put("hello", Versioned.value("world"));
     }
 
-    public Store<String, String> getEngine(ViewTransformation<?, ?, ?> valTrans) {
+    public Store<String, String> getEngine(View<?, ?, ?> valTrans) {
         Serializer<String> s = new StringSerializer();
         return SerializingStore.wrap(new ViewStorageEngine("test", targetRaw, s, s, s, valTrans),
                                      s,
@@ -62,7 +62,7 @@ public class ViewStorageEngineTest extends TestCase {
     }
 
     /* A view that just adds or subtracts the given string */
-    private static class AddStrViewTrans implements ViewTransformation<String, String, String> {
+    private static class AddStrViewTrans implements View<String, String, String> {
 
         private String str;
 
@@ -70,14 +70,14 @@ public class ViewStorageEngineTest extends TestCase {
             this.str = str;
         }
 
-        public String fromStoreToView(Store<String, String> store, String k, String s) {
+        public String storeToView(Store<String, String> store, String k, String s) {
             if(s == null)
                 return str;
             else
                 return s + str;
         }
 
-        public String fromViewToStore(Store<String, String> store, String k, String v) {
+        public String viewToStore(Store<String, String> store, String k, String v) {
             if(v == null)
                 return null;
             else
