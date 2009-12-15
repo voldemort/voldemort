@@ -74,14 +74,13 @@ public class AdminClient {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
     // Parameters for exponential back off
-    private static final long INITIAL_DELAY = 250; // Initial delay
-    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential
-    // back off once delay
-    // reaches this
+    private static final long INITIAL_DELAY = 250;
+    private static final long MAX_DELAY = 1000 * 60;
 
     private Cluster cluster;
 
     public AdminClient(String bootstrapURL, ClientConfig config) {
+        config.setBootstrapUrls(bootstrapURL);
         this.cluster = getClusterFromBootstrapURL(bootstrapURL, config);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(config);
