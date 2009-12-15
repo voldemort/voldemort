@@ -85,12 +85,12 @@ public class AdminClient {
     private Cluster cluster;
 
     /**
-     * Create an instance of Admin Client given a bootstrap server URL. The
+     * Create an instance of AdminClient given a bootstrap server URL. The
      * bootstrap URL is used to get the cluster metadata.
      * 
-     * @param bootstrapURL URL pointing to the boostrap node
-     * @param config Configuration for a Voldemort client (not specific to Admin
-     *        API)
+     * @param bootstrapURL URL pointing to the bootstrap node
+     * @param ClientConfig Configuration for a AdminClient specifying number of
+     *        threads, number of sockets per node etc.
      */
     public AdminClient(String bootstrapURL, ClientConfig config) {
         config.setBootstrapUrls(bootstrapURL);
@@ -167,14 +167,13 @@ public class AdminClient {
      * entries request with a store name and a {@link VoldemortFilter} instance.
      * </li>
      * <li>While entryIterator has entries, the client will keep sending the
-     * updates one after another to the server, buffering the data,
-     * without waiting for a response from the server.
-     * </li>
+     * updates one after another to the server, buffering the data, without
+     * waiting for a response from the server.</li>
      * <li>After iteration is complete, send an end of stream message, force a
-     * flush of the buffer, check the response on the server to check if
-     * a {@link VoldemortException} has occured.
-     * </li>
+     * flush of the buffer, check the response on the server to check if a
+     * {@link VoldemortException} has occured.</li>
      * </ol>
+     * 
      * @param nodeId Id of the remote node (where we wish to update the entries)
      * @param storeName Store name for the entries
      * @param entryIterator Iterator of key-value pairs for the entries
