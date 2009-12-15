@@ -100,6 +100,11 @@ import voldemort.VoldemortException;
  * <td>ec2InstanceCount</td>
  * <td>The number of instances to create.</td>
  * </tr>
+ * <tr>
+ * <td>ec2InstanceIdFile</td>
+ * <td>File in which to list the instances that are created; used by external
+ * tools to stop instances in case of catastrophic test failure</td>
+ * </tr>
  * </table>
  * 
  * @author Kirk True
@@ -116,6 +121,8 @@ public class Ec2RemoteTestConfig extends RemoteTestConfig {
     protected String keyPairId;
 
     protected int instanceCount;
+
+    protected File instanceIdFile;
 
     public Ec2RemoteTestConfig() {
         Properties properties = getEc2Properties();
@@ -162,6 +169,14 @@ public class Ec2RemoteTestConfig extends RemoteTestConfig {
         this.instanceCount = instanceCount;
     }
 
+    public File getInstanceIdFile() {
+        return instanceIdFile;
+    }
+
+    public void setInstanceIdFile(File instanceIdFile) {
+        this.instanceIdFile = instanceIdFile;
+    }
+
     protected void init(Properties properties) {
         setAccessId(properties.getProperty("ec2AccessId"));
         setSecretKey(properties.getProperty("ec2SecretKey"));
@@ -175,6 +190,7 @@ public class Ec2RemoteTestConfig extends RemoteTestConfig {
         setParentDirectory(properties.getProperty("ec2ParentDirectory"));
         setClusterXmlFile(getFileProperty(properties, "ec2ClusterXmlFile"));
         setInstanceCount(getIntProperty(properties, "ec2InstanceCount"));
+        setInstanceIdFile(getFileProperty(properties, "ec2InstanceIdFile"));
     }
 
     protected File getFileProperty(Properties properties, String propertyName) {
@@ -238,7 +254,8 @@ public class Ec2RemoteTestConfig extends RemoteTestConfig {
                                                    "ec2SourceDirectory",
                                                    "ec2ParentDirectory",
                                                    "ec2ClusterXmlFile",
-                                                   "ec2InstanceCount"));
+                                                   "ec2InstanceCount",
+                                                   "ec2InstanceIdFile"));
     }
 
 }

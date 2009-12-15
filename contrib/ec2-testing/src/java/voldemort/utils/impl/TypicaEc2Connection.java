@@ -24,6 +24,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import voldemort.utils.Ec2Connection;
+import voldemort.utils.Ec2ConnectionListener;
 import voldemort.utils.HostNamePair;
 
 import com.xerox.amazonws.ec2.InstanceType;
@@ -45,10 +46,17 @@ public class TypicaEc2Connection implements Ec2Connection {
 
     private final Jec2 ec2;
 
+    private final Ec2ConnectionListener listener;
+
     private final Log logger = LogFactory.getLog(getClass());
 
     public TypicaEc2Connection(String accessId, String secretKey) {
+        this(accessId, secretKey, null);
+    }
+
+    public TypicaEc2Connection(String accessId, String secretKey, Ec2ConnectionListener listener) {
         ec2 = new Jec2(accessId, secretKey);
+        this.listener = listener;
     }
 
     public List<HostNamePair> list() throws Exception {
@@ -76,10 +84,10 @@ public class TypicaEc2Connection implements Ec2Connection {
         return hostNamePairs;
     }
 
-    public List<HostNamePair> create(String ami,
-                                     String keypairId,
-                                     Ec2Connection.Ec2InstanceType instanceType,
-                                     int instanceCount) throws Exception {
+    public List<HostNamePair> createInstances(String ami,
+                                              String keypairId,
+                                              Ec2Connection.Ec2InstanceType instanceType,
+                                              int instanceCount) throws Exception {
         LaunchConfiguration launchConfiguration = new LaunchConfiguration(ami);
         launchConfiguration.setInstanceType(InstanceType.valueOf(instanceType.name()));
         launchConfiguration.setKeyName(keypairId);
@@ -91,10 +99,15 @@ public class TypicaEc2Connection implements Ec2Connection {
         List<String> instanceIds = new ArrayList<String>();
 
         for(ReservationDescription.Instance instance: reservationDescription.getInstances()) {
-            if(logger.isInfoEnabled())
-                logger.info("Instance " + instance.getInstanceId() + " launched");
+            String instanceId = instance.getInstanceId();
 
-            instanceIds.add(instance.getInstanceId());
+            if(logger.isInfoEnabled())
+                logger.info("Instance " + instanceId + " launched");
+
+            instanceIds.add(instanceId);
+
+            if(listener != null)
+                listener.instanceCreated(instanceId);
         }
 
         List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
@@ -151,7 +164,7 @@ public class TypicaEc2Connection implements Ec2Connection {
         return hostNamePairs;
     }
 
-    public void delete(List<String> hostNames) throws Exception {
+    public void deleteInstancesByHostName(List<String> hostNames) throws Exception {
         if(logger.isDebugEnabled())
             logger.debug("Deleting instances for hosts: " + hostNames);
 
@@ -160,45 +173,55 @@ public class TypicaEc2Connection implements Ec2Connection {
         for(ReservationDescription res: ec2.describeInstances(Collections.<String> emptyList())) {
             if(res.getInstances() != null) {
                 for(Instance instance: res.getInstances()) {
-                    String state = String.valueOf(instance.getState()).toLowerCase();
-
-                    if(state.equals("shutting-down")) {
-                        if(logger.isDebugEnabled())
-                            logger.debug("Instance " + instance.getInstanceId()
-                                         + " already shutting down");
-
-                        continue;
-                    } else if(state.equals("terminated")) {
-                        if(logger.isDebugEnabled())
-                            logger.debug("Instance " + instance.getInstanceId()
-                                         + " already terminated");
-
-                        continue;
-                    }
-
                     String externalHostName = instance.getDnsName() != null ? instance.getDnsName()
                                                                                       .trim() : "";
 
-                    if(hostNames.contains(externalHostName)) {
-                        instanceIds.add(instance.getInstanceId());
+                    // We're only in charge of terminating the instances that
+                    // were passed in via hostNames, so if the host name we find
+                    // isn't on that list then ignore it.
+                    if(!hostNames.contains(externalHostName))
+                        continue;
 
-                        if(logger.isInfoEnabled())
-                            logger.info("Instance " + instance.getInstanceId() + " ("
-                                        + externalHostName + ") to be terminated");
+                    String state = String.valueOf(instance.getState()).toLowerCase();
+                    String instanceId = instance.getInstanceId();
+
+                    if(state.equals("shutting-down") || state.equals("terminated")) {
+                        // We expect that this code is terminating the
+                        // instances. If they're not in the expected state, log
+                        // it and ignore the instance.
+                        if(logger.isWarnEnabled())
+                            logger.warn("Instance " + instanceId + " in state \""
+                                        + instance.getState() + "\" - ignoring");
+
+                        continue;
                     }
+
+                    instanceIds.add(instanceId);
+
+                    if(logger.isInfoEnabled())
+                        logger.info("Instance " + instanceId + " (" + externalHostName
+                                    + ") to be terminated");
                 }
             }
         }
 
+        deleteInstancesByInstanceId(instanceIds);
+    }
+
+    public void deleteInstancesByInstanceId(List<String> instanceIds) throws Exception {
         // Race condition - it's possible for another entity to have terminated
         // the instances as we're running, so simply return if there's nothing
         // for us to do.
         if(instanceIds.isEmpty())
             return;
 
-        ec2.terminateInstances(instanceIds);
+        if(logger.isDebugEnabled())
+            logger.debug("Deleting instances: " + instanceIds);
 
-        while(!instanceIds.isEmpty()) {
+        ec2.terminateInstances(instanceIds);
+        int count = instanceIds.size();
+
+        while(count > 0) {
             try {
                 if(logger.isDebugEnabled())
                     logger.debug("Sleeping for " + POLL_INTERVAL + " seconds...");
@@ -209,20 +232,24 @@ public class TypicaEc2Connection implements Ec2Connection {
             }
 
             for(ReservationDescription res: ec2.describeInstances(instanceIds)) {
-                if(res.getInstances() != null) {
-                    for(Instance instance: res.getInstances()) {
-                        String state = String.valueOf(instance.getState()).toLowerCase();
+                if(res.getInstances() == null)
+                    break;
 
-                        if(!state.equals("terminated")) {
-                            if(logger.isDebugEnabled())
-                                logger.debug("Instance " + instance.getInstanceId() + " in state: "
-                                             + state);
+                for(Instance instance: res.getInstances()) {
+                    String state = String.valueOf(instance.getState()).toLowerCase();
+                    String instanceId = instance.getInstanceId();
 
-                            continue;
-                        }
+                    if(!state.equals("terminated")) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Instance " + instanceId + " in state: " + state);
 
-                        instanceIds.remove(instance.getInstanceId());
+                        continue;
                     }
+
+                    count--;
+
+                    if(listener != null)
+                        listener.instanceDestroyed(instanceId);
                 }
             }
         }

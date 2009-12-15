@@ -19,29 +19,35 @@ package voldemort.utils;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 
 import voldemort.utils.impl.TypicaEc2Connection;
 
 public class Ec2RemoteTestUtils {
 
-    public static List<HostNamePair> createInstances(Ec2RemoteTestConfig ec2Config) throws Exception {
+    public static List<HostNamePair> createInstances(Ec2RemoteTestConfig ec2Config)
+            throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
-                                                    ec2Config.getSecretKey());
-        return ec2.create(ec2Config.getAmi(),
-                          ec2Config.getKeyPairId(),
-                          Ec2Connection.Ec2InstanceType.DEFAULT,
-                          ec2Config.getInstanceCount());
+                                                    ec2Config.getSecretKey(),
+                                                    new Ec2Listener(ec2Config.getInstanceIdFile()));
+        return ec2.createInstances(ec2Config.getAmi(),
+                                   ec2Config.getKeyPairId(),
+                                   Ec2Connection.Ec2InstanceType.DEFAULT,
+                                   ec2Config.getInstanceCount());
     }
 
     public static void destroyInstances(List<String> hostNames, Ec2RemoteTestConfig ec2Config)
             throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
-                                                    ec2Config.getSecretKey());
-        ec2.delete(hostNames);
+                                                    ec2Config.getSecretKey(),
+                                                    new Ec2Listener(ec2Config.getInstanceIdFile()));
+        ec2.deleteInstancesByHostName(hostNames);
     }
 
     public static List<HostNamePair> listInstances(Ec2RemoteTestConfig ec2Config) throws Exception {
@@ -74,6 +80,56 @@ public class Ec2RemoteTestUtils {
         }
 
         return nodeIds;
+    }
+
+    private static class Ec2Listener implements Ec2ConnectionListener {
+
+        private final File file;
+
+        private final Logger logger = Logger.getLogger(getClass());
+
+        public Ec2Listener(File file) {
+            this.file = file;
+        }
+
+        @SuppressWarnings("unchecked")
+        public synchronized void instanceCreated(String instanceId) {
+            try {
+                List<String> instanceIds = file.exists() ? FileUtils.readLines(file)
+                                                        : new ArrayList<String>();
+                instanceIds.add(instanceId);
+                FileUtils.writeLines(file, instanceIds);
+
+                if(logger.isInfoEnabled())
+                    logger.info("Instances created: " + FileUtils.readLines(file));
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(e, e);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        public synchronized void instanceDestroyed(String instanceId) {
+            try {
+                List<String> instanceIds = file.exists() ? FileUtils.readLines(file)
+                                                        : new ArrayList<String>();
+                Iterator<String> i = instanceIds.iterator();
+
+                while(i.hasNext()) {
+                    if(instanceId.equals(i.next().trim()))
+                        i.remove();
+                }
+
+                FileUtils.writeLines(file, instanceIds);
+
+                if(logger.isInfoEnabled())
+                    logger.info("Instances remaining: " + FileUtils.readLines(file));
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(e, e);
+            }
+        }
+
     }
 
 }

@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import joptsimple.OptionSet;
+
+import org.apache.commons.io.FileUtils;
+
 import voldemort.utils.Ec2Connection;
 import voldemort.utils.HostNamePair;
 import voldemort.utils.impl.TypicaEc2Connection;
@@ -36,6 +39,7 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
         return "voldemort-ec2instanceterminator.sh";
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void run(String[] args) throws Exception {
         parser.accepts("help", "Prints this help");
@@ -49,7 +53,7 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
         parser.accepts("secretkeyfile", "Secret key file (used instead of secretkey)")
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
-        parser.accepts("force", "Use option to force deletion of *all* instances");
+        parser.accepts("instances", "File containing instance IDs").withRequiredArg();
 
         OptionSet options = parse(args);
         String accessId = getAccessId(options);
@@ -59,21 +63,24 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
 
         List<String> hostNames = new ArrayList<String>();
         File hostNamesFile = getInputFile(options, "hostnames");
+        File instancesFile = getInputFile(options, "instances");
+
+        if(hostNamesFile == null && instancesFile == null)
+            printUsage();
 
         if(hostNamesFile != null) {
             List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
 
             for(HostNamePair hostNamePair: hostNamePairs)
                 hostNames.add(hostNamePair.getExternalHostName());
-        } else if(options.has("force")) {
-            // Get all of the instances...
-            for(HostNamePair hostNamePair: ec2Connection.list())
-                hostNames.add(hostNamePair.getExternalHostName());
-        } else {
-            printUsage();
+
+            ec2Connection.deleteInstancesByHostName(hostNames);
         }
 
-        ec2Connection.delete(hostNames);
+        if(instancesFile != null) {
+            List<String> instanceIds = FileUtils.readLines(instancesFile);
+            ec2Connection.deleteInstancesByInstanceId(instanceIds);
+        }
     }
 
 }
