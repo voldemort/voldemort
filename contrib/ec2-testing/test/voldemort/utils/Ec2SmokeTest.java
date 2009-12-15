@@ -27,7 +27,6 @@ import static voldemort.utils.RemoteTestUtils.stopClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -92,22 +91,24 @@ public class Ec2SmokeTest {
     @Test
     public void testRemoteTest() throws Exception {
         Map<String, String> commands = new HashMap<String, String>();
-        List<String> hostNames = new ArrayList<String>();
-        String bootstrapHostName = hostNamePairs.get(0).getInternalHostName();
-
         int i = 0;
-
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getExternalHostName());
+        int numRequests = ec2SmokeTestConfig.numRequests;
+        int iterations = ec2SmokeTestConfig.iterations;
+        String storeName = "test";
+        String bootstrapUrl = "tcp://" + hostNamePairs.get(0).getInternalHostName() + ":6666";
 
         for(HostNamePair hostNamePair: hostNamePairs) {
-            String command = "cd " + ec2SmokeTestConfig.getVoldemortRootDirectory() + " ; sleep "
-                             + (i * ec2SmokeTestConfig.rampTime)
-                             + "; ./bin/voldemort-remote-test.sh -w -d --iterations "
-                             + ec2SmokeTestConfig.iterations + " --start-key-index "
-                             + (i * ec2SmokeTestConfig.numRequests) + " tcp://" + bootstrapHostName
-                             + ":6666 test " + ec2SmokeTestConfig.numRequests;
-            commands.put(hostNamePair.getExternalHostName(), command);
+            int startKey = i * numRequests;
+            int rampTime = i * ec2SmokeTestConfig.rampTime;
+
+            String sleepCommand = "sleep " + rampTime;
+            String cdCommand = "cd " + ec2SmokeTestConfig.getVoldemortRootDirectory();
+            String remoteTestCommand = "./bin/voldemort-remote-test.sh -w -d --iterations "
+                                       + iterations + " --start-key-index " + startKey + " "
+                                       + bootstrapUrl + " " + storeName + " " + numRequests;
+
+            commands.put(hostNamePair.getExternalHostName(), sleepCommand + " ; " + cdCommand
+                                                             + " ; " + remoteTestCommand);
             i++;
         }
 
