@@ -10,12 +10,17 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.cluster.Node;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.socket.RedirectingSocketStore;
+import voldemort.store.socket.SocketDestination;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -27,14 +32,17 @@ public class Rebalancer implements Runnable {
     private final AtomicBoolean rebalancePermit = new AtomicBoolean(false);
     private final MetadataStore metadataStore;
     private final AsyncOperationRunner asyncRunner;
-    private final VoldemortConfig config;
+    private final VoldemortConfig voldemortConfig;
+    private final StoreRepository storeRepository;
 
     public Rebalancer(MetadataStore metadataStore,
-                      VoldemortConfig config,
-                      AsyncOperationRunner asyncRunner) {
+                      VoldemortConfig voldemortConfig,
+                      AsyncOperationRunner asyncRunner,
+                      StoreRepository storeRepository) {
         this.metadataStore = metadataStore;
         this.asyncRunner = asyncRunner;
-        this.config = config;
+        this.voldemortConfig = voldemortConfig;
+        this.storeRepository = storeRepository;
     }
 
     public void start() {
@@ -70,7 +78,7 @@ public class Rebalancer implements Runnable {
                 logger.warn("Rebalance server found incomplete rebalancing attempt " + stealInfo
                             + " restarting ...");
 
-                if(stealInfo.getAttempt() < config.getMaxRebalancingAttempt()) {
+                if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                     attemptRebalance(stealInfo);
                 } else {
                     logger.warn("Rebalancing for rebalancing task:" + stealInfo
@@ -89,7 +97,7 @@ public class Rebalancer implements Runnable {
         List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
 
         for(String storeName: unbalanceStoreList) {
-            AdminClient adminClient = RebalanceUtils.createTempAdminClient(config,
+            AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                            metadataStore.getCluster());
             try {
                 int rebalanceAsyncId = rebalanceLocalNode(storeName, stealInfo);
@@ -139,10 +147,13 @@ public class Rebalancer implements Runnable {
 
             @Override
             public void operate() throws Exception {
-                AdminClient adminClient = RebalanceUtils.createTempAdminClient(config,
+                AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                                metadataStore.getCluster());
                 try {
                     logger.info("Rebalancer: rebalance " + stealInfo + " starting.");
+
+                    // check and create redirectingSocketStore if needed.
+                    checkAndCreateRedirectingSocketStore(storeName, stealInfo.getDonorId());
 
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
@@ -161,7 +172,7 @@ public class Rebalancer implements Runnable {
 
                     // clean state only if successfull.
                     metadataStore.cleanAllRebalancingState();
-                    if(config.isDeleteAfterRebalancingEnabled()) {
+                    if(voldemortConfig.isDeleteAfterRebalancingEnabled()) {
                         logger.warn("Deleting data from donorNode after rebalancing !!");
                         adminClient.deletePartitions(stealInfo.getDonorId(),
                                                      storeName,
@@ -186,8 +197,7 @@ public class Rebalancer implements Runnable {
                     try {
                         updateStatus(asyncRunner.getStatus(fetchAndUpdateAsyncId));
                     } catch(Exception e) {
-                        // ignore : handle race condition between asyncRunner
-                        // removing value and fetchAndUpdate setting to -1
+                        // ignore
                     }
 
                 return super.getStatus();
@@ -211,5 +221,20 @@ public class Rebalancer implements Runnable {
                                          + " is already rebalancing from:"
                                          + metadataStore.getRebalancingStealInfo()
                                          + " rejecting rebalance request:" + stealInfo);
+    }
+
+    private void checkAndCreateRedirectingSocketStore(String storeName, int donorId) {
+        if(!storeRepository.hasRedirectingSocketStore(storeName, donorId)) {
+            // TODO : add redirectingSocketStore to storeRepository
+        }
+    }
+
+    private RedirectingSocketStore createRedirectingSocketStore(StoreDefinition def, Node node) {
+        return new RedirectingSocketStore(def.getName(),
+                                          new SocketDestination(node.getHost(),
+                                                                node.getSocketPort(),
+                                                                voldemortConfig.getRequestFormatType()),
+                                          socketPool,
+                                          false);
     }
 }

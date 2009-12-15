@@ -5,6 +5,7 @@ import java.util.Date;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.scheduler.SchedulerService;
@@ -23,10 +24,11 @@ public class RebalancerService extends AbstractService {
     public RebalancerService(MetadataStore metadataStore,
                              VoldemortConfig voldemortConfig,
                              AsyncOperationRunner asyncRunner,
+                             StoreRepository storeRepository,
                              SchedulerService service) {
         super(ServiceType.REBALANCE);
         schedulerService = service;
-        rebalancer = new Rebalancer(metadataStore, voldemortConfig, asyncRunner);
+        rebalancer = new Rebalancer(metadataStore, voldemortConfig, asyncRunner, storeRepository);
         periodMs = voldemortConfig.getRebalancingServicePeriod();
     }
 

@@ -824,7 +824,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             throw exception;
     }
 
-    Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
+    public Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
         return this.innerStores;
     }
 

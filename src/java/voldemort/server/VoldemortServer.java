@@ -152,6 +152,7 @@ public class VoldemortServer extends AbstractService {
                 RebalancerService rebalancerService = new RebalancerService(metadata,
                                                                             voldemortConfig,
                                                                             asyncRunner,
+                                                                            storeRepository,
                                                                             scheduler);
                 services.add(rebalancerService);
                 rebalancer = rebalancerService.getRebalancer();

@@ -57,8 +57,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.rebalancing.RebalancingRoutedStore;
 import voldemort.store.rebalancing.RedirectingStore;
-import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.Slop;
 import voldemort.store.socket.RedirectingSocketStore;
@@ -220,8 +220,12 @@ public class StorageService extends AbstractService {
     }
 
     /**
-     *TODO : For routedServerSide routing need to add new node store when add
-     * new nodes in the cluster.
+     * For server side routing create NodeStore (socketstore) and pass it on to
+     * a {@link RebalancingRoutedStore}.
+     * <p>
+     * 
+     * The {@link RebalancingRoutedStore} handles invalid-metadata exceptions
+     * introduced due to changes in cluster.xml at different nodes.
      * 
      * @param def
      * @param cluster
@@ -231,45 +235,43 @@ public class StorageService extends AbstractService {
         Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
 
         for(Node node: cluster.getNodes()) {
-            if(!this.storeRepository.hasNodeStore(def.getName(), node.getId())) {
-                Store<ByteArray, byte[]> store = createNodeStore(def.getName(), node, localNode);
-                this.storeRepository.addNodeStore(node.getId(), store);
-                nodeStores.put(node.getId(), store);
-            } else {
-                nodeStores.put(node.getId(), this.storeRepository.getNodeStore(def.getName(),
-                                                                               node.getId()));
-            }
+            Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
+            this.storeRepository.addNodeStore(node.getId(), store);
+            nodeStores.put(node.getId(), store);
         }
 
-        if(!this.storeRepository.hasRoutedStore(def.getName())) {
-            Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
-                                                                   nodeStores,
-                                                                   cluster,
-                                                                   def,
-                                                                   true,
-                                                                   this.clientThreadPool,
-                                                                   voldemortConfig.getRoutingTimeoutMs(),
-                                                                   voldemortConfig.getClientNodeBannageMs(),
-                                                                   SystemTime.INSTANCE);
-            routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                             new VectorClockInconsistencyResolver<byte[]>());
-            this.storeRepository.addRoutedStore(routedStore);
-        }
+        Store<ByteArray, byte[]> routedStore = new RebalancingRoutedStore(metadata,
+                                                                          storeRepository,
+                                                                          voldemortConfig,
+                                                                          socketPool,
+                                                                          def.getName(),
+                                                                          nodeStores,
+                                                                          def,
+                                                                          true,
+                                                                          this.clientThreadPool,
+                                                                          SystemTime.INSTANCE);
+        routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                         new VectorClockInconsistencyResolver<byte[]>());
+        this.storeRepository.addRoutedStore(routedStore);
     }
 
-    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node, int localNode) {
+    private Store<ByteArray, byte[]> getNodeStore(String storeName, Node node, int localNode) {
         Store<ByteArray, byte[]> store;
         if(node.getId() == localNode) {
             store = this.storeRepository.getLocalStore(storeName);
         } else {
-            store = new SocketStore(storeName,
-                                    new SocketDestination(node.getHost(),
-                                                          node.getSocketPort(),
-                                                          voldemortConfig.getRequestFormatType()),
-                                    socketPool,
-                                    false);
+            store = createNodeStore(storeName, node);
         }
         return store;
+    }
+
+    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node) {
+        return new SocketStore(storeName,
+                               new SocketDestination(node.getHost(),
+                                                     node.getSocketPort(),
+                                                     voldemortConfig.getRequestFormatType()),
+                               socketPool,
+                               false);
     }
 
     /**
@@ -279,20 +281,23 @@ public class StorageService extends AbstractService {
      * @param cluster
      * @param localNode
      */
-    public void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
+    private void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store;
-            if(node.getId() != localNode
-               && !this.storeRepository.hasRedirectingSocketStore(def.getName(), node.getId())) {
-                store = new RedirectingSocketStore(def.getName(),
-                                                   new SocketDestination(node.getHost(),
-                                                                         node.getSocketPort(),
-                                                                         voldemortConfig.getRequestFormatType()),
-                                                   socketPool,
-                                                   false);
+            if(node.getId() != localNode) {
+                store = createRedirectingSocketStore(def, node);
                 this.storeRepository.addRedirectingSocketStore(node.getId(), store);
             }
         }
+    }
+
+    private RedirectingSocketStore createRedirectingSocketStore(StoreDefinition def, Node node) {
+        return new RedirectingSocketStore(def.getName(),
+                                          new SocketDestination(node.getHost(),
+                                                                node.getSocketPort(),
+                                                                voldemortConfig.getRequestFormatType()),
+                                          socketPool,
+                                          false);
     }
 
     /**

@@ -18,8 +18,8 @@ import voldemort.cluster.Node;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
 
@@ -165,22 +165,23 @@ public class RebalanceClient {
      */
     void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo) {
         synchronized(adminClient) {
-            VectorClock clock = getLatestClusterClock(Arrays.asList(stealerNode.getId(),
-                                                                    rebalanceStealInfo.getDonorId()));
-            Cluster oldCluster = adminClient.getCluster();
-
+            Versioned<Cluster> latestVersionedCluster = RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
+                                                                                                      rebalanceStealInfo.getDonorId()),
+                                                                                        adminClient);
+            Cluster latestCluster = latestVersionedCluster.getValue();
+            VectorClock latestClock = (VectorClock) latestVersionedCluster.getVersion();
             try {
-                Cluster newCluster = RebalanceUtils.createUpdatedCluster(oldCluster,
+                Cluster newCluster = RebalanceUtils.createUpdatedCluster(latestCluster,
                                                                          stealerNode,
-                                                                         oldCluster.getNodeById(rebalanceStealInfo.getDonorId()),
+                                                                         latestCluster.getNodeById(rebalanceStealInfo.getDonorId()),
                                                                          rebalanceStealInfo.getPartitionList());
                 // increment clock version on stealerNodeId
-                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+                latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
 
                 // propogates changes to all nodes.
                 RebalanceUtils.propagateCluster(adminClient,
                                                 newCluster,
-                                                clock,
+                                                latestClock,
                                                 Arrays.asList(stealerNode.getId(),
                                                               rebalanceStealInfo.getDonorId()));
 
@@ -190,70 +191,14 @@ public class RebalanceClient {
                 logger.error("Failed to commit rebalance on node:" + stealerNode.getId()
                              + " REVERTING cluster changes ...", e);
                 // revert cluster changes.
-                clock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+                latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
                 RebalanceUtils.propagateCluster(adminClient,
-                                                oldCluster,
-                                                clock,
+                                                latestCluster,
+                                                latestClock,
                                                 new ArrayList<Integer>());
 
                 throw new VoldemortException(e);
             }
-        }
-    }
-
-    /**
-     * Get the latest cluster version from all available nodes in the cluster<br>
-     * Throws exception if:<br>
-     * stealerNode or donorNode fail to respond.<br>
-     * Cluster is in inconsistent state with concurrent versions for cluster
-     * metadata on any two nodes.<br>
-     * 
-     * @param stealerId
-     * @param donorId
-     * @return
-     */
-    private VectorClock getLatestClusterClock(List<Integer> requiredNodes) {
-        VectorClock latestClock = new VectorClock();
-        ArrayList<VectorClock> clockList = new ArrayList<VectorClock>();
-
-        clockList.add(latestClock);
-        for(Node node: adminClient.getCluster().getNodes()) {
-            VectorClock newClock = null;
-            try {
-                newClock = (VectorClock) adminClient.getRemoteCluster(node.getId()).getVersion();
-            } catch(Exception e) {
-                if(requiredNodes.contains(node.getId()))
-                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
-                                                 e);
-                else
-                    logger.debug("Failed to get Cluster version from node:" + node, e);
-            }
-            logger.debug("latestClock:" + latestClock + " clockList:" + clockList + " newClock:"
-                         + newClock);
-            if(null != newClock && !clockList.contains(newClock)) {
-                // check no two clocks are concurrent.
-                checkNotConcurrent(clockList, newClock);
-
-                // add to clock list
-                clockList.add(newClock);
-
-                // update latestClock
-                Occured occured = newClock.compare(latestClock);
-                if(Occured.AFTER.equals(occured))
-                    latestClock = newClock;
-            }
-
-        }
-
-        return latestClock;
-    }
-
-    private void checkNotConcurrent(ArrayList<VectorClock> clockList, VectorClock newClock) {
-        for(VectorClock clock: clockList) {
-            if(Occured.CONCURRENTLY.equals(clock.equals(newClock)))
-                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
-                                             + clock + " and " + newClock);
-
         }
     }
 

@@ -16,19 +16,27 @@
 
 package voldemort.store.rebalancing;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import voldemort.client.DefaultStoreClient;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
+import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -43,39 +51,81 @@ import voldemort.versioning.Versioned;
  * {@link DefaultStoreClient}
  * 
  */
-public class RedirectingRoutedStore extends RoutedStore {
+public class RebalancingRoutedStore extends RoutedStore {
+
+    private final int maxMetadataRefreshAttempts = 3;
 
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
-    private int maxMetadataRefreshAttempts = 3;
+    private final VoldemortConfig voldemortConfig;
+    private final SocketPool socketPool;
 
-    public RedirectingRoutedStore(MetadataStore metadataStore,
+    public RebalancingRoutedStore(MetadataStore metadataStore,
                                   StoreRepository storeRepository,
+                                  VoldemortConfig voldemortConfig,
+                                  SocketPool socketPool,
                                   String name,
                                   Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                                  Cluster cluster,
                                   StoreDefinition storeDef,
                                   boolean repairReads,
                                   ExecutorService threadPool,
-                                  long timeoutMs,
-                                  long nodeBannageMs,
                                   Time time) {
         super(name,
               innerStores,
-              cluster,
+              metadataStore.getCluster(),
               storeDef,
               repairReads,
               threadPool,
-              timeoutMs,
-              nodeBannageMs,
+              voldemortConfig.getRoutingTimeoutMs(),
+              voldemortConfig.getClientNodeBannageMs(),
               time);
 
         this.metadata = metadataStore;
         this.storeRepository = storeRepository;
+        this.voldemortConfig = voldemortConfig;
+        this.socketPool = socketPool;
     }
 
     private void reinit() {
-        super.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadata.getCluster());
+        try {
+            Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
+                                                                               adminClient);
+            metadata.put(MetadataStore.CLUSTER_KEY, latestCluster);
+
+            checkAndAddNodeStore();
+
+            super.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
+        } finally {
+            adminClient.stop();
+        }
+    }
+
+    /**
+     * Check that all nodes in the new cluster have a corrosponding entry in
+     * storeRepositiry and innerStores. add a NodeStore if not present.
+     * 
+     */
+    private void checkAndAddNodeStore() {
+        for(Node node: metadata.getCluster().getNodes()) {
+            if(!getInnerStores().containsKey(node.getId())) {
+                if(!storeRepository.hasNodeStore(getName(), node.getId())) {
+                    storeRepository.addNodeStore(node.getId(), createNodeStore(node));
+                }
+                getInnerStores().put(node.getId(),
+                                     storeRepository.getNodeStore(getName(), node.getId()));
+            }
+        }
+    }
+
+    private Store<ByteArray, byte[]> createNodeStore(Node node) {
+        return new SocketStore(getName(),
+                               new SocketDestination(node.getHost(),
+                                                     node.getSocketPort(),
+                                                     voldemortConfig.getRequestFormatType()),
+                               socketPool,
+                               false);
     }
 
     @Override
@@ -88,7 +138,7 @@ public class RedirectingRoutedStore extends RoutedStore {
             }
         }
         throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+                                           + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -101,7 +151,7 @@ public class RedirectingRoutedStore extends RoutedStore {
             }
         }
         throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+                                           + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -114,7 +164,7 @@ public class RedirectingRoutedStore extends RoutedStore {
             }
         }
         throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+                                           + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -127,7 +177,7 @@ public class RedirectingRoutedStore extends RoutedStore {
             }
         }
         throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+                                           + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -142,6 +192,6 @@ public class RedirectingRoutedStore extends RoutedStore {
             }
         }
         throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+                                           + " metadata refresh attempts failed for server side routing.");
     }
 }

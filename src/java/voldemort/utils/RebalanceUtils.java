@@ -21,7 +21,9 @@ import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
+import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 /**
  * RebalanceUtils provide basic functionality for rebalancing. Some of these
@@ -195,6 +197,62 @@ public class RebalanceUtils {
                         node.getAdminPort(),
                         partitionsList,
                         node.getStatus());
+    }
+
+    /**
+     * Get the latest cluster from all available nodes in the cluster<br>
+     * Throws exception if:<br>
+     * any node in the RequiredNode list fails to respond.<br>
+     * Cluster is in inconsistent state with concurrent versions for cluster
+     * metadata on any two nodes.<br>
+     * 
+     * @param stealerId
+     * @param donorId
+     * @return
+     */
+    public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
+                                                      AdminClient adminClient) {
+        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getCluster());
+        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
+
+        clusterList.add(latestCluster);
+        for(Node node: adminClient.getCluster().getNodes()) {
+            try {
+                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
+                if(null != newClock && !clusterList.contains(newClock)) {
+                    // check no two clocks are concurrent.
+                    checkNotConcurrent(clusterList, newClock);
+
+                    // add to clock list
+                    clusterList.add(versionedCluster);
+
+                    // update latestClock
+                    Occured occured = newClock.compare(latestCluster.getVersion());
+                    if(Occured.AFTER.equals(occured))
+                        latestCluster = versionedCluster;
+                }
+            } catch(Exception e) {
+                if(requiredNodes.contains(node.getId()))
+                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
+                                                 e);
+                else
+                    logger.debug("Failed to get Cluster version from node:" + node, e);
+            }
+        }
+
+        return latestCluster;
+    }
+
+    private static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
+                                           VectorClock newClock) {
+        for(Versioned<Cluster> versionedCluster: clockList) {
+            VectorClock clock = (VectorClock) versionedCluster.getVersion();
+            if(Occured.CONCURRENTLY.equals(clock.equals(newClock)))
+                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
+                                             + clock + " and " + newClock);
+
+        }
     }
 
     /**
