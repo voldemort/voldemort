@@ -85,18 +85,24 @@ public class AdminClient {
     private Cluster cluster;
 
     /**
-     * Create an instance of Admin Client given a bootstrap server URL. The
+     * Create an instance of AdminClient given a bootstrap server URL. The
      * bootstrap URL is used to get the cluster metadata.
      * 
-     * @param bootstrapURL URL pointing to the boostrap node
-     * @param config Configuration for a Voldemort client (not specific to Admin
-     *        API)
+     * @param bootstrapURL URL pointing to the bootstrap node
+     * @param adminClientConfig Configuration for AdminClient specifying client
+     *        parameters eg. <br>
+     *        <ul>
+     *        <t>
+     *        <li>number of threads</li>
+     *        <li>number of sockets per node</li>
+     *        <li>socket buffer size</li>
+     *        </ul>
      */
-    public AdminClient(String bootstrapURL, ClientConfig config) {
-        config.setBootstrapUrls(bootstrapURL);
-        this.cluster = getClusterFromBootstrapURL(bootstrapURL, config);
+    public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
+        adminClientConfig.setBootstrapUrls(bootstrapURL);
+        this.cluster = getClusterFromBootstrapURL(bootstrapURL, adminClientConfig);
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = createSocketPool(config);
+        this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
     }
@@ -106,13 +112,19 @@ public class AdminClient {
      * 
      * @param cluster Initialized cluster object, describing the nodes we wish
      *        to contact
-     * @param config Configuration for a Voldemort client (not specific to Admin
-     *        API)
+     * @param adminClientConfig Configuration for AdminClient specifying client
+     *        parameters eg. <br>
+     *        <ul>
+     *        <t>
+     *        <li>number of threads</li>
+     *        <li>number of sockets per node</li>
+     *        <li>socket buffer size</li>
+     *        </ul>
      */
-    public AdminClient(Cluster cluster, ClientConfig config) {
+    public AdminClient(Cluster cluster, AdminClientConfig adminClientConfig) {
         this.cluster = cluster;
         this.errorMapper = new ErrorCodeMapper();
-        this.pool = createSocketPool(config);
+        this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
     }
@@ -166,15 +178,13 @@ public class AdminClient {
      * <li>Client performs a handshake with the server (sending in the update
      * entries request with a store name and a {@link VoldemortFilter} instance.
      * </li>
-     * <li>While
-     * 
-     * @param entryIterator has entries, the client will keep sending the
-     *        updates one after another to the server, buffering the data,
-     *        without waiting for a response from the server.</li> <li>After
-     *        iteration is complete, send an end of stream message, force a
-     *        flush of the buffer, check the response on the server to check if
-     *        a {@link VoldemortException} has occured.</li>
-     *        </ol>
+     * <li>While entryIterator has entries, the client will keep sending the
+     * updates one after another to the server, buffering the data, without
+     * waiting for a response from the server.</li>
+     * <li>After iteration is complete, send an end of stream message, force a
+     * flush of the buffer, check the response on the server to check if a
+     * {@link VoldemortException} has occured.</li>
+     * </ol>
      * 
      * @param nodeId Id of the remote node (where we wish to update the entries)
      * @param storeName Store name for the entries
