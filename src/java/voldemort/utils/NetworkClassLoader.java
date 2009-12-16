@@ -33,7 +33,7 @@ import org.apache.log4j.Logger;
  */
 public class NetworkClassLoader extends ClassLoader {
 
-    private static Logger logger = Logger.getLogger(NetworkClassLoader.class);
+    private final static Logger logger = Logger.getLogger(NetworkClassLoader.class);
 
     public NetworkClassLoader(ClassLoader parentClassLoader) {
         super(parentClassLoader);
@@ -62,6 +62,7 @@ public class NetworkClassLoader extends ClassLoader {
         // get class fileName
         String filename = cl.getName().replace('.', File.separatorChar) + ".class";
         InputStream in = null;
+        logger.debug("NetworkClassloader dumpClass() :" + cl.getCanonicalName());
         try {
             in = this.getResourceAsStream(filename);
             byte[] classBytes = IOUtils.toByteArray(in);

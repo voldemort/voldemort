@@ -257,6 +257,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
 
+    @SuppressWarnings("unchecked")
     public List<Integer> getRebalancingProxySlaveList() {
         return (List<Integer>) metadataCache.get(REBALANCING_PARTITIONS_LIST_KEY).getValue();
     }

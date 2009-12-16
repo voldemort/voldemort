@@ -27,10 +27,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -175,13 +174,16 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                               EventThrottler throttler) throws IOException {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
+            int counter = 0;
+            int fetched = 0;
+            long startTime = System.currentTimeMillis();
             iterator = storageEngine.entries();
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
                 if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                    && filter.accept(entry.getFirst(), entry.getSecond())) {
-
+                    fetched++;
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
                     VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
@@ -196,6 +198,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(entry));
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("fetchEntries() scanned " + counter + " entries, fetched "
+                                 + fetched + " entries for store:" + storageEngine.getName()
+                                 + " partition:" + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -212,6 +222,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                            EventThrottler throttler) throws IOException {
         ClosableIterator<ByteArray> iterator = null;
         try {
+            int counter = 0;
+            int fetched = 0;
+            long startTime = System.currentTimeMillis();
             iterator = storageEngine.keys();
             while(iterator.hasNext()) {
                 ByteArray key = iterator.next();
@@ -221,12 +234,21 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.setKey(ProtoUtils.encodeBytes(key));
 
+                    fetched++;
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
 
                     if(throttler != null) {
                         throttler.maybeThrottle(key.length());
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
+                                 + " keys for store:" + storageEngine.getName() + " partition:"
+                                 + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -248,6 +270,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter())
                                                           : new DefaultVoldemortFilter();
 
+            int counter = 0;
+            long startTime = System.currentTimeMillis();
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
             while(continueReading) {
                 VAdminProto.PartitionEntry partitionEntry = request.getPartitionEntry();
@@ -260,6 +284,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("updateEntries() updated " + counter + " entries for store:"
+                                 + storageEngine.getName() + " in " + totalTime + " s");
                 }
 
                 int size = inputStream.readInt();
@@ -305,10 +336,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                 AdminClient adminClient = createTempAdminClient();
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
-                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
-                                                                                                                                                     storeName,
-                                                                                                                                                     partitions,
-                                                                                                                                                     filter);
+                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                                            storeName,
+                                                                                                                                            partitions,
+                                                                                                                                            filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
                                                     for(long i = 0; entriesIterator.hasNext(); i++) {
@@ -328,7 +359,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                             }
 
                                             private AdminClient createTempAdminClient() {
-                                                ClientConfig config = new ClientConfig();
+                                                AdminClientConfig config = new AdminClientConfig();
                                                 config.setMaxConnectionsPerNode(1);
                                                 config.setMaxThreads(1);
                                                 config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
@@ -337,8 +368,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                         TimeUnit.MILLISECONDS);
                                                 config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
-                                                return new ProtoBuffAdminClientRequestFormat(metadataStore.getCluster(),
-                                                                                             config);
+                                                return new AdminClient(metadataStore.getCluster(),
+                                                                       config);
                                             }
                                         });
 

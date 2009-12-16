@@ -31,7 +31,7 @@ public class ServerJVMTestUtils {
         List<String> env = Arrays.asList("CLASSPATH=" + System.getProperty("java.class.path"));
 
         String command = "java  voldemort.server.VoldemortServer " + voldemortHome;
-        System.out.println("command:" + command + " env:" + env);
+        // System.out.println("command:" + command + " env:" + env);
         Process process = Runtime.getRuntime().exec(command, env.toArray(new String[0]));
         waitForServerStart(node);
         startOutputErrorConsumption(process);
@@ -99,7 +99,7 @@ public class ServerJVMTestUtils {
             throw new RuntimeException("Failed to connect with server:" + node);
     }
 
-    public static void StopServerJVM(Process server) throws IOException {
+    public static void StopServerJVM(Process server) {
         System.out.println("killing process" + server);
         server.destroy();
 

@@ -113,14 +113,6 @@ public class KeyedResourcePoolTest extends TestCase {
             this.isDestroyed = new AtomicBoolean(true);
         }
 
-        public String getValue() {
-            return value;
-        }
-
-        public void setValue(String value) {
-            this.value = value;
-        }
-
         public boolean isValid() {
             return isValid.get();
         }
@@ -172,10 +164,12 @@ public class KeyedResourcePoolTest extends TestCase {
             return value.isValid();
         }
 
+        @SuppressWarnings("unused")
         public int getCreated() {
             return this.created.get();
         }
 
+        @SuppressWarnings("unused")
         public int getDestroyed() {
             return this.destroyed.get();
         }
