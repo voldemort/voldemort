@@ -4,9 +4,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import voldemort.VoldemortClientShell;
 import voldemort.VoldemortException;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.versioning.Versioned;
 
@@ -43,7 +42,7 @@ public class VoldemortAdminClientShell extends VoldemortClientShell {
 
         AdminClient adminClient = null;
         try {
-            adminClient = new ProtoBuffAdminClientRequestFormat(bootstrapUrl, new ClientConfig());
+            adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig());
         } catch (Exception e) {
             Utils.croak("Couldn't instantiate admin client: " + e.getMessage());
         }
@@ -87,7 +86,7 @@ public class VoldemortAdminClientShell extends VoldemortClientShell {
                     String storeName = args[1];
                     List<Integer> partititionList = parseCsv(args[2]);
                     Iterator<ByteArray> partitionKeys =
-                            adminClient.fetchPartitionKeys(remoteNodeId, storeName, partititionList, null);
+                            adminClient.fetchKeys(remoteNodeId, storeName, partititionList, null);
                     BufferedWriter writer = null;
                     try {
                         if (args.length > 3) {
@@ -115,7 +114,7 @@ public class VoldemortAdminClientShell extends VoldemortClientShell {
                     String storeName = args[1];
                     List<Integer> partititionList = parseCsv(args[2]);
                     Iterator<Pair<ByteArray,Versioned<byte[]>>> partitionEntries =
-                            adminClient.fetchPartitionEntries(remoteNodeId, storeName, partititionList, null);
+                            adminClient.fetchEntries(remoteNodeId, storeName, partititionList, null);
                     BufferedWriter writer = null;
                     try {
                         if (args.length > 3) {

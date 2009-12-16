@@ -12,9 +12,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import voldemort.Attempt;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClientConfig;
+
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
@@ -88,7 +88,7 @@ public class Ec2GossipTest {
 
         hostNames = toHostNames(hostNamePairs);
 
-        nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+        //nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
 
         if(logger.isInfoEnabled())
             logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
@@ -99,18 +99,18 @@ public class Ec2GossipTest {
     @Test
     public void testGossip() throws Exception {
         // First deploy an initial cluster
-        deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
+        //deploy(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory);
 
         try {
-            startClusterAsync(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory,
-                    voldemortHomeDirectory, nodeIds);
+          //  startClusterAsync(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory,
+            //        voldemortHomeDirectory, nodeIds);
             
             final Pair<HostNamePair, Integer> newInstance = createAndDeployNewInstance();
             final String newHostname = newInstance.getFirst().getExternalHostName();
             final int nodeId = newInstance.getSecond();
 
-            startClusterNode(newHostname, sshPrivateKey, hostUserId, voldemortRootDirectory,
-                    voldemortHomeDirectory, nodeId);
+            //startClusterNode(newHostname, sshPrivateKey, hostUserId, voldemortRootDirectory,
+            //        voldemortHomeDirectory, nodeId);
 
              if (logger.isInfoEnabled())
                 logger.info("Sleeping for 5 seconds to start Voldemort on the new node.");
@@ -160,7 +160,7 @@ public class Ec2GossipTest {
             });
 
         }  finally {
-            stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
+           // stopCluster(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
         }
         
     }
@@ -169,21 +169,21 @@ public class Ec2GossipTest {
         HostNamePair newInstance = createInstances(accessId, secretKey, ami, keyPairId, 1).get(0);
         hostNamePairs.add(newInstance);
         hostNames = toHostNames(hostNamePairs);
-        nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
+       // nodeIds = generateClusterDescriptor(hostNamePairs, "test", clusterXmlFile);
 
         if (logger.isInfoEnabled())
             logger.info("Sleep for 15 seconds to give the new EC2 instance some time to startup");
 
         Thread.sleep(15000);
 
-        deploy(ImmutableList.of(newInstance.getExternalHostName()), sshPrivateKey, hostUserId, sourceDirectory,
-                parentDirectory);
+        //deploy(ImmutableList.of(newInstance.getExternalHostName()), sshPrivateKey, hostUserId, sourceDirectory,
+       //         parentDirectory);
         
         return new Pair<HostNamePair, Integer>(newInstance, nodeIds.get(newInstance.getExternalHostName()));
     }
 
     private static AdminClient getAdminClient(String hostname) {
-        return new ProtoBuffAdminClientRequestFormat("tcp://" + hostname + ":6666", new ClientConfig());
+        return new AdminClient("tcp://" + hostname + ":6666", new AdminClientConfig());
     }
 
     @AfterClass
@@ -194,7 +194,7 @@ public class Ec2GossipTest {
 
     @After
     public void tearDown() throws Exception {
-        stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
+        //stopClusterQuiet(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory);
     }
 
     private static Properties getEc2Properties() throws Exception {
