@@ -81,7 +81,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
-        this.networkClassLoader = null;
+        this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
+                                                               .getContextClassLoader());
         this.asyncRunner = asyncRunner;
         this.rebalancer = rebalancer;
     }
