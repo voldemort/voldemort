@@ -428,7 +428,8 @@ public class AdminClient {
 
     /**
      * Migrate keys/values belonging to stealPartitionList from donorNode to
-     * stealerNode.
+     * stealerNode. <b>Does not delete the partitions from donorNode, merely
+     * copies them. </b>
      * <p>
      * This is a background operation (see
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
