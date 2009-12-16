@@ -65,9 +65,9 @@ import com.google.protobuf.Message;
  * <p>
  * Some of the uses of AdminClient include
  * <ul>
- * <li>extraction of data for backups</li>
- * <li>extraction of all keys</li>
- * <li>bulk loading entries</li>
+ * <li>Extraction of data for backups</li>
+ * <li>Extraction of all keys</li>
+ * <li>Bulk loading entries</li>
  * <li>Migrating partitions</li>
  * <li>Get/Update metadata info from selective Nodes</li>
  * <li>Used extensively by rebalancing (dynamic node addition/deletion) feature
@@ -761,7 +761,7 @@ public class AdminClient {
 
     /**
      * Retrieve the server state (
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState} from a
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) from a
      * remote node.
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
