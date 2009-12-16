@@ -10,6 +10,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.SocketPool;
 
 /**
  * @author bbansal
@@ -25,10 +26,15 @@ public class RebalancerService extends AbstractService {
                              VoldemortConfig voldemortConfig,
                              AsyncOperationRunner asyncRunner,
                              StoreRepository storeRepository,
-                             SchedulerService service) {
+                             SchedulerService service,
+                             SocketPool socketPool) {
         super(ServiceType.REBALANCE);
         schedulerService = service;
-        rebalancer = new Rebalancer(metadataStore, voldemortConfig, asyncRunner, storeRepository);
+        rebalancer = new Rebalancer(metadataStore,
+                                    voldemortConfig,
+                                    asyncRunner,
+                                    storeRepository,
+                                    socketPool);
         periodMs = voldemortConfig.getRebalancingServicePeriod();
     }
 

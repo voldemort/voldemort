@@ -109,7 +109,11 @@ public class VoldemortServer extends AbstractService {
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
                                                           SystemTime.INSTANCE);
-        services.add(new StorageService(storeRepository, metadata, scheduler, voldemortConfig));
+        StorageService storageService = new StorageService(storeRepository,
+                                                           metadata,
+                                                           scheduler,
+                                                           voldemortConfig);
+        services.add(storageService);
         services.add(scheduler);
         services.add(this.asyncRunner);
 
@@ -153,7 +157,8 @@ public class VoldemortServer extends AbstractService {
                                                                             voldemortConfig,
                                                                             asyncRunner,
                                                                             storeRepository,
-                                                                            scheduler);
+                                                                            scheduler,
+                                                                            storageService.getStorageSocketPool());
                 services.add(rebalancerService);
                 rebalancer = rebalancerService.getRebalancer();
             }

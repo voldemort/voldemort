@@ -16,11 +16,11 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketPool;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -34,15 +34,18 @@ public class Rebalancer implements Runnable {
     private final AsyncOperationRunner asyncRunner;
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
+    private final SocketPool socketPool;
 
     public Rebalancer(MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
                       AsyncOperationRunner asyncRunner,
-                      StoreRepository storeRepository) {
+                      StoreRepository storeRepository,
+                      SocketPool socketPool) {
         this.metadataStore = metadataStore;
         this.asyncRunner = asyncRunner;
         this.voldemortConfig = voldemortConfig;
         this.storeRepository = storeRepository;
+        this.socketPool = socketPool;
     }
 
     public void start() {
@@ -153,7 +156,9 @@ public class Rebalancer implements Runnable {
                     logger.info("Rebalancer: rebalance " + stealInfo + " starting.");
 
                     // check and create redirectingSocketStore if needed.
-                    checkAndCreateRedirectingSocketStore(storeName, stealInfo.getDonorId());
+                    checkAndCreateRedirectingSocketStore(storeName,
+                                                         adminClient.getCluster()
+                                                                    .getNodeById(stealInfo.getDonorId()));
 
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
@@ -223,14 +228,16 @@ public class Rebalancer implements Runnable {
                                          + " rejecting rebalance request:" + stealInfo);
     }
 
-    private void checkAndCreateRedirectingSocketStore(String storeName, int donorId) {
-        if(!storeRepository.hasRedirectingSocketStore(storeName, donorId)) {
-            // TODO : add redirectingSocketStore to storeRepository
+    private void checkAndCreateRedirectingSocketStore(String storeName, Node donorNode) {
+        if(!storeRepository.hasRedirectingSocketStore(storeName, donorNode.getId())) {
+            storeRepository.addRedirectingSocketStore(donorNode.getId(),
+                                                      createRedirectingSocketStore(storeName,
+                                                                                   donorNode));
         }
     }
 
-    private RedirectingSocketStore createRedirectingSocketStore(StoreDefinition def, Node node) {
-        return new RedirectingSocketStore(def.getName(),
+    private RedirectingSocketStore createRedirectingSocketStore(String storeName, Node node) {
+        return new RedirectingSocketStore(storeName,
                                           new SocketDestination(node.getHost(),
                                                                 node.getSocketPort(),
                                                                 voldemortConfig.getRequestFormatType()),

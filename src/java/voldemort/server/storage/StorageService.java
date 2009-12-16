@@ -469,4 +469,9 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(e);
         }
     }
+
+    public SocketPool getStorageSocketPool() {
+        return socketPool;
+    }
+
 }
