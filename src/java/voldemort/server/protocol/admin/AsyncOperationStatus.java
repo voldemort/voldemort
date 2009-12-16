@@ -6,7 +6,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author afeinberg
  */
 public class AsyncOperationStatus {
-    private volatile String status="initializing";
+
+    private volatile String status = "initializing";
     private AtomicBoolean complete = new AtomicBoolean(false);
     private volatile Exception exception;
 
@@ -54,20 +55,18 @@ public class AsyncOperationStatus {
         return exception != null;
     }
 
+    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder()
-                .append("id=")
-                .append(id)
-                .append(" description=")
-                .append(description)
-                .append(" complete=")
-                .append(complete.get())
-                .append(" status=")
-                .append(status)
-                .append(" hasException=")
-                .append(hasException());
+        StringBuilder sb = new StringBuilder().append("id=")
+                                              .append(id)
+                                              .append(" description=")
+                                              .append(description)
+                                              .append(" complete=")
+                                              .append(complete.get())
+                                              .append(" status=")
+                                              .append(status)
+                                              .append(" hasException=")
+                                              .append(hasException());
         return sb.toString();
     }
 }
-
-

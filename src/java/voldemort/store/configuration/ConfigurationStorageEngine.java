@@ -158,17 +158,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         }
     }
 
-    /**
-     * If key is a temp state value write it inside tempDirectory to avoid
-     * clutter.
-     * 
-     * @param key
-     * @param clock
-     */
-    private void writeValue(String key, Versioned<String> value) {
-
-    }
-
     private VectorClock readVersion(String key) {
         try {
             File versionFile = new File(getVersionDirectory(), key);

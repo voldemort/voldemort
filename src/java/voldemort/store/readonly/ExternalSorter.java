@@ -320,6 +320,7 @@ public class ExternalSorter<V> {
             return inputStream;
         }
 
+        @SuppressWarnings("unused")
         public File getFile() {
             return file;
         }

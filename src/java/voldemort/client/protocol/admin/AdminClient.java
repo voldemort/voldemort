@@ -99,7 +99,6 @@ public class AdminClient {
      *        </ul>
      */
     public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
-        adminClientConfig.setBootstrapUrls(bootstrapURL);
         this.cluster = getClusterFromBootstrapURL(bootstrapURL, adminClientConfig);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(adminClientConfig);
@@ -130,6 +129,7 @@ public class AdminClient {
     }
 
     private Cluster getClusterFromBootstrapURL(String bootstrapURL, ClientConfig config) {
+        config.setBootstrapUrls(bootstrapURL);
         // try to bootstrap metadata from bootstrapUrl
         SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
         // get Cluster from bootStrapUrl

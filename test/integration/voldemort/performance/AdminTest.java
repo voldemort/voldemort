@@ -38,10 +38,6 @@ public class AdminTest {
     private static final String usageStr = "Usage: $VOLDEMORT_HOME/bin/admin-test.sh  [options] bootstrapUrl storeName";
 
     public AdminTest(String bootstrapUrl, String storeName) {
-        this(bootstrapUrl, storeName, false);
-    }
-
-    public AdminTest(String bootstrapUrl, String storeName, boolean useNative) {
         this.storeName = storeName;
         this.adminClient = ServerTestUtils.getAdminClient(bootstrapUrl);
     }
@@ -133,9 +129,9 @@ public class AdminTest {
                 public long apply() {
                     long i = 0;
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
-                                                                                                            storeName,
-                                                                                                            new ArrayList<Integer>(nodePartitions.get(node)),
-                                                                                                            null);
+                                                                                                   storeName,
+                                                                                                   new ArrayList<Integer>(nodePartitions.get(node)),
+                                                                                                   null);
                     while(result.hasNext()) {
                         i++;
                         result.next();
@@ -197,10 +193,8 @@ public class AdminTest {
         }
 
         AdminTest adminTest;
-        if(options.has("native"))
-            adminTest = new AdminTest(bootstrapUrl, storeName, true);
-        else
-            adminTest = new AdminTest(bootstrapUrl, storeName);
+
+        adminTest = new AdminTest(bootstrapUrl, storeName);
 
         SetMultimap<Integer, Integer> nodePartitions = adminTest.getNodePartitions(options.has("n") ? options.valuesOf("n")
                                                                                                    : null,

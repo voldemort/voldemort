@@ -164,10 +164,12 @@ public class KeyedResourcePoolTest extends TestCase {
             return value.isValid();
         }
 
+        @SuppressWarnings("unused")
         public int getCreated() {
             return this.created.get();
         }
 
+        @SuppressWarnings("unused")
         public int getDestroyed() {
             return this.destroyed.get();
         }
