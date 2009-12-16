@@ -58,7 +58,7 @@ public class AdminTest {
 
     private List<Integer> getNodes(int partition) {
         List<Integer> rv = new LinkedList<Integer>();
-        Cluster cluster = adminClient.getCluster();
+        Cluster cluster = adminClient.getAdminClientCluster();
         for(Node node: cluster.getNodes()) {
             if(node.getPartitionIds().contains(partition))
                 rv.add(node.getId());
@@ -68,7 +68,7 @@ public class AdminTest {
     }
 
     private List<Integer> getPartitions(int nodeId) {
-        Cluster cluster = adminClient.getCluster();
+        Cluster cluster = adminClient.getAdminClientCluster();
         Node node = cluster.getNodeById(nodeId);
         return node.getPartitionIds();
     }

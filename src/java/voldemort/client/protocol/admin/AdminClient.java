@@ -149,7 +149,7 @@ public class AdminClient {
     }
 
     private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
-        Node node = this.getCluster().getNodeById(nodeId);
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
                                                               node.getAdminPort(),
                                                               RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -171,9 +171,8 @@ public class AdminClient {
     }
 
     /**
-     * Update key/value entries for a specific store on a remote node given an
-     * iterator of the entries. The entries are <em>streamed</em> from the
-     * client to the server:
+     * Update a stream of key/value entries at the given node. The iterator
+     * entries are <em>streamed</em> from the client to the server:
      * <ol>
      * <li>Client performs a handshake with the server (sending in the update
      * entries request with a store name and a {@link VoldemortFilter} instance.
@@ -197,7 +196,7 @@ public class AdminClient {
                               String storeName,
                               Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                               VoldemortFilter filter) {
-        Node node = this.getCluster().getNodeById(nodeId);
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
                                                               node.getAdminPort(),
                                                               RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -283,8 +282,7 @@ public class AdminClient {
     }
 
     /**
-     * Fetch all key/value entries belong to the partitions listed from the
-     * server to the client.
+     * Fetch key/value entries belonging to partitionList from requested node.
      * <p>
      * 
      * <b>this is a streaming API.</b> The server keeps sending the messages as
@@ -309,7 +307,7 @@ public class AdminClient {
                                                                      String storeName,
                                                                      List<Integer> partitionList,
                                                                      VoldemortFilter filter) {
-        Node node = this.getCluster().getNodeById(nodeId);
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
                                                                     RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -359,8 +357,8 @@ public class AdminClient {
     }
 
     /**
-     * Identical to {@link AdminClient#fetchEntries} but will
-     * <em>only fetch the keys</em>
+     * Fetch All keys belonging to partitionList from requested node. Identical
+     * to {@link AdminClient#fetchEntries} but will <em>only fetch the keys</em>
      * 
      * @param nodeId See documentation for {@link AdminClient#fetchEntries}
      * @param storeName See documentation for {@link AdminClient#fetchEntries}
@@ -373,7 +371,7 @@ public class AdminClient {
                                          String storeName,
                                          List<Integer> partitionList,
                                          VoldemortFilter filter) {
-        Node node = this.getCluster().getNodeById(nodeId);
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
                                                                     RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
@@ -420,8 +418,7 @@ public class AdminClient {
     }
 
     /**
-     * Fetch key/value entries from donorNodeId and Update entries at
-     * stealerNodeId for the requested storeName and given partitionList.
+     * Fetch key/value entries from donorNodeId and Update at stealerNodeId.
      * <p>
      * This is a background operation (see
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
@@ -474,9 +471,8 @@ public class AdminClient {
     }
 
     /**
-     * Get the status of an
-     * {@link voldemort.server.protocol.admin.AsyncOperation} which is running
-     * on nodeId.<br>
+     * Get the status of an Async Operation running at (remote) node.
+     * 
      * <b>If The operation is complete, then the operation will be removed from
      * a list of currently running operations.</b>
      * 
@@ -517,8 +513,7 @@ public class AdminClient {
     }
 
     /**
-     * Delete all entries belonging to partitions in requested partitionList for
-     * given storeName on (remote) node nodeId.
+     * Delete all entries belonging to partitionList at requested node.
      * 
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
@@ -570,6 +565,9 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Stop the AdminClient cleanly freeing all resources.
+     */
     public void stop() {
         this.pool.close();
     }
@@ -614,12 +612,14 @@ public class AdminClient {
     }
 
     /**
-     * Update metadata at the given remoteNodeId.<br>
+     * Update metadata at the given remoteNodeId.
+     * <p>
      * 
      * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
      * eg.<br>
-     * <li>cluster metadata (cluster.xml as string) <li>stores definitions
-     * (stores.xml as string) <li>Server states <br <br>
+     * <li>cluster metadata (cluster.xml as string)
+     * <li>stores definitions (stores.xml as string)
+     * <li>Server states <br <br>
      * See {@link voldemort.store.metadata.MetadataStore} for more information.
      * 
      * @param remoteNodeId Id of the node
@@ -647,13 +647,17 @@ public class AdminClient {
     }
 
     /**
-     * Get the metadata on a remote node. See
-     * {@link AdminClient#updateRemoteMetadata)} for more documentation.
+     * Get the metadata on a remote node.
+     * <p>
+     * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
+     * eg.<br>
+     * <li>cluster metadata (cluster.xml as string)
+     * <li>stores definitions (stores.xml as string)
+     * <li>Server states <br <br>
+     * See {@link voldemort.store.metadata.MetadataStore} for more information.
      * 
-     * @param remoteNodeId See {@link AdminClient#updateRemoteMetadata)} for
-     *        documentation.
-     * @param key See {@link AdminClient#updateRemoteMetadata)} for
-     *        documentation.
+     * @param remoteNodeId Id of the node
+     * @param key Metadata key to update
      * @return Metadata with its associated {@link voldemort.versioning.Version}
      */
     public Versioned<String> getRemoteMetadata(int remoteNodeId, String key) {
@@ -756,11 +760,21 @@ public class AdminClient {
                                              value.getVersion());
     }
 
-    public void setCluster(Cluster cluster) {
+    /**
+     * Set cluster info for AdminClient to use.
+     * 
+     * @param cluster
+     */
+    public void setAdminClientCluster(Cluster cluster) {
         this.cluster = cluster;
     }
 
-    public Cluster getCluster() {
+    /**
+     * Get the cluster info AdminClient is using.
+     * 
+     * @return
+     */
+    public Cluster getAdminClientCluster() {
         return cluster;
     }
 }
