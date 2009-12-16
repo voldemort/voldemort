@@ -1,0 +1,76 @@
+package voldemort.store.readonly;
+
+import java.nio.ByteBuffer;
+
+import voldemort.utils.ByteUtils;
+
+/**
+ * A search strategy that uses interpolation to jump to approximately the
+ * correct location in the index with as few comparisons as possible. This
+ * strategy depends entirely on the uniform distribution of the keys that is
+ * guaranteed by the md5 hash.
+ * 
+ * @author jay
+ * 
+ */
+public class InterpolationSearchStrategy implements SearchStrategy {
+
+    private final byte[] MIN_KEY;
+    private final byte[] MAX_KEY;
+
+    public InterpolationSearchStrategy() {
+        MIN_KEY = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
+        MAX_KEY = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
+        for(int i = 0; i < ReadOnlyUtils.KEY_HASH_SIZE; i++) {
+            MIN_KEY[i] = 0x0;
+            MAX_KEY[i] = (byte) 0xFF;
+        }
+    }
+
+    public int indexOf(ByteBuffer index, byte[] key, int indexSize) {
+        int guess;
+        int lowIdx = 0;
+        int highIdx = indexSize / ReadOnlyUtils.INDEX_ENTRY_SIZE - 1;
+        long lastIdx = highIdx;
+        long lowValue = 0;
+        long highValue = 0xFFFFFFFFL;
+        long keyInt = ByteUtils.readUnsignedInt(key, 0);
+        byte[] found = new byte[16];
+        while(true) {
+            if(lowIdx > highIdx || keyInt < lowValue || keyInt > highValue)
+                return -1;
+
+            if(highIdx == lowIdx) {
+                guess = highIdx;
+            } else {
+                long size = highIdx - lowIdx;
+                long offset = (size - 1) * (keyInt - lowValue) / (highValue - lowValue);
+                guess = lowIdx + (int) offset;
+            }
+
+            index.position(guess * ReadOnlyUtils.INDEX_ENTRY_SIZE);
+            index.get(found);
+            int compare = ByteUtils.compare(key, found);
+
+            // did we find it?
+            if(compare == 0)
+                return index.getInt();
+
+            // okay we didn't find it this time, update the min and max
+            long foundInt = ByteUtils.readUnsignedInt(found, 0);
+            if(compare == -1) {
+                // key is less than found
+                if(guess == 0)
+                    return -1;
+                highIdx = guess - 1;
+                highValue = foundInt;
+            } else {
+                // key is greater than found
+                if(guess == lastIdx)
+                    return -1;
+                lowIdx = guess + 1;
+                lowValue = foundInt;
+            }
+        }
+    }
+}

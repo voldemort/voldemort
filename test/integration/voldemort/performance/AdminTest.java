@@ -35,14 +35,9 @@ public class AdminTest {
         void apply();
     }
 
-    private static final String usageStr = "Usage: $VOLDEMORT_HOME/bin/admin-test.sh \\\n"
-                                           + "\t [options] bootstrapUrl storeName";
+    private static final String usageStr = "Usage: $VOLDEMORT_HOME/bin/admin-test.sh  [options] bootstrapUrl storeName";
 
     public AdminTest(String bootstrapUrl, String storeName) {
-        this(bootstrapUrl, storeName, false);
-    }
-
-    public AdminTest(String bootstrapUrl, String storeName, boolean useNative) {
         this.storeName = storeName;
         this.adminClient = ServerTestUtils.getAdminClient(bootstrapUrl);
     }
@@ -63,7 +58,7 @@ public class AdminTest {
 
     private List<Integer> getNodes(int partition) {
         List<Integer> rv = new LinkedList<Integer>();
-        Cluster cluster = adminClient.getCluster();
+        Cluster cluster = adminClient.getAdminClientCluster();
         for(Node node: cluster.getNodes()) {
             if(node.getPartitionIds().contains(partition))
                 rv.add(node.getId());
@@ -73,7 +68,7 @@ public class AdminTest {
     }
 
     private List<Integer> getPartitions(int nodeId) {
-        Cluster cluster = adminClient.getCluster();
+        Cluster cluster = adminClient.getAdminClientCluster();
         Node node = cluster.getNodeById(nodeId);
         return node.getPartitionIds();
     }
@@ -133,10 +128,10 @@ public class AdminTest {
 
                 public long apply() {
                     long i = 0;
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchPartitionEntries(node,
-                                                                                                            storeName,
-                                                                                                            new ArrayList<Integer>(nodePartitions.get(node)),
-                                                                                                            null);
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
+                                                                                                   storeName,
+                                                                                                   new ArrayList<Integer>(nodePartitions.get(node)),
+                                                                                                   null);
                     while(result.hasNext()) {
                         i++;
                         result.next();
@@ -155,7 +150,7 @@ public class AdminTest {
             timeFunction(new Timed() {
 
                 public void apply() {
-                    adminClient.fetchAndUpdateStreams(node,
+                    adminClient.migratePartitions(node,
                                                       to,
                                                       store,
                                                       new ArrayList<Integer>(from.get(node)),
@@ -184,6 +179,11 @@ public class AdminTest {
 
         List<String> nonOptions = options.nonOptionArguments();
 
+        if(args.length < 2) {
+            System.out.println(usageStr);
+            return;
+        }
+
         String bootstrapUrl = nonOptions.get(0);
         String storeName = nonOptions.get(1);
 
@@ -193,10 +193,8 @@ public class AdminTest {
         }
 
         AdminTest adminTest;
-        if(options.has("native"))
-            adminTest = new AdminTest(bootstrapUrl, storeName, true);
-        else
-            adminTest = new AdminTest(bootstrapUrl, storeName);
+
+        adminTest = new AdminTest(bootstrapUrl, storeName);
 
         SetMultimap<Integer, Integer> nodePartitions = adminTest.getNodePartitions(options.has("n") ? options.valuesOf("n")
                                                                                                    : null,

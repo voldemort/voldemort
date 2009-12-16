@@ -7,7 +7,7 @@ import voldemort.client.ClientConfig;
 import voldemort.utils.Props;
 
 /**
- * Client Configuration properties for Admin client. extends
+ * Client Configuration properties for {@link AdminClient} extends standard
  * {@link ClientConfig}<br>
  * Sets better <b><i>default</i></b> values for properties used by
  * {@link AdminClient}.

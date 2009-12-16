@@ -59,8 +59,9 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
                                                                              .getAbsolutePath(),
                                                                     null,
                                                                     storesXmlfile);
-        // TODO: network class loader is disabled.
-        // config.setEnableNetworkClassLoader(true);
+
+        config.setEnableNetworkClassLoader(true);
+
         server = new VoldemortServer(config, cluster);
         server.start();
 

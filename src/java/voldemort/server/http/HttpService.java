@@ -58,6 +58,7 @@ public class HttpService extends AbstractService {
     private Server httpServer;
     private Context context;
 
+    @SuppressWarnings("unused")
     public HttpService(VoldemortServer server,
                        StoreRepository storeRepository,
                        RequestFormatType requestType,

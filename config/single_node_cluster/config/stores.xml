@@ -7,12 +7,20 @@
     <required-reads>1</required-reads>
     <required-writes>1</required-writes>
     <key-serializer>
-      <type>json</type>
-      <schema-info>"string"</schema-info>
+      <type>string</type>
     </key-serializer>
     <value-serializer>
-      <type>json</type>
-      <schema-info>"string"</schema-info>
+      <type>string</type>
     </value-serializer>
   </store>
+  <view>
+    <name>test-view</name>
+    <view-of>test</view-of>
+    <view-class>
+      voldemort.store.views.UpperCaseView
+    </view-class>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+  </view>
 </stores>

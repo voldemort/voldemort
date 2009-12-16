@@ -86,9 +86,9 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
 
     public void testIterationWithSerialization() {
         StorageEngine<ByteArray, byte[]> store = getStorageEngine();
-        StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
-                                                                                                 new StringSerializer(),
-                                                                                                 new StringSerializer());
+        StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,
+                                                                                  new StringSerializer(),
+                                                                                  new StringSerializer());
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet())
             stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));

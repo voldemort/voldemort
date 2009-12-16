@@ -45,6 +45,12 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
         this.storageEngine = Utils.notNull(innerStorageEngine);
     }
 
+    public static <K1, V1> SerializingStorageEngine<K1, V1> wrap(StorageEngine<ByteArray, byte[]> s,
+                                                                 Serializer<K1> k,
+                                                                 Serializer<V1> v) {
+        return new SerializingStorageEngine<K1, V1>(s, k, v);
+    }
+
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new EntriesIterator(storageEngine.entries());
     }

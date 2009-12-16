@@ -157,17 +157,17 @@ public class Rebalancer implements Runnable {
 
                     // check and create redirectingSocketStore if needed.
                     checkAndCreateRedirectingSocketStore(storeName,
-                                                         adminClient.getCluster()
+                                                         adminClient.getAdminClientCluster()
                                                                     .getNodeById(stealInfo.getDonorId()));
 
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
 
-                    fetchAndUpdateAsyncId = adminClient.fetchAndUpdateStreams(stealInfo.getDonorId(),
-                                                                              metadataStore.getNodeId(),
-                                                                              storeName,
-                                                                              stealInfo.getPartitionList(),
-                                                                              null);
+                    fetchAndUpdateAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                                                                          metadataStore.getNodeId(),
+                                                                          storeName,
+                                                                          stealInfo.getPartitionList(),
+                                                                          null);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
                                                   fetchAndUpdateAsyncId,
                                                   24 * 60 * 60,

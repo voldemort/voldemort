@@ -13,7 +13,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -30,20 +29,17 @@ public class RebalanceClient {
 
     private final ExecutorService executor;
     private final AdminClient adminClient;
-    private final AdminClientConfig config;
     private final int maxParallelRebalancing;
 
     public RebalanceClient(String bootstrapUrl, int maxParallelRebalancing, AdminClientConfig config) {
-        this.adminClient = new ProtoBuffAdminClientRequestFormat(bootstrapUrl, config);
+        this.adminClient = new AdminClient(bootstrapUrl, config);
         this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
-        this.config = config;
         this.maxParallelRebalancing = maxParallelRebalancing;
     }
 
     public RebalanceClient(Cluster cluster, int maxParallelRebalancing, AdminClientConfig config) {
-        this.adminClient = new ProtoBuffAdminClientRequestFormat(cluster, config);
+        this.adminClient = new AdminClient(cluster, config);
         this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
-        this.config = config;
         this.maxParallelRebalancing = maxParallelRebalancing;
     }
 
@@ -65,7 +61,7 @@ public class RebalanceClient {
                           final Cluster targetCluster,
                           final List<String> storeList) {
         // update adminClient with currentCluster
-        adminClient.setCluster(currentCluster);
+        adminClient.setAdminClientCluster(currentCluster);
 
         if(!RebalanceUtils.getClusterRebalancingToken()) {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
@@ -87,7 +83,8 @@ public class RebalanceClient {
                         if(null != rebalanceTask) {
                             int stealerNodeId = rebalanceTask.getFirst();
                             addNodeIfnotPresent(targetCluster, stealerNodeId);
-                            Node stealerNode = adminClient.getCluster().getNodeById(stealerNodeId);
+                            Node stealerNode = adminClient.getAdminClientCluster()
+                                                          .getNodeById(stealerNodeId);
                             List<RebalanceStealInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
                             while(rebalanceSubTaskList.size() > 0) {
@@ -187,7 +184,7 @@ public class RebalanceClient {
                                                               rebalanceStealInfo.getDonorId()));
 
                 // set new cluster in adminClient
-                adminClient.setCluster(newCluster);
+                adminClient.setAdminClientCluster(newCluster);
             } catch(Exception e) {
                 logger.error("Failed to commit rebalance on node:" + stealerNode.getId()
                              + " REVERTING cluster changes ...", e);
@@ -239,10 +236,10 @@ public class RebalanceClient {
     }
 
     private void addNodeIfnotPresent(Cluster targetCluster, int stealerNodeId) {
-        if(!RebalanceUtils.containsNode(adminClient.getCluster(), stealerNodeId)) {
+        if(!RebalanceUtils.containsNode(adminClient.getAdminClientCluster(), stealerNodeId)) {
             // add stealerNode from targertCluster here
-            adminClient.setCluster(RebalanceUtils.updateCluster(adminClient.getCluster(),
-                                                                Arrays.asList(targetCluster.getNodeById(stealerNodeId))));
+            adminClient.setAdminClientCluster(RebalanceUtils.updateCluster(adminClient.getAdminClientCluster(),
+                                                                           Arrays.asList(targetCluster.getNodeById(stealerNodeId))));
         }
     }
 }

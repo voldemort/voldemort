@@ -47,7 +47,6 @@ public class NoopStorageConfiguration implements StorageConfiguration {
     protected boolean reflect;
 
     public NoopStorageConfiguration(VoldemortConfig config) {
-
         reflect = config.getAllProps().getBoolean(REFLECT_PROPERTY, false);
     }
 

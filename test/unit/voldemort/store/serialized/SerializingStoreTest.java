@@ -37,9 +37,9 @@ public class SerializingStoreTest extends AbstractStoreTest<String, String> {
 
     @Override
     public Store<String, String> getStore() {
-        return new SerializingStore<String, String>(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
-                                                    new StringSerializer(),
-                                                    new StringSerializer());
+        return SerializingStore.wrap(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
+                                     new StringSerializer(),
+                                     new StringSerializer());
     }
 
     @Override

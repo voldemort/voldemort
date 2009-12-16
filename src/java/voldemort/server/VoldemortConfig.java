@@ -27,6 +27,7 @@ import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
@@ -77,10 +78,9 @@ public class VoldemortConfig implements Serializable {
     private String mysqlHost;
     private int mysqlPort;
 
-    private int readOnlyFileHandles;
-    private long readOnlyFileWaitTimeoutMs;
     private int readOnlyBackups;
     private String readOnlyStorageDir;
+    private String readOnlySearchStrategy;
 
     private int coreThreads;
     private int maxThreads;
@@ -144,7 +144,6 @@ public class VoldemortConfig implements Serializable {
     }
 
     private int gossipInterval;
-
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
 
@@ -186,9 +185,9 @@ public class VoldemortConfig implements Serializable {
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
-        this.readOnlyFileWaitTimeoutMs = props.getLong("readonly.file.wait.timeout.ms", 4000L);
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
-        this.readOnlyFileHandles = props.getInt("readonly.file.handles", 5);
+        this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
+                                                      BinarySearchStrategy.class.getName());
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
@@ -212,10 +211,8 @@ public class VoldemortConfig implements Serializable {
         this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec",
-                                                     10 * 8 * 1024 * 1024);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec",
-                                                      10 * 8 * 1024 * 1024);
+        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 10 * 1000 * 1000);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -281,6 +278,7 @@ public class VoldemortConfig implements Serializable {
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
+
         validateParams();
     }
 
@@ -799,22 +797,6 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyStorageDir = readOnlyStorageDir;
     }
 
-    public int getReadOnlyStorageFileHandles() {
-        return readOnlyFileHandles;
-    }
-
-    public void setReadOnlyFileHandles(int readOnlyFileHandles) {
-        this.readOnlyFileHandles = readOnlyFileHandles;
-    }
-
-    public long getReadOnlyFileWaitTimeoutMs() {
-        return readOnlyFileWaitTimeoutMs;
-    }
-
-    public void setReadOnlyFileWaitTimeoutMs(long timeoutMs) {
-        this.readOnlyFileWaitTimeoutMs = timeoutMs;
-    }
-
     public int getReadOnlyBackups() {
         return readOnlyBackups;
     }
@@ -975,6 +957,14 @@ public class VoldemortConfig implements Serializable {
         this.enableGossip = enableGossip;
     }
 
+    public String getReadOnlySearchStrategy() {
+        return readOnlySearchStrategy;
+    }
+
+    public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
+        this.readOnlySearchStrategy = readOnlySearchStrategy;
+    }
+
     public boolean isNetworkClassLoaderEnabled() {
         return enableNetworkClassLoader;
     }
@@ -1002,5 +992,4 @@ public class VoldemortConfig implements Serializable {
     public boolean isDeleteAfterRebalancingEnabled() {
         return enableDeleteAfterRebalancing;
     }
-
 }

@@ -66,6 +66,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                     break;
                 case GET_UNCHECKED:
                     response = handleGetUncheckedMetadata(request.getGet(), store);
+                    break;
                 default:
                     throw new VoldemortException("Unknown operation " + request.getType());
             }

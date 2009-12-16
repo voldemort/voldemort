@@ -72,6 +72,7 @@ public class RebalanceStealInfo {
                + getPartitionList() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
+    @SuppressWarnings("unchecked")
     public String toJsonString() {
         Map map = ImmutableMap.builder()
                               .put("stealerId", stealerId)

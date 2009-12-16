@@ -184,13 +184,16 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                               EventThrottler throttler) throws IOException {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
+            int counter = 0;
+            int fetched = 0;
+            long startTime = System.currentTimeMillis();
             iterator = storageEngine.entries();
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
                 if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
                    && filter.accept(entry.getFirst(), entry.getSecond())) {
-
+                    fetched++;
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
                     VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
@@ -205,6 +208,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(entry));
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("fetchEntries() scanned " + counter + " entries, fetched "
+                                 + fetched + " entries for store:" + storageEngine.getName()
+                                 + " partition:" + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -221,6 +232,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                            EventThrottler throttler) throws IOException {
         ClosableIterator<ByteArray> iterator = null;
         try {
+            int counter = 0;
+            int fetched = 0;
+            long startTime = System.currentTimeMillis();
             iterator = storageEngine.keys();
             while(iterator.hasNext()) {
                 ByteArray key = iterator.next();
@@ -230,12 +244,21 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.setKey(ProtoUtils.encodeBytes(key));
 
+                    fetched++;
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
 
                     if(throttler != null) {
                         throttler.maybeThrottle(key.length());
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
+                                 + " keys for store:" + storageEngine.getName() + " partition:"
+                                 + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -257,6 +280,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter())
                                                           : new DefaultVoldemortFilter();
 
+            int counter = 0;
+            long startTime = System.currentTimeMillis();
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
             while(continueReading) {
                 VAdminProto.PartitionEntry partitionEntry = request.getPartitionEntry();
@@ -275,6 +300,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(throttler != null) {
                         throttler.maybeThrottle(entrySize(Pair.create(key, value)));
                     }
+                }
+                // log progress
+                counter++;
+                if(0 == counter % 100000) {
+                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    logger.debug("updateEntries() updated " + counter + " entries for store:"
+                                 + storageEngine.getName() + " in " + totalTime + " s");
                 }
 
                 int size = inputStream.readInt();
@@ -355,10 +387,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                                metadataStore.getCluster());
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
-                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchPartitionEntries(nodeId,
-                                                                                                                                                     storeName,
-                                                                                                                                                     partitions,
-                                                                                                                                                     filter);
+                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                                            storeName,
+                                                                                                                                            partitions,
+                                                                                                                                            filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
                                                     for(long i = 0; entriesIterator.hasNext(); i++) {
@@ -519,20 +551,19 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
 
         byte[] classBytes = ProtoUtils.decodeBytes(request.getData()).get();
         String className = request.getName();
+        logger.debug("Attempt to load VoldemortFilter class:" + className);
 
         try {
             if(voldemortConfig.isNetworkClassLoaderEnabled()) {
                 // TODO: network class loader was throwing NoClassDefFound for
                 // voldemort.server package classes, Need testing and fixes
-                // before can be reenabled.
+                logger.warn("NetworkLoader is experimental and should not be used for now.");
 
-                // Class<?> cl = networkClassLoader.loadClass(className,
-                // classBytes,
-                // 0,
-                // classBytes.length);
-                // filter = (VoldemortFilter) cl.newInstance();
-                //                
-                throw new VoldemortException("NetworkLoader is experimental and is disabled for now.");
+                Class<?> cl = networkClassLoader.loadClass(className,
+                                                           classBytes,
+                                                           0,
+                                                           classBytes.length);
+                filter = (VoldemortFilter) cl.newInstance();
             } else {
                 Class<?> cl = Thread.currentThread().getContextClassLoader().loadClass(className);
                 filter = (VoldemortFilter) cl.newInstance();
