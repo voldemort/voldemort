@@ -61,9 +61,18 @@ import com.google.protobuf.Message;
 /**
  * AdminClient is intended for administrative functionality that is useful and
  * often needed, but should be used sparingly (if at all) at the application
- * level. Some of the uses of AdminClient include the extraction of data,
- * backups, bulk loads as well as the (presently in development) rebalancing
- * feature.
+ * level.
+ * <p>
+ * Some of the uses of AdminClient include
+ * <ul>
+ * <li>extraction of data for backups</li>
+ * <li>extraction of all keys</li>
+ * <li>bulk loading entries</li>
+ * <li>Migrating partitions</li>
+ * <li>Get/Update metadata info from selective Nodes</li>
+ * <li>Used extensively by rebalancing (dynamic node addition/deletion) feature
+ * (presently in development).</li>
+ * </ul>
  * 
  * @author afeinberg,bbansal
  */
@@ -418,7 +427,8 @@ public class AdminClient {
     }
 
     /**
-     * Fetch key/value entries from donorNodeId and Update at stealerNodeId.
+     * Migrate keys/values belonging to stealPartitionList from donorNode to
+     * stealerNode.
      * <p>
      * This is a background operation (see
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
@@ -431,21 +441,21 @@ public class AdminClient {
      * @param stealerNodeId Node <em>to</em> which the partitions are to be
      *        streamed.
      * @param storeName Name of the store to stream.
-     * @param stealList List of partitions to stream.
+     * @param stealPartitionList List of partitions to stream.
      * @param filter Custom filter implementation to filter out entries which
      *        should not be deleted.
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
      *         stealerNodeId which is performing the operation.
      */
-    public int fetchAndUpdateStreams(int donorNodeId,
-                                     int stealerNodeId,
-                                     String storeName,
-                                     List<Integer> stealList,
-                                     VoldemortFilter filter) {
+    public int migratePartitions(int donorNodeId,
+                                 int stealerNodeId,
+                                 String storeName,
+                                 List<Integer> stealPartitionList,
+                                 VoldemortFilter filter) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
-                                                                                                                                   .addAllPartitions(stealList)
+                                                                                                                                   .addAllPartitions(stealPartitionList)
                                                                                                                                    .setStore(storeName);
         try {
             if(filter != null) {

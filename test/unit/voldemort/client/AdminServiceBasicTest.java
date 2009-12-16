@@ -314,7 +314,7 @@ public class AdminServiceBasicTest extends TestCase {
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.fetchAndUpdateStreams(0,
+        int id = client.migratePartitions(0,
                                               1,
                                               testStoreName,
                                               fetchAndUpdatePartitionsList,

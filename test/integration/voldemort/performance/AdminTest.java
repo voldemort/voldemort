@@ -150,7 +150,7 @@ public class AdminTest {
             timeFunction(new Timed() {
 
                 public void apply() {
-                    adminClient.fetchAndUpdateStreams(node,
+                    adminClient.migratePartitions(node,
                                                       to,
                                                       store,
                                                       new ArrayList<Integer>(from.get(node)),
