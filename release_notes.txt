@@ -1,18 +1,21 @@
 Release 0.60 on 12/15/2009
 
-* Admin Client/Server API: adds support for streaming key/value
-  entries, retrieving metadata.
+Changes made since 0.57.1:
+
+* Admin Client/Server API: adds support for streaming-based transfer
+  of entries between nodes, deleting entries on remote nodes,
+  remotely deleting and updating metadata
 * EC2 testing: a way to periodically run integration and performance
   tests which involve Voldemort instances on different machines
 * Experimental support for views
 * Interpolation search for read-only stores
 * Support for large lists and strings in the JSON serializer
-* LZF compression support: 
+* LZF compression support
 * Ruby client contributed
 * Fixed issue 170: hanging if a port is used by another process
 * Fixed issue 122: suspicious integer division in
   RequestCounter.getThroughput
-* Miscellaneous improvements and bug fixes for read only stores
+* Miscellaneous improvements and bug fixes for read-only stores
 * Fixed issue 168: added StorageEngine.keys()
 
 Release 0.57.1 on 11/27/2009
