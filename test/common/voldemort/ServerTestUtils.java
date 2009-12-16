@@ -31,11 +31,11 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -52,6 +52,7 @@ import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -271,19 +272,18 @@ public class ServerTestUtils {
         List<StoreDefinition> defs = new ArrayList<StoreDefinition>();
         SerializerDefinition serDef = new SerializerDefinition("string");
         for(int i = 0; i < numStores; i++)
-            defs.add(new StoreDefinition("test" + i,
-                                         InMemoryStorageConfiguration.TYPE_NAME,
-                                         serDef,
-                                         serDef,
-                                         RoutingTier.SERVER,
-                                         RoutingStrategyType.CONSISTENT_STRATEGY,
-                                         2,
-                                         1,
-                                         1,
-                                         1,
-                                         1,
-                                         1,
-                                         1));
+            defs.add(new StoreDefinitionBuilder().setName("test" + i)
+                                                 .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                 .setKeySerializer(serDef)
+                                                 .setValueSerializer(serDef)
+                                                 .setRoutingPolicy(RoutingTier.SERVER)
+                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                 .setReplicationFactor(2)
+                                                 .setPreferredReads(1)
+                                                 .setRequiredReads(1)
+                                                 .setPreferredWrites(1)
+                                                 .setRequiredWrites(1)
+                                                 .build());
         return defs;
     }
 
@@ -295,19 +295,18 @@ public class ServerTestUtils {
                                               int rwrites,
                                               String strategyType) {
         SerializerDefinition serDef = new SerializerDefinition("string");
-        return new StoreDefinition(storeName,
-                                   InMemoryStorageConfiguration.TYPE_NAME,
-                                   serDef,
-                                   serDef,
-                                   RoutingTier.SERVER,
-                                   strategyType,
-                                   replicationFactor,
-                                   preads,
-                                   rreads,
-                                   pwrites,
-                                   rwrites,
-                                   1,
-                                   1);
+        return new StoreDefinitionBuilder().setName(storeName)
+                                           .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                           .setKeySerializer(serDef)
+                                           .setValueSerializer(serDef)
+                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingStrategyType(strategyType)
+                                           .setReplicationFactor(replicationFactor)
+                                           .setPreferredReads(preads)
+                                           .setRequiredReads(rreads)
+                                           .setPreferredWrites(pwrites)
+                                           .setRequiredWrites(rwrites)
+                                           .build();
     }
 
     public static HashMap<ByteArray, byte[]> createRandomKeyValuePairs(int numKeys) {
@@ -366,25 +365,25 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(Cluster cluster) {
+    public static AdminClient getAdminClient(Cluster cluster) {
 
-        ClientConfig config = new ClientConfig();
+        AdminClientConfig config = new AdminClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
-        return new ProtoBuffAdminClientRequestFormat(cluster, config);
+        return new AdminClient(cluster, config);
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(String bootstrapURL) {
-        ClientConfig config = new ClientConfig();
+    public static AdminClient getAdminClient(String bootstrapURL) {
+        AdminClientConfig config = new AdminClientConfig();
         config.setMaxConnectionsPerNode(2);
         config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
         config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
         config.setSocketBufferSize(32 * 1024);
 
-        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);
+        return new AdminClient(bootstrapURL, config);
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {

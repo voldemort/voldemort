@@ -47,7 +47,18 @@ public class NetworkClassLoaderTest extends TestCase {
             Integer a;
             String b;
 
+            @SuppressWarnings("unused")
             private void foo() {}
+
+            @SuppressWarnings("unused")
+            public int getA() {
+                return a;
+            }
+
+            @SuppressWarnings("unused")
+            public String getB() {
+                return b;
+            }
         }
 
         checkLoadClass(new UserClass().getClass());

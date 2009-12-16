@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import joptsimple.OptionParser;
@@ -134,18 +135,23 @@ public class RemoteTest {
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(numThreads)
                                                                                     .setMaxTotalConnections(numThreads)
                                                                                     .setMaxConnectionsPerNode(numThreads)
-                                                                                    .setBootstrapUrls(url));
+                                                                                    .setBootstrapUrls(url)
+                                                                                    .setConnectionTimeout(60,
+                                                                                                          TimeUnit.SECONDS)
+                                                                                    .setSocketTimeout(60,
+                                                                                                      TimeUnit.SECONDS)
+                                                                                    .setSocketBufferSize(4 * 1024));
         final StoreClient<String, String> store = factory.getStoreClient(storeName);
 
         final String value = TestUtils.randomLetters(valueSize);
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
         /*
-         *   send the store a value and then delete it - useful for the NOOP store which will then use that value for
-         *   other queries
+         * send the store a value and then delete it - useful for the NOOP store
+         * which will then use that value for other queries
          */
 
-        String key = new KeyProvider(startNum, keys).next();        
+        String key = new KeyProvider(startNum, keys).next();
 
         // We need to delete just in case there's an existing value there that
         // would otherwise cause the test run to bomb out.
@@ -153,10 +159,11 @@ public class RemoteTest {
         store.put(key, new Versioned<String>(value));
         store.delete(key);
 
-         for (int loopCount=0; loopCount < numIterations; loopCount++) {
+        for(int loopCount = 0; loopCount < numIterations; loopCount++) {
 
-             System.out.println("======================= iteration = " + loopCount + " ======================================");
-     
+            System.out.println("======================= iteration = " + loopCount
+                               + " ======================================");
+
             if(ops.contains("d")) {
                 System.out.println("Beginning delete test.");
                 final AtomicInteger successes = new AtomicInteger(0);
@@ -221,16 +228,18 @@ public class RemoteTest {
                         public void run() {
                             try {
                                 Versioned<String> v = store.get(keyProvider2.next());
-                                
-                                if (v == null) {
+
+                                if(v == null) {
                                     throw new Exception("value returned is null");
                                 }
 
-                                if (!value.equals(v.getValue())) {
+                                if(!value.equals(v.getValue())) {
                                     throw new Exception("value returned isn't same as set value.  My val size = "
-                                            + value.length() + " ret size = " + v.getValue().length());
+                                                        + value.length()
+                                                        + " ret size = "
+                                                        + v.getValue().length());
                                 }
-                                
+
                             } catch(Exception e) {
                                 e.printStackTrace();
                             } finally {

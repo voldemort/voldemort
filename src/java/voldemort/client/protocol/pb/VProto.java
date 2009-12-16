@@ -14,6 +14,7 @@ public final class VProto {
     PUT(2, 2),
     DELETE(3, 3),
     GET_VERSION(4, 4),
+    GET_UNCHECKED(5, 5),
     ;
     
     
@@ -26,6 +27,7 @@ public final class VProto {
         case 2: return PUT;
         case 3: return DELETE;
         case 4: return GET_VERSION;
+        case 5: return GET_UNCHECKED;
         default: return null;
       }
     }
@@ -56,7 +58,7 @@ public final class VProto {
     }
     
     private static final RequestType[] VALUES = {
-      GET, GET_ALL, PUT, DELETE, GET_VERSION, 
+      GET, GET_ALL, PUT, DELETE, GET_VERSION, GET_UNCHECKED, 
     };
     public static RequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -5506,9 +5508,10 @@ public final class VProto {
       "(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllReques" +
       "t\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutRequest\022(\n" +
       "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest*",
-      "I\n\013RequestType\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003" +
-      "PUT\020\002\022\n\n\006DELETE\020\003\022\017\n\013GET_VERSION\020\004B(\n\034vo" +
-      "ldemort.client.protocol.pbB\006VProtoH\001"
+      "\\\n\013RequestType\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003" +
+      "PUT\020\002\022\n\n\006DELETE\020\003\022\017\n\013GET_VERSION\020\004\022\021\n\rGE" +
+      "T_UNCHECKED\020\005B(\n\034voldemort.client.protoc" +
+      "ol.pbB\006VProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {

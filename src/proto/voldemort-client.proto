@@ -77,6 +77,7 @@ enum RequestType {
   PUT = 2;
   DELETE = 3;
   GET_VERSION = 4;
+  GET_UNCHECKED = 5;
 }
 
 message VoldemortRequest {

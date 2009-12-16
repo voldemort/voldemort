@@ -35,4 +35,5 @@ public class RebalanceUtilsTest extends TestCase {
                      info.toString(),
                      (new RebalanceStealInfo(info.toJsonString())).toString());
     }
+
 }

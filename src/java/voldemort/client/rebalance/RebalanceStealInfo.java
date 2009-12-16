@@ -5,6 +5,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 
@@ -33,13 +34,18 @@ public class RebalanceStealInfo {
     }
 
     public RebalanceStealInfo(String line) {
-        JsonReader reader = new JsonReader(new StringReader(line));
-        Map<String, Object> map = (Map<String, Object>) reader.read();
-        this.stealerId = (Integer) map.get("stealerId");
-        this.donorId = (Integer) map.get("donorId");
-        this.partitionList = (List<Integer>) map.get("partitionList");
-        this.attempt = (Integer) map.get("attempt");
-        this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+        try {
+            JsonReader reader = new JsonReader(new StringReader(line));
+            Map<String, Object> map = (Map<String, Object>) reader.read();
+            this.stealerId = (Integer) map.get("stealerId");
+            this.donorId = (Integer) map.get("donorId");
+            this.partitionList = (List<Integer>) map.get("partitionList");
+            this.attempt = (Integer) map.get("attempt");
+            this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+        } catch(Exception e) {
+            throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
+                                         e);
+        }
     }
 
     public void setAttempt(int attempt) {
@@ -72,6 +78,7 @@ public class RebalanceStealInfo {
                + getPartitionList() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
+    @SuppressWarnings("unchecked")
     public String toJsonString() {
         Map map = ImmutableMap.builder()
                               .put("stealerId", stealerId)

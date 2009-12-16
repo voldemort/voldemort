@@ -42,6 +42,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
@@ -289,19 +290,18 @@ public class TestUtils {
         JsonReader jsonReader = new JsonReader(reader);
 
         SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
-        StoreDefinition storeDef = new StoreDefinition("test",
-                                                       ReadOnlyStorageConfiguration.TYPE_NAME,
-                                                       serDef,
-                                                       serDef,
-                                                       RoutingTier.CLIENT,
-                                                       RoutingStrategyType.CONSISTENT_STRATEGY,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1,
-                                                       1);
+        StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
+                                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                               .setKeySerializer(serDef)
+                                                               .setValueSerializer(serDef)
+                                                               .setRoutingPolicy(RoutingTier.CLIENT)
+                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                               .setReplicationFactor(1)
+                                                               .setPreferredReads(1)
+                                                               .setRequiredReads(1)
+                                                               .setPreferredWrites(1)
+                                                               .setRequiredWrites(1)
+                                                               .build();
         RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                     cluster);
 

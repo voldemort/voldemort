@@ -32,7 +32,7 @@ public class StoreDefinitionMapperTest extends TestCase {
         List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(getSimpleStoreDefinitionsXml()));
         String output = mapper.writeStoreList(storeDefs);
         List<StoreDefinition> found = mapper.readStoreList(new StringReader(output));
-        assertEqual(storeDefs, found);
+        checkEquals(storeDefs, found);
         for(StoreDefinition def: storeDefs) {
             String xml = mapper.writeStore(def);
             StoreDefinition newDef = mapper.readStore(new StringReader(xml));
@@ -78,11 +78,17 @@ public class StoreDefinitionMapperTest extends TestCase {
         assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
     }
 
-    private void assertEqual(List<StoreDefinition> l1, List<StoreDefinition> l2) {
+    public void testView() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getViewStoreDefinitionXml()));
+        String written = mapper.writeStoreList(storeDefs);
+        checkEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
+    }
+
+    private void checkEquals(List<StoreDefinition> l1, List<StoreDefinition> l2) {
         assertEquals(l1.size(), l2.size());
-        for(int i = 0; i < l1.size(); i++) {
+        for(int i = 0; i < l1.size(); i++)
             assertEquals(l1.get(i), l2.get(i));
-        }
     }
 
 }

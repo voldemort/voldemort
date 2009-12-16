@@ -34,14 +34,19 @@ public class Ec2InstanceRemoteTestUtils {
                                                      String ec2KeyPairId,
                                                      int count) throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
-        return ec2.create(ec2Ami, ec2KeyPairId, Ec2Connection.Ec2InstanceType.DEFAULT, count);
+        // TODO : fix me
+        // return ec2.create(ec2Ami, ec2KeyPairId,
+        // Ec2Connection.Ec2InstanceType.DEFAULT, count);
+
+        return null;
     }
 
     public static void destroyInstances(String ec2AccessId,
                                         String ec2SecretKey,
                                         List<String> hostNames) throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2AccessId, ec2SecretKey);
-        ec2.delete(hostNames);
+        // TODO : fix me
+        // ec2.delete(hostNames);
     }
 
     public static List<HostNamePair> listInstances(String ec2AccessId, String ec2SecretKey)

@@ -44,6 +44,5 @@
 	<classpathentry kind="lib" path="lib/je-3.3.87.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.2.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
-	<classpathentry kind="lib" path="lib/h2-lzf.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

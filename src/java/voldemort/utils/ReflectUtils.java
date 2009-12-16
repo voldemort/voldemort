@@ -76,6 +76,27 @@ public class ReflectUtils {
         }
     }
 
+    /**
+     * Call the no-arg constructor for the given class
+     * 
+     * @param <T> The type of the thing to construct
+     * @param klass The class
+     * @return The constructed thing
+     */
+    public static <T> T callConstructor(Class<T> klass) {
+        return callConstructor(klass, new Class<?>[0], new Object[0]);
+    }
+
+    /**
+     * Call the constructor for the given class, inferring the correct types for
+     * the arguments. This could be confusing if there are multiple constructors
+     * with the same number of arguments and the values themselves don't
+     * disambiguate.
+     * 
+     * @param klass The class to construct
+     * @param args The arguments
+     * @return The constructed value
+     */
     public static <T> T callConstructor(Class<T> klass, Object[] args) {
         Class<?>[] klasses = new Class[args.length];
         for(int i = 0; i < args.length; i++)

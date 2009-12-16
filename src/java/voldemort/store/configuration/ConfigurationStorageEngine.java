@@ -48,10 +48,9 @@ import voldemort.versioning.Versioned;
  */
 public class ConfigurationStorageEngine implements StorageEngine<String, String> {
 
+    private final static Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
     private final String name;
     private final File directory;
-
-    private static final Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
 
     public ConfigurationStorageEngine(String name, String directory) {
         this.name = name;

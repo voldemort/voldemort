@@ -5,15 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 import voldemort.Attempt;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -53,14 +51,7 @@ public class GossiperTest extends TestCase {
     }
 
     private AdminClient getAdminClient(Cluster newCluster, VoldemortConfig newServerConfig) {
-        ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(8)
-                                                      .setMaxThreads(8)
-                                                      .setConnectionTimeout(newServerConfig.getAdminConnectionTimeout(),
-                                                                            TimeUnit.MILLISECONDS)
-                                                      .setSocketTimeout(newServerConfig.getSocketTimeoutMs(),
-                                                                        TimeUnit.MILLISECONDS)
-                                                      .setSocketBufferSize(newServerConfig.getAdminSocketBufferSize());
-        return new ProtoBuffAdminClientRequestFormat(newCluster, clientConfig);
+        return new AdminClient(newCluster, new AdminClientConfig());
     }
 
     public void testGossiper() throws Exception {

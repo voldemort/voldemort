@@ -142,6 +142,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      */
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
+
+            // check if it is a valid operation
+            checkAndTransform(key, value.getValue());
+
             // try inserting into inner store first
             putInner(key, convertObjectToString(key, value));
 
@@ -184,8 +188,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
                                                                             "UTF-8"),
                                                         valueBytes.getVersion());
-        // check if it is a valid operation
-        checkValidValueTransition(key, value);
 
         Versioned<Object> valueObject = convertStringToObject(key, value);
 
@@ -297,13 +299,13 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return routingStrategyMap.get(storeName);
     }
 
-    public void updateRoutingStrategies() {
+    public void updateRoutingStrategies(Cluster cluster, List<StoreDefinition> storeDefs) {
         VectorClock clock = new VectorClock();
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
         this.metadataCache.put(ROUTING_STRATEGY_KEY,
-                               new Versioned<Object>(createRoutingStrategMap(),
+                               new Versioned<Object>(createRoutingStrategMap(cluster, storeDefs),
                                                      clock.incremented(getNodeId(),
                                                                        System.currentTimeMillis())));
     }
@@ -354,7 +356,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 
         // set transient values
-        updateRoutingStrategies();
+        updateRoutingStrategies(getCluster(), getStoreDefList());
     }
 
     private void initCache(String key) {
@@ -370,11 +372,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    private Object createRoutingStrategMap() {
+    private Object createRoutingStrategMap(Cluster cluster, List<StoreDefinition> storeDefs) {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
-        for(StoreDefinition store: getStoreDefList()) {
-            map.put(store.getName(), routingFactory.updateRoutingStrategy(store, getCluster()));
+        for(StoreDefinition store: storeDefs) {
+            map.put(store.getName(), routingFactory.updateRoutingStrategy(store, cluster));
         }
 
         // add metadata Store route to ALL routing strategy.
@@ -384,18 +386,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * Check if the value can be updated as requested.
+     * Check if the key,value pair is valid and do other special stuff as
+     * needed.
      * 
      * @param key
      * @param value throws VoldemortException if value change is not acceptable
      */
-    private void checkValidValueTransition(String key, Versioned<String> value) {
-        if(key.equals(CLUSTER_STATE_KEY)) {
-            String currentValue = getInnerValue(key).getValue();
-            if(currentValue.equals(VoldemortState.REBALANCING_CLUSTER.toString())
-               && !value.getValue().equals(VoldemortState.NORMAL_CLUSTER))
-                throw new VoldemortException("Transition for " + key + " from " + currentValue
-                                             + " to" + value.getValue() + " is not allowed.");
+    private void checkAndTransform(String key, Object value) {
+        if(CLUSTER_KEY.equals(key)) {
+            updateRoutingStrategies((Cluster) value, getStoreDefList());
+        } else if(STORES_KEY.equals(key)) {
+            updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value);
         }
     }
 

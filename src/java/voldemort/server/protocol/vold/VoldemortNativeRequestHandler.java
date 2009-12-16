@@ -73,6 +73,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                 case VoldemortOpCode.GET_VERSION_OP_CODE:
                     handleGetVersion(inputStream, outputStream, store);
                     break;
+                case VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE:
+                    handleGetIgnoreInvalidMetadataException(inputStream, outputStream, store);
+                    break;
                 default:
                     throw new IOException("Unknown op code: " + opCode);
             }
@@ -203,6 +206,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return;
         }
         writeResults(outputStream, results);
+    }
+
+    private void handleGetIgnoreInvalidMetadataException(DataInputStream inputStream,
+                                                         DataOutputStream outputStream,
+                                                         Store<ByteArray, byte[]> store)
+            throws IOException {
+        Store<ByteArray, byte[]> uncheckedStore = getStoreRepository().getStorageEngine(store.getName());
+        handleGet(inputStream, outputStream, uncheckedStore);
     }
 
     private void handleGetAll(DataInputStream inputStream,

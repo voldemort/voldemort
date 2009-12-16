@@ -44,4 +44,4 @@ if [ -z $VOLD_OPTS ]; then
 fi
 
 export CLASSPATH
-java $VOLD_OPTS -cp $CLASSPATH $@
+java $VOLD_OPTS -Dlog4j.configuration=log4j-stderr.properties -cp $CLASSPATH $@

@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;

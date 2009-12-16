@@ -105,10 +105,12 @@ public class AsyncOperationRunner extends AbstractService {
         return lastOperationId.getAndIncrement();
     }
 
+    @Override
     protected void startInner() {
         logger.info("Starting asyncOperationRunner");
     }
 
+    @Override
     protected void stopInner() {
         logger.info("Stopping asyncOperationRunner");
     }

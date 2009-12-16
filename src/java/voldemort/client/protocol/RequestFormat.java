@@ -42,6 +42,11 @@ public interface RequestFormat {
                                 ByteArray key,
                                 boolean shouldReroute) throws IOException;
 
+    public void writeGetIgnoreInvalidMetadataRequest(DataOutputStream output,
+                                                        String storeName,
+                                                        ByteArray key,
+                                                        boolean shouldReroute) throws IOException;
+
     public void writeGetVersionRequest(DataOutputStream output,
                                        String storeName,
                                        ByteArray key,

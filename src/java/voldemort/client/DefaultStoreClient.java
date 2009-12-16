@@ -228,6 +228,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return strategy.routeRequest(keySerializer.toBytes(key));
     }
 
+    @SuppressWarnings("unused")
     private Version getVersion(K key) {
         List<Version> versions = getVersions(key);
         if(versions.size() == 0)

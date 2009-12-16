@@ -128,15 +128,17 @@ public class StoreUtils {
      */
     public static void assertValidMetadata(ByteArray key,
                                            RoutingStrategy routingStrategy,
-                                           int currentNodeId) {
+                                           Node currentNode) {
         List<Node> nodes = routingStrategy.routeRequest(key.get());
         for(Node node: nodes) {
-            if(node.getId() == currentNodeId) {
+            if(node.getId() == currentNode.getId()) {
                 return;
             }
         }
 
-        throw new InvalidMetadataException("client routing strategy not in sync with store routing strategy!");
+        throw new InvalidMetadataException("client attempt accessing key belonging to partition:"
+                                           + routingStrategy.getPartitionList(key.get())
+                                           + " at Node:" + currentNode);
     }
 
     public static <V> List<Version> getVersions(List<Versioned<V>> versioneds) {
@@ -180,5 +182,19 @@ public class StoreUtils {
     public static <T> Serializer<T> unsafeGetSerializer(SerializerFactory serializerFactory,
                                                         SerializerDefinition serializerDefinition) {
         return (Serializer<T>) serializerFactory.getSerializer(serializerDefinition);
+    }
+
+    /**
+     * Get a store definition from the given list of store definitions
+     * 
+     * @param list A list of store definitions
+     * @param name The name of the store
+     * @return The store definition
+     */
+    public static StoreDefinition getStoreDef(List<StoreDefinition> list, String name) {
+        for(StoreDefinition def: list)
+            if(def.getName().equals(name))
+                return def;
+        return null;
     }
 }
