@@ -96,7 +96,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         ByteUtils.read(inputStream, input);
         request.mergeFrom(input);
 
-        logger.debug("AdminClient recieved request:" + request);
         switch(request.getType()) {
             case GET_METADATA:
                 ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));

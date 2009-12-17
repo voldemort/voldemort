@@ -53,6 +53,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -155,9 +156,16 @@ public class ServerTestUtils {
     }
 
     public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
+        return getSocketStore(storeName, "localhost", port, RequestFormatType.VOLDEMORT_V1);
+    }
+
+    public static SocketStore getSocketStore(String storeName,
+                                             String host,
+                                             int port,
+                                             RequestFormatType type) {
         SocketPool socketPool = new SocketPool(2, 10000, 100000, 32 * 1024);
         return new SocketStore(storeName,
-                               new SocketDestination("localhost", port, type),
+                               new SocketDestination(host, port, type),
                                socketPool,
                                false);
     }
@@ -398,7 +406,37 @@ public class ServerTestUtils {
     public static VoldemortServer startVoldemortServer(VoldemortConfig config, Cluster cluster) {
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
+
+        ServerTestUtils.waitForServerStart(server.getIdentityNode());
+        // wait till server start or throw exception
         return server;
     }
 
+    public static void waitForServerStart(Node node) {
+        boolean success = false;
+        int retries = 10;
+        Store<ByteArray, ?> store = null;
+        while(retries-- > 0) {
+            store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
+                                                   node.getSocketPort());
+            try {
+                store.get(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()));
+                success = true;
+            } catch(UnreachableStoreException e) {
+                store.close();
+                store = null;
+                System.out.println("UnreachableSocketStore sleeping will try again " + retries
+                                   + " times.");
+                try {
+                    Thread.sleep(1000);
+                } catch(InterruptedException e1) {
+                    // ignore
+                }
+            }
+        }
+
+        store.close();
+        if(!success)
+            throw new RuntimeException("Failed to connect with server:" + node);
+    }
 }
