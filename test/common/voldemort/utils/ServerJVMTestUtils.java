@@ -14,9 +14,6 @@ import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
-import voldemort.store.Store;
-import voldemort.store.UnreachableStoreException;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.xml.ClusterMapper;
 
 /**
@@ -33,7 +30,7 @@ public class ServerJVMTestUtils {
         String command = "java  voldemort.server.VoldemortServer " + voldemortHome;
         // System.out.println("command:" + command + " env:" + env);
         Process process = Runtime.getRuntime().exec(command, env.toArray(new String[0]));
-        waitForServerStart(node);
+        ServerTestUtils.waitForServerStart(node);
         startOutputErrorConsumption(process);
         return process;
     }
@@ -69,34 +66,6 @@ public class ServerJVMTestUtils {
                 }
             }
         }).start();
-    }
-
-    public static void waitForServerStart(Node node) {
-        boolean success = false;
-        int retries = 10;
-        Store<ByteArray, ?> store = null;
-        while(retries-- > 0) {
-            store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
-                                                   node.getSocketPort());
-            try {
-                store.get(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()));
-                success = true;
-            } catch(UnreachableStoreException e) {
-                store.close();
-                store = null;
-                System.out.println("UnreachableSocketStore sleeping will try again " + retries
-                                   + " times.");
-                try {
-                    Thread.sleep(1000);
-                } catch(InterruptedException e1) {
-                    // ignore
-                }
-            }
-        }
-
-        store.close();
-        if(!success)
-            throw new RuntimeException("Failed to connect with server:" + node);
     }
 
     public static void StopServerJVM(Process server) {

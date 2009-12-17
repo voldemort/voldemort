@@ -16,7 +16,7 @@ public class RebalanceStealInfo {
     private final int stealerId;
     private final int donorId;
     private final List<Integer> partitionList;
-    private final List<String> unbalancedStoreList;
+    private List<String> unbalancedStoreList;
 
     private int attempt;
 
@@ -33,6 +33,7 @@ public class RebalanceStealInfo {
         this.unbalancedStoreList = unbalancedStorList;
     }
 
+    @SuppressWarnings("unchecked")
     public RebalanceStealInfo(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
@@ -70,6 +71,10 @@ public class RebalanceStealInfo {
 
     public List<String> getUnbalancedStoreList() {
         return unbalancedStoreList;
+    }
+
+    public void setUnbalancedStoreList(List<String> storeList) {
+        this.unbalancedStoreList = storeList;
     }
 
     @Override

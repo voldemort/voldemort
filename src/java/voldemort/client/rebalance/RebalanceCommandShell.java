@@ -36,6 +36,6 @@ public class RebalanceCommandShell {
         for(StoreDefinition storeDef: storesList)
             storeNames.add(storeDef.getName());
 
-        rebalanceClient.rebalance(currentCluster, targetCluster, storeNames);
+        rebalanceClient.rebalance(targetCluster, storeNames);
     }
 }

@@ -163,7 +163,7 @@ public class RebalanceUtils {
         List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
 
         for(int p: partitionList) {
-            donorPartitionList.remove(p);
+            removePartition(donorPartitionList, p);
             if(!stealerPartitionList.contains(p))
                 stealerPartitionList.add(p);
         }
@@ -176,7 +176,17 @@ public class RebalanceUtils {
         stealerNode = updateNode(stealerNode, stealerPartitionList);
         donorNode = updateNode(donorNode, donorPartitionList);
 
-        return updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
+        Cluster updatedCluster = updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
+        logger.debug("currentCluster: " + cluster + " updatedCluster:" + updatedCluster);
+        return updatedCluster;
+    }
+
+    private static void removePartition(List<Integer> donorPartitionList, int partition) {
+        for(int i = 0; i < donorPartitionList.size(); i++) {
+            if(partition == donorPartitionList.get(i)) {
+                donorPartitionList.remove(i);
+            }
+        }
     }
 
     public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
@@ -273,8 +283,8 @@ public class RebalanceUtils {
                 logger.debug("Updating remote node:" + nodeId + " with cluster:" + cluster);
                 adminClient.updateRemoteCluster(node.getId(), cluster, clock);
             } catch(Exception e) {
-                throw new VoldemortException("Failed to copy new cluster.xml(" + cluster
-                                             + ") on required node:" + node, e);
+                throw new VoldemortException("Failed to copy updated cluster.xml:" + cluster
+                                             + " on required node:" + node, e);
             }
         }
 

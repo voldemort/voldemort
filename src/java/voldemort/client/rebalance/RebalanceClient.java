@@ -54,13 +54,12 @@ public class RebalanceClient {
      * via {@link RedirectingStore}<br>
      * 
      * 
-     * @param currentCluster: currentCluster configuration.
      * @param targetCluster: target Cluster configuration
+     * @param storeList: All stores which should be rebalanced.
      */
-    public void rebalance(final Cluster currentCluster,
-                          final Cluster targetCluster,
-                          final List<String> storeList) {
-        // update adminClient with currentCluster
+    public void rebalance(final Cluster targetCluster, final List<String> storeList) {
+        Cluster currentCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
+                                                                 adminClient).getValue();
         adminClient.setAdminClientCluster(currentCluster);
 
         if(!RebalanceUtils.getClusterRebalancingToken()) {
@@ -79,6 +78,8 @@ public class RebalanceClient {
                 public void run() {
                     // pick one node to rebalance from queue
                     while(!rebalanceTaskQueue.isEmpty()) {
+                        logger.debug("rebalanceTaskQueue size:" + rebalanceTaskQueue.size());
+
                         Pair<Integer, List<RebalanceStealInfo>> rebalanceTask = rebalanceTaskQueue.poll();
                         if(null != rebalanceTask) {
                             int stealerNodeId = rebalanceTask.getFirst();
@@ -109,6 +110,7 @@ public class RebalanceClient {
                             }
                         }
                     }
+                    logger.debug("Thread run() finished:\n");
                 }
             });
         }// for (nThreads ..
@@ -133,6 +135,7 @@ public class RebalanceClient {
     private void executorShutDown(ExecutorService executorService) {
         try {
             executorService.shutdown();
+            executorService.awaitTermination(24 * 60 * 60, TimeUnit.SECONDS);
         } catch(Exception e) {
             logger.warn("Error while stoping executor service .. ", e);
         }
@@ -160,8 +163,10 @@ public class RebalanceClient {
      * @param stealPartitionsMap
      * @param stealerNodeId
      * @param rebalanceStealInfo
+     * @throws Exception
      */
-    void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo) {
+    void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo)
+            throws Exception {
         synchronized(adminClient) {
             Versioned<Cluster> latestVersionedCluster = RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
                                                                                                       rebalanceStealInfo.getDonorId()),
@@ -186,8 +191,6 @@ public class RebalanceClient {
                 // set new cluster in adminClient
                 adminClient.setAdminClientCluster(newCluster);
             } catch(Exception e) {
-                logger.error("Failed to commit rebalance on node:" + stealerNode.getId()
-                             + " REVERTING cluster changes ...", e);
                 // revert cluster changes.
                 latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
                 RebalanceUtils.propagateCluster(adminClient,
@@ -195,7 +198,7 @@ public class RebalanceClient {
                                                 latestClock,
                                                 new ArrayList<Integer>());
 
-                throw new VoldemortException(e);
+                throw e;
             }
         }
     }
@@ -212,7 +215,7 @@ public class RebalanceClient {
     void attemptRebalanceSubTask(RebalanceStealInfo rebalanceSubTask) {
         boolean success = true;
         List<String> rebalanceStoreList = ImmutableList.copyOf(rebalanceSubTask.getUnbalancedStoreList());
-
+        List<String> unbalancedStoreList = new ArrayList<String>(rebalanceStoreList);
         for(String storeName: rebalanceStoreList) {
             try {
                 int rebalanceAsyncId = adminClient.rebalanceNode(storeName, rebalanceSubTask);
@@ -222,7 +225,8 @@ public class RebalanceClient {
                                               24 * 60 * 60,
                                               TimeUnit.SECONDS);
                 // remove store from rebalance list
-                rebalanceSubTask.getUnbalancedStoreList().remove(storeName);
+                unbalancedStoreList.remove(storeName);
+                rebalanceSubTask.setUnbalancedStoreList(unbalancedStoreList);
             } catch(Exception e) {
                 logger.warn("rebalanceSubTask:" + rebalanceSubTask + " failed for store:"
                             + storeName, e);

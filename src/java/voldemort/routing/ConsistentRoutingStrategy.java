@@ -62,7 +62,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             for(Integer partition: n.getPartitionIds()) {
                 if(m.containsKey(partition))
                     throw new IllegalArgumentException("Duplicate partition id " + partition
-                                                       + " in cluster configuration.");
+                                                       + " in cluster configuration " + nodes);
                 m.put(partition, n);
             }
         }
