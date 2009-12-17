@@ -13,7 +13,6 @@ import java.util.Map.Entry;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -112,8 +111,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
             populateData(updatedCluster, Arrays.asList(0));
 
             RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
-                                                                  1,
-                                                                  new AdminClientConfig());
+                                                                  new RebalanceClientConfig());
 
             rebalanceClient.rebalance(targetCluster, Arrays.asList(testStoreName));
 

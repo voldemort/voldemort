@@ -19,7 +19,7 @@ public class AdminClientConfig extends ClientConfig {
 
     // sets better default for AdminClient
     public AdminClientConfig() {
-        super(new Properties());
+        this(new Properties());
 
     }
 
