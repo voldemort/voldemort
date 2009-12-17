@@ -77,7 +77,7 @@ public class MetadataStoreTest extends TestCase {
                                                              (int) Math.random() * 5,
                                                              partition,
                                                              Arrays.asList("testStoreName"),
-                                                             (int) Math.random() * 3).toString(),
+                                                             (int) Math.random() * 3).toJsonString(),
                                       "UTF-8");
         }
 
