@@ -33,13 +33,18 @@ public class Ec2RemoteTestUtils {
 
     public static List<HostNamePair> createInstances(Ec2RemoteTestConfig ec2Config)
             throws Exception {
+        return createInstances(ec2Config.getInstanceCount(), ec2Config);
+    }
+
+    public static List<HostNamePair> createInstances(int instanceCount, Ec2RemoteTestConfig ec2Config) throws Exception{
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey(),
                                                     new Ec2Listener(ec2Config.getInstanceIdFile()));
         return ec2.createInstances(ec2Config.getAmi(),
                                    ec2Config.getKeyPairId(),
                                    Ec2Connection.Ec2InstanceType.DEFAULT,
-                                   ec2Config.getInstanceCount());
+                                   instanceCount);
+
     }
 
     public static void destroyInstances(List<String> hostNames, Ec2RemoteTestConfig ec2Config)

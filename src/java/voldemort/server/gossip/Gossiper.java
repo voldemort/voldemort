@@ -10,6 +10,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -71,6 +72,7 @@ public class Gossiper implements Runnable {
      * If the run method was to be invoked, then we should gossip.
      */
     public void start() {
+        logger.info("Gossip started");
         running.set(true);
     }
 
@@ -78,6 +80,7 @@ public class Gossiper implements Runnable {
      * After the current operation finishes, no longer gossip.
      */
     public void stop() {
+        logger.info("Gossip stopped");
         running.set(false);
     }
 
@@ -93,12 +96,11 @@ public class Gossiper implements Runnable {
             logger.info(metadataStore.getNodeId() + " starting gossip with " + node);
             for(String key: MetadataStore.GOSSIP_KEYS) {
                 try {
-                    doPull(node, key);
+                    gossip(node, key);
                 } catch(VoldemortException e) {
                     logger.error(e);
                 }
             }
-
         }
     }
 
@@ -119,8 +121,9 @@ public class Gossiper implements Runnable {
         return node;
     }
 
-    private void doPull(Node node, String key) {
-        logger.info(metadataStore.getNodeId() + " pulling " + key + " from " + node);
+    private void gossip(Node node, String key) {
+        if (logger.isDebugEnabled())
+            logger.debug(metadataStore.getNodeId() + " pulling " + key + " from " + node);
 
         /**
          * First check the version that we have internally and the version on
@@ -134,41 +137,37 @@ public class Gossiper implements Runnable {
         Version localVersion = localVersioned.getVersion();
         Version remoteVersion = remoteVersioned.getVersion();
 
-        switch(localVersion.compare(remoteVersion)) {
+        switch(remoteVersion.compare(localVersion)) {
             /**
              * {@link Occured.BEFORE} can indicate two conditions. Either the
              * timestamps are the same, or one came before the other. In case
              * the localVersion occurred before remoteVersion (in terms of
              * timestamps) we want to update with remoteVersion.
              */
-            case BEFORE: {
+            case AFTER: {
                 VectorClock remoteVectorClock = (VectorClock) remoteVersion;
                 VectorClock localVectorClock = (VectorClock) localVersion;
-                if(localVectorClock.getTimestamp() < remoteVectorClock.getTimestamp()) {
-                    adminClient.updateRemoteMetadata(metadataStore.getNodeId(),
-                                                     key,
-                                                     remoteVersioned);
-                    logger.info("My " + key + " occured BEFORE the key from " + node
-                                + ". Accepted theirs.");
-                }
+                adminClient.updateRemoteMetadata(metadataStore.getNodeId(), key, remoteVersioned);
+                logger.info("My " + key + " occured BEFORE the key from " + node + ". Accepted theirs.");
                 break;
             }
-                // Do nothing if we have newer data, wait for the node to pull
-                // from us.
-            case AFTER: {
+            /**
+             * Do nothing if they have older data, wait for them to pull from us.
+             */
+            case BEFORE: {
                 break;
             }
-                /**
-                 * {@link Occured.CONCURRENTLY} indicates that there is a
-                 * conflict. In this case, ideally, we should do sensible
-                 * reconciliation (e.g. for failure detection we should exclude
-                 * nodes that one machine thinks failed and the other machines
-                 * do not).For the sake of simplicity, right now we will just
-                 * log an error.
-                 */
+            /**
+             * {@link Occured.CONCURRENTLY} indicates that there is a
+             * conflict. In this case, ideally, we should do sensible
+             * reconciliation (e.g. for failure detection we should exclude
+             * nodes that one machine thinks failed and the other machines
+             * do not).For the sake of simplicity, right now we will just
+             * log an error.
+             */
             case CONCURRENTLY: {
-                logger.error("My " + key + " occured CONCURRENTLY. My value: " + localVersioned
-                             + "; Their value " + remoteVersioned);
+                logger.error("My " + key + " occured CONCURRENTLY. My value: " + localVersioned + "; Their value "
+                        + remoteVersioned);
                 break;
             }
         }

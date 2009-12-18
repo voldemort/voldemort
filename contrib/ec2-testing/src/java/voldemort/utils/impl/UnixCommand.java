@@ -16,10 +16,13 @@
 
 package voldemort.utils.impl;
 
+import org.apache.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
+
 
 /**
  * A wrapper for executing a UNIX command.
@@ -32,6 +35,8 @@ public class UnixCommand {
     private final String hostName;
 
     private final String[] args;
+
+    private final static Logger logger = Logger.getLogger(UnixCommand.class);
 
     public UnixCommand(String hostName, String... args) {
         this.hostName = hostName;
@@ -84,6 +89,8 @@ public class UnixCommand {
 
                 while((line = reader.readLine()) != null) {
                     try {
+                        if (logger.isTraceEnabled())
+                            logger.trace(line);
                         commandOutputListener.outputReceived(hostName, line);
                     } catch(Throwable t) {
                         // This is just in case any CommandOutputReceiver has
