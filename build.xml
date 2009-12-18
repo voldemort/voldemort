@@ -255,6 +255,35 @@
       <report todir="${contribtesthtml.dir}" format="frames" />
     </junitreport>
   </target>
+
+    <target name="gossip-ec2test" depends="contrib-jar" description="Run EC2 testing contrib junit tests.">
+        <copy todir="${testclasses.dir}">
+          <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
+        </copy>
+        <replace-dir dir="${contribtestreport.dir}" />
+        <replace-dir dir="${contribtesthtml.dir}" />
+        <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
+          <syspropertyset>
+            <propertyref prefix="ec2" />
+            <propertyref  prefix="log4j" />
+            <propertyref  prefix="gossip" />
+          </syspropertyset>
+          <classpath refid="contrib-test-classpath" />
+          <formatter type="xml" />
+          <batchtest fork="yes" todir="${contribtestreport.dir}">
+            <fileset dir="${contrib.classes.dir}">
+              <include name="**/Ec2GossipTest.class" />
+            </fileset>
+          </batchtest>
+        </junit>
+        <junitreport todir="${contribtesthtml.dir}">
+          <fileset dir="${contribtestreport.dir}">
+            <include name="TEST-*.xml" />
+          </fileset>
+          <report todir="${contribtesthtml.dir}" format="frames" />
+        </junitreport>
+      </target>
+
   
   <macrodef name="create-release-artifacts">
     <attribute name="version" />

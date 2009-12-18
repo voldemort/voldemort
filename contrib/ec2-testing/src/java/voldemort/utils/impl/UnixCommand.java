@@ -89,8 +89,8 @@ public class UnixCommand {
 
                 while((line = reader.readLine()) != null) {
                     try {
-                        if (logger.isDebugEnabled())
-                            logger.debug(line);
+                        if (logger.isTraceEnabled())
+                            logger.trace(line);
                         commandOutputListener.outputReceived(hostName, line);
                     } catch(Throwable t) {
                         // This is just in case any CommandOutputReceiver has
