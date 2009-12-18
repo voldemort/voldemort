@@ -132,7 +132,7 @@ public class SocketServer extends Thread {
 
     @Override
     public void run() {
-        logger.info("Starting voldemort socket server on port " + port);
+        logger.info("Starting voldemort socket server (" + serverName + ") on port " + port);
         try {
             serverSocket = new ServerSocket();
             serverSocket.bind(new InetSocketAddress(port));
@@ -190,7 +190,7 @@ public class SocketServer extends Thread {
     }
 
     public void shutdown() {
-        logger.info("Shutting down voldemort socket server.");
+        logger.info("Shutting down voldemort socket server (" + serverName + ").");
 
         // first shut down the acceptor to stop new connections
         interrupt();

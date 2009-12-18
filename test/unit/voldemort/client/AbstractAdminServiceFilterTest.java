@@ -40,7 +40,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         assertNotSame("should be filtered key count shoud not be 0.", 0, shouldFilterCount);
 
         // make fetch stream call with filter
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchPartitionEntries(0,
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
                                                                                                             testStoreName,
                                                                                                             Arrays.asList(new Integer[] { 0 }),
                                                                                                             filter);

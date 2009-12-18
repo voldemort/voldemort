@@ -95,7 +95,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private final long timeoutMs;
     private final long nodeBannageMs;
     private final Time time;
-    private final Cluster cluster;
     private final StoreDefinition storeDef;
 
     private final RoutingStrategy routingStrategy;
@@ -172,7 +171,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.timeoutMs = timeoutMs;
         this.nodeBannageMs = nodeBannageMs;
         this.time = Utils.notNull(time);
-        this.cluster = cluster;
         this.storeDef = storeDef;
 
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
@@ -694,11 +692,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
                         failures.add(e);
-                    } catch (ObsoleteVersionException e) {
+                    } catch(ObsoleteVersionException e) {
                         // Do not log ObsoleteVersionException
                         failures.add(e);
-                    }
-                    catch(Exception e) {
+                    } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
                                     + ")", e);
                         failures.add(e);

@@ -43,7 +43,6 @@ public class ServerSideRoutingTest extends TestCase {
 
     private static int TEST_VALUES_SIZE = 1000;
     private static String testStoreName = "test-replication-memory";
-    private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     /**
      * TODO : enable this test after serversideRouting is fixed.
@@ -65,6 +64,7 @@ public class ServerSideRoutingTest extends TestCase {
     // checkServerSideRouting(server0, server1);
     }
 
+    @SuppressWarnings("unused")
     private void checkServerSideRouting(VoldemortServer server0, VoldemortServer server1) {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
@@ -91,6 +91,7 @@ public class ServerSideRoutingTest extends TestCase {
         }
     }
 
+    @SuppressWarnings("unused")
     private VoldemortServer startServer(int node,
                                         String storesXmlfile,
                                         Cluster cluster,

@@ -40,7 +40,6 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -100,7 +99,7 @@ public class VoldemortServer extends AbstractService {
     public AsyncOperationRunner getAsyncRunner() {
         return asyncRunner;
     }
-    
+
     private List<VoldemortService> createServices() {
 
         /* Services are given in the order they must be started */

@@ -16,7 +16,6 @@
 
 package voldemort.utils;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,70 +35,32 @@ public class RemoteTestUtils {
 
     private static final Logger logger = Logger.getLogger(RemoteTestUtils.class);
 
-    public static void deploy(List<String> hostNames,
-                              File sshPrivateKey,
-                              String hostUserId,
-                              File sourceDirectory,
-                              String parentDirectory) throws Exception {
-        new RsyncDeployer(hostNames, sshPrivateKey, hostUserId, sourceDirectory, parentDirectory).execute();
+    public static void deploy(List<String> hostNames, RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        new RsyncDeployer(hostNames,
+                          remoteTestConfig.getSshPrivateKey(),
+                          remoteTestConfig.getHostUserId(),
+                          remoteTestConfig.getSourceDirectory(),
+                          remoteTestConfig.getParentDirectory()).execute();
     }
 
     public static void executeRemoteTest(List<String> hostNames,
-                                         File sshPrivateKey,
-                                         String hostUserId,
+                                         RemoteTestConfig remoteTestConfig,
                                          Map<String, String> commands) throws Exception {
-        new SshRemoteTest(hostNames, sshPrivateKey, hostUserId, commands).execute();
+        new SshRemoteTest(hostNames,
+                          remoteTestConfig.getSshPrivateKey(),
+                          remoteTestConfig.getHostUserId(),
+                          commands).execute();
     }
 
-    public static void executeRemoteTest(List<HostNamePair> hostNamePairs,
-                                         String voldemortRootDirectory,
-                                         File sshPrivateKey,
-                                         String hostUserId,
-                                         int rampTime,
-                                         int iterations,
-                                         int numRequests) throws Exception {
-        Map<String, String> commands = new HashMap<String, String>();
-        List<String> hostNames = new ArrayList<String>();
-        String bootstrapHostName = hostNamePairs.get(0).getInternalHostName();
-
-        int i = 0;
-
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getExternalHostName());
-
-        for(HostNamePair hostNamePair: hostNamePairs) {
-            String command = "cd " + voldemortRootDirectory + " ; sleep " + (i * rampTime)
-                             + "; ./bin/voldemort-remote-test.sh -w -d --iterations " + iterations
-                             + " --start-key-index " + (i * numRequests) + " tcp://"
-                             + bootstrapHostName + ":6666 test " + numRequests;
-            commands.put(hostNamePair.getExternalHostName(), command);
-            i++;
-        }
-
-        executeRemoteTest(hostNames, sshPrivateKey, hostUserId, commands);
-    }
-
-    public static void startClusterAsync(final List<String> hostNames,
-                                         final File sshPrivateKey,
-                                         final String hostUserId,
-                                         final String voldemortRootDirectory,
-                                         final String voldemortHomeDirectory,
-                                         final Map<String, Integer> nodeIds) throws Exception {
-        startCluster(hostNames,
-                     sshPrivateKey,
-                     hostUserId,
-                     voldemortRootDirectory,
-                     voldemortHomeDirectory,
-                     nodeIds,
-                     true,
-                     10);
+    public static void startClusterAsync(List<String> hostNames,
+                                         RemoteTestConfig remoteTestConfig,
+                                         Map<String, Integer> nodeIds) throws Exception {
+        startCluster(hostNames, remoteTestConfig, nodeIds, true, 10);
     }
 
     public static void startCluster(final List<String> hostNames,
-                                    final File sshPrivateKey,
-                                    final String hostUserId,
-                                    final String voldemortRootDirectory,
-                                    final String voldemortHomeDirectory,
+                                    final RemoteTestConfig remoteTestConfig,
                                     final Map<String, Integer> nodeIds,
                                     boolean startAsynchronously,
                                     int waitSeconds) throws Exception {
@@ -109,10 +70,10 @@ public class RemoteTestUtils {
                 public void run() {
                     try {
                         new SshClusterStarter(hostNames,
-                                              sshPrivateKey,
-                                              hostUserId,
-                                              voldemortRootDirectory,
-                                              voldemortHomeDirectory,
+                                              remoteTestConfig.getSshPrivateKey(),
+                                              remoteTestConfig.getHostUserId(),
+                                              remoteTestConfig.getVoldemortRootDirectory(),
+                                              remoteTestConfig.getVoldemortHomeDirectory(),
                                               nodeIds).execute();
                     } catch(RemoteOperationException e) {
                         e.printStackTrace();
@@ -124,47 +85,39 @@ public class RemoteTestUtils {
             Thread.sleep(waitSeconds * 1000);
         } else {
             new SshClusterStarter(hostNames,
-                                  sshPrivateKey,
-                                  hostUserId,
-                                  voldemortRootDirectory,
-                                  voldemortHomeDirectory,
+                                  remoteTestConfig.getSshPrivateKey(),
+                                  remoteTestConfig.getHostUserId(),
+                                  remoteTestConfig.getVoldemortRootDirectory(),
+                                  remoteTestConfig.getVoldemortHomeDirectory(),
                                   nodeIds).execute();
         }
     }
 
     public static void startClusterNode(String hostName,
-                                        File sshPrivateKey,
-                                        String hostUserId,
-                                        String voldemortRootDirectory,
-                                        String voldemortHomeDirectory,
+                                        RemoteTestConfig remoteTestConfig,
                                         int nodeId) throws Exception {
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
         nodeIds.put(hostName, nodeId);
 
-        startClusterAsync(new ArrayList<String>(Arrays.asList(hostName)),
-                          sshPrivateKey,
-                          hostUserId,
-                          voldemortRootDirectory,
-                          voldemortHomeDirectory,
-                          nodeIds);
+        startClusterAsync(new ArrayList<String>(Arrays.asList(hostName)), remoteTestConfig, nodeIds);
     }
 
-    public static void stopCluster(List<String> hostNames,
-                                   File sshPrivateKey,
-                                   String hostUserId,
-                                   String voldemortRootDirectory) throws Exception {
-        new SshClusterStopper(hostNames, sshPrivateKey, hostUserId, voldemortRootDirectory, false).execute();
+    public static void stopCluster(List<String> hostNames, RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        new SshClusterStopper(hostNames,
+                              remoteTestConfig.getSshPrivateKey(),
+                              remoteTestConfig.getHostUserId(),
+                              remoteTestConfig.getVoldemortRootDirectory(),
+                              false).execute();
     }
 
-    public static void stopClusterQuiet(List<String> hostNames,
-                                        File sshPrivateKey,
-                                        String hostUserId,
-                                        String voldemortRootDirectory) throws Exception {
+    public static void stopClusterQuiet(List<String> hostNames, RemoteTestConfig remoteTestConfig)
+            throws Exception {
         try {
             new SshClusterStopper(hostNames,
-                                  sshPrivateKey,
-                                  hostUserId,
-                                  voldemortRootDirectory,
+                                  remoteTestConfig.getSshPrivateKey(),
+                                  remoteTestConfig.getHostUserId(),
+                                  remoteTestConfig.getVoldemortRootDirectory(),
                                   true).execute();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
@@ -172,14 +125,9 @@ public class RemoteTestUtils {
         }
     }
 
-    public static void stopClusterNode(String hostName,
-                                       File sshPrivateKey,
-                                       String hostUserId,
-                                       String voldemortRootDirectory) throws Exception {
-        stopCluster(new ArrayList<String>(Arrays.asList(hostName)),
-                    sshPrivateKey,
-                    hostUserId,
-                    voldemortRootDirectory);
+    public static void stopClusterNode(String hostName, RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        stopCluster(Arrays.asList(hostName), remoteTestConfig);
     }
 
     public static List<String> toHostNames(List<HostNamePair> hostNamePairs) {
@@ -193,7 +141,7 @@ public class RemoteTestUtils {
 
     public static Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
                                                                  String clusterName,
-                                                                 File clusterXmlFile)
+                                                                 RemoteTestConfig remoteTestConfig)
             throws Exception {
         List<String> hostNames = new ArrayList<String>();
 
@@ -204,7 +152,7 @@ public class RemoteTestUtils {
         List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
                                                                                           3);
         String clusterXml = clusterGenerator.createClusterDescriptor(clusterName, nodes);
-        FileUtils.writeStringToFile(clusterXmlFile, clusterXml);
+        FileUtils.writeStringToFile(remoteTestConfig.getClusterXmlFile(), clusterXml);
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
 
         for(ClusterNodeDescriptor node: nodes) {
