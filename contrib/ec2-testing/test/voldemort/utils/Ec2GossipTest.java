@@ -1,9 +1,24 @@
 package voldemort.utils;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.junit.*;
+import voldemort.Attempt;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
+import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
+
+
+import java.io.StringReader;
 import java.util.*;
 
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
@@ -17,9 +32,12 @@ import static voldemort.utils.RemoteTestUtils.stopClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
+import static voldemort.TestUtils.assertWithBackoff;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+
+
 
 /**
  *
@@ -65,50 +83,98 @@ public class Ec2GossipTest {
 
     @Test
     public void testGossip() throws Exception {
-       try {
+        try {
+            Set<String> oldHostnames = new HashSet<String>(hostNames);
+            Set<Integer> oldNodeIdSet = new HashSet<Integer>(nodeIds.values());
+            Map<String,Integer> oldNodeIdMap = new HashMap<String,Integer>(nodeIds);
 
-           Set<String> oldHostnames = new HashSet<String>(hostNames);
-           Set<Integer> oldNodeIdSet = new HashSet<Integer>(nodeIds.values());
-           Map<String,Integer> oldNodeIdMap = new HashMap<String,Integer>(nodeIds);
+            logger.info("Cluster before expanding: " + nodeIds);
 
-           logger.info("Cluster before expanding: " + nodeIds);
-           
-           Pair<List<Integer>, List<String>> pair = expandCluster();
+            /**
+             * First verify that the cluster had been expanded correctly
+             */
 
-           List<Integer> newNodeIds = pair.getFirst();
-           List<String> newHostnames = pair.getSecond();
+            Pair<List<Integer>, List<String>> pair = expandCluster();
 
-           assertEquals("correct number of nodes added", newNodeIds.size(), ec2GossipTestConfig.numNewNodes);
+            final List<Integer> newNodeIds = pair.getFirst();
+            List<String> newHostnames = pair.getSecond();
 
-           boolean containsOldHostnames = false;
-           for (String newHostname : newHostnames) {
-               if (oldHostnames.contains(newHostname)) {
-                   containsOldHostnames = true;
-                   break;
-               }
-           }
+            assertEquals("correct number of nodes added", newNodeIds.size(), ec2GossipTestConfig.numNewNodes);
 
-           boolean containsOldNodeIds = false;
-           for (Integer newNodeId: newNodeIds) {
-               if (oldNodeIdSet.contains(newNodeId)) {
-                   containsOldNodeIds = true;
-                   break;
-               }
-           }
+            boolean containsOldHostnames = false;
+            for (String newHostname : newHostnames) {
+                if (oldHostnames.contains(newHostname)) {
+                    containsOldHostnames = true;
+                    break;
+                }
+            }
 
-           assertFalse("none of the new nodes is an old hostname", containsOldHostnames);
-           assertFalse("none of the new nodes is an old node id", containsOldNodeIds);
+            boolean containsOldNodeIds = false;
+            for (Integer newNodeId: newNodeIds) {
+                if (oldNodeIdSet.contains(newNodeId)) {
+                    containsOldNodeIds = true;
+                    break;
+                }
+            }
 
-           for (String oldHostname: oldHostnames) {
-               assertEquals("hostname to nodeId mapping preserved for " + oldHostname,
-                            oldNodeIdMap.get(oldHostname),
-                            nodeIds.get(oldHostname));
-           }
+            assertFalse("none of the new nodes is an old hostname", containsOldHostnames);
+            assertFalse("none of the new nodes is an old node id", containsOldNodeIds);
 
-           
-       } finally {
-           stopCluster(hostNames, ec2GossipTestConfig);
-       }
+            for (String oldHostname: oldHostnames) {
+                assertEquals("hostname to nodeId mapping preserved for " + oldHostname,
+                             oldNodeIdMap.get(oldHostname),
+                             nodeIds.get(oldHostname));
+            }
+
+            /**
+             * Now increment the version on the new nodes, start gossiping
+             */
+            int peerNodeId = Iterables.find(nodeIds.values(),
+                                          new Predicate<Integer>() {
+                                              public boolean apply(Integer input) {
+                                                  return !newNodeIds.contains(input);
+                                              }
+                                          });
+            for (String hostname: newHostnames) {
+                int nodeId = nodeIds.get(hostname);
+                AdminClient adminClient = new AdminClient("tcp:// " + hostname + ":6666", new AdminClientConfig());
+
+                Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+                Version version = versioned.getVersion();
+                
+                VectorClock vectorClock = (VectorClock) version;
+                vectorClock.incrementVersion(nodeId,  vectorClock.getTimestamp() + 1);
+                vectorClock.incrementVersion(peerNodeId, vectorClock.getTimestamp() + 1);
+                
+                adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
+                adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
+            }
+
+            /**
+             * Finally, verify that all of the nodes have been discovered
+             */
+            assertWithBackoff(1000, 60000, new Attempt() {
+                AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0) + ":6666",
+                                                          new AdminClientConfig());
+                public void checkCondition() {
+                    for (int testNodeId: nodeIds.values()) {
+                        ClusterMapper clusterMapper = new ClusterMapper();
+                        Versioned<String> clusterXml = adminClient.getRemoteMetadata(testNodeId,
+                                                                                     MetadataStore.CLUSTER_KEY);
+                        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml.getValue()));
+                        Set<Integer> allNodeIds = new HashSet<Integer>();
+                        for (Node node: cluster.getNodes()) {
+                            allNodeIds.add(node.getId());
+                        }
+                        assertTrue("all nodes nodes discovered by node id " + testNodeId,
+                                   allNodeIds.containsAll(nodeIds.values()));
+
+                    }
+                }
+            });
+        } finally {
+            stopCluster(hostNames, ec2GossipTestConfig);
+        }
     }
 
     private static Pair<List<Integer>,List<String>> expandCluster() throws Exception {
