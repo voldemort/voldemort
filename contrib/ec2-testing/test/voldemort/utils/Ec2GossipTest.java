@@ -66,10 +66,13 @@ public class Ec2GossipTest {
     @Test
     public void testGossip() throws Exception {
        try {
-           logger.info("Info");
-           logger.debug("Debug");
 
            Set<String> oldHostnames = new HashSet<String>(hostNames);
+           Set<Integer> oldNodeIdSet = new HashSet<Integer>(nodeIds.values());
+           Map<String,Integer> oldNodeIdMap = new HashMap<String,Integer>(nodeIds);
+
+           logger.info("Cluster before expanding: " + nodeIds);
+           
            Pair<List<Integer>, List<String>> pair = expandCluster();
 
            List<Integer> newNodeIds = pair.getFirst();
@@ -77,15 +80,30 @@ public class Ec2GossipTest {
 
            assertEquals("correct number of nodes added", newNodeIds.size(), ec2GossipTestConfig.numNewNodes);
 
-           boolean containsOld = false;
+           boolean containsOldHostnames = false;
            for (String newHostname : newHostnames) {
                if (oldHostnames.contains(newHostname)) {
-                   containsOld = true;
+                   containsOldHostnames = true;
                    break;
                }
            }
 
-           assertFalse("none of the new nodes is an old node", containsOld);
+           boolean containsOldNodeIds = false;
+           for (Integer newNodeId: newNodeIds) {
+               if (oldNodeIdSet.contains(newNodeId)) {
+                   containsOldNodeIds = true;
+                   break;
+               }
+           }
+
+           assertFalse("none of the new nodes is an old hostname", containsOldHostnames);
+           assertFalse("none of the new nodes is an old node id", containsOldNodeIds);
+
+           for (String oldHostname: oldHostnames) {
+               assertEquals("hostname to nodeId mapping preserved for " + oldHostname,
+                            oldNodeIdMap.get(oldHostname),
+                            nodeIds.get(oldHostname));
+           }
 
            
        } finally {
@@ -107,6 +125,8 @@ public class Ec2GossipTest {
         hostNames = toHostNames(hostNamePairs);
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2GossipTestConfig);
 
+        logger.info("Expanded the cluster. New layout: " + nodeIds);
+
         deploy(newHostnames, ec2GossipTestConfig);
         startClusterAsync(newHostnames, ec2GossipTestConfig, nodeIds);
 
@@ -115,12 +135,14 @@ public class Ec2GossipTest {
 
         Thread.sleep(5000);
         
-        return new Pair<List<Integer>,List<String>> (Lists.transform(newHostnames, new Function<String, Integer>() {
-            public Integer apply(String hostname) {
-                return nodeIds.get(hostname);
-            }
-        }),
-        newHostnames);
+        return new Pair<List<Integer>,List<String>>(
+                       Lists.transform(newHostnames,
+                                       new Function<String, Integer>() {
+                                           public Integer apply(String hostname) {
+                                               return nodeIds.get(hostname);
+                                           }
+                                       }),
+                       newHostnames);
     }
 
     private static class Ec2GossipTestConfig extends Ec2RemoteTestConfig {
