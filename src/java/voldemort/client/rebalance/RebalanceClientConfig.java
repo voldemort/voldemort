@@ -22,6 +22,7 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
         if(props.containsKey(RebalancingClientTimeoutSeconds))
             this.setRebalancingClientTimeoutSeconds(props.getInt(RebalancingClientTimeoutSeconds));
+
     }
 
     public RebalanceClientConfig() {

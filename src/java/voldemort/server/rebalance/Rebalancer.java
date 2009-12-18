@@ -111,7 +111,7 @@ public class Rebalancer implements Runnable {
 
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               rebalanceAsyncId,
-                                              24 * 60 * 60,
+                                              voldemortConfig.getAdminSocketTimeout(),
                                               TimeUnit.SECONDS);
                 // remove store from rebalance list
                 stealInfo.getUnbalancedStoreList().remove(storeName);
@@ -170,7 +170,7 @@ public class Rebalancer implements Runnable {
                                                                           null);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
                                                   fetchAndUpdateAsyncId,
-                                                  24 * 60 * 60,
+                                                  voldemortConfig.getAdminSocketTimeout(),
                                                   TimeUnit.SECONDS);
 
                     logger.info("Rebalancer: rebalance " + stealInfo + " completed successfully.");

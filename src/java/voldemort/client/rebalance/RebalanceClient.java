@@ -222,7 +222,7 @@ public class RebalanceClient {
 
                 adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
                                               rebalanceAsyncId,
-                                              24 * 60 * 60,
+                                              rebalanceConfig.getSocketTimeout(TimeUnit.SECONDS),
                                               TimeUnit.SECONDS);
                 // remove store from rebalance list
                 unbalancedStoreList.remove(storeName);

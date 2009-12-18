@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
@@ -192,6 +193,8 @@ public abstract class AbstractRebalanceTest extends TestCase {
     // test a single rebalancing.
     public void testProxyGetDuringRebalancing() throws IOException {
         ExecutorService executors = Executors.newFixedThreadPool(2);
+        AtomicBoolean rebalancing = false;
+        executor.
     }
 
     private void checkGetEntries(Node node,
