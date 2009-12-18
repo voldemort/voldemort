@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
@@ -28,9 +27,7 @@ public class RebalanceCommandShell {
         List<StoreDefinition> storesList = storesMapper.readStoreList(new File(args[2]));
         int maxParallellRebalancing = Integer.parseInt(args[3]);
 
-        rebalanceClient = new RebalanceClient(currentCluster,
-                                              maxParallellRebalancing,
-                                              new AdminClientConfig());
+        rebalanceClient = new RebalanceClient(currentCluster, new RebalanceClientConfig());
 
         List<String> storeNames = new ArrayList<String>(storesList.size());
         for(StoreDefinition storeDef: storesList)

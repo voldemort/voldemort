@@ -12,7 +12,6 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -29,18 +28,18 @@ public class RebalanceClient {
 
     private final ExecutorService executor;
     private final AdminClient adminClient;
-    private final int maxParallelRebalancing;
+    RebalanceClientConfig rebalanceConfig;
 
-    public RebalanceClient(String bootstrapUrl, int maxParallelRebalancing, AdminClientConfig config) {
-        this.adminClient = new AdminClient(bootstrapUrl, config);
-        this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
-        this.maxParallelRebalancing = maxParallelRebalancing;
+    public RebalanceClient(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
+        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
+        this.rebalanceConfig = rebalanceConfig;
+        this.executor = Executors.newFixedThreadPool(rebalanceConfig.getMaxParallelRebalancing());
     }
 
-    public RebalanceClient(Cluster cluster, int maxParallelRebalancing, AdminClientConfig config) {
+    public RebalanceClient(Cluster cluster, RebalanceClientConfig config) {
         this.adminClient = new AdminClient(cluster, config);
-        this.executor = Executors.newFixedThreadPool(maxParallelRebalancing);
-        this.maxParallelRebalancing = maxParallelRebalancing;
+        this.rebalanceConfig = rebalanceConfig;
+        this.executor = Executors.newFixedThreadPool(rebalanceConfig.getMaxParallelRebalancing());
     }
 
     /**
@@ -72,7 +71,7 @@ public class RebalanceClient {
         logRebalancingPlan(rebalanceTaskQueue);
 
         // start all threads
-        for(int nThreads = 0; nThreads < this.maxParallelRebalancing; nThreads++) {
+        for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
             this.executor.execute(new Runnable() {
 
                 public void run() {
@@ -135,7 +134,8 @@ public class RebalanceClient {
     private void executorShutDown(ExecutorService executorService) {
         try {
             executorService.shutdown();
-            executorService.awaitTermination(24 * 60 * 60, TimeUnit.SECONDS);
+            executorService.awaitTermination(rebalanceConfig.getRebalancingClientTimeoutSeconds(),
+                                             TimeUnit.SECONDS);
         } catch(Exception e) {
             logger.warn("Error while stoping executor service .. ", e);
         }
