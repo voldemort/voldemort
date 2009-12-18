@@ -9,7 +9,6 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortServer;
-import voldemort.store.StoreDefinition;
 
 /**
  * Start VoldemortServer locally using ServerTestUtils and run rebalancing
@@ -23,15 +22,14 @@ public class RebalanceTest extends AbstractRebalanceTest {
     Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
 
     @Override
-    protected Cluster startServers(Cluster cluster,
-                                   List<StoreDefinition> storeDefs,
-                                   List<Integer> nodeToStart) throws IOException {
+    protected Cluster startServers(Cluster cluster, String storeXmlFile, List<Integer> nodeToStart)
+            throws IOException {
         for(int node: nodeToStart) {
             VoldemortServer server = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(node,
                                                                                                              TestUtils.createTempDir()
                                                                                                                       .getAbsolutePath(),
                                                                                                              null,
-                                                                                                             getStoresXmlFile()),
+                                                                                                             storeXmlFile),
                                                                           cluster);
             serverMap.put(node, server);
         }
