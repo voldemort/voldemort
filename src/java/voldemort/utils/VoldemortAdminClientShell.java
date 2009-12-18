@@ -8,7 +8,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.versioning.Versioned;
-
 import java.io.*;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -87,6 +86,7 @@ public class VoldemortAdminClientShell extends VoldemortClientShell {
                     List<Integer> partititionList = parseCsv(args[2]);
                     Iterator<ByteArray> partitionKeys =
                             adminClient.fetchKeys(remoteNodeId, storeName, partititionList, null);
+
                     BufferedWriter writer = null;
                     try {
                         if (args.length > 3) {
