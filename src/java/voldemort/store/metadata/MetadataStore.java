@@ -317,8 +317,15 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         initCache(CLUSTER_KEY);
         initCache(STORES_KEY);
 
-        // Initialize with default if not present
         initCache(NODE_ID_KEY, nodeId);
+        if(getNodeId() != nodeId)
+            throw new RuntimeException("Attempt to start previous node:"
+                                       + getNodeId()
+                                       + " as node:"
+                                       + nodeId
+                                       + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
+
+        // Initialize with default if not present
         initCache(REBALANCING_SLAVES_LIST_KEY, new ArrayList<Integer>(0));
         initCache(REBALANCING_PARTITIONS_LIST_KEY, new ArrayList<Integer>(0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
