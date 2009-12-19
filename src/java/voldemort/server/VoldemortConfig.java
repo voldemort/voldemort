@@ -119,6 +119,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
+    private boolean enableDeleteAfterRebalancing;
 
     private List<String> storageConfigurations;
 
@@ -150,7 +151,6 @@ public class VoldemortConfig implements Serializable {
     private int maxRebalancingAttempt;
     private int rebalancingTimeoutInSeconds;
     private int rebalancingServicePeriod;
-    private boolean enableDeleteAfterRebalancing;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));

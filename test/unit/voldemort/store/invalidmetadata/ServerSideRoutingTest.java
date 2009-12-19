@@ -18,6 +18,7 @@ package voldemort.store.invalidmetadata;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -100,7 +101,8 @@ public class ServerSideRoutingTest extends TestCase {
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
-                                                                    storesXmlfile);
+                                                                    storesXmlfile,
+                                                                    new Properties());
 
         if(metadataChecking)
             config.setEnableMetadataChecking(true);

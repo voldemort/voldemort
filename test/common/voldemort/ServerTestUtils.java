@@ -23,6 +23,7 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -163,11 +164,19 @@ public class ServerTestUtils {
                                              String host,
                                              int port,
                                              RequestFormatType type) {
+        return getSocketStore(storeName, host, port, type, false);
+    }
+
+    public static SocketStore getSocketStore(String storeName,
+                                             String host,
+                                             int port,
+                                             RequestFormatType type,
+                                             boolean isRouted) {
         SocketPool socketPool = new SocketPool(2, 10000, 100000, 32 * 1024);
         return new SocketStore(storeName,
                                new SocketDestination(host, port, type),
                                socketPool,
-                               false);
+                               isRouted);
     }
 
     public static Context getJettyServer(String clusterXml,
@@ -330,11 +339,22 @@ public class ServerTestUtils {
         return map;
     }
 
+    public static HashMap<String, String> createRandomKeyValueString(int numKeys) {
+        HashMap<String, String> map = new HashMap<String, String>();
+        for(int cnt = 0; cnt <= numKeys; cnt++) {
+            int keyInt = (int) (Math.random() * 100000);
+            map.put("" + keyInt, "value-" + keyInt);
+        }
+
+        return map;
+    }
+
     public static VoldemortConfig createServerConfig(int nodeId,
                                                      String baseDir,
                                                      String clusterFile,
-                                                     String storeFile) throws IOException {
-        Props props = new Props();
+                                                     String storeFile,
+                                                     Properties properties) throws IOException {
+        Props props = new Props(properties);
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
@@ -342,8 +362,6 @@ public class ServerTestUtils {
         props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
-        props.put("stream.read.byte.per.sec", 500 * 8 * 1024 * 1024);
-        props.put("stream.write.byte.per.sec", 500 * 8 * 1024 * 1024);
 
         VoldemortConfig config = new VoldemortConfig(props);
         config.setMysqlDatabaseName("voldemort");
@@ -399,8 +417,11 @@ public class ServerTestUtils {
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
-        server.stop();
-        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+        try {
+            server.stop();
+        } finally {
+            FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+        }
     }
 
     public static VoldemortServer startVoldemortServer(VoldemortConfig config, Cluster cluster) {

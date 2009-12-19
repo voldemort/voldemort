@@ -143,14 +143,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
 
-            // check if it is a valid operation
-            checkAndTransform(key, value.getValue());
-
             // try inserting into inner store first
             putInner(key, convertObjectToString(key, value));
 
             // cache all keys if innerStore put succeeded
             metadataCache.put(key, value);
+
+            // do special stuff if needed
+            if(CLUSTER_KEY.equals(key)) {
+                updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
+            } else if(STORES_KEY.equals(key)) {
+                updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
+            }
 
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
@@ -344,7 +348,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + getNodeId()
                                        + " as node:"
                                        + nodeId
-                                       + " (delete .temp .version in config dir to force clean) aborting ...");
+                                       + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
         initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo(-1,
@@ -383,21 +387,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         map.put(METADATA_STORE_NAME, new RouteToAllStrategy(getCluster().getNodes()));
 
         return map;
-    }
-
-    /**
-     * Check if the key,value pair is valid and do other special stuff as
-     * needed.
-     * 
-     * @param key
-     * @param value throws VoldemortException if value change is not acceptable
-     */
-    private void checkAndTransform(String key, Object value) {
-        if(CLUSTER_KEY.equals(key)) {
-            updateRoutingStrategies((Cluster) value, getStoreDefList());
-        } else if(STORES_KEY.equals(key)) {
-            updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value);
-        }
     }
 
     /**

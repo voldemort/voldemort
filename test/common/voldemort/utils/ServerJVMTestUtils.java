@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
 
@@ -86,7 +87,8 @@ public class ServerJVMTestUtils {
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
-                                                                    storesXmlfile);
+                                                                    storesXmlfile,
+                                                                    new Properties());
 
         // Initialize voldemort config dir with all required files.
         // cluster.xml

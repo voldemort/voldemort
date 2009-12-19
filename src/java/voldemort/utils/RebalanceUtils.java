@@ -20,6 +20,8 @@ import voldemort.client.rebalance.RebalanceStealInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -242,7 +244,7 @@ public class RebalanceUtils {
                         latestCluster = versionedCluster;
                 }
             } catch(Exception e) {
-                if(requiredNodes.contains(node.getId()))
+                if(null != requiredNodes && requiredNodes.contains(node.getId()))
                     throw new VoldemortException("Failed to get Cluster version from node:" + node,
                                                  e);
                 else
@@ -312,5 +314,21 @@ public class RebalanceUtils {
                                                                               .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
         return new AdminClient(cluster, config);
+    }
+
+    /**
+     * TODO: LOW , we can change RoutedStore to handle InvalidMetadataException
+     * differently for now we let it think it as a normal exception and handle
+     * in the client layer.
+     * 
+     * @param failures
+     * @return
+     */
+    public static boolean containsInvalidMetadataException(InsufficientOperationalNodesException failures) {
+        for(Throwable e: failures.getCauses()) {
+            if(e instanceof InvalidMetadataException)
+                return true;
+        }
+        return false;
     }
 }

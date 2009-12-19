@@ -3,6 +3,7 @@ package voldemort.server.gossip;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -40,13 +41,15 @@ public class GossiperTest extends TestCase {
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
-                                                                                            storesXmlfile),
+                                                                                            storesXmlfile,
+                                                                                            new Properties()),
                                                          cluster));
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
-                                                                                            storesXmlfile),
+                                                                                            storesXmlfile,
+                                                                                            new Properties()),
                                                          cluster));
     }
 
@@ -84,7 +87,8 @@ public class GossiperTest extends TestCase {
                                                                                                             TestUtils.createTempDir()
                                                                                                                      .getAbsolutePath(),
                                                                                                             null,
-                                                                                                            storesXmlfile),
+                                                                                                            storesXmlfile,
+                                                                                                            new Properties()),
                                                                          newCluster);
         servers.add(newServer);
 

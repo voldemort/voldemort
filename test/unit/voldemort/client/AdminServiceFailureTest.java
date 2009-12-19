@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -83,7 +84,8 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                    TestUtils.createTempDir()
                                                                                                             .getAbsolutePath(),
                                                                                                    null,
-                                                                                                   null),
+                                                                                                   null,
+                                                                                                   new Properties()),
                                                                 null,
                                                                 null),
                                 node.getAdminPort(),
@@ -146,16 +148,13 @@ public class AdminServiceFailureTest extends TestCase {
             case FETCH_ENTRIES:
                 putAlltoStore();
                 consumeIterator(getAdminClient().fetchEntries(nodeId,
-                                                                       storeName,
-                                                                       partitionList,
-                                                                       null));
+                                                              storeName,
+                                                              partitionList,
+                                                              null));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchKeys(nodeId,
-                                                                    storeName,
-                                                                    partitionList,
-                                                                    null));
+                consumeIterator(getAdminClient().fetchKeys(nodeId, storeName, partitionList, null));
                 return;
             case UPDATE_ENTRIES:
                 getAdminClient().updateEntries(nodeId,

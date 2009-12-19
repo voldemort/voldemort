@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -64,13 +65,15 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -222,9 +225,9 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
-                                                                          testStoreName,
-                                                                          fetchPartitionsList,
-                                                                          null);
+                                                                 testStoreName,
+                                                                 fetchPartitionsList,
+                                                                 null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -255,9 +258,9 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
-                                                                                                      testStoreName,
-                                                                                                      fetchPartitionsList,
-                                                                                                      null);
+                                                                                             testStoreName,
+                                                                                             fetchPartitionsList,
+                                                                                             null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -343,11 +346,7 @@ public class AdminServiceBasicTest extends TestCase {
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.migratePartitions(0,
-                                              1,
-                                              testStoreName,
-                                              fetchAndUpdatePartitionsList,
-                                              null);
+        int id = client.migratePartitions(0, 1, testStoreName, fetchAndUpdatePartitionsList, null);
         client.waitForCompletion(1, id, 60, TimeUnit.SECONDS);
 
         // check values

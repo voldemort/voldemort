@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -87,7 +88,8 @@ public class RedirectingStoreTest extends TestCase {
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
-                                                                    storesXmlfile);
+                                                                    storesXmlfile,
+                                                                    new Properties());
         // enable metadata checking for this test.
         config.setEnableMetadataChecking(true);
         config.setEnableRebalanceService(false);
