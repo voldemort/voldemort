@@ -56,7 +56,7 @@ public class Ec2GossipTest {
         ec2GossipTestConfig = new Ec2GossipTestConfig();
         hostNamePairs = createInstances(ec2GossipTestConfig);
         hostNames = toHostNames(hostNamePairs);
-        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2GossipTestConfig);
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2GossipTestConfig, true);
 
         if (logger.isInfoEnabled())
             logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
@@ -85,7 +85,7 @@ public class Ec2GossipTest {
     public void testGossip() throws Exception {
         try {
             Set<String> oldHostnames = new HashSet<String>(hostNames);
-            Set<Integer> oldNodeIdSet = new HashSet<Integer>(nodeIds.values());
+            final Set<Integer> oldNodeIdSet = new HashSet<Integer>(nodeIds.values());
             Map<String,Integer> oldNodeIdMap = new HashMap<String,Integer>(nodeIds);
 
             logger.info("Cluster before expanding: " + nodeIds);
@@ -135,9 +135,10 @@ public class Ec2GossipTest {
                                                   return !newNodeIds.contains(input);
                                               }
                                           });
+            logger.info("Peer node " + peerNodeId);
             for (String hostname: newHostnames) {
                 int nodeId = nodeIds.get(hostname);
-                AdminClient adminClient = new AdminClient("tcp:// " + hostname + ":6666", new AdminClientConfig());
+                AdminClient adminClient = new AdminClient("tcp://" + hostname + ":6666", new AdminClientConfig());
 
                 Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
                 Version version = versioned.getVersion();
@@ -146,7 +147,7 @@ public class Ec2GossipTest {
                 vectorClock.incrementVersion(nodeId,  vectorClock.getTimestamp() + 1);
                 vectorClock.incrementVersion(peerNodeId, vectorClock.getTimestamp() + 1);
                 
-                adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
+                //adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
                 adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
             }
 
@@ -156,8 +157,14 @@ public class Ec2GossipTest {
             assertWithBackoff(1000, 60000, new Attempt() {
                 AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0) + ":6666",
                                                           new AdminClientConfig());
-                public void checkCondition() {
-                    for (int testNodeId: nodeIds.values()) {
+                int count = 0;
+
+                public void checkCondition() throws Exception {
+                    logger.info("Attempt " + count++);
+
+                    for (int testNodeId: oldNodeIdSet) {
+                        logger.info("Testing node " + testNodeId);
+                        
                         ClusterMapper clusterMapper = new ClusterMapper();
                         Versioned<String> clusterXml = adminClient.getRemoteMetadata(testNodeId,
                                                                                      MetadataStore.CLUSTER_KEY);
@@ -189,7 +196,7 @@ public class Ec2GossipTest {
 
         hostNamePairs.addAll(newInstances);
         hostNames = toHostNames(hostNamePairs);
-        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2GossipTestConfig);
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2GossipTestConfig, true);
 
         logger.info("Expanded the cluster. New layout: " + nodeIds);
 
@@ -197,9 +204,9 @@ public class Ec2GossipTest {
         startClusterAsync(newHostnames, ec2GossipTestConfig, nodeIds);
 
         if (logger.isInfoEnabled())
-            logger.info("Sleeping for 5 seconds to start voldemort on the new nodes");
+            logger.info("Sleeping for 15 seconds to start voldemort on the new nodes");
 
-        Thread.sleep(5000);
+        Thread.sleep(15000);
         
         return new Pair<List<Integer>,List<String>>(
                        Lists.transform(newHostnames,
