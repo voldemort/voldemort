@@ -7,6 +7,7 @@ import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import voldemort.Attempt;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -36,6 +37,7 @@ import static voldemort.TestUtils.assertWithBackoff;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 
 
@@ -146,9 +148,11 @@ public class Ec2GossipTest {
                 VectorClock vectorClock = (VectorClock) version;
                 vectorClock.incrementVersion(nodeId,  vectorClock.getTimestamp() + 1);
                 vectorClock.incrementVersion(peerNodeId, vectorClock.getTimestamp() + 1);
-                
-                //adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
-                adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
+                try {
+                    adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
+                } catch (VoldemortException e) {
+                    logger.error(e);
+                }
             }
 
             /**
@@ -159,22 +163,25 @@ public class Ec2GossipTest {
                                                           new AdminClientConfig());
                 int count = 0;
 
-                public void checkCondition() throws Exception {
+                public void checkCondition() {
                     logger.info("Attempt " + count++);
 
                     for (int testNodeId: oldNodeIdSet) {
                         logger.info("Testing node " + testNodeId);
-                        
-                        ClusterMapper clusterMapper = new ClusterMapper();
-                        Versioned<String> clusterXml = adminClient.getRemoteMetadata(testNodeId,
-                                                                                     MetadataStore.CLUSTER_KEY);
-                        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml.getValue()));
-                        Set<Integer> allNodeIds = new HashSet<Integer>();
-                        for (Node node: cluster.getNodes()) {
-                            allNodeIds.add(node.getId());
+                        try {
+                            ClusterMapper clusterMapper = new ClusterMapper();
+                            Versioned<String> clusterXml = adminClient.getRemoteMetadata(testNodeId,
+                                                                                         MetadataStore.CLUSTER_KEY);
+                            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml.getValue()));
+                            Set<Integer> allNodeIds = new HashSet<Integer>();
+                            for (Node node: cluster.getNodes()) {
+                                allNodeIds.add(node.getId());
+                            }
+                            assertTrue("all nodes nodes discovered by node id " + testNodeId,
+                                       allNodeIds.containsAll(nodeIds.values()));
+                        } catch (VoldemortException e) {
+                            fail("caught VoldemortException " + e);
                         }
-                        assertTrue("all nodes nodes discovered by node id " + testNodeId,
-                                   allNodeIds.containsAll(nodeIds.values()));
 
                     }
                 }
