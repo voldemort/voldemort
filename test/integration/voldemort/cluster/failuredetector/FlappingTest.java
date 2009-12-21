@@ -50,6 +50,8 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
 
     @Override
     public String test(FailureDetector failureDetector) throws Exception {
+        final int threads = 20;
+
         Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);
         Listener listener = new Listener();
@@ -60,9 +62,9 @@ public class FlappingTest extends FailureDetectorPerformanceTest {
         AtomicInteger successCounter = new AtomicInteger();
         AtomicInteger failureCounter = new AtomicInteger();
 
-        ExecutorService threadPool = Executors.newFixedThreadPool(11);
+        ExecutorService threadPool = Executors.newFixedThreadPool(threads + 1);
 
-        for(int i = 0; i < 10; i++)
+        for(int i = 0; i < threads; i++)
             threadPool.submit(new NodeAccessorRunnable(failureDetector,
                                                        node,
                                                        countDownLatch,
