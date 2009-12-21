@@ -63,8 +63,8 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
         synchronized(nodeStatus) {
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
-                // We've passed into a new interval, so we're by default
-                // available. Reset our counts appropriately.
+                // We've passed into a new interval, so reset our counts
+                // appropriately.
                 nodeStatus.setStartMillis(currentTime);
                 nodeStatus.setSuccess(successDelta);
                 nodeStatus.setTotal(1);
