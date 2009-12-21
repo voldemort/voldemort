@@ -514,6 +514,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
                                  Cluster cluster,
                                  List<Integer> unavailablePartitions,
                                  List<Integer> availablePartitions) {
+        int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
         SocketStore store = ServerTestUtils.getSocketStore(testStoreName,
@@ -547,9 +548,13 @@ public abstract class AbstractRebalanceTest extends TestCase {
                 assertEquals("Value bytes should match",
                              entry.getValue(),
                              ByteUtils.getString(value.getValue(), "UTF-8"));
+                matchedEntries++;
             } else {
                 // dont care about these
             }
         }
+
+        if(null != availablePartitions && availablePartitions.size() > 0)
+            assertNotSame("CheckGetEntries should match some entries.", 0, matchedEntries);
     }
 }
