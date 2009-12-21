@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
-import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.store.StorageEngine;
@@ -50,8 +49,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
 
     private final String name;
     private final File directory;
-
-    private static final Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
 
     public ConfigurationStorageEngine(String name, String directory) {
         this.name = name;
@@ -159,17 +156,6 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         } catch(IOException e) {
             throw new VoldemortException(e);
         }
-    }
-
-    /**
-     * If key is a temp state value write it inside tempDirectory to avoid
-     * clutter.
-     * 
-     * @param key
-     * @param clock
-     */
-    private void writeValue(String key, Versioned<String> value) {
-
     }
 
     private VectorClock readVersion(String key) {

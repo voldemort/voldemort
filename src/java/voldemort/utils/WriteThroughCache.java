@@ -30,6 +30,8 @@ import voldemort.VoldemortException;
  */
 public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {
 
+    private static final long serialVersionUID = 1L;
+
     public abstract V readBack(K key);
 
     public abstract void writeBack(K key, V value);

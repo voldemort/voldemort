@@ -43,7 +43,6 @@ public class AdminServiceFailureTest extends TestCase {
     private Cluster cluster;
     private SocketService adminServer;
     StorageEngine<ByteArray, byte[]> failingStorageEngine;
-    private Thread thread;
 
     private enum StreamOperations {
         FETCH_ENTRIES,
@@ -144,14 +143,14 @@ public class AdminServiceFailureTest extends TestCase {
                 return;
             case FETCH_ENTRIES:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchPartitionEntries(nodeId,
+                consumeIterator(getAdminClient().fetchEntries(nodeId,
                                                                        storeName,
                                                                        partitionList,
                                                                        null));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchPartitionKeys(nodeId,
+                consumeIterator(getAdminClient().fetchKeys(nodeId,
                                                                     storeName,
                                                                     partitionList,
                                                                     null));

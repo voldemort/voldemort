@@ -40,8 +40,7 @@ public interface RebalanceClient {
                                 final Cluster currentCluster);
 
     /**
-     * update stealerNodeId by fetching and updating given list of partitions
-     * <br>
+     * update stealerNodeId by fetching and updating given list of partitions <br>
      * 
      * @param stealerNodeID : The nodeId where partitions will be copied
      * @param storeName : store to be rebalanced
