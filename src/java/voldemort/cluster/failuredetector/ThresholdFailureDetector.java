@@ -21,56 +21,66 @@ import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
-public class ThresholdFailureDetector extends AbstractFailureDetector {
+public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
     public ThresholdFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
     }
 
+    @Override
     public void recordException(Node node, UnreachableStoreException e) {
-        update(node, 0, 1, e);
+        update(node, 0, e);
     }
 
+    @Override
     public void recordSuccess(Node node) {
-        update(node, 1, 1, null);
+        update(node, 1, null);
     }
 
-    public boolean isAvailable(Node node) {
-        return update(node, 0, 0, null);
+    /**
+     * We delegate node recovery detection to the
+     * {@link AsyncRecoveryFailureDetector} class. When it determines that the
+     * node has recovered, this callback is executed with the newly-recovered
+     * node.
+     */
+
+    @Override
+    protected void nodeRecovered(Node node) {
+        NodeStatus nodeStatus = getNodeStatus(node);
+
+        synchronized(nodeStatus) {
+            nodeStatus.setStartMillis(getConfig().getTime().getMilliseconds());
+            nodeStatus.setSuccess(0);
+            nodeStatus.setTotal(0);
+            setAvailable(node);
+        }
     }
 
-    private boolean update(Node node, int successDelta, int totalDelta, UnreachableStoreException e) {
+    private void update(Node node, int successDelta, UnreachableStoreException e) {
         final long currentTime = getConfig().getTime().getMilliseconds();
-        final long thresholdInterval = getConfig().getThresholdInterval();
-        final int thresholdCountMinimum = getConfig().getThresholdCountMinimum();
-        final int threshold = getConfig().getThreshold();
 
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            if(currentTime >= nodeStatus.getStartMillis() + thresholdInterval) {
+            if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
                 // We've passed into a new interval, so we're by default
                 // available. Reset our counts appropriately.
                 nodeStatus.setStartMillis(currentTime);
                 nodeStatus.setSuccess(successDelta);
-                nodeStatus.setTotal(totalDelta);
-
-                setAvailable(node);
+                nodeStatus.setTotal(1);
             } else {
                 nodeStatus.incrementSuccess(successDelta);
-                nodeStatus.incrementTotal(totalDelta);
+                nodeStatus.incrementTotal(1);
 
-                if(nodeStatus.getTotal() >= thresholdCountMinimum) {
+                if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
                     long newThreshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
-                    if(newThreshold >= threshold)
+                    if(newThreshold >= getConfig().getThreshold())
                         setAvailable(node);
                     else
                         setUnavailable(node, e);
                 }
             }
-
-            return nodeStatus.isAvailable();
         }
     }
 

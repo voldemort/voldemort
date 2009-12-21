@@ -53,6 +53,8 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         recordException(failureDetector, node);
 
         assertUnavailable(node);
+
+        recordSuccess(failureDetector, node);
     }
 
     @Test
@@ -61,7 +63,6 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         failureDetector.getConfig().setThresholdCountMinimum(10);
 
         int failureCount = 20;
-        int successCount = 80;
 
         Node node = Iterables.get(cluster.getNodes(), 8);
 
@@ -71,20 +72,13 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
         assertUnavailable(node);
 
-        // Then mark the 79 (out of 80) to be success...
-        for(int i = 0; i < successCount - 1; i++)
-            recordSuccess(failureDetector, node, false);
-
-        // ...which still isn't enough to bring us back up...
-        assertUnavailable(node);
-
-        // ...but force another success which will bring the node back up...
+        // We go offline, but are then able to make contact with the server
+        // which we mimic by recording a success.
         recordSuccess(failureDetector, node, false);
-        assertAvailable(node);
 
-        // ...and another failure will bring the node back down...
-        recordException(failureDetector, node);
-        assertUnavailable(node);
+        failureDetector.waitForAvailability(node);
+
+        assertAvailable(node);
     }
 
     @Test
@@ -97,11 +91,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         // Move to right before the new interval...
         time.sleep(failureDetector.getConfig().getThresholdInterval() - 1);
         assertUnavailable(node);
-
-        // Move to the new interval...
-        time.sleep(1);
-
-        assertAvailable(node);
+        recordSuccess(failureDetector, node);
     }
 
 }

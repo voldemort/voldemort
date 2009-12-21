@@ -16,9 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Level;
@@ -69,17 +67,16 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         isRunning = true;
 
-        recoveryThread = new Thread(this, "AsyncRecoveryFailureDetector");
+        recoveryThread = new Thread(this, "AsyncNodeRecoverer");
         recoveryThread.setDaemon(true);
         recoveryThread.start();
-
-        Map<Node, NodeStatus> nodeStatusMap = new HashMap<Node, NodeStatus>();
-
-        for(Node node: failureDetectorConfig.getNodes())
-            nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
     }
 
     public boolean isAvailable(Node node) {
+        // This is a sanity check that will throw an error if the node is
+        // invalid.
+        getNodeStatus(node);
+
         // We override the default behavior and keep track of the unavailable
         // nodes in our set.
         synchronized(unavailableNodes) {
@@ -88,10 +85,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
-        synchronized(unavailableNodes) {
-            unavailableNodes.add(node);
-        }
-
         setUnavailable(node, e);
     }
 
@@ -100,48 +93,17 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     }
 
     @Override
-    public void destroy() {
-        isRunning = false;
+    protected void setUnavailable(Node node, UnreachableStoreException e) {
+        synchronized(unavailableNodes) {
+            unavailableNodes.add(node);
+        }
+
+        super.setUnavailable(node, e);
     }
 
-    private void check() {
-        Set<Node> unavailableNodesCopy = null;
-
-        synchronized(this) {
-            unavailableNodesCopy = new HashSet<Node>(unavailableNodes);
-        }
-
-        ByteArray key = new ByteArray((byte) 1);
-
-        for(Node node: unavailableNodesCopy) {
-            if(logger.isDebugEnabled())
-                logger.debug("Checking previously unavailable node " + node);
-
-            Store<ByteArray, byte[]> store = getConfig().getStoreResolver().getStore(node);
-
-            if(store == null) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(node + " store is null; cannot determine node availability");
-
-                continue;
-            }
-
-            try {
-                store.get(key);
-
-                synchronized(unavailableNodes) {
-                    unavailableNodes.remove(node);
-                }
-
-                setAvailable(node);
-            } catch(UnreachableStoreException e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(node + " still unavailable");
-            } catch(Exception e) {
-                if(logger.isEnabledFor(Level.ERROR))
-                    logger.error(node + " unavailable due to error", e);
-            }
-        }
+    @Override
+    public void destroy() {
+        isRunning = false;
     }
 
     public void run() {
@@ -159,8 +121,49 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 break;
             }
 
-            check();
+            Set<Node> unavailableNodesCopy = null;
+
+            synchronized(this) {
+                unavailableNodesCopy = new HashSet<Node>(unavailableNodes);
+            }
+
+            ByteArray key = new ByteArray((byte) 1);
+
+            for(Node node: unavailableNodesCopy) {
+                if(logger.isDebugEnabled())
+                    logger.debug("Checking previously unavailable node " + node);
+
+                Store<ByteArray, byte[]> store = getConfig().getStoreResolver().getStore(node);
+
+                if(store == null) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(node + " store is null; cannot determine node availability");
+
+                    continue;
+                }
+
+                try {
+                    // This is our test.
+                    store.get(key);
+
+                    synchronized(unavailableNodes) {
+                        unavailableNodes.remove(node);
+                    }
+
+                    nodeRecovered(node);
+                } catch(UnreachableStoreException e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(node + " still unavailable", e);
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.ERROR))
+                        logger.error(node + " unavailable due to error", e);
+                }
+            }
         }
+    }
+
+    protected void nodeRecovered(Node node) {
+        setAvailable(node);
     }
 
 }

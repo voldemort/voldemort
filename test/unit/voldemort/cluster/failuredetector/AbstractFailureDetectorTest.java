@@ -26,9 +26,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import voldemort.MockTime;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
 public abstract class AbstractFailureDetectorTest {
@@ -43,7 +43,7 @@ public abstract class AbstractFailureDetectorTest {
 
     @Before
     public void setUp() throws Exception {
-        time = new MockTime(0);
+        time = SystemTime.INSTANCE;
         cluster = getNineNodeCluster();
         failureDetector = setUpFailureDetector();
     }
