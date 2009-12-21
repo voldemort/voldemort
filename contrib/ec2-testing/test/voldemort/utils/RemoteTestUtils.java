@@ -151,30 +151,28 @@ public class RemoteTestUtils {
                                                                   RemoteTestConfig remoteTestConfig,
                                                                   boolean useExternal)
              throws Exception {
-         List<String> hostNames = new ArrayList<String>();
+        List<String> hostNames = new ArrayList<String>();
 
-         for(HostNamePair hostNamePair: hostNamePairs)
-             hostNames.add(useExternal ? hostNamePair.getExternalHostName() : hostNamePair.getInternalHostName());
+        for(HostNamePair hostNamePair: hostNamePairs)
+            hostNames.add(useExternal ? hostNamePair.getExternalHostName() : hostNamePair.getInternalHostName());
 
-         ClusterGenerator clusterGenerator = new ClusterGenerator();
-         List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
-                                                                                           3);
-         String clusterXml = clusterGenerator.createClusterDescriptor(clusterName, nodes);
-         FileUtils.writeStringToFile(remoteTestConfig.getClusterXmlFile(), clusterXml);
-         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
+        ClusterGenerator clusterGenerator = new ClusterGenerator();
+        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
+                                                                                          3);
+        String clusterXml = clusterGenerator.createClusterDescriptor(clusterName, nodes);
+        FileUtils.writeStringToFile(remoteTestConfig.getClusterXmlFile(), clusterXml);
+        Map<String, Integer> nodeIds = new HashMap<String, Integer>();
 
-         for(ClusterNodeDescriptor node: nodes) {
-             // OK, yeah, this is super-inefficient...
-             for(HostNamePair hostNamePair: hostNamePairs) {
-                 if (useExternal) {
-                     if (node.getHostName().equals(hostNamePair.getExternalHostName()))
-                         nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
-                 }
-                 else if(node.getHostName().equals(hostNamePair.getInternalHostName()))
-                     nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
-             }
-         }
+        for(ClusterNodeDescriptor node: nodes) {
+            // OK, yeah, this is super-inefficient...
+            for(HostNamePair hostNamePair: hostNamePairs) {
+                if(node.getHostName().equals(useExternal ?
+                                             hostNamePair.getExternalHostName() :
+                                             hostNamePair.getInternalHostName()))
+                    nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
+            }
+        }
 
-         return nodeIds;
+        return nodeIds;
     }
 }
