@@ -8,6 +8,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Node;
@@ -242,7 +243,7 @@ public class Rebalancer implements Runnable {
         return new SocketStore(storeName,
                                new SocketDestination(node.getHost(),
                                                      node.getSocketPort(),
-                                                     voldemortConfig.getRequestFormatType()),
+                                                     RequestFormatType.PROTOCOL_BUFFERS),
                                socketPool,
                                RequestRoutingType.IGNORE_CHECKS);
     }

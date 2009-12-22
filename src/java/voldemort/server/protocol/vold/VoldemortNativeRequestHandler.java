@@ -50,23 +50,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             throws IOException {
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
-        boolean isRouted = false;
-        if(protocolVersion > 0)
-            isRouted = inputStream.readBoolean();
+        RequestRoutingType routingType = getRoutingType(inputStream);
 
-        boolean ignoreChecks = (opCode == VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE);
-
-        Store<ByteArray, byte[]> store = getStore(storeName,
-                                                  RequestRoutingType.getRequestRoutingType(isRouted,
-                                                                                           ignoreChecks));
+        Store<ByteArray, byte[]> store = getStore(storeName, routingType);
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName
                                                                 + "'."));
         } else {
             switch(opCode) {
-                case VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE:
-                    handleGet(inputStream, outputStream, store);
-                    break;
                 case VoldemortOpCode.GET_OP_CODE:
                     handleGet(inputStream, outputStream, store);
                     break;
@@ -87,6 +78,22 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             }
         }
         outputStream.flush();
+    }
+
+    private RequestRoutingType getRoutingType(DataInputStream inputStream) throws IOException {
+        RequestRoutingType routingType = RequestRoutingType.NORMAL;
+
+        if(protocolVersion > 0) {
+            boolean isRouted = inputStream.readBoolean();
+            routingType = RequestRoutingType.getRequestRoutingType(isRouted, false);
+        }
+
+        else if(protocolVersion > 1) {
+            String typeString = inputStream.readUTF();
+            routingType = RequestRoutingType.valueOf(typeString);
+        }
+
+        return routingType;
     }
 
     private void handleGetVersion(DataInputStream inputStream,

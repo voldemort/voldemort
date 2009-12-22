@@ -40,6 +40,7 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
@@ -296,7 +297,7 @@ public class StorageService extends AbstractService {
                 store = new SocketStore(def.getName(),
                                         new SocketDestination(node.getHost(),
                                                               node.getSocketPort(),
-                                                              voldemortConfig.getRequestFormatType()),
+                                                              RequestFormatType.PROTOCOL_BUFFERS),
                                         socketPool,
                                         RequestRoutingType.IGNORE_CHECKS);
                 this.storeRepository.addRedirectingSocketStore(node.getId(), store);
