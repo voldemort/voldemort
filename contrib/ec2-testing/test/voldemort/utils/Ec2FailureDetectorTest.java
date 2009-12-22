@@ -47,7 +47,6 @@ import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
-import voldemort.store.metadata.MetadataStore;
 
 /**
  * Ec2FailureDetectorTest creates nodes using EC2 and .
@@ -173,7 +172,7 @@ public class Ec2FailureDetectorTest {
     private void test(Store<String, String> store) {
         for(int i = 0; i < 1000; i++) {
             try {
-                store.get(MetadataStore.NODE_ID_KEY);
+                store.get("test_" + i);
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.ERROR))
                     logger.error(e);
