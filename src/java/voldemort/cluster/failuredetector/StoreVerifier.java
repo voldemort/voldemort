@@ -16,16 +16,16 @@
 
 package voldemort.cluster.failuredetector;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Node;
-import voldemort.store.Store;
-import voldemort.utils.ByteArray;
+import voldemort.store.UnreachableStoreException;
 
 /**
- * A StoreResolver is used to return a Store given a Node. The act of resolving
- * a store for a given node is not the same depending on your environment (in
- * the server itself, on a client (and even further it depends on what transport
- * is used for connecting to the server), unit tests, etc.). This helps to
- * extract away the differences.
+ * A StoreVerifier is used to test a Store given a Node. The act of testing a
+ * store for a given node is not the same depending on your environment (in the
+ * server itself, on a client (and even further it depends on what transport is
+ * used for connecting to the server), unit tests, etc.). This helps to extract
+ * away the differences.
  * 
  * <p/>
  * 
@@ -35,16 +35,14 @@ import voldemort.utils.ByteArray;
  * @author Kirk True
  */
 
-public interface StoreResolver {
+public interface StoreVerifier {
 
     /**
-     * Returns a Store for this node.
+     * Verifies the ability to connect to a Store for this node.
      * 
-     * @param node Node to access
-     * 
-     * @return Store to access to determine node availability
+     * @param node Node to test
      */
 
-    public Store<ByteArray, byte[]> getStore(Node node);
+    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException;
 
 }

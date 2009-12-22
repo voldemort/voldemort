@@ -48,12 +48,13 @@ public class NodeAccessorRunnable implements Runnable {
         try {
             while(countDownLatch.getCount() > 0) {
                 if(failureDetector.isAvailable(node)) {
-                    if(failureDetectorConfig.getStoreResolver().getStore(node) != null) {
+                    try {
+                        failureDetectorConfig.getStoreVerifier().verifyStore(node);
                         failureDetector.recordSuccess(node);
 
                         if(successCounter != null)
                             successCounter.incrementAndGet();
-                    } else {
+                    } catch(UnreachableStoreException e) {
                         failureDetectorConfig.getTime().sleep(failureDelay);
                         failureDetector.recordException(node, exception);
 

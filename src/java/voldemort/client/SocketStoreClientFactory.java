@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.ClientStoreResolver;
+import voldemort.cluster.failuredetector.ClientStoreVerifier;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorListener;
@@ -102,7 +102,12 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
         };
 
-        ClientStoreResolver storeResolver = new ClientStoreResolver() {
+        ClientStoreVerifier<ByteArray, byte[]> storeVerifier = new ClientStoreVerifier<ByteArray, byte[]>() {
+
+            @Override
+            protected ByteArray getKey() {
+                return new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
+            }
 
             @Override
             protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
@@ -115,7 +120,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         };
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
-                                                                                       .setStoreResolver(storeResolver);
+                                                                                       .setStoreVerifier(storeVerifier);
 
         return FailureDetectorUtils.create(failureDetectorConfig, failureDetectorListener);
     }

@@ -16,16 +16,17 @@
 
 package voldemort.cluster.failuredetector;
 
-import static voldemort.MutableStoreResolver.createMutableStoreResolver;
+import static voldemort.MutableStoreVerifier.create;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
 import java.io.IOException;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.MutableStoreResolver;
+import voldemort.MutableStoreVerifier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.UnreachableStoreException;
 import voldemort.utils.CmdUtils;
 
 public abstract class FailureDetectorPerformanceTest {
@@ -70,7 +71,7 @@ public abstract class FailureDetectorPerformanceTest {
         Cluster cluster = getNineNodeCluster();
 
         failureDetectorConfig.setNodes(cluster.getNodes())
-                             .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
+                             .setStoreVerifier(create(cluster.getNodes()))
                              .setAsyncRecoveryInterval(asyncScanInterval)
                              .setBannagePeriod(bannagePeriod)
                              .setThresholdInterval(thresholdInterval);
@@ -124,8 +125,9 @@ public abstract class FailureDetectorPerformanceTest {
     protected void updateNodeStoreAvailability(FailureDetectorConfig failureDetectorConfig,
                                                Node node,
                                                boolean shouldMarkAvailable) {
-        ((MutableStoreResolver) failureDetectorConfig.getStoreResolver()).setReturnNullStore(node,
-                                                                                             !shouldMarkAvailable);
+        UnreachableStoreException e = shouldMarkAvailable ? null
+                                                         : new UnreachableStoreException("test error");
+        ((MutableStoreVerifier) failureDetectorConfig.getStoreVerifier()).setErrorStore(node, e);
     }
 
 }

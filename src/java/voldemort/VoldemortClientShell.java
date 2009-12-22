@@ -75,7 +75,6 @@ public class VoldemortClientShell {
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl);
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
-        DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
         } catch(Exception e) {
@@ -88,7 +87,7 @@ public class VoldemortClientShell {
             processCommands(factory, fileReader, true);
             fileReader.close();
         }
-        processCommands(factory,inputReader, false);
+        processCommands(factory, inputReader, false);
     }
 
     private static void processCommands(StoreClientFactory factory,

@@ -23,9 +23,7 @@ import org.apache.log4j.Level;
 
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
-import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
-import voldemort.utils.ByteArray;
 
 /**
  * AsyncRecoveryFailureDetector detects failures and then attempts to contact
@@ -127,24 +125,23 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 unavailableNodesCopy = new HashSet<Node>(unavailableNodes);
             }
 
-            ByteArray key = new ByteArray((byte) 1);
-
             for(Node node: unavailableNodesCopy) {
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node);
 
-                Store<ByteArray, byte[]> store = getConfig().getStoreResolver().getStore(node);
+                StoreVerifier storeVerifier = getConfig().getStoreVerifier();
 
-                if(store == null) {
+                if(storeVerifier == null) {
                     if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(node + " store is null; cannot determine node availability");
+                        logger.warn(node
+                                    + " store verifier is null; cannot determine node availability");
 
                     continue;
                 }
 
                 try {
                     // This is our test.
-                    store.get(key);
+                    storeVerifier.verifyStore(node);
 
                     synchronized(unavailableNodes) {
                         unavailableNodes.remove(node);

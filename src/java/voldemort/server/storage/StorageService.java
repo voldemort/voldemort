@@ -45,7 +45,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
-import voldemort.cluster.failuredetector.ServerStoreResolver;
+import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -121,7 +121,7 @@ public class StorageService extends AbstractService {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
                                                                                                                   .getNodes())
-                                                                                                .setStoreResolver(new ServerStoreResolver(storeRepository,
+                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeRepository,
                                                                                                                                           voldemortConfig.getNodeId()));
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }

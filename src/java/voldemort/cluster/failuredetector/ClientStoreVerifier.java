@@ -19,44 +19,48 @@ package voldemort.cluster.failuredetector;
 import java.util.HashMap;
 import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.client.HttpStoreClientFactory;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
-import voldemort.utils.ByteArray;
+import voldemort.store.UnreachableStoreException;
 
 /**
- * ClientStoreResolver is used to retrieve configuration data for a client
- * environment. The node->store mapping is not known at the early point in the
- * client lifecycle that it can be provided, so it is performed on demand. This
- * class is abstract due to needing to be implemented differently by the known
- * store client implementations {@link SocketStoreClientFactory} and
+ * ClientStoreVerifier is used to test stores in a client environment. The
+ * node->store mapping is not known at the early point in the client lifecycle
+ * that it can be provided, so it is performed on demand. This class is abstract
+ * due to needing to be implemented differently by the known store client
+ * implementations {@link SocketStoreClientFactory} and
  * {@link HttpStoreClientFactory}.
  * 
  * @author Kirk True
  */
 
-public abstract class ClientStoreResolver implements StoreResolver {
+public abstract class ClientStoreVerifier<K, V> implements StoreVerifier {
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<K, V>> stores;
 
-    protected ClientStoreResolver() {
-        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+    protected ClientStoreVerifier() {
+        stores = new HashMap<Integer, Store<K, V>>();
     }
 
-    public Store<ByteArray, byte[]> getStore(Node node) {
+    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
         synchronized(stores) {
-            Store<ByteArray, byte[]> store = stores.get(node.getId());
+            Store<K, V> store = stores.get(node.getId());
 
             if(store == null) {
                 store = getStoreInternal(node);
                 stores.put(node.getId(), store);
             }
 
-            return store;
+            K key = getKey();
+            store.get(key);
         }
     }
 
-    protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);
+    protected abstract Store<K, V> getStoreInternal(Node node);
+
+    protected abstract K getKey();
 
 }

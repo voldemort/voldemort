@@ -19,14 +19,16 @@ package voldemort.cluster.failuredetector;
 import java.util.HashMap;
 import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.store.Store;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
 /**
- * ServerStoreResolver is used to retrieve configuration data for a server
+ * ServerStoreVerifier is used to verify store connectivity for a server
  * environment. The node->store mapping is not known at the early point in the
  * client lifecycle that it can be provided, so it is performed on demand using
  * the {@link StoreRepository}.
@@ -34,7 +36,7 @@ import voldemort.utils.ByteArray;
  * @author Kirk True
  */
 
-public class ServerStoreResolver implements StoreResolver {
+public class ServerStoreVerifier implements StoreVerifier {
 
     private final StoreRepository storeRepository;
 
@@ -42,13 +44,15 @@ public class ServerStoreResolver implements StoreResolver {
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public ServerStoreResolver(StoreRepository storeRepository, int nodeId) {
+    private final ByteArray key = new ByteArray((byte) 1);
+
+    public ServerStoreVerifier(StoreRepository storeRepository, int nodeId) {
         this.storeRepository = storeRepository;
         this.nodeId = nodeId;
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
-    public Store<ByteArray, byte[]> getStore(Node node) {
+    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
         synchronized(stores) {
             Store<ByteArray, byte[]> store = stores.get(node.getId());
 
@@ -62,7 +66,7 @@ public class ServerStoreResolver implements StoreResolver {
                 stores.put(node.getId(), store);
             }
 
-            return store;
+            store.get(key);
         }
     }
 

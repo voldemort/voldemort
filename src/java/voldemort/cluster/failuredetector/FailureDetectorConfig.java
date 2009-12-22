@@ -66,7 +66,7 @@ public class FailureDetectorConfig {
 
     protected Collection<Node> nodes;
 
-    protected StoreResolver storeResolver;
+    protected StoreVerifier storeVerifier;
 
     protected Time time = SystemTime.INSTANCE;
 
@@ -77,7 +77,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      */
 
@@ -92,7 +92,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      * 
      * @param config {@link VoldemortConfig} instance
@@ -115,7 +115,7 @@ public class FailureDetectorConfig {
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
-     * {@link #setStoreResolver(StoreResolver)} methods must be called to ensure
+     * {@link #setStoreVerifier(StoreVerifier)} methods must be called to ensure
      * <i>complete</i> configuration.
      * 
      * @param config {@link ClientConfig} instance
@@ -358,12 +358,12 @@ public class FailureDetectorConfig {
         return this;
     }
 
-    public StoreResolver getStoreResolver() {
-        return storeResolver;
+    public StoreVerifier getStoreVerifier() {
+        return storeVerifier;
     }
 
-    public FailureDetectorConfig setStoreResolver(StoreResolver storeResolver) {
-        this.storeResolver = Utils.notNull(storeResolver);
+    public FailureDetectorConfig setStoreVerifier(StoreVerifier storeVerifier) {
+        this.storeVerifier = Utils.notNull(storeVerifier);
         return this;
     }
 

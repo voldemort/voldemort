@@ -13,8 +13,8 @@ public class FailureDetectorTestUtils {
     public static void recordException(FailureDetector failureDetector,
                                        Node node,
                                        UnreachableStoreException e) {
-        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
-                                                                                                   true);
+        ((MutableStoreVerifier) failureDetector.getConfig().getStoreVerifier()).setErrorStore(node,
+                                                                                              new UnreachableStoreException("test error"));
         failureDetector.recordException(node, e);
     }
 
@@ -24,8 +24,8 @@ public class FailureDetectorTestUtils {
 
     public static void recordSuccess(FailureDetector failureDetector, Node node, boolean shouldWait)
             throws Exception {
-        ((MutableStoreResolver) failureDetector.getConfig().getStoreResolver()).setReturnNullStore(node,
-                                                                                                   false);
+        ((MutableStoreVerifier) failureDetector.getConfig().getStoreVerifier()).setErrorStore(node,
+                                                                                              null);
         failureDetector.recordSuccess(node);
 
         if(shouldWait)

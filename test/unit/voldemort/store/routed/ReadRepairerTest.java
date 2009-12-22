@@ -20,7 +20,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreResolver.createMutableStoreResolver;
+import static voldemort.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
@@ -138,7 +138,7 @@ public class ReadRepairerTest extends TestCase {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
                                                                                  .setBannagePeriod(1000)
                                                                                  .setNodes(cluster.getNodes())
-                                                                                 .setStoreResolver(createMutableStoreResolver(subStores))
+                                                                                 .setStoreVerifier(create(subStores))
                                                                                  .setTime(time);
 
         failureDetector = create(failureDetectorConfig);

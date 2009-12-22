@@ -6,49 +6,51 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.BasicStoreResolver;
+import voldemort.cluster.failuredetector.BasicStoreVerifier;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * MutableStoreResolver is used when we want to simulate a downed node during
- * testing. For a given Node we can update this StoreResolver to return a null
- * Store instance. This will cause implementations that use Stores as a means of
- * node availability discovery to fail (which we want to be able to control for
- * our tests).
+ * MutableStoreVerifier is used when we want to simulate a downed node during
+ * testing. For a given Node we can update this StoreVerifier to cause node
+ * availability discovery to fail (which we want to be able to control for our
+ * tests).
  * 
  * @author Kirk True
  */
 
-public class MutableStoreResolver extends BasicStoreResolver {
+public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> {
 
-    private Map<Integer, Boolean> nullStores;
+    private Map<Integer, VoldemortException> errorStores;
 
-    private MutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
-        super(stores);
-        nullStores = new HashMap<Integer, Boolean>();
+    private MutableStoreVerifier(Map<Integer, Store<ByteArray, byte[]>> stores) {
+        super(stores, new ByteArray((byte) 1));
+        errorStores = new HashMap<Integer, VoldemortException>();
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore(Node node) {
-        if(nullStores.get(node.getId()) == null || nullStores.get(node.getId()) == false)
-            return super.getStore(node);
+    public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+        VoldemortException e = errorStores.get(node.getId());
+
+        if(e == null)
+            super.verifyStore(node);
         else
-            return null;
+            throw e;
     }
 
-    public void setReturnNullStore(Node node, boolean shouldReturnNullStore) {
-        nullStores.put(node.getId(), shouldReturnNullStore);
+    public void setErrorStore(Node node, VoldemortException voldemortException) {
+        errorStores.put(node.getId(), voldemortException);
     }
 
-    public static MutableStoreResolver createMutableStoreResolver(Map<Integer, Store<ByteArray, byte[]>> stores) {
-        return new MutableStoreResolver(stores);
+    public static MutableStoreVerifier create(Map<Integer, Store<ByteArray, byte[]>> stores) {
+        return new MutableStoreVerifier(stores);
     }
 
-    public static MutableStoreResolver createMutableStoreResolver(Collection<Node> nodes) {
+    public static MutableStoreVerifier create(Collection<Node> nodes) {
         Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
 
         for(Node node: nodes) {
@@ -77,16 +79,16 @@ public class MutableStoreResolver extends BasicStoreResolver {
                     return null;
                 }
 
-                public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
-
                 public List<Version> getVersions(ByteArray key) {
                     return null;
                 }
 
+                public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
+
             });
         }
 
-        return new MutableStoreResolver(stores);
+        return new MutableStoreVerifier(stores);
     }
 
 }

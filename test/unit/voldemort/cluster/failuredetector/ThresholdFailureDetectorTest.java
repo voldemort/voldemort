@@ -18,7 +18,7 @@ package voldemort.cluster.failuredetector;
 
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreResolver.createMutableStoreResolver;
+import static voldemort.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import org.junit.Test;
@@ -34,7 +34,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
-                                                                                 .setStoreResolver(createMutableStoreResolver(cluster.getNodes()))
+                                                                                 .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
         return create(failureDetectorConfig);
     }
