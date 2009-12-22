@@ -46,7 +46,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.StoreVerifier;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 
@@ -117,29 +116,57 @@ public class Ec2FailureDetectorTest {
 
         StoreClientFactory scf = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://"
                                                                                                   + offlineHost.getInternalHostName()
-                                                                                                  + ":6666")
-                                                                                .setFailureDetectorAsyncRecoveryInterval(1000));
+                                                                                                  + ":6666"));
         FailureDetector failureDetector = scf.getFailureDetector();
-        StoreVerifier storeVerifier = failureDetector.getConfig().getStoreVerifier();
-        storeVerifier.verifyStore(node);
 
         Store<String, String> store = scf.getRawStore("test", null);
 
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- ENSURING STORE IS AVAILABLE -------------------");
+
         test(store);
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- ASSERTING NODE IS AVAILABLE -------------------");
+
         Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- STOPPING NODE -------------------");
 
         stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
 
-        Thread.sleep(1000);
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- NODE STOPPED -------------------");
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- TESTING STORE HOPING TO KNOCK IT UNAVAILABLE -------------------");
 
         test(store);
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- ASSERTING NODE IS UNAVAILABLE -------------------");
+
         Assert.assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- STARTING NODE -------------------");
 
         startClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig, nodeId);
 
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- WAITING FOR NODE TO BECOME AVAILABLE -------------------");
+
         failureDetector.waitForAvailability(node);
 
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- TESTING STORE JUST TO ENSURE IT'S AVAILABLE -------------------");
+
         test(store);
+
+        // XXXXXXXXXXXXXX
+        System.out.println("------------------- ASSERTING NODE IS AVAILABLE AGAIN -------------------");
+
         Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
     }
 
