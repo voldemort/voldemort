@@ -106,17 +106,17 @@ public class Ec2FailureDetectorTest {
 
     @Test
     public void testTemporaryNodeOffline() throws Exception {
-        String offlineHostName = hostNames.get(0);
-        Integer nodeId = nodeIds.get(offlineHostName);
+        HostNamePair offlineHost = hostNamePairs.get(0);
+        Integer nodeId = nodeIds.get(offlineHost.getExternalHostName());
         Node node = new Node(nodeId,
-                             offlineHostName,
+                             offlineHost.getInternalHostName(),
                              8081,
                              6666,
                              6667,
                              Collections.<Integer> emptyList());
 
         StoreClientFactory scf = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://"
-                                                                                                  + offlineHostName
+                                                                                                  + offlineHost.getInternalHostName()
                                                                                                   + ":6666")
                                                                                 .setFailureDetectorAsyncRecoveryInterval(1000));
         FailureDetector failureDetector = scf.getFailureDetector();
@@ -128,11 +128,11 @@ public class Ec2FailureDetectorTest {
         test(store);
         Assert.assertEquals(1, failureDetector.getAvailableNodeCount());
 
-        stopClusterNode(offlineHostName, ec2RemoteTestConfig);
+        stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
         test(store);
         Assert.assertEquals(0, failureDetector.getAvailableNodeCount());
 
-        startClusterNode(offlineHostName, ec2RemoteTestConfig, nodeId);
+        startClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig, nodeId);
 
         failureDetector.waitForAvailability(node);
 
