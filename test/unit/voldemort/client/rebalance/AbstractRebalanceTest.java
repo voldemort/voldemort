@@ -313,7 +313,8 @@ public abstract class AbstractRebalanceTest extends TestCase {
         executors.shutdown();
         executors.awaitTermination(300, TimeUnit.SECONDS);
 
-        assertEquals("Both node 0 and 1 should have responded to get():" + masterNodeResponded,
+        assertEquals("Client should see values returned master at both (0,1):("
+                             + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
                      true,
                      masterNodeResponded[0] && masterNodeResponded[1]);
 
