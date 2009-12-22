@@ -192,12 +192,12 @@ public class RebalanceClient {
             Versioned<Cluster> latestVersionedCluster = RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
                                                                                                       rebalanceStealInfo.getDonorId()),
                                                                                         adminClient);
-            Cluster latestCluster = latestVersionedCluster.getValue();
+            Cluster currentCluster = latestVersionedCluster.getValue();
             VectorClock latestClock = (VectorClock) latestVersionedCluster.getVersion();
             try {
-                Cluster newCluster = RebalanceUtils.createUpdatedCluster(latestCluster,
+                Cluster newCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
                                                                          stealerNode,
-                                                                         latestCluster.getNodeById(rebalanceStealInfo.getDonorId()),
+                                                                         currentCluster.getNodeById(rebalanceStealInfo.getDonorId()),
                                                                          rebalanceStealInfo.getPartitionList());
                 // increment clock version on stealerNodeId
                 latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
@@ -215,7 +215,7 @@ public class RebalanceClient {
                 // revert cluster changes.
                 latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
                 RebalanceUtils.propagateCluster(adminClient,
-                                                latestCluster,
+                                                currentCluster,
                                                 latestClock,
                                                 new ArrayList<Integer>());
 

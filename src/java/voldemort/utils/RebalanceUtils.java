@@ -48,8 +48,8 @@ public class RebalanceUtils {
      * @return Queue (pair(StealerNodeId, RebalanceStealInfo))
      */
     public static Queue<Pair<Integer, List<RebalancePartitionsInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
-                                                                                       Cluster targetCluster,
-                                                                                       List<String> storeList) {
+                                                                                            Cluster targetCluster,
+                                                                                            List<String> storeList) {
         Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalancePartitionsInfo>>>();
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
@@ -57,12 +57,12 @@ public class RebalanceUtils {
 
         for(Node node: targetCluster.getNodes()) {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
-                                                                              targetCluster,
-                                                                              storeList,
-                                                                              node.getId());
+                                                                                   targetCluster,
+                                                                                   storeList,
+                                                                                   node.getId());
             if(rebalanceNodeList.size() > 0) {
                 rebalanceTaskQueue.offer(new Pair<Integer, List<RebalancePartitionsInfo>>(node.getId(),
-                                                                                     rebalanceNodeList));
+                                                                                          rebalanceNodeList));
             }
 
         }
@@ -71,9 +71,9 @@ public class RebalanceUtils {
     }
 
     private static List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                                 Cluster targetCluster,
-                                                                 List<String> storeList,
-                                                                 int stealNodeId) {
+                                                                      Cluster targetCluster,
+                                                                      List<String> storeList,
+                                                                      int stealNodeId) {
         Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
         Map<Integer, Integer> currentPartitionsToNodeMap = getCurrentPartitionMapping(currentCluster);
         List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
@@ -101,10 +101,10 @@ public class RebalanceUtils {
         List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
         for(Entry<Integer, List<Integer>> stealEntry: stealPartitionsMap.entrySet()) {
             stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
-                                                     stealEntry.getKey(),
-                                                     stealEntry.getValue(),
-                                                     storeList,
-                                                     0));
+                                                          stealEntry.getKey(),
+                                                          stealEntry.getValue(),
+                                                          storeList,
+                                                          0));
         }
 
         return stealInfoList;
@@ -304,8 +304,8 @@ public class RebalanceUtils {
     }
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
-        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(1)
-                                                          .setMaxThreads(1)
+        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(2)
+                                                          .setMaxThreads(2)
                                                           .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());

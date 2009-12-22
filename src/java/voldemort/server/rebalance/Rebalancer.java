@@ -149,7 +149,7 @@ public class Rebalancer implements Runnable {
 
         asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
 
-            private int fetchAndUpdateAsyncId = -1;
+            private int migratePartitionsAsyncId = -1;
 
             @Override
             public void operate() throws Exception {
@@ -166,13 +166,13 @@ public class Rebalancer implements Runnable {
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
 
-                    fetchAndUpdateAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                    migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                                           metadataStore.getNodeId(),
                                                                           storeName,
                                                                           stealInfo.getPartitionList(),
                                                                           null);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                                  fetchAndUpdateAsyncId,
+                                                  migratePartitionsAsyncId,
                                                   voldemortConfig.getAdminSocketTimeout(),
                                                   TimeUnit.SECONDS);
 
@@ -194,16 +194,16 @@ public class Rebalancer implements Runnable {
                     // free the permit in all cases.
                     releaseRebalancingPermit();
                     adminClient.stop();
-                    fetchAndUpdateAsyncId = -1;
+                    migratePartitionsAsyncId = -1;
                 }
             }
 
             @Override
             @JmxGetter(name = "asyncTaskStatus")
             public AsyncOperationStatus getStatus() {
-                if(-1 != fetchAndUpdateAsyncId)
+                if(-1 != migratePartitionsAsyncId)
                     try {
-                        updateStatus(asyncRunner.getStatus(fetchAndUpdateAsyncId));
+                        updateStatus(asyncRunner.getStatus(migratePartitionsAsyncId));
                     } catch(Exception e) {
                         // ignore
                     }

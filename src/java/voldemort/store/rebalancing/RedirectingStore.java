@@ -17,6 +17,7 @@
 package voldemort.store.rebalancing;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.server.StoreRepository;
@@ -29,6 +30,9 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 /**
  * The RedirectingStore extends {@link DelegatingStore}
@@ -63,7 +67,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             // if I am rebalancing for this key, try to do remote get() , put it
             // locally first to get the correct version ignoring any
             // ObsoleteVersionExceptions.
-            proxyPut(key);
+            proxyGetAndLocalPut(key);
         }
 
         getInnerStore().put(key, value);
@@ -81,10 +85,37 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             // if I am rebalancing for this key, try to do remote get() , put it
             // locally first to get the correct version ignoring any
             // ObsoleteVersionExceptions.
-            proxyPut(key);
+            proxyGetAndLocalPut(key);
         }
 
         return getInnerStore().get(key);
+    }
+
+    @Override
+    public List<Version> getVersions(ByteArray key) {
+        if(redirectingKey(key)) {
+            // if I am rebalancing for this key, try to do remote get() , put it
+            // locally first to get the correct version ignoring any
+            // ObsoleteVersionExceptions.
+            proxyGetAndLocalPut(key);
+        }
+
+        return getInnerStore().getVersions(key);
+    }
+
+    @Override
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+
+        proxyGetAllAndLocalPut(Iterables.filter(keys, new Predicate<ByteArray>() {
+
+            public boolean apply(ByteArray key) {
+                return redirectingKey(key);
+            }
+        }));
+
+        // TODO : check that this iterator is not modified in the above step.
+        return getInnerStore().getAll(keys);
     }
 
     /**
@@ -136,6 +167,29 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
+     * performs back-door proxy get to {@link MetadataStore#getDonorNode()}
+     * 
+     * @param key
+     * @return
+     * @throws VoldemortException
+     */
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
+            throws VoldemortException {
+
+        if(!storeRepository.hasRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo()
+                                                                         .getDonorId())) {
+            throw new VoldemortException("RedirectingSocketStore not present in storeRepository for (store,nodeId) pair ("
+                                         + getName()
+                                         + ","
+                                         + metadata.getRebalancingStealInfo().getDonorId() + ").");
+        }
+
+        return storeRepository.getRedirectingSocketStore(getName(),
+                                                         metadata.getRebalancingStealInfo()
+                                                                 .getDonorId()).getAll(keys);
+    }
+
+    /**
      * In RebalancingStealer state put should be commited on stealer node. <br>
      * to follow voldemort version guarantees stealer <br>
      * node should query donor node and put that value (proxyValue) before
@@ -149,15 +203,30 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @param value
      * @throws VoldemortException
      */
-    private void proxyPut(ByteArray key) throws VoldemortException {
+    private void proxyGetAndLocalPut(ByteArray key) throws VoldemortException {
         List<Versioned<byte[]>> proxyValues = proxyGet(key);
+        for(Versioned<byte[]> proxyValue: proxyValues) {
+            try {
 
-        try {
-            for(Versioned<byte[]> proxyValue: proxyValues) {
                 getInnerStore().put(key, proxyValue);
+
+            } catch(ObsoleteVersionException e) {
+                // ignore these
             }
-        } catch(ObsoleteVersionException e) {
-            // ignore these
         }
+    }
+
+    private void proxyGetAllAndLocalPut(Iterable<ByteArray> keys) throws VoldemortException {
+        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys);
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
+            for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
+                try {
+                    getInnerStore().put(keyValuePair.getKey(), proxyValue);
+                } catch(ObsoleteVersionException e) {
+                    // ignore these
+                }
+            }
+        }
+
     }
 }

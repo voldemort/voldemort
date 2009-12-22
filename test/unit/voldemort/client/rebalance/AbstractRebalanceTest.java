@@ -40,8 +40,8 @@ import com.google.common.collect.ImmutableMap;
 public abstract class AbstractRebalanceTest extends TestCase {
 
     private static final int NUM_KEYS = 10000;
-    private static String testStoreName = "test-replication-memory";
-    private static String storeDefFile = "test/common/voldemort/config/stores.xml";
+    private static String testStoreName = "test";
+    private static String storeDefFile = "test/common/voldemort/config/single-store.xml";
 
     HashMap<String, String> testEntries;
 
