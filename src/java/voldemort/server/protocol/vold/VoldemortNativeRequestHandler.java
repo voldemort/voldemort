@@ -41,7 +41,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                                          StoreRepository repository,
                                          int protocolVersion) {
         super(errorMapper, repository);
-        if(protocolVersion < 0 || protocolVersion > 1)
+        if(protocolVersion < 0 || protocolVersion > 2)
             throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
         this.protocolVersion = protocolVersion;
     }
