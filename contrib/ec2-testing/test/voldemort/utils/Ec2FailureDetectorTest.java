@@ -16,6 +16,7 @@
 
 package voldemort.utils;
 
+import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
@@ -70,7 +71,18 @@ public class Ec2FailureDetectorTest {
     @BeforeClass
     public static void setUpClass() throws Exception {
         ec2RemoteTestConfig = new Ec2RemoteTestConfig();
-        hostNamePairs = Arrays.asList(new HostNamePair("localhost", "localhost"));
+
+        if(ec2RemoteTestConfig.getInstanceCount() > 0) {
+            hostNamePairs = createInstances(ec2RemoteTestConfig);
+
+            if(logger.isInfoEnabled())
+                logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
+
+            Thread.sleep(30000);
+        } else {
+            hostNamePairs = Arrays.asList(new HostNamePair("localhost", "localhost"));
+        }
+
         hostNames = toHostNames(hostNamePairs);
         nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2RemoteTestConfig);
     }
