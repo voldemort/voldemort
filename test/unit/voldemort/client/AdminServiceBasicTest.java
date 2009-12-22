@@ -130,7 +130,6 @@ public class AdminServiceBasicTest extends TestCase {
             assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
                                                                         .getValue(), updatedCluster);
 
-            System.out.println(clock);
             // version should match
             assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
                                                                         .getVersion());
@@ -314,10 +313,10 @@ public class AdminServiceBasicTest extends TestCase {
     // check the basic rebalanceNode call.
     public void testRebalanceNode() {
         RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
-                                                              0,
-                                                              Arrays.asList(1, 3),
-                                                              Arrays.asList(testStoreName),
-                                                              0);
+                                                                        0,
+                                                                        Arrays.asList(1, 3),
+                                                                        Arrays.asList(testStoreName),
+                                                                        0);
         int asyncId = adminClient.rebalanceNode(testStoreName, stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
     }
