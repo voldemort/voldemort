@@ -25,7 +25,6 @@ import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -131,10 +130,9 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
                                          + metadata.getRebalancingStealInfo().getDonorId() + ").");
         }
 
-        RedirectingSocketStore redirecingSocketStore = (RedirectingSocketStore) storeRepository.getRedirectingSocketStore(getName(),
-                                                                                                                          metadata.getRebalancingStealInfo()
-                                                                                                                                  .getDonorId());
-        return redirecingSocketStore.getIgnoreInvalidMetadata(key);
+        return storeRepository.getRedirectingSocketStore(getName(),
+                                                         metadata.getRebalancingStealInfo()
+                                                                 .getDonorId()).get(key);
     }
 
     /**

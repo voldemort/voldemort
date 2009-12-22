@@ -26,6 +26,7 @@ import java.util.Map;
 
 import voldemort.client.protocol.RequestFormat;
 import voldemort.serialization.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -53,11 +54,11 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
                                    String storeName,
                                    ByteArray key,
                                    VectorClock version,
-                                   boolean shouldReroute) throws IOException {
+                                   RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         outputStream.writeByte(VoldemortOpCode.DELETE_OP_CODE);
         outputStream.writeUTF(storeName);
-        outputStream.writeBoolean(shouldReroute);
+        outputStream.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         outputStream.writeInt(key.length());
         outputStream.write(key.get());
         VectorClock clock = version;
@@ -70,14 +71,20 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         return inputStream.readBoolean();
     }
 
+    /**
+     * TODO : Currently we are just using ignore_checks to change opcode to have
+     * backward compatibility with the old server.
+     */
     public void writeGetRequest(DataOutputStream outputStream,
                                 String storeName,
                                 ByteArray key,
-                                boolean shouldReroute) throws IOException {
+                                RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
-        outputStream.writeByte(VoldemortOpCode.GET_OP_CODE);
+        int opCode = routingType.equals(RequestRoutingType.IGNORE_CHECKS) ? VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE
+                                                                         : VoldemortOpCode.GET_OP_CODE;
+        outputStream.writeByte(opCode);
         outputStream.writeUTF(storeName);
-        outputStream.writeBoolean(shouldReroute);
+        outputStream.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         outputStream.writeInt(key.length());
         outputStream.write(key.get());
     }
@@ -105,11 +112,11 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     public void writeGetAllRequest(DataOutputStream output,
                                    String storeName,
                                    Iterable<ByteArray> keys,
-                                   boolean shouldReroute) throws IOException {
+                                   RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKeys(keys);
         output.writeByte(VoldemortOpCode.GET_ALL_OP_CODE);
         output.writeUTF(storeName);
-        output.writeBoolean(shouldReroute);
+        output.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         // write out keys
         List<ByteArray> l = new ArrayList<ByteArray>();
         for(ByteArray key: keys)
@@ -140,11 +147,11 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
                                 ByteArray key,
                                 byte[] value,
                                 VectorClock version,
-                                boolean shouldReroute) throws IOException {
+                                RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         outputStream.writeByte(VoldemortOpCode.PUT_OP_CODE);
         outputStream.writeUTF(storeName);
-        outputStream.writeBoolean(shouldReroute);
+        outputStream.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         outputStream.writeInt(key.length());
         outputStream.write(key.get());
         outputStream.writeInt(value.length + version.sizeInBytes());
@@ -184,23 +191,11 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     public void writeGetVersionRequest(DataOutputStream output,
                                        String storeName,
                                        ByteArray key,
-                                       boolean shouldReroute) throws IOException {
+                                       RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         output.writeByte(VoldemortOpCode.GET_VERSION_OP_CODE);
         output.writeUTF(storeName);
-        output.writeBoolean(shouldReroute);
-        output.writeInt(key.length());
-        output.write(key.get());
-    }
-
-    public void writeGetIgnoreInvalidMetadataRequest(DataOutputStream output,
-                                                     String storeName,
-                                                     ByteArray key,
-                                                     boolean shouldReroute) throws IOException {
-        StoreUtils.assertValidKey(key);
-        output.writeByte(VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE);
-        output.writeUTF(storeName);
-        output.writeBoolean(shouldReroute);
+        output.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         output.writeInt(key.length());
         output.write(key.get());
     }

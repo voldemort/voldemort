@@ -14,7 +14,6 @@ public final class VProto {
     PUT(2, 2),
     DELETE(3, 3),
     GET_VERSION(4, 4),
-    GET_UNCHECKED(5, 5),
     ;
     
     
@@ -27,7 +26,6 @@ public final class VProto {
         case 2: return PUT;
         case 3: return DELETE;
         case 4: return GET_VERSION;
-        case 5: return GET_UNCHECKED;
         default: return null;
       }
     }
@@ -58,7 +56,7 @@ public final class VProto {
     }
     
     private static final RequestType[] VALUES = {
-      GET, GET_ALL, PUT, DELETE, GET_VERSION, GET_UNCHECKED, 
+      GET, GET_ALL, PUT, DELETE, GET_VERSION, 
     };
     public static RequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -4849,6 +4847,13 @@ public final class VProto {
     public boolean hasDelete() { return hasDelete; }
     public voldemort.client.protocol.pb.VProto.DeleteRequest getDelete() { return delete_; }
     
+    // optional bool ignoreChecks = 8;
+    public static final int IGNORECHECKS_FIELD_NUMBER = 8;
+    private boolean hasIgnoreChecks;
+    private boolean ignoreChecks_ = false;
+    public boolean hasIgnoreChecks() { return hasIgnoreChecks; }
+    public boolean getIgnoreChecks() { return ignoreChecks_; }
+    
     public final boolean isInitialized() {
       if (!hasType) return false;
       if (!hasShouldRoute) return false;
@@ -4884,6 +4889,9 @@ public final class VProto {
       }
       if (hasDelete()) {
         output.writeMessage(7, getDelete());
+      }
+      if (hasIgnoreChecks()) {
+        output.writeBool(8, getIgnoreChecks());
       }
       getUnknownFields().writeTo(output);
     }
@@ -4921,6 +4929,10 @@ public final class VProto {
       if (hasDelete()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, getDelete());
+      }
+      if (hasIgnoreChecks()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(8, getIgnoreChecks());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -5092,6 +5104,9 @@ public final class VProto {
         if (other.hasDelete()) {
           mergeDelete(other.getDelete());
         }
+        if (other.hasIgnoreChecks()) {
+          setIgnoreChecks(other.getIgnoreChecks());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -5169,6 +5184,10 @@ public final class VProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setDelete(subBuilder.buildPartial());
+              break;
+            }
+            case 64: {
+              setIgnoreChecks(input.readBool());
               break;
             }
           }
@@ -5383,6 +5402,24 @@ public final class VProto {
         result.delete_ = voldemort.client.protocol.pb.VProto.DeleteRequest.getDefaultInstance();
         return this;
       }
+      
+      // optional bool ignoreChecks = 8;
+      public boolean hasIgnoreChecks() {
+        return result.hasIgnoreChecks();
+      }
+      public boolean getIgnoreChecks() {
+        return result.getIgnoreChecks();
+      }
+      public Builder setIgnoreChecks(boolean value) {
+        result.hasIgnoreChecks = true;
+        result.ignoreChecks_ = value;
+        return this;
+      }
+      public Builder clearIgnoreChecks() {
+        result.hasIgnoreChecks = false;
+        result.ignoreChecks_ = false;
+        return this;
+      }
     }
     
     static {
@@ -5501,17 +5538,17 @@ public final class VProto {
       "r\"E\n\rDeleteRequest\022\013\n\003key\030\001 \002(\014\022\'\n\007versi" +
       "on\030\002 \002(\0132\026.voldemort.VectorClock\"B\n\016Dele" +
       "teResponse\022\017\n\007success\030\001 \002(\010\022\037\n\005error\030\002 \001" +
-      "(\0132\020.voldemort.Error\"\200\002\n\020VoldemortReques" +
+      "(\0132\020.voldemort.Error\"\226\002\n\020VoldemortReques" +
       "t\022$\n\004type\030\001 \002(\0162\026.voldemort.RequestType\022" +
       "\033\n\014should_route\030\002 \002(\010:\005false\022\r\n\005store\030\003 " +
       "\002(\t\022\"\n\003get\030\004 \001(\0132\025.voldemort.GetRequest\022" +
       "(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllReques" +
       "t\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutRequest\022(\n" +
-      "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest*",
-      "\\\n\013RequestType\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003" +
-      "PUT\020\002\022\n\n\006DELETE\020\003\022\017\n\013GET_VERSION\020\004\022\021\n\rGE" +
-      "T_UNCHECKED\020\005B(\n\034voldemort.client.protoc" +
-      "ol.pbB\006VProtoH\001"
+      "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest\022",
+      "\024\n\014ignoreChecks\030\010 \001(\010*I\n\013RequestType\022\007\n\003" +
+      "GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELETE\020\003\022" +
+      "\017\n\013GET_VERSION\020\004B(\n\034voldemort.client.pro" +
+      "tocol.pbB\006VProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -5635,7 +5672,7 @@ public final class VProto {
           internal_static_voldemort_VoldemortRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortRequest_descriptor,
-              new java.lang.String[] { "Type", "ShouldRoute", "Store", "Get", "GetAll", "Put", "Delete", },
+              new java.lang.String[] { "Type", "ShouldRoute", "Store", "Get", "GetAll", "Put", "Delete", "IgnoreChecks", },
               voldemort.client.protocol.pb.VProto.VoldemortRequest.class,
               voldemort.client.protocol.pb.VProto.VoldemortRequest.Builder.class);
           return null;

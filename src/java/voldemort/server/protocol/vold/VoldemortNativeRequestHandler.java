@@ -12,6 +12,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.server.protocol.RequestHandler;
@@ -52,12 +53,20 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         boolean isRouted = false;
         if(protocolVersion > 0)
             isRouted = inputStream.readBoolean();
-        Store<ByteArray, byte[]> store = getStore(storeName, isRouted);
+
+        boolean ignoreChecks = (opCode == VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE);
+
+        Store<ByteArray, byte[]> store = getStore(storeName,
+                                                  RequestRoutingType.getRequestRoutingType(isRouted,
+                                                                                           ignoreChecks));
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName
                                                                 + "'."));
         } else {
             switch(opCode) {
+                case VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE:
+                    handleGet(inputStream, outputStream, store);
+                    break;
                 case VoldemortOpCode.GET_OP_CODE:
                     handleGet(inputStream, outputStream, store);
                     break;
@@ -72,9 +81,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                     break;
                 case VoldemortOpCode.GET_VERSION_OP_CODE:
                     handleGetVersion(inputStream, outputStream, store);
-                    break;
-                case VoldemortOpCode.GET_IGNORE_INVALID_METADATA_OP_CODE:
-                    handleGetIgnoreInvalidMetadataException(inputStream, outputStream, store);
                     break;
                 default:
                     throw new IOException("Unknown op code: " + opCode);

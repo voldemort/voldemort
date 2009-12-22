@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
@@ -157,7 +156,7 @@ public class ServerTestUtils {
     }
 
     public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
-        return getSocketStore(storeName, "localhost", port, RequestFormatType.VOLDEMORT_V1);
+        return getSocketStore(storeName, "localhost", port, type);
     }
 
     public static SocketStore getSocketStore(String storeName,
@@ -394,21 +393,11 @@ public class ServerTestUtils {
     public static AdminClient getAdminClient(Cluster cluster) {
 
         AdminClientConfig config = new AdminClientConfig();
-        config.setMaxConnectionsPerNode(2);
-        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
-        config.setSocketBufferSize(32 * 1024);
-
         return new AdminClient(cluster, config);
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
         AdminClientConfig config = new AdminClientConfig();
-        config.setMaxConnectionsPerNode(2);
-        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
-        config.setSocketBufferSize(32 * 1024);
-
         return new AdminClient(bootstrapURL, config);
     }
 

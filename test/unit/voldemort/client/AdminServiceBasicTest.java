@@ -29,7 +29,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
@@ -313,7 +313,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     // check the basic rebalanceNode call.
     public void testRebalanceNode() {
-        RebalanceStealInfo stealInfo = new RebalanceStealInfo(1,
+        RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
                                                               0,
                                                               Arrays.asList(1, 3),
                                                               Arrays.asList(testStoreName),

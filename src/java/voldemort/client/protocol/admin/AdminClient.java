@@ -35,7 +35,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -137,24 +137,24 @@ public class AdminClient {
                                                                .getContextClassLoader());
     }
 
-    private Cluster getClusterFromBootstrapURL(String bootstrapURL, ClientConfig config) {
-        config.setBootstrapUrls(bootstrapURL);
+    private Cluster getClusterFromBootstrapURL(String bootstrapURL, AdminClientConfig config) {
         // try to bootstrap metadata from bootstrapUrl
-        SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig());
         // get Cluster from bootStrapUrl
         String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
-                                                                 factory.validateUrls(config.getBootstrapUrls()));
+                                                                 factory.validateUrls(new String[] { bootstrapURL }));
         // release all threads/sockets hold by the factory.
         factory.close();
 
         return clusterMapper.readCluster(new StringReader(clusterXml));
     }
 
-    private SocketPool createSocketPool(ClientConfig config) {
+    private SocketPool createSocketPool(AdminClientConfig config) {
+        TimeUnit unit = TimeUnit.SECONDS;
         return new SocketPool(config.getMaxConnectionsPerNode(),
-                              config.getConnectionTimeout(TimeUnit.MILLISECONDS),
-                              config.getSocketTimeout(TimeUnit.MILLISECONDS),
-                              config.getSocketBufferSize());
+                              (int) unit.toMillis(config.getAdminConnectionTimeoutSec()),
+                              (int) unit.toMillis(config.getAdminSocketTimeoutSec()),
+                              config.getAdminSocketBufferSize());
     }
 
     private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
@@ -435,7 +435,7 @@ public class AdminClient {
      * @param stealInfo
      * @return
      */
-    public int rebalanceNode(String storeName, RebalanceStealInfo stealInfo) {
+    public int rebalanceNode(String storeName, RebalancePartitionsInfo stealInfo) {
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
                                                                                                                 .setAttempt(stealInfo.getAttempt())
                                                                                                                 .setDonorId(stealInfo.getDonorId())

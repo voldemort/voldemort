@@ -31,7 +31,7 @@ import org.apache.commons.io.FileUtils;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
@@ -138,7 +138,7 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               new RebalanceStealInfo(0,
+                               new RebalancePartitionsInfo(0,
                                                       1,
                                                       Arrays.asList(1),
                                                       Arrays.asList(testStoreName),
@@ -178,7 +178,7 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               new RebalanceStealInfo(0,
+                               new RebalancePartitionsInfo(0,
                                                       1,
                                                       Arrays.asList(1),
                                                       Arrays.asList(testStoreName),

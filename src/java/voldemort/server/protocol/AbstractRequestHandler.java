@@ -1,5 +1,7 @@
 package voldemort.server.protocol;
 
+import voldemort.VoldemortException;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
@@ -30,11 +32,16 @@ public abstract class AbstractRequestHandler implements RequestHandler {
         return storeRepository;
     }
 
-    protected Store<ByteArray, byte[]> getStore(String name, boolean isRouted) {
-        if(isRouted)
-            return storeRepository.getRoutedStore(name);
-        else
-            return storeRepository.getLocalStore(name);
-    }
+    protected Store<ByteArray, byte[]> getStore(String name, RequestRoutingType type) {
+        switch(type) {
+            case ROUTED:
+                return storeRepository.getRoutedStore(name);
+            case NORMAL:
+                return storeRepository.getLocalStore(name);
+            case IGNORE_CHECKS:
+                return storeRepository.getStorageEngine(name);
+        }
 
+        throw new VoldemortException("Unhandled RoutingType found:" + type);
+    }
 }

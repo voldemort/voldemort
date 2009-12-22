@@ -9,14 +9,13 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -48,21 +47,21 @@ public class RebalanceUtils {
      * @param targetCluster
      * @return Queue (pair(StealerNodeId, RebalanceStealInfo))
      */
-    public static Queue<Pair<Integer, List<RebalanceStealInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
+    public static Queue<Pair<Integer, List<RebalancePartitionsInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
                                                                                        Cluster targetCluster,
                                                                                        List<String> storeList) {
-        Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalanceStealInfo>>>();
+        Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalancePartitionsInfo>>>();
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should not change !!");
 
         for(Node node: targetCluster.getNodes()) {
-            List<RebalanceStealInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
+            List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
                                                                               targetCluster,
                                                                               storeList,
                                                                               node.getId());
             if(rebalanceNodeList.size() > 0) {
-                rebalanceTaskQueue.offer(new Pair<Integer, List<RebalanceStealInfo>>(node.getId(),
+                rebalanceTaskQueue.offer(new Pair<Integer, List<RebalancePartitionsInfo>>(node.getId(),
                                                                                      rebalanceNodeList));
             }
 
@@ -71,7 +70,7 @@ public class RebalanceUtils {
         return rebalanceTaskQueue;
     }
 
-    private static List<RebalanceStealInfo> getRebalanceNodeTask(Cluster currentCluster,
+    private static List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
                                                                  Cluster targetCluster,
                                                                  List<String> storeList,
                                                                  int stealNodeId) {
@@ -99,9 +98,9 @@ public class RebalanceUtils {
             }
         }
 
-        List<RebalanceStealInfo> stealInfoList = new ArrayList<RebalanceStealInfo>();
+        List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
         for(Entry<Integer, List<Integer>> stealEntry: stealPartitionsMap.entrySet()) {
-            stealInfoList.add(new RebalanceStealInfo(stealNodeId,
+            stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
                                                      stealEntry.getKey(),
                                                      stealEntry.getValue(),
                                                      storeList,
@@ -305,13 +304,11 @@ public class RebalanceUtils {
     }
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
-        AdminClientConfig config = (AdminClientConfig) new AdminClientConfig().setMaxConnectionsPerNode(1)
-                                                                              .setMaxThreads(1)
-                                                                              .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                                                                    TimeUnit.SECONDS)
-                                                                              .setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
-                                                                                                TimeUnit.SECONDS)
-                                                                              .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(1)
+                                                          .setMaxThreads(1)
+                                                          .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
+                                                          .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
+                                                          .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
         return new AdminClient(cluster, config);
     }

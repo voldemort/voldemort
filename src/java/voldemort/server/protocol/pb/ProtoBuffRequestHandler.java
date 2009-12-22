@@ -14,6 +14,7 @@ import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.GetRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.protocol.pb.VProto.VoldemortRequest;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -42,8 +43,12 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         VoldemortRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                                                                     VoldemortRequest.newBuilder());
         boolean shouldRoute = request.getShouldRoute();
+        boolean ignoreChecks = request.hasIgnoreChecks() && request.getIgnoreChecks();
+
         String storeName = request.getStore();
-        Store<ByteArray, byte[]> store = getStore(storeName, shouldRoute);
+        Store<ByteArray, byte[]> store = getStore(storeName,
+                                                  RequestRoutingType.getRequestRoutingType(shouldRoute,
+                                                                                           ignoreChecks));
         Message response;
         if(store == null) {
             response = unknownStore(storeName, request.getType());
@@ -63,9 +68,6 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                     break;
                 case GET_VERSION:
                     response = handleGetVersion(request.getGet(), store);
-                    break;
-                case GET_UNCHECKED:
-                    response = handleGetUncheckedMetadata(request.getGet(), store);
                     break;
                 default:
                     throw new VoldemortException("Unknown operation " + request.getType());
@@ -151,11 +153,6 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
         return response.build();
-    }
-
-    private Message handleGetUncheckedMetadata(GetRequest request, Store<ByteArray, byte[]> store) {
-        Store<ByteArray, byte[]> uncheckedStore = getStoreRepository().getStorageEngine(store.getName());
-        return handleGet(request, uncheckedStore);
     }
 
     public Message unknownStore(String storeName, RequestType type) {

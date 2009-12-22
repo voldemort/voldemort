@@ -60,7 +60,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.rebalancing.RebalancingRoutedStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.serialized.SerializingStorageEngine;
-import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
@@ -293,19 +292,17 @@ public class StorageService extends AbstractService {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store;
             if(node.getId() != localNode) {
-                store = createRedirectingSocketStore(def, node);
+                store = new SocketStore(def.getName(),
+                                        new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              voldemortConfig.getRequestFormatType()),
+                                        socketPool,
+                                        false,
+                                        true);
+                ;
                 this.storeRepository.addRedirectingSocketStore(node.getId(), store);
             }
         }
-    }
-
-    private RedirectingSocketStore createRedirectingSocketStore(StoreDefinition def, Node node) {
-        return new RedirectingSocketStore(def.getName(),
-                                          new SocketDestination(node.getHost(),
-                                                                node.getSocketPort(),
-                                                                voldemortConfig.getRequestFormatType()),
-                                          socketPool,
-                                          false);
     }
 
     /**

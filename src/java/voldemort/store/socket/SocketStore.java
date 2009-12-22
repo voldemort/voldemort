@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -54,14 +55,26 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     private final SocketPool pool;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
-    private final boolean reroute;
+    private final RequestRoutingType reroute;
 
     public SocketStore(String name, SocketDestination dest, SocketPool socketPool, boolean reroute) {
         this.name = Utils.notNull(name);
         this.pool = Utils.notNull(socketPool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
-        this.reroute = reroute;
+        this.reroute = RequestRoutingType.getRequestRoutingType(reroute, false);
+    }
+
+    public SocketStore(String name,
+                       SocketDestination dest,
+                       SocketPool socketPool,
+                       boolean reroute,
+                       boolean ignoreChecks) {
+        this.name = Utils.notNull(name);
+        this.pool = Utils.notNull(socketPool);
+        this.destination = dest;
+        this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
+        this.reroute = RequestRoutingType.getRequestRoutingType(reroute, ignoreChecks);
     }
 
     public void close() throws VoldemortException {
@@ -105,21 +118,10 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        return get(key, false);
-    }
-
-    protected List<Versioned<byte[]>> get(ByteArray key, boolean ignoreInvalidMetadaException)
-            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            if(ignoreInvalidMetadaException)
-                requestFormat.writeGetIgnoreInvalidMetadataRequest(sands.getOutputStream(),
-                                                                      name,
-                                                                      key,
-                                                                      reroute);
-            else
-                requestFormat.writeGetRequest(sands.getOutputStream(), name, key, reroute);
+            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, reroute);
 
             sands.getOutputStream().flush();
             return requestFormat.readGetResponse(sands.getInputStream());

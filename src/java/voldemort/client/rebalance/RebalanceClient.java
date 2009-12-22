@@ -1,11 +1,13 @@
 package voldemort.client.rebalance;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -33,13 +35,32 @@ public class RebalanceClient {
     public RebalanceClient(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
         this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
         this.rebalanceConfig = rebalanceConfig;
-        this.executor = Executors.newFixedThreadPool(rebalanceConfig.getMaxParallelRebalancing());
+        this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
     }
 
     public RebalanceClient(Cluster cluster, RebalanceClientConfig config) {
         this.adminClient = new AdminClient(cluster, config);
-        this.rebalanceConfig = rebalanceConfig;
-        this.executor = Executors.newFixedThreadPool(rebalanceConfig.getMaxParallelRebalancing());
+        this.rebalanceConfig = config;
+        this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+    }
+
+    private ExecutorService createExecutors(int numThreads) {
+
+        return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(r.getClass().getName());
+                thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+
+                    public void uncaughtException(Thread t, Throwable e) {
+                        logger.error("Rebalance task failed!", e);
+                    }
+                });
+
+                return thread;
+            }
+        });
     }
 
     /**
@@ -65,9 +86,9 @@ public class RebalanceClient {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
         }
 
-        final Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
-                                                                                                                       targetCluster,
-                                                                                                                       storeList);
+        final Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
+                                                                                                                            targetCluster,
+                                                                                                                            storeList);
         logRebalancingPlan(rebalanceTaskQueue);
 
         // start all threads
@@ -79,17 +100,17 @@ public class RebalanceClient {
                     while(!rebalanceTaskQueue.isEmpty()) {
                         logger.debug("rebalanceTaskQueue size:" + rebalanceTaskQueue.size());
 
-                        Pair<Integer, List<RebalanceStealInfo>> rebalanceTask = rebalanceTaskQueue.poll();
+                        Pair<Integer, List<RebalancePartitionsInfo>> rebalanceTask = rebalanceTaskQueue.poll();
                         if(null != rebalanceTask) {
                             int stealerNodeId = rebalanceTask.getFirst();
                             addNodeIfnotPresent(targetCluster, stealerNodeId);
                             Node stealerNode = adminClient.getAdminClientCluster()
                                                           .getNodeById(stealerNodeId);
-                            List<RebalanceStealInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
+                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
-                                RebalanceStealInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
+                                RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNode
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
@@ -117,13 +138,13 @@ public class RebalanceClient {
         executorShutDown(executor);
     }
 
-    private void logRebalancingPlan(Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue) {
+    private void logRebalancingPlan(Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue) {
 
         StringBuilder builder = new StringBuilder();
         builder.append("Rebalancing Plan:\n");
-        for(Pair<Integer, List<RebalanceStealInfo>> pair: rebalanceTaskQueue) {
+        for(Pair<Integer, List<RebalancePartitionsInfo>> pair: rebalanceTaskQueue) {
             builder.append("StealerNode:" + pair.getFirst() + "\n");
-            for(RebalanceStealInfo stealInfo: pair.getSecond()) {
+            for(RebalancePartitionsInfo stealInfo: pair.getSecond()) {
                 builder.append("\t" + stealInfo + "\n");
             }
         }
@@ -165,7 +186,7 @@ public class RebalanceClient {
      * @param rebalanceStealInfo
      * @throws Exception
      */
-    void commitClusterChanges(Node stealerNode, RebalanceStealInfo rebalanceStealInfo)
+    void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
             throws Exception {
         synchronized(adminClient) {
             Versioned<Cluster> latestVersionedCluster = RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
@@ -212,7 +233,7 @@ public class RebalanceClient {
      * @param stealerNodeId
      * @param stealPartitionsMap
      */
-    void attemptRebalanceSubTask(RebalanceStealInfo rebalanceSubTask) {
+    void attemptRebalanceSubTask(RebalancePartitionsInfo rebalanceSubTask) {
         boolean success = true;
         List<String> rebalanceStoreList = ImmutableList.copyOf(rebalanceSubTask.getUnbalancedStoreList());
         List<String> unbalancedStoreList = new ArrayList<String>(rebalanceStoreList);
@@ -222,7 +243,7 @@ public class RebalanceClient {
 
                 adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
                                               rebalanceAsyncId,
-                                              rebalanceConfig.getSocketTimeout(TimeUnit.SECONDS),
+                                              rebalanceConfig.getRebalancingClientTimeoutSeconds(),
                                               TimeUnit.SECONDS);
                 // remove store from rebalance list
                 unbalancedStoreList.remove(storeName);
