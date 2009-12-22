@@ -64,6 +64,9 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 logger.trace(node + " updated, successDelta: " + successDelta);
         }
 
+        // XXXXXXXXXXXXXXXX
+        System.out.println(node + " updated, successDelta: " + successDelta + "; " + e);
+
         final long currentTime = getConfig().getTime().getMilliseconds();
 
         NodeStatus nodeStatus = getNodeStatus(node);
@@ -84,6 +87,9 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
                     if(logger.isTraceEnabled())
                         logger.trace(node + " threshold: " + newThreshold);
+
+                    // XXXXXXXXXXXXXXXX
+                    System.out.println(node + " threshold: " + newThreshold);
 
                     if(newThreshold >= getConfig().getThreshold())
                         setAvailable(node);
