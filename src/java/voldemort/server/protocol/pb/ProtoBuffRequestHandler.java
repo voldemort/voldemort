@@ -43,12 +43,14 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         VoldemortRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                                                                     VoldemortRequest.newBuilder());
         boolean shouldRoute = request.getShouldRoute();
-        boolean ignoreChecks = request.hasIgnoreChecks() && request.getIgnoreChecks();
+        RequestRoutingType type = RequestRoutingType.getRequestRoutingType(shouldRoute, false);
+
+        if(request.hasRequestRouteType()) {
+            type = RequestRoutingType.valueOf(request.getRequestRouteType());
+        }
 
         String storeName = request.getStore();
-        Store<ByteArray, byte[]> store = getStore(storeName,
-                                                  RequestRoutingType.getRequestRoutingType(shouldRoute,
-                                                                                           ignoreChecks));
+        Store<ByteArray, byte[]> store = getStore(storeName, type);
         Message response;
         if(store == null) {
             response = unknownStore(storeName, request.getType());

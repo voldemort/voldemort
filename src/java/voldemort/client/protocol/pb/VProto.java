@@ -4847,12 +4847,12 @@ public final class VProto {
     public boolean hasDelete() { return hasDelete; }
     public voldemort.client.protocol.pb.VProto.DeleteRequest getDelete() { return delete_; }
     
-    // optional bool ignoreChecks = 8;
-    public static final int IGNORECHECKS_FIELD_NUMBER = 8;
-    private boolean hasIgnoreChecks;
-    private boolean ignoreChecks_ = false;
-    public boolean hasIgnoreChecks() { return hasIgnoreChecks; }
-    public boolean getIgnoreChecks() { return ignoreChecks_; }
+    // optional string requestRouteType = 8;
+    public static final int REQUESTROUTETYPE_FIELD_NUMBER = 8;
+    private boolean hasRequestRouteType;
+    private java.lang.String requestRouteType_ = "";
+    public boolean hasRequestRouteType() { return hasRequestRouteType; }
+    public java.lang.String getRequestRouteType() { return requestRouteType_; }
     
     public final boolean isInitialized() {
       if (!hasType) return false;
@@ -4890,8 +4890,8 @@ public final class VProto {
       if (hasDelete()) {
         output.writeMessage(7, getDelete());
       }
-      if (hasIgnoreChecks()) {
-        output.writeBool(8, getIgnoreChecks());
+      if (hasRequestRouteType()) {
+        output.writeString(8, getRequestRouteType());
       }
       getUnknownFields().writeTo(output);
     }
@@ -4930,9 +4930,9 @@ public final class VProto {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, getDelete());
       }
-      if (hasIgnoreChecks()) {
+      if (hasRequestRouteType()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(8, getIgnoreChecks());
+          .computeStringSize(8, getRequestRouteType());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -5104,8 +5104,8 @@ public final class VProto {
         if (other.hasDelete()) {
           mergeDelete(other.getDelete());
         }
-        if (other.hasIgnoreChecks()) {
-          setIgnoreChecks(other.getIgnoreChecks());
+        if (other.hasRequestRouteType()) {
+          setRequestRouteType(other.getRequestRouteType());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -5186,8 +5186,8 @@ public final class VProto {
               setDelete(subBuilder.buildPartial());
               break;
             }
-            case 64: {
-              setIgnoreChecks(input.readBool());
+            case 66: {
+              setRequestRouteType(input.readString());
               break;
             }
           }
@@ -5403,21 +5403,24 @@ public final class VProto {
         return this;
       }
       
-      // optional bool ignoreChecks = 8;
-      public boolean hasIgnoreChecks() {
-        return result.hasIgnoreChecks();
+      // optional string requestRouteType = 8;
+      public boolean hasRequestRouteType() {
+        return result.hasRequestRouteType();
       }
-      public boolean getIgnoreChecks() {
-        return result.getIgnoreChecks();
+      public java.lang.String getRequestRouteType() {
+        return result.getRequestRouteType();
       }
-      public Builder setIgnoreChecks(boolean value) {
-        result.hasIgnoreChecks = true;
-        result.ignoreChecks_ = value;
+      public Builder setRequestRouteType(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasRequestRouteType = true;
+        result.requestRouteType_ = value;
         return this;
       }
-      public Builder clearIgnoreChecks() {
-        result.hasIgnoreChecks = false;
-        result.ignoreChecks_ = false;
+      public Builder clearRequestRouteType() {
+        result.hasRequestRouteType = false;
+        result.requestRouteType_ = getDefaultInstance().getRequestRouteType();
         return this;
       }
     }
@@ -5538,17 +5541,17 @@ public final class VProto {
       "r\"E\n\rDeleteRequest\022\013\n\003key\030\001 \002(\014\022\'\n\007versi" +
       "on\030\002 \002(\0132\026.voldemort.VectorClock\"B\n\016Dele" +
       "teResponse\022\017\n\007success\030\001 \002(\010\022\037\n\005error\030\002 \001" +
-      "(\0132\020.voldemort.Error\"\226\002\n\020VoldemortReques" +
+      "(\0132\020.voldemort.Error\"\232\002\n\020VoldemortReques" +
       "t\022$\n\004type\030\001 \002(\0162\026.voldemort.RequestType\022" +
       "\033\n\014should_route\030\002 \002(\010:\005false\022\r\n\005store\030\003 " +
       "\002(\t\022\"\n\003get\030\004 \001(\0132\025.voldemort.GetRequest\022" +
       "(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllReques" +
       "t\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutRequest\022(\n" +
       "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest\022",
-      "\024\n\014ignoreChecks\030\010 \001(\010*I\n\013RequestType\022\007\n\003" +
-      "GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELETE\020\003\022" +
-      "\017\n\013GET_VERSION\020\004B(\n\034voldemort.client.pro" +
-      "tocol.pbB\006VProtoH\001"
+      "\030\n\020requestRouteType\030\010 \001(\t*I\n\013RequestType" +
+      "\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELET" +
+      "E\020\003\022\017\n\013GET_VERSION\020\004B(\n\034voldemort.client" +
+      ".protocol.pbB\006VProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -5672,7 +5675,7 @@ public final class VProto {
           internal_static_voldemort_VoldemortRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortRequest_descriptor,
-              new java.lang.String[] { "Type", "ShouldRoute", "Store", "Get", "GetAll", "Put", "Delete", "IgnoreChecks", },
+              new java.lang.String[] { "Type", "ShouldRoute", "Store", "Get", "GetAll", "Put", "Delete", "RequestRouteType", },
               voldemort.client.protocol.pb.VProto.VoldemortRequest.class,
               voldemort.client.protocol.pb.VProto.VoldemortRequest.Builder.class);
           return null;

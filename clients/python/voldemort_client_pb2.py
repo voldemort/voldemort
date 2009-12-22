@@ -485,9 +485,9 @@ _VOLDEMORTREQUEST = descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
-      name='ignoreChecks', full_name='voldemort.VoldemortRequest.ignoreChecks', index=7,
-      number=8, type=8, cpp_type=7, label=1,
-      default_value=False,
+      name='requestRouteType', full_name='voldemort.VoldemortRequest.requestRouteType', index=7,
+      number=8, type=9, cpp_type=9, label=1,
+      default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),

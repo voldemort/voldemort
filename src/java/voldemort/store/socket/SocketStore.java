@@ -55,26 +55,25 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     private final SocketPool pool;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
-    private final RequestRoutingType reroute;
+    private final RequestRoutingType requestType;
 
     public SocketStore(String name, SocketDestination dest, SocketPool socketPool, boolean reroute) {
         this.name = Utils.notNull(name);
         this.pool = Utils.notNull(socketPool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
-        this.reroute = RequestRoutingType.getRequestRoutingType(reroute, false);
+        this.requestType = RequestRoutingType.getRequestRoutingType(reroute, false);
     }
 
     public SocketStore(String name,
                        SocketDestination dest,
                        SocketPool socketPool,
-                       boolean reroute,
-                       boolean ignoreChecks) {
+                       RequestRoutingType requestType) {
         this.name = Utils.notNull(name);
         this.pool = Utils.notNull(socketPool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
-        this.reroute = RequestRoutingType.getRequestRoutingType(reroute, ignoreChecks);
+        this.requestType = requestType;
     }
 
     public void close() throws VoldemortException {
@@ -89,7 +88,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
                                              name,
                                              key,
                                              (VectorClock) version,
-                                             reroute);
+                                             requestType);
             sands.getOutputStream().flush();
             return requestFormat.readDeleteResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -106,7 +105,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         StoreUtils.assertValidKeys(keys);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetAllRequest(sands.getOutputStream(), name, keys, reroute);
+            requestFormat.writeGetAllRequest(sands.getOutputStream(), name, keys, requestType);
             sands.getOutputStream().flush();
             return requestFormat.readGetAllResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -121,7 +120,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, reroute);
+            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, requestType);
 
             sands.getOutputStream().flush();
             return requestFormat.readGetResponse(sands.getInputStream());
@@ -143,7 +142,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
                                           key,
                                           versioned.getValue(),
                                           (VectorClock) versioned.getVersion(),
-                                          reroute);
+                                          requestType);
             sands.getOutputStream().flush();
             requestFormat.readPutResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -178,7 +177,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetVersionRequest(sands.getOutputStream(), name, key, reroute);
+            requestFormat.writeGetVersionRequest(sands.getOutputStream(), name, key, requestType);
             sands.getOutputStream().flush();
             return requestFormat.readGetVersionResponse(sands.getInputStream());
         } catch(IOException e) {

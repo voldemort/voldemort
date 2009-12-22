@@ -11,6 +11,7 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
@@ -243,7 +244,6 @@ public class Rebalancer implements Runnable {
                                                      node.getSocketPort(),
                                                      voldemortConfig.getRequestFormatType()),
                                socketPool,
-                               false,
-                               true);
+                               RequestRoutingType.IGNORE_CHECKS);
     }
 }

@@ -108,7 +108,7 @@ public class AdminClient {
      *        </ul>
      */
     public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
-        this.cluster = getClusterFromBootstrapURL(bootstrapURL, adminClientConfig);
+        this.cluster = getClusterFromBootstrapURL(bootstrapURL);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
@@ -137,12 +137,14 @@ public class AdminClient {
                                                                .getContextClassLoader());
     }
 
-    private Cluster getClusterFromBootstrapURL(String bootstrapURL, AdminClientConfig config) {
+    private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
+        ClientConfig config = new ClientConfig();
         // try to bootstrap metadata from bootstrapUrl
-        SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig());
+        config.setBootstrapUrls(bootstrapURL);
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
         // get Cluster from bootStrapUrl
         String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
-                                                                 factory.validateUrls(new String[] { bootstrapURL }));
+                                                                 factory.validateUrls(config.getBootstrapUrls()));
         // release all threads/sockets hold by the factory.
         factory.close();
 

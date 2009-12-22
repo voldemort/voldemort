@@ -45,6 +45,7 @@ import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -297,9 +298,7 @@ public class StorageService extends AbstractService {
                                                               node.getSocketPort(),
                                                               voldemortConfig.getRequestFormatType()),
                                         socketPool,
-                                        false,
-                                        true);
-                ;
+                                        RequestRoutingType.IGNORE_CHECKS);
                 this.storeRepository.addRedirectingSocketStore(node.getId(), store);
             }
         }
