@@ -107,9 +107,6 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         if(logger.isTraceEnabled())
             logger.trace(node + " set as available");
 
-        // XXXXXXXXXXXXXXXX
-        System.out.println(node + " set as available");
-
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -135,9 +132,6 @@ public abstract class AbstractFailureDetector implements FailureDetector {
             else
                 logger.warn(node + " set as unavailable");
         }
-
-        // XXXXXXXXXXXXXXXX
-        System.out.println(node + " set as unavailable; " + e);
 
         NodeStatus nodeStatus = getNodeStatus(node);
 

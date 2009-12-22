@@ -244,7 +244,7 @@
       <formatter type="xml" />
       <batchtest fork="yes" todir="${contribtestreport.dir}">
         <fileset dir="${contrib.classes.dir}">
-          <include name="**/Ec2FailureDetectorTest.class" />
+          <include name="**/Ec2*Test.class" />
         </fileset>
       </batchtest>
     </junit>

@@ -120,52 +120,18 @@ public class Ec2FailureDetectorTest {
 
         Store<String, String> store = scf.getRawStore("test", null);
 
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- ENSURING STORE IS AVAILABLE -------------------");
-
         test(store);
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- ASSERTING NODE IS AVAILABLE -------------------");
-
         Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- STOPPING NODE -------------------");
 
         stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
 
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- NODE STOPPED -------------------");
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- TESTING STORE HOPING TO KNOCK IT UNAVAILABLE -------------------");
-
         test(store);
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- ASSERTING NODE IS UNAVAILABLE -------------------");
-
         Assert.assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
 
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- STARTING NODE -------------------");
-
         startClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig, nodeId);
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- WAITING FOR NODE TO BECOME AVAILABLE -------------------");
-
         failureDetector.waitForAvailability(node);
 
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- TESTING STORE JUST TO ENSURE IT'S AVAILABLE -------------------");
-
         test(store);
-
-        // XXXXXXXXXXXXXX
-        System.out.println("------------------- ASSERTING NODE IS AVAILABLE AGAIN -------------------");
-
         Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
     }
 

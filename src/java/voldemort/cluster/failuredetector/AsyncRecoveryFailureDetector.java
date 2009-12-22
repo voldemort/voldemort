@@ -114,10 +114,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                                  + " ms before checking node availability");
                 }
 
-                // XXXXXXXXXXXXXXXX
-                System.out.println("Sleeping for " + asyncRecoveryInterval
-                                   + " ms before checking node availability");
-
                 getConfig().getTime().sleep(asyncRecoveryInterval);
             } catch(InterruptedException e) {
                 break;
@@ -132,9 +128,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
             for(Node node: unavailableNodesCopy) {
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node);
-
-                // XXXXXXXXXXXXXXXX
-                System.out.println("Checking previously unavailable node " + node);
 
                 StoreVerifier storeVerifier = getConfig().getStoreVerifier();
 
@@ -151,18 +144,11 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                     if(logger.isDebugEnabled())
                         logger.debug("Verifying previously unavailable node " + node);
 
-                    // XXXXXXXXXXXXXXXX
-                    System.out.println("Verifying previously unavailable node " + node);
-
                     storeVerifier.verifyStore(node);
 
                     if(logger.isDebugEnabled())
                         logger.debug("Verified previously unavailable node " + node
                                      + ", will mark as available...");
-
-                    // XXXXXXXXXXXXXXXX
-                    System.out.println("Verified previously unavailable node " + node
-                                       + ", will mark as available...");
 
                     synchronized(unavailableNodes) {
                         unavailableNodes.remove(node);
