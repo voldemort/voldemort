@@ -146,8 +146,10 @@ public class Ec2GossipTest {
                 Version version = versioned.getVersion();
                 
                 VectorClock vectorClock = (VectorClock) version;
-                vectorClock.incrementVersion(nodeId,  vectorClock.getTimestamp() + 1);
-                vectorClock.incrementVersion(peerNodeId, vectorClock.getTimestamp() + 1);
+
+                for (int rnId: nodeIds.values())
+                    vectorClock.incrementVersion(rnId,  vectorClock.getTimestamp() + 1);
+
                 try {
                     adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
                 } catch (VoldemortException e) {
@@ -199,7 +201,6 @@ public class Ec2GossipTest {
             logger.info("Sleeping for 15 to let new instances start up");
 
         Thread.sleep(15000);
-
 
         hostNamePairs.addAll(newInstances);
         hostNames = toHostNames(hostNamePairs);
