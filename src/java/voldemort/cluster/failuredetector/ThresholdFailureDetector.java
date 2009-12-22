@@ -57,6 +57,13 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     }
 
     private void update(Node node, int successDelta, UnreachableStoreException e) {
+        if(logger.isTraceEnabled()) {
+            if(e != null)
+                logger.trace(node + " updated, successDelta: " + successDelta, e);
+            else
+                logger.trace(node + " updated, successDelta: " + successDelta);
+        }
+
         final long currentTime = getConfig().getTime().getMilliseconds();
 
         NodeStatus nodeStatus = getNodeStatus(node);
@@ -75,6 +82,9 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
                     long newThreshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
+                    if(logger.isTraceEnabled())
+                        logger.trace(node + " threshold: " + newThreshold);
+
                     if(newThreshold >= getConfig().getThreshold())
                         setAvailable(node);
                     else
@@ -83,5 +93,4 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
             }
         }
     }
-
 }

@@ -141,7 +141,14 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                 try {
                     // This is our test.
+                    if(logger.isDebugEnabled())
+                        logger.debug("Verifying previously unavailable node " + node);
+
                     storeVerifier.verifyStore(node);
+
+                    if(logger.isDebugEnabled())
+                        logger.debug("Verified previously unavailable node " + node
+                                     + ", will mark as available...");
 
                     synchronized(unavailableNodes) {
                         unavailableNodes.remove(node);

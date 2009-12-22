@@ -129,6 +129,9 @@ public class Ec2FailureDetectorTest {
         Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
 
         stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
+
+        Thread.sleep(1000);
+
         test(store);
         Assert.assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
 
@@ -141,7 +144,7 @@ public class Ec2FailureDetectorTest {
     }
 
     private void test(Store<String, String> store) {
-        for(int i = 0; i < 100; i++) {
+        for(int i = 0; i < 1000; i++) {
             try {
                 store.get(MetadataStore.NODE_ID_KEY);
             } catch(Exception e) {

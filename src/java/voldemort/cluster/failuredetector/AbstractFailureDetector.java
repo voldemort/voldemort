@@ -104,6 +104,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public void destroy() {}
 
     protected void setAvailable(Node node) {
+        if(logger.isTraceEnabled())
+            logger.trace(node + " set as available");
+
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -123,9 +126,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected void setUnavailable(Node node, UnreachableStoreException e) {
-        if(e != null) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e, e);
+        if(logger.isEnabledFor(Level.WARN)) {
+            if(e != null)
+                logger.warn(node + " set as unavailable", e);
+            else
+                logger.warn(node + " set as unavailable");
         }
 
         NodeStatus nodeStatus = getNodeStatus(node);
