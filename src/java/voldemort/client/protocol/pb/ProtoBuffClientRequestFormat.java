@@ -66,7 +66,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setType(RequestType.DELETE)
                                                        .setStore(storeName)
                                                        .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
-                                                       .setRequestRouteType(routingType.toString())
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setDelete(VProto.DeleteRequest.newBuilder()
                                                                                       .setKey(ByteString.copyFrom(key.get()))
                                                                                       .setVersion(ProtoUtils.encodeClock(version)))
@@ -91,7 +91,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setType(RequestType.GET)
                                                        .setStore(storeName)
                                                        .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
-                                                       .setRequestRouteType(routingType.toString())
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGet(VProto.GetRequest.newBuilder()
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());
@@ -118,7 +118,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setType(RequestType.GET_ALL)
                                                        .setStore(storeName)
                                                        .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
-                                                       .setRequestRouteType(routingType.toString())
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGetAll(req)
                                                        .build());
     }
@@ -153,7 +153,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setType(RequestType.PUT)
                                                        .setStore(storeName)
                                                        .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
-                                                       .setRequestRouteType(routingType.toString())
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setPut(req)
                                                        .build());
     }
@@ -189,7 +189,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setType(RequestType.GET_VERSION)
                                                        .setStore(storeName)
                                                        .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
-                                                       .setRequestRouteType(routingType.toString())
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGet(VProto.GetRequest.newBuilder()
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());

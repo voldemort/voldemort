@@ -46,7 +46,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         RequestRoutingType type = RequestRoutingType.getRequestRoutingType(shouldRoute, false);
 
         if(request.hasRequestRouteType()) {
-            type = RequestRoutingType.valueOf(request.getRequestRouteType());
+            type = RequestRoutingType.getRequestRoutingType(request.getRequestRouteType());
         }
 
         String storeName = request.getStore();
