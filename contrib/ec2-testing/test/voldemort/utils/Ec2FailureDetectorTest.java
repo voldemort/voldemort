@@ -126,18 +126,18 @@ public class Ec2FailureDetectorTest {
         Store<String, String> store = scf.getRawStore("test", null);
 
         test(store);
-        Assert.assertEquals(1, failureDetector.getAvailableNodeCount());
+        Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
 
         stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
         test(store);
-        Assert.assertEquals(0, failureDetector.getAvailableNodeCount());
+        Assert.assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
 
         startClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig, nodeId);
 
         failureDetector.waitForAvailability(node);
 
         test(store);
-        Assert.assertEquals(1, failureDetector.getAvailableNodeCount());
+        Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
     }
 
     private void test(Store<String, String> store) {
