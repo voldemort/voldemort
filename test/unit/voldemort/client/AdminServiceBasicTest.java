@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -28,7 +29,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
@@ -64,13 +65,15 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -127,7 +130,6 @@ public class AdminServiceBasicTest extends TestCase {
             assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
                                                                         .getValue(), updatedCluster);
 
-            System.out.println(clock);
             // version should match
             assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
                                                                         .getVersion());
@@ -222,9 +224,9 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
-                                                                          testStoreName,
-                                                                          fetchPartitionsList,
-                                                                          null);
+                                                                 testStoreName,
+                                                                 fetchPartitionsList,
+                                                                 null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -255,9 +257,9 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
-                                                                                                      testStoreName,
-                                                                                                      fetchPartitionsList,
-                                                                                                      null);
+                                                                                             testStoreName,
+                                                                                             fetchPartitionsList,
+                                                                                             null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -310,11 +312,11 @@ public class AdminServiceBasicTest extends TestCase {
 
     // check the basic rebalanceNode call.
     public void testRebalanceNode() {
-        RebalanceStealInfo stealInfo = new RebalanceStealInfo(1,
-                                                              0,
-                                                              Arrays.asList(1, 3),
-                                                              Arrays.asList(testStoreName),
-                                                              0);
+        RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
+                                                                        0,
+                                                                        Arrays.asList(1, 3),
+                                                                        Arrays.asList(testStoreName),
+                                                                        0);
         int asyncId = adminClient.rebalanceNode(testStoreName, stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
     }
@@ -343,11 +345,7 @@ public class AdminServiceBasicTest extends TestCase {
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.migratePartitions(0,
-                                              1,
-                                              testStoreName,
-                                              fetchAndUpdatePartitionsList,
-                                              null);
+        int id = client.migratePartitions(0, 1, testStoreName, fetchAndUpdatePartitionsList, null);
         client.waitForCompletion(1, id, 60, TimeUnit.SECONDS);
 
         // check values

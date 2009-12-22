@@ -45,6 +45,8 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                 return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 0);
             case VOLDEMORT_V1:
                 return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 1);
+            case VOLDEMORT_V2:
+                return new VoldemortNativeRequestHandler(new ErrorCodeMapper(), repository, 2);
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffRequestHandler(new ErrorCodeMapper(), repository);
             case ADMIN_PROTOCOL_BUFFERS:

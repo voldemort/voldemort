@@ -8,9 +8,11 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
@@ -18,9 +20,9 @@ import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -75,7 +77,7 @@ public class Rebalancer implements Runnable {
             // free permit here for rebalanceLocalNode to acquire.
             releaseRebalancingPermit();
 
-            RebalanceStealInfo stealInfo = metadataStore.getRebalancingStealInfo();
+            RebalancePartitionsInfo stealInfo = metadataStore.getRebalancingStealInfo();
 
             try {
                 logger.warn("Rebalance server found incomplete rebalancing attempt " + stealInfo
@@ -95,7 +97,7 @@ public class Rebalancer implements Runnable {
         }
     }
 
-    private void attemptRebalance(RebalanceStealInfo stealInfo) {
+    private void attemptRebalance(RebalancePartitionsInfo stealInfo) {
         stealInfo.setAttempt(stealInfo.getAttempt() + 1);
         List<String> unbalanceStoreList = ImmutableList.copyOf(stealInfo.getUnbalancedStoreList());
 
@@ -111,7 +113,7 @@ public class Rebalancer implements Runnable {
 
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               rebalanceAsyncId,
-                                              24 * 60 * 60,
+                                              voldemortConfig.getAdminSocketTimeout(),
                                               TimeUnit.SECONDS);
                 // remove store from rebalance list
                 stealInfo.getUnbalancedStoreList().remove(storeName);
@@ -126,8 +128,9 @@ public class Rebalancer implements Runnable {
     /**
      * Rebalance logic at single node level.<br>
      * <imp> should be called by the rebalancing node itself</imp><br>
-     * Attempt to rebalance from node {@link RebalanceStealInfo#getDonorId()}
-     * for partitionList {@link RebalanceStealInfo#getPartitionList()}
+     * Attempt to rebalance from node
+     * {@link RebalancePartitionsInfo#getDonorId()} for partitionList
+     * {@link RebalancePartitionsInfo#getPartitionList()}
      * <p>
      * Force Sets serverState to rebalancing, Sets stealInfo in MetadataStore,
      * fetch keys from remote node and upsert them locally.<br>
@@ -137,7 +140,7 @@ public class Rebalancer implements Runnable {
      * @param stealInfo
      * @return taskId for asynchronous task.
      */
-    public int rebalanceLocalNode(final String storeName, final RebalanceStealInfo stealInfo) {
+    public int rebalanceLocalNode(final String storeName, final RebalancePartitionsInfo stealInfo) {
 
         if(!acquireRebalancingPermit())
             return -1;
@@ -146,7 +149,7 @@ public class Rebalancer implements Runnable {
 
         asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
 
-            private int fetchAndUpdateAsyncId = -1;
+            private int migratePartitionsAsyncId = -1;
 
             @Override
             public void operate() throws Exception {
@@ -163,14 +166,14 @@ public class Rebalancer implements Runnable {
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
 
-                    fetchAndUpdateAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                    migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                                           metadataStore.getNodeId(),
                                                                           storeName,
                                                                           stealInfo.getPartitionList(),
                                                                           null);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                                  fetchAndUpdateAsyncId,
-                                                  24 * 60 * 60,
+                                                  migratePartitionsAsyncId,
+                                                  voldemortConfig.getAdminSocketTimeout(),
                                                   TimeUnit.SECONDS);
 
                     logger.info("Rebalancer: rebalance " + stealInfo + " completed successfully.");
@@ -191,16 +194,16 @@ public class Rebalancer implements Runnable {
                     // free the permit in all cases.
                     releaseRebalancingPermit();
                     adminClient.stop();
-                    fetchAndUpdateAsyncId = -1;
+                    migratePartitionsAsyncId = -1;
                 }
             }
 
             @Override
             @JmxGetter(name = "asyncTaskStatus")
             public AsyncOperationStatus getStatus() {
-                if(-1 != fetchAndUpdateAsyncId)
+                if(-1 != migratePartitionsAsyncId)
                     try {
-                        updateStatus(asyncRunner.getStatus(fetchAndUpdateAsyncId));
+                        updateStatus(asyncRunner.getStatus(migratePartitionsAsyncId));
                     } catch(Exception e) {
                         // ignore
                     }
@@ -212,13 +215,13 @@ public class Rebalancer implements Runnable {
         return requestId;
     }
 
-    private void setRebalancingState(MetadataStore metadataStore, RebalanceStealInfo stealInfo)
+    private void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo)
             throws Exception {
         metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
         metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfo);
     }
 
-    private void checkCurrentState(MetadataStore metadataStore, RebalanceStealInfo stealInfo)
+    private void checkCurrentState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo)
             throws Exception {
         if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
            && metadataStore.getRebalancingStealInfo().getDonorId() != stealInfo.getDonorId())
@@ -236,12 +239,12 @@ public class Rebalancer implements Runnable {
         }
     }
 
-    private RedirectingSocketStore createRedirectingSocketStore(String storeName, Node node) {
-        return new RedirectingSocketStore(storeName,
-                                          new SocketDestination(node.getHost(),
-                                                                node.getSocketPort(),
-                                                                voldemortConfig.getRequestFormatType()),
-                                          socketPool,
-                                          false);
+    private SocketStore createRedirectingSocketStore(String storeName, Node node) {
+        return new SocketStore(storeName,
+                               new SocketDestination(node.getHost(),
+                                                     node.getSocketPort(),
+                                                     RequestFormatType.PROTOCOL_BUFFERS),
+                               socketPool,
+                               RequestRoutingType.IGNORE_CHECKS);
     }
 }

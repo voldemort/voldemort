@@ -31,7 +31,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
@@ -143,14 +143,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
 
-            // check if it is a valid operation
-            checkAndTransform(key, value.getValue());
-
             // try inserting into inner store first
             putInner(key, convertObjectToString(key, value));
 
             // cache all keys if innerStore put succeeded
             metadataCache.put(key, value);
+
+            // do special stuff if needed
+            if(CLUSTER_KEY.equals(key)) {
+                updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
+            } else if(STORES_KEY.equals(key)) {
+                updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
+            }
 
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
@@ -288,8 +292,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
 
-    public RebalanceStealInfo getRebalancingStealInfo() {
-        return (RebalanceStealInfo) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+    public RebalancePartitionsInfo getRebalancingStealInfo() {
+        return (RebalancePartitionsInfo) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
     @SuppressWarnings("unchecked")
@@ -344,10 +348,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + getNodeId()
                                        + " as node:"
                                        + nodeId
-                                       + " (delete .temp .version in config dir to force clean) aborting ...");
+                                       + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO, new RebalanceStealInfo(-1,
+        initCache(REBALANCING_STEAL_INFO, new RebalancePartitionsInfo(-1,
                                                                  -1,
                                                                  new ArrayList<Integer>(0),
                                                                  Arrays.asList(""),
@@ -386,21 +390,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * Check if the key,value pair is valid and do other special stuff as
-     * needed.
-     * 
-     * @param key
-     * @param value throws VoldemortException if value change is not acceptable
-     */
-    private void checkAndTransform(String key, Object value) {
-        if(CLUSTER_KEY.equals(key)) {
-            updateRoutingStrategies((Cluster) value, getStoreDefList());
-        } else if(STORES_KEY.equals(key)) {
-            updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value);
-        }
-    }
-
-    /**
      * Converts Object to byte[] depending on the key
      * <p>
      * StoreRepository takes only StorageEngine<ByteArray,byte[]> and for
@@ -419,7 +408,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueStr = ((RebalanceStealInfo) value.getValue()).toJsonString();
+            valueStr = ((RebalancePartitionsInfo) value.getValue()).toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)
                   || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
@@ -453,7 +442,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueObject = new RebalanceStealInfo(value.getValue());
+            valueObject = new RebalancePartitionsInfo(value.getValue());
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for String to Object serialization.");

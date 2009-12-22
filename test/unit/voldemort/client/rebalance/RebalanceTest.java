@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Map.Entry;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 
 /**
@@ -22,15 +25,26 @@ public class RebalanceTest extends AbstractRebalanceTest {
     Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
 
     @Override
-    protected Cluster startServers(Cluster cluster, String storeXmlFile, List<Integer> nodeToStart)
-            throws IOException {
+    protected Cluster startServers(Cluster cluster,
+                                   String storeXmlFile,
+                                   List<Integer> nodeToStart,
+                                   Map<String, String> configProps) throws IOException {
         for(int node: nodeToStart) {
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(node,
-                                                                                                             TestUtils.createTempDir()
-                                                                                                                      .getAbsolutePath(),
-                                                                                                             null,
-                                                                                                             storeXmlFile),
-                                                                          cluster);
+            Properties properties = new Properties();
+            if(null != configProps) {
+                for(Entry<String, String> property: configProps.entrySet()) {
+                    properties.put(property.getKey(), property.getValue());
+                }
+            }
+
+            VoldemortConfig config = ServerTestUtils.createServerConfig(node,
+                                                                        TestUtils.createTempDir()
+                                                                                 .getAbsolutePath(),
+                                                                        null,
+                                                                        storeXmlFile,
+                                                                        properties);
+
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(config, cluster);
             serverMap.put(node, server);
         }
 

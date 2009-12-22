@@ -15,6 +15,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -91,7 +92,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
             this.clientWireFormat.writeGetRequest(new DataOutputStream(getRequest),
                                                   storeName,
                                                   key,
-                                                  false);
+                                                  RequestRoutingType.NORMAL);
             ByteArrayOutputStream getResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(getRequest),
                                                 new DataOutputStream(getResponse));
@@ -144,7 +145,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
             this.clientWireFormat.writeGetAllRequest(new DataOutputStream(getAllRequest),
                                                      storeName,
                                                      Arrays.asList(keys),
-                                                     false);
+                                                     RequestRoutingType.NORMAL);
             ByteArrayOutputStream getAllResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(getAllRequest),
                                                 new DataOutputStream(getAllResponse));
@@ -190,7 +191,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                   key,
                                                   value,
                                                   version,
-                                                  false);
+                                                  RequestRoutingType.NORMAL);
             ByteArrayOutputStream putResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(putRequest),
                                                 new DataOutputStream(putResponse));
@@ -232,7 +233,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                      storeName,
                                                      key,
                                                      version,
-                                                     false);
+                                                     RequestRoutingType.NORMAL);
             ByteArrayOutputStream delResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(delRequest),
                                                 new DataOutputStream(delResponse));

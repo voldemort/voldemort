@@ -40,11 +40,13 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -60,7 +62,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.rebalancing.RebalancingRoutedStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.serialized.SerializingStorageEngine;
-import voldemort.store.socket.RedirectingSocketStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
@@ -293,19 +294,15 @@ public class StorageService extends AbstractService {
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store;
             if(node.getId() != localNode) {
-                store = createRedirectingSocketStore(def, node);
+                store = new SocketStore(def.getName(),
+                                        new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              RequestFormatType.PROTOCOL_BUFFERS),
+                                        socketPool,
+                                        RequestRoutingType.IGNORE_CHECKS);
                 this.storeRepository.addRedirectingSocketStore(node.getId(), store);
             }
         }
-    }
-
-    private RedirectingSocketStore createRedirectingSocketStore(StoreDefinition def, Node node) {
-        return new RedirectingSocketStore(def.getName(),
-                                          new SocketDestination(node.getHost(),
-                                                                node.getSocketPort(),
-                                                                voldemortConfig.getRequestFormatType()),
-                                          socketPool,
-                                          false);
     }
 
     /**

@@ -11,7 +11,7 @@ import voldemort.serialization.json.JsonWriter;
 
 import com.google.common.collect.ImmutableMap;
 
-public class RebalanceStealInfo {
+public class RebalancePartitionsInfo {
 
     private final int stealerId;
     private final int donorId;
@@ -20,21 +20,21 @@ public class RebalanceStealInfo {
 
     private int attempt;
 
-    public RebalanceStealInfo(int stealerNodeId,
+    public RebalancePartitionsInfo(int stealerNodeId,
                               int donorId,
                               List<Integer> partitionList,
-                              List<String> unbalancedStorList,
+                              List<String> unbalancedStoreList,
                               int attempt) {
         super();
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.partitionList = partitionList;
         this.attempt = attempt;
-        this.unbalancedStoreList = unbalancedStorList;
+        this.unbalancedStoreList = unbalancedStoreList;
     }
 
     @SuppressWarnings("unchecked")
-    public RebalanceStealInfo(String line) {
+    public RebalancePartitionsInfo(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
             Map<String, Object> map = (Map<String, Object>) reader.read();

@@ -26,7 +26,7 @@ import java.util.Queue;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -57,17 +57,17 @@ public class RebalanceUtilsTest extends TestCase {
     }
 
     public void testRebalancePlan() {
-        Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalancePlan = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
+        Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalancePlan = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
                                                                                                             targetCluster,
                                                                                                             Arrays.asList(testStoreName));
         int[][] stealList = { {}, { 2, 3 } };
 
         // the rebalancing plan should have exactly 3 entries.
         assertEquals("There should be three node rebalancing", 1, rebalancePlan.size());
-        for(Pair<Integer, List<RebalanceStealInfo>> rebalanceInfo: rebalancePlan) {
+        for(Pair<Integer, List<RebalancePartitionsInfo>> rebalanceInfo: rebalancePlan) {
             assertEquals("rebalanceInfo should have exactly one item", 1, rebalanceInfo.getSecond()
                                                                                        .size());
-            RebalanceStealInfo expected = new RebalanceStealInfo(rebalanceInfo.getFirst(),
+            RebalancePartitionsInfo expected = new RebalancePartitionsInfo(rebalanceInfo.getFirst(),
                                                                  0,
                                                                  listFromArray(stealList[rebalanceInfo.getFirst()]),
                                                                  Arrays.asList(testStoreName),
@@ -95,7 +95,7 @@ public class RebalanceUtilsTest extends TestCase {
     }
 
     public void testRebalanceStealInfo() {
-        RebalanceStealInfo info = new RebalanceStealInfo(0,
+        RebalancePartitionsInfo info = new RebalancePartitionsInfo(0,
                                                          1,
                                                          Arrays.asList(1, 2, 3, 4),
                                                          Arrays.asList("test1", "test2"),
@@ -104,7 +104,7 @@ public class RebalanceUtilsTest extends TestCase {
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
-                     (new RebalanceStealInfo(info.toJsonString())).toString());
+                     (new RebalancePartitionsInfo(info.toJsonString())).toString());
     }
 
 }

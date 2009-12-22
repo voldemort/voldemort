@@ -9,17 +9,18 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.RebalanceStealInfo;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -46,22 +47,22 @@ public class RebalanceUtils {
      * @param targetCluster
      * @return Queue (pair(StealerNodeId, RebalanceStealInfo))
      */
-    public static Queue<Pair<Integer, List<RebalanceStealInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
-                                                                                       Cluster targetCluster,
-                                                                                       List<String> storeList) {
-        Queue<Pair<Integer, List<RebalanceStealInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalanceStealInfo>>>();
+    public static Queue<Pair<Integer, List<RebalancePartitionsInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
+                                                                                            Cluster targetCluster,
+                                                                                            List<String> storeList) {
+        Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalancePartitionsInfo>>>();
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should not change !!");
 
         for(Node node: targetCluster.getNodes()) {
-            List<RebalanceStealInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
-                                                                              targetCluster,
-                                                                              storeList,
-                                                                              node.getId());
+            List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
+                                                                                   targetCluster,
+                                                                                   storeList,
+                                                                                   node.getId());
             if(rebalanceNodeList.size() > 0) {
-                rebalanceTaskQueue.offer(new Pair<Integer, List<RebalanceStealInfo>>(node.getId(),
-                                                                                     rebalanceNodeList));
+                rebalanceTaskQueue.offer(new Pair<Integer, List<RebalancePartitionsInfo>>(node.getId(),
+                                                                                          rebalanceNodeList));
             }
 
         }
@@ -69,10 +70,10 @@ public class RebalanceUtils {
         return rebalanceTaskQueue;
     }
 
-    private static List<RebalanceStealInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                                 Cluster targetCluster,
-                                                                 List<String> storeList,
-                                                                 int stealNodeId) {
+    private static List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
+                                                                      Cluster targetCluster,
+                                                                      List<String> storeList,
+                                                                      int stealNodeId) {
         Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
         Map<Integer, Integer> currentPartitionsToNodeMap = getCurrentPartitionMapping(currentCluster);
         List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
@@ -97,13 +98,13 @@ public class RebalanceUtils {
             }
         }
 
-        List<RebalanceStealInfo> stealInfoList = new ArrayList<RebalanceStealInfo>();
+        List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
         for(Entry<Integer, List<Integer>> stealEntry: stealPartitionsMap.entrySet()) {
-            stealInfoList.add(new RebalanceStealInfo(stealNodeId,
-                                                     stealEntry.getKey(),
-                                                     stealEntry.getValue(),
-                                                     storeList,
-                                                     0));
+            stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
+                                                          stealEntry.getKey(),
+                                                          stealEntry.getValue(),
+                                                          storeList,
+                                                          0));
         }
 
         return stealInfoList;
@@ -242,7 +243,7 @@ public class RebalanceUtils {
                         latestCluster = versionedCluster;
                 }
             } catch(Exception e) {
-                if(requiredNodes.contains(node.getId()))
+                if(null != requiredNodes && requiredNodes.contains(node.getId()))
                     throw new VoldemortException("Failed to get Cluster version from node:" + node,
                                                  e);
                 else
@@ -303,14 +304,28 @@ public class RebalanceUtils {
     }
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
-        AdminClientConfig config = (AdminClientConfig) new AdminClientConfig().setMaxConnectionsPerNode(1)
-                                                                              .setMaxThreads(1)
-                                                                              .setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                                                                    TimeUnit.MILLISECONDS)
-                                                                              .setSocketTimeout(voldemortConfig.getSocketTimeoutMs(),
-                                                                                                TimeUnit.MILLISECONDS)
-                                                                              .setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
+        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(2)
+                                                          .setMaxThreads(2)
+                                                          .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
+                                                          .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
+                                                          .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
         return new AdminClient(cluster, config);
+    }
+
+    /**
+     * TODO: LOW , we can change RoutedStore to handle InvalidMetadataException
+     * differently for now we let it think it as a normal exception and handle
+     * in the client layer.
+     * 
+     * @param failures
+     * @return
+     */
+    public static boolean containsInvalidMetadataException(InsufficientOperationalNodesException failures) {
+        for(Throwable e: failures.getCauses()) {
+            if(e instanceof InvalidMetadataException)
+                return true;
+        }
+        return false;
     }
 }

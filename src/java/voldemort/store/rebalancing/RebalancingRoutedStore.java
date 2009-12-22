@@ -21,13 +21,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import voldemort.VoldemortException;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.store.InvalidMetadataException;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -92,7 +93,7 @@ public class RebalancingRoutedStore extends RoutedStore {
         try {
             Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                adminClient);
-            metadata.put(MetadataStore.CLUSTER_KEY, latestCluster);
+            metadata.put(MetadataStore.CLUSTER_KEY, latestCluster.getValue());
 
             checkAndAddNodeStore();
 
@@ -133,12 +134,16 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.delete(key, version);
-            } catch(InvalidMetadataException e) {
-                reinit();
+            } catch(InsufficientOperationalNodesException e) {
+                if(RebalanceUtils.containsInvalidMetadataException(e)) {
+                    reinit();
+                } else {
+                    throw e;
+                }
             }
         }
-        throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed for server side routing.");
+        throw new VoldemortException(this.maxMetadataRefreshAttempts
+                                     + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -146,12 +151,16 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.getVersions(key);
-            } catch(InvalidMetadataException e) {
-                reinit();
+            } catch(InsufficientOperationalNodesException e) {
+                if(RebalanceUtils.containsInvalidMetadataException(e)) {
+                    reinit();
+                } else {
+                    throw e;
+                }
             }
         }
-        throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed for server side routing.");
+        throw new VoldemortException(this.maxMetadataRefreshAttempts
+                                     + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -159,12 +168,16 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.get(key);
-            } catch(InvalidMetadataException e) {
-                reinit();
+            } catch(InsufficientOperationalNodesException e) {
+                if(RebalanceUtils.containsInvalidMetadataException(e)) {
+                    reinit();
+                } else {
+                    throw e;
+                }
             }
         }
-        throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed for server side routing.");
+        throw new VoldemortException(this.maxMetadataRefreshAttempts
+                                     + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -172,12 +185,16 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.getAll(keys);
-            } catch(InvalidMetadataException e) {
-                reinit();
+            } catch(InsufficientOperationalNodesException e) {
+                if(RebalanceUtils.containsInvalidMetadataException(e)) {
+                    reinit();
+                } else {
+                    throw e;
+                }
             }
         }
-        throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed for server side routing.");
+        throw new VoldemortException(this.maxMetadataRefreshAttempts
+                                     + " metadata refresh attempts failed for server side routing.");
     }
 
     @Override
@@ -187,11 +204,15 @@ public class RebalancingRoutedStore extends RoutedStore {
             try {
                 super.put(key, versioned);
                 return;
-            } catch(InvalidMetadataException e) {
-                reinit();
+            } catch(InsufficientOperationalNodesException e) {
+                if(RebalanceUtils.containsInvalidMetadataException(e)) {
+                    reinit();
+                } else {
+                    throw e;
+                }
             }
         }
-        throw new InvalidMetadataException(this.maxMetadataRefreshAttempts
-                                           + " metadata refresh attempts failed for server side routing.");
+        throw new VoldemortException(this.maxMetadataRefreshAttempts
+                                     + " metadata refresh attempts failed for server side routing.");
     }
 }

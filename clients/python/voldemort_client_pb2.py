@@ -31,10 +31,6 @@ _REQUESTTYPE = descriptor.EnumDescriptor(
       name='GET_VERSION', index=4, number=4,
       options=None,
       type=None),
-    descriptor.EnumValueDescriptor(
-      name='GET_UNCHECKED', index=5, number=5,
-      options=None,
-      type=None),
   ],
   options=None,
 )
@@ -45,7 +41,6 @@ GET_ALL = 1
 PUT = 2
 DELETE = 3
 GET_VERSION = 4
-GET_UNCHECKED = 5
 
 
 
@@ -486,6 +481,13 @@ _VOLDEMORTREQUEST = descriptor.Descriptor(
       name='delete', full_name='voldemort.VoldemortRequest.delete', index=6,
       number=7, type=11, cpp_type=10, label=1,
       default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='requestRouteType', full_name='voldemort.VoldemortRequest.requestRouteType', index=7,
+      number=8, type=9, cpp_type=9, label=1,
+      default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
