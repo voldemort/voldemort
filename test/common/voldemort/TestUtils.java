@@ -388,13 +388,14 @@ public class TestUtils {
             try {
                 attempt.checkCondition();
                 return;
-            } catch (AssertionFailedError e) {
+            } catch (AssertionError e) {
                 if (System.currentTimeMillis() < finishBy) {
                     try {
                         Thread.sleep(delay);
                         delay <<= 1;
                     } catch (InterruptedException ie) {
-                        throw new RuntimeException(ie);
+                        Thread.currentThread().interrupt();
+                        throw ie;
                     }
                 }
                 else {

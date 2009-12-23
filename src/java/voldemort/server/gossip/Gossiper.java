@@ -11,14 +11,13 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.versioning.Occured;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
  * @author afeinberg
  * 
- *         This implements a gossip protocol for metadata. The algorithm is
+ *         This implements a gossipKey protocol for metadata. The algorithm is
  *         fairly simple. Until the service is stopped on a node, that node
  *         will:
  *         <p>
@@ -60,7 +59,7 @@ public class Gossiper implements Runnable {
      *        specific node.
      * @param adminClient A created instance of {@link AdminClient}
      * @param gossipInterval Interval in <em>milliseconds</em> at which we want
-     *        to gossip.
+     *        to gossipKey.
      */
     public Gossiper(MetadataStore metadataStore, AdminClient adminClient, int gossipInterval) {
         this.metadataStore = metadataStore;
@@ -69,7 +68,7 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * If the run method was to be invoked, then we should gossip.
+     * If the run method was to be invoked, then we should gossipKey.
      */
     public void start() {
         logger.info("Gossip started");
@@ -77,7 +76,7 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * After the current operation finishes, no longer gossip.
+     * After the current operation finishes, no longer gossipKey.
      */
     public void stop() {
         logger.info("Gossip stopped");
@@ -91,14 +90,14 @@ public class Gossiper implements Runnable {
             } catch(InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-
             Node node = selectPeer();
-            logger.info(metadataStore.getNodeId() + " starting gossip with " + node);
+            adminClient.setAdminClientCluster(metadataStore.getCluster());
+            logger.info(metadataStore.getNodeId() + " starting gossipKey with " + node);
             for(String key: MetadataStore.GOSSIP_KEYS) {
                 try {
-                    gossip(node, key);
+                    gossipKey(node, key);
                 } catch(VoldemortException e) {
-                    logger.error(e);
+                    logger.error("gossipKey(): " + e);
                 }
             }
         }
@@ -121,9 +120,9 @@ public class Gossiper implements Runnable {
         return node;
     }
 
-    private void gossip(Node node, String key) {
+    private void gossipKey(Node node, String key) {
         if (logger.isDebugEnabled())
-            logger.debug(metadataStore.getNodeId() + " pulling " + key + " from " + node);
+            logger.debug(metadataStore.getNodeId() + " gossiping " + key + " with " + node);
 
         /**
          * First check the version that we have internally and the version on
@@ -131,6 +130,7 @@ public class Gossiper implements Runnable {
          * avoid having to convert between Versioned<byte[]> and
          * Versioned<String>
          */
+
         Versioned<String> remoteVersioned = adminClient.getRemoteMetadata(node.getId(), key);
         Versioned<String> localVersioned = adminClient.getRemoteMetadata(metadataStore.getNodeId(),
                                                                          key);
@@ -145,8 +145,6 @@ public class Gossiper implements Runnable {
              * timestamps) we want to update with remoteVersion.
              */
             case AFTER: {
-                VectorClock remoteVectorClock = (VectorClock) remoteVersion;
-                VectorClock localVectorClock = (VectorClock) localVersion;
                 adminClient.updateRemoteMetadata(metadataStore.getNodeId(), key, remoteVersioned);
                 logger.info("My " + key + " occured BEFORE the key from " + node + ". Accepted theirs.");
                 break;

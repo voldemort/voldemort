@@ -18,18 +18,14 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
-
 import java.io.StringReader;
 import java.util.*;
 
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
-import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
-import static voldemort.utils.RemoteTestUtils.startClusterNode;
-import static voldemort.utils.RemoteTestUtils.stopClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
@@ -38,8 +34,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
-
-
 
 /**
  *
@@ -137,7 +131,13 @@ public class Ec2GossipTest {
                                                   return !newNodeIds.contains(input);
                                               }
                                           });
-            logger.info("Peer node " + peerNodeId);
+            
+            logger.info("Select a peer node " + peerNodeId);
+
+            /**
+             * So far this only correctly handles a case where a *single* node is added.
+             * Present gossip doesn't support more advanced sort of reconcilation.
+             */
             for (String hostname: newHostnames) {
                 int nodeId = nodeIds.get(hostname);
                 AdminClient adminClient = new AdminClient("tcp://" + hostname + ":6666", new AdminClientConfig());
@@ -146,12 +146,11 @@ public class Ec2GossipTest {
                 Version version = versioned.getVersion();
                 
                 VectorClock vectorClock = (VectorClock) version;
-
-                for (int rnId: nodeIds.values())
-                    vectorClock.incrementVersion(rnId,  vectorClock.getTimestamp() + 1);
+                vectorClock.incrementVersion(nodeId,  System.currentTimeMillis());
 
                 try {
                     adminClient.updateRemoteMetadata(peerNodeId, MetadataStore.CLUSTER_KEY, versioned);
+                    adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
                 } catch (VoldemortException e) {
                     logger.error(e);
                 }
@@ -161,11 +160,11 @@ public class Ec2GossipTest {
              * Finally, verify that all of the nodes have been discovered
              */
             assertWithBackoff(1000, 60000, new Attempt() {
-                AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0) + ":6666",
-                                                          new AdminClientConfig());
-                int count = 0;
-
-                public void checkCondition() {
+                private int count = 1;
+                private AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0) + ":6666",
+                                                      new AdminClientConfig());
+                
+                public void checkCondition() throws Exception, AssertionError {
                     logger.info("Attempt " + count++);
 
                     for (int testNodeId: oldNodeIdSet) {
@@ -182,7 +181,7 @@ public class Ec2GossipTest {
                             assertTrue("all nodes nodes discovered by node id " + testNodeId,
                                        allNodeIds.containsAll(nodeIds.values()));
                         } catch (VoldemortException e) {
-                            fail("caught VoldemortException " + e);
+                            fail("caught exception " + e);
                         }
 
                     }

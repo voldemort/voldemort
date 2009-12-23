@@ -2,6 +2,9 @@ package voldemort.utils;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
+import org.junit.*;
+import voldemort.ServerTestUtils;
+import voldemort.cluster.Cluster;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,11 +15,8 @@ import java.util.Properties;
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
-import static voldemort.utils.RemoteTestUtils.executeRemoteTest;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
-import static voldemort.utils.RemoteTestUtils.startClusterNode;
-import static voldemort.utils.RemoteTestUtils.stopClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
@@ -25,15 +25,70 @@ import static voldemort.utils.RemoteTestUtils.toHostNames;
  * @author afeinberg
  */
 public class Ec2RebalancingTest {
-    private static Ec2RemoteTestConfig ec2RemoteTestConfig;
+    private static Ec2RebalancingTestConfig ec2RebalancingTestConfig;
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
     
     private static final Logger logger = Logger.getLogger(Ec2RebalancingTest.class);
 
+    private Map<String, String> testEntries;
+
+    @BeforeClass
+    public static void setUpClass() throws Exception {
+        ec2RebalancingTestConfig = new Ec2RebalancingTestConfig();
+        hostNamePairs = createInstances(ec2RebalancingTestConfig);
+        hostNames = toHostNames(hostNamePairs);
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2RebalancingTestConfig, true);
+
+        if (logger.isInfoEnabled())
+            logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
+
+        Thread.sleep(3000);
+        
+    }
+
+    @AfterClass
+    public static void tearDownClass() throws Exception {
+        if (hostNames != null)
+            destroyInstances(hostNames, ec2RebalancingTestConfig);
+
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        deploy(hostNames, ec2RebalancingTestConfig);
+        startClusterAsync(hostNames, ec2RebalancingTestConfig, nodeIds);
+
+        testEntries = ServerTestUtils.createRandomKeyValueString(ec2RebalancingTestConfig.numKeys);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        stopClusterQuiet(hostNames, ec2RebalancingTestConfig);
+    }
+
+    @Test
+    public void testSingleRebalancing() throws Exception {
+        try {
+            
+        } finally {
+            stopCluster(hostNames, ec2RebalancingTestConfig);
+        }
+    }
+
+    @Test
+    public void testProxyGetDuringRebalancing() throws Exception {
+        try {
+
+        } finally {
+            stopCluster(hostNames, ec2RebalancingTestConfig);
+        }
+    }
+
+
     private static class Ec2RebalancingTestConfig extends Ec2RemoteTestConfig {
-        private static final int numKeys = 1000;
+        private int numKeys;
         private static String testStoreName = "test-replication-memory";
         private static String storeDefFile = "test/common/voldemort/config/stores.xml";
         private String configDirName;
@@ -42,6 +97,7 @@ public class Ec2RebalancingTest {
         protected void init(Properties properties) {
             super.init(properties);
             configDirName = properties.getProperty("ec2ConfigDirName");
+            numKeys = Integer.valueOf(properties.getProperty("rebalancingNumKeys", "10000"));
 
             try {
                 FileUtils.copyFileToDirectory(new File(storeDefFile), new File(configDirName));
