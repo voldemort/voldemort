@@ -1,11 +1,8 @@
 package voldemort.client.rebalance;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 import voldemort.cluster.Cluster;
-import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -19,20 +16,19 @@ public class RebalanceCommandShell {
     private static StoreDefinitionsMapper storesMapper = new StoreDefinitionsMapper();
 
     public static void main(String[] args) throws Exception {
-        if(args.length < 4 || args.length > 5)
-            Utils.croak("USAGE: java RebalanceCommandShell currentCluster.xml targetCluster.xml stores.xml maxParallelRebalancing");
+        if(args.length != 4)
+            Utils.croak("USAGE: java RebalanceCommandShell bootstrapURL currentCluster.xml targetCluster.xml maxParallelRebalancing");
 
-        Cluster currentCluster = clusterMapper.readCluster(new File(args[0]));
-        Cluster targetCluster = clusterMapper.readCluster(new File(args[1]));
-        List<StoreDefinition> storesList = storesMapper.readStoreList(new File(args[2]));
-        int maxParallellRebalancing = Integer.parseInt(args[3]);
+        String bootstrapURL = args[0];
+        Cluster currentCluster = clusterMapper.readCluster(new File(args[1]));
+        Cluster targetCluster = clusterMapper.readCluster(new File(args[2]));
+        int maxParallelRebalancing = Integer.parseInt(args[3]);
 
-        rebalanceClient = new RebalanceClient(currentCluster, new RebalanceClientConfig());
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setMaxParallelRebalancing(maxParallelRebalancing);
 
-        List<String> storeNames = new ArrayList<String>(storesList.size());
-        for(StoreDefinition storeDef: storesList)
-            storeNames.add(storeDef.getName());
+        rebalanceClient = new RebalanceClient(bootstrapURL, config);
 
-        rebalanceClient.rebalance(targetCluster, storeNames);
+        rebalanceClient.rebalance(currentCluster, targetCluster);
     }
 }

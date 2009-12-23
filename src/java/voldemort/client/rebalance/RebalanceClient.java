@@ -1,6 +1,5 @@
 package voldemort.client.rebalance;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,7 +19,6 @@ import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
 
@@ -51,13 +49,6 @@ public class RebalanceClient {
             public Thread newThread(Runnable r) {
                 Thread thread = new Thread(r);
                 thread.setName(r.getClass().getName());
-                thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-                    public void uncaughtException(Thread t, Throwable e) {
-                        logger.error("Rebalance task failed!", e);
-                    }
-                });
-
                 return thread;
             }
         });
@@ -67,7 +58,7 @@ public class RebalanceClient {
      * Voldemort dynamic cluster membership rebalancing mechanism. <br>
      * Migrate partitions across nodes to managed changes in cluster
      * memberships. <br>
-     * Takes two cluster configuration currentCluster and targetCluster as
+     * Takes two cluster configurations currentCluster and targetCluster as
      * parameters compares and makes a list of partitions need to be
      * transferred.<br>
      * The cluster is kept consistent during rebalancing using a proxy mechanism
@@ -75,12 +66,14 @@ public class RebalanceClient {
      * 
      * 
      * @param targetCluster: target Cluster configuration
-     * @param storeList: All stores which should be rebalanced.
      */
-    public void rebalance(final Cluster targetCluster, final List<String> storeList) {
-        Cluster currentCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
-                                                                 adminClient).getValue();
+    public void rebalance(final Cluster currentCluster, final Cluster targetCluster) {
+        logger.info("Current Cluster configuration:" + currentCluster);
+        logger.info("Target Cluster configuration:" + targetCluster);
+
         adminClient.setAdminClientCluster(currentCluster);
+
+        List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
 
         if(!RebalanceUtils.getClusterRebalancingToken()) {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
@@ -98,26 +91,26 @@ public class RebalanceClient {
                 public void run() {
                     // pick one node to rebalance from queue
                     while(!rebalanceTaskQueue.isEmpty()) {
-                        logger.debug("rebalanceTaskQueue size:" + rebalanceTaskQueue.size());
+                        logger.info("rebalanceTaskQueue size:" + rebalanceTaskQueue.size());
 
                         Pair<Integer, List<RebalancePartitionsInfo>> rebalanceTask = rebalanceTaskQueue.poll();
                         if(null != rebalanceTask) {
                             int stealerNodeId = rebalanceTask.getFirst();
-                            addNodeIfnotPresent(targetCluster, stealerNodeId);
-                            Node stealerNode = adminClient.getAdminClientCluster()
-                                                          .getNodeById(stealerNodeId);
                             List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
-                                logger.info("Starting rebalancing for stealerNode:" + stealerNode
+                                logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
 
-                                    // first commit cluster changes on nodes.
-                                    commitClusterChanges(stealerNode, rebalanceSubTask);
+                                    // first commit cluster changes on
+                                    // nodes.
+                                    commitClusterChanges(stealerNodeId,
+                                                         targetCluster,
+                                                         rebalanceSubTask);
                                     // attempt to rebalance for all stores.
                                     attemptRebalanceSubTask(rebalanceSubTask);
 
@@ -140,6 +133,9 @@ public class RebalanceClient {
 
     private void logRebalancingPlan(Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue) {
 
+        if(rebalanceTaskQueue.isEmpty()) {
+            logger.info("Rebalancing Plan: Already balanced, No operation needed");
+        }
         StringBuilder builder = new StringBuilder();
         builder.append("Rebalancing Plan:\n");
         for(Pair<Integer, List<RebalancePartitionsInfo>> pair: rebalanceTaskQueue) {
@@ -174,7 +170,7 @@ public class RebalanceClient {
 
     /**
      * Does an atomic commit or revert for the intended partitions ownership
-     * changes.<br>
+     * changes and modify adminClient with the updatedCluster.<br>
      * creates a new cluster metadata by moving partitions list passed in
      * parameter rebalanceStealInfo and propagates it to all nodes.<br>
      * Revert all changes if failed to copy on required copies (stealerNode and
@@ -186,41 +182,55 @@ public class RebalanceClient {
      * @param rebalanceStealInfo
      * @throws Exception
      */
-    void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
-            throws Exception {
+    void commitClusterChanges(int stealerNodeId,
+                              Cluster targetCluster,
+                              RebalancePartitionsInfo rebalanceStealInfo) throws Exception {
         synchronized(adminClient) {
-            Versioned<Cluster> latestVersionedCluster = RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
-                                                                                                      rebalanceStealInfo.getDonorId()),
-                                                                                        adminClient);
-            Cluster currentCluster = latestVersionedCluster.getValue();
-            VectorClock latestClock = (VectorClock) latestVersionedCluster.getVersion();
-            try {
-                Cluster newCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                         stealerNode,
-                                                                         currentCluster.getNodeById(rebalanceStealInfo.getDonorId()),
-                                                                         rebalanceStealInfo.getPartitionList());
-                // increment clock version on stealerNodeId
-                latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+            Cluster currentCluster = adminClient.getAdminClientCluster();
+            Node donorNode = currentCluster.getNodeById(rebalanceStealInfo.getDonorId());
 
+            // Add stealerNode to currentCluster if not present.
+            Cluster updatedCluster = getClusterWithStealerNode(currentCluster,
+                                                               targetCluster,
+                                                               stealerNodeId);
+            Node stealerNode = updatedCluster.getNodeById(stealerNodeId);
+            adminClient.setAdminClientCluster(updatedCluster);
+
+            VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
+                                                                                                  rebalanceStealInfo.getDonorId()),
+                                                                                    adminClient)
+                                                                  .getVersion();
+
+            // apply changes and create new updated cluster.
+            updatedCluster = RebalanceUtils.createUpdatedCluster(updatedCluster,
+                                                                 stealerNode,
+                                                                 donorNode,
+                                                                 rebalanceStealInfo.getPartitionList());
+            // increment clock version on stealerNodeId
+            latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
+            try {
                 // propogates changes to all nodes.
                 RebalanceUtils.propagateCluster(adminClient,
-                                                newCluster,
+                                                updatedCluster,
                                                 latestClock,
                                                 Arrays.asList(stealerNode.getId(),
                                                               rebalanceStealInfo.getDonorId()));
 
                 // set new cluster in adminClient
-                adminClient.setAdminClientCluster(newCluster);
+                adminClient.setAdminClientCluster(updatedCluster);
             } catch(Exception e) {
                 // revert cluster changes.
+                updatedCluster = currentCluster;
                 latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
                 RebalanceUtils.propagateCluster(adminClient,
-                                                currentCluster,
+                                                updatedCluster,
                                                 latestClock,
                                                 new ArrayList<Integer>());
 
                 throw e;
             }
+
+            adminClient.setAdminClientCluster(updatedCluster);
         }
     }
 
@@ -234,7 +244,6 @@ public class RebalanceClient {
      * @param stealPartitionsMap
      */
     void attemptRebalanceSubTask(RebalancePartitionsInfo rebalanceSubTask) {
-        boolean success = true;
         List<String> rebalanceStoreList = ImmutableList.copyOf(rebalanceSubTask.getUnbalancedStoreList());
         List<String> unbalancedStoreList = new ArrayList<String>(rebalanceStoreList);
         for(String storeName: rebalanceStoreList) {
@@ -249,22 +258,22 @@ public class RebalanceClient {
                 unbalancedStoreList.remove(storeName);
                 rebalanceSubTask.setUnbalancedStoreList(unbalancedStoreList);
             } catch(Exception e) {
-                logger.warn("rebalanceSubTask:" + rebalanceSubTask + " failed for store:"
-                            + storeName, e);
-                success = false;
+                throw new VoldemortException("rebalanceSubTask:" + rebalanceSubTask
+                                             + " failed for store:" + storeName, e);
             }
         }
-
-        if(!success)
-            throw new VoldemortException("rebalanceSubTask:" + rebalanceSubTask
-                                         + " failed incomplete.");
     }
 
-    private void addNodeIfnotPresent(Cluster targetCluster, int stealerNodeId) {
-        if(!RebalanceUtils.containsNode(adminClient.getAdminClientCluster(), stealerNodeId)) {
-            // add stealerNode from targertCluster here
-            adminClient.setAdminClientCluster(RebalanceUtils.updateCluster(adminClient.getAdminClientCluster(),
-                                                                           Arrays.asList(targetCluster.getNodeById(stealerNodeId))));
+    private Cluster getClusterWithStealerNode(Cluster currentCluster,
+                                              Cluster targetCluster,
+                                              int stealerNodeId) {
+        if(!RebalanceUtils.containsNode(currentCluster, stealerNodeId)) {
+            // add stealerNode with empty partitions list
+            Node stealerNode = RebalanceUtils.updateNode(targetCluster.getNodeById(stealerNodeId),
+                                                         new ArrayList<Integer>());
+            return RebalanceUtils.updateCluster(currentCluster, Arrays.asList(stealerNode));
         }
+
+        return currentCluster;
     }
 }

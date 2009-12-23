@@ -21,6 +21,7 @@ import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.StoreDefinition;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -196,6 +197,8 @@ public class RebalanceUtils {
             if(!updatedNodeList.contains(currentNode))
                 newNodeList.add(currentNode);
         }
+
+        Collections.sort(newNodeList);
         return new Cluster(currentCluster.getName(), newNodeList);
     }
 
@@ -227,6 +230,7 @@ public class RebalanceUtils {
 
         clusterList.add(latestCluster);
         for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            logger.info("getLatestCluster called node:" + node + " required:" + requiredNodes);
             try {
                 Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
                 VectorClock newClock = (VectorClock) versionedCluster.getVersion();
@@ -247,7 +251,7 @@ public class RebalanceUtils {
                     throw new VoldemortException("Failed to get Cluster version from node:" + node,
                                                  e);
                 else
-                    logger.debug("Failed to get Cluster version from node:" + node, e);
+                    logger.info("Failed to get Cluster version from node:" + node, e);
             }
         }
 
@@ -277,19 +281,9 @@ public class RebalanceUtils {
                                         Cluster cluster,
                                         VectorClock clock,
                                         List<Integer> requiredNodeIds) {
-        // attempt requiredNode first.
-        for(int nodeId: requiredNodeIds) {
-            Node node = cluster.getNodeById(nodeId);
-            try {
-                logger.debug("Updating remote node:" + nodeId + " with cluster:" + cluster);
-                adminClient.updateRemoteCluster(node.getId(), cluster, clock);
-            } catch(Exception e) {
-                throw new VoldemortException("Failed to copy updated cluster.xml:" + cluster
-                                             + " on required node:" + node, e);
-            }
-        }
+        List<Integer> failures = new ArrayList<Integer>();
 
-        // copy everywhere else
+        // copy everywhere else first
         for(Node node: cluster.getNodes()) {
             if(!requiredNodeIds.contains(node.getId())) {
                 try {
@@ -300,6 +294,23 @@ public class RebalanceUtils {
                                  + ") on non-required node:" + node, e);
                 }
             }
+        }
+
+        // attempt copying on all required nodes.
+        for(int nodeId: requiredNodeIds) {
+            Node node = cluster.getNodeById(nodeId);
+            try {
+                logger.debug("Updating remote node:" + nodeId + " with cluster:" + cluster);
+                adminClient.updateRemoteCluster(node.getId(), cluster, clock);
+            } catch(Exception e) {
+                failures.add(node.getId());
+                logger.debug(e);
+            }
+        }
+
+        if(failures.size() > 0) {
+            throw new VoldemortException("Failed to copy updated cluster.xml:" + cluster
+                                         + " on required nodes:" + failures);
         }
     }
 
@@ -327,5 +338,21 @@ public class RebalanceUtils {
                 return true;
         }
         return false;
+    }
+
+    public static List<String> getStoreNameList(Cluster cluster, AdminClient adminClient) {
+        for(Node node: cluster.getNodes()) {
+            List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
+                                                            .getValue();
+            List<String> storeNameList = new ArrayList<String>(storeDefList.size());
+            for(StoreDefinition def: storeDefList) {
+                if(!def.isView())
+                    storeNameList.add(def.getName());
+            }
+            return storeNameList;
+        }
+
+        throw new VoldemortException("Unable to get StoreDefList from any node for cluster:"
+                                     + cluster);
     }
 }

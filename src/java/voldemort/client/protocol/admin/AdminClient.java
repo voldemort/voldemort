@@ -751,13 +751,9 @@ public class AdminClient {
      * @throws VoldemortException
      */
     public Versioned<Cluster> getRemoteCluster(int nodeId) throws VoldemortException {
-        try {
-            Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
-            Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
-            return new Versioned<Cluster>(cluster, value.getVersion());
-        } catch(VoldemortException e) {
-            throw new VoldemortException("Failed to get remote cluster for node:" + nodeId, e);
-        }
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
+        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
+        return new Versioned<Cluster>(cluster, value.getVersion());
     }
 
     /**

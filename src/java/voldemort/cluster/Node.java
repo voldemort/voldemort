@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableList;
  * 
  */
 @Threadsafe
-public class Node implements Serializable {
+public class Node implements Serializable, Comparable<Node> {
 
     private static final Logger logger = Logger.getLogger(Node.class.getName());
 
@@ -154,4 +154,7 @@ public class Node implements Serializable {
         return getId();
     }
 
+    public int compareTo(Node other) {
+        return new Integer(this.id).compareTo(other.getId());
+    }
 }
