@@ -53,7 +53,6 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.store.UnreachableStoreException;
 
 /**
  * Ec2FailureDetectorTest creates nodes using EC2 and .
@@ -188,7 +187,7 @@ public class Ec2FailureDetectorTest {
 
                 public void run() {
                     while(isRunning.get())
-                        test(store);
+                        test(store, 100);
                 }
 
             });
@@ -236,15 +235,16 @@ public class Ec2FailureDetectorTest {
     }
 
     private void test(StoreClient<String, String> store) {
-        for(int i = 0; i < 1000; i++) {
+        test(store, 1000);
+    }
+
+    private void test(StoreClient<String, String> store, int tests) {
+        for(int i = 0; i < tests; i++) {
             try {
                 store.get("test_" + i);
-            } catch(UnreachableStoreException e) {
-                if(logger.isDebugEnabled())
-                    logger.debug(e, e);
             } catch(Exception e) {
-                if(logger.isEnabledFor(Level.ERROR))
-                    logger.error(e, e);
+                if(logger.isDebugEnabled())
+                    logger.debug(e);
             }
         }
     }
@@ -314,4 +314,5 @@ public class Ec2FailureDetectorTest {
         }
 
     }
+
 }
