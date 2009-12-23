@@ -18,7 +18,7 @@
 
 if [ $# -lt 3 ];
 then
-	echo 'USAGE: bin/voldemort-shell.sh currentCluster.xml targetCluster.xml stores.xml numParallelRebalancing'
+	echo 'USAGE: bin/voldemort-shell.sh bootstrapURL currentCluster.xml targetCluster.xml maxParallelRebalancing'
 	exit 1
 fi
 

@@ -4847,12 +4847,12 @@ public final class VProto {
     public boolean hasDelete() { return hasDelete; }
     public voldemort.client.protocol.pb.VProto.DeleteRequest getDelete() { return delete_; }
     
-    // optional string requestRouteType = 8;
+    // optional int32 requestRouteType = 8;
     public static final int REQUESTROUTETYPE_FIELD_NUMBER = 8;
     private boolean hasRequestRouteType;
-    private java.lang.String requestRouteType_ = "";
+    private int requestRouteType_ = 0;
     public boolean hasRequestRouteType() { return hasRequestRouteType; }
-    public java.lang.String getRequestRouteType() { return requestRouteType_; }
+    public int getRequestRouteType() { return requestRouteType_; }
     
     public final boolean isInitialized() {
       if (!hasType) return false;
@@ -4891,7 +4891,7 @@ public final class VProto {
         output.writeMessage(7, getDelete());
       }
       if (hasRequestRouteType()) {
-        output.writeString(8, getRequestRouteType());
+        output.writeInt32(8, getRequestRouteType());
       }
       getUnknownFields().writeTo(output);
     }
@@ -4932,7 +4932,7 @@ public final class VProto {
       }
       if (hasRequestRouteType()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeStringSize(8, getRequestRouteType());
+          .computeInt32Size(8, getRequestRouteType());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -5186,8 +5186,8 @@ public final class VProto {
               setDelete(subBuilder.buildPartial());
               break;
             }
-            case 66: {
-              setRequestRouteType(input.readString());
+            case 64: {
+              setRequestRouteType(input.readInt32());
               break;
             }
           }
@@ -5403,24 +5403,21 @@ public final class VProto {
         return this;
       }
       
-      // optional string requestRouteType = 8;
+      // optional int32 requestRouteType = 8;
       public boolean hasRequestRouteType() {
         return result.hasRequestRouteType();
       }
-      public java.lang.String getRequestRouteType() {
+      public int getRequestRouteType() {
         return result.getRequestRouteType();
       }
-      public Builder setRequestRouteType(java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  result.hasRequestRouteType = true;
+      public Builder setRequestRouteType(int value) {
+        result.hasRequestRouteType = true;
         result.requestRouteType_ = value;
         return this;
       }
       public Builder clearRequestRouteType() {
         result.hasRequestRouteType = false;
-        result.requestRouteType_ = getDefaultInstance().getRequestRouteType();
+        result.requestRouteType_ = 0;
         return this;
       }
     }
@@ -5548,7 +5545,7 @@ public final class VProto {
       "(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllReques" +
       "t\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutRequest\022(\n" +
       "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest\022",
-      "\030\n\020requestRouteType\030\010 \001(\t*I\n\013RequestType" +
+      "\030\n\020requestRouteType\030\010 \001(\005*I\n\013RequestType" +
       "\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELET" +
       "E\020\003\022\017\n\013GET_VERSION\020\004B(\n\034voldemort.client" +
       ".protocol.pbB\006VProtoH\001"

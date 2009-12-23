@@ -88,5 +88,5 @@ message VoldemortRequest {
   optional GetAllRequest getAll = 5;
   optional PutRequest put = 6;
   optional DeleteRequest delete = 7;
-  optional string requestRouteType = 8;
+  optional int32 requestRouteType = 8;
 }

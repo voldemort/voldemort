@@ -62,7 +62,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         outputStream.writeUTF(storeName);
         outputStream.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
         if(protocolVersion >= 2) {
-            outputStream.writeUTF(routingType.toString());
+            outputStream.writeByte(routingType.getRoutingTypeCode());
         }
         outputStream.writeInt(key.length());
         outputStream.write(key.get());

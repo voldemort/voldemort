@@ -337,19 +337,13 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                              + metadataStore.getNodeId());
 
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
-                                                                           request.getDonorId(),
-                                                                           request.getPartitionsList(),
-                                                                           request.getUnbalancedStoreList(),
-                                                                           request.getAttempt());
+                                                                                     request.getDonorId(),
+                                                                                     request.getPartitionsList(),
+                                                                                     request.getUnbalancedStoreList(),
+                                                                                     request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(request.getCurrentStore(),
                                                           rebalanceStealInfo);
-
-            if(-1 == requestId) {
-                throw new VoldemortException("Node:"
-                                             + metadataStore.getNodeId()
-                                             + " is already rebalancing cannot start new rebalancing request.");
-            }
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
