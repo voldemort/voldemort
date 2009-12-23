@@ -3,7 +3,6 @@ package voldemort.client.rebalance;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -16,7 +15,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.rebalancing.RedirectingStore;
-import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 
@@ -79,10 +77,10 @@ public class RebalanceClient {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
         }
 
-        final Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
-                                                                                                                            targetCluster,
-                                                                                                                            storeList);
-        logRebalancingPlan(rebalanceTaskQueue);
+        final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
+                                                                                 targetCluster,
+                                                                                 storeList);
+        logger.info(rebalanceClusterPlan);
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
@@ -90,13 +88,15 @@ public class RebalanceClient {
 
                 public void run() {
                     // pick one node to rebalance from queue
-                    while(!rebalanceTaskQueue.isEmpty()) {
-                        logger.info("rebalanceTaskQueue size:" + rebalanceTaskQueue.size());
+                    while(!rebalanceClusterPlan.getRebalancingTaskQueue().isEmpty()) {
+                        logger.info("rebalanceTaskQueue size:"
+                                    + rebalanceClusterPlan.getRebalancingTaskQueue().size());
 
-                        Pair<Integer, List<RebalancePartitionsInfo>> rebalanceTask = rebalanceTaskQueue.poll();
+                        RebalanceNodePlan rebalanceTask = rebalanceClusterPlan.getRebalancingTaskQueue()
+                                                                            .poll();
                         if(null != rebalanceTask) {
-                            int stealerNodeId = rebalanceTask.getFirst();
-                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getSecond();
+                            int stealerNodeId = rebalanceTask.getStealerNode();
+                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
@@ -129,23 +129,6 @@ public class RebalanceClient {
         }// for (nThreads ..
 
         executorShutDown(executor);
-    }
-
-    private void logRebalancingPlan(Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue) {
-
-        if(rebalanceTaskQueue.isEmpty()) {
-            logger.info("Rebalancing Plan: Already balanced, No operation needed");
-        }
-        StringBuilder builder = new StringBuilder();
-        builder.append("Rebalancing Plan:\n");
-        for(Pair<Integer, List<RebalancePartitionsInfo>> pair: rebalanceTaskQueue) {
-            builder.append("StealerNode:" + pair.getFirst() + "\n");
-            for(RebalancePartitionsInfo stealInfo: pair.getSecond()) {
-                builder.append("\t" + stealInfo + "\n");
-            }
-        }
-
-        logger.info(builder.toString());
     }
 
     private void executorShutDown(ExecutorService executorService) {

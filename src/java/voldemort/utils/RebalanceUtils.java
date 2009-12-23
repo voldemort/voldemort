@@ -3,19 +3,13 @@ package voldemort.utils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -38,79 +32,6 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    /**
-     * Compares the currentCluster configuration with the desired
-     * targetConfiguration and returns a map of Target node-id to map of source
-     * node-ids and partitions desired to be stolen/fetched.<br>
-     * <b> returned Queue is threadsafe </b>
-     * 
-     * @param currentCluster
-     * @param targetCluster
-     * @return Queue (pair(StealerNodeId, RebalanceStealInfo))
-     */
-    public static Queue<Pair<Integer, List<RebalancePartitionsInfo>>> getRebalanceTaskQueue(Cluster currentCluster,
-                                                                                            Cluster targetCluster,
-                                                                                            List<String> storeList) {
-        Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalanceTaskQueue = new ConcurrentLinkedQueue<Pair<Integer, List<RebalancePartitionsInfo>>>();
-
-        if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
-            throw new VoldemortException("Total number of partitions should not change !!");
-
-        for(Node node: targetCluster.getNodes()) {
-            List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
-                                                                                   targetCluster,
-                                                                                   storeList,
-                                                                                   node.getId());
-            if(rebalanceNodeList.size() > 0) {
-                rebalanceTaskQueue.offer(new Pair<Integer, List<RebalancePartitionsInfo>>(node.getId(),
-                                                                                          rebalanceNodeList));
-            }
-
-        }
-
-        return rebalanceTaskQueue;
-    }
-
-    private static List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                                      Cluster targetCluster,
-                                                                      List<String> storeList,
-                                                                      int stealNodeId) {
-        Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
-        Map<Integer, Integer> currentPartitionsToNodeMap = getCurrentPartitionMapping(currentCluster);
-        List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
-        List<Integer> currentList;
-
-        if(containsNode(currentCluster, stealNodeId))
-            currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
-        else
-            currentList = new ArrayList<Integer>();
-
-        for(int p: targetList) {
-            if(!currentList.contains(p)) {
-                // new extra partition
-                int currentMasterNode = currentPartitionsToNodeMap.get(p);
-                // create array if needed
-                if(!stealPartitionsMap.containsKey(currentMasterNode)) {
-                    stealPartitionsMap.put(currentMasterNode, new ArrayList<Integer>());
-                }
-
-                // add partition to list.
-                stealPartitionsMap.get(currentMasterNode).add(p);
-            }
-        }
-
-        List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
-        for(Entry<Integer, List<Integer>> stealEntry: stealPartitionsMap.entrySet()) {
-            stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
-                                                          stealEntry.getKey(),
-                                                          stealEntry.getValue(),
-                                                          storeList,
-                                                          0));
-        }
-
-        return stealInfoList;
-    }
-
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
             cluster.getNodeById(nodeId);
@@ -118,18 +39,6 @@ public class RebalanceUtils {
         } catch(VoldemortException e) {
             return false;
         }
-    }
-
-    private static Map<Integer, Integer> getCurrentPartitionMapping(Cluster currentCluster) {
-        Map<Integer, Integer> partitionToNode = new HashMap<Integer, Integer>();
-
-        for(Node n: currentCluster.getNodes()) {
-            for(Integer partition: n.getPartitionIds()) {
-                partitionToNode.put(partition, n.getId());
-            }
-        }
-
-        return partitionToNode;
     }
 
     /**
@@ -230,7 +139,6 @@ public class RebalanceUtils {
 
         clusterList.add(latestCluster);
         for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-            logger.info("getLatestCluster called node:" + node + " required:" + requiredNodes);
             try {
                 Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
                 VectorClock newClock = (VectorClock) versionedCluster.getVersion();

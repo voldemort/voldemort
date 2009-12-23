@@ -22,10 +22,11 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Queue;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.client.rebalance.RebalanceClusterPlan;
+import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -57,25 +58,28 @@ public class RebalanceUtilsTest extends TestCase {
     }
 
     public void testRebalancePlan() {
-        Queue<Pair<Integer, List<RebalancePartitionsInfo>>> rebalancePlan = RebalanceUtils.getRebalanceTaskQueue(currentCluster,
-                                                                                                            targetCluster,
-                                                                                                            Arrays.asList(testStoreName));
+        RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
+                                                                      targetCluster,
+                                                                      Arrays.asList(testStoreName));
         int[][] stealList = { {}, { 2, 3 } };
 
         // the rebalancing plan should have exactly 3 entries.
-        assertEquals("There should be three node rebalancing", 1, rebalancePlan.size());
-        for(Pair<Integer, List<RebalancePartitionsInfo>> rebalanceInfo: rebalancePlan) {
-            assertEquals("rebalanceInfo should have exactly one item", 1, rebalanceInfo.getSecond()
-                                                                                       .size());
-            RebalancePartitionsInfo expected = new RebalancePartitionsInfo(rebalanceInfo.getFirst(),
-                                                                 0,
-                                                                 listFromArray(stealList[rebalanceInfo.getFirst()]),
-                                                                 Arrays.asList(testStoreName),
-                                                                 0);
+        assertEquals("There should be three node rebalancing",
+                     1,
+                     rebalancePlan.getRebalancingTaskQueue().size());
+        for(RebalanceNodePlan rebalanceNodeInfo: rebalancePlan.getRebalancingTaskQueue()) {
+            assertEquals("rebalanceInfo should have exactly one item",
+                         1,
+                         rebalanceNodeInfo.getRebalanceTaskList().size());
+            RebalancePartitionsInfo expected = new RebalancePartitionsInfo(rebalanceNodeInfo.getStealerNode(),
+                                                                           0,
+                                                                           listFromArray(stealList[rebalanceNodeInfo.getStealerNode()]),
+                                                                           Arrays.asList(testStoreName),
+                                                                           0);
 
             assertEquals("rebalanceStealInfo should match",
                          expected.toJsonString(),
-                         rebalanceInfo.getSecond().get(0).toJsonString());
+                         rebalanceNodeInfo.getRebalanceTaskList().get(0).toJsonString());
         }
     }
 
@@ -96,10 +100,10 @@ public class RebalanceUtilsTest extends TestCase {
 
     public void testRebalanceStealInfo() {
         RebalancePartitionsInfo info = new RebalancePartitionsInfo(0,
-                                                         1,
-                                                         Arrays.asList(1, 2, 3, 4),
-                                                         Arrays.asList("test1", "test2"),
-                                                         0);
+                                                                   1,
+                                                                   Arrays.asList(1, 2, 3, 4),
+                                                                   Arrays.asList("test1", "test2"),
+                                                                   0);
         System.out.println("info:" + info.toString());
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
