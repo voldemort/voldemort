@@ -4,7 +4,12 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.rebalance.RebalanceClient;
+import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.cluster.Cluster;
+import voldemort.xml.ClusterMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +34,8 @@ public class Ec2RebalancingTest {
     private static List<HostNamePair> hostNamePairs;
     private static List<String> hostNames;
     private static Map<String, Integer> nodeIds;
+
+
     
     private static final Logger logger = Logger.getLogger(Ec2RebalancingTest.class);
 
@@ -61,6 +68,12 @@ public class Ec2RebalancingTest {
         startClusterAsync(hostNames, ec2RebalancingTestConfig, nodeIds);
 
         testEntries = ServerTestUtils.createRandomKeyValueString(ec2RebalancingTestConfig.numKeys);
+
+        if (logger.isInfoEnabled())
+            logger.info("Sleeping for 15 seconds to let the Voldemort cluster start");
+        
+        Thread.sleep(3000);
+
     }
 
     @After
@@ -70,11 +83,51 @@ public class Ec2RebalancingTest {
 
     @Test
     public void testSingleRebalancing() throws Exception {
+        Cluster originalCluster = getOriginalCluster();
+        Cluster targetCluster = getTargetCluster(1);
+
         try {
+            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(hostNames),
+                                                                  new RebalanceClientConfig());
+
             
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
+    }
+
+    public Cluster getOriginalCluster() {
+        AdminClient adminClient = new AdminClient(getBootstrapUrl(hostNames), new AdminClientConfig());
+        return adminClient.getAdminClientCluster();
+    }
+
+    public Cluster getTargetCluster(int toAdd) throws Exception {
+        List<HostNamePair> addlInstances = createInstances(toAdd, ec2RebalancingTestConfig);
+        List<String> addlHostNames = toHostNames(addlInstances);
+
+        if (logger.isInfoEnabled())
+            logger.info("Sleeping for 15 seconds to let the new instances startup");
+
+        hostNamePairs.addAll(addlInstances);
+        hostNames = toHostNames(hostNamePairs);
+        nodeIds = generateClusterDescriptor(hostNamePairs, "test", ec2RebalancingTestConfig, true);
+        
+        deploy(addlHostNames, ec2RebalancingTestConfig);
+        startClusterAsync(addlHostNames, ec2RebalancingTestConfig, nodeIds);
+
+        if (logger.isInfoEnabled())
+            logger.info("Sleeping for 15 seconds to start voldemort on the new nodes");
+
+        Thread.sleep(15000);
+
+        AdminClient adminClient = new AdminClient(getBootstrapUrl(addlHostNames), new AdminClientConfig());
+
+        return adminClient.getAdminClientCluster();
+        
+    }
+
+    public String getBootstrapUrl(List<String> hostnames) {
+        return "tcp://" + hostnames.get(0) + ":6666";
     }
 
     @Test

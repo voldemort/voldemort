@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.commons.lang.StringUtils;
+import voldemort.cluster.Cluster;
 
 /**
  * ClusterGenerator generates a cluster.xml file given either a list of hosts or
@@ -118,6 +119,27 @@ public class ClusterGenerator {
 
         return list;
     }
+
+    public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
+                                                                    Cluster cluster) {
+        List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
+
+        for(int i = 0; i < hostNames.size(); i++) {
+            String hostName = hostNames.get(i);
+            List<Integer> partitions = cluster.getNodeById(i).getPartitionIds();
+            Collections.sort(partitions);
+
+            ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
+            cnd.setHostName(hostName);
+            cnd.setId(i);
+            cnd.setPartitions(partitions);
+
+            list.add(cnd);
+        }
+
+        return list;
+    }
+
 
     /**
      * Creates a String representing the format used by cluster.xml given the

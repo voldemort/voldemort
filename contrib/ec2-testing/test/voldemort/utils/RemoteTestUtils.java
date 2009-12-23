@@ -26,6 +26,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.cluster.Cluster;
 import voldemort.utils.impl.RsyncDeployer;
 import voldemort.utils.impl.SshClusterStarter;
 import voldemort.utils.impl.SshClusterStopper;
@@ -175,4 +176,6 @@ public class RemoteTestUtils {
 
         return nodeIds;
     }
+
+    // TODO: generate cluster descriptor given a template cluster
 }
