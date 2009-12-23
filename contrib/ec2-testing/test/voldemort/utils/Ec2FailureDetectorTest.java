@@ -16,6 +16,9 @@
 
 package voldemort.utils;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
@@ -27,11 +30,8 @@ import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
-import junit.framework.Assert;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -43,10 +43,10 @@ import org.junit.Test;
 
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.store.Store;
 
 /**
  * Ec2FailureDetectorTest creates nodes using EC2 and .
@@ -103,45 +103,88 @@ public class Ec2FailureDetectorTest {
     }
 
     @Test
-    public void testTemporaryNodeOffline() throws Exception {
-        HostNamePair offlineHost = hostNamePairs.get(0);
-        Integer nodeId = nodeIds.get(offlineHost.getExternalHostName());
-        Node node = new Node(nodeId,
-                             offlineHost.getInternalHostName(),
-                             8081,
-                             6666,
-                             6667,
-                             Collections.<Integer> emptyList());
+    public void testSingleNodeOffline() throws Exception {
+        String offlineHostName = hostNames.get(0);
+        Integer offlineNodeId = nodeIds.get(offlineHostName);
 
         StoreClientFactory scf = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://"
-                                                                                                  + offlineHost.getInternalHostName()
+                                                                                                  + hostNamePairs.get(0)
+                                                                                                                 .getInternalHostName()
+                                                                                                  + ":6666"));
+        FailureDetector failureDetector = scf.getFailureDetector();
+        Node node = null;
+
+        for(Node n: failureDetector.getConfig().getNodes()) {
+            if(offlineNodeId.equals(n.getId())) {
+                node = n;
+                break;
+            }
+        }
+
+        StoreClient<String, String> store1 = scf.getStoreClient("test");
+
+        test(store1, true);
+        assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+        assertTrue(failureDetector.isAvailable(node));
+
+        stopClusterNode(offlineHostName, ec2RemoteTestConfig);
+
+        test(store1, false);
+        assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
+        assertFalse(failureDetector.isAvailable(node));
+
+        startClusterNode(offlineHostName, ec2RemoteTestConfig, offlineNodeId);
+        failureDetector.waitForAvailability(node);
+
+        test(store1, true);
+        assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+        assertTrue(failureDetector.isAvailable(node));
+    }
+
+    @Test
+    public void testAllNodesOffline() throws Exception {
+        StoreClientFactory scf = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://"
+                                                                                                  + hostNamePairs.get(0)
+                                                                                                                 .getInternalHostName()
                                                                                                   + ":6666"));
         FailureDetector failureDetector = scf.getFailureDetector();
 
-        Store<String, String> store = scf.getRawStore("test", null);
+        StoreClient<String, String> store1 = scf.getStoreClient("test");
 
-        test(store);
-        Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+        test(store1, true);
+        assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
 
-        stopClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig);
+        for(Node n: failureDetector.getConfig().getNodes())
+            assertTrue(failureDetector.isAvailable(n));
 
-        test(store);
-        Assert.assertEquals(hostNamePairs.size() - 1, failureDetector.getAvailableNodeCount());
+        stopClusterQuiet(hostNames, ec2RemoteTestConfig);
 
-        startClusterNode(offlineHost.getExternalHostName(), ec2RemoteTestConfig, nodeId);
-        failureDetector.waitForAvailability(node);
+        test(store1, false);
+        assertEquals(0, failureDetector.getAvailableNodeCount());
 
-        test(store);
-        Assert.assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+        for(Node n: failureDetector.getConfig().getNodes())
+            assertFalse(failureDetector.isAvailable(n));
+
+        startClusterAsync(hostNames, ec2RemoteTestConfig, nodeIds);
+
+        for(Node n: failureDetector.getConfig().getNodes())
+            failureDetector.waitForAvailability(n);
+
+        test(store1, true);
+        assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
+
+        for(Node n: failureDetector.getConfig().getNodes())
+            assertTrue(failureDetector.isAvailable(n));
     }
 
-    private void test(Store<String, String> store) {
+    private void test(StoreClient<String, String> store, boolean printErrors) {
         for(int i = 0; i < 1000; i++) {
             try {
                 store.get("test_" + i);
             } catch(Exception e) {
-                if(logger.isEnabledFor(Level.ERROR))
-                    logger.error(e);
+                if(printErrors)
+                    if(logger.isEnabledFor(Level.ERROR))
+                        logger.error(e);
             }
         }
     }
