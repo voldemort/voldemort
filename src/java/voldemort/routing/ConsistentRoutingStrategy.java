@@ -89,6 +89,10 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public List<Node> routeRequest(byte[] key) {
+        if(partitionToNode.length == 0) {
+            return new ArrayList<Node>(0);
+        }
+
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         int index = abs(hash.hash(key)) % this.partitionToNode.length;
         for(int i = 0; i < partitionToNode.length; i++) {

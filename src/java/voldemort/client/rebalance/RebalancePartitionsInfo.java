@@ -21,10 +21,10 @@ public class RebalancePartitionsInfo {
     private int attempt;
 
     public RebalancePartitionsInfo(int stealerNodeId,
-                              int donorId,
-                              List<Integer> partitionList,
-                              List<String> unbalancedStoreList,
-                              int attempt) {
+                                   int donorId,
+                                   List<Integer> partitionList,
+                                   List<String> unbalancedStoreList,
+                                   int attempt) {
         super();
         this.stealerId = stealerNodeId;
         this.donorId = donorId;

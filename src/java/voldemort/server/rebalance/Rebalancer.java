@@ -37,6 +37,7 @@ public class Rebalancer implements Runnable {
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
     private final SocketPool socketPool;
+    private int migratePartitionsAsyncId = -1;
 
     public Rebalancer(MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
@@ -106,11 +107,7 @@ public class Rebalancer implements Runnable {
                                                                            metadataStore.getCluster());
             try {
                 int rebalanceAsyncId = rebalanceLocalNode(storeName, stealInfo);
-                if(-1 == rebalanceAsyncId) {
-                    logger.warn("rebalancer is already running, aborting this rebalanceService run() ..");
-                    return;
-                }
-
+                
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               rebalanceAsyncId,
                                               voldemortConfig.getAdminSocketTimeout(),
@@ -142,14 +139,18 @@ public class Rebalancer implements Runnable {
      */
     public int rebalanceLocalNode(final String storeName, final RebalancePartitionsInfo stealInfo) {
 
-        if(!acquireRebalancingPermit())
-            return -1;
+        if(!acquireRebalancingPermit()) {
+            RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo();
+            throw new VoldemortException("Node "
+                                         + metadataStore.getCluster()
+                                                        .getNodeById(info.getStealerId())
+                                         + " is already rebalancing from " + info.getDonorId()
+                                         + " rebalanceInfo:" + info);
+        }
 
         int requestId = asyncRunner.getUniqueRequestId();
 
         asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
-
-            private int migratePartitionsAsyncId = -1;
 
             @Override
             public void operate() throws Exception {
@@ -167,10 +168,10 @@ public class Rebalancer implements Runnable {
                     setRebalancingState(metadataStore, stealInfo);
 
                     migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                                          metadataStore.getNodeId(),
-                                                                          storeName,
-                                                                          stealInfo.getPartitionList(),
-                                                                          null);
+                                                                             metadataStore.getNodeId(),
+                                                                             storeName,
+                                                                             stealInfo.getPartitionList(),
+                                                                             null);
                     adminClient.waitForCompletion(metadataStore.getNodeId(),
                                                   migratePartitionsAsyncId,
                                                   voldemortConfig.getAdminSocketTimeout(),
