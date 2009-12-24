@@ -1,7 +1,5 @@
 package voldemort.utils;
 
-import com.google.common.base.Function;
-import com.google.common.collect.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.*;
@@ -50,6 +48,7 @@ public class Ec2RebalancingTest {
     private Map<String, String> testEntries;
     private Map<String, Integer> nodeIds;
     private int[][] partitionMap;
+    private boolean spareNode;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -70,13 +69,20 @@ public class Ec2RebalancingTest {
             destroyInstances(hostNames, ec2RebalancingTestConfig);
     }
 
-    private int[][] getPartitionMap(int nodes, int perNode) {
-        int[][] partitionMap = new int[nodes][perNode];
+    private int[][] getPartitionMap(int nodes, int perNode, boolean spareNode) {
+        int limit = spareNode ? nodes - 1 : nodes;
+        int[][] partitionMap = new int[nodes][];
         int i, k;
 
-        for (i=0, k=0; i<nodes; i++)
+        for (i=0, k=0; i<limit; i++) {
+            partitionMap[i] = new int[perNode];
             for (int j=0; j < perNode; j++)
                 partitionMap[i][j] = k++;
+        }
+
+        if (spareNode)
+            partitionMap[limit] = new int[] {k};
+
 
         return partitionMap;
     }
@@ -95,8 +101,24 @@ public class Ec2RebalancingTest {
         System.arraycopy(template[templateLength-1], pivot, layout[templateLength], 0, vectorTailLength);
 
         return layout;
-      }
+    }
 
+    private static int[][] splitLastPartition(int[][] template, int pivot) {
+        int templateLength = template.length;
+        int vectorTailLength = template[templateLength-2].length - pivot;
+
+        int[][] layout = new int[templateLength][];
+        layout[templateLength-2] = new int[pivot];
+        layout[templateLength-1] = new int[vectorTailLength+1];
+
+        System.arraycopy(template, 0, layout, 0,  templateLength-2);
+        System.arraycopy(template[templateLength-2], 0, layout[templateLength-2], 0, pivot);
+        System.arraycopy(template[templateLength-2], pivot, layout[templateLength-1], 0, vectorTailLength);
+        layout[templateLength-1][vectorTailLength] = template[templateLength-1][0];
+        
+        return layout;
+
+    }
 
     private int[] getPorts(int count) {
         int[] ports = new int[count*3];
@@ -112,7 +134,8 @@ public class Ec2RebalancingTest {
     @Before
     public void setUp() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
-        partitionMap = getPartitionMap(clusterSize, ec2RebalancingTestConfig.partitionsPerNode);
+        spareNode = ec2RebalancingTestConfig.addNodes == 0;
+        partitionMap = getPartitionMap(clusterSize, ec2RebalancingTestConfig.partitionsPerNode, spareNode);
 
         if (logger.isInfoEnabled())
             logPartitionMap(partitionMap, "Original");
@@ -159,30 +182,30 @@ public class Ec2RebalancingTest {
     }
 
     private Cluster expandCluster(int newNodes, Cluster newCluster) throws Exception {
-        assert(newNodes > 0);
+        if (newNodes > 0) {
+            List<HostNamePair> newInstances = createInstances(newNodes, ec2RebalancingTestConfig);
+            List<String> newHostnames = toHostNames(newInstances);
 
-        List<HostNamePair> newInstances = createInstances(newNodes, ec2RebalancingTestConfig);
-        List<String> newHostnames = toHostNames(newInstances);
+            if (logger.isInfoEnabled())
+                logger.info("Sleeping for 30 seconds to let new instances startup");
 
-        if (logger.isInfoEnabled())
-            logger.info("Sleeping for 30 seconds to let new instances startup");
+            Thread.sleep(30000);
 
-        Thread.sleep(30000);
+            hostNamePairs.addAll(newInstances);
+            hostNames = toHostNames(hostNamePairs);
 
-        hostNamePairs.addAll(newInstances);
-        hostNames = toHostNames(hostNamePairs);
+            nodeIds = generateClusterDescriptor(hostNamePairs, newCluster, ec2RebalancingTestConfig);
 
-        nodeIds = generateClusterDescriptor(hostNamePairs, newCluster, ec2RebalancingTestConfig);
+            deploy(newHostnames, ec2RebalancingTestConfig);
+            startClusterAsync(newHostnames, ec2RebalancingTestConfig, nodeIds);
 
-        deploy(newHostnames, ec2RebalancingTestConfig);
-        startClusterAsync(newHostnames, ec2RebalancingTestConfig, nodeIds);
+            if (logger.isInfoEnabled()) {
+                logger.info("Expanded the cluster. New layout: " + nodeIds);
+                logger.info("Sleeping for 10 seconds to let voldemort start");
+            }
 
-        if (logger.isInfoEnabled()) {
-            logger.info("Expanded the cluster. New layout: " + nodeIds);
-            logger.info("Sleeping for 10 seconds to let voldemort start");
+            Thread.sleep(10000);
         }
-
-        Thread.sleep(10000);
 
         return updateCluster(newCluster, nodeIds);
     }
@@ -207,14 +230,21 @@ public class Ec2RebalancingTest {
     @Test
     public void testSingleRebalancing() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
-        int[][] targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
+        int[][] targetLayout;
+
+        if (spareNode)
+            targetLayout = splitLastPartition(partitionMap, partitionMap[clusterSize-2].length-2);
+        else 
+            targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
+
 
         if (logger.isInfoEnabled())
             logPartitionMap(targetLayout,"Target");
 
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(clusterSize+1,
-                                                                getPorts(clusterSize+1),
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(targetLayout.length,
+                                                                getPorts(targetLayout.length),
                                                                 targetLayout);
+
         List<Integer> originalNodes = new ArrayList<Integer>();
 
         for (Node node: originalCluster.getNodes()) {
@@ -226,7 +256,10 @@ public class Ec2RebalancingTest {
             RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
                                                                   new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
-            rebalanceAndCheck(originalCluster, targetCluster, rebalanceClient, Arrays.asList(clusterSize));
+            rebalanceAndCheck(originalCluster,
+                              targetCluster,
+                              rebalanceClient,
+                              spareNode ? Arrays.asList(clusterSize - 1) : originalNodes);
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
@@ -306,7 +339,7 @@ public class Ec2RebalancingTest {
             if(null != unavailablePartitions && unavailablePartitions.containsAll(partitions)) {
                 try {
                     List<Versioned<byte[]>> value = store.get(keyBytes);
-                    assertEquals("unavailable partitons should return zero size list.",
+                    assertEquals("unavailable partitions should return zero size list.",
                                  0,
                                  value.size());
                 } catch(InvalidMetadataException e) {
@@ -365,6 +398,7 @@ public class Ec2RebalancingTest {
     private static class Ec2RebalancingTestConfig extends Ec2RemoteTestConfig {
         private int numKeys;
         private int partitionsPerNode;
+        private int addNodes;
         private String testStoreName = "test-replication-memory";
 
         private static String storeDefFile = "test/common/voldemort/config/stores.xml";
@@ -375,7 +409,8 @@ public class Ec2RebalancingTest {
             super.init(properties);
             configDirName = properties.getProperty("ec2ConfigDirName");
             numKeys = Integer.valueOf(properties.getProperty("rebalancingNumKeys", "10000"));
-            partitionsPerNode = Integer.valueOf(properties.getProperty("partitionsPerNode", "4"));
+            partitionsPerNode = Integer.valueOf(properties.getProperty("rebalancingPartitionsPerNode", "4"));
+            addNodes = Integer.valueOf(properties.getProperty("rebalancingAddNodes", "0"));
             try {
                 FileUtils.copyFileToDirectory(new File(storeDefFile), new File(configDirName));
             } catch (IOException e)  {
