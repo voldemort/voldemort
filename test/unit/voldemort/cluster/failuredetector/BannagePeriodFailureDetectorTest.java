@@ -23,20 +23,28 @@ import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import org.junit.Test;
 
+import voldemort.MockTime;
 import voldemort.cluster.Node;
+import voldemort.utils.Time;
 
 import com.google.common.collect.Iterables;
 
 public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTest {
 
     @Override
-    public FailureDetector setUpFailureDetector() throws Exception {
+    public FailureDetector createFailureDetector() throws Exception {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
-                                                                                 .setTime(time);
+                                                                                 .setTime(time)
+                                                                                 .setJmxEnabled(true);
         return create(failureDetectorConfig);
+    }
+
+    @Override
+    protected Time createTime() throws Exception {
+        return new MockTime(0);
     }
 
     @Test
@@ -51,6 +59,18 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
 
         time.sleep((BANNAGE_MILLIS / 2) + 1);
         assertAvailable(node);
+    }
+
+    @Test
+    public void testTimeoutJmx() throws Exception {
+        Node node = Iterables.get(cluster.getNodes(), 8);
+
+        recordException(failureDetector, node);
+        assertUnavailable(node);
+
+        time.sleep(BANNAGE_MILLIS / 2);
+
+        assertJmxEquals("unavailableNodesBannageExpiration", node + "=" + (BANNAGE_MILLIS / 2));
     }
 
     @Test

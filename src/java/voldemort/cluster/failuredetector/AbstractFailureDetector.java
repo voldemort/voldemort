@@ -16,12 +16,15 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -66,6 +69,28 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     public FailureDetectorConfig getConfig() {
         return failureDetectorConfig;
+    }
+
+    @JmxGetter(name = "availableNodes", description = "The available nodes")
+    public String getAvailableNodes() {
+        List<String> list = new ArrayList<String>();
+
+        for(Node node: getConfig().getNodes())
+            if(isAvailable(node))
+                list.add(node.toString());
+
+        return StringUtils.join(list, ",");
+    }
+
+    @JmxGetter(name = "unavailableNodes", description = "The unavailable nodes")
+    public String getUnavailableNodes() {
+        List<String> list = new ArrayList<String>();
+
+        for(Node node: getConfig().getNodes())
+            if(!isAvailable(node))
+                list.add(node.toString());
+
+        return StringUtils.join(list, ",");
     }
 
     @JmxGetter(name = "availableNodeCount", description = "The number of available nodes")
@@ -126,14 +151,14 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected void setUnavailable(Node node, UnreachableStoreException e) {
+        NodeStatus nodeStatus = getNodeStatus(node);
+
         if(logger.isEnabledFor(Level.WARN)) {
             if(e != null)
                 logger.warn(node + " set as unavailable", e);
             else
                 logger.warn(node + " set as unavailable");
         }
-
-        NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
             // We need to distinguish the case where we're newly unavailable and

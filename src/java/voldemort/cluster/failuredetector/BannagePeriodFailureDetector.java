@@ -16,6 +16,12 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
@@ -85,4 +91,23 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         setAvailable(node);
     }
 
+    @JmxGetter(name = "unavailableNodesBannageExpiration", description = "List of unavailable nodes and their respective bannage expiration")
+    public String getUnavailableNodesBannageExpiration() {
+        List<String> list = new ArrayList<String>();
+        long bannagePeriod = failureDetectorConfig.getBannagePeriod();
+        long currentTime = failureDetectorConfig.getTime().getMilliseconds();
+
+        for(Node node: getConfig().getNodes()) {
+            if(!isAvailable(node)) {
+                NodeStatus nodeStatus = getNodeStatus(node);
+
+                synchronized(nodeStatus) {
+                    long millis = (nodeStatus.getLastChecked() + bannagePeriod) - currentTime;
+                    list.add(node.toString() + "=" + millis);
+                }
+            }
+        }
+
+        return StringUtils.join(list, ",");
+    }
 }

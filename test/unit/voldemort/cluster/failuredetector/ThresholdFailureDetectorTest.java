@@ -24,19 +24,26 @@ import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import org.junit.Test;
 
 import voldemort.cluster.Node;
+import voldemort.utils.SystemTime;
+import voldemort.utils.Time;
 
 import com.google.common.collect.Iterables;
 
 public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
     @Override
-    public FailureDetector setUpFailureDetector() throws Exception {
+    public FailureDetector createFailureDetector() throws Exception {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
         return create(failureDetectorConfig);
+    }
+
+    @Override
+    protected Time createTime() throws Exception {
+        return SystemTime.INSTANCE;
     }
 
     @Test

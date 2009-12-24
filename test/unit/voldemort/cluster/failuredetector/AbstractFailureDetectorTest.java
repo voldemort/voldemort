@@ -20,7 +20,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 
+import java.lang.management.ManagementFactory;
 import java.util.Collections;
+
+import javax.management.MBeanServerConnection;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXConnectorServer;
+import javax.management.remote.JMXConnectorServerFactory;
+import javax.management.remote.JMXServiceURL;
 
 import org.junit.After;
 import org.junit.Before;
@@ -28,7 +37,7 @@ import org.junit.Test;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.utils.SystemTime;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 
 public abstract class AbstractFailureDetectorTest {
@@ -43,9 +52,9 @@ public abstract class AbstractFailureDetectorTest {
 
     @Before
     public void setUp() throws Exception {
-        time = SystemTime.INSTANCE;
+        time = createTime();
         cluster = getNineNodeCluster();
-        failureDetector = setUpFailureDetector();
+        failureDetector = createFailureDetector();
     }
 
     @After
@@ -108,6 +117,41 @@ public abstract class AbstractFailureDetectorTest {
         }
     }
 
-    protected abstract FailureDetector setUpFailureDetector() throws Exception;
+    @Test
+    public void testGeneralJmx() throws Exception {
+        assertJmxEquals("availableNodes", "Node0,Node1,Node2,Node3,Node4,Node5,Node6,Node7,Node8");
+        assertJmxEquals("unavailableNodes", "");
+        assertJmxEquals("availableNodeCount", 9);
+        assertJmxEquals("nodeCount", 9);
+    }
+
+    protected void assertJmxEquals(String attributeName, Object attributeValue) throws Exception {
+        JMXConnectorServer cs = JMXConnectorServerFactory.newJMXConnectorServer(new JMXServiceURL("service:jmx:rmi://"),
+                                                                                null,
+                                                                                ManagementFactory.getPlatformMBeanServer());
+        cs.start();
+
+        JMXConnector cc = null;
+
+        try {
+            cc = JMXConnectorFactory.connect(cs.getAddress());
+            MBeanServerConnection mbsc = cc.getMBeanServerConnection();
+            ObjectName objectName = JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                              failureDetector.getClass()
+                                                                             .getSimpleName());
+
+            Object availableNodes = mbsc.getAttribute(objectName, attributeName);
+            assertEquals(attributeValue, availableNodes);
+        } finally {
+            if(cc != null)
+                cc.close();
+
+            cs.stop();
+        }
+    }
+
+    protected abstract FailureDetector createFailureDetector() throws Exception;
+
+    protected abstract Time createTime() throws Exception;
 
 }
