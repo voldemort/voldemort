@@ -176,37 +176,54 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         }
     }
 
+    /**
+     * FetchEntries fetches and return key/value entry.
+     * <p>
+     * For performance reason use storageEngine.keys() iterator to filter out
+     * unwanted keys and then call storageEngine.get() for valid keys.
+     * <p>
+     * 
+     * @param storageEngine
+     * @param outputStream
+     * @param partitionList
+     * @param routingStrategy
+     * @param filter
+     * @param throttler
+     * @throws IOException
+     */
     private void fetchEntries(StorageEngine<ByteArray, byte[]> storageEngine,
                               DataOutputStream outputStream,
                               List<Integer> partitionList,
                               RoutingStrategy routingStrategy,
                               VoldemortFilter filter,
                               EventThrottler throttler) throws IOException {
-        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> valuesIterator = null;
         try {
             int counter = 0;
             int fetched = 0;
             long startTime = System.currentTimeMillis();
-            iterator = storageEngine.entries();
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+            ClosableIterator<ByteArray> keyIterator = storageEngine.keys();
+            while(keyIterator.hasNext()) {
+                ByteArray key = keyIterator.next();
+                if(validPartition(key.get(), partitionList, routingStrategy)) {
+                    for(Versioned<byte[]> value: storageEngine.get(key)) {
+                        if(filter.accept(key, value)) {
+                            fetched++;
+                            VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
-                if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
-                   && filter.accept(entry.getFirst(), entry.getSecond())) {
-                    fetched++;
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                            VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
+                                                                                                  .setKey(ProtoUtils.encodeBytes(key))
+                                                                                                  .setVersioned(ProtoUtils.encodeVersioned(value))
+                                                                                                  .build();
+                            response.setPartitionEntry(partitionEntry);
 
-                    VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
-                                                                                          .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                                                                                          .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
-                                                                                          .build();
-                    response.setPartitionEntry(partitionEntry);
+                            Message message = response.build();
+                            ProtoUtils.writeMessage(outputStream, message);
 
-                    Message message = response.build();
-                    ProtoUtils.writeMessage(outputStream, message);
-
-                    if(throttler != null) {
-                        throttler.maybeThrottle(entrySize(entry));
+                            if(throttler != null) {
+                                throttler.maybeThrottle(entrySize(key, value));
+                            }
+                        }
                     }
                 }
                 // log progress
@@ -219,8 +236,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             }
         } finally {
-            if(null != iterator)
-                iterator.close();
+            if(null != valuesIterator)
+                valuesIterator.close();
         }
     }
 
@@ -298,7 +315,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     }
 
                     if(throttler != null) {
-                        throttler.maybeThrottle(entrySize(Pair.create(key, value)));
+                        throttler.maybeThrottle(entrySize(key, value));
                     }
                 }
                 // log progress
@@ -398,7 +415,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                             logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
                                                         }
 
-                                                        throttler.maybeThrottle(entrySize(entry));
+                                                        throttler.maybeThrottle(entrySize(entry.getFirst(),
+                                                                                          entry.getSecond()));
 
                                                         if((i % 1000) == 0) {
                                                             updateStatus(i + " entries processed");
@@ -462,7 +480,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
                         deleteSuccess++;
                     if(throttler != null)
-                        throttler.maybeThrottle(entrySize(entry));
+                        throttler.maybeThrottle(entrySize(entry.getFirst(), entry.getSecond()));
                 }
             }
             response.setCount(deleteSuccess);
@@ -569,9 +587,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return filter;
     }
 
-    private static int entrySize(Pair<ByteArray, Versioned<byte[]>> entry) {
-        return entry.getFirst().get().length + entry.getSecond().getValue().length
-               + ((VectorClock) entry.getSecond().getVersion()).sizeInBytes() + 1;
+    private static int entrySize(ByteArray key, Versioned<byte[]> value) {
+        return key.get().length + value.getValue().length
+               + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
     }
 
     private StorageEngine<ByteArray, byte[]> getStorageEngine(String storeName) {
