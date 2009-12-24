@@ -127,7 +127,6 @@ public class ClusterGenerator {
         for(int i = 0; i < hostNames.size(); i++) {
             String hostName = hostNames.get(i);
             List<Integer> partitions = cluster.getNodeById(i).getPartitionIds();
-            Collections.sort(partitions);
 
             ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
             cnd.setHostName(hostName);

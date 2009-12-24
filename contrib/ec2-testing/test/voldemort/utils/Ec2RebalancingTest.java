@@ -6,15 +6,25 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.ConsistentRoutingStrategy;
+import voldemort.routing.RoutingStrategy;
+import voldemort.store.InvalidMetadataException;
+import voldemort.store.Store;
+import voldemort.store.socket.SocketStore;
+import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+import static org.junit.Assert.*;
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
@@ -23,6 +33,7 @@ import static voldemort.utils.RemoteTestUtils.startClusterAsync;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
+
 
 /**
  * @author afeinberg
@@ -71,16 +82,34 @@ public class Ec2RebalancingTest {
     }
 
     private int[][] insertNode(int[][] template, int pivot) {
+
+        /**
+         * Split the last element of the two-dimension array into the "car" and "cdr"
+         * arrays, separating them at the "pivot".
+         *
+         * e.g.
+         *  .---+---+---+---+---+---.
+         * | 0 | 1	| 2 | 3	| 4 | 5	|
+         * |   |  	|   | ^ |   |  	|
+         * `---+---+---+--|-----+---'
+         * ^    	   ^ ^`pivot   ^ 
+         * |    	   | | 	       |
+         * `--"car"---'  `"cdr"----'
+         *
+         * The car then goes into *second to last* element of the returned array,
+         * cdr goes the *last* element.
+         */
+
         int len = template.length;
-
+        int carSize = pivot+1;
+        int cdrSize = template[len-1].length - carSize;
         int[][] layout = new int[len+1][];
+        layout[len-1] = new int[carSize];
+        layout[len] = new int[cdrSize];
+
         System.arraycopy(template, 0, layout, 0, len-1);
-
-        layout[len-1] = new int[len-1];
-        System.arraycopy(template[len-1], 0, layout[len-1], 0, pivot);
-
-        layout[len] = new int[template[len-1].length - pivot];
-        System.arraycopy(template[len-1], pivot, layout[len], 0, template[len-1].length - pivot);
+        System.arraycopy(template[len-1], 0, layout[len-1], 0, carSize);
+        System.arraycopy(template[len-1], pivot+1, layout[len], 0, cdrSize);
 
         return layout;
     }
@@ -103,20 +132,18 @@ public class Ec2RebalancingTest {
         originalCluster = ServerTestUtils.getLocalCluster(clusterSize,
                                                           getPorts(clusterSize),
                                                           partitionMap);
-
+        nodeIds = generateClusterDescriptor(hostNamePairs, originalCluster, ec2RebalancingTestConfig);
 
         deploy(hostNames, ec2RebalancingTestConfig);
         startClusterAsync(hostNames, ec2RebalancingTestConfig, nodeIds);
 
-        nodeIds = generateClusterDescriptor(hostNamePairs, originalCluster, ec2RebalancingTestConfig);
         testEntries = ServerTestUtils.createRandomKeyValueString(ec2RebalancingTestConfig.numKeys);
-
         originalCluster = updateCluster(originalCluster, nodeIds);
 
         if (logger.isInfoEnabled())
             logger.info("Sleeping for 15 seconds to let the Voldemort cluster start");
         
-        Thread.sleep(3000);
+        Thread.sleep(15000);
 
     }
 
@@ -147,6 +174,7 @@ public class Ec2RebalancingTest {
         assert(newNodes > 0);
 
         List<HostNamePair> newInstances = createInstances(newNodes, ec2RebalancingTestConfig);
+        List<String> newHostnames = toHostNames(newInstances);
 
         if (logger.isInfoEnabled())
             logger.info("Sleeping for 15 seconds to let new instances startup");
@@ -158,7 +186,15 @@ public class Ec2RebalancingTest {
 
         nodeIds = generateClusterDescriptor(hostNamePairs, newCluster, ec2RebalancingTestConfig);
 
-        logger.info("Expanded the cluster. New layout: " + nodeIds);
+        deploy(newHostnames, ec2RebalancingTestConfig);
+        startClusterAsync(newHostnames, ec2RebalancingTestConfig, nodeIds);
+
+        if (logger.isInfoEnabled()) {
+            logger.info("Expanded the cluster. New layout: " + nodeIds);
+            logger.info("Sleeping for 10 seconds to let voldemort start");
+        }
+
+        Thread.sleep(10);
 
         return updateCluster(newCluster, nodeIds);
     }
@@ -188,21 +224,126 @@ public class Ec2RebalancingTest {
     }
 
     private void populateData(Cluster cluster, List<Integer> nodeList) {
-        // TODO: implement this
+        // Create SocketStores for each Node first
+        Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        for(int nodeId: nodeList) {
+            Node node = cluster.getNodeById(nodeId);
+            storeMap.put(nodeId, ServerTestUtils.getSocketStore(ec2RebalancingTestConfig.testStoreName,
+                                                                node.getHost(),
+                                                                node.getSocketPort(),
+                                                                RequestFormatType.PROTOCOL_BUFFERS));
+        }
+
+        RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
+        for(Map.Entry<String, String> entry: testEntries.entrySet()) {
+            int masterNode = routing.routeRequest(ByteUtils.getBytes(entry.getKey(), "UTF-8"))
+                                    .get(0)
+                                    .getId();
+            if(nodeList.contains(masterNode)) {
+                try {
+                    ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
+                    storeMap.get(masterNode)
+                            .put(keyBytes,
+                                 new Versioned<byte[]>(ByteUtils.getBytes(entry.getValue(), "UTF-8")));
+                } catch(ObsoleteVersionException e) {
+                    System.out.println("Why are we seeing this at all here ?? ");
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // close all socket stores
+        for(Store store: storeMap.values()) {
+            store.close();
+        }
     }
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
                                    RebalanceClient rebalanceClient,
                                    List<Integer> nodeCheckList) {
-        // TODO: implement this
+        rebalanceClient.rebalance(currentCluster, targetCluster);
+
+        for(int nodeId: nodeCheckList) {
+            List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();
+            List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
+                                                                           availablePartitions);
+
+            checkGetEntries(currentCluster.getNodeById(nodeId),
+                            targetCluster,
+                            unavailablePartitions,
+                            availablePartitions);
+        }
+
     }
+
+    private void checkGetEntries(Node node,
+                                 Cluster cluster,
+                                 List<Integer> unavailablePartitions,
+                                 List<Integer> availablePartitions) {
+        int matchedEntries = 0;
+        RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
+
+        SocketStore store = ServerTestUtils.getSocketStore(ec2RebalancingTestConfig.testStoreName,
+                                                           node.getHost(),
+                                                           node.getSocketPort(),
+                                                           RequestFormatType.PROTOCOL_BUFFERS);
+
+        for(Map.Entry<String, String> entry: testEntries.entrySet()) {
+            ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
+
+            List<Integer> partitions = routing.getPartitionList(keyBytes.get());
+
+            if(null != unavailablePartitions && unavailablePartitions.containsAll(partitions)) {
+                try {
+                    List<Versioned<byte[]>> value = store.get(keyBytes);
+                    assertEquals("unavailable partitons should return zero size list.",
+                                 0,
+                                 value.size());
+                } catch(InvalidMetadataException e) {
+                    // ignore.
+                }
+            } else if(null != availablePartitions && availablePartitions.containsAll(partitions)) {
+                List<Versioned<byte[]>> values = store.get(keyBytes);
+
+                // expecting exactly one version
+                assertEquals("Expecting exactly one version", 1, values.size());
+                Versioned<byte[]> value = values.get(0);
+                // check version matches (expecting base version for all)
+                assertEquals("Value version should match", new VectorClock(), value.getVersion());
+                // check value matches.
+                assertEquals("Value bytes should match",
+                             entry.getValue(),
+                             ByteUtils.getString(value.getValue(), "UTF-8"));
+                matchedEntries++;
+            } else {
+                // dont care about these
+            }
+        }
+
+        if(null != availablePartitions && availablePartitions.size() > 0)
+            assertNotSame("CheckGetEntries should match some entries.", 0, matchedEntries);
+    }
+
+    private List<Integer> getUnavailablePartitions(Cluster targetCluster,
+                                                   List<Integer> availablePartitions) {
+        List<Integer> unavailablePartitions = new ArrayList<Integer>();
+
+        for(Node node: targetCluster.getNodes()) {
+            unavailablePartitions.addAll(node.getPartitionIds());
+        }
+
+        unavailablePartitions.removeAll(availablePartitions);
+        return unavailablePartitions;
+    }
+
 
     private String getBootstrapUrl(List<String> hostnames) {
         return "tcp://" + hostnames.get(0) + ":6666";
     }
 
     @Test
+    @Ignore
     public void testProxyGetDuringRebalancing() throws Exception {
         try {
             // TODO: implement this
@@ -215,7 +356,8 @@ public class Ec2RebalancingTest {
     private static class Ec2RebalancingTestConfig extends Ec2RemoteTestConfig {
         private int numKeys;
         private int partitionsPerNode;
-        private static String testStoreName = "test-replication-memory";
+        private String testStoreName = "test-replication-memory";
+
         private static String storeDefFile = "test/common/voldemort/config/stores.xml";
         private String configDirName;
 
