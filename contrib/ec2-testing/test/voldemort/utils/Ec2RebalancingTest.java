@@ -100,10 +100,10 @@ public class Ec2RebalancingTest {
 
     private int[] getPorts(int count) {
         int[] ports = new int[count*3];
-        for (int i = 0; i < count; i += 3) {
-            ports[i] = 6665;
-            ports[i+1] = 6666;
-            ports[i+2] = 6667;
+        for (int i = 0; i < count; i++) {
+            ports[3 * i] = 6665;
+            ports[3 * i + 1] = 6666;
+            ports[3 * i + 2] = 6667;
         }
 
         return ports;
@@ -142,7 +142,7 @@ public class Ec2RebalancingTest {
 
     
     private Cluster updateCluster(Cluster templateCluster, Map<String, Integer> nodeIds) {
-        List<Node> nodes = new LinkedList<Node>();
+        List<Node> nodes = new ArrayList<Node>();
         for (Map.Entry<String,Integer> entry: nodeIds.entrySet()) {
             String hostName = entry.getKey();
             int nodeId = entry.getValue();
@@ -165,9 +165,9 @@ public class Ec2RebalancingTest {
         List<String> newHostnames = toHostNames(newInstances);
 
         if (logger.isInfoEnabled())
-            logger.info("Sleeping for 20 seconds to let new instances startup");
+            logger.info("Sleeping for 30 seconds to let new instances startup");
 
-        Thread.sleep(20000);
+        Thread.sleep(30000);
 
         hostNamePairs.addAll(newInstances);
         hostNames = toHostNames(hostNamePairs);
@@ -215,12 +215,12 @@ public class Ec2RebalancingTest {
         Cluster targetCluster = ServerTestUtils.getLocalCluster(clusterSize+1,
                                                                 getPorts(clusterSize+1),
                                                                 targetLayout);
-        List<Integer> originalNodes = Lists.transform(Lists.<Node>newLinkedList(originalCluster.getNodes()),
-                                                          new Function<Node, Integer> () {
-                                                              public Integer apply(Node node) {
-                                                                  return node.getId();
-                                                              }
-                                                          });
+        List<Integer> originalNodes = new ArrayList<Integer>();
+
+        for (Node node: originalCluster.getNodes()) {
+            originalNodes.add(node.getId());
+        }
+
         targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
         try {
             RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
