@@ -59,9 +59,23 @@ class NodeStatus {
         return isAvailable;
     }
 
-    public void setAvailable(boolean isAvailable) {
+    /**
+     * We need to distinguish the case where we're newly available and the case
+     * where we're already available. So we check the node status before we
+     * update it and return it to the caller.
+     * 
+     * @param isAvailable True to set to available, false to make unavailable
+     * 
+     * @return Previous value of isAvailable
+     */
+
+    public boolean setAvailable(boolean isAvailable) {
+        boolean previous = this.isAvailable;
+
         this.isAvailable = isAvailable;
         this.lastChecked = time.getMilliseconds();
+
+        return previous;
     }
 
     public long getStartMillis() {

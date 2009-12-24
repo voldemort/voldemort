@@ -17,11 +17,8 @@
 package voldemort.cluster.failuredetector;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.StringUtils;
@@ -43,7 +40,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected final FailureDetectorConfig failureDetectorConfig;
 
-    protected final Set<FailureDetectorListener> listeners;
+    // Ugh. There's no ConcurrentHashSet and every implementation out there is
+    // simply a wrapper around a ConcurrentHashMap anyway :(
+    protected final ConcurrentHashMap<FailureDetectorListener, Object> listeners;
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
@@ -51,8 +50,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         this.failureDetectorConfig = failureDetectorConfig;
-        listeners = Collections.synchronizedSet(new HashSet<FailureDetectorListener>());
-
+        listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
 
         for(Node node: failureDetectorConfig.getNodes())
@@ -60,7 +58,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
-        listeners.add(failureDetectorListener);
+        listeners.put(failureDetectorListener, failureDetectorListener);
     }
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -129,24 +127,38 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public void destroy() {}
 
     protected void setAvailable(Node node) {
+        NodeStatus nodeStatus = getNodeStatus(node);
+
         if(logger.isTraceEnabled())
             logger.trace(node + " set as available");
 
-        NodeStatus nodeStatus = getNodeStatus(node);
+        boolean previouslyAvailable = false;
 
         synchronized(nodeStatus) {
             // We need to distinguish the case where we're newly available and
             // the case where we're getting redundant availability notices. So
             // let's check the node status before we update it.
-            boolean previouslyAvailable = nodeStatus.isAvailable();
+            previouslyAvailable = nodeStatus.setAvailable(true);
+        }
 
-            // Update our state to be available.
-            nodeStatus.setAvailable(true);
+        // If we were not previously available, we've just switched state,
+        // so notify any listeners.
+        if(!previouslyAvailable) {
+            if(logger.isInfoEnabled())
+                logger.info(node + " now available");
 
-            // If we were not previously available, we've just switched state,
-            // so notify any listeners.
-            if(!previouslyAvailable)
-                notifyAvailable(node);
+            synchronized(nodeStatus) {
+                nodeStatus.notifyAll();
+            }
+
+            for(FailureDetectorListener fdl: listeners.keySet()) {
+                try {
+                    fdl.nodeAvailable(node);
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
+            }
         }
     }
 
@@ -160,56 +172,28 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                 logger.warn(node + " set as unavailable");
         }
 
+        boolean previouslyAvailable = false;
+
         synchronized(nodeStatus) {
             // We need to distinguish the case where we're newly unavailable and
             // the case where we're getting redundant failure notices. So let's
             // check the node status before we update it.
-            boolean previouslyAvailable = nodeStatus.isAvailable();
-
-            // Update our state to be unavailable.
-            nodeStatus.setAvailable(false);
-
-            // If we were previously available, we've just switched state from
-            // available to unavailable, so notify any listeners.
-            if(previouslyAvailable)
-                notifyUnavailable(node);
-        }
-    }
-
-    protected void notifyAvailable(Node node) {
-        if(logger.isInfoEnabled())
-            logger.info(node + " now available");
-
-        NodeStatus nodeStatus = getNodeStatus(node);
-
-        synchronized(nodeStatus) {
-            nodeStatus.notifyAll();
+            previouslyAvailable = nodeStatus.setAvailable(false);
         }
 
-        Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
+        // If we were previously available, we've just switched state from
+        // available to unavailable, so notify any listeners.
+        if(previouslyAvailable) {
+            if(logger.isInfoEnabled())
+                logger.info(node + " now unavailable");
 
-        for(FailureDetectorListener fdl: listenersCopy) {
-            try {
-                fdl.nodeAvailable(node);
-            } catch(Exception e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(e, e);
-            }
-        }
-    }
-
-    protected void notifyUnavailable(Node node) {
-        if(logger.isInfoEnabled())
-            logger.info(node + " now unavailable");
-
-        Set<FailureDetectorListener> listenersCopy = new HashSet<FailureDetectorListener>(listeners);
-
-        for(FailureDetectorListener fdl: listenersCopy) {
-            try {
-                fdl.nodeUnavailable(node);
-            } catch(Exception e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(e, e);
+            for(FailureDetectorListener fdl: listeners.keySet()) {
+                try {
+                    fdl.nodeUnavailable(node);
+                } catch(Exception ex) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(ex, ex);
+                }
             }
         }
     }

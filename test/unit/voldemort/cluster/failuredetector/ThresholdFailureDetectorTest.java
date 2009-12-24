@@ -37,7 +37,8 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
-                                                                                 .setTime(time);
+                                                                                 .setTime(time)
+                                                                                 .setJmxEnabled(true);
         return create(failureDetectorConfig);
     }
 
@@ -60,6 +61,10 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         recordException(failureDetector, node);
 
         assertUnavailable(node);
+        assertJmxEquals("availableNodes", "Node0,Node1,Node2,Node3,Node4,Node5,Node6,Node7");
+        assertJmxEquals("unavailableNodes", "Node8");
+        assertJmxEquals("availableNodeCount", 8);
+        assertJmxEquals("nodeCount", 9);
 
         recordSuccess(failureDetector, node);
     }

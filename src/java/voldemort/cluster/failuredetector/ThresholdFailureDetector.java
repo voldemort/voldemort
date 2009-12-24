@@ -16,6 +16,12 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
@@ -35,6 +41,25 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     @Override
     public void recordSuccess(Node node) {
         update(node, 1, null);
+    }
+
+    @JmxGetter(name = "nodeThresholdStats", description = "Each node is listed with its status (available/unavailable) and success percentage")
+    public String getNodeThresholdStats() {
+        List<String> list = new ArrayList<String>();
+
+        for(Node node: getConfig().getNodes()) {
+            NodeStatus nodeStatus = getNodeStatus(node);
+
+            synchronized(nodeStatus) {
+                String availability = isAvailable(node) ? "available" : "unavailable";
+                long percentage = nodeStatus.getTotal() > 0 ? (nodeStatus.getSuccess() * 100)
+                                                              / nodeStatus.getTotal() : 0;
+
+                list.add(node + ",status=" + availability + ",percentage=" + percentage + "%");
+            }
+        }
+
+        return StringUtils.join(list, ";");
     }
 
     /**
@@ -80,12 +105,12 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 nodeStatus.incrementTotal(1);
 
                 if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
-                    long newThreshold = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
+                    long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
                     if(logger.isTraceEnabled())
-                        logger.trace(node + " threshold: " + newThreshold);
+                        logger.trace(node + " percentage: " + percentage + "%");
 
-                    if(newThreshold >= getConfig().getThreshold())
+                    if(percentage >= getConfig().getThreshold())
                         setAvailable(node);
                     else
                         setUnavailable(node, e);

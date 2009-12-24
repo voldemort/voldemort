@@ -16,11 +16,15 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
@@ -42,13 +46,14 @@ import voldemort.store.UnreachableStoreException;
 public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
     /**
-     * A set of nodes that have been marked as unavailable. As nodes go offline
-     * and callers report such via recordException, they are added to this set.
-     * When a node becomes available via the check in the thread, they are
-     * removed.
+     * A map of nodes that have been marked as unavailable. As nodes go offline
+     * and callers report such via recordException, they are added here. When a
+     * node becomes available via the check in the thread, they are removed. The
+     * Integer is the number of times we've tried to access it since going
+     * offline.
      */
 
-    private final Set<Node> unavailableNodes;
+    private final ConcurrentHashMap<Node, Integer> unavailableNodes;
 
     /**
      * Thread that checks availability of the nodes in the unavailableNodes set.
@@ -61,7 +66,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
 
-        unavailableNodes = new HashSet<Node>();
+        unavailableNodes = new ConcurrentHashMap<Node, Integer>();
 
         isRunning = true;
 
@@ -77,9 +82,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         // We override the default behavior and keep track of the unavailable
         // nodes in our set.
-        synchronized(unavailableNodes) {
-            return !unavailableNodes.contains(node);
-        }
+        return !unavailableNodes.containsKey(node);
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
@@ -90,11 +93,21 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     // Do nothing. Nodes only become available in our thread...
     }
 
+    @JmxGetter(name = "nodeAttempts", description = "Each unavailable node is listed with the number of attempts to contact since becoming unavailable")
+    public String getNodeAttempts() {
+        List<String> list = new ArrayList<String>();
+
+        for(Map.Entry<Node, Integer> entry: unavailableNodes.entrySet()) {
+            Node node = entry.getKey();
+            list.add(node + "=" + entry.getValue());
+        }
+
+        return StringUtils.join(list, ",");
+    }
+
     @Override
     protected void setUnavailable(Node node, UnreachableStoreException e) {
-        synchronized(unavailableNodes) {
-            unavailableNodes.add(node);
-        }
+        unavailableNodes.putIfAbsent(node, 0);
 
         super.setUnavailable(node, e);
     }
@@ -119,25 +132,13 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 break;
             }
 
-            Set<Node> unavailableNodesCopy = null;
+            for(Map.Entry<Node, Integer> entry: unavailableNodes.entrySet()) {
+                Node node = entry.getKey();
 
-            synchronized(this) {
-                unavailableNodesCopy = new HashSet<Node>(unavailableNodes);
-            }
-
-            for(Node node: unavailableNodesCopy) {
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node);
 
                 StoreVerifier storeVerifier = getConfig().getStoreVerifier();
-
-                if(storeVerifier == null) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(node
-                                    + " store verifier is null; cannot determine node availability");
-
-                    continue;
-                }
 
                 try {
                     // This is our test.
@@ -150,17 +151,23 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                         logger.debug("Verified previously unavailable node " + node
                                      + ", will mark as available...");
 
-                    synchronized(unavailableNodes) {
-                        unavailableNodes.remove(node);
-                    }
+                    unavailableNodes.remove(node);
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(node + " still unavailable", e);
+
+                    unavailableNodes.put(node, entry.getValue() + 1);
+
+                    setUnavailable(node, e);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error(node + " unavailable due to error", e);
+
+                    unavailableNodes.put(node, entry.getValue() + 1);
+
+                    setUnavailable(node, new UnreachableStoreException(e.getMessage()));
                 }
             }
         }
