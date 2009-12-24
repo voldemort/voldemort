@@ -197,7 +197,7 @@ public class Ec2GossipTest {
         List<String> newHostnames = toHostNames(newInstances);
 
         if (logger.isInfoEnabled())
-            logger.info("Sleeping for 15 to let new instances start up");
+            logger.info("Sleeping for 15 seconds to let new instances startup");
 
         Thread.sleep(15000);
 
