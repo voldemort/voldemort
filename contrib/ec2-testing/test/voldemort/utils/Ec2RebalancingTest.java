@@ -81,12 +81,11 @@ public class Ec2RebalancingTest {
         }
 
         if (spareNode)
-            partitionMap[limit] = new int[] {k};
+            partitionMap[limit] = new int[] {};
 
 
         return partitionMap;
     }
-
 
     private static int[][] insertNode(int[][] template, int pivot) {
         int templateLength = template.length;
@@ -109,15 +108,13 @@ public class Ec2RebalancingTest {
 
         int[][] layout = new int[templateLength][];
         layout[templateLength-2] = new int[pivot];
-        layout[templateLength-1] = new int[vectorTailLength+1];
+        layout[templateLength-1] = new int[vectorTailLength];
 
         System.arraycopy(template, 0, layout, 0,  templateLength-2);
         System.arraycopy(template[templateLength-2], 0, layout[templateLength-2], 0, pivot);
         System.arraycopy(template[templateLength-2], pivot, layout[templateLength-1], 0, vectorTailLength);
-        layout[templateLength-1][vectorTailLength] = template[templateLength-1][0];
-        
-        return layout;
 
+        return layout;
     }
 
     private int[] getPorts(int count) {
