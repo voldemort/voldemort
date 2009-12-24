@@ -60,7 +60,7 @@ public class Ec2RebalancingTest {
         if (logger.isInfoEnabled())
             logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
 
-        Thread.sleep(3000);
+        Thread.sleep(30000);
         
     }
 
@@ -81,38 +81,22 @@ public class Ec2RebalancingTest {
         return partitionMap;
     }
 
-    private int[][] insertNode(int[][] template, int pivot) {
 
-        /**
-         * Split the last element of the two-dimension array into the "car" and "cdr"
-         * arrays, separating them at the "pivot".
-         *
-         * e.g.
-         *  .---+---+---+---+---+---.
-         * | 0 | 1	| 2 | 3	| 4 | 5	|
-         * |   |  	|   | ^ |   |  	|
-         * `---+---+---+--|-----+---'
-         * ^    	   ^ ^`pivot   ^ 
-         * |    	   | | 	       |
-         * `--"car"---'  `"cdr"----'
-         *
-         * The car then goes into *second to last* element of the returned array,
-         * cdr goes the *last* element.
-         */
+    private static int[][] insertNode(int[][] template, int pivot) {
+        int templateLength = template.length;
+        int vectorTailLength = template[templateLength-1].length - pivot;
+        
+        int[][] layout = new int[templateLength+1][];
+        layout[templateLength-1] = new int[pivot];
+        layout[templateLength] = new int[vectorTailLength];
 
-        int len = template.length;
-        int carSize = pivot+1;
-        int cdrSize = template[len-1].length - carSize;
-        int[][] layout = new int[len+1][];
-        layout[len-1] = new int[carSize];
-        layout[len] = new int[cdrSize];
-
-        System.arraycopy(template, 0, layout, 0, len-1);
-        System.arraycopy(template[len-1], 0, layout[len-1], 0, carSize);
-        System.arraycopy(template[len-1], pivot+1, layout[len], 0, cdrSize);
+        System.arraycopy(template, 0, layout, 0,  templateLength-1);
+        System.arraycopy(template[templateLength-1], 0, layout[templateLength-1], 0, pivot);
+        System.arraycopy(template[templateLength-1], pivot, layout[templateLength], 0, vectorTailLength);
 
         return layout;
-    }
+      }
+
 
     private int[] getPorts(int count) {
         int[] ports = new int[count*3];
@@ -129,6 +113,10 @@ public class Ec2RebalancingTest {
     public void setUp() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
         partitionMap = getPartitionMap(clusterSize, ec2RebalancingTestConfig.partitionsPerNode);
+
+        if (logger.isInfoEnabled())
+            logPartitionMap(partitionMap, "Original");
+
         originalCluster = ServerTestUtils.getLocalCluster(clusterSize,
                                                           getPorts(clusterSize),
                                                           partitionMap);
@@ -177,9 +165,9 @@ public class Ec2RebalancingTest {
         List<String> newHostnames = toHostNames(newInstances);
 
         if (logger.isInfoEnabled())
-            logger.info("Sleeping for 15 seconds to let new instances startup");
+            logger.info("Sleeping for 20 seconds to let new instances startup");
 
-        Thread.sleep(15000);
+        Thread.sleep(20000);
 
         hostNamePairs.addAll(newInstances);
         hostNames = toHostNames(hostNamePairs);
@@ -194,15 +182,36 @@ public class Ec2RebalancingTest {
             logger.info("Sleeping for 10 seconds to let voldemort start");
         }
 
-        Thread.sleep(10);
+        Thread.sleep(10000);
 
         return updateCluster(newCluster, nodeIds);
+    }
+
+    private static void logPartitionMap(int[][] map, String name) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(name);
+        stringBuilder.append(" partition layout: \n");
+        stringBuilder.append("------------------------\n");
+        for (int i=0; i < map.length; i++) {
+            stringBuilder.append("node " + i + ": ");
+            for (int j=0; j < map[i].length; j++) {
+                stringBuilder.append(map[i][j] + " ");
+            }
+            stringBuilder.append("\n");
+        }
+        stringBuilder.append("\n");
+        logger.info(stringBuilder.toString());
+
     }
 
     @Test
     public void testSingleRebalancing() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
-        int[][] targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-1);
+        int[][] targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
+
+        if (logger.isInfoEnabled())
+            logPartitionMap(targetLayout,"Target");
+
         Cluster targetCluster = ServerTestUtils.getLocalCluster(clusterSize+1,
                                                                 getPorts(clusterSize+1),
                                                                 targetLayout);
@@ -214,7 +223,7 @@ public class Ec2RebalancingTest {
                                                           });
         targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
         try {
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(hostNames),
+            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
                                                                   new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster, targetCluster, rebalanceClient, Arrays.asList(clusterSize));
@@ -366,7 +375,7 @@ public class Ec2RebalancingTest {
             super.init(properties);
             configDirName = properties.getProperty("ec2ConfigDirName");
             numKeys = Integer.valueOf(properties.getProperty("rebalancingNumKeys", "10000"));
-            partitionsPerNode = Integer.valueOf(properties.getProperty("partitionsPerNode", "3"));
+            partitionsPerNode = Integer.valueOf(properties.getProperty("partitionsPerNode", "4"));
             try {
                 FileUtils.copyFileToDirectory(new File(storeDefFile), new File(configDirName));
             } catch (IOException e)  {
