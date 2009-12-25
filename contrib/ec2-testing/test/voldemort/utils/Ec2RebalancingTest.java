@@ -4,6 +4,10 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import voldemort.ServerTestUtils;
+import voldemort.client.ClientConfig;
+import voldemort.client.DefaultStoreClient;
+import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.RebalanceClient;
 import voldemort.client.rebalance.RebalanceClientConfig;
@@ -13,6 +17,7 @@ import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.SocketStore;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -21,10 +26,15 @@ import voldemort.versioning.Versioned;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
+import static voldemort.utils.RemoteTestUtils.cleanupCluster;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
@@ -70,6 +80,8 @@ public class Ec2RebalancingTest {
 
     @Before
     public void setUp() throws Exception {
+        Thread.sleep(5000);
+        logger.info("Before()");
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
         spareNode = ec2RebalancingTestConfig.addNodes == 0;
         partitionMap = getPartitionMap(clusterSize, ec2RebalancingTestConfig.partitionsPerNode, spareNode);
@@ -85,19 +97,19 @@ public class Ec2RebalancingTest {
         deploy(hostNames, ec2RebalancingTestConfig);
         startClusterAsync(hostNames, ec2RebalancingTestConfig, nodeIds);
 
-        testEntries = ServerTestUtils.createRandomKeyValueString(ec2RebalancingTestConfig.numKeys);
-        originalCluster = updateCluster(originalCluster, nodeIds);
-
         if (logger.isInfoEnabled())
             logger.info("Sleeping for 15 seconds to let the Voldemort cluster start");
-        
+
         Thread.sleep(15000);
 
+        testEntries = ServerTestUtils.createRandomKeyValueString(ec2RebalancingTestConfig.numKeys);
+        originalCluster = updateCluster(originalCluster, nodeIds);
     }
 
     @After
     public void tearDown() throws Exception {
         stopClusterQuiet(hostNames, ec2RebalancingTestConfig);
+        cleanupCluster(hostNames, ec2RebalancingTestConfig);
     }
 
     @Test
@@ -120,28 +132,155 @@ public class Ec2RebalancingTest {
 
         List<Integer> originalNodes = new ArrayList<Integer>();
         for (Node node: originalCluster.getNodes()) {
+            if (node.getId() == (clusterSize-1) && spareNode)
+                break;
             originalNodes.add(node.getId());
         }
 
-        targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
         try {
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
+            targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
+            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster
+                    .getNodeById(0)
+                    .getHost())),
                                                                   new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster,
                               targetCluster,
                               rebalanceClient,
-                              spareNode ? Arrays.asList(clusterSize - 1) : originalNodes);
+                              originalNodes);
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
     }
 
     @Test
-    @Ignore
     public void testProxyGetDuringRebalancing() throws Exception {
+        int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
+        int[][] targetLayout;
+
+        if (spareNode)
+            targetLayout = splitLastPartition(partitionMap, partitionMap[clusterSize-2].length-2);
+        else
+            targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
+
+
+        if (logger.isInfoEnabled())
+            logPartitionMap(targetLayout,"Target");
+
+        final Cluster targetCluster = expandCluster(ec2RebalancingTestConfig.addNodes,
+                                                    ServerTestUtils.getLocalCluster(targetLayout.length,
+                                                                                    getPorts(targetLayout.length),
+                                                                                    targetLayout));
+
+        List<Integer> originalNodes = new ArrayList<Integer>();
+        for (Node node: originalCluster.getNodes()) {
+            if (node.getId() == (clusterSize-1) && spareNode)
+                break;
+            originalNodes.add(node.getId());
+        }
+
         try {
-            // TODO: implement this
+            ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+            final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
+            final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
+
+            populateData(originalCluster, originalNodes);
+
+            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig()
+                    .setBootstrapUrls(getBootstrapUrl(Arrays.asList(originalCluster
+                    .getNodeById(0)
+                    .getHost()))));
+
+            final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(ec2RebalancingTestConfig.testStoreName,
+                                                                                                   null,
+                                                                                                   factory,
+                                                                                                   3);
+            final boolean[] masterNodeResponded = { false, false };
+
+            // start get operation.
+            executorService.execute(new Runnable() {
+
+                public void run() {
+                    try {
+                        List<String> keys = new ArrayList<String>(testEntries.keySet());
+
+                        int nRequests = 0;
+                        while(!rebalancingToken.get()) {
+                            // should always able to get values.
+                            int index = (int) (Math.random() * keys.size());
+
+                            // should get a valid value
+                            try {
+                                nRequests++;
+                                Versioned<String> value = storeClient.get(keys.get(index));
+                                assertNotSame("StoreClient get() should not return null.", null, value);
+                                assertEquals("Value returned should be good",
+                                             new Versioned<String>(testEntries.get(keys.get(index))),
+                                             value);
+                                int masterNode = storeClient.getResponsibleNodes(keys.get(index))
+                                                                                     .get(0)
+                                                                                     .getId();
+                                masterNodeResponded[masterNode] = true;
+
+                            } catch(UnreachableStoreException e) {
+                                // ignore
+                            } catch(Exception e) {
+                                exceptions.add(e);
+                            }
+                        }
+
+                    } catch(Exception e) {
+                        exceptions.add(e);
+                    } finally {
+                        factory.close();
+                    }
+                }
+
+            });
+
+            executorService.execute(new Runnable() {
+
+                public void run() {
+                    try {
+
+                        Thread.sleep(100);
+
+                        RebalanceClient rebalanceClient = new
+                                        RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
+                                                        new RebalanceClientConfig());
+                        
+                        rebalanceAndCheck(originalCluster,
+                                          targetCluster,
+                                          rebalanceClient,
+                                          Arrays.asList(1));
+
+                        // sleep for 1 mins before stopping servers
+                        Thread.sleep(60 * 1000);
+
+                        rebalancingToken.set(true);
+
+                    } catch(Exception e) {
+                        exceptions.add(e);
+                    }
+                }
+            });
+
+            executorService.shutdown();
+            executorService.awaitTermination(300, TimeUnit.SECONDS);
+
+            assertEquals("Client should see values returned master at both (0,1):("
+                         + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
+                         true,
+                         masterNodeResponded[0] && masterNodeResponded[1]);
+
+            // check No Exception
+            if(exceptions.size() > 0) {
+                for(Exception e: exceptions) {
+                    e.printStackTrace();
+                }
+                fail("Should not see any exceptions !!");
+            }
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
