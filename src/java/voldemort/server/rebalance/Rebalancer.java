@@ -151,6 +151,12 @@ public class Rebalancer implements Runnable {
         int requestId = asyncRunner.getUniqueRequestId();
 
         asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
+            
+            @Override
+            public void stop() {
+                // TODO: verify if this is correct
+                Thread.currentThread().interrupt();
+            }
 
             @Override
             public void operate() throws Exception {

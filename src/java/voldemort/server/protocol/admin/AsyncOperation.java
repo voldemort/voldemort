@@ -1,6 +1,7 @@
 package voldemort.server.protocol.admin;
 
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 
 /**
  * @author afeinberg
@@ -39,4 +40,7 @@ public abstract class AsyncOperation implements Runnable {
     }
 
     abstract public void operate() throws Exception;
+
+    @JmxOperation
+    abstract public void stop();
 }

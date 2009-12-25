@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -391,6 +392,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         try {
             asyncRunner.submitOperation(requestId,
                                         new AsyncOperation(requestId, "Fetch and Update") {
+                                            private final AtomicBoolean running = new AtomicBoolean(true);
+
+                                            @Override
+                                            public void stop() {
+                                                running.set(false);
+                                            }
 
                                             @Override
                                             public void operate() {
@@ -404,7 +411,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                                                             filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                                                    for(long i = 0; entriesIterator.hasNext(); i++) {
+                                                    for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
                                                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
                                                         try {

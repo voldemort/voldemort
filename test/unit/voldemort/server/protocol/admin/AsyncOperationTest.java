@@ -18,6 +18,9 @@ public class AsyncOperationTest extends TestCase {
         AsyncOperation completeLater = new AsyncOperation(0, "test") {
 
             @Override
+            public void stop() {}
+
+            @Override
             public void operate() {
                 try {
                     Thread.sleep(2000);
@@ -30,13 +33,16 @@ public class AsyncOperationTest extends TestCase {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
 
         AsyncOperation completeNow = new AsyncOperation(1, "test 2") {
+            @Override
+            public void stop() {}
 
             @Override
             public void operate() {}
         };
 
         AsyncOperation completeSoon = new AsyncOperation(2, "test3") {
-
+            @Override
+            public void stop() {}
             @Override
             public void operate() {
                 try {
