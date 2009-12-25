@@ -129,6 +129,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceNode(request.getInitiateRebalanceNode()));
                 break;
+            case ASYNC_OPERATION_LIST:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleAsyncOperationList(request.getAsyncOperationList()));
+                break;
+            case ASYNC_OPERATION_STOP:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleAsyncOperationStop(request.getAsyncOperationStop()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -370,6 +378,32 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {
+        VAdminProto.AsyncOperationListResponse.Builder response = VAdminProto.AsyncOperationListResponse.newBuilder();
+        boolean showComplete = request.hasShowComplete() && request.getShowComplete();
+        try {
+            response.addAllRequestIds(asyncRunner.getAsyncOperationList(showComplete));
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationStopResponse handleAsyncOperationStop(VAdminProto.AsyncOperationStopRequest request) {
+        VAdminProto.AsyncOperationStopResponse.Builder response = VAdminProto.AsyncOperationStopResponse.newBuilder();
+        int requestId = request.getRequestId();
+        try {
+            asyncRunner.stopOperation(requestId);
+        } catch (VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();

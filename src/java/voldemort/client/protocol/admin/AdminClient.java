@@ -550,6 +550,46 @@ public class AdminClient {
         return status;
     }
 
+    // TODO: Javadoc, "integration" test
+    public List<Integer> getAsyncRequestList(int nodeId) {
+        return getAsyncRequestList(nodeId, false);
+    }
+
+    // TODO: Javadoc, "integration" test
+    public List<Integer> getAsyncRequestList(int nodeId, boolean showComplete) {
+        VAdminProto.AsyncOperationListRequest asyncOperationListRequest = VAdminProto.AsyncOperationListRequest.newBuilder()
+                .setShowComplete(showComplete)
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_LIST)
+                .setAsyncOperationList(asyncOperationListRequest)
+                .build();
+        VAdminProto.AsyncOperationListResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.AsyncOperationListResponse.newBuilder());
+        if (response.hasError())
+            throwException(response.getError());
+
+        return response.getRequestIdsList();
+    }
+
+    // TODO: Javadoc, "integration" test
+    public void stopAsyncRequest(int nodeId, int requestId) {
+        VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
+                .setRequestId(requestId)
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STOP)
+                .setAsyncOperationStop(asyncOperationStopRequest)
+                .build();
+        VAdminProto.AsyncOperationStopResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.AsyncOperationStopResponse.newBuilder());
+
+        if (response.hasError())
+            throwException(response.getError());
+    }
+
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
         Class<?> cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);

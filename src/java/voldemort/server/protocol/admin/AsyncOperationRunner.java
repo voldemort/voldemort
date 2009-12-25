@@ -1,11 +1,13 @@
 package voldemort.server.protocol.admin;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -58,7 +60,7 @@ public class AsyncOperationRunner extends AbstractService {
      * @param requestId Id of the request
      * @return True if request is complete, false otherwise
      */
-    public boolean isComplete(int requestId) {
+    public synchronized boolean isComplete(int requestId) {
         if(!operations.containsKey(requestId)) {
             throw new VoldemortException("No operation with id " + requestId + " found");
         }
@@ -93,7 +95,27 @@ public class AsyncOperationRunner extends AbstractService {
         return result;
     }
 
+    public List<Integer> getAsyncOperationList(boolean showComplete) {
+        /**
+         * I have some concers about the thread safety of this. I am afraid
+         * that it may cause {@link java.util.ConcurrentModificationException}
+         *
+         * TODO: unit test, including multiple threads accessing this
+         */
+        Set<Integer> keySet = operations.keySet();
+        if (!showComplete) {
+            List<Integer> keyList = new ArrayList<Integer>();
+            for (int key: keySet) {
+                if (!operations.get(key).getStatus().isComplete())
+                    keyList.add(key);
+            }
+            return keyList;
+        }
+        return new ArrayList<Integer>(keySet);
+    }
+
     public AsyncOperationStatus getOperationStatus(int requestId) {
+        // TODO: unit test
         if(!operations.containsKey(requestId)) {
             throw new VoldemortException("No operation with id " + requestId + " found");
         }

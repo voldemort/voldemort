@@ -43,6 +43,14 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='INITIATE_REBALANCE_NODE', index=7, number=7,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='ASYNC_OPERATION_STOP', index=8, number=8,
+      options=None,
+      type=None),
+    descriptor.EnumValueDescriptor(
+      name='ASYNC_OPERATION_LIST', index=9, number=9,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -56,6 +64,8 @@ DELETE_PARTITION_ENTRIES = 4
 INITIATE_FETCH_AND_UPDATE = 5
 ASYNC_OPERATION_STATUS = 6
 INITIATE_REBALANCE_NODE = 7
+ASYNC_OPERATION_STOP = 8
+ASYNC_OPERATION_LIST = 9
 
 
 
@@ -486,6 +496,108 @@ _ASYNCOPERATIONSTATUSREQUEST = descriptor.Descriptor(
   options=None)
 
 
+_ASYNCOPERATIONSTOPREQUEST = descriptor.Descriptor(
+  name='AsyncOperationStopRequest',
+  full_name='voldemort.AsyncOperationStopRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='request_id', full_name='voldemort.AsyncOperationStopRequest.request_id', index=0,
+      number=1, type=5, cpp_type=1, label=2,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_ASYNCOPERATIONSTOPRESPONSE = descriptor.Descriptor(
+  name='AsyncOperationStopResponse',
+  full_name='voldemort.AsyncOperationStopResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.AsyncOperationStopResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_ASYNCOPERATIONLISTREQUEST = descriptor.Descriptor(
+  name='AsyncOperationListRequest',
+  full_name='voldemort.AsyncOperationListRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='request_id', full_name='voldemort.AsyncOperationListRequest.request_id', index=0,
+      number=1, type=5, cpp_type=1, label=2,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='show_complete', full_name='voldemort.AsyncOperationListRequest.show_complete', index=1,
+      number=2, type=8, cpp_type=7, label=2,
+      default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_ASYNCOPERATIONLISTRESPONSE = descriptor.Descriptor(
+  name='AsyncOperationListResponse',
+  full_name='voldemort.AsyncOperationListResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='request_ids', full_name='voldemort.AsyncOperationListResponse.request_ids', index=0,
+      number=1, type=5, cpp_type=1, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.AsyncOperationListResponse.error', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
   name='InitiateRebalanceNodeRequest',
   full_name='voldemort.InitiateRebalanceNodeRequest',
@@ -662,6 +774,20 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='async_operation_stop', full_name='voldemort.VoldemortAdminRequest.async_operation_stop', index=9,
+      number=10, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='async_operation_list', full_name='voldemort.VoldemortAdminRequest.async_operation_list', index=10,
+      number=11, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -686,6 +812,8 @@ _FETCHPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_
 _DELETEPARTITIONENTRIESREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _DELETEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
+_ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
@@ -696,6 +824,8 @@ _VOLDEMORTADMINREQUEST.fields_by_name['delete_partition_entries'].message_type =
 _VOLDEMORTADMINREQUEST.fields_by_name['initiate_fetch_and_update'].message_type = _INITIATEFETCHANDUPDATEREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_status'].message_type = _ASYNCOPERATIONSTATUSREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['initiate_rebalance_node'].message_type = _INITIATEREBALANCENODEREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['async_operation_stop'].message_type = _ASYNCOPERATIONSTOPREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['async_operation_list'].message_type = _ASYNCOPERATIONLISTREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -752,6 +882,22 @@ class InitiateFetchAndUpdateRequest(message.Message):
 class AsyncOperationStatusRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ASYNCOPERATIONSTATUSREQUEST
+
+class AsyncOperationStopRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ASYNCOPERATIONSTOPREQUEST
+
+class AsyncOperationStopResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ASYNCOPERATIONSTOPRESPONSE
+
+class AsyncOperationListRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ASYNCOPERATIONLISTREQUEST
+
+class AsyncOperationListResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ASYNCOPERATIONLISTRESPONSE
 
 class InitiateRebalanceNodeRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
