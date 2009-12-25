@@ -648,7 +648,7 @@ public class AdminClient {
                 throw new VoldemortException(status.getException());
 
             if(delay < MAX_DELAY)
-                delay <<= 2;
+                delay <<= 1;
 
             try {
                 Thread.sleep(delay);

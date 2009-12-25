@@ -15,8 +15,8 @@ import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 
 /**
- * @author afeinberg Asynchronous job scheduler for admin service operations
- * 
+ * @author afeinberg
+ * Asynchronous job scheduler for admin service operations
  */
 @JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationRunner extends AbstractService {
@@ -99,6 +99,25 @@ public class AsyncOperationRunner extends AbstractService {
         }
 
         return operations.get(requestId).getStatus();
+    }
+
+    // Wrapper to avoid throwing an exception over JMX
+    @JmxOperation
+    public String stopAsyncOperation(int requestId) {
+        try {
+            stopOperation(requestId);
+        } catch (VoldemortException e) {
+            return e.getMessage();
+        }
+
+        return "Stopping operation " + requestId;
+    }
+
+    public void stopOperation(int requestId) {
+        if(!operations.containsKey(requestId)) {
+            throw new VoldemortException("No operation with id " + requestId + " found");
+        }
+        operations.get(requestId).stop();
     }
 
     public int getUniqueRequestId() {
