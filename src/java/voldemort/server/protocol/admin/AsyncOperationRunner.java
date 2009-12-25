@@ -3,11 +3,8 @@ package voldemort.server.protocol.admin;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -25,16 +22,35 @@ public class AsyncOperationRunner extends AbstractService {
 
     private final Map<Integer, AsyncOperation> operations;
     private final ExecutorService executor;
-    private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
+
+    private final static Logger logger = Logger.getLogger(AsyncOperationRunner.class);
+
+    /**
+     * TODO: Unify this with {@link voldemort.server.scheduler.SchedulerService}
+     */
+    private static final ThreadFactory threadFactory = new ThreadFactory() {
+        public Thread newThread(Runnable r) {
+            Thread thread = new Thread(r);
+            thread.setDaemon(true);
+            thread.setName(r.getClass().getName());
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+
+                public void uncaughtException(Thread t, Throwable e) {
+                    logger.error("Asynchronous operation failed!", e);
+                }
+            });
+
+            return thread;
+        }
+    };
 
     @SuppressWarnings("unchecked")
     // apache commons collections aren't updated for 1.5 yet
     public AsyncOperationRunner(int poolSize, int cacheSize) {
         super(ServiceType.ASYNC_SCHEDULER);
         operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
-        executor = Executors.newFixedThreadPool(poolSize);
-
+        executor = Executors.newFixedThreadPool(poolSize, threadFactory);
     }
 
     /**
@@ -45,10 +61,10 @@ public class AsyncOperationRunner extends AbstractService {
      * @param requestId Id of the request
      */
     public synchronized void submitOperation(int requestId, AsyncOperation operation) {
-        if(this.operations.containsKey(requestId)) {
+        if(this.operations.containsKey(requestId))
             throw new VoldemortException("Request " + requestId
                                          + " already submitted to the system");
-        }
+
         this.operations.put(requestId, operation);
         executor.submit(operation);
         logger.debug("Handling async operation " + requestId);
@@ -61,9 +77,8 @@ public class AsyncOperationRunner extends AbstractService {
      * @return True if request is complete, false otherwise
      */
     public synchronized boolean isComplete(int requestId) {
-        if(!operations.containsKey(requestId)) {
+        if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
-        }
 
         if(operations.get(requestId).getStatus().isComplete()) {
             logger.debug("Operation complete " + requestId);
@@ -103,22 +118,22 @@ public class AsyncOperationRunner extends AbstractService {
          * TODO: unit test, including multiple threads accessing this
          */
         Set<Integer> keySet = operations.keySet();
-        if (!showComplete) {
-            List<Integer> keyList = new ArrayList<Integer>();
-            for (int key: keySet) {
-                if (!operations.get(key).getStatus().isComplete())
-                    keyList.add(key);
-            }
-            return keyList;
+
+        if (showComplete)
+            return new ArrayList<Integer>(keySet);
+
+        List<Integer> keyList = new ArrayList<Integer>();
+        for (int key: keySet) {
+            if (!operations.get(key).getStatus().isComplete())
+                keyList.add(key);
         }
-        return new ArrayList<Integer>(keySet);
+        return keyList;
     }
 
     public AsyncOperationStatus getOperationStatus(int requestId) {
         // TODO: unit test
-        if(!operations.containsKey(requestId)) {
+        if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
-        }
 
         return operations.get(requestId).getStatus();
     }
@@ -136,9 +151,9 @@ public class AsyncOperationRunner extends AbstractService {
     }
 
     public void stopOperation(int requestId) {
-        if(!operations.containsKey(requestId)) {
+        if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
-        }
+
         operations.get(requestId).stop();
     }
 

@@ -60,72 +60,12 @@ public class Ec2RebalancingTest {
             logger.info("Sleeping for 30 seconds to give EC2 instances some time to complete startup");
 
         Thread.sleep(30000);
-        
     }
 
     @AfterClass
     public static void tearDownClass() throws Exception {
         if (hostNames != null)
             destroyInstances(hostNames, ec2RebalancingTestConfig);
-    }
-
-    private int[][] getPartitionMap(int nodes, int perNode, boolean spareNode) {
-        int limit = spareNode ? nodes - 1 : nodes;
-        int[][] partitionMap = new int[nodes][];
-        int i, k;
-
-        for (i=0, k=0; i<limit; i++) {
-            partitionMap[i] = new int[perNode];
-            for (int j=0; j < perNode; j++)
-                partitionMap[i][j] = k++;
-        }
-
-        if (spareNode)
-            partitionMap[limit] = new int[] {};
-
-
-        return partitionMap;
-    }
-
-    private static int[][] insertNode(int[][] template, int pivot) {
-        int templateLength = template.length;
-        int vectorTailLength = template[templateLength-1].length - pivot;
-        
-        int[][] layout = new int[templateLength+1][];
-        layout[templateLength-1] = new int[pivot];
-        layout[templateLength] = new int[vectorTailLength];
-
-        System.arraycopy(template, 0, layout, 0,  templateLength-1);
-        System.arraycopy(template[templateLength-1], 0, layout[templateLength-1], 0, pivot);
-        System.arraycopy(template[templateLength-1], pivot, layout[templateLength], 0, vectorTailLength);
-
-        return layout;
-    }
-
-    private static int[][] splitLastPartition(int[][] template, int pivot) {
-        int templateLength = template.length;
-        int vectorTailLength = template[templateLength-2].length - pivot;
-
-        int[][] layout = new int[templateLength][];
-        layout[templateLength-2] = new int[pivot];
-        layout[templateLength-1] = new int[vectorTailLength];
-
-        System.arraycopy(template, 0, layout, 0,  templateLength-2);
-        System.arraycopy(template[templateLength-2], 0, layout[templateLength-2], 0, pivot);
-        System.arraycopy(template[templateLength-2], pivot, layout[templateLength-1], 0, vectorTailLength);
-
-        return layout;
-    }
-
-    private int[] getPorts(int count) {
-        int[] ports = new int[count*3];
-        for (int i = 0; i < count; i++) {
-            ports[3 * i] = 6665;
-            ports[3 * i + 1] = 6666;
-            ports[3 * i + 2] = 6667;
-        }
-
-        return ports;
     }
 
     @Before
@@ -160,7 +100,53 @@ public class Ec2RebalancingTest {
         stopClusterQuiet(hostNames, ec2RebalancingTestConfig);
     }
 
-    
+    @Test
+    public void testSingleRebalancing() throws Exception {
+        int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
+        int[][] targetLayout;
+
+        if (spareNode)
+            targetLayout = splitLastPartition(partitionMap, partitionMap[clusterSize-2].length-2);
+        else
+            targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
+
+
+        if (logger.isInfoEnabled())
+            logPartitionMap(targetLayout,"Target");
+
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(targetLayout.length,
+                                                                getPorts(targetLayout.length),
+                                                                targetLayout);
+
+        List<Integer> originalNodes = new ArrayList<Integer>();
+        for (Node node: originalCluster.getNodes()) {
+            originalNodes.add(node.getId());
+        }
+
+        targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
+        try {
+            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
+                                                                  new RebalanceClientConfig());
+            populateData(originalCluster, originalNodes);
+            rebalanceAndCheck(originalCluster,
+                              targetCluster,
+                              rebalanceClient,
+                              spareNode ? Arrays.asList(clusterSize - 1) : originalNodes);
+        } finally {
+            stopCluster(hostNames, ec2RebalancingTestConfig);
+        }
+    }
+
+    @Test
+    @Ignore
+    public void testProxyGetDuringRebalancing() throws Exception {
+        try {
+            // TODO: implement this
+        } finally {
+            stopCluster(hostNames, ec2RebalancingTestConfig);
+        }
+    }
+
     private Cluster updateCluster(Cluster templateCluster, Map<String, Integer> nodeIds) {
         List<Node> nodes = new ArrayList<Node>();
         for (Map.Entry<String,Integer> entry: nodeIds.entrySet()) {
@@ -207,6 +193,64 @@ public class Ec2RebalancingTest {
         return updateCluster(newCluster, nodeIds);
     }
 
+    private int[][] getPartitionMap(int nodes, int perNode, boolean spareNode) {
+          int limit = spareNode ? nodes - 1 : nodes;
+          int[][] partitionMap = new int[nodes][];
+          int i, k;
+
+          for (i=0, k=0; i<limit; i++) {
+              partitionMap[i] = new int[perNode];
+              for (int j=0; j < perNode; j++)
+                  partitionMap[i][j] = k++;
+          }
+
+          if (spareNode)
+              partitionMap[limit] = new int[] {};
+
+          return partitionMap;
+      }
+
+      private static int[][] insertNode(int[][] template, int pivot) {
+          int templateLength = template.length;
+          int vectorTailLength = template[templateLength-1].length - pivot;
+
+          int[][] layout = new int[templateLength+1][];
+          layout[templateLength-1] = new int[pivot];
+          layout[templateLength] = new int[vectorTailLength];
+
+          System.arraycopy(template, 0, layout, 0,  templateLength-1);
+          System.arraycopy(template[templateLength-1], 0, layout[templateLength-1], 0, pivot);
+          System.arraycopy(template[templateLength-1], pivot, layout[templateLength], 0, vectorTailLength);
+
+          return layout;
+      }
+
+      private static int[][] splitLastPartition(int[][] template, int pivot) {
+          int templateLength = template.length;
+          int vectorTailLength = template[templateLength-2].length - pivot;
+
+          int[][] layout = new int[templateLength][];
+          layout[templateLength-2] = new int[pivot];
+          layout[templateLength-1] = new int[vectorTailLength];
+
+          System.arraycopy(template, 0, layout, 0,  templateLength-2);
+          System.arraycopy(template[templateLength-2], 0, layout[templateLength-2], 0, pivot);
+          System.arraycopy(template[templateLength-2], pivot, layout[templateLength-1], 0, vectorTailLength);
+
+          return layout;
+      }
+
+      private static int[] getPorts(int count) {
+          int[] ports = new int[count*3];
+          for (int i = 0; i < count; i++) {
+              ports[3 * i] = 6665;
+              ports[3 * i + 1] = 6666;
+              ports[3 * i + 2] = 6667;
+          }
+
+          return ports;
+      }
+
     private static void logPartitionMap(int[][] map, String name) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(name);
@@ -224,43 +268,6 @@ public class Ec2RebalancingTest {
 
     }
 
-    @Test
-    public void testSingleRebalancing() throws Exception {
-        int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
-        int[][] targetLayout;
-
-        if (spareNode)
-            targetLayout = splitLastPartition(partitionMap, partitionMap[clusterSize-2].length-2);
-        else 
-            targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
-
-
-        if (logger.isInfoEnabled())
-            logPartitionMap(targetLayout,"Target");
-
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(targetLayout.length,
-                                                                getPorts(targetLayout.length),
-                                                                targetLayout);
-
-        List<Integer> originalNodes = new ArrayList<Integer>();
-
-        for (Node node: originalCluster.getNodes()) {
-            originalNodes.add(node.getId());
-        }
-
-        targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
-        try {
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
-                                                                  new RebalanceClientConfig());
-            populateData(originalCluster, originalNodes);
-            rebalanceAndCheck(originalCluster,
-                              targetCluster,
-                              rebalanceClient,
-                              spareNode ? Arrays.asList(clusterSize - 1) : originalNodes);
-        } finally {
-            stopCluster(hostNames, ec2RebalancingTestConfig);
-        }
-    }
 
     private void populateData(Cluster cluster, List<Integer> nodeList) {
         // Create SocketStores for each Node first
@@ -381,15 +388,7 @@ public class Ec2RebalancingTest {
         return "tcp://" + hostnames.get(0) + ":6666";
     }
 
-    @Test
-    @Ignore
-    public void testProxyGetDuringRebalancing() throws Exception {
-        try {
-            // TODO: implement this
-        } finally {
-            stopCluster(hostNames, ec2RebalancingTestConfig);
-        }
-    }
+
 
 
     private static class Ec2RebalancingTestConfig extends Ec2RemoteTestConfig {
