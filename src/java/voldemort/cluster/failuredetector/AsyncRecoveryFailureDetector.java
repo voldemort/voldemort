@@ -16,15 +16,8 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
@@ -46,16 +39,6 @@ import voldemort.store.UnreachableStoreException;
 public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
     /**
-     * A map of nodes that have been marked as unavailable. As nodes go offline
-     * and callers report such via recordException, they are added here. When a
-     * node becomes available via the check in the thread, they are removed. The
-     * Integer is the number of times we've tried to access it since going
-     * offline.
-     */
-
-    private final ConcurrentHashMap<Node, Integer> unavailableNodes;
-
-    /**
      * Thread that checks availability of the nodes in the unavailableNodes set.
      */
 
@@ -66,8 +49,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
         super(failureDetectorConfig);
 
-        unavailableNodes = new ConcurrentHashMap<Node, Integer>();
-
         isRunning = true;
 
         recoveryThread = new Thread(this, "AsyncNodeRecoverer");
@@ -76,13 +57,11 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
     }
 
     public boolean isAvailable(Node node) {
-        // This is a sanity check that will throw an error if the node is
-        // invalid.
-        getNodeStatus(node);
+        NodeStatus nodeStatus = getNodeStatus(node);
 
-        // We override the default behavior and keep track of the unavailable
-        // nodes in our set.
-        return !unavailableNodes.containsKey(node);
+        synchronized(nodeStatus) {
+            return nodeStatus.isAvailable();
+        }
     }
 
     public void recordException(Node node, UnreachableStoreException e) {
@@ -91,25 +70,6 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
     public void recordSuccess(Node node) {
     // Do nothing. Nodes only become available in our thread...
-    }
-
-    @JmxGetter(name = "nodeAttempts", description = "Each unavailable node is listed with the number of attempts to contact since becoming unavailable")
-    public String getNodeAttempts() {
-        List<String> list = new ArrayList<String>();
-
-        for(Map.Entry<Node, Integer> entry: unavailableNodes.entrySet()) {
-            Node node = entry.getKey();
-            list.add(node + "=" + entry.getValue());
-        }
-
-        return StringUtils.join(list, ",");
-    }
-
-    @Override
-    protected void setUnavailable(Node node, UnreachableStoreException e) {
-        unavailableNodes.putIfAbsent(node, 0);
-
-        super.setUnavailable(node, e);
     }
 
     @Override
@@ -132,8 +92,9 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 break;
             }
 
-            for(Map.Entry<Node, Integer> entry: unavailableNodes.entrySet()) {
-                Node node = entry.getKey();
+            for(Node node: getConfig().getNodes()) {
+                if(isAvailable(node))
+                    continue;
 
                 if(logger.isDebugEnabled())
                     logger.debug("Checking previously unavailable node " + node);
@@ -151,23 +112,13 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                         logger.debug("Verified previously unavailable node " + node
                                      + ", will mark as available...");
 
-                    unavailableNodes.remove(node);
-
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(node + " still unavailable", e);
-
-                    unavailableNodes.put(node, entry.getValue() + 1);
-
-                    setUnavailable(node, e);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error(node + " unavailable due to error", e);
-
-                    unavailableNodes.put(node, entry.getValue() + 1);
-
-                    setUnavailable(node, new UnreachableStoreException(e.getMessage()));
                 }
             }
         }

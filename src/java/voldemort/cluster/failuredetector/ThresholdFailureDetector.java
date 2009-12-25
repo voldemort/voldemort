@@ -49,14 +49,17 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
         for(Node node: getConfig().getNodes()) {
             NodeStatus nodeStatus = getNodeStatus(node);
+            boolean isAvailabile = false;
+            long percentage = 0;
 
             synchronized(nodeStatus) {
-                String availability = isAvailable(node) ? "available" : "unavailable";
-                long percentage = nodeStatus.getTotal() > 0 ? (nodeStatus.getSuccess() * 100)
-                                                              / nodeStatus.getTotal() : 0;
-
-                list.add(node + ",status=" + availability + ",percentage=" + percentage + "%");
+                isAvailabile = nodeStatus.isAvailable();
+                percentage = nodeStatus.getTotal() > 0 ? (nodeStatus.getSuccess() * 100)
+                                                         / nodeStatus.getTotal() : 0;
             }
+
+            list.add(node + ",status=" + (isAvailabile ? "available" : "unavailable")
+                     + ",percentage=" + percentage + "%");
         }
 
         return StringUtils.join(list, ";");
@@ -77,7 +80,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
             nodeStatus.setStartMillis(getConfig().getTime().getMilliseconds());
             nodeStatus.setSuccess(0);
             nodeStatus.setTotal(0);
-            setAvailable(node);
+            super.nodeRecovered(node);
         }
     }
 

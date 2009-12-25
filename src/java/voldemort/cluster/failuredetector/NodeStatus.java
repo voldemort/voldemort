@@ -16,8 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import voldemort.utils.Time;
-import voldemort.utils.Utils;
 
 /**
  * Holds the status of a node--either available or unavailable as well as the
@@ -30,8 +28,6 @@ import voldemort.utils.Utils;
  */
 class NodeStatus {
 
-    private final Time time;
-
     private long lastChecked;
 
     private boolean isAvailable;
@@ -42,40 +38,20 @@ class NodeStatus {
 
     private long total;
 
-    public NodeStatus(Time time) {
-        long currTime = time.getMilliseconds();
-
-        this.time = Utils.notNull(time);
-        this.lastChecked = currTime;
-        this.startMillis = currTime;
-        this.isAvailable = true;
-    }
-
     public long getLastChecked() {
         return lastChecked;
+    }
+
+    public void setLastChecked(long lastChecked) {
+        this.lastChecked = lastChecked;
     }
 
     public boolean isAvailable() {
         return isAvailable;
     }
 
-    /**
-     * We need to distinguish the case where we're newly available and the case
-     * where we're already available. So we check the node status before we
-     * update it and return it to the caller.
-     * 
-     * @param isAvailable True to set to available, false to make unavailable
-     * 
-     * @return Previous value of isAvailable
-     */
-
-    public boolean setAvailable(boolean isAvailable) {
-        boolean previous = this.isAvailable;
-
+    public void setAvailable(boolean isAvailable) {
         this.isAvailable = isAvailable;
-        this.lastChecked = time.getMilliseconds();
-
-        return previous;
     }
 
     public long getStartMillis() {
@@ -108,10 +84,6 @@ class NodeStatus {
 
     public void incrementTotal(long delta) {
         this.total += delta;
-    }
-
-    public Time getTime() {
-        return time;
     }
 
 }

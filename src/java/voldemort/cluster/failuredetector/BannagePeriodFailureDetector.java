@@ -100,11 +100,13 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         for(Node node: getConfig().getNodes()) {
             if(!isAvailable(node)) {
                 NodeStatus nodeStatus = getNodeStatus(node);
+                long millis = 0;
 
                 synchronized(nodeStatus) {
-                    long millis = (nodeStatus.getLastChecked() + bannagePeriod) - currentTime;
-                    list.add(node.toString() + "=" + millis);
+                    millis = (nodeStatus.getLastChecked() + bannagePeriod) - currentTime;
                 }
+
+                list.add(node.toString() + "=" + millis);
             }
         }
 

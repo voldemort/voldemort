@@ -53,8 +53,16 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
 
-        for(Node node: failureDetectorConfig.getNodes())
-            nodeStatusMap.put(node, new NodeStatus(failureDetectorConfig.getTime()));
+        long currTime = failureDetectorConfig.getTime().getMilliseconds();
+
+        for(Node node: failureDetectorConfig.getNodes()) {
+            NodeStatus nodeStatus = new NodeStatus();
+            nodeStatus.setLastChecked(currTime);
+            nodeStatus.setStartMillis(currTime);
+            nodeStatus.setAvailable(true);
+
+            nodeStatusMap.put(node, nodeStatus);
+        }
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -132,14 +140,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         if(logger.isTraceEnabled())
             logger.trace(node + " set as available");
 
-        boolean previouslyAvailable = false;
-
-        synchronized(nodeStatus) {
-            // We need to distinguish the case where we're newly available and
-            // the case where we're getting redundant availability notices. So
-            // let's check the node status before we update it.
-            previouslyAvailable = nodeStatus.setAvailable(true);
-        }
+        // We need to distinguish the case where we're newly available and the
+        // case where we're getting redundant availability notices. So let's
+        // check the node status before we update it.
+        boolean previouslyAvailable = setAvailable(nodeStatus, true);
 
         // If we were not previously available, we've just switched state,
         // so notify any listeners.
@@ -172,14 +176,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                 logger.warn(node + " set as unavailable");
         }
 
-        boolean previouslyAvailable = false;
-
-        synchronized(nodeStatus) {
-            // We need to distinguish the case where we're newly unavailable and
-            // the case where we're getting redundant failure notices. So let's
-            // check the node status before we update it.
-            previouslyAvailable = nodeStatus.setAvailable(false);
-        }
+        // We need to distinguish the case where we're newly unavailable and the
+        // case where we're getting redundant failure notices. So let's check
+        // the node status before we update it.
+        boolean previouslyAvailable = setAvailable(nodeStatus, false);
 
         // If we were previously available, we've just switched state from
         // available to unavailable, so notify any listeners.
@@ -206,6 +206,27 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                                                + " is not a valid node for this cluster");
 
         return nodeStatus;
+    }
+
+    /**
+     * We need to distinguish the case where we're newly available and the case
+     * where we're already available. So we check the node status before we
+     * update it and return it to the caller.
+     * 
+     * @param isAvailable True to set to available, false to make unavailable
+     * 
+     * @return Previous value of isAvailable
+     */
+
+    private boolean setAvailable(NodeStatus nodeStatus, boolean isAvailable) {
+        synchronized(nodeStatus) {
+            boolean previous = nodeStatus.isAvailable();
+
+            nodeStatus.setAvailable(isAvailable);
+            nodeStatus.setLastChecked(getConfig().getTime().getMilliseconds());
+
+            return previous;
+        }
     }
 
 }
