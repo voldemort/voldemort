@@ -26,6 +26,7 @@ import voldemort.versioning.Versioned;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -188,14 +189,12 @@ public class Ec2RebalancingTest {
             populateData(originalCluster, originalNodes);
 
             final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig()
-                    .setBootstrapUrls(getBootstrapUrl(Arrays.asList(originalCluster
-                    .getNodeById(0)
-                    .getHost()))));
+                    .setBootstrapUrls(getBootstrapUrl(originalCluster, 0)));
 
             final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(ec2RebalancingTestConfig.testStoreName,
                                                                                                    null,
                                                                                                    factory,
-                                                                                                   3);
+                                                                                                   5);
             final boolean[] masterNodeResponded = { false, false };
 
             // start get operation.
@@ -205,16 +204,13 @@ public class Ec2RebalancingTest {
                     try {
                         List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                        int nRequests = 0;
                         while(!rebalancingToken.get()) {
                             // should always able to get values.
                             int index = (int) (Math.random() * keys.size());
-
                             // should get a valid value
                             try {
-                                nRequests++;
                                 Versioned<String> value = storeClient.get(keys.get(index));
-                                assertNotSame("StoreClient get() should not return null.", null, value);
+                                assertNotNull("StoreClient get() should not return null.", value);
                                 assertEquals("Value returned should be good",
                                              new Versioned<String>(testEntries.get(keys.get(index))),
                                              value);
@@ -243,11 +239,10 @@ public class Ec2RebalancingTest {
 
                 public void run() {
                     try {
-
                         Thread.sleep(100);
 
                         RebalanceClient rebalanceClient = new
-                                        RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
+                                        RebalanceClient(getBootstrapUrl(originalCluster, 0),
                                                         new RebalanceClientConfig());
                         
                         rebalanceAndCheck(originalCluster,
@@ -255,7 +250,7 @@ public class Ec2RebalancingTest {
                                           rebalanceClient,
                                           Arrays.asList(1));
 
-                        // sleep for 1 mins before stopping servers
+                        // sleep for 1 min before stopping servers
                         Thread.sleep(60 * 1000);
 
                         rebalancingToken.set(true);
@@ -269,10 +264,9 @@ public class Ec2RebalancingTest {
             executorService.shutdown();
             executorService.awaitTermination(300, TimeUnit.SECONDS);
 
-            assertEquals("Client should see values returned master at both (0,1):("
-                         + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
-                         true,
-                         masterNodeResponded[0] && masterNodeResponded[1]);
+            assertTrue("Client should see values returned master at both (0,1):("
+                       + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
+                       masterNodeResponded[0] && masterNodeResponded[1]);
 
             // check No Exception
             if(exceptions.size() > 0) {
@@ -527,8 +521,9 @@ public class Ec2RebalancingTest {
         return "tcp://" + hostnames.get(0) + ":6666";
     }
 
-
-
+    private String getBootstrapUrl(Cluster cluster, int nodeId) {
+        return getBootstrapUrl(Arrays.asList(cluster.getNodeById(nodeId).getHost()));
+    }
 
     private static class Ec2RebalancingTestConfig extends Ec2RemoteTestConfig {
         private int numKeys;
