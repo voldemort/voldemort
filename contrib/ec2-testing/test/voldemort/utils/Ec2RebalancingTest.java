@@ -113,6 +113,7 @@ public class Ec2RebalancingTest {
         cleanupCluster(hostNames, ec2RebalancingTestConfig);
     }
 
+    @Ignore
     @Test
     public void testSingleRebalancing() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
@@ -140,9 +141,7 @@ public class Ec2RebalancingTest {
 
         try {
             targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster
-                    .getNodeById(0)
-                    .getHost())),
+            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(originalCluster, 0),
                                                                   new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster,
@@ -156,37 +155,18 @@ public class Ec2RebalancingTest {
 
     @Test
     public void testProxyGetDuringRebalancing() throws Exception {
-        int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
-        int[][] targetLayout;
-
-        if (spareNode)
-            targetLayout = splitLastPartition(partitionMap, partitionMap[clusterSize-2].length-2);
-        else
-            targetLayout = insertNode(partitionMap, partitionMap[clusterSize-1].length-2);
-
-
-        if (logger.isInfoEnabled())
-            logPartitionMap(targetLayout,"Target");
-
-        final Cluster targetCluster = expandCluster(ec2RebalancingTestConfig.addNodes,
-                                                    ServerTestUtils.getLocalCluster(targetLayout.length,
-                                                                                    getPorts(targetLayout.length),
-                                                                                    targetLayout));
-
-        List<Integer> originalNodes = new ArrayList<Integer>();
-        for (Node node: originalCluster.getNodes()) {
-            if (node.getId() == (clusterSize-1) && spareNode)
-                break;
-            originalNodes.add(node.getId());
-        }
-
+        assert(ec2RebalancingTestConfig.getInstanceCount() == 2);
+        final Cluster targetCluster = expandCluster(0,
+                                                    ServerTestUtils.getLocalCluster(2,
+                                                                                    getPorts(2),
+                                                                                    new int[][] {{}, {0, 1, 2, 3}}));
         try {
             ExecutorService executorService = Executors.newFixedThreadPool(2);
 
             final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
             final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
-            populateData(originalCluster, originalNodes);
+            populateData(originalCluster, Arrays.asList(0));
 
             final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig()
                     .setBootstrapUrls(getBootstrapUrl(originalCluster, 0)));
@@ -194,7 +174,7 @@ public class Ec2RebalancingTest {
             final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(ec2RebalancingTestConfig.testStoreName,
                                                                                                    null,
                                                                                                    factory,
-                                                                                                   5);
+                                                                                                   3);
             final boolean[] masterNodeResponded = { false, false };
 
             // start get operation.
@@ -221,7 +201,8 @@ public class Ec2RebalancingTest {
 
                             } catch(UnreachableStoreException e) {
                                 // ignore
-                            } catch(Exception e) {
+                            }
+                            catch(Exception e) {
                                 exceptions.add(e);
                             }
                         }
@@ -262,7 +243,7 @@ public class Ec2RebalancingTest {
             });
 
             executorService.shutdown();
-            executorService.awaitTermination(300, TimeUnit.SECONDS);
+            executorService.awaitTermination(15 * 60, TimeUnit.SECONDS);
 
             assertTrue("Client should see values returned master at both (0,1):("
                        + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
