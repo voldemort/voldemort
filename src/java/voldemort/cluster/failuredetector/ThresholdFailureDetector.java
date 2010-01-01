@@ -26,6 +26,39 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
 
+/**
+ * ThresholdFailureDetector builds upon the AsyncRecoveryFailureDetector and
+ * provides a more lenient for marking nodes as unavailable. Fundamentally, for
+ * each node, the ThresholdFailureDetector keeps track of a "success ratio"
+ * which is a ratio of successful operations to total operations and requires
+ * that ratio to meet or exceed a threshold. That is, every call to
+ * recordException or recordSuccess increments the total count while only calls
+ * to recordSuccess increments the success count. Calls to recordSuccess
+ * increase the success ratio while calls to recordException by contrast
+ * decrease the success ratio.
+ * 
+ * <p/>
+ * 
+ * As the success ratio threshold continues to exceed the threshold, the node
+ * will be considered as available. Once the success ratio dips below the
+ * threshold, the node is marked as unavailable. As this class extends the
+ * AsyncRecoveryFailureDetector, an unavailable node is only marked as available
+ * once a background thread has been able to contact the node asynchronously.
+ * 
+ * <p/>
+ * 
+ * There is also a minimum number of requests that must occur before the success
+ * ratio is checked against the threshold. This is to prevent occurrences like 1
+ * failure out of 1 attempt yielding a success ratio of 0%. There is also a
+ * threshold interval which means that the success ratio for a given node is
+ * only "valid" for a certain period of time, after which it is reset. This
+ * prevents scenarios like 100,000,000 successful requests (and thus 100%
+ * success threshold) overshadowing a subsequent stream of 10,000,000 failures
+ * because this is only 10% of the total and above a given threshold.
+ * 
+ * @author Kirk True
+ */
+
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
@@ -121,4 +154,5 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
             }
         }
     }
+
 }
