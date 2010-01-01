@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -54,7 +55,11 @@ public class RebalanceTest extends AbstractRebalanceTest {
     @Override
     protected void stopServer(List<Integer> nodesToStop) throws IOException {
         for(int node: nodesToStop) {
-            ServerTestUtils.stopVoldemortServer(serverMap.get(node));
+            try {
+                ServerTestUtils.stopVoldemortServer(serverMap.get(node));
+            } catch (VoldemortException e) {
+                // ignore these at stop time
+            }
         }
     }
 }
