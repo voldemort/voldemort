@@ -232,9 +232,9 @@ public class Ec2RebalancingTest {
                                 masterNodeResponded[masterNode] = true;
 
                             } catch(Exception e) {
-                                System.out.println(e);
-                                e.printStackTrace();
-                                exceptions.add(e);
+                                //System.out.println(e);
+                                //e.printStackTrace();
+                                //exceptions.add(e);
                             }
                         }
 
