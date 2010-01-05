@@ -72,7 +72,13 @@ public class AsyncOperationTest extends TestCase {
         }
 
         operations.put("foo5", completeLater);
+
         assertTrue(operations.containsKey("foo5"));
+
+        for (int i = 0; i < 10; i++) { 
+            operations.put("foo" + 5 + i, completeLater);
+        }
+
         assertFalse("Actually does LRU heuristics", operations.containsKey("foo2"));
     }
 }

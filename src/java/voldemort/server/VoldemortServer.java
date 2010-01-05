@@ -62,8 +62,7 @@ public class VoldemortServer extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(VoldemortServer.class.getName());
     public static final long DEFAULT_PUSHER_POLL_MS = 60 * 1000;
-
-    private final static int ASYNC_REQUEST_THREADS = 8;
+   
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
     private final Node identityNode;
@@ -71,7 +70,7 @@ public class VoldemortServer extends AbstractService {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
-    private final AsyncOperationRunner asyncRunner;
+    private AsyncOperationRunner asyncRunner;
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
@@ -80,7 +79,6 @@ public class VoldemortServer extends AbstractService {
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
         this.services = createServices();
     }
 
@@ -95,7 +93,7 @@ public class VoldemortServer extends AbstractService {
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
                                 new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+
         this.services = createServices();
     }
 
@@ -113,9 +111,12 @@ public class VoldemortServer extends AbstractService {
                                                            metadata,
                                                            scheduler,
                                                            voldemortConfig);
+
+        asyncRunner = new AsyncOperationRunner(scheduler, ASYNC_REQUEST_CACHE_SIZE);
+
         services.add(storageService);
         services.add(scheduler);
-        services.add(this.asyncRunner);
+        services.add(asyncRunner);
 
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,

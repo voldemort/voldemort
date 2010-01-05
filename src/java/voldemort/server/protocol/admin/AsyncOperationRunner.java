@@ -12,6 +12,8 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
+import voldemort.server.scheduler.SchedulerService;
+import voldemort.utils.SystemTime;
 
 /**
  * @author afeinberg
@@ -21,36 +23,17 @@ import voldemort.server.ServiceType;
 public class AsyncOperationRunner extends AbstractService {
 
     private final Map<Integer, AsyncOperation> operations;
-    private final ExecutorService executor;
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
+    private final SchedulerService scheduler;
 
     private final static Logger logger = Logger.getLogger(AsyncOperationRunner.class);
 
-    /**
-     * TODO: Unify this with {@link voldemort.server.scheduler.SchedulerService}
-     */
-    private static final ThreadFactory threadFactory = new ThreadFactory() {
-        public Thread newThread(Runnable r) {
-            Thread thread = new Thread(r);
-            thread.setDaemon(true);
-            thread.setName(r.getClass().getName());
-            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-
-                public void uncaughtException(Thread t, Throwable e) {
-                    logger.error("Asynchronous operation failed!", e);
-                }
-            });
-
-            return thread;
-        }
-    };
-
     @SuppressWarnings("unchecked")
     // apache commons collections aren't updated for 1.5 yet
-    public AsyncOperationRunner(int poolSize, int cacheSize) {
+    public AsyncOperationRunner(SchedulerService scheduler, int cacheSize) {
         super(ServiceType.ASYNC_SCHEDULER);
         operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
-        executor = Executors.newFixedThreadPool(poolSize, threadFactory);
+        this.scheduler = scheduler;
     }
 
     /**
@@ -66,7 +49,7 @@ public class AsyncOperationRunner extends AbstractService {
                                          + " already submitted to the system");
 
         this.operations.put(requestId, operation);
-        executor.submit(operation);
+        scheduler.scheduleNow(operation);
         logger.debug("Handling async operation " + requestId);
     }
 
