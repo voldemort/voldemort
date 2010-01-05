@@ -47,9 +47,8 @@ import voldemort.versioning.Versioned;
  * The RedirectingRoutedStore extends {@link RoutedStore}
  * 
  * catch all InvalidMetadataException and updates the routed store with latest
- * cluster metadata.<br>
- * ServerSide Routing side of re-bootstrap implemented in
- * {@link DefaultStoreClient}
+ * cluster metadata, client rebootstrapping behavior same in
+ * {@link DefaultStoreClient} for server side routing<br>
  * 
  */
 public class RebalancingRoutedStore extends RoutedStore {
@@ -105,7 +104,8 @@ public class RebalancingRoutedStore extends RoutedStore {
 
     /**
      * Check that all nodes in the new cluster have a corrosponding entry in
-     * storeRepositiry and innerStores. add a NodeStore if not present.
+     * storeRepositiry and innerStores. add a NodeStore if not present, is
+     * needed as with rebalancing we can add new nodes on the fly.
      * 
      */
     private void checkAndAddNodeStore() {

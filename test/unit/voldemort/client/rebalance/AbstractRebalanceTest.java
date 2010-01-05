@@ -496,7 +496,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
                                    Cluster targetCluster,
                                    RebalanceClient rebalanceClient,
                                    List<Integer> nodeCheckList) {
-        rebalanceClient.rebalance(currentCluster, targetCluster);
+        rebalanceClient.rebalance(targetCluster);
 
         for(int nodeId: nodeCheckList) {
             List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();

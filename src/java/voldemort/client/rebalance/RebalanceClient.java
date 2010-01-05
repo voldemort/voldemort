@@ -17,6 +17,7 @@ import voldemort.cluster.Node;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ImmutableList;
 
@@ -56,19 +57,22 @@ public class RebalanceClient {
      * Voldemort dynamic cluster membership rebalancing mechanism. <br>
      * Migrate partitions across nodes to managed changes in cluster
      * memberships. <br>
-     * Takes two cluster configurations currentCluster and targetCluster as
-     * parameters compares and makes a list of partitions need to be
-     * transferred.<br>
+     * Takes targetCluster as parameters, fetches the current cluster
+     * configuration from the cluster compares and makes a list of partitions
+     * need to be transferred.<br>
      * The cluster is kept consistent during rebalancing using a proxy mechanism
      * via {@link RedirectingStore}<br>
      * 
      * 
      * @param targetCluster: target Cluster configuration
      */
-    public void rebalance(final Cluster currentCluster, final Cluster targetCluster) {
-        logger.info("Current Cluster configuration:" + currentCluster);
+    public void rebalance(final Cluster targetCluster) {
+        Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
+                                                                                     adminClient);
+        logger.info("Current Cluster configuration:" + currentVersionedCluster);
         logger.info("Target Cluster configuration:" + targetCluster);
 
+        Cluster currentCluster = currentVersionedCluster.getValue();
         adminClient.setAdminClientCluster(currentCluster);
 
         List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
@@ -78,8 +82,8 @@ public class RebalanceClient {
         }
 
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
-                                                                                 targetCluster,
-                                                                                 storeList);
+                                                                                   targetCluster,
+                                                                                   storeList);
         logger.info(rebalanceClusterPlan);
 
         // start all threads
@@ -89,14 +93,12 @@ public class RebalanceClient {
                 public void run() {
                     // pick one node to rebalance from queue
                     while(!rebalanceClusterPlan.getRebalancingTaskQueue().isEmpty()) {
-                        logger.info("rebalanceTaskQueue size:"
-                                    + rebalanceClusterPlan.getRebalancingTaskQueue().size());
 
-                        RebalanceNodePlan rebalanceTask = rebalanceClusterPlan.getRebalancingTaskQueue()
-                                                                            .poll();
-                        if(null != rebalanceTask) {
-                            int stealerNodeId = rebalanceTask.getStealerNode();
-                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
+                        RebalanceNodePlan rebalanceNodePlan = rebalanceClusterPlan.getRebalancingTaskQueue()
+                                                                                  .poll();
+                        if(null != rebalanceNodePlan) {
+                            int stealerNodeId = rebalanceNodePlan.getStealerNode();
+                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceNodePlan.getRebalanceTaskList();
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
@@ -106,12 +108,12 @@ public class RebalanceClient {
 
                                 try {
 
-                                    // first commit cluster changes on
-                                    // nodes.
+                                    // commit cluster changes to all nodes
                                     commitClusterChanges(stealerNodeId,
                                                          targetCluster,
                                                          rebalanceSubTask);
-                                    // attempt to rebalance for all stores.
+
+                                    // attempt rebalancing.
                                     attemptRebalanceSubTask(rebalanceSubTask);
 
                                     logger.info("Successfully finished RebalanceSubTask attempt:"

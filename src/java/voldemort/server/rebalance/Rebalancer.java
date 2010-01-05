@@ -107,7 +107,7 @@ public class Rebalancer implements Runnable {
                                                                            metadataStore.getCluster());
             try {
                 int rebalanceAsyncId = rebalanceLocalNode(storeName, stealInfo);
-                
+
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               rebalanceAsyncId,
                                               voldemortConfig.getAdminSocketTimeout(),
@@ -159,10 +159,10 @@ public class Rebalancer implements Runnable {
                 try {
                     logger.info("Rebalancer: rebalance " + stealInfo + " starting.");
 
-                    // check and create redirectingSocketStore if needed.
-                    checkAndCreateRedirectingSocketStore(storeName,
-                                                         adminClient.getAdminClientCluster()
-                                                                    .getNodeById(stealInfo.getDonorId()));
+                    // create redirectingSocketStore for redirection.
+                    createRedirectingSocketStore(storeName,
+                                                 adminClient.getAdminClientCluster()
+                                                            .getNodeById(stealInfo.getDonorId()));
 
                     checkCurrentState(metadataStore, stealInfo);
                     setRebalancingState(metadataStore, stealInfo);
@@ -232,20 +232,22 @@ public class Rebalancer implements Runnable {
                                          + " rejecting rebalance request:" + stealInfo);
     }
 
-    private void checkAndCreateRedirectingSocketStore(String storeName, Node donorNode) {
-        if(!storeRepository.hasRedirectingSocketStore(storeName, donorNode.getId())) {
+    /**
+     * Create redirectingSocketStore for the donorNode when rebalancing.
+     * 
+     * @param storeName
+     * @param donorNode
+     */
+    private void createRedirectingSocketStore(String storeName, Node donorNode) {
+        if(voldemortConfig.isRedirectRoutingEnabled()
+           && !storeRepository.hasRedirectingSocketStore(storeName, donorNode.getId())) {
             storeRepository.addRedirectingSocketStore(donorNode.getId(),
-                                                      createRedirectingSocketStore(storeName,
-                                                                                   donorNode));
+                                                      new SocketStore(storeName,
+                                                                      new SocketDestination(donorNode.getHost(),
+                                                                                            donorNode.getSocketPort(),
+                                                                                            RequestFormatType.PROTOCOL_BUFFERS),
+                                                                      socketPool,
+                                                                      RequestRoutingType.IGNORE_CHECKS));
         }
-    }
-
-    private SocketStore createRedirectingSocketStore(String storeName, Node node) {
-        return new SocketStore(storeName,
-                               new SocketDestination(node.getHost(),
-                                                     node.getSocketPort(),
-                                                     RequestFormatType.PROTOCOL_BUFFERS),
-                               socketPool,
-                               RequestRoutingType.IGNORE_CHECKS);
     }
 }

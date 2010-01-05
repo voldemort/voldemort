@@ -40,13 +40,11 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
-import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -186,11 +184,6 @@ public class StorageService extends AbstractService {
         if(voldemortConfig.isServerRoutingEnabled())
             registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
-        if(voldemortConfig.isRedirectRoutingEnabled())
-            registerRedirectingSocketStores(storeDef,
-                                            metadata.getCluster(),
-                                            voldemortConfig.getNodeId());
-
         if(storeDef.hasRetentionPeriod())
             scheduleCleanupJob(storeDef, engine);
     }
@@ -288,21 +281,6 @@ public class StorageService extends AbstractService {
                                                      voldemortConfig.getRequestFormatType()),
                                socketPool,
                                false);
-    }
-
-    private void registerRedirectingSocketStores(StoreDefinition def, Cluster cluster, int localNode) {
-        for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store;
-            if(node.getId() != localNode) {
-                store = new SocketStore(def.getName(),
-                                        new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              RequestFormatType.PROTOCOL_BUFFERS),
-                                        socketPool,
-                                        RequestRoutingType.IGNORE_CHECKS);
-                this.storeRepository.addRedirectingSocketStore(node.getId(), store);
-            }
-        }
     }
 
     /**

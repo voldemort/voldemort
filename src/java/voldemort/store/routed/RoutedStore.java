@@ -663,7 +663,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(ObsoleteVersionException e) {
                 // if this version is obsolete on the master, then bail out
                 // of this operation
-                throw e;
+                failures.add(e);
             } catch(Exception e) {
                 failures.add(e);
             }
