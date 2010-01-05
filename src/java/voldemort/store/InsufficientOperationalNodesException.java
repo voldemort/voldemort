@@ -19,13 +19,15 @@ package voldemort.store;
 import java.util.Collection;
 import java.util.Collections;
 
+import voldemort.VoldemortException;
+
 /**
  * Thrown if an operation fails due to too few reachable nodes.
  * 
  * @author jay
  * 
  */
-public class InsufficientOperationalNodesException extends StoreOperationFailureException {
+public class InsufficientOperationalNodesException extends VoldemortException {
 
     private static final long serialVersionUID = 1L;
 

@@ -28,7 +28,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -134,12 +134,8 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.delete(key, version);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.maxMetadataRefreshAttempts
@@ -151,12 +147,8 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.getVersions(key);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.maxMetadataRefreshAttempts
@@ -168,12 +160,8 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.get(key);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.maxMetadataRefreshAttempts
@@ -185,12 +173,8 @@ public class RebalancingRoutedStore extends RoutedStore {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
                 return super.getAll(keys);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.maxMetadataRefreshAttempts
@@ -204,12 +188,8 @@ public class RebalancingRoutedStore extends RoutedStore {
             try {
                 super.put(key, versioned);
                 return;
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.maxMetadataRefreshAttempts

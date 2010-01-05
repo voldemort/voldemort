@@ -13,8 +13,6 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
-import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -230,22 +228,6 @@ public class RebalanceUtils {
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
         return new AdminClient(cluster, config);
-    }
-
-    /**
-     * TODO: LOW , we can change RoutedStore to handle InvalidMetadataException
-     * differently for now we let it think it as a normal exception and handle
-     * in the client layer.
-     * 
-     * @param failures
-     * @return
-     */
-    public static boolean containsInvalidMetadataException(InsufficientOperationalNodesException failures) {
-        for(Throwable e: failures.getCauses()) {
-            if(e instanceof InvalidMetadataException)
-                return true;
-        }
-        return false;
     }
 
     public static List<String> getStoreNameList(Cluster cluster, AdminClient adminClient) {
