@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -53,7 +54,6 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -218,6 +218,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     } catch(UnreachableStoreException e) {
                         failures.add(e);
                         markUnavailable(node, e);
+                    } catch(VoldemortApplicationException e) {
+                        failures.add(e);
                     } catch(Exception e) {
                         failures.add(e);
                         logger.warn("Error in DELETE on node " + node.getId() + "("
@@ -402,6 +404,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                         } catch(UnreachableStoreException e) {
                             failures.add(e);
                             markUnavailable(node, e);
+                        } catch(VoldemortApplicationException e) {
+                            failures.add(e);
                         } catch(Exception e) {
                             logger.warn("Error in GET_ALL on node " + node.getId() + "("
                                         + node.getHost() + ")", e);
@@ -525,6 +529,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(UnreachableStoreException e) {
                 failures.add(e);
                 markUnavailable(node, e);
+            } catch(VoldemortApplicationException e) {
+                failures.add(e);
             } catch(Exception e) {
                 logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
                 failures.add(e);
@@ -581,11 +587,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                          + " for key '" + v.getKey() + "' with version "
                                          + v.getVersion() + ".");
                         innerStores.get(v.getNodeId()).put(v.getKey(), v.getVersioned());
-                    } catch(ObsoleteVersionException e) {
+                    } catch(VoldemortApplicationException e) {
                         if(logger.isDebugEnabled())
-                            logger.debug("Read repair cancelled due to obsolete version on node "
-                                         + v.getNodeId() + " for key '" + v.getKey()
-                                         + "' with version " + v.getVersion() + ": "
+                            logger.debug("Read repair cancelled due to application level exception on node "
+                                         + v.getNodeId()
+                                         + " for key '"
+                                         + v.getKey()
+                                         + "' with version "
+                                         + v.getVersion()
+                                         + ": "
                                          + e.getMessage());
                     } catch(Exception e) {
                         logger.debug("Read repair failed: ", e);
@@ -660,9 +670,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             } catch(UnreachableStoreException e) {
                 markUnavailable(current, e);
                 failures.add(e);
-            } catch(ObsoleteVersionException e) {
-                // if this version is obsolete on the master, then bail out
-                // of this operation
+            } catch(VoldemortApplicationException e) {
                 failures.add(e);
             } catch(Exception e) {
                 failures.add(e);
@@ -697,8 +705,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     } catch(UnreachableStoreException e) {
                         markUnavailable(node, e);
                         failures.add(e);
-                    } catch(ObsoleteVersionException e) {
-                        // Do not log ObsoleteVersionException
+                    } catch(VoldemortApplicationException e) {
                         failures.add(e);
                     } catch(Exception e) {
                         logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
