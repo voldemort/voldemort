@@ -27,10 +27,9 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
-import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -89,12 +88,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 return store.delete(key, version);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -122,12 +117,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 List<Versioned<V>> items = store.get(key);
                 return getItemOrThrow(key, defaultValue, items);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -138,12 +129,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 return store.getVersions(key);
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -173,12 +160,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 items = store.getAll(keys);
                 break;
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
@@ -221,12 +204,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 store.put(key, versioned);
                 return;
-            } catch(InsufficientOperationalNodesException e) {
-                if(RebalanceUtils.containsInvalidMetadataException(e)) {
-                    reinit();
-                } else {
-                    throw e;
-                }
+            } catch(InvalidMetadataException e) {
+                reinit();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
