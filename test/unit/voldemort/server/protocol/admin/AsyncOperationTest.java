@@ -18,6 +18,9 @@ public class AsyncOperationTest extends TestCase {
         AsyncOperation completeLater = new AsyncOperation(0, "test") {
 
             @Override
+            public void stop() {}
+
+            @Override
             public void operate() {
                 try {
                     Thread.sleep(2000);
@@ -30,13 +33,16 @@ public class AsyncOperationTest extends TestCase {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
 
         AsyncOperation completeNow = new AsyncOperation(1, "test 2") {
+            @Override
+            public void stop() {}
 
             @Override
             public void operate() {}
         };
 
         AsyncOperation completeSoon = new AsyncOperation(2, "test3") {
-
+            @Override
+            public void stop() {}
             @Override
             public void operate() {
                 try {
@@ -66,7 +72,13 @@ public class AsyncOperationTest extends TestCase {
         }
 
         operations.put("foo5", completeLater);
+
         assertTrue(operations.containsKey("foo5"));
+
+        for (int i = 0; i < 10; i++) { 
+            operations.put("foo" + 5 + i, completeLater);
+        }
+
         assertFalse("Actually does LRU heuristics", operations.containsKey("foo2"));
     }
 }

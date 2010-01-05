@@ -30,10 +30,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
-import voldemort.utils.impl.RsyncDeployer;
-import voldemort.utils.impl.SshClusterStarter;
-import voldemort.utils.impl.SshClusterStopper;
-import voldemort.utils.impl.SshRemoteTest;
+import voldemort.utils.impl.*;
 
 public class RemoteTestUtils {
 
@@ -106,6 +103,14 @@ public class RemoteTestUtils {
         startClusterAsync(new ArrayList<String>(Arrays.asList(hostName)), remoteTestConfig, nodeIds);
     }
 
+    public static void cleanupCluster(List<String> hostNames, RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        new SshClusterCleaner(hostNames,
+                              remoteTestConfig.getSshPrivateKey(),
+                              remoteTestConfig.getHostUserId(),
+                              remoteTestConfig.getVoldemortHomeDirectory()).execute();
+    }
+    
     public static void stopCluster(List<String> hostNames, RemoteTestConfig remoteTestConfig)
             throws Exception {
         new SshClusterStopper(hostNames,
