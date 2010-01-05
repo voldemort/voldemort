@@ -117,6 +117,35 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         assertEquals(1, engine.get(key).size());
     }
 
+
+    public void testTruncate() throws Exception {
+        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+        Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 });
+        Versioned<byte[]> v2 = new Versioned<byte[]>(new byte[] { 2 });
+        Versioned<byte[]> v3 = new Versioned<byte[]>(new byte[] { 3 });
+        ByteArray key1 = new ByteArray((byte) 3);
+        ByteArray key2 = new ByteArray((byte) 4);
+        ByteArray key3 = new ByteArray((byte) 5);
+
+        engine.put(key1, v1);
+        engine.put(key2, v2);
+        engine.put(key3, v3);
+        engine.truncate();
+
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
+        try {
+            it = engine.entries();
+            while (it.hasNext()) {
+                fail("There shouldn't be any entries in this store.");
+            }
+        }
+        finally {
+            if (it != null) {
+                it.close();
+            }
+        }
+    }
+
     @SuppressWarnings("unused")
     private boolean remove(List<byte[]> list, byte[] item) {
         Iterator<byte[]> it = list.iterator();

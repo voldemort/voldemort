@@ -63,4 +63,12 @@ public class RandomlyFailingDelegatingStore<K, V> extends DelegatingStore<K, V> 
             public void remove() {}
         };
     }
+
+    public void truncate() {
+        if (Math.random() > FAIL_PROBABILITY) {
+            innerStorageEngine.truncate();
+        }
+
+        throw new VoldemortException("Failing now !!");
+    }
 }

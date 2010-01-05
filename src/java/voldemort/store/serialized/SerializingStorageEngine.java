@@ -59,6 +59,10 @@ public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> imple
         return new KeysIterator(storageEngine.keys());
     }
 
+    public void truncate() {
+        storageEngine.truncate();
+    }
+
     private class KeysIterator implements ClosableIterator<K> {
 
         private final ClosableIterator<ByteArray> iterator;

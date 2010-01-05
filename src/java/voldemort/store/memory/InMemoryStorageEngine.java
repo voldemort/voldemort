@@ -173,6 +173,10 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         return StoreUtils.keys(entries());
     }
 
+    public void truncate() {
+        map.clear();
+    }
+
     public String getName() {
         return name;
     }

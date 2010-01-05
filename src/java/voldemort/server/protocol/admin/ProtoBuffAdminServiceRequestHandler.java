@@ -118,6 +118,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncStatus(request.getAsyncOperationStatus()));
                 break;
+            case TRUNCATE_ENTRIES:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleTruncateEntries(request.getTruncateEntries()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -481,6 +485,21 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleGetMetadata failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.TruncateEntriesResponse handleTruncateEntries(VAdminProto.TruncateEntriesRequest request) {
+        VAdminProto.TruncateEntriesResponse.Builder response = VAdminProto.TruncateEntriesResponse.newBuilder();
+        try {
+            String storeName = request.getStore();
+            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
+
+            storageEngine.truncate();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleTruncateEntries failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();

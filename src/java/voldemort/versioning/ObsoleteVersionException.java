@@ -16,7 +16,7 @@
 
 package voldemort.versioning;
 
-import voldemort.store.StoreOperationFailureException;
+import voldemort.VoldemortApplicationException;
 
 /**
  * An exception that indicates an attempt by the user to overwrite a newer value
@@ -27,7 +27,7 @@ import voldemort.store.StoreOperationFailureException;
  * @author jay
  * 
  */
-public class ObsoleteVersionException extends StoreOperationFailureException {
+public class ObsoleteVersionException extends VoldemortApplicationException {
 
     private static final long serialVersionUID = 1L;
 
