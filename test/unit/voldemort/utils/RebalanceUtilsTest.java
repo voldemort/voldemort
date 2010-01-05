@@ -60,7 +60,8 @@ public class RebalanceUtilsTest extends TestCase {
     public void testRebalancePlan() {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
-                                                                      Arrays.asList(testStoreName));
+                                                                      Arrays.asList(testStoreName),
+                                                                      false);
         int[][] stealList = { {}, { 2, 3 } };
 
         // the rebalancing plan should have exactly 3 entries.
@@ -75,6 +76,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                            0,
                                                                            listFromArray(stealList[rebalanceNodeInfo.getStealerNode()]),
                                                                            Arrays.asList(testStoreName),
+                                                                           false,
                                                                            0);
 
             assertEquals("rebalanceStealInfo should match",
@@ -103,6 +105,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                    1,
                                                                    Arrays.asList(1, 2, 3, 4),
                                                                    Arrays.asList("test1", "test2"),
+                                                                   false,
                                                                    0);
         System.out.println("info:" + info.toString());
 

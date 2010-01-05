@@ -11,7 +11,7 @@ public class RebalanceCommandShell {
 
     private static final String PROMPT = "> ";
 
-    private static RebalanceClient rebalanceClient;
+    private static RebalanceController rebalanceClient;
     private static ClusterMapper clusterMapper = new ClusterMapper();
     private static StoreDefinitionsMapper storesMapper = new StoreDefinitionsMapper();
 
@@ -26,7 +26,7 @@ public class RebalanceCommandShell {
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(maxParallelRebalancing);
 
-        rebalanceClient = new RebalanceClient(bootstrapURL, config);
+        rebalanceClient = new RebalanceController(bootstrapURL, config);
 
         rebalanceClient.rebalance(targetCluster);
     }

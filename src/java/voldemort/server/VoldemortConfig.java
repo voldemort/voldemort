@@ -119,7 +119,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
-    private boolean enableDeleteAfterRebalancing;
 
     private List<String> storageConfigurations;
 
@@ -274,7 +273,6 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
-        this.enableDeleteAfterRebalancing = props.getBoolean("enable.rebalancing.delete", false);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -983,13 +981,5 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isEnableRebalanceService() {
         return enableRebalanceService;
-    }
-
-    public void setEnableDeleteAfterRebalancing(boolean enableDeleteAfterRebalancing) {
-        this.enableDeleteAfterRebalancing = enableDeleteAfterRebalancing;
-    }
-
-    public boolean isDeleteAfterRebalancingEnabled() {
-        return enableDeleteAfterRebalancing;
     }
 }

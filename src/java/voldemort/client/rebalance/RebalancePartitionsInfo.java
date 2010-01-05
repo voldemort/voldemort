@@ -16,6 +16,7 @@ public class RebalancePartitionsInfo {
     private final int stealerId;
     private final int donorId;
     private final List<Integer> partitionList;
+    private final boolean deleteDonorPartitions;
     private List<String> unbalancedStoreList;
 
     private int attempt;
@@ -24,12 +25,14 @@ public class RebalancePartitionsInfo {
                                    int donorId,
                                    List<Integer> partitionList,
                                    List<String> unbalancedStoreList,
+                                   boolean deleteDonorPartitions,
                                    int attempt) {
         super();
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.partitionList = partitionList;
         this.attempt = attempt;
+        this.deleteDonorPartitions = deleteDonorPartitions;
         this.unbalancedStoreList = unbalancedStoreList;
     }
 
@@ -42,11 +45,16 @@ public class RebalancePartitionsInfo {
             this.donorId = (Integer) map.get("donorId");
             this.partitionList = (List<Integer>) map.get("partitionList");
             this.attempt = (Integer) map.get("attempt");
+            this.deleteDonorPartitions = (Boolean) map.get("deletDonorPartitions");
             this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
                                          e);
         }
+    }
+
+    public boolean isDeleteDonorPartitions() {
+        return deleteDonorPartitions;
     }
 
     public void setAttempt(int attempt) {
@@ -90,6 +98,7 @@ public class RebalancePartitionsInfo {
                               .put("donorId", donorId)
                               .put("partitionList", partitionList)
                               .put("unbalancedStoreList", unbalancedStoreList)
+                              .put("deletaDonorPartitions", deleteDonorPartitions)
                               .put("attempt", attempt)
                               .build();
 

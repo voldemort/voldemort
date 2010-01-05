@@ -80,12 +80,12 @@ message AsyncOperationStatusRequest {
 }
 
 message InitiateRebalanceNodeRequest {
-  required string current_store = 1;
   required int32 stealer_id =2;
   required int32 donor_id = 3;
   repeated int32 partitions = 4;
   required int32 attempt = 5;
-  repeated string unbalanced_store = 6;
+  required bool  deleteDonorPartitions = 6;
+  repeated string unbalanced_store = 7;
 }
 
 message AsyncOperationStatusResponse {

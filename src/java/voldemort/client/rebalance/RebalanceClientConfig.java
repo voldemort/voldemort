@@ -9,9 +9,11 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
     private int maxParallelRebalancing = 1;
     private int rebalancingClientTimeoutSeconds = 7 * 24 * 60 * 60;
+    private boolean deleteAfterRebalancingEnabled;
 
     public static String MaxParallelRebalancingString = "max.parallel.rebalancing";
     public static String RebalancingClientTimeoutSeconds = "rebalancing.client.timeout.seconds";
+    public static String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
 
     public RebalanceClientConfig(Properties properties) {
         super(properties);
@@ -22,6 +24,9 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
         if(props.containsKey(RebalancingClientTimeoutSeconds))
             this.setRebalancingClientTimeoutSeconds(props.getInt(RebalancingClientTimeoutSeconds));
+
+        if(props.containsKey(EnableDeleteAfterRebalancing))
+            this.setDeleteAfterRebalancingEnabled(props.getBoolean(EnableDeleteAfterRebalancing));
 
     }
 
@@ -44,4 +49,13 @@ public class RebalanceClientConfig extends AdminClientConfig {
     public int getRebalancingClientTimeoutSeconds() {
         return rebalancingClientTimeoutSeconds;
     }
+
+    public boolean isDeleteAfterRebalancingEnabled() {
+        return deleteAfterRebalancingEnabled;
+    }
+
+    public void setDeleteAfterRebalancingEnabled(boolean deleteAfterRebalancingEnabled) {
+        this.deleteAfterRebalancingEnabled = deleteAfterRebalancingEnabled;
+    }
+
 }

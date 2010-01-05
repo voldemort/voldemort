@@ -197,12 +197,12 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                               RoutingStrategy routingStrategy,
                               VoldemortFilter filter,
                               EventThrottler throttler) throws IOException {
-        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> valuesIterator = null;
+        ClosableIterator<ByteArray> keyIterator = null;
         try {
             int counter = 0;
             int fetched = 0;
             long startTime = System.currentTimeMillis();
-            ClosableIterator<ByteArray> keyIterator = storageEngine.keys();
+            keyIterator = storageEngine.keys();
             while(keyIterator.hasNext()) {
                 ByteArray key = keyIterator.next();
                 if(validPartition(key.get(), partitionList, routingStrategy)) {
@@ -236,8 +236,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             }
         } finally {
-            if(null != valuesIterator)
-                valuesIterator.close();
+            if(null != keyIterator)
+                keyIterator.close();
         }
     }
 
@@ -357,10 +357,10 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
+                                                                                     request.getDeleteDonorPartitions(),
                                                                                      request.getAttempt());
 
-            int requestId = rebalancer.rebalanceLocalNode(request.getCurrentStore(),
-                                                          rebalanceStealInfo);
+            int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())

@@ -19,23 +19,21 @@ import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.ImmutableList;
+public class RebalanceController {
 
-public class RebalanceClient {
-
-    private static Logger logger = Logger.getLogger(RebalanceClient.class);
+    private static Logger logger = Logger.getLogger(RebalanceController.class);
 
     private final ExecutorService executor;
     private final AdminClient adminClient;
     RebalanceClientConfig rebalanceConfig;
 
-    public RebalanceClient(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
+    public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
         this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
         this.rebalanceConfig = rebalanceConfig;
         this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
     }
 
-    public RebalanceClient(Cluster cluster, RebalanceClientConfig config) {
+    public RebalanceController(Cluster cluster, RebalanceClientConfig config) {
         this.adminClient = new AdminClient(cluster, config);
         this.rebalanceConfig = config;
         this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
@@ -83,7 +81,8 @@ public class RebalanceClient {
 
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
-                                                                                   storeList);
+                                                                                   storeList,
+                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
         // start all threads
@@ -94,11 +93,11 @@ public class RebalanceClient {
                     // pick one node to rebalance from queue
                     while(!rebalanceClusterPlan.getRebalancingTaskQueue().isEmpty()) {
 
-                        RebalanceNodePlan rebalanceNodePlan = rebalanceClusterPlan.getRebalancingTaskQueue()
-                                                                                  .poll();
-                        if(null != rebalanceNodePlan) {
-                            int stealerNodeId = rebalanceNodePlan.getStealerNode();
-                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceNodePlan.getRebalanceTaskList();
+                        RebalanceNodePlan rebalanceTask = rebalanceClusterPlan.getRebalancingTaskQueue()
+                                                                              .poll();
+                        if(null != rebalanceTask) {
+                            int stealerNodeId = rebalanceTask.getStealerNode();
+                            List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
 
                             while(rebalanceSubTaskList.size() > 0) {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
@@ -108,13 +107,21 @@ public class RebalanceClient {
 
                                 try {
 
-                                    // commit cluster changes to all nodes
-                                    commitClusterChanges(stealerNodeId,
-                                                         targetCluster,
-                                                         rebalanceSubTask);
+                                    int rebalanceAsyncId = adminClient.rebalanceNode(rebalanceSubTask);
 
-                                    // attempt rebalancing.
-                                    attemptRebalanceSubTask(rebalanceSubTask);
+                                    try {
+                                        commitClusterChanges(stealerNodeId,
+                                                             targetCluster,
+                                                             rebalanceSubTask);
+                                    } catch(Exception e) {
+                                        // TODO: kill remote async task
+                                        throw e;
+                                    }
+
+                                    adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
+                                                                  rebalanceAsyncId,
+                                                                  rebalanceConfig.getRebalancingClientTimeoutSeconds(),
+                                                                  TimeUnit.SECONDS);
 
                                     logger.info("Successfully finished RebalanceSubTask attempt:"
                                                 + rebalanceSubTask);
@@ -216,36 +223,6 @@ public class RebalanceClient {
             }
 
             adminClient.setAdminClientCluster(updatedCluster);
-        }
-    }
-
-    /**
-     * Attempt the data transfer on the stealerNode through the
-     * {@link AdminClient#rebalanceNode()} api for all stores in
-     * rebalanceSubTask.<br>
-     * Blocks untill the AsyncStatus is set to success or exception <br>
-     * 
-     * @param stealerNodeId
-     * @param stealPartitionsMap
-     */
-    void attemptRebalanceSubTask(RebalancePartitionsInfo rebalanceSubTask) {
-        List<String> rebalanceStoreList = ImmutableList.copyOf(rebalanceSubTask.getUnbalancedStoreList());
-        List<String> unbalancedStoreList = new ArrayList<String>(rebalanceStoreList);
-        for(String storeName: rebalanceStoreList) {
-            try {
-                int rebalanceAsyncId = adminClient.rebalanceNode(storeName, rebalanceSubTask);
-
-                adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
-                                              rebalanceAsyncId,
-                                              rebalanceConfig.getRebalancingClientTimeoutSeconds(),
-                                              TimeUnit.SECONDS);
-                // remove store from rebalance list
-                unbalancedStoreList.remove(storeName);
-                rebalanceSubTask.setUnbalancedStoreList(unbalancedStoreList);
-            } catch(Exception e) {
-                throw new VoldemortException("rebalanceSubTask:" + rebalanceSubTask
-                                             + " failed for store:" + storeName, e);
-            }
         }
     }
 

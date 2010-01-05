@@ -31,8 +31,8 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.rebalance.RebalanceClient;
 import voldemort.client.rebalance.RebalanceClientConfig;
+import voldemort.client.rebalance.RebalanceController;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -272,9 +272,10 @@ public class Ec2RebalancingTest {
 
         targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
         try {
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0)
-                                                                                                               .getHost())),
-                                                                  new RebalanceClientConfig());
+
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0)
+                                                                                                                       .getHost())),
+                                                                          new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster,
                               targetCluster,
@@ -323,7 +324,7 @@ public class Ec2RebalancingTest {
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
-                                   RebalanceClient rebalanceClient,
+                                   RebalanceController rebalanceClient,
                                    List<Integer> nodeCheckList) {
         rebalanceClient.rebalance(targetCluster);
 
