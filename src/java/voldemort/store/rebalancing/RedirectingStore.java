@@ -19,13 +19,21 @@ package voldemort.store.rebalancing;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
+import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -42,23 +50,24 @@ import com.google.common.collect.Iterables;
  * ignoring any {@link ObsoleteVersionException} and then serve the client
  * requests.
  * 
- * TODO: Deletes are not handled correctly right now, behavior is same as if the
- * node was down while deleting and came back later.
- * 
  * @author bbansal
  * 
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
+    private final static Logger logger = Logger.getLogger(RedirectingStore.class);
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
+    private final SocketPool socketPool;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
                             MetadataStore metadata,
-                            StoreRepository storeRepository) {
+                            StoreRepository storeRepository,
+                            SocketPool socketPool) {
         super(innerStore);
         this.metadata = metadata;
         this.storeRepository = storeRepository;
+        this.socketPool = socketPool;
     }
 
     @Override
@@ -153,17 +162,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
 
-        if(!storeRepository.hasRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo()
-                                                                         .getDonorId())) {
-            throw new VoldemortException("RedirectingSocketStore not present in storeRepository for (store,nodeId) pair ("
-                                         + getName()
-                                         + ","
-                                         + metadata.getRebalancingStealInfo().getDonorId() + ").");
-        }
-
-        return storeRepository.getRedirectingSocketStore(getName(),
-                                                         metadata.getRebalancingStealInfo()
-                                                                 .getDonorId()).get(key);
+        return getRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo().getDonorId()).get(key);
     }
 
     /**
@@ -176,17 +175,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
             throws VoldemortException {
 
-        if(!storeRepository.hasRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo()
-                                                                         .getDonorId())) {
-            throw new VoldemortException("RedirectingSocketStore not present in storeRepository for (store,nodeId) pair ("
-                                         + getName()
-                                         + ","
-                                         + metadata.getRebalancingStealInfo().getDonorId() + ").");
-        }
-
-        return storeRepository.getRedirectingSocketStore(getName(),
-                                                         metadata.getRebalancingStealInfo()
-                                                                 .getDonorId()).getAll(keys);
+        return getRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo().getDonorId()).getAll(keys);
     }
 
     /**
@@ -228,5 +217,39 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             }
         }
 
+    }
+
+    /**
+     * Create if needed redirectingSocketStore for the donorNode
+     * 
+     * @param storeName
+     * @param donorNode
+     * @return
+     */
+    private Store<ByteArray, byte[]> getRedirectingSocketStore(String storeName, int donorNodeId) {
+        if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
+            Node donorNode = getNodeIfPresent(donorNodeId);
+            logger.info("Creating redirectingSocketStore for donorNode " + donorNode + " store "
+                        + storeName);
+            storeRepository.addRedirectingSocketStore(donorNode.getId(),
+                                                      new SocketStore(storeName,
+                                                                      new SocketDestination(donorNode.getHost(),
+                                                                                            donorNode.getSocketPort(),
+                                                                                            RequestFormatType.PROTOCOL_BUFFERS),
+                                                                      socketPool,
+                                                                      RequestRoutingType.IGNORE_CHECKS));
+        }
+
+        return storeRepository.getRedirectingSocketStore(storeName, donorNodeId);
+    }
+
+    private Node getNodeIfPresent(int donorId) {
+        try {
+            return metadata.getCluster().getNodeById(donorId);
+        } catch(Exception e) {
+            throw new VoldemortException("Failed to get donorNode " + donorId
+                                         + " from current cluster " + metadata.getCluster()
+                                         + " at node " + metadata.getNodeId(), e);
+        }
     }
 }

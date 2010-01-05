@@ -45,7 +45,7 @@ public class RebalancePartitionsInfo {
             this.donorId = (Integer) map.get("donorId");
             this.partitionList = (List<Integer>) map.get("partitionList");
             this.attempt = (Integer) map.get("attempt");
-            this.deleteDonorPartitions = (Boolean) map.get("deletDonorPartitions");
+            this.deleteDonorPartitions = (Boolean) map.get("deleteDonorPartitions");
             this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
@@ -98,7 +98,7 @@ public class RebalancePartitionsInfo {
                               .put("donorId", donorId)
                               .put("partitionList", partitionList)
                               .put("unbalancedStoreList", unbalancedStoreList)
-                              .put("deletaDonorPartitions", deleteDonorPartitions)
+                              .put("deleteDonorPartitions", deleteDonorPartitions)
                               .put("attempt", attempt)
                               .build();
 
