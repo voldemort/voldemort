@@ -1,5 +1,9 @@
 package voldemort.client.rebalance;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.fail;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +17,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
 import voldemort.ServerTestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
@@ -35,7 +42,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public abstract class AbstractRebalanceTest extends TestCase {
+public abstract class AbstractRebalanceTest {
 
     private static final int NUM_KEYS = 10000;
     private static String testStoreName = "test";
@@ -43,12 +50,12 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
     HashMap<String, String> testEntries;
 
-    @Override
+    @Before
     public void setUp() {
         testEntries = ServerTestUtils.createRandomKeyValueString(NUM_KEYS);
     }
 
-    @Override
+    @After
     public void tearDown() {
         testEntries.clear();
     }
@@ -60,7 +67,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
     protected abstract void stopServer(List<Integer> nodesToStop) throws IOException;
 
-    // test a single rebalancing.
+    @Test
     public void testSingleRebalance() throws IOException {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -84,6 +91,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
+    @Test
     public void testDeleteAfterRebalancing() throws IOException {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -124,6 +132,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
+    @Test
     public void testDeleteAfterRebalancingDisabled() throws IOException {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -162,6 +171,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
+    @Test
     public void testMultipleRebalance() throws IOException {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {}, {} });
@@ -185,6 +195,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
+    @Test
     public void testMultipleParallelRebalance() throws IOException {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {}, {} });
@@ -210,7 +221,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
-    // test a single rebalancing.
+    @Test
     public void testProxyGetDuringRebalancing() throws IOException, InterruptedException {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3 }, {} });
@@ -329,7 +340,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
     }
 
-    // test a single rebalancing.
+    @Test
     public void testServerSideRouting() throws IOException, InterruptedException {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3 }, {} });
@@ -472,7 +483,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         }
 
         // close all socket stores
-        for(Store store: storeMap.values()) {
+        for(Store<ByteArray, byte[]> store: storeMap.values()) {
             store.close();
         }
     }

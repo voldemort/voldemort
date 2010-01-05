@@ -8,8 +8,6 @@ import java.util.Queue;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -25,8 +23,6 @@ import voldemort.utils.RebalanceUtils;
  * @param targetCluster
  */
 public class RebalanceClusterPlan {
-
-    private final static Logger logger = Logger.getLogger(RebalanceClusterPlan.class);
 
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
 
