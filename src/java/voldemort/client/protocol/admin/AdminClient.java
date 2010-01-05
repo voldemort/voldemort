@@ -433,16 +433,14 @@ public class AdminClient {
      * stealInfo also have a storeName list, this is passed to client to persist
      * in case of failure and start balancing all the stores in the list only.
      * 
-     * @param storeName
      * @param stealInfo
      * @return
      */
-    public int rebalanceNode(String storeName, RebalancePartitionsInfo stealInfo) {
+    public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
                                                                                                                 .setAttempt(stealInfo.getAttempt())
                                                                                                                 .setDonorId(stealInfo.getDonorId())
                                                                                                                 .setStealerId(stealInfo.getStealerId())
-                                                                                                                .setCurrentStore(storeName)
                                                                                                                 .addAllPartitions(stealInfo.getPartitionList())
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
                                                                                                                 .build();

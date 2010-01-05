@@ -74,7 +74,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         List<Integer> serverList = Arrays.asList(0, 1);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
 
-        RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster, 0),
                                                               new RebalanceClientConfig());
         try {
             populateData(currentCluster, Arrays.asList(0));
@@ -99,7 +99,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
                                               serverList,
                                               ImmutableMap.of("enable.rebalancing.delete", "true"));
 
-        RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster, 0),
                                                               new RebalanceClientConfig());
         try {
             populateData(currentCluster, Arrays.asList(0));
@@ -136,7 +136,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         List<Integer> serverList = Arrays.asList(0, 1);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
 
-        RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster, 0),
                                                               new RebalanceClientConfig());
         try {
             populateData(currentCluster, Arrays.asList(0));
@@ -173,7 +173,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
         List<Integer> serverList = Arrays.asList(0, 1, 2);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
 
-        RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster, 0),
                                                               new RebalanceClientConfig());
         try {
             populateData(currentCluster, Arrays.asList(0));
@@ -197,7 +197,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
-        RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster, 0),
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster, 0),
                                                               config);
         try {
             populateData(currentCluster, Arrays.asList(0));
@@ -284,7 +284,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
                     Thread.sleep(100);
 
-                    RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster,
+                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                           0),
                                                                           new RebalanceClientConfig());
                     rebalanceAndCheck(updatedCluster,
@@ -401,7 +401,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
                     Thread.sleep(100);
 
-                    RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(currentCluster,
+                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                           0),
                                                                           new RebalanceClientConfig());
                     rebalanceAndCheck(updatedCluster,
@@ -494,7 +494,7 @@ public abstract class AbstractRebalanceTest extends TestCase {
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
-                                   RebalanceClient rebalanceClient,
+                                   RebalanceController rebalanceClient,
                                    List<Integer> nodeCheckList) {
         rebalanceClient.rebalance(currentCluster, targetCluster);
 

@@ -134,6 +134,7 @@ public class RedirectingStoreTest extends TestCase {
                                                            1,
                                                            Arrays.asList(1),
                                                            Arrays.asList(testStoreName),
+                                                           false,
                                                            0));
 
         // for Rebalancing State we should see proxyGet()
@@ -168,6 +169,7 @@ public class RedirectingStoreTest extends TestCase {
                                                            1,
                                                            Arrays.asList(1),
                                                            Arrays.asList(testStoreName),
+                                                           false,
                                                            0));
 
         // for Rebalancing State we should see proxyPut()

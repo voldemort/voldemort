@@ -316,8 +316,9 @@ public class AdminServiceBasicTest extends TestCase {
                                                                         0,
                                                                         Arrays.asList(1, 3),
                                                                         Arrays.asList(testStoreName),
+                                                                        false,
                                                                         0);
-        int asyncId = adminClient.rebalanceNode(testStoreName, stealInfo);
+        int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
     }
 

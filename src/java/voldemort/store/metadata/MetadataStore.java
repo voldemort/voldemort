@@ -352,10 +352,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
         // Initialize with default if not present
         initCache(REBALANCING_STEAL_INFO, new RebalancePartitionsInfo(-1,
-                                                                 -1,
-                                                                 new ArrayList<Integer>(0),
-                                                                 Arrays.asList(""),
-                                                                 0));
+                                                                      -1,
+                                                                      new ArrayList<Integer>(0),
+                                                                      Arrays.asList(""),
+                                                                      false,
+                                                                      0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 

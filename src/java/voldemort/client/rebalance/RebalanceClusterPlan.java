@@ -32,7 +32,8 @@ public class RebalanceClusterPlan {
 
     public RebalanceClusterPlan(Cluster currentCluster,
                                 Cluster targetCluster,
-                                List<String> storeList) {
+                                List<String> storeList,
+                                boolean deleteDonorPartition) {
         rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
@@ -42,7 +43,8 @@ public class RebalanceClusterPlan {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
                                                                                    targetCluster,
                                                                                    storeList,
-                                                                                   node.getId());
+                                                                                   node.getId(),
+                                                                                   deleteDonorPartition);
             if(rebalanceNodeList.size() > 0) {
                 rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
             }
@@ -56,7 +58,8 @@ public class RebalanceClusterPlan {
     private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
                                                                Cluster targetCluster,
                                                                List<String> storeList,
-                                                               int stealNodeId) {
+                                                               int stealNodeId,
+                                                               boolean deleteDonorPartition) {
         Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
         Map<Integer, Integer> currentPartitionsToNodeMap = getCurrentPartitionMapping(currentCluster);
         List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
@@ -87,6 +90,7 @@ public class RebalanceClusterPlan {
                                                           stealEntry.getKey(),
                                                           stealEntry.getValue(),
                                                           storeList,
+                                                          deleteDonorPartition,
                                                           0));
         }
 

@@ -39,4 +39,7 @@ public abstract class AsyncOperation implements Runnable {
     }
 
     abstract public void operate() throws Exception;
+
+    // TODO : fix me
+    // abstract public void stop() throws Exception;
 }

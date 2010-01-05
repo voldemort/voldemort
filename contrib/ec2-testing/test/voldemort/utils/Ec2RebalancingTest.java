@@ -5,7 +5,7 @@ import org.apache.log4j.Logger;
 import org.junit.*;
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.rebalance.RebalanceClient;
+import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -250,7 +250,7 @@ public class Ec2RebalancingTest {
 
         targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize, targetCluster);
         try {
-            RebalanceClient rebalanceClient = new RebalanceClient(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
+            RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(Arrays.asList(originalCluster.getNodeById(0).getHost())),
                                                                   new RebalanceClientConfig());
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster,
@@ -299,7 +299,7 @@ public class Ec2RebalancingTest {
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
-                                   RebalanceClient rebalanceClient,
+                                   RebalanceController rebalanceClient,
                                    List<Integer> nodeCheckList) {
         rebalanceClient.rebalance(currentCluster, targetCluster);
 
