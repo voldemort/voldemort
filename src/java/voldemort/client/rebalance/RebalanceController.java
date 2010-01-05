@@ -114,7 +114,8 @@ public class RebalanceController {
                                                              targetCluster,
                                                              rebalanceSubTask);
                                     } catch(Exception e) {
-                                        // TODO: kill remote async task
+                                        adminClient.stopAsyncRequest(rebalanceSubTask.getStealerId(),
+                                                                     rebalanceAsyncId);
                                         throw e;
                                     }
 
