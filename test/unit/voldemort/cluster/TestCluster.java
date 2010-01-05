@@ -16,8 +16,6 @@
 
 package voldemort.cluster;
 
-import static voldemort.FailureDetectorTestUtils.recordException;
-import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
@@ -75,7 +73,7 @@ public class TestCluster extends TestCase {
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
 
-        create(failureDetectorConfig);
+        failureDetector = create(failureDetectorConfig);
     }
 
     @Override
@@ -103,24 +101,6 @@ public class TestCluster extends TestCase {
     public void testStatusBeginsAsAvailable() {
         for(Node n: cluster.getNodes())
             assertTrue("Node " + n.getId() + " is not available.", failureDetector.isAvailable(n));
-    }
-
-    @Test
-    public void testUnavailability() throws Exception {
-        Node n = cluster.getNodeById(1);
-
-        // begins available
-        assertTrue(failureDetector.isAvailable(n));
-
-        // if set unavailable, is unavailable
-        recordException(failureDetector, n);
-
-        assertFalse(failureDetector.isAvailable(n));
-
-        // if we set it back to available then it is available again
-        recordSuccess(failureDetector, n);
-
-        assertTrue(failureDetector.isAvailable(n));
     }
 
 }
