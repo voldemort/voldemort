@@ -348,6 +348,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 GetAllResult getResult = f.get();
                 if(getResult.exception != null) {
+                    // TODO : check with Jay/Ismael
                     if(getResult.exception instanceof VoldemortApplicationException) {
                         throw (VoldemortException) getResult.exception;
                     }

@@ -9,21 +9,14 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
-import voldemort.cluster.Node;
-import voldemort.server.RequestRoutingType;
-import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -36,19 +29,13 @@ public class Rebalancer implements Runnable {
     private final MetadataStore metadataStore;
     private final AsyncOperationRunner asyncRunner;
     private final VoldemortConfig voldemortConfig;
-    private final StoreRepository storeRepository;
-    private final SocketPool socketPool;
 
     public Rebalancer(MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
-                      AsyncOperationRunner asyncRunner,
-                      StoreRepository storeRepository,
-                      SocketPool socketPool) {
+                      AsyncOperationRunner asyncRunner) {
         this.metadataStore = metadataStore;
         this.asyncRunner = asyncRunner;
         this.voldemortConfig = voldemortConfig;
-        this.storeRepository = storeRepository;
-        this.socketPool = socketPool;
     }
 
     public void start() {
@@ -137,14 +124,8 @@ public class Rebalancer implements Runnable {
                                          + " rebalanceInfo:" + info);
         }
 
-        // check if this rebalancing can be started
+        // check and set State
         checkCurrentState(metadataStore, stealInfo);
-
-        // create redirectingSocketStore and set state
-        Node donorNode = getNodeIfPresent(stealInfo.getDonorId());
-        for(String storeName: stealInfo.getUnbalancedStoreList()) {
-            createRedirectingSocketStore(storeName, donorNode);
-        }
         setRebalancingState(metadataStore, stealInfo);
 
         int requestId = asyncRunner.getUniqueRequestId();
@@ -250,16 +231,6 @@ public class Rebalancer implements Runnable {
         return requestId;
     }
 
-    private Node getNodeIfPresent(int donorId) {
-        try {
-            return metadataStore.getCluster().getNodeById(donorId);
-        } catch(Exception e) {
-            throw new VoldemortException("Failed to get donorNode " + donorId
-                                         + " from current cluster " + metadataStore.getCluster()
-                                         + " at node " + metadataStore.getNodeId(), e);
-        }
-    }
-
     private void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
         metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
         metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfo);
@@ -272,24 +243,5 @@ public class Rebalancer implements Runnable {
                                          + " is already rebalancing from:"
                                          + metadataStore.getRebalancingStealInfo()
                                          + " rejecting rebalance request:" + stealInfo);
-    }
-
-    /**
-     * Create redirectingSocketStore for the donorNode when rebalancing.
-     * 
-     * @param storeName
-     * @param donorNode
-     */
-    private void createRedirectingSocketStore(String storeName, Node donorNode) {
-        if(voldemortConfig.isRedirectRoutingEnabled()
-           && !storeRepository.hasRedirectingSocketStore(storeName, donorNode.getId())) {
-            storeRepository.addRedirectingSocketStore(donorNode.getId(),
-                                                      new SocketStore(storeName,
-                                                                      new SocketDestination(donorNode.getHost(),
-                                                                                            donorNode.getSocketPort(),
-                                                                                            RequestFormatType.PROTOCOL_BUFFERS),
-                                                                      socketPool,
-                                                                      RequestRoutingType.IGNORE_CHECKS));
-        }
     }
 }

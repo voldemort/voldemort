@@ -205,7 +205,7 @@ public class StorageService extends AbstractService {
                                                         SystemTime.INSTANCE);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store, metadata, storeRepository);
+            store = new RedirectingStore(store, metadata, storeRepository, socketPool);
 
         if(voldemortConfig.isMetadataCheckingEnabled())
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);

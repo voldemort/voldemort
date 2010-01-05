@@ -38,8 +38,10 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.SocketPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -61,7 +63,10 @@ public class RedirectingStoreTest extends TestCase {
     @Override
     public void setUp() throws IOException {
         Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { {}, { 0, 1 } });
-        targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1 }, { 0 } });
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
+                                                            cluster.getNodeById(0),
+                                                            cluster.getNodeById(1),
+                                                            Arrays.asList(1));
 
         server0 = startServer(0, storesXmlfile, cluster);
 
@@ -104,7 +109,8 @@ public class RedirectingStoreTest extends TestCase {
                                                                           .getSocketPort(),
                                                                    RequestFormatType.VOLDEMORT_V1),
                                     metadata,
-                                    server0.getStoreRepository());
+                                    server0.getStoreRepository(),
+                                    new SocketPool(10, 1000, 10000, 10000));
     }
 
     public void testProxyGet() {
