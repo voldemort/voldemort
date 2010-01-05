@@ -5,15 +5,11 @@ import java.io.File;
 import voldemort.cluster.Cluster;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
-import voldemort.xml.StoreDefinitionsMapper;
 
 public class RebalanceCommandShell {
 
-    private static final String PROMPT = "> ";
-
     private static RebalanceController rebalanceClient;
     private static ClusterMapper clusterMapper = new ClusterMapper();
-    private static StoreDefinitionsMapper storesMapper = new StoreDefinitionsMapper();
 
     public static void main(String[] args) throws Exception {
         if(args.length != 3)
