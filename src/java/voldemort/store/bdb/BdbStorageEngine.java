@@ -155,11 +155,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 throw new VoldemortException("Failed to truncate Bdb store " + getName(), e);
 
             } finally {
-                if(succeeded) {
-                    attemptCommit(transaction);
-                } else {
-                    attemptAbort(transaction);
-                }
+
+                commitOrAbort(succeeded, transaction);
 
                 // reopen the bdb database for future queries.
                 if(reopenBdbDatabase()) {
@@ -172,6 +169,18 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         } else {
             throw new VoldemortException("Store " + getName()
                                          + " is already truncating, cannot start another one.");
+        }
+    }
+
+    private void commitOrAbort(boolean succeeded, Transaction transaction) {
+        try {
+            if(succeeded) {
+                attemptCommit(transaction);
+            } else {
+                attemptAbort(transaction);
+            }
+        } catch(Exception e) {
+            logger.error(e);
         }
     }
 
