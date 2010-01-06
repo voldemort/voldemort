@@ -196,8 +196,8 @@ public class RebalanceController {
     private void executorShutDown(ExecutorService executorService) {
         try {
             executorService.shutdown();
-            // executorService.awaitTermination(rebalanceConfig.getRebalancingClientTimeoutSeconds(),
-            // TimeUnit.SECONDS);
+            executorService.awaitTermination(rebalanceConfig.getRebalancingClientTimeoutSeconds(),
+                                             TimeUnit.SECONDS);
         } catch(Exception e) {
             logger.warn("Error while stoping executor service .. ", e);
         }
