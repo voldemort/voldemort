@@ -50,6 +50,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -132,7 +133,7 @@ public class Ec2RebalancingTest {
         cleanupCluster(hostNames, ec2RebalancingTestConfig);
     }
 
-    @Ignore
+    
     @Test
     public void testSingleRebalancing() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
@@ -197,8 +198,10 @@ public class Ec2RebalancingTest {
             // populate data now.
             populateData(originalCluster, Arrays.asList(0));
 
-            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(originalCluster,
-                                                                                                                                      0)));
+            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig()
+                           .setSocketTimeout(60, TimeUnit.SECONDS)
+                           .setBootstrapUrls(getBootstrapUrl(originalCluster,
+                                                             0)));
 
             final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(ec2RebalancingTestConfig.testStoreName,
                                                                                                    null,
@@ -213,6 +216,7 @@ public class Ec2RebalancingTest {
                     try {
                         List<String> keys = new ArrayList<String>(testEntries.keySet());
 
+                        boolean caughtIsONException=false;
                         int nRequests = 0;
                         while(!rebalancingToken.get()) {
                             // should always able to get values.
@@ -231,10 +235,15 @@ public class Ec2RebalancingTest {
                                                .getId();
                                 masterNodeResponded[masterNode] = true;
 
+                            } catch (InsufficientOperationalNodesException ison) {
+                                if (!caughtIsONException) {
+                                    ison.printStackTrace();
+                                    exceptions.add(ison);
+                                    caughtIsONException = true;
+                                }
                             } catch(Exception e) {
-                                //System.out.println(e);
-                                //e.printStackTrace();
-                                //exceptions.add(e);
+                                e.printStackTrace();
+                                exceptions.add(e);
                             }
                         }
 
