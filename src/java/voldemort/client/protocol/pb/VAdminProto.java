@@ -3978,7 +3978,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesResponse_fieldAccessorTable;
     }
     
-    // required int32 count = 1;
+    // optional int32 count = 1;
     public static final int COUNT_FIELD_NUMBER = 1;
     private boolean hasCount;
     private int count_ = 0;
@@ -3993,7 +3993,6 @@ public final class VAdminProto {
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
     public final boolean isInitialized() {
-      if (!hasCount) return false;
       if (hasError()) {
         if (!getError().isInitialized()) return false;
       }
@@ -4223,7 +4222,7 @@ public final class VAdminProto {
       }
       
       
-      // required int32 count = 1;
+      // optional int32 count = 1;
       public boolean hasCount() {
         return result.hasCount();
       }
@@ -6803,28 +6802,28 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStatusResponse_fieldAccessorTable;
     }
     
-    // required int32 request_id = 1;
+    // optional int32 request_id = 1;
     public static final int REQUEST_ID_FIELD_NUMBER = 1;
     private boolean hasRequestId;
     private int requestId_ = 0;
     public boolean hasRequestId() { return hasRequestId; }
     public int getRequestId() { return requestId_; }
     
-    // required string description = 2;
+    // optional string description = 2;
     public static final int DESCRIPTION_FIELD_NUMBER = 2;
     private boolean hasDescription;
     private java.lang.String description_ = "";
     public boolean hasDescription() { return hasDescription; }
     public java.lang.String getDescription() { return description_; }
     
-    // required string status = 3;
+    // optional string status = 3;
     public static final int STATUS_FIELD_NUMBER = 3;
     private boolean hasStatus;
     private java.lang.String status_ = "";
     public boolean hasStatus() { return hasStatus; }
     public java.lang.String getStatus() { return status_; }
     
-    // required bool complete = 4;
+    // optional bool complete = 4;
     public static final int COMPLETE_FIELD_NUMBER = 4;
     private boolean hasComplete;
     private boolean complete_ = false;
@@ -6839,10 +6838,6 @@ public final class VAdminProto {
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
     public final boolean isInitialized() {
-      if (!hasRequestId) return false;
-      if (!hasDescription) return false;
-      if (!hasStatus) return false;
-      if (!hasComplete) return false;
       if (hasError()) {
         if (!getError().isInitialized()) return false;
       }
@@ -7114,7 +7109,7 @@ public final class VAdminProto {
       }
       
       
-      // required int32 request_id = 1;
+      // optional int32 request_id = 1;
       public boolean hasRequestId() {
         return result.hasRequestId();
       }
@@ -7132,7 +7127,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required string description = 2;
+      // optional string description = 2;
       public boolean hasDescription() {
         return result.hasDescription();
       }
@@ -7153,7 +7148,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required string status = 3;
+      // optional string status = 3;
       public boolean hasStatus() {
         return result.hasStatus();
       }
@@ -7174,7 +7169,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool complete = 4;
+      // optional bool complete = 4;
       public boolean hasComplete() {
         return result.hasComplete();
       }
@@ -8317,7 +8312,7 @@ public final class VAdminProto {
       "store\030\001 \002(\t\022\022\n\npartitions\030\002 \003(\005\022*\n\006filte" +
       "r\030\003 \001(\0132\032.voldemort.VoldemortFilter\"P\n\036D" +
       "eletePartitionEntriesResponse\022\r\n\005count\030\001" +
-      " \002(\005\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"\177\n" +
+      " \001(\005\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"\177\n" +
       "\035InitiateFetchAndUpdateRequest\022\017\n\007node_i" +
       "d\030\001 \002(\005\022\022\n\npartitions\030\002 \003(\005\022\r\n\005store\030\003 \002",
       "(\t\022*\n\006filter\030\004 \001(\0132\032.voldemort.Voldemort" +
@@ -8334,9 +8329,9 @@ public final class VAdminProto {
       "\002(\005\022\022\n\npartitions\030\004 \003(\005\022\017\n\007attempt\030\005 \002(\005" +
       "\022\035\n\025deleteDonorPartitions\030\006 \002(\010\022\030\n\020unbal" +
       "anced_store\030\007 \003(\t\"\212\001\n\034AsyncOperationStat" +
-      "usResponse\022\022\n\nrequest_id\030\001 \002(\005\022\023\n\013descri" +
-      "ption\030\002 \002(\t\022\016\n\006status\030\003 \002(\t\022\020\n\010complete\030" +
-      "\004 \002(\010\022\037\n\005error\030\005 \001(\0132\020.voldemort.Error\"\373" +
+      "usResponse\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013descri" +
+      "ption\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030" +
+      "\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.voldemort.Error\"\373" +
       "\005\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033" +
       ".voldemort.AdminRequestType\0223\n\014get_metad" +
       "ata\030\002 \001(\0132\035.voldemort.GetMetadataRequest",

@@ -50,6 +50,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -132,7 +133,7 @@ public class Ec2RebalancingTest {
         cleanupCluster(hostNames, ec2RebalancingTestConfig);
     }
 
-    @Ignore
+    
     @Test
     public void testSingleRebalancing() throws Exception {
         int clusterSize = ec2RebalancingTestConfig.getInstanceCount();
@@ -158,14 +159,18 @@ public class Ec2RebalancingTest {
             originalNodes.add(node.getId());
         }
 
+        targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize,
+                                      targetCluster);
+
+        // Start common code
+        RebalanceController RebalanceController = new RebalanceController(getBootstrapUrl(originalCluster,
+                                                                                          0),
+                                                                          new RebalanceClientConfig());
         try {
-            targetCluster = expandCluster(targetCluster.getNumberOfNodes() - clusterSize,
-                                          targetCluster);
-            RebalanceController RebalanceController = new RebalanceController(getBootstrapUrl(originalCluster,
-                                                                                              0),
-                                                                              new RebalanceClientConfig());
+
             populateData(originalCluster, originalNodes);
             rebalanceAndCheck(originalCluster, targetCluster, RebalanceController, originalNodes);
+            // end common code
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
@@ -185,15 +190,18 @@ public class Ec2RebalancingTest {
                                                                                                     2,
                                                                                                     3 } }));
         try {
-            ExecutorService executorService = Executors.newFixedThreadPool(2);
-
+            final List<Integer> serverList = Arrays.asList(0, 1);
+            ExecutorService executors = Executors.newFixedThreadPool(2);
             final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
             final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
+            // populate data now.
             populateData(originalCluster, Arrays.asList(0));
 
-            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(originalCluster,
-                                                                                                                                      0)));
+            final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig()
+                           .setSocketTimeout(60, TimeUnit.SECONDS)
+                           .setBootstrapUrls(getBootstrapUrl(originalCluster,
+                                                             0)));
 
             final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(ec2RebalancingTestConfig.testStoreName,
                                                                                                    null,
@@ -202,30 +210,39 @@ public class Ec2RebalancingTest {
             final boolean[] masterNodeResponded = { false, false };
 
             // start get operation.
-            executorService.execute(new Runnable() {
+            executors.execute(new Runnable() {
 
                 public void run() {
                     try {
                         List<String> keys = new ArrayList<String>(testEntries.keySet());
 
+                        boolean caughtIsONException=false;
+                        int nRequests = 0;
                         while(!rebalancingToken.get()) {
                             // should always able to get values.
                             int index = (int) (Math.random() * keys.size());
+
                             // should get a valid value
                             try {
+                                nRequests++;
                                 Versioned<String> value = storeClient.get(keys.get(index));
-                                assertNotNull("StoreClient get() should not return null.", value);
+                                assertNotSame("StoreClient get() should not return null.", null, value);
                                 assertEquals("Value returned should be good",
                                              new Versioned<String>(testEntries.get(keys.get(index))),
                                              value);
                                 int masterNode = storeClient.getResponsibleNodes(keys.get(index))
-                                                            .get(0)
-                                                            .getId();
+                                               .get(0)
+                                               .getId();
                                 masterNodeResponded[masterNode] = true;
 
-                            } catch(UnreachableStoreException e) {
-                                // ignore
+                            } catch (InsufficientOperationalNodesException ison) {
+                                if (!caughtIsONException) {
+                                    ison.printStackTrace();
+                                    exceptions.add(ison);
+                                    caughtIsONException = true;
+                                }
                             } catch(Exception e) {
+                                e.printStackTrace();
                                 exceptions.add(e);
                             }
                         }
@@ -239,38 +256,41 @@ public class Ec2RebalancingTest {
 
             });
 
-            executorService.execute(new Runnable() {
+            executors.execute(new Runnable() {
 
                 public void run() {
                     try {
+
                         Thread.sleep(100);
 
-                        RebalanceController RebalanceController = new RebalanceController(getBootstrapUrl(originalCluster,
-                                                                                                          0),
-                                                                                          new RebalanceClientConfig());
-
+                        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(originalCluster,
+                                                                                                      0),
+                                                                                      new RebalanceClientConfig());
                         rebalanceAndCheck(originalCluster,
                                           targetCluster,
-                                          RebalanceController,
+                                          rebalanceClient,
                                           Arrays.asList(1));
 
-                        // sleep for 1 min before stopping servers
+                        // sleep for 1 mins before stopping servers
                         Thread.sleep(60 * 1000);
 
                         rebalancingToken.set(true);
 
                     } catch(Exception e) {
                         exceptions.add(e);
+                    } finally {
+                        // stop servers
                     }
                 }
             });
 
-            executorService.shutdown();
-            executorService.awaitTermination(15 * 60, TimeUnit.SECONDS);
+            executors.shutdown();
+            executors.awaitTermination(300, TimeUnit.SECONDS);
 
-            assertTrue("Client should see values returned master at both (0,1):("
-                               + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
-                       masterNodeResponded[0] && masterNodeResponded[1]);
+            assertEquals("Client should see values returned master at both (0,1):("
+                         + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
+                         true,
+                         masterNodeResponded[0] && masterNodeResponded[1]);
 
             // check No Exception
             if(exceptions.size() > 0) {
@@ -418,11 +438,10 @@ public class Ec2RebalancingTest {
         Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
         for(int nodeId: nodeList) {
             Node node = cluster.getNodeById(nodeId);
-            storeMap.put(nodeId,
-                         ServerTestUtils.getSocketStore(ec2RebalancingTestConfig.testStoreName,
-                                                        node.getHost(),
-                                                        node.getSocketPort(),
-                                                        RequestFormatType.PROTOCOL_BUFFERS));
+            storeMap.put(nodeId, ServerTestUtils.getSocketStore(ec2RebalancingTestConfig.testStoreName,
+                                                                node.getHost(),
+                                                                node.getSocketPort(),
+                                                                RequestFormatType.PROTOCOL_BUFFERS));
         }
 
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
@@ -444,16 +463,16 @@ public class Ec2RebalancingTest {
         }
 
         // close all socket stores
-        for(Store store: storeMap.values()) {
+        for(Store<ByteArray, byte[]> store: storeMap.values()) {
             store.close();
         }
     }
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
-                                   RebalanceController RebalanceController,
+                                   RebalanceController rebalanceController,
                                    List<Integer> nodeCheckList) {
-        RebalanceController.rebalance(targetCluster);
+        rebalanceController.rebalance(targetCluster);
 
         for(int nodeId: nodeCheckList) {
             List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();

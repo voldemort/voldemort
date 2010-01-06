@@ -64,7 +64,7 @@ message DeletePartitionEntriesRequest {
 }
 
 message DeletePartitionEntriesResponse {
-  required int32 count = 1;
+  optional int32 count = 1;
   optional Error error = 2;
 }
 
@@ -107,10 +107,10 @@ message InitiateRebalanceNodeRequest {
 }
 
 message AsyncOperationStatusResponse {
-  required int32 request_id = 1;
-  required string description = 2;
-  required string status = 3;
-  required bool complete = 4;
+  optional int32 request_id = 1;
+  optional string description = 2;
+  optional string status = 3;
+  optional bool complete = 4;
   optional Error error = 5;
 }
 

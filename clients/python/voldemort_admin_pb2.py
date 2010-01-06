@@ -410,7 +410,7 @@ _DELETEPARTITIONENTRIESRESPONSE = descriptor.Descriptor(
   fields=[
     descriptor.FieldDescriptor(
       name='count', full_name='voldemort.DeletePartitionEntriesResponse.count', index=0,
-      number=1, type=5, cpp_type=1, label=2,
+      number=1, type=5, cpp_type=1, label=1,
       default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -663,28 +663,28 @@ _ASYNCOPERATIONSTATUSRESPONSE = descriptor.Descriptor(
   fields=[
     descriptor.FieldDescriptor(
       name='request_id', full_name='voldemort.AsyncOperationStatusResponse.request_id', index=0,
-      number=1, type=5, cpp_type=1, label=2,
+      number=1, type=5, cpp_type=1, label=1,
       default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='description', full_name='voldemort.AsyncOperationStatusResponse.description', index=1,
-      number=2, type=9, cpp_type=9, label=2,
+      number=2, type=9, cpp_type=9, label=1,
       default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='status', full_name='voldemort.AsyncOperationStatusResponse.status', index=2,
-      number=3, type=9, cpp_type=9, label=2,
+      number=3, type=9, cpp_type=9, label=1,
       default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='complete', full_name='voldemort.AsyncOperationStatusResponse.complete', index=3,
-      number=4, type=8, cpp_type=7, label=2,
+      number=4, type=8, cpp_type=7, label=1,
       default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
