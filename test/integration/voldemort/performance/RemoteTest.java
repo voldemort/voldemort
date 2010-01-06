@@ -151,7 +151,7 @@ public class RemoteTest {
          * which will then use that value for other queries
          */
 
-        String key = new KeyProvider(startNum, keys).next();
+        final String key = new KeyProvider(startNum, keys).next();
 
         // We need to delete just in case there's an existing value there that
         // would otherwise cause the test run to bomb out.
@@ -202,7 +202,8 @@ public class RemoteTest {
 
                         public void run() {
                             try {
-                                store.put(keyProvider1.next(), new Versioned<String>(value));
+                                String key = keyProvider1.next();
+                                store.put(key, value);
                             } catch(Exception e) {
                                 e.printStackTrace();
                             } finally {
@@ -222,22 +223,24 @@ public class RemoteTest {
                 final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
                 final CountDownLatch latch2 = new CountDownLatch(numRequests);
                 long start = System.currentTimeMillis();
+                keyProvider2.next();
                 for(int i = 0; i < numRequests; i++) {
                     service.execute(new Runnable() {
 
                         public void run() {
                             try {
-                                Versioned<String> v = store.get(keyProvider2.next());
+                                String key = keyProvider2.next();
+                                Versioned<String> v = store.get(key);
 
                                 if(v == null) {
-                                    throw new Exception("value returned is null");
+                                    throw new Exception("value returned is null for key " + key);
                                 }
 
                                 if(!value.equals(v.getValue())) {
                                     throw new Exception("value returned isn't same as set value.  My val size = "
                                                         + value.length()
                                                         + " ret size = "
-                                                        + v.getValue().length());
+                                                        + v.getValue().length() + " for key " + key);
                                 }
 
                             } catch(Exception e) {

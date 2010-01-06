@@ -78,12 +78,15 @@ public class RebalanceController {
         if(!RebalanceUtils.getClusterRebalancingToken()) {
             throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
         }
-
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
                                                                                    storeList,
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
+
+        // add all new nodes to currentCluster
+        currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
+        adminClient.setAdminClientCluster(currentCluster);
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
@@ -106,11 +109,11 @@ public class RebalanceController {
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
-
                                     int rebalanceAsyncId = adminClient.rebalanceNode(rebalanceSubTask);
 
                                     try {
-                                        commitClusterChanges(stealerNodeId,
+                                        commitClusterChanges(adminClient.getAdminClientCluster()
+                                                                        .getNodeById(stealerNodeId),
                                                              targetCluster,
                                                              rebalanceSubTask);
                                     } catch(Exception e) {
@@ -175,19 +178,12 @@ public class RebalanceController {
      * @param rebalanceStealInfo
      * @throws Exception
      */
-    void commitClusterChanges(int stealerNodeId,
+    void commitClusterChanges(Node stealerNode,
                               Cluster targetCluster,
                               RebalancePartitionsInfo rebalanceStealInfo) throws Exception {
         synchronized(adminClient) {
             Cluster currentCluster = adminClient.getAdminClientCluster();
             Node donorNode = currentCluster.getNodeById(rebalanceStealInfo.getDonorId());
-
-            // Add stealerNode to currentCluster if not present.
-            Cluster updatedCluster = getClusterWithStealerNode(currentCluster,
-                                                               targetCluster,
-                                                               stealerNodeId);
-            Node stealerNode = updatedCluster.getNodeById(stealerNodeId);
-            adminClient.setAdminClientCluster(updatedCluster);
 
             VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(Arrays.asList(stealerNode.getId(),
                                                                                                   rebalanceStealInfo.getDonorId()),
@@ -195,10 +191,10 @@ public class RebalanceController {
                                                                   .getVersion();
 
             // apply changes and create new updated cluster.
-            updatedCluster = RebalanceUtils.createUpdatedCluster(updatedCluster,
-                                                                 stealerNode,
-                                                                 donorNode,
-                                                                 rebalanceStealInfo.getPartitionList());
+            Cluster updatedCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                         stealerNode,
+                                                                         donorNode,
+                                                                         rebalanceStealInfo.getPartitionList());
             // increment clock version on stealerNodeId
             latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
             try {
@@ -227,16 +223,14 @@ public class RebalanceController {
         }
     }
 
-    private Cluster getClusterWithStealerNode(Cluster currentCluster,
-                                              Cluster targetCluster,
-                                              int stealerNodeId) {
-        if(!RebalanceUtils.containsNode(currentCluster, stealerNodeId)) {
-            // add stealerNode with empty partitions list
-            Node stealerNode = RebalanceUtils.updateNode(targetCluster.getNodeById(stealerNodeId),
-                                                         new ArrayList<Integer>());
-            return RebalanceUtils.updateCluster(currentCluster, Arrays.asList(stealerNode));
+    private Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
+        ArrayList<Node> newNodes = new ArrayList<Node>();
+        for(Node node: targetCluster.getNodes()) {
+            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
+                // add stealerNode with empty partitions list
+                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
+            }
         }
-
-        return currentCluster;
+        return RebalanceUtils.updateCluster(currentCluster, newNodes);
     }
 }
