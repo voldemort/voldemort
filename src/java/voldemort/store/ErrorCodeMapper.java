@@ -19,7 +19,9 @@ package voldemort.store;
 import java.util.HashMap;
 import java.util.Map;
 
+import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
+import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.views.UnsupportedViewOperationException;
 import voldemort.utils.ReflectUtils;
 import voldemort.versioning.InconsistentDataException;
@@ -49,6 +51,8 @@ public class ErrorCodeMapper {
         codeToException.put((short) 9, InvalidMetadataException.class);
         codeToException.put((short) 10, PersistenceFailureException.class);
         codeToException.put((short) 11, UnsupportedViewOperationException.class);
+        codeToException.put((short) 12, VoldemortApplicationException.class);
+        codeToException.put((short) 13, AlreadyRebalancingException.class);
 
         exceptionToCode = new HashMap<Class<? extends VoldemortException>, Short>();
         for(Map.Entry<Short, Class<? extends VoldemortException>> entry: codeToException.entrySet())

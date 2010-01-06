@@ -117,11 +117,11 @@ public class Rebalancer implements Runnable {
 
         if(!acquireRebalancingPermit()) {
             RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo();
-            throw new VoldemortException("Node "
-                                         + metadataStore.getCluster()
-                                                        .getNodeById(info.getStealerId())
-                                         + " is already rebalancing from " + info.getDonorId()
-                                         + " rebalanceInfo:" + info);
+            throw new AlreadyRebalancingException("Node "
+                                                  + metadataStore.getCluster()
+                                                                 .getNodeById(info.getStealerId())
+                                                  + " is already rebalancing from "
+                                                  + info.getDonorId() + " rebalanceInfo:" + info);
         }
 
         // check and set State
