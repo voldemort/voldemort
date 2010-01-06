@@ -145,6 +145,7 @@ public class Rebalancer implements Runnable {
             public void operate() throws Exception {
                 AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                                metadataStore.getCluster());
+                List<Exception> failures = new ArrayList<Exception>();
                 try {
                     logger.info("Rebalancer: rebalance " + stealInfo + " starting.");
                     List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
@@ -156,8 +157,9 @@ public class Rebalancer implements Runnable {
                             tempUnbalancedStoreList.remove(storeName);
                             stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
                         } catch(Exception e) {
-                            logger.warn("rebalanceSubTask:" + stealInfo + " failed for store:"
+                            logger.error("rebalanceSubTask:" + stealInfo + " failed for store:"
                                         + storeName, e);
+                            failures.add(e);
                         }
                     }
 
@@ -167,9 +169,11 @@ public class Rebalancer implements Runnable {
                         // clean state only if successfull.
                         metadataStore.cleanAllRebalancingState();
                     } else {
-                        throw new VoldemortException("Rebalancer: Failed to rebalance all stores, unbalanced stores:"
-                                                     + stealInfo.getUnbalancedStoreList()
-                                                     + " rebalanceInfo:" + stealInfo);
+                        throw new VoldemortRebalancingException("Rebalancer: Failed to rebalance completely, unbalanced stores:"
+                                                                        + stealInfo.getUnbalancedStoreList()
+                                                                        + " rebalanceInfo:"
+                                                                        + stealInfo,
+                                                                failures);
                     }
 
                 } finally {

@@ -132,7 +132,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
 
     public List<Integer> getPartitionList(byte[] key) {
         List<Integer> preferenceList = new ArrayList<Integer>(numReplicas);
-        int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
+        int index = Math.abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
             if(!preferenceList.contains(index))

@@ -678,21 +678,26 @@ public class AdminClient {
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while(System.currentTimeMillis() < waitUntil) {
-            AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-            logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
-                         + status);
-            if(status.isComplete())
-                return;
-            if(status.hasException())
-                throw new VoldemortException(status.getException());
-
-            if(delay < MAX_DELAY)
-                delay <<= 1;
-
             try {
-                Thread.sleep(delay);
-            } catch(InterruptedException e) {
-                Thread.currentThread().interrupt();
+                AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+                logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
+                             + status);
+                if(status.isComplete())
+                    return;
+                if(status.hasException())
+                    throw status.getException();
+
+                if(delay < MAX_DELAY)
+                    delay <<= 1;
+
+                try {
+                    Thread.sleep(delay);
+                } catch(InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } catch(Exception e) {
+                throw new VoldemortException("Failed while waiting for async task " + requestId
+                                             + " at node " + nodeId + " to finish", e);
             }
         }
         throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"

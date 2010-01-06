@@ -15,6 +15,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.rebalance.AlreadyRebalancingException;
+import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -90,9 +91,15 @@ public class RebalanceController {
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
-        // add all new nodes to currentCluster
+        // add all new nodes to currentCluster and propagate to all
         currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
         adminClient.setAdminClientCluster(currentCluster);
+        Node firstNode = currentCluster.getNodes().iterator().next();
+        RebalanceUtils.propagateCluster(adminClient,
+                                        currentCluster,
+                                        ((VectorClock) currentVersionedCluster.getVersion()).incremented(firstNode.getId(),
+                                                                                                         System.currentTimeMillis()),
+                                        new ArrayList<Integer>());
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
@@ -142,9 +149,13 @@ public class RebalanceController {
                                                          + stealerNodeId
                                                          + " is unreachable, please make sure it is up and running ..",
                                                  e);
+                                } catch(VoldemortRebalancingException e) {
+                                    logger.error(e);
+                                    for(Exception cause: e.getCauses()) {
+                                        logger.error(cause);
+                                    }
                                 } catch(Exception e) {
-                                    logger.warn("rebalancing task (" + rebalanceSubTask
-                                                + ") failed with exception:", e);
+                                    logger.error("Rebalancing task failed with exception", e);
                                 }
                             }
                         }
