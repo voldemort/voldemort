@@ -34,6 +34,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -74,21 +75,20 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
 
     public static final int DEFAULT_ROUTING_TIMEOUT_MS = 5000;
-    public static final int DEFAULT_NODE_BANNAGE_MS = 10000;
 
-    private static final ClusterMapper clusterMapper = new ClusterMapper();
+    protected static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
-    private static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
+    protected static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
     private final URI[] bootstrapUrls;
     private final int routingTimeoutMs;
-    private final int nodeBannageMs;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final MBeanServer mbeanServer;
     private final int jmxId;
+    protected FailureDetector failureDetector;
     private final int maxBootstrapRetries;
 
     public AbstractStoreClientFactory(ClientConfig config) {
@@ -98,7 +98,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.serializerFactory = config.getSerializerFactory();
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
         this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
-        this.nodeBannageMs = config.getNodeBannagePeriod(TimeUnit.MILLISECONDS);
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
         if(isJmxEnabled)
@@ -164,7 +163,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          repairReads,
                                                          threadPool,
                                                          routingTimeoutMs,
-                                                         nodeBannageMs,
+                                                         failureDetector,
                                                          SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
@@ -198,6 +197,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializedStore;
     }
 
+    public FailureDetector getFailureDetector() {
+        return failureDetector;
+    }
+
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
         return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
@@ -222,6 +225,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
 
         throw new BootstrapFailureException("No available boostrap servers found!");
+    }
+
+    public String bootstrapMetadataWithRetries(String key) {
+        return bootstrapMetadataWithRetries(key, bootstrapUrls);
     }
 
     private String bootstrapMetadata(String key, URI[] urls) {
@@ -292,12 +299,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return routingTimeoutMs;
     }
 
-    public long getNodeBannageMs() {
-        return nodeBannageMs;
-    }
-
     public SerializerFactory getSerializerFactory() {
         return serializerFactory;
+    }
+
+    public void close() {
+        if(failureDetector != null)
+            failureDetector.destroy();
     }
 
     protected void registerJmx(ObjectName name, Object object) {

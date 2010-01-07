@@ -42,6 +42,10 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -94,6 +98,7 @@ public class StorageService extends AbstractService {
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
+    private final FailureDetector failureDetector;
 
     public StorageService(StoreRepository storeRepository,
                           MetadataStore metadata,
@@ -113,6 +118,12 @@ public class StorageService extends AbstractService {
                                          config.getClientConnectionTimeoutMs(),
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
+                                                                                                                  .getNodes())
+                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeRepository,
+                                                                                                                                          voldemortConfig.getNodeId()));
+        failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
     }
 
     private void initStorageConfig(String configClassName) {
@@ -253,7 +264,7 @@ public class StorageService extends AbstractService {
                                                                true,
                                                                this.clientThreadPool,
                                                                voldemortConfig.getRoutingTimeoutMs(),
-                                                               voldemortConfig.getClientNodeBannageMs(),
+                                                               failureDetector,
                                                                SystemTime.INSTANCE);
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                          new VectorClockInconsistencyResolver<byte[]>());
@@ -366,6 +377,16 @@ public class StorageService extends AbstractService {
 
         this.clientThreadPool.shutdownNow();
         logger.info("Closed client threadpool.");
+
+        if(this.failureDetector != null) {
+            try {
+                this.failureDetector.destroy();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
+
+        logger.info("Closed failure detector.");
 
         /* If there is an exception, throw it */
         if(lastException instanceof VoldemortException)

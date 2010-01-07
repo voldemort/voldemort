@@ -48,7 +48,7 @@ public abstract class AbstractByteArrayStoreTest extends AbstractStoreTest<ByteA
         return TestUtils.bytesEqual(t1, t2);
     }
 
-    public void testEmptyByteArray() {
+    public void testEmptyByteArray() throws Exception {
         Store<ByteArray, byte[]> store = getStore();
         Versioned<byte[]> bytes = new Versioned<byte[]>(new byte[0]);
         store.put(new ByteArray(new byte[0]), bytes);
