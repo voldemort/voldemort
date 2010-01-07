@@ -557,16 +557,16 @@ public class AdminClient {
     // TODO: Javadoc, "integration" test
     public List<Integer> getAsyncRequestList(int nodeId, boolean showComplete) {
         VAdminProto.AsyncOperationListRequest asyncOperationListRequest = VAdminProto.AsyncOperationListRequest.newBuilder()
-                .setShowComplete(showComplete)
-                .build();
+                                                                                                               .setShowComplete(showComplete)
+                                                                                                               .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_LIST)
-                .setAsyncOperationList(asyncOperationListRequest)
-                .build();
+                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_LIST)
+                                                                                          .setAsyncOperationList(asyncOperationListRequest)
+                                                                                          .build();
         VAdminProto.AsyncOperationListResponse.Builder response = sendAndReceive(nodeId,
                                                                                  adminRequest,
                                                                                  VAdminProto.AsyncOperationListResponse.newBuilder());
-        if (response.hasError())
+        if(response.hasError())
             throwException(response.getError());
 
         return response.getRequestIdsList();
@@ -575,17 +575,17 @@ public class AdminClient {
     // TODO: Javadoc, "integration" test
     public void stopAsyncRequest(int nodeId, int requestId) {
         VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
-                .setRequestId(requestId)
-                .build();
+                                                                                                               .setRequestId(requestId)
+                                                                                                               .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STOP)
-                .setAsyncOperationStop(asyncOperationStopRequest)
-                .build();
+                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STOP)
+                                                                                          .setAsyncOperationStop(asyncOperationStopRequest)
+                                                                                          .build();
         VAdminProto.AsyncOperationStopResponse.Builder response = sendAndReceive(nodeId,
                                                                                  adminRequest,
                                                                                  VAdminProto.AsyncOperationStopResponse.newBuilder());
 
-        if (response.hasError())
+        if(response.hasError())
             throwException(response.getError());
     }
 
@@ -678,13 +678,61 @@ public class AdminClient {
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         while(System.currentTimeMillis() < waitUntil) {
-            AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-            logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
-                         + status);
-            if(status.isComplete())
+            try {
+                AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+                logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
+                             + status);
+                if(status.isComplete())
+                    return;
+                if(status.hasException())
+                    throw status.getException();
+
+                if(delay < MAX_DELAY)
+                    delay <<= 1;
+
+                try {
+                    Thread.sleep(delay);
+                } catch(InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } catch(Exception e) {
+                throw new VoldemortException("Failed while waiting for async task " + requestId
+                                             + " at node " + nodeId + " to finish", e);
+            }
+        }
+        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
+                                     + maxWait + " " + timeUnit.toString());
+    }
+
+    /**
+     * Wait till the passed value matches with the metadata value returned by
+     * the remote node for the passed key.
+     * <p>
+     * 
+     * <i>Logs the status at each status check if debug is enabled.</i>
+     * 
+     * @param nodeId Id of the node to poll
+     * @param key metadata key to keep checking for current value
+     * @param value metadata value should match for exit criteria.
+     * @param maxWait Maximum time we'll keep checking a request until we give
+     *        up
+     * @param timeUnit Unit in which maxWait is expressed.
+     */
+    public void waitForCompletion(int nodeId,
+                                  String key,
+                                  String value,
+                                  long maxWait,
+                                  TimeUnit timeUnit) {
+        long delay = INITIAL_DELAY;
+        long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+
+        while(System.currentTimeMillis() < waitUntil) {
+            String currentValue = getRemoteMetadata(nodeId, key).getValue();
+            if(value.equals(currentValue))
                 return;
-            if(status.hasException())
-                throw new VoldemortException(status.getException());
+
+            logger.debug("WaitForCompletion() waiting for value " + value + " for metadata key "
+                         + key + " at remote node " + nodeId + " currentValue " + currentValue);
 
             if(delay < MAX_DELAY)
                 delay <<= 1;
@@ -695,8 +743,9 @@ public class AdminClient {
                 Thread.currentThread().interrupt();
             }
         }
-        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
-                                     + maxWait + " " + timeUnit.toString());
+        throw new VoldemortException("Failed to get matching value " + value + " for key " + key
+                                     + " at remote node " + nodeId + " in maxWait" + maxWait + " "
+                                     + timeUnit.toString());
     }
 
     /**

@@ -14,12 +14,19 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.rebalance.AlreadyRebalancingException;
+import voldemort.server.rebalance.VoldemortRebalancingException;
+import voldemort.store.UnreachableStoreException;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class RebalanceController {
+
+    private static final int MAX_TRIES = 2;
 
     private static Logger logger = Logger.getLogger(RebalanceController.class);
 
@@ -84,9 +91,15 @@ public class RebalanceController {
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
-        // add all new nodes to currentCluster
+        // add all new nodes to currentCluster and propagate to all
         currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
         adminClient.setAdminClientCluster(currentCluster);
+        Node firstNode = currentCluster.getNodes().iterator().next();
+        RebalanceUtils.propagateCluster(adminClient,
+                                        currentCluster,
+                                        ((VectorClock) currentVersionedCluster.getVersion()).incremented(firstNode.getId(),
+                                                                                                         System.currentTimeMillis()),
+                                        new ArrayList<Integer>());
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
@@ -109,7 +122,7 @@ public class RebalanceController {
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
-                                    int rebalanceAsyncId = adminClient.rebalanceNode(rebalanceSubTask);
+                                    int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);
 
                                     try {
                                         commitClusterChanges(adminClient.getAdminClientCluster()
@@ -117,8 +130,10 @@ public class RebalanceController {
                                                              targetCluster,
                                                              rebalanceSubTask);
                                     } catch(Exception e) {
-                                        adminClient.stopAsyncRequest(rebalanceSubTask.getStealerId(),
-                                                                     rebalanceAsyncId);
+                                        if(-1 != rebalanceAsyncId) {
+                                            adminClient.stopAsyncRequest(rebalanceSubTask.getStealerId(),
+                                                                         rebalanceAsyncId);
+                                        }
                                         throw e;
                                     }
 
@@ -129,19 +144,52 @@ public class RebalanceController {
 
                                     logger.info("Successfully finished RebalanceSubTask attempt:"
                                                 + rebalanceSubTask);
+                                } catch(UnreachableStoreException e) {
+                                    logger.error("StealerNode "
+                                                         + stealerNodeId
+                                                         + " is unreachable, please make sure it is up and running ..",
+                                                 e);
+                                } catch(VoldemortRebalancingException e) {
+                                    logger.error(e);
+                                    for(Exception cause: e.getCauses()) {
+                                        logger.error(cause);
+                                    }
                                 } catch(Exception e) {
-                                    logger.warn("rebalancing task (" + rebalanceSubTask
-                                                + ") failed with exception:", e);
+                                    logger.error("Rebalancing task failed with exception", e);
                                 }
                             }
                         }
                     }
-                    logger.debug("Thread run() finished:\n");
+                    logger.info("Thread run() finished:\n");
                 }
+
             });
         }// for (nThreads ..
-
         executorShutDown(executor);
+    }
+
+    private int startNodeRebalancing(RebalancePartitionsInfo rebalanceSubTask) {
+        int nTries = 0;
+        AlreadyRebalancingException exception = null;
+
+        while(nTries < MAX_TRIES) {
+            nTries++;
+            try {
+                return adminClient.rebalanceNode(rebalanceSubTask);
+            } catch(AlreadyRebalancingException e) {
+                logger.info("Node " + rebalanceSubTask.getStealerId()
+                            + " is currently rebalancing will wait till it finish ..");
+                adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
+                                              MetadataStore.SERVER_STATE_KEY,
+                                              VoldemortState.NORMAL_SERVER.toString(),
+                                              rebalanceConfig.getRebalancingClientTimeoutSeconds(),
+                                              TimeUnit.SECONDS);
+                exception = e;
+            }
+        }
+
+        throw new VoldemortException("Failed to start rebalancing for rebalanceSubTask "
+                                     + rebalanceSubTask, exception);
     }
 
     private void executorShutDown(ExecutorService executorService) {
@@ -160,6 +208,7 @@ public class RebalanceController {
 
     public void stop() {
         adminClient.stop();
+        executor.shutdownNow();
     }
 
     /* package level function to ease of unit testing */
