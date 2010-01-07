@@ -270,7 +270,7 @@ public class VoldemortConfig implements Serializable {
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
         // rebalancing parameters
-        this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
+        this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", Integer.MAX_VALUE);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
 
