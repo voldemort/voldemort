@@ -57,8 +57,9 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.rebalancing.RebalancingRoutedStore;
+import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
+import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
@@ -230,10 +231,10 @@ public class StorageService extends AbstractService {
 
     /**
      * For server side routing create NodeStore (socketstore) and pass it on to
-     * a {@link RebalancingRoutedStore}.
+     * a {@link RebootstrappingStore}.
      * <p>
      * 
-     * The {@link RebalancingRoutedStore} handles invalid-metadata exceptions
+     * The {@link RebootstrappingStore} handles invalid-metadata exceptions
      * introduced due to changes in cluster.xml at different nodes.
      * 
      * @param def
@@ -249,16 +250,22 @@ public class StorageService extends AbstractService {
             nodeStores.put(node.getId(), store);
         }
 
-        Store<ByteArray, byte[]> routedStore = new RebalancingRoutedStore(metadata,
-                                                                          storeRepository,
-                                                                          voldemortConfig,
-                                                                          socketPool,
-                                                                          def.getName(),
-                                                                          nodeStores,
-                                                                          def,
-                                                                          true,
-                                                                          this.clientThreadPool,
-                                                                          SystemTime.INSTANCE);
+        Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
+                                                               nodeStores,
+                                                               metadata.getCluster(),
+                                                               def,
+                                                               true,
+                                                               this.clientThreadPool,
+                                                               voldemortConfig.getRoutingTimeoutMs(),
+                                                               voldemortConfig.getClientNodeBannageMs(),
+                                                               SystemTime.INSTANCE);
+
+        routedStore = new RebootstrappingStore(metadata,
+                                                 storeRepository,
+                                                 voldemortConfig,
+                                                 socketPool,
+                                                 (RoutedStore) routedStore);
+
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                          new VectorClockInconsistencyResolver<byte[]>());
         this.storeRepository.addRoutedStore(routedStore);

@@ -76,10 +76,6 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         return inputStream.readBoolean();
     }
 
-    /**
-     * TODO : Currently we are just using ignore_checks to change opcode to have
-     * backward compatibility with the old server.
-     */
     public void writeGetRequest(DataOutputStream outputStream,
                                 String storeName,
                                 ByteArray key,

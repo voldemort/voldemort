@@ -19,7 +19,6 @@ package voldemort.store.rebalancing;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 import voldemort.VoldemortException;
 import voldemort.client.DefaultStoreClient;
@@ -28,9 +27,9 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.DelegatingStore;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.socket.SocketDestination;
@@ -38,20 +37,17 @@ import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.RebalanceUtils;
-import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * The RedirectingRoutedStore extends {@link RoutedStore}
- * 
- * catch all InvalidMetadataException and updates the routed store with latest
- * cluster metadata, client rebootstrapping behavior same in
- * {@link DefaultStoreClient} for server side routing<br>
+ * The RebootstrappingStore catch all InvalidMetadataException and updates the
+ * routed store with latest cluster metadata, client rebootstrapping behavior
+ * same in {@link DefaultStoreClient} for server side routing<br>
  * 
  */
-public class RebalancingRoutedStore extends RoutedStore {
+public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private final int maxMetadataRefreshAttempts = 3;
 
@@ -59,31 +55,19 @@ public class RebalancingRoutedStore extends RoutedStore {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final SocketPool socketPool;
+    private RoutedStore routedStore;
 
-    public RebalancingRoutedStore(MetadataStore metadataStore,
-                                  StoreRepository storeRepository,
-                                  VoldemortConfig voldemortConfig,
-                                  SocketPool socketPool,
-                                  String name,
-                                  Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                                  StoreDefinition storeDef,
-                                  boolean repairReads,
-                                  ExecutorService threadPool,
-                                  Time time) {
-        super(name,
-              innerStores,
-              metadataStore.getCluster(),
-              storeDef,
-              repairReads,
-              threadPool,
-              voldemortConfig.getRoutingTimeoutMs(),
-              voldemortConfig.getClientNodeBannageMs(),
-              time);
-
+    public RebootstrappingStore(MetadataStore metadataStore,
+                                StoreRepository storeRepository,
+                                VoldemortConfig voldemortConfig,
+                                SocketPool socketPool,
+                                RoutedStore routedStore) {
+        super(routedStore);
         this.metadata = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
         this.socketPool = socketPool;
+        this.routedStore = routedStore;
     }
 
     private void reinit() {
@@ -96,7 +80,7 @@ public class RebalancingRoutedStore extends RoutedStore {
 
             checkAndAddNodeStore();
 
-            super.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
+            routedStore.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
         } finally {
             adminClient.stop();
         }
@@ -110,12 +94,13 @@ public class RebalancingRoutedStore extends RoutedStore {
      */
     private void checkAndAddNodeStore() {
         for(Node node: metadata.getCluster().getNodes()) {
-            if(!getInnerStores().containsKey(node.getId())) {
+            if(!routedStore.getInnerStores().containsKey(node.getId())) {
                 if(!storeRepository.hasNodeStore(getName(), node.getId())) {
                     storeRepository.addNodeStore(node.getId(), createNodeStore(node));
                 }
-                getInnerStores().put(node.getId(),
-                                     storeRepository.getNodeStore(getName(), node.getId()));
+                routedStore.getInnerStores().put(node.getId(),
+                                                 storeRepository.getNodeStore(getName(),
+                                                                              node.getId()));
             }
         }
     }

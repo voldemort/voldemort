@@ -40,19 +40,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * We should only allow one cluster rebalancing at one time. We need to
-     * implement kind of a global lock for that.
-     * 
-     * TODO: Currently the user is responsible for not starting more than on
-     * cluster rebalancing.
-     * 
-     * @return
-     */
-    public static boolean getClusterRebalancingToken() {
-        return true;
-    }
-
-    /**
      * Update the cluster with desired changes as marked in rebalanceNodeInfo
      * rebalanceNodeInfo.getFirst() is the stealerNode (destinationNode) <br>
      * rebalanceNodeInfo.getSecond() is the rebalance steal info contatining

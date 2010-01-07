@@ -177,7 +177,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
-    protected void updateRoutingStrategy(RoutingStrategy routingStrategy) {
+    public void updateRoutingStrategy(RoutingStrategy routingStrategy) {
         logger.info("Updating routing strategy for RoutedStore:" + getName());
         this.routingStrategy = routingStrategy;
     }
@@ -348,7 +348,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 GetAllResult getResult = f.get();
                 if(getResult.exception != null) {
-                    // TODO : check with Jay/Ismael
                     if(getResult.exception instanceof VoldemortApplicationException) {
                         throw (VoldemortException) getResult.exception;
                     }
@@ -502,7 +501,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 GetResult<R> getResult = f.get();
                 if(getResult.exception != null) {
-                    // TODO : check with Jay/Ismael
                     if(getResult.exception instanceof VoldemortApplicationException) {
                         throw (VoldemortException) getResult.exception;
                     }

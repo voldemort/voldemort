@@ -123,7 +123,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             }
         }));
 
-        // TODO : check that this iterator is not modified in the above step.
         return getInnerStore().getAll(keys);
     }
 

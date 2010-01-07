@@ -119,7 +119,6 @@ public class RebalanceController {
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
-                                    // TODO : Should not delete data here
                                     int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);
 
                                     try {
