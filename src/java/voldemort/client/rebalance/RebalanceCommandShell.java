@@ -25,5 +25,6 @@ public class RebalanceCommandShell {
         rebalanceClient = new RebalanceController(bootstrapURL, config);
 
         rebalanceClient.rebalance(targetCluster);
+        rebalanceClient.stop();
     }
 }

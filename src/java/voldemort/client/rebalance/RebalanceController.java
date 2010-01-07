@@ -160,12 +160,11 @@ public class RebalanceController {
                             }
                         }
                     }
-                    logger.debug("Thread run() finished:\n");
+                    logger.info("Thread run() finished:\n");
                 }
 
             });
         }// for (nThreads ..
-
         executorShutDown(executor);
     }
 
@@ -209,6 +208,7 @@ public class RebalanceController {
 
     public void stop() {
         adminClient.stop();
+        executor.shutdownNow();
     }
 
     /* package level function to ease of unit testing */
