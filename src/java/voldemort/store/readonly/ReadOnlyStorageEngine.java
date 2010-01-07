@@ -170,20 +170,13 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             logger.info("Setting primary files for store '" + getName() + "' to "
                         + newStoreDirectory);
             File destDir = new File(storeDir, "version-0");
-            success = newDataDir.renameTo(destDir);
+            if(!newDataDir.renameTo(destDir))
+                throw new VoldemortException("Renaming " + newDataDir.getAbsolutePath() + " to "
+                             + destDir.getAbsolutePath() + " failed!");
 
             // open the new store
-            if(success) {
-                try {
-                    open();
-                } catch(Exception e) {
-                    logger.error(e);
-                    success = false;
-                }
-            } else {
-                logger.error("Renaming " + newDataDir.getAbsolutePath() + " to "
-                             + destDir.getAbsolutePath() + " failed!");
-            }
+            open();
+            success = true;
         } finally {
             try {
                 // we failed to do the swap, attempt a rollback
