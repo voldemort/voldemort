@@ -157,6 +157,7 @@ public class Rebalancer implements Runnable {
                             // remove store from stealInfo unbalanced list.
                             tempUnbalancedStoreList.remove(storeName);
                             stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                            //TODO : save state here
                         } catch(Exception e) {
                             logger.error("rebalanceSubTask:" + stealInfo + " failed for store:"
                                          + storeName, e);
