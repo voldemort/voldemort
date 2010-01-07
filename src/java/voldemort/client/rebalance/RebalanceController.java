@@ -82,9 +82,6 @@ public class RebalanceController {
 
         List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
 
-        if(!RebalanceUtils.getClusterRebalancingToken()) {
-            throw new VoldemortException("Failed to get Cluster permission to rebalance sleep and retry ...");
-        }
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
                                                                                    storeList,
@@ -122,6 +119,7 @@ public class RebalanceController {
                                             + " rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
+                                    // TODO : Should not delete data here
                                     int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);
 
                                     try {

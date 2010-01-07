@@ -52,6 +52,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalanceClientConfig;
 import voldemort.client.rebalance.RebalanceController;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
@@ -150,7 +151,8 @@ public class Ec2RebalancingTest {
                                                                                                    {0, 1, 2, 3}}));
         final SocketStoreClientFactory factory = getStoreClientFactory();
         final StoreClient<String,String> storeClient = getStoreClient(factory);
-        final CountDownLatch startSignal = new CountDownLatch(1);
+        final CountDownLatch nodeKilled = new CountDownLatch(1);
+        final CountDownLatch rebalanceStarted = new CountDownLatch(1);
 
         final AtomicBoolean restartedRebalancing = new AtomicBoolean(false);
         final AtomicBoolean entriesCorrect = new AtomicBoolean(false);
@@ -162,13 +164,15 @@ public class Ec2RebalancingTest {
             executorService.submit(new Runnable() {
                 // Initiate rebalancing
                 public void run() {
-                    RebalanceController rebalanceController = new RebalanceController(getBootstrapUrl(originalCluster,
-                                                                                                      0),
-                                                                                      new RebalanceClientConfig());
-                    
-                    if (logger.isInfoEnabled())
-                        logger.info("Starting rebalancing");
-                    rebalanceController.rebalance(targetCluster);
+                    AdminClient adminClient = new AdminClient(getBootstrapUrl(originalCluster, 0), new AdminClientConfig());
+                    RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1, 0,
+                                                                                                  Arrays.asList(0, 1, 2, 3),
+                                                                                                  Arrays.asList(ec2RebalancingTestConfig.testStoreName),
+                                                                                                  false,
+                                                                                                  0
+                                                                                                  );
+                    adminClient.rebalanceNode(rebalancePartitionsInfo);
+                    rebalanceStarted.countDown();
                 }
             });
 
@@ -178,11 +182,11 @@ public class Ec2RebalancingTest {
                     try {
                         String hostname = originalCluster.getNodeById(1).getHost();
                         if (logger.isInfoEnabled())
-                            logger.info("Sleeping for a minute to get rebalancing into a half-way state");
+                            logger.info("Waiting to get rebalancing into a half-way state");
 
-                        Thread.sleep(60 * 1000);
+                        rebalanceStarted.await();
                         stopClusterNode(hostname,ec2RebalancingTestConfig);
-                        startSignal.countDown();
+                        nodeKilled.countDown();
                         if (logger.isInfoEnabled())
                             logger.info("Killed node 1");
 
@@ -208,7 +212,7 @@ public class Ec2RebalancingTest {
                             if (logger.isInfoEnabled())
                                 logger.info("Waiting for the node to be brought down");
 
-                            startSignal.await();
+                            nodeKilled.await();
                             if (logger.isInfoEnabled())
                                 logger.info("Waiting for five minutes for rebalancing to retry");
 
