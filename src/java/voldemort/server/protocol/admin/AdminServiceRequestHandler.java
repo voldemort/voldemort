@@ -60,9 +60,9 @@ import com.google.protobuf.Message;
  * 
  * @author afeinberg
  */
-public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
+public class AdminServiceRequestHandler implements RequestHandler {
 
-    private final static Logger logger = Logger.getLogger(ProtoBuffAdminServiceRequestHandler.class);
+    private final static Logger logger = Logger.getLogger(AdminServiceRequestHandler.class);
 
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
@@ -72,7 +72,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final AsyncOperationRunner asyncRunner;
     private final Rebalancer rebalancer;
 
-    public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
+    public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                                StoreRepository storeRepository,
                                                MetadataStore metadataStore,
                                                VoldemortConfig voldemortConfig,
@@ -595,7 +595,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
      * @return True if the buffer holds a complete request, false otherwise
      */
     public boolean isCompleteRequest(ByteBuffer buffer) {
-        throw new VoldemortException("Non-blocking server not supported for ProtoBuffAdminServiceRequestHandler");
+        throw new VoldemortException("Non-blocking server not supported for AdminServiceRequestHandler");
     }
 
     /* Private helper methods */

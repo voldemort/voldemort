@@ -5,7 +5,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
-import voldemort.server.protocol.admin.ProtoBuffAdminServiceRequestHandler;
+import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
@@ -50,7 +50,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffRequestHandler(new ErrorCodeMapper(), repository);
             case ADMIN_PROTOCOL_BUFFERS:
-                return new ProtoBuffAdminServiceRequestHandler(new ErrorCodeMapper(),
+                return new AdminServiceRequestHandler(new ErrorCodeMapper(),
                                                                repository,
                                                                metadata,
                                                                voldemortConfig,
