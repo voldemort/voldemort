@@ -185,6 +185,18 @@ public class ReadOnlyStorageEngineTest {
         assertVersionsExist(dir, 0);
     }
 
+    @Test(expected=VoldemortException.class)
+    public void testBadSwapThrows() throws IOException {
+        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        assertVersionsExist(dir, 0);
+
+        // swap to a new bad version
+        File newDir = TestUtils.createTempDir();
+        createStoreFiles(newDir, 73, 1024, 2);
+        engine.swapFiles(newDir.getAbsolutePath());
+    }
+
     private void assertVersionsExist(File dir, int... versions) {
         for(int i = 0; i < versions.length; i++) {
             File versionDir = new File(dir, "version-" + versions[i]);
