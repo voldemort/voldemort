@@ -30,20 +30,17 @@ public class RebalanceController {
 
     private static Logger logger = Logger.getLogger(RebalanceController.class);
 
-    private final ExecutorService executor;
     private final AdminClient adminClient;
     RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
         this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
         this.rebalanceConfig = rebalanceConfig;
-        this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
     }
 
     public RebalanceController(Cluster cluster, RebalanceClientConfig config) {
         this.adminClient = new AdminClient(cluster, config);
         this.rebalanceConfig = config;
-        this.executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
     }
 
     private ExecutorService createExecutors(int numThreads) {
@@ -98,9 +95,11 @@ public class RebalanceController {
                                                                                                          System.currentTimeMillis()),
                                         new ArrayList<Integer>());
 
+        ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
-            this.executor.execute(new Runnable() {
+            executor.execute(new Runnable() {
 
                 public void run() {
                     // pick one node to rebalance from queue
@@ -124,7 +123,6 @@ public class RebalanceController {
                                     try {
                                         commitClusterChanges(adminClient.getAdminClientCluster()
                                                                         .getNodeById(stealerNodeId),
-                                                             targetCluster,
                                                              rebalanceSubTask);
                                     } catch(Exception e) {
                                         if(-1 != rebalanceAsyncId) {
@@ -205,7 +203,6 @@ public class RebalanceController {
 
     public void stop() {
         adminClient.stop();
-        executor.shutdownNow();
     }
 
     /* package level function to ease of unit testing */
@@ -224,9 +221,8 @@ public class RebalanceController {
      * @param rebalanceStealInfo
      * @throws Exception
      */
-    void commitClusterChanges(Node stealerNode,
-                              Cluster targetCluster,
-                              RebalancePartitionsInfo rebalanceStealInfo) throws Exception {
+    void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
+            throws Exception {
         synchronized(adminClient) {
             Cluster currentCluster = adminClient.getAdminClientCluster();
             Node donorNode = currentCluster.getNodeById(rebalanceStealInfo.getDonorId());

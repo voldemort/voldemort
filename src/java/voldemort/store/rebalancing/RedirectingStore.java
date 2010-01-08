@@ -176,14 +176,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             return values;
         } catch(UnreachableStoreException e) {
             failureDetector.recordException(donorNode, e);
-            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+            throw new ProxyUnreachableException("Failed to reach proxy node "
                                                            + donorNode, e);
         }
     }
 
     private void checkNodeAvailable(Node donorNode) {
         if(!failureDetector.isAvailable(donorNode))
-            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+            throw new ProxyUnreachableException("Failed to reach proxy node "
                                                            + donorNode
                                                            + " is marked down by failure detector.");
     }
@@ -208,7 +208,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             return map;
         } catch(UnreachableStoreException e) {
             failureDetector.recordException(donorNode, e);
-            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+            throw new ProxyUnreachableException("Failed to reach proxy node "
                                                            + donorNode, e);
         }
     }

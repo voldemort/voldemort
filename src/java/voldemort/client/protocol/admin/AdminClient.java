@@ -702,11 +702,13 @@ public class AdminClient {
         long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
+        String description = null;
         while(System.currentTimeMillis() < waitUntil) {
             try {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
                 logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
                              + status);
+                description = status.getDescription();
                 if(status.isComplete())
                     return;
                 if(status.hasException())
@@ -721,7 +723,7 @@ public class AdminClient {
                     Thread.currentThread().interrupt();
                 }
             } catch(Exception e) {
-                throw new VoldemortException("Failed while waiting for async task " + requestId
+                throw new VoldemortException("Failed while waiting for async task " + description
                                              + " at node " + nodeId + " to finish", e);
             }
         }

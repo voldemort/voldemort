@@ -130,120 +130,140 @@ public class Rebalancer implements Runnable {
 
         int requestId = asyncRunner.getUniqueRequestId();
 
-        asyncRunner.submitOperation(requestId, new AsyncOperation(requestId, stealInfo.toString()) {
+        asyncRunner.submitOperation(requestId,
+                                    new AsyncOperation(requestId, "Rebalance Operation:"
+                                                                  + stealInfo.toString()) {
 
-            private int migratePartitionsAsyncId = -1;
-            private String currentStore = null;
-            AdminClient adminClient = null;
-            volatile boolean forceStop = false;
+                                        private int migratePartitionsAsyncId = -1;
+                                        private String currentStore = null;
+                                        AdminClient adminClient = null;
+                                        volatile boolean forceStop = false;
 
-            @Override
-            public void operate() throws Exception {
-                adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                   metadataStore.getCluster());
-                List<Exception> failures = new ArrayList<Exception>();
-                try {
-                    logger.info("starting rebalancing " + stealInfo);
-                    List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
-                    for(String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
-                        if(forceStop) {
-                            logger.info("Stopping rebalancing Operation cleanly as stop() was called.");
-                            metadataStore.cleanAllRebalancingState();
-                            return;
-                        }
-                        try {
-                            rebalanceStore(storeName, adminClient, stealInfo);
+                                        @Override
+                                        public void operate() throws Exception {
+                                            adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                                               metadataStore.getCluster());
+                                            List<Exception> failures = new ArrayList<Exception>();
+                                            try {
+                                                logger.info("starting rebalancing " + stealInfo);
+                                                List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
+                                                for(String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
+                                                    if(forceStop) {
+                                                        logger.info("Stopping rebalancing Operation cleanly as stop() was called.");
+                                                        metadataStore.cleanAllRebalancingState();
+                                                        return;
+                                                    }
+                                                    try {
+                                                        rebalanceStore(storeName,
+                                                                       adminClient,
+                                                                       stealInfo);
 
-                            // remove store from stealInfo unbalanced list.
-                            tempUnbalancedStoreList.remove(storeName);
-                            stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
-                            setRebalancingState(metadataStore, stealInfo);
-                        } catch(Exception e) {
-                            logger.error("rebalanceSubTask:" + stealInfo + " failed for store:"
-                                         + storeName, e);
-                            failures.add(e);
-                        }
-                    }
+                                                        // remove store from
+                                                        // stealInfo unbalanced
+                                                        // list.
+                                                        tempUnbalancedStoreList.remove(storeName);
+                                                        stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                                                        setRebalancingState(metadataStore,
+                                                                            stealInfo);
+                                                    } catch(Exception e) {
+                                                        logger.error("rebalanceSubTask:"
+                                                                     + stealInfo
+                                                                     + " failed for store:"
+                                                                     + storeName, e);
+                                                        failures.add(e);
+                                                    }
+                                                }
 
-                    if(stealInfo.getUnbalancedStoreList().isEmpty()) {
-                        logger.info("Rebalancer: rebalance " + stealInfo
-                                    + " completed successfully.");
-                        // clean state only if successfull.
-                        metadataStore.cleanAllRebalancingState();
-                    } else {
-                        throw new VoldemortRebalancingException("Rebalancer: Failed to rebalance completely, unbalanced stores:"
-                                                                        + stealInfo.getUnbalancedStoreList()
-                                                                        + " rebalanceInfo:"
-                                                                        + stealInfo,
-                                                                failures);
-                    }
+                                                if(stealInfo.getUnbalancedStoreList().isEmpty()) {
+                                                    logger.info("Rebalancer: rebalance "
+                                                                + stealInfo
+                                                                + " completed successfully.");
+                                                    // clean state only if
+                                                    // successfull.
+                                                    metadataStore.cleanAllRebalancingState();
+                                                } else {
+                                                    throw new VoldemortRebalancingException("Rebalancer: Failed to rebalance completely, unbalanced stores:"
+                                                                                                    + stealInfo.getUnbalancedStoreList()
+                                                                                                    + " rebalanceInfo:"
+                                                                                                    + stealInfo,
+                                                                                            failures);
+                                                }
 
-                } finally {
-                    // free the permit in all cases.
-                    releaseRebalancingPermit();
-                    adminClient.stop();
-                    adminClient = null;
-                    migratePartitionsAsyncId = -1;
-                }
-            }
+                                            } finally {
+                                                // free the permit in all cases.
+                                                releaseRebalancingPermit();
+                                                adminClient.stop();
+                                                adminClient = null;
+                                                migratePartitionsAsyncId = -1;
+                                            }
+                                        }
 
-            @Override
-            public void stop() {
-                updateStatus("stop() called on rebalance operation !!");
-                if(null != adminClient && -1 != migratePartitionsAsyncId) {
-                    adminClient.stopAsyncRequest(metadataStore.getNodeId(),
-                                                 migratePartitionsAsyncId);
-                }
-                forceStop = true;
-            }
+                                        @Override
+                                        public void stop() {
+                                            updateStatus("stop() called on rebalance operation !!");
+                                            if(null != adminClient
+                                               && -1 != migratePartitionsAsyncId) {
+                                                adminClient.stopAsyncRequest(metadataStore.getNodeId(),
+                                                                             migratePartitionsAsyncId);
+                                            }
+                                            forceStop = true;
+                                        }
 
-            private void rebalanceStore(String storeName,
-                                        AdminClient adminClient,
-                                        RebalancePartitionsInfo stealInfo) throws Exception {
-                updateStatus("starting partitions migration for store:" + storeName);
-                currentStore = storeName;
+                                        private void rebalanceStore(String storeName,
+                                                                    AdminClient adminClient,
+                                                                    RebalancePartitionsInfo stealInfo)
+                                                throws Exception {
+                                            updateStatus("starting partitions migration for store:"
+                                                         + storeName);
+                                            currentStore = storeName;
 
-                migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                                         metadataStore.getNodeId(),
-                                                                         storeName,
-                                                                         stealInfo.getPartitionList(),
-                                                                         null);
-                adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                              migratePartitionsAsyncId,
-                                              voldemortConfig.getAdminSocketTimeout(),
-                                              TimeUnit.SECONDS);
+                                            migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                                                                                                     metadataStore.getNodeId(),
+                                                                                                     storeName,
+                                                                                                     stealInfo.getPartitionList(),
+                                                                                                     null);
+                                            adminClient.waitForCompletion(metadataStore.getNodeId(),
+                                                                          migratePartitionsAsyncId,
+                                                                          voldemortConfig.getAdminSocketTimeout(),
+                                                                          TimeUnit.SECONDS);
 
-                if(stealInfo.isDeleteDonorPartitions()) {
-                    logger.warn("Deleting data from donorNode after rebalancing !!");
-                    adminClient.deletePartitions(stealInfo.getDonorId(),
-                                                 storeName,
-                                                 stealInfo.getPartitionList(),
-                                                 null);
-                    logger.info("Deleted partitions " + stealInfo.getPartitionList()
-                                + " from donorNode:" + stealInfo.getDonorId());
-                }
+                                            if(stealInfo.isDeleteDonorPartitions()) {
+                                                logger.warn("Deleting data from donorNode after rebalancing !!");
+                                                adminClient.deletePartitions(stealInfo.getDonorId(),
+                                                                             storeName,
+                                                                             stealInfo.getPartitionList(),
+                                                                             null);
+                                                logger.info("Deleted partitions "
+                                                            + stealInfo.getPartitionList()
+                                                            + " from donorNode:"
+                                                            + stealInfo.getDonorId());
+                                            }
 
-                updateStatus("partitions migration for store:" + storeName + " completed.");
+                                            updateStatus("partitions migration for store:"
+                                                         + storeName + " completed.");
 
-                // reset asyncId
-                migratePartitionsAsyncId = -1;
-                currentStore = null;
-            }
+                                            // reset asyncId
+                                            migratePartitionsAsyncId = -1;
+                                            currentStore = null;
+                                        }
 
-            @Override
-            @JmxGetter(name = "asyncTaskStatus")
-            public AsyncOperationStatus getStatus() {
-                if(-1 != migratePartitionsAsyncId && null != currentStore)
-                    try {
-                        updateStatus("partitions migration for store:" + currentStore + " status:"
-                                     + asyncRunner.getStatus(migratePartitionsAsyncId));
-                    } catch(Exception e) {
-                        // ignore
-                    }
+                                        @Override
+                                        @JmxGetter(name = "asyncTaskStatus")
+                                        public AsyncOperationStatus getStatus() {
+                                            if(-1 != migratePartitionsAsyncId
+                                               && null != currentStore)
+                                                try {
+                                                    updateStatus("partitions migration for store:"
+                                                                 + currentStore
+                                                                 + " status:"
+                                                                 + asyncRunner.getStatus(migratePartitionsAsyncId));
+                                                } catch(Exception e) {
+                                                    // ignore
+                                                }
 
-                return super.getStatus();
-            }
-        });
+                                            return super.getStatus();
+                                        }
+                                    });
 
         return requestId;
     }

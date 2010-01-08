@@ -23,7 +23,7 @@ import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.server.rebalance.VoldemortRebalancingException;
-import voldemort.store.rebalancing.RebalancingProxyUnreachableException;
+import voldemort.store.rebalancing.ProxyUnreachableException;
 import voldemort.store.views.UnsupportedViewOperationException;
 import voldemort.utils.ReflectUtils;
 import voldemort.versioning.InconsistentDataException;
@@ -56,7 +56,7 @@ public class ErrorCodeMapper {
         codeToException.put((short) 12, VoldemortApplicationException.class);
         codeToException.put((short) 13, AlreadyRebalancingException.class);
         codeToException.put((short) 14, VoldemortRebalancingException.class);
-        codeToException.put((short) 15, RebalancingProxyUnreachableException.class);
+        codeToException.put((short) 15, ProxyUnreachableException.class);
 
         exceptionToCode = new HashMap<Class<? extends VoldemortException>, Short>();
         for(Map.Entry<Short, Class<? extends VoldemortException>> entry: codeToException.entrySet())
