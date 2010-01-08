@@ -16,12 +16,6 @@
 #  limitations under the License.
 #
 
-if [ $# -lt 3 ];
-then
-	echo 'USAGE: bin/voldemort-rebalance-shell.sh bootstrapURL targetCluster.xml maxParallelRebalancing'
-	exit 1
-fi
-
 base_dir=$(dirname $0)/..
 
 $base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.client.rebalance.RebalanceCommandShell $@

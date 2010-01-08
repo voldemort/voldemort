@@ -71,10 +71,26 @@ public class RebalanceController {
     public void rebalance(final Cluster targetCluster) {
         Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                      adminClient);
-        logger.info("Current Cluster configuration:" + currentVersionedCluster);
+        rebalance(currentVersionedCluster.getValue(), targetCluster);
+    }
+
+    /**
+     * Voldemort dynamic cluster membership rebalancing mechanism. <br>
+     * Migrate partitions across nodes to managed changes in cluster
+     * memberships. <br>
+     * Takes targetCluster as parameters, fetches the current cluster
+     * configuration from the cluster compares and makes a list of partitions
+     * need to be transferred.<br>
+     * The cluster is kept consistent during rebalancing using a proxy mechanism
+     * via {@link RedirectingStore}<br>
+     * 
+     * 
+     * @param targetCluster: target Cluster configuration
+     */
+    public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
+        logger.info("Current Cluster configuration:" + currentCluster);
         logger.info("Target Cluster configuration:" + targetCluster);
 
-        Cluster currentCluster = currentVersionedCluster.getValue();
         adminClient.setAdminClientCluster(currentCluster);
 
         List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
@@ -89,10 +105,13 @@ public class RebalanceController {
         currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
         adminClient.setAdminClientCluster(currentCluster);
         Node firstNode = currentCluster.getNodes().iterator().next();
+        VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
+                                                                                adminClient)
+                                                              .getVersion();
         RebalanceUtils.propagateCluster(adminClient,
                                         currentCluster,
-                                        ((VectorClock) currentVersionedCluster.getVersion()).incremented(firstNode.getId(),
-                                                                                                         System.currentTimeMillis()),
+                                        latestClock.incremented(firstNode.getId(),
+                                                                System.currentTimeMillis()),
                                         new ArrayList<Integer>());
 
         ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
