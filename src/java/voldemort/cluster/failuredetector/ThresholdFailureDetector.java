@@ -91,7 +91,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                                                          / nodeStatus.getTotal() : 0;
             }
 
-            list.add(node + ",status=" + (isAvailabile ? "available" : "unavailable")
+            list.add(node.getId() + ",status=" + (isAvailabile ? "available" : "unavailable")
                      + ",percentage=" + percentage + "%");
         }
 

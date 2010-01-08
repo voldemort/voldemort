@@ -83,7 +83,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         for(Node node: getConfig().getNodes())
             if(isAvailable(node))
-                list.add(node.toString());
+                list.add(String.valueOf(node.getId()));
 
         return StringUtils.join(list, ",");
     }
@@ -94,7 +94,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         for(Node node: getConfig().getNodes())
             if(!isAvailable(node))
-                list.add(node.toString());
+                list.add(String.valueOf(node.getId()));
 
         return StringUtils.join(list, ",");
     }

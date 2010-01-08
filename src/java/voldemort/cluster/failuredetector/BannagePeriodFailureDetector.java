@@ -106,7 +106,7 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
                     millis = (nodeStatus.getLastChecked() + bannagePeriod) - currentTime;
                 }
 
-                list.add(node.toString() + "=" + millis);
+                list.add(node.getId() + "=" + millis);
             }
         }
 
