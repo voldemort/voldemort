@@ -97,7 +97,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private final Time time;
     private final StoreDefinition storeDef;
     private final FailureDetector failureDetector;
-    private final RoutingStrategy routingStrategy;
+
+    private RoutingStrategy routingStrategy;
 
     /**
      * Create a RoutedStoreClient
@@ -174,6 +175,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         this.storeDef = storeDef;
         this.failureDetector = failureDetector;
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
+    }
+
+    public void updateRoutingStrategy(RoutingStrategy routingStrategy) {
+        logger.info("Updating routing strategy for RoutedStore:" + getName());
+        this.routingStrategy = routingStrategy;
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
@@ -342,6 +348,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 GetAllResult getResult = f.get();
                 if(getResult.exception != null) {
+                    if(getResult.exception instanceof VoldemortApplicationException) {
+                        throw (VoldemortException) getResult.exception;
+                    }
                     failures.add(getResult.exception);
                     continue;
                 }
@@ -492,6 +501,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             try {
                 GetResult<R> getResult = f.get();
                 if(getResult.exception != null) {
+                    if(getResult.exception instanceof VoldemortApplicationException) {
+                        throw (VoldemortException) getResult.exception;
+                    }
                     failures.add(getResult.exception);
                     continue;
                 }
@@ -820,7 +832,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             throw exception;
     }
 
-    Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
+    public Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
         return this.innerStores;
     }
 

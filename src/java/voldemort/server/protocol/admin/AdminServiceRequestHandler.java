@@ -22,22 +22,23 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.server.rebalance.Rebalancer;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
@@ -47,6 +48,8 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -57,9 +60,9 @@ import com.google.protobuf.Message;
  * 
  * @author afeinberg
  */
-public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
+public class AdminServiceRequestHandler implements RequestHandler {
 
-    private final static Logger logger = Logger.getLogger(ProtoBuffAdminServiceRequestHandler.class);
+    private final static Logger logger = Logger.getLogger(AdminServiceRequestHandler.class);
 
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
@@ -67,12 +70,14 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationRunner asyncRunner;
+    private final Rebalancer rebalancer;
 
-    public ProtoBuffAdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
-                                               StoreRepository storeRepository,
-                                               MetadataStore metadataStore,
-                                               VoldemortConfig voldemortConfig,
-                                               AsyncOperationRunner asyncRunner) {
+    public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
+                                      StoreRepository storeRepository,
+                                      MetadataStore metadataStore,
+                                      VoldemortConfig voldemortConfig,
+                                      AsyncOperationRunner asyncRunner,
+                                      Rebalancer rebalancer) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
@@ -80,6 +85,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.asyncRunner = asyncRunner;
+        this.rebalancer = rebalancer;
     }
 
     public void handleRequest(final DataInputStream inputStream, final DataOutputStream outputStream)
@@ -90,6 +96,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         byte[] input = new byte[size];
         ByteUtils.read(inputStream, input);
         request.mergeFrom(input);
+
         switch(request.getType()) {
             case GET_METADATA:
                 ProtoUtils.writeMessage(outputStream, handleGetMetadata(request.getGetMetadata()));
@@ -117,6 +124,18 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             case ASYNC_OPERATION_STATUS:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncStatus(request.getAsyncOperationStatus()));
+                break;
+            case INITIATE_REBALANCE_NODE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceNode(request.getInitiateRebalanceNode()));
+                break;
+            case ASYNC_OPERATION_LIST:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleAsyncOperationList(request.getAsyncOperationList()));
+                break;
+            case ASYNC_OPERATION_STOP:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleAsyncOperationStop(request.getAsyncOperationStop()));
                 break;
             case TRUNCATE_ENTRIES:
                 ProtoUtils.writeMessage(outputStream,
@@ -170,37 +189,54 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         }
     }
 
+    /**
+     * FetchEntries fetches and return key/value entry.
+     * <p>
+     * For performance reason use storageEngine.keys() iterator to filter out
+     * unwanted keys and then call storageEngine.get() for valid keys.
+     * <p>
+     * 
+     * @param storageEngine
+     * @param outputStream
+     * @param partitionList
+     * @param routingStrategy
+     * @param filter
+     * @param throttler
+     * @throws IOException
+     */
     private void fetchEntries(StorageEngine<ByteArray, byte[]> storageEngine,
                               DataOutputStream outputStream,
                               List<Integer> partitionList,
                               RoutingStrategy routingStrategy,
                               VoldemortFilter filter,
                               EventThrottler throttler) throws IOException {
-        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
+        ClosableIterator<ByteArray> keyIterator = null;
         try {
             int counter = 0;
             int fetched = 0;
             long startTime = System.currentTimeMillis();
-            iterator = storageEngine.entries();
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+            keyIterator = storageEngine.keys();
+            while(keyIterator.hasNext()) {
+                ByteArray key = keyIterator.next();
+                if(validPartition(key.get(), partitionList, routingStrategy)) {
+                    for(Versioned<byte[]> value: storageEngine.get(key)) {
+                        if(filter.accept(key, value)) {
+                            fetched++;
+                            VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
-                if(validPartition(entry.getFirst().get(), partitionList, routingStrategy)
-                   && filter.accept(entry.getFirst(), entry.getSecond())) {
-                    fetched++;
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                            VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
+                                                                                                  .setKey(ProtoUtils.encodeBytes(key))
+                                                                                                  .setVersioned(ProtoUtils.encodeVersioned(value))
+                                                                                                  .build();
+                            response.setPartitionEntry(partitionEntry);
 
-                    VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
-                                                                                          .setKey(ProtoUtils.encodeBytes(entry.getFirst()))
-                                                                                          .setVersioned(ProtoUtils.encodeVersioned(entry.getSecond()))
-                                                                                          .build();
-                    response.setPartitionEntry(partitionEntry);
+                            Message message = response.build();
+                            ProtoUtils.writeMessage(outputStream, message);
 
-                    Message message = response.build();
-                    ProtoUtils.writeMessage(outputStream, message);
-
-                    if(throttler != null) {
-                        throttler.maybeThrottle(entrySize(entry));
+                            if(throttler != null) {
+                                throttler.maybeThrottle(entrySize(key, value));
+                            }
+                        }
                     }
                 }
                 // log progress
@@ -213,8 +249,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 }
             }
         } finally {
-            if(null != iterator)
-                iterator.close();
+            if(null != keyIterator)
+                keyIterator.close();
         }
     }
 
@@ -283,10 +319,16 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
                 if(filter.accept(key, value)) {
-                    storageEngine.put(key, value);
+                    try {
+                        storageEngine.put(key, value);
+
+                    } catch(ObsoleteVersionException e) {
+                        // log and ignore
+                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException .. Ignoring.");
+                    }
 
                     if(throttler != null) {
-                        throttler.maybeThrottle(entrySize(Pair.create(key, value)));
+                        throttler.maybeThrottle(entrySize(key, value));
                     }
                 }
                 // log progress
@@ -317,6 +359,62 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         }
     }
 
+    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+        try {
+            if(!voldemortConfig.isEnableRebalanceService())
+                throw new VoldemortException("Rebalance service is not enabled for node:"
+                                             + metadataStore.getNodeId());
+
+            RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
+                                                                                     request.getDonorId(),
+                                                                                     request.getPartitionsList(),
+                                                                                     request.getUnbalancedStoreList(),
+                                                                                     request.getDeleteDonorPartitions(),
+                                                                                     request.getAttempt());
+
+            int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
+
+            response.setRequestId(requestId)
+                    .setDescription(rebalanceStealInfo.toString())
+                    .setStatus("started")
+                    .setComplete(false);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {
+        VAdminProto.AsyncOperationListResponse.Builder response = VAdminProto.AsyncOperationListResponse.newBuilder();
+        boolean showComplete = request.hasShowComplete() && request.getShowComplete();
+        try {
+            response.addAllRequestIds(asyncRunner.getAsyncOperationList(showComplete));
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationStopResponse handleAsyncOperationStop(VAdminProto.AsyncOperationStopRequest request) {
+        VAdminProto.AsyncOperationStopResponse.Builder response = VAdminProto.AsyncOperationStopResponse.newBuilder();
+        int requestId = request.getRequestId();
+        try {
+            asyncRunner.stopOperation(requestId);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")",
+                         e);
+        }
+
+        return response.build();
+    }
+
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
         final int nodeId = request.getNodeId();
         final List<Integer> partitions = request.getPartitionsList();
@@ -324,7 +422,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
-        int requestId = asyncRunner.getRequestId();
+        int requestId = asyncRunner.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)
@@ -335,9 +433,17 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             asyncRunner.submitOperation(requestId,
                                         new AsyncOperation(requestId, "Fetch and Update") {
 
+                                            private final AtomicBoolean running = new AtomicBoolean(true);
+
+                                            @Override
+                                            public void stop() {
+                                                running.set(false);
+                                            }
+
                                             @Override
                                             public void operate() {
-                                                AdminClient adminClient = createTempAdminClient();
+                                                AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                                                               metadataStore.getCluster());
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
@@ -346,12 +452,20 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                                                                                                             filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                                                    for(long i = 0; entriesIterator.hasNext(); i++) {
+                                                    for(long i = 0; running.get()
+                                                                    && entriesIterator.hasNext(); i++) {
                                                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
-                                                        storageEngine.put(entry.getFirst(),
-                                                                          entry.getSecond());
 
-                                                        throttler.maybeThrottle(entrySize(entry));
+                                                        try {
+                                                            storageEngine.put(entry.getFirst(),
+                                                                              entry.getSecond());
+                                                        } catch(ObsoleteVersionException e) {
+                                                            // log and ignore
+                                                            logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                        }
+
+                                                        throttler.maybeThrottle(entrySize(entry.getFirst(),
+                                                                                          entry.getSecond()));
 
                                                         if((i % 1000) == 0) {
                                                             updateStatus(i + " entries processed");
@@ -360,20 +474,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                 } finally {
                                                     adminClient.stop();
                                                 }
-                                            }
-
-                                            private AdminClient createTempAdminClient() {
-                                                AdminClientConfig config = new AdminClientConfig();
-                                                config.setMaxConnectionsPerNode(1);
-                                                config.setMaxThreads(1);
-                                                config.setConnectionTimeout(voldemortConfig.getAdminConnectionTimeout(),
-                                                                            TimeUnit.MILLISECONDS);
-                                                config.setSocketTimeout(voldemortConfig.getAdminSocketTimeout(),
-                                                                        TimeUnit.MILLISECONDS);
-                                                config.setSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
-
-                                                return new AdminClient(metadataStore.getCluster(),
-                                                                       config);
                                             }
                                         });
 
@@ -399,7 +499,8 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException(operationStatus.getException());
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleAsyncStatus failed for request(" + request.toString() + ")", e);
+            logger.error("handleAsyncStatus failed for request(" + request.toString().trim() + ")",
+                         e);
         }
 
         return response.build();
@@ -428,7 +529,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                     if(storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
                         deleteSuccess++;
                     if(throttler != null)
-                        throttler.maybeThrottle(entrySize(entry));
+                        throttler.maybeThrottle(entrySize(entry.getFirst(), entry.getSecond()));
                 }
             }
             response.setCount(deleteSuccess);
@@ -517,7 +618,7 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
      * @return True if the buffer holds a complete request, false otherwise
      */
     public boolean isCompleteRequest(ByteBuffer buffer) {
-        throw new VoldemortException("Non-blocking server not supported for ProtoBuffAdminServiceRequestHandler");
+        throw new VoldemortException("Non-blocking server not supported for AdminServiceRequestHandler");
     }
 
     /* Private helper methods */
@@ -532,7 +633,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
             if(voldemortConfig.isNetworkClassLoaderEnabled()) {
                 // TODO: network class loader was throwing NoClassDefFound for
                 // voldemort.server package classes, Need testing and fixes
-
                 logger.warn("NetworkLoader is experimental and should not be used for now.");
 
                 Class<?> cl = networkClassLoader.loadClass(className,
@@ -540,7 +640,6 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
                                                            0,
                                                            classBytes.length);
                 filter = (VoldemortFilter) cl.newInstance();
-
             } else {
                 Class<?> cl = Thread.currentThread().getContextClassLoader().loadClass(className);
                 filter = (VoldemortFilter) cl.newInstance();
@@ -552,9 +651,9 @@ public class ProtoBuffAdminServiceRequestHandler implements RequestHandler {
         return filter;
     }
 
-    private static int entrySize(Pair<ByteArray, Versioned<byte[]>> entry) {
-        return entry.getFirst().get().length + entry.getSecond().getValue().length
-               + ((VectorClock) entry.getSecond().getVersion()).sizeInBytes() + 1;
+    private static int entrySize(ByteArray key, Versioned<byte[]> value) {
+        return key.get().length + value.getValue().length
+               + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
     }
 
     private StorageEngine<ByteArray, byte[]> getStorageEngine(String storeName) {

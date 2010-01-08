@@ -160,6 +160,7 @@ public class SocketServer extends Thread {
             startedStatusQueue.offer(e);
             throw new VoldemortException(e);
         } catch(Throwable t) {
+            logger.error(t);
             startedStatusQueue.offer(t);
             if(t instanceof Error)
                 throw (Error) t;

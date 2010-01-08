@@ -22,14 +22,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.utils.impl.RsyncDeployer;
-import voldemort.utils.impl.SshClusterStarter;
-import voldemort.utils.impl.SshClusterStopper;
-import voldemort.utils.impl.SshRemoteTest;
+import voldemort.cluster.Cluster;
+import voldemort.utils.impl.*;
 
 public class RemoteTestUtils {
 
@@ -102,6 +103,14 @@ public class RemoteTestUtils {
         startClusterAsync(new ArrayList<String>(Arrays.asList(hostName)), remoteTestConfig, nodeIds);
     }
 
+    public static void cleanupCluster(List<String> hostNames, RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        new SshClusterCleaner(hostNames,
+                              remoteTestConfig.getSshPrivateKey(),
+                              remoteTestConfig.getHostUserId(),
+                              remoteTestConfig.getVoldemortHomeDirectory()).execute();
+    }
+    
     public static void stopCluster(List<String> hostNames, RemoteTestConfig remoteTestConfig)
             throws Exception {
         new SshClusterStopper(hostNames,
@@ -143,10 +152,28 @@ public class RemoteTestUtils {
                                                                  String clusterName,
                                                                  RemoteTestConfig remoteTestConfig)
             throws Exception {
-        List<String> hostNames = new ArrayList<String>();
+        return generateClusterDescriptor(hostNamePairs, clusterName, remoteTestConfig, false);
+    }
 
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getInternalHostName());
+    public static Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
+                                                                  String clusterName,
+                                                                  RemoteTestConfig remoteTestConfig,
+                                                                  boolean useExternal)
+             throws Exception {
+        // This isn't too elegant, but it works
+        List<String> hostNames = Lists.transform(hostNamePairs,
+                                                 useExternal ?
+                                                 new Function<HostNamePair, String> () {
+                                                     public String apply(HostNamePair hostNamePair) {
+                                                         return hostNamePair.getExternalHostName();
+                                                     }
+                                                 } :
+                                                 new Function<HostNamePair, String> () {
+                                                     public String apply(HostNamePair hostNamePair) {
+                                                         return hostNamePair.getInternalHostName();
+                                                     }
+                                                 }
+        );
 
         ClusterGenerator clusterGenerator = new ClusterGenerator();
         List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
@@ -156,11 +183,40 @@ public class RemoteTestUtils {
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
 
         for(ClusterNodeDescriptor node: nodes) {
-            // OK, yeah, this is super-inefficient...
-            for(HostNamePair hostNamePair: hostNamePairs) {
-                if(node.getHostName().equals(hostNamePair.getInternalHostName()))
-                    nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
+            if (useExternal)
+                nodeIds.put(node.getHostName(), node.getId());
+            else {
+                // OK, yeah, this is super-inefficient...
+                for(HostNamePair hostNamePair: hostNamePairs)
+                    if(node.getHostName().equals(hostNamePair.getInternalHostName()))
+                        nodeIds.put(hostNamePair.getExternalHostName(), node.getId());
             }
+        }
+
+        return nodeIds;
+    }
+
+    // TODO: move this out to a separate place
+
+    public static Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
+                                                                 Cluster cluster,
+                                                                 RemoteTestConfig remoteTestConfig)
+            throws Exception {
+        List<String> hostNames = Lists.transform(hostNamePairs,
+                                                 new Function<HostNamePair, String> () {
+                                                     public String apply(HostNamePair hostNamePair) {
+                                                         return hostNamePair.getExternalHostName();
+                                                     }
+                                                 });
+        ClusterGenerator clusterGenerator = new ClusterGenerator();
+        List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
+                                                                                          cluster);
+        String clusterXml = clusterGenerator.createClusterDescriptor(cluster.getName(), nodes);
+        FileUtils.writeStringToFile(remoteTestConfig.getClusterXmlFile(), clusterXml);
+        Map<String,Integer> nodeIds = new HashMap<String,Integer>();
+
+        for (ClusterNodeDescriptor node: nodes) {
+            nodeIds.put(node.getHostName(), node.getId());
         }
 
         return nodeIds;

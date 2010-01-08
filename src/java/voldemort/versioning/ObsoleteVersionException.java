@@ -44,4 +44,14 @@ public class ObsoleteVersionException extends VoldemortApplicationException {
         return 4;
     }
 
+    /**
+     * Override to avoid the overhead of stack trace. For a given store there is
+     * really only one method (put) that can throw this so retaining the stack
+     * trace is not useful
+     */
+    @Override
+    public Throwable fillInStackTrace() {
+        return this;
+    }
+
 }

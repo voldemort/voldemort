@@ -24,4 +24,9 @@ public class VoldemortApplicationException extends VoldemortException {
     public VoldemortApplicationException(Throwable t) {
         super(t);
     }
+
+    @Override
+    public short getId() {
+        return 12;
+    }
 }

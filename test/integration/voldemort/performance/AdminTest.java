@@ -144,15 +144,14 @@ public class AdminTest {
     }
 
     public void testFetchAndUpdate(final SetMultimap<Integer, Integer> from,
-                                   final int to,
-                                   final String store) {
+                                   final int to) {
         for(final Integer node: from.keySet()) {
             timeFunction(new Timed() {
 
                 public void apply() {
                     adminClient.migratePartitions(node,
                                                       to,
-                                                      store,
+                                                      storeName,
                                                       new ArrayList<Integer>(from.get(node)),
                                                       null);
                 }
@@ -192,6 +191,7 @@ public class AdminTest {
                                            + " to be specified");
         }
 
+
         AdminTest adminTest;
 
         adminTest = new AdminTest(bootstrapUrl, storeName);
@@ -201,6 +201,9 @@ public class AdminTest {
                                                                                    options.has("p") ? options.valuesOf("p")
                                                                                                    : null);
 
-        adminTest.testFetch(nodePartitions);
+        if (options.has("f"))
+            adminTest.testFetch(nodePartitions);
+        if (options.has("fu"))
+            adminTest.testFetchAndUpdate(nodePartitions, (Integer) options.valueOf("fu"));
     }
 }

@@ -14,6 +14,7 @@ import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.GetRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.protocol.pb.VProto.VoldemortRequest;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.store.ErrorCodeMapper;
@@ -42,8 +43,14 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         VoldemortRequest.Builder request = ProtoUtils.readToBuilder(inputStream,
                                                                     VoldemortRequest.newBuilder());
         boolean shouldRoute = request.getShouldRoute();
+        RequestRoutingType type = RequestRoutingType.getRequestRoutingType(shouldRoute, false);
+
+        if(request.hasRequestRouteType()) {
+            type = RequestRoutingType.getRequestRoutingType(request.getRequestRouteType());
+        }
+
         String storeName = request.getStore();
-        Store<ByteArray, byte[]> store = getStore(storeName, shouldRoute);
+        Store<ByteArray, byte[]> store = getStore(storeName, type);
         Message response;
         if(store == null) {
             response = unknownStore(storeName, request.getType());

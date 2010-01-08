@@ -12,6 +12,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.VoldemortOpCode;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.server.protocol.RequestHandler;
@@ -40,7 +41,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                                          StoreRepository repository,
                                          int protocolVersion) {
         super(errorMapper, repository);
-        if(protocolVersion < 0 || protocolVersion > 1)
+        if(protocolVersion < 0 || protocolVersion > 2)
             throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
         this.protocolVersion = protocolVersion;
     }
@@ -49,10 +50,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             throws IOException {
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
-        boolean isRouted = false;
-        if(protocolVersion > 0)
-            isRouted = inputStream.readBoolean();
-        Store<ByteArray, byte[]> store = getStore(storeName, isRouted);
+        RequestRoutingType routingType = getRoutingType(inputStream);
+
+        Store<ByteArray, byte[]> store = getStore(storeName, routingType);
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName
                                                                 + "'."));
@@ -78,6 +78,22 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             }
         }
         outputStream.flush();
+    }
+
+    private RequestRoutingType getRoutingType(DataInputStream inputStream) throws IOException {
+        RequestRoutingType routingType = RequestRoutingType.NORMAL;
+
+        if(protocolVersion > 0) {
+            boolean isRouted = inputStream.readBoolean();
+            routingType = RequestRoutingType.getRequestRoutingType(isRouted, false);
+        }
+
+        else if(protocolVersion > 1) {
+            int routingTypeCode = inputStream.readByte();
+            routingType = RequestRoutingType.getRequestRoutingType(routingTypeCode);
+        }
+
+        return routingType;
     }
 
     private void handleGetVersion(DataInputStream inputStream,
@@ -203,6 +219,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return;
         }
         writeResults(outputStream, results);
+    }
+
+    private void handleGetIgnoreInvalidMetadataException(DataInputStream inputStream,
+                                                         DataOutputStream outputStream,
+                                                         Store<ByteArray, byte[]> store)
+            throws IOException {
+        Store<ByteArray, byte[]> uncheckedStore = getStoreRepository().getStorageEngine(store.getName());
+        handleGet(inputStream, outputStream, uncheckedStore);
     }
 
     private void handleGetAll(DataInputStream inputStream,

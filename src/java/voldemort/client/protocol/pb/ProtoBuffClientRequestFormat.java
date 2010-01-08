@@ -30,6 +30,7 @@ import voldemort.client.protocol.pb.VProto.GetResponse;
 import voldemort.client.protocol.pb.VProto.GetVersionResponse;
 import voldemort.client.protocol.pb.VProto.PutResponse;
 import voldemort.client.protocol.pb.VProto.RequestType;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
@@ -58,13 +59,14 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                    String storeName,
                                    ByteArray key,
                                    VectorClock version,
-                                   boolean shouldReroute) throws IOException {
+                                   RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         ProtoUtils.writeMessage(output,
                                 VProto.VoldemortRequest.newBuilder()
                                                        .setType(RequestType.DELETE)
                                                        .setStore(storeName)
-                                                       .setShouldRoute(shouldReroute)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setDelete(VProto.DeleteRequest.newBuilder()
                                                                                       .setKey(ByteString.copyFrom(key.get()))
                                                                                       .setVersion(ProtoUtils.encodeClock(version)))
@@ -82,13 +84,14 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     public void writeGetRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
-                                boolean shouldReroute) throws IOException {
+                                RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         ProtoUtils.writeMessage(output,
                                 VProto.VoldemortRequest.newBuilder()
                                                        .setType(RequestType.GET)
                                                        .setStore(storeName)
-                                                       .setShouldRoute(shouldReroute)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGet(VProto.GetRequest.newBuilder()
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());
@@ -104,18 +107,20 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     public void writeGetAllRequest(DataOutputStream output,
                                    String storeName,
                                    Iterable<ByteArray> keys,
-                                   boolean shouldReroute) throws IOException {
+                                   RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKeys(keys);
         VProto.GetAllRequest.Builder req = VProto.GetAllRequest.newBuilder();
         for(ByteArray key: keys)
             req.addKeys(ByteString.copyFrom(key.get()));
 
-        ProtoUtils.writeMessage(output, VProto.VoldemortRequest.newBuilder()
-                                                               .setType(RequestType.GET_ALL)
-                                                               .setStore(storeName)
-                                                               .setShouldRoute(shouldReroute)
-                                                               .setGetAll(req)
-                                                               .build());
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.GET_ALL)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
+                                                       .setGetAll(req)
+                                                       .build());
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream input)
@@ -136,19 +141,21 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                 ByteArray key,
                                 byte[] value,
                                 VectorClock version,
-                                boolean shouldReroute) throws IOException {
+                                RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         VProto.PutRequest.Builder req = VProto.PutRequest.newBuilder()
                                                          .setKey(ByteString.copyFrom(key.get()))
                                                          .setVersioned(VProto.Versioned.newBuilder()
                                                                                        .setValue(ByteString.copyFrom(value))
                                                                                        .setVersion(ProtoUtils.encodeClock(version)));
-        ProtoUtils.writeMessage(output, VProto.VoldemortRequest.newBuilder()
-                                                               .setType(RequestType.PUT)
-                                                               .setStore(storeName)
-                                                               .setShouldRoute(shouldReroute)
-                                                               .setPut(req)
-                                                               .build());
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.PUT)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
+                                                       .setPut(req)
+                                                       .build());
     }
 
     public void readPutResponse(DataInputStream input) throws IOException {
@@ -175,13 +182,14 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     public void writeGetVersionRequest(DataOutputStream output,
                                        String storeName,
                                        ByteArray key,
-                                       boolean shouldReroute) throws IOException {
+                                       RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKey(key);
         ProtoUtils.writeMessage(output,
                                 VProto.VoldemortRequest.newBuilder()
                                                        .setType(RequestType.GET_VERSION)
                                                        .setStore(storeName)
-                                                       .setShouldRoute(shouldReroute)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGet(VProto.GetRequest.newBuilder()
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());

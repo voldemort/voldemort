@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +29,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
@@ -35,6 +37,7 @@ import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
@@ -44,6 +47,7 @@ import com.google.common.collect.AbstractIterator;
  */
 public class AdminServiceBasicTest extends TestCase {
 
+    private static int NUM_RUNS = 100;
     private static int TEST_STREAM_KEYS_SIZE = 10000;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -61,13 +65,15 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -113,15 +119,21 @@ public class AdminServiceBasicTest extends TestCase {
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
-        client.updateRemoteCluster(0, updatedCluster);
+        for(int i = 0; i < NUM_RUNS; i++) {
+            VectorClock clock = ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
+                                                                                                    System.currentTimeMillis());
+            client.updateRemoteCluster(0, updatedCluster, clock);
 
-        assertEquals("Cluster should match",
-                     updatedCluster,
-                     getVoldemortServer(0).getMetadataStore().getCluster());
-        assertEquals("AdminClient.getMetdata() should match",
-                     client.getRemoteCluster(getVoldemortServer(0).getIdentityNode().getId())
-                           .getValue(),
-                     updatedCluster);
+            assertEquals("Cluster should match",
+                         updatedCluster,
+                         getVoldemortServer(0).getMetadataStore().getCluster());
+            assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
+                                                                        .getValue(), updatedCluster);
+
+            // version should match
+            assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
+                                                                        .getVersion());
+        }
 
     }
 
@@ -129,7 +141,9 @@ public class AdminServiceBasicTest extends TestCase {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         MetadataStore.VoldemortState state = getVoldemortServer(0).getMetadataStore()
                                                                   .getServerState();
@@ -139,7 +153,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // change back to NORMAL state
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -148,7 +164,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
 
@@ -157,7 +175,9 @@ public class AdminServiceBasicTest extends TestCase {
                      state);
 
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -309,6 +329,18 @@ public class AdminServiceBasicTest extends TestCase {
                          new String(entry.getValue()),
                          new String(store.get(entry.getKey()).get(0).getValue()));
         }
+    }
+
+    // check the basic rebalanceNode call.
+    public void testRebalanceNode() {
+        RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
+                                                                        0,
+                                                                        Arrays.asList(1, 3),
+                                                                        Arrays.asList(testStoreName),
+                                                                        false,
+                                                                        0);
+        int asyncId = adminClient.rebalanceNode(stealInfo);
+        assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
     }
 
     /**

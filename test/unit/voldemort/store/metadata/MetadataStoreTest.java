@@ -16,11 +16,13 @@
 
 package voldemort.store.metadata;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -37,9 +39,7 @@ public class MetadataStoreTest extends TestCase {
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
-                                                   MetadataStore.SERVER_STATE_KEY,
-                                                   MetadataStore.REBALANCING_PARTITIONS_LIST_KEY,
-                                                   MetadataStore.REBALANCING_SLAVES_LIST_KEY);
+                                                   MetadataStore.REBALANCING_STEAL_INFO);
 
     @Override
     public void setUp() throws Exception {
@@ -66,17 +66,20 @@ public class MetadataStoreTest extends TestCase {
         } else if(MetadataStore.SERVER_STATE_KEY.equals(keyString)) {
             int i = (int) (Math.random() * VoldemortState.values().length);
             return ByteUtils.getBytes(VoldemortState.values()[i].toString(), "UTF-8");
-        } else if(MetadataStore.REBALANCING_PARTITIONS_LIST_KEY.equals(keyString)) {
+        } else if(MetadataStore.REBALANCING_STEAL_INFO.equals(keyString)) {
             int size = (int) (Math.random() * 10);
-            String partitionsList = "";
+            List<Integer> partition = new ArrayList<Integer>();
             for(int i = 0; i < size; i++) {
-                partitionsList += "" + ((int) Math.random() * 100);
-                if(i < size - 1)
-                    partitionsList += ",";
+                partition.add((int) Math.random() * 10);
             }
-            return ByteUtils.getBytes(partitionsList, "UTF-8");
-        } else if(MetadataStore.REBALANCING_SLAVES_LIST_KEY.equals(keyString)) {
-            return ByteUtils.getBytes("" + ((int) Math.random() * 100), "UTF-8");
+
+            return ByteUtils.getBytes(new RebalancePartitionsInfo(0,
+                                                                  (int) Math.random() * 5,
+                                                                  partition,
+                                                                  Arrays.asList("testStoreName"),
+                                                                  false,
+                                                                  (int) Math.random() * 3).toJsonString(),
+                                      "UTF-8");
         }
 
         throw new RuntimeException("Unhandled key:" + keyString + " passed");
@@ -145,6 +148,34 @@ public class MetadataStoreTest extends TestCase {
         }
     }
 
+    public void testCleanAllStates() {
+        // put state entries.
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.CLUSTER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_CLUSTER);
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+
+        assertEquals("Values should match.",
+                     metadataStore.getClusterState(),
+                     VoldemortState.REBALANCING_CLUSTER);
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.REBALANCING_MASTER_SERVER);
+
+        // do clean
+        metadataStore.cleanAllRebalancingState();
+
+        // check all values revert back to default.
+        assertEquals("Values should match.",
+                     metadataStore.getClusterState(),
+                     VoldemortState.NORMAL_CLUSTER);
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.NORMAL_SERVER);
+    }
+
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {
         assertEquals("should return exactly one value ", 1, list.size());
 
@@ -154,5 +185,20 @@ public class MetadataStoreTest extends TestCase {
                              + ByteUtils.getString(key.get(), "UTF-8") + ")",
                      new String(value.getValue()),
                      new String(list.get(0).getValue()));
+    }
+
+    /**
+     * helper function to auto update version and put()
+     * 
+     * @param key
+     * @param value
+     */
+    private void incrementVersionAndPut(MetadataStore metadataStore, String keyString, Object value) {
+        ByteArray key = new ByteArray(ByteUtils.getBytes(keyString, "UTF-8"));
+        VectorClock current = (VectorClock) metadataStore.getVersions(key).get(0);
+
+        metadataStore.put(keyString,
+                          new Versioned<Object>(value,
+                                                current.incremented(0, System.currentTimeMillis())));
     }
 }

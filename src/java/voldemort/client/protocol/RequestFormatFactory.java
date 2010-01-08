@@ -33,7 +33,7 @@ public class RequestFormatFactory {
     public RequestFormat getRequestFormat(RequestFormatType type) {
         switch(type) {
             case VOLDEMORT_V1:
-                return new VoldemortNativeClientRequestFormat();
+                return new VoldemortNativeClientRequestFormat(1);
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffClientRequestFormat();
             default:
