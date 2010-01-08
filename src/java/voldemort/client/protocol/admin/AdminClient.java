@@ -35,6 +35,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
@@ -50,6 +51,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -78,8 +80,8 @@ import com.google.protobuf.Message;
  */
 public class AdminClient {
 
+    private static final Logger logger = Logger.getLogger(AdminClient.class);
     private final ErrorCodeMapper errorMapper;
-    private final static Logger logger = Logger.getLogger(AdminClient.class);
     private final SocketPool pool;
     private final NetworkClassLoader networkClassLoader;
     private static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -87,9 +89,7 @@ public class AdminClient {
 
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
-    private static final long MAX_DELAY = 1000 * 60; // Stop doing exponential
-    // back off once we're
-    // waiting this long
+    private static final long MAX_DELAY = 1000 * 60;
 
     private Cluster cluster;
 
@@ -108,7 +108,7 @@ public class AdminClient {
      *        </ul>
      */
     public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
-        this.cluster = getClusterFromBootstrapURL(bootstrapURL, adminClientConfig);
+        this.cluster = getClusterFromBootstrapURL(bootstrapURL);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
@@ -137,9 +137,10 @@ public class AdminClient {
                                                                .getContextClassLoader());
     }
 
-    private Cluster getClusterFromBootstrapURL(String bootstrapURL, ClientConfig config) {
-        config.setBootstrapUrls(bootstrapURL);
+    private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
+        ClientConfig config = new ClientConfig();
         // try to bootstrap metadata from bootstrapUrl
+        config.setBootstrapUrls(bootstrapURL);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
         // get Cluster from bootStrapUrl
         String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
@@ -150,11 +151,12 @@ public class AdminClient {
         return clusterMapper.readCluster(new StringReader(clusterXml));
     }
 
-    private SocketPool createSocketPool(ClientConfig config) {
+    private SocketPool createSocketPool(AdminClientConfig config) {
+        TimeUnit unit = TimeUnit.SECONDS;
         return new SocketPool(config.getMaxConnectionsPerNode(),
-                              config.getConnectionTimeout(TimeUnit.MILLISECONDS),
-                              config.getSocketTimeout(TimeUnit.MILLISECONDS),
-                              config.getSocketBufferSize());
+                              (int) unit.toMillis(config.getAdminConnectionTimeoutSec()),
+                              (int) unit.toMillis(config.getAdminSocketTimeoutSec()),
+                              config.getAdminSocketBufferSize());
     }
 
     private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
@@ -427,7 +429,39 @@ public class AdminClient {
     }
 
     /**
-     * Migrate keys/values belonging to stealPartitionList from donorNode to
+     * Rebalance a stealer,donor node pair for the given storeName.<br>
+     * stealInfo also have a storeName list, this is passed to client to persist
+     * in case of failure and start balancing all the stores in the list only.
+     * 
+     * @param stealInfo
+     * @return
+     */
+    public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
+        VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
+                                                                                                                .setAttempt(stealInfo.getAttempt())
+                                                                                                                .setDonorId(stealInfo.getDonorId())
+                                                                                                                .setStealerId(stealInfo.getStealerId())
+                                                                                                                .addAllPartitions(stealInfo.getPartitionList())
+                                                                                                                .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
+                                                                                                                .setDeleteDonorPartitions(stealInfo.isDeleteDonorPartitions())
+                                                                                                                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
+                                                                                          .setInitiateRebalanceNode(rebalanceNodeRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealInfo.getStealerId(),
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if(response.hasError())
+            throwException(response.getError());
+
+        return response.getRequestId();
+    }
+
+    /**
+     * cleanly close this client, freeing any resource. ======= Migrate
+     * keys/values belonging to stealPartitionList from donorNode to
      * stealerNode. <b>Does not delete the partitions from donorNode, merely
      * copies them. </b>
      * <p>
@@ -447,7 +481,8 @@ public class AdminClient {
      *        should not be deleted.
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
-     *         stealerNodeId which is performing the operation.
+     *         stealerNodeId which is performing the operation. >>>>>>>
+     *         f1e5ec710bdd4d2df684932e6fe602133426c98f
      */
     public int migratePartitions(int donorNodeId,
                                  int stealerNodeId,
@@ -539,6 +574,46 @@ public class AdminClient {
         return status;
     }
 
+    // TODO: Javadoc, "integration" test
+    public List<Integer> getAsyncRequestList(int nodeId) {
+        return getAsyncRequestList(nodeId, false);
+    }
+
+    // TODO: Javadoc, "integration" test
+    public List<Integer> getAsyncRequestList(int nodeId, boolean showComplete) {
+        VAdminProto.AsyncOperationListRequest asyncOperationListRequest = VAdminProto.AsyncOperationListRequest.newBuilder()
+                                                                                                               .setShowComplete(showComplete)
+                                                                                                               .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_LIST)
+                                                                                          .setAsyncOperationList(asyncOperationListRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationListResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.AsyncOperationListResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+
+        return response.getRequestIdsList();
+    }
+
+    // TODO: Javadoc, "integration" test
+    public void stopAsyncRequest(int nodeId, int requestId) {
+        VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
+                                                                                                               .setRequestId(requestId)
+                                                                                                               .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setType(VAdminProto.AdminRequestType.ASYNC_OPERATION_STOP)
+                                                                                          .setAsyncOperationStop(asyncOperationStopRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStopResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.AsyncOperationStopResponse.newBuilder());
+
+        if(response.hasError())
+            throwException(response.getError());
+    }
+
     private VAdminProto.VoldemortFilter encodeFilter(VoldemortFilter filter) throws IOException {
         Class<?> cl = filter.getClass();
         byte[] classBytes = networkClassLoader.dumpClass(cl);
@@ -627,24 +702,77 @@ public class AdminClient {
         long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
+        String description = null;
         while(System.currentTimeMillis() < waitUntil) {
-            AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-            logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
-                         + status);
-            if(status.isComplete())
-                return;
-            if(delay < MAX_DELAY) {
-                // keep doubling the wait period until we reach maxDelay
-                delay <<= 2;
+            try {
+                AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
+                logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
+                             + status);
+                description = status.getDescription();
+                if(status.isComplete())
+                    return;
+                if(status.hasException())
+                    throw status.getException();
+
+                if(delay < MAX_DELAY)
+                    delay <<= 1;
+
+                try {
+                    Thread.sleep(delay);
+                } catch(InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } catch(Exception e) {
+                throw new VoldemortException("Failed while waiting for async task " + description
+                                             + " at node " + nodeId + " to finish", e);
             }
+        }
+        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
+                                     + maxWait + " " + timeUnit.toString());
+    }
+
+    /**
+     * Wait till the passed value matches with the metadata value returned by
+     * the remote node for the passed key.
+     * <p>
+     * 
+     * <i>Logs the status at each status check if debug is enabled.</i>
+     * 
+     * @param nodeId Id of the node to poll
+     * @param key metadata key to keep checking for current value
+     * @param value metadata value should match for exit criteria.
+     * @param maxWait Maximum time we'll keep checking a request until we give
+     *        up
+     * @param timeUnit Unit in which maxWait is expressed.
+     */
+    public void waitForCompletion(int nodeId,
+                                  String key,
+                                  String value,
+                                  long maxWait,
+                                  TimeUnit timeUnit) {
+        long delay = INITIAL_DELAY;
+        long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
+
+        while(System.currentTimeMillis() < waitUntil) {
+            String currentValue = getRemoteMetadata(nodeId, key).getValue();
+            if(value.equals(currentValue))
+                return;
+
+            logger.debug("WaitForCompletion() waiting for value " + value + " for metadata key "
+                         + key + " at remote node " + nodeId + " currentValue " + currentValue);
+
+            if(delay < MAX_DELAY)
+                delay <<= 1;
+
             try {
                 Thread.sleep(delay);
             } catch(InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
-        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
-                                     + maxWait + " " + timeUnit.toString());
+        throw new VoldemortException("Failed to get matching value " + value + " for key " + key
+                                     + " at remote node " + nodeId + " in maxWait" + maxWait + " "
+                                     + timeUnit.toString());
     }
 
     /**
@@ -723,14 +851,11 @@ public class AdminClient {
      * @param cluster The new cluster object
      * @throws VoldemortException
      */
-    public void updateRemoteCluster(int nodeId, Cluster cluster) throws VoldemortException {
-        // get current version.
-        VectorClock oldClock = (VectorClock) getRemoteCluster(nodeId).getVersion();
-
+    public void updateRemoteCluster(int nodeId, Cluster cluster, Version clock)
+            throws VoldemortException {
         updateRemoteMetadata(nodeId,
                              MetadataStore.CLUSTER_KEY,
-                             new Versioned<String>(clusterMapper.writeCluster(cluster),
-                                                   oldClock.incremented(nodeId, 1)));
+                             new Versioned<String>(clusterMapper.writeCluster(cluster), clock));
     }
 
     /**
@@ -744,7 +869,6 @@ public class AdminClient {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
         Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
         return new Versioned<Cluster>(cluster, value.getVersion());
-
     }
 
     /**
@@ -776,13 +900,12 @@ public class AdminClient {
      * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) on a
      * remote node.
      */
-    public void updateRemoteServerState(int nodeId, MetadataStore.VoldemortState state) {
-        VectorClock oldClock = (VectorClock) getRemoteServerState(nodeId).getVersion();
-
+    public void updateRemoteServerState(int nodeId,
+                                        MetadataStore.VoldemortState state,
+                                        Version clock) {
         updateRemoteMetadata(nodeId,
                              MetadataStore.SERVER_STATE_KEY,
-                             new Versioned<String>(state.toString(),
-                                                   oldClock.incremented(nodeId, 1)));
+                             new Versioned<String>(state.toString(), clock));
     }
 
     /**
@@ -794,6 +917,20 @@ public class AdminClient {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
         return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                              value.getVersion());
+    }
+
+    /**
+     * <<<<<<< HEAD update serverState on a remote node.
+     * 
+     * @param nodeId
+     * @param state
+     */
+    public void updateRemoteClusterState(int nodeId,
+                                         MetadataStore.VoldemortState state,
+                                         Version clock) {
+        updateRemoteMetadata(nodeId,
+                             MetadataStore.CLUSTER_STATE_KEY,
+                             new Versioned<String>(state.toString(), clock));
     }
 
     /**

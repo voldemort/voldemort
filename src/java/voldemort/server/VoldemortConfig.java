@@ -117,6 +117,8 @@ public class VoldemortConfig implements Serializable {
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
     private boolean enableNetworkClassLoader;
+    private boolean enableGossip;
+    private boolean enableRebalanceService;
 
     private List<String> storageConfigurations;
 
@@ -129,9 +131,19 @@ public class VoldemortConfig implements Serializable {
     private int adminStreamBufferSize;
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
+
     private int streamMaxReadBytesPerSec;
     private int streamMaxWriteBytesPerSec;
 
+    public int getGossipInterval() {
+        return gossipInterval;
+    }
+
+    public void setGossipInterval(int gossipInterval) {
+        this.gossipInterval = gossipInterval;
+    }
+
+    private int gossipInterval;
     private String failureDetectorImplementation;
     private long failureDetectorBannagePeriod;
     private int failureDetectorThreshold;
@@ -142,9 +154,9 @@ public class VoldemortConfig implements Serializable {
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
 
-    public VoldemortConfig(int nodeId, String voldemortHome) {
-        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
-    }
+    private int maxRebalancingAttempt;
+    private int rebalancingTimeoutInSeconds;
+    private int rebalancingServicePeriod;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -202,8 +214,8 @@ public class VoldemortConfig implements Serializable {
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
-        this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
-        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
+        this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.sec", 60);
+        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 
         this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 10 * 1000 * 1000);
         this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 10 * 1000 * 1000);
@@ -232,7 +244,10 @@ public class VoldemortConfig implements Serializable {
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
+        this.enableGossip = props.getBoolean("enable.gossip", false);
+        this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
 
+        this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 3);
@@ -260,6 +275,10 @@ public class VoldemortConfig implements Serializable {
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
 
+        // rebalancing parameters
+        this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
+        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
+        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
 
@@ -993,6 +1012,34 @@ public class VoldemortConfig implements Serializable {
         this.adminConnectionTimeout = adminConnectionTimeout;
     }
 
+    public void setMaxRebalancingAttempt(int maxRebalancingAttempt) {
+        this.maxRebalancingAttempt = maxRebalancingAttempt;
+    }
+
+    public int getMaxRebalancingAttempt() {
+        return this.maxRebalancingAttempt;
+    }
+
+    public int getRebalancingTimeout() {
+        return rebalancingTimeoutInSeconds;
+    }
+
+    public void setRebalancingTimeout(int rebalancingTimeout) {
+        this.rebalancingTimeoutInSeconds = rebalancingTimeout;
+    }
+
+    public VoldemortConfig(int nodeId, String voldemortHome) {
+        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
+
+    public boolean isGossipEnabled() {
+        return enableGossip;
+    }
+
+    public void setEnableGossip(boolean enableGossip) {
+        this.enableGossip = enableGossip;
+    }
+
     public String getReadOnlySearchStrategy() {
         return readOnlySearchStrategy;
     }
@@ -1009,4 +1056,15 @@ public class VoldemortConfig implements Serializable {
         this.enableNetworkClassLoader = enableNetworkClassLoader;
     }
 
+    public int getRebalancingServicePeriod() {
+        return rebalancingServicePeriod;
+    }
+
+    public void setEnableRebalanceService(boolean enableRebalanceService) {
+        this.enableRebalanceService = enableRebalanceService;
+    }
+
+    public boolean isEnableRebalanceService() {
+        return enableRebalanceService;
+    }
 }

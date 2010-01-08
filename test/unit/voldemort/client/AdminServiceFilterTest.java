@@ -19,6 +19,7 @@ package voldemort.client;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Set;
 import java.util.Map.Entry;
 
@@ -58,7 +59,9 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
-                                                                    storesXmlfile);
+                                                                    storesXmlfile,
+                                                                    new Properties());
+
         config.setEnableNetworkClassLoader(true);
 
         server = new VoldemortServer(config, cluster);

@@ -33,7 +33,7 @@ public class NoopFailureDetector implements FailureDetector {
     }
 
     public boolean isAvailable(Node node) {
-        return false;
+        return true;
     }
 
     public FailureDetectorConfig getConfig() {

@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.store.StorageEngine;
@@ -47,6 +48,7 @@ import voldemort.versioning.Versioned;
  */
 public class ConfigurationStorageEngine implements StorageEngine<String, String> {
 
+    private final static Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
     private final String name;
     private final File directory;
 
@@ -67,7 +69,20 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
     }
 
     public synchronized boolean delete(String key, Version version) throws VoldemortException {
-        throw new VoldemortException("Attempt to delete metadata for key:" + key);
+        StoreUtils.assertValidKey(key);
+        for(File file: getDirectory(key).listFiles()) {
+            if(file.getName().equals(key)) {
+                try {
+                    // delete the file and the version file
+                    return file.delete()
+                           && new File(getVersionDirectory(), file.getName()).delete();
+                } catch(Exception e) {
+                    logger.error("Error while attempt to delete key:" + key, e);
+                }
+            }
+        }
+
+        return false;
     }
 
     public synchronized List<Versioned<String>> get(String key) throws VoldemortException {
@@ -114,7 +129,9 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
                 if(value.getVersion().compare(clock) == Occured.AFTER) {
                     // continue
                 } else if(value.getVersion().compare(clock) == Occured.BEFORE) {
-                    throw new ObsoleteVersionException("A successor version to this exists.");
+                    throw new ObsoleteVersionException("A successor version " + clock
+                                                       + "  to this " + value.getVersion()
+                                                       + " exists for key " + key);
                 } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
                     throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
                 }

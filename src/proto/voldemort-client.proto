@@ -79,6 +79,7 @@ enum RequestType {
   GET_VERSION = 4;
 }
 
+
 message VoldemortRequest {
   required RequestType type = 1;
   required bool should_route = 2 [default = false];
@@ -87,4 +88,5 @@ message VoldemortRequest {
   optional GetAllRequest getAll = 5;
   optional PutRequest put = 6;
   optional DeleteRequest delete = 7;
+  optional int32 requestRouteType = 8;
 }

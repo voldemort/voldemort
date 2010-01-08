@@ -61,6 +61,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
@@ -192,7 +193,7 @@ public class StorageService extends AbstractService {
                                                                    storeDef.getType());
         registerEngine(engine);
 
-        if(voldemortConfig.isServerRoutingEnabled() || voldemortConfig.isRedirectRoutingEnabled())
+        if(voldemortConfig.isServerRoutingEnabled())
             registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
@@ -216,7 +217,11 @@ public class StorageService extends AbstractService {
                                                         SystemTime.INSTANCE);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store, metadata, storeRepository);
+            store = new RedirectingStore(store,
+                                         metadata,
+                                         storeRepository,
+                                         failureDetector,
+                                         socketPool);
 
         if(voldemortConfig.isMetadataCheckingEnabled())
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
@@ -239,36 +244,65 @@ public class StorageService extends AbstractService {
         storeRepository.addLocalStore(store);
     }
 
+    /**
+     * For server side routing create NodeStore (socketstore) and pass it on to
+     * a {@link RebootstrappingStore}.
+     * <p>
+     * 
+     * The {@link RebootstrappingStore} handles invalid-metadata exceptions
+     * introduced due to changes in cluster.xml at different nodes.
+     * 
+     * @param def
+     * @param cluster
+     * @param localNode
+     */
     public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
         Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
+
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store;
-            if(node.getId() == localNode) {
-                store = this.storeRepository.getLocalStore(def.getName());
-            } else {
-                store = new SocketStore(def.getName(),
-                                        new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              voldemortConfig.getRequestFormatType()),
-                                        socketPool,
-                                        false);
-            }
+            Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
 
         Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
                                                                nodeStores,
-                                                               cluster,
+                                                               metadata.getCluster(),
                                                                def,
                                                                true,
                                                                this.clientThreadPool,
                                                                voldemortConfig.getRoutingTimeoutMs(),
                                                                failureDetector,
                                                                SystemTime.INSTANCE);
+
+        routedStore = new RebootstrappingStore(metadata,
+                                               storeRepository,
+                                               voldemortConfig,
+                                               socketPool,
+                                               (RoutedStore) routedStore);
+
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                          new VectorClockInconsistencyResolver<byte[]>());
         this.storeRepository.addRoutedStore(routedStore);
+    }
+
+    private Store<ByteArray, byte[]> getNodeStore(String storeName, Node node, int localNode) {
+        Store<ByteArray, byte[]> store;
+        if(node.getId() == localNode) {
+            store = this.storeRepository.getLocalStore(storeName);
+        } else {
+            store = createNodeStore(storeName, node);
+        }
+        return store;
+    }
+
+    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node) {
+        return new SocketStore(storeName,
+                               new SocketDestination(node.getHost(),
+                                                     node.getSocketPort(),
+                                                     voldemortConfig.getRequestFormatType()),
+                               socketPool,
+                               false);
     }
 
     /**
@@ -450,4 +484,9 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(e);
         }
     }
+
+    public SocketPool getStorageSocketPool() {
+        return socketPool;
+    }
+
 }

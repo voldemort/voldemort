@@ -44,7 +44,8 @@
       <schema-info>UTF-8</schema-info>
     </key-serializer>
     <value-serializer>
-      <type>java-serialization</type>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
     </value-serializer>
   </store>
       <store>

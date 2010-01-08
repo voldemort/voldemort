@@ -1,11 +1,10 @@
 package voldemort.server.protocol.admin;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -13,26 +12,28 @@ import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
+import voldemort.server.scheduler.SchedulerService;
+import voldemort.utils.SystemTime;
 
 /**
- * @author afeinberg Asynchronous job scheduler for admin service operations
- * 
+ * @author afeinberg
+ * Asynchronous job scheduler for admin service operations
  */
 @JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationRunner extends AbstractService {
 
     private final Map<Integer, AsyncOperation> operations;
-    private final ExecutorService executor;
-    private final Logger logger = Logger.getLogger(AsyncOperationRunner.class);
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
+    private final SchedulerService scheduler;
+
+    private final static Logger logger = Logger.getLogger(AsyncOperationRunner.class);
 
     @SuppressWarnings("unchecked")
     // apache commons collections aren't updated for 1.5 yet
-    public AsyncOperationRunner(int poolSize, int cacheSize) {
+    public AsyncOperationRunner(SchedulerService scheduler, int cacheSize) {
         super(ServiceType.ASYNC_SCHEDULER);
         operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
-        executor = Executors.newFixedThreadPool(poolSize);
-
+        this.scheduler = scheduler;
     }
 
     /**
@@ -43,12 +44,12 @@ public class AsyncOperationRunner extends AbstractService {
      * @param requestId Id of the request
      */
     public synchronized void submitOperation(int requestId, AsyncOperation operation) {
-        if(this.operations.containsKey(requestId)) {
+        if(this.operations.containsKey(requestId))
             throw new VoldemortException("Request " + requestId
                                          + " already submitted to the system");
-        }
+
         this.operations.put(requestId, operation);
-        executor.submit(operation);
+        scheduler.scheduleNow(operation);
         logger.debug("Handling async operation " + requestId);
     }
 
@@ -58,10 +59,9 @@ public class AsyncOperationRunner extends AbstractService {
      * @param requestId Id of the request
      * @return True if request is complete, false otherwise
      */
-    public boolean isComplete(int requestId) {
-        if(!operations.containsKey(requestId)) {
+    public synchronized boolean isComplete(int requestId) {
+        if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
-        }
 
         if(operations.get(requestId).getStatus().isComplete()) {
             logger.debug("Operation complete " + requestId);
@@ -84,18 +84,63 @@ public class AsyncOperationRunner extends AbstractService {
 
     @JmxOperation(description = "Retrieve all operations")
     public String getAllAsyncOperations() {
-        return operations.toString();
+        String result;
+        try {
+            result = operations.toString();
+        } catch(Exception e) {
+            result = e.getMessage();
+        }
+        return result;
+    }
+
+    public List<Integer> getAsyncOperationList(boolean showComplete) {
+        /**
+         * I have some concers about the thread safety of this. I am afraid
+         * that it may cause {@link java.util.ConcurrentModificationException}
+         *
+         * TODO: unit test, including multiple threads accessing this
+         */
+        Set<Integer> keySet = operations.keySet();
+
+        if (showComplete)
+            return new ArrayList<Integer>(keySet);
+
+        List<Integer> keyList = new ArrayList<Integer>();
+        for (int key: keySet) {
+            if (!operations.get(key).getStatus().isComplete())
+                keyList.add(key);
+        }
+        return keyList;
     }
 
     public AsyncOperationStatus getOperationStatus(int requestId) {
-        if(!operations.containsKey(requestId)) {
+        // TODO: unit test
+        if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
-        }
 
         return operations.get(requestId).getStatus();
     }
 
-    public int getRequestId() {
+    // Wrapper to avoid throwing an exception over JMX
+    @JmxOperation
+    public String stopAsyncOperation(int requestId) {
+        try {
+            stopOperation(requestId);
+        } catch (VoldemortException e) {
+            return e.getMessage();
+        }
+
+        return "Stopping operation " + requestId;
+    }
+
+    public void stopOperation(int requestId) {
+        if(!operations.containsKey(requestId))
+            throw new VoldemortException("No operation with id " + requestId + " found");
+
+        operations.get(requestId).stop();
+    }
+
+    public int getUniqueRequestId() {
         return lastOperationId.getAndIncrement();
     }
 

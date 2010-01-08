@@ -62,7 +62,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             for(Integer partition: n.getPartitionIds()) {
                 if(m.containsKey(partition))
                     throw new IllegalArgumentException("Duplicate partition id " + partition
-                                                       + " in cluster configuration.");
+                                                       + " in cluster configuration " + nodes);
                 m.put(partition, n);
             }
         }
@@ -89,6 +89,10 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public List<Node> routeRequest(byte[] key) {
+        if(partitionToNode.length == 0) {
+            return new ArrayList<Node>(0);
+        }
+
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         int index = abs(hash.hash(key)) % this.partitionToNode.length;
         for(int i = 0; i < partitionToNode.length; i++) {
@@ -128,7 +132,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
 
     public List<Integer> getPartitionList(byte[] key) {
         List<Integer> preferenceList = new ArrayList<Integer>(numReplicas);
-        int index = Math.abs(hash.hash(key)) % this.partitionToNode.length;
+        int index = Math.abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
             if(!preferenceList.contains(index))
