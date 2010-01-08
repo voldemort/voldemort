@@ -153,6 +153,7 @@ public class Ec2RebalancingTest {
         final StoreClient<String,String> storeClient = getStoreClient(factory);
         final CountDownLatch nodeKilled = new CountDownLatch(1);
         final CountDownLatch rebalanceStarted = new CountDownLatch(1);
+        final CountDownLatch testsDone = new CountDownLatch(1);
 
         final AtomicBoolean restartedRebalancing = new AtomicBoolean(false);
         final AtomicBoolean entriesCorrect = new AtomicBoolean(false);
@@ -161,6 +162,9 @@ public class Ec2RebalancingTest {
             ExecutorService executorService = Executors.newFixedThreadPool(5);
             populateData(originalCluster, Arrays.asList(0));
 
+            if (logger.isInfoEnabled())
+                logger.info("Populated data, start the test.");
+            
             executorService.submit(new Runnable() {
                 // Initiate rebalancing
                 public void run() {
@@ -171,8 +175,11 @@ public class Ec2RebalancingTest {
                                                                                                   false,
                                                                                                   0
                                                                                                   );
-                    adminClient.rebalanceNode(rebalancePartitionsInfo);
-                    rebalanceStarted.countDown();
+                    int reqId = adminClient.rebalanceNode(rebalancePartitionsInfo);
+                    if (logger.isInfoEnabled())
+                        logger.info("Starting rebalancing: async request id = " + reqId);
+
+                    rebalanceStarted.countDown(); // signal that we started rebalancing
                 }
             });
 
@@ -185,12 +192,15 @@ public class Ec2RebalancingTest {
                             logger.info("Waiting to get rebalancing into a half-way state");
 
                         rebalanceStarted.await();
+                        Thread.sleep(25);
+
                         stopClusterNode(hostname,ec2RebalancingTestConfig);
-                        nodeKilled.countDown();
+                        
+                        nodeKilled.countDown();  // signal that we shot the node
                         if (logger.isInfoEnabled())
                             logger.info("Killed node 1");
 
-                        Thread.sleep(5000);
+                        Thread.sleep(250);
 
                         startClusterNode(hostname, ec2RebalancingTestConfig, 1);
                         if (logger.isInfoEnabled())
@@ -214,14 +224,31 @@ public class Ec2RebalancingTest {
 
                             nodeKilled.await();
                             if (logger.isInfoEnabled())
-                                logger.info("Waiting for five minutes for rebalancing to retry");
+                                logger.info("Waiting for five seconds for rebalancing to retry");
 
-                            Thread.sleep(5 * 60 * 1000);
+                            Thread.sleep(10000);
 
                             AdminClient adminClient = new AdminClient(getBootstrapUrl(originalCluster, 0),
                                                                       new AdminClientConfig());
                             Versioned<MetadataStore.VoldemortState> serverState = adminClient.getRemoteServerState(1);
+
+                            long start = System.currentTimeMillis();
+                            long delay = 5000;
+                            long delayMax = 1000 * 30; 
+                            long timeout = 5 * 1000 * 60;
+
+                            while (System.currentTimeMillis() < start + timeout &&
+                                   serverState.getValue() != MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
+                                Thread.sleep(delay);
+                                if (delay < delayMax)
+                                    delay *= 2;
+                                serverState = adminClient.getRemoteServerState(1);
+                                if (logger.isInfoEnabled())
+                                    logger.info("Server state: " + serverState.getValue());
+                            }
+
                             if (serverState.getValue() == MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
+
                                 restartedRebalancing.set(true);
                                 if (logger.isInfoEnabled())
                                     logger.info("Recovered node began rebalancing, continuing with the test.");
@@ -250,16 +277,17 @@ public class Ec2RebalancingTest {
                         }
                     } finally {
                         factory.close();
+                        testsDone.countDown();
                     }
                 }
             });
 
-            executorService.shutdown();
+            testsDone.await();
 
             assertTrue("node restarted rebalancing after recovering", restartedRebalancing.get());
             assertTrue("entries got set correctly", entriesCorrect.get());
 
-
+            executorService.awaitTermination(15 * 60, TimeUnit.SECONDS);
         } finally {
             stopCluster(hostNames, ec2RebalancingTestConfig);
         }
