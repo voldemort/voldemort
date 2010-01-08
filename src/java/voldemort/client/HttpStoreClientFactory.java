@@ -16,7 +16,9 @@
 
 package voldemort.client;
 
+import java.io.StringReader;
 import java.net.URI;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
@@ -31,9 +33,15 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.ClientStoreVerifier;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 
 /**
@@ -77,6 +85,11 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                config.getMaxConnectionsPerNode());
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
+
+        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+
+        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -90,6 +103,31 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                              httpClient,
                              requestFormatFactory.getRequestFormat(type),
                              reroute);
+    }
+
+    protected FailureDetector initFailureDetector(final ClientConfig config,
+                                                  final Collection<Node> nodes) {
+        ClientStoreVerifier<ByteArray, byte[]> storeVerifier = new ClientStoreVerifier<ByteArray, byte[]>() {
+
+            @Override
+            protected ByteArray getKey() {
+                return new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
+            }
+
+            @Override
+            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+                return HttpStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
+                                                            node.getHost(),
+                                                            node.getHttpPort(),
+                                                            config.getRequestFormatType());
+            }
+
+        };
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
+                                                                                       .setStoreVerifier(storeVerifier);
+
+        return FailureDetectorUtils.create(failureDetectorConfig);
     }
 
     @Override
@@ -107,8 +145,10 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                + url.getScheme() + "'.");
     }
 
+    @Override
     public void close() {
-    // should timeout connections on its own
+        super.close();
+        // should timeout connections on its own
     }
 
 }

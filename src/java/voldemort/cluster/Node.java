@@ -46,11 +46,6 @@ public class Node implements Serializable, Comparable<Node> {
     private final int socketPort;
     private final int adminPort;
     private final List<Integer> partitions;
-    private final NodeStatus status;
-
-    public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, -1, partitions, new NodeStatus());
-    }
 
     public Node(int id,
                 String host,
@@ -58,21 +53,10 @@ public class Node implements Serializable, Comparable<Node> {
                 int socketPort,
                 int adminPort,
                 List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, adminPort, partitions, new NodeStatus());
-    }
-
-    public Node(int id,
-                String host,
-                int httpPort,
-                int socketPort,
-                int adminPort,
-                List<Integer> partitions,
-                NodeStatus status) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
-        this.status = status;
         this.partitions = ImmutableList.copyOf(partitions);
 
         // fix default value for adminPort if not defined
@@ -103,10 +87,6 @@ public class Node implements Serializable, Comparable<Node> {
 
     public int getId() {
         return id;
-    }
-
-    public NodeStatus getStatus() {
-        return status;
     }
 
     public List<Integer> getPartitionIds() {

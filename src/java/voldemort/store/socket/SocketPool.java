@@ -113,6 +113,10 @@ public class SocketPool {
         }
     }
 
+    public void close(SocketDestination destination) {
+        pool.close(destination);
+    }
+
     /**
      * Close the socket pool
      */

@@ -24,11 +24,13 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketDestination;
@@ -59,15 +61,18 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
     private final SocketPool socketPool;
+    private FailureDetector failureDetector;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
                             MetadataStore metadata,
                             StoreRepository storeRepository,
+                            FailureDetector detector,
                             SocketPool socketPool) {
         super(innerStore);
         this.metadata = metadata;
         this.storeRepository = storeRepository;
         this.socketPool = socketPool;
+        this.failureDetector = detector;
     }
 
     @Override
@@ -160,8 +165,27 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @throws VoldemortException
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
+        Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo()
+                                                                   .getDonorId());
+        checkNodeAvailable(donorNode);
+        try {
+            List<Versioned<byte[]>> values = getRedirectingSocketStore(getName(),
+                                                                       metadata.getRebalancingStealInfo()
+                                                                               .getDonorId()).get(key);
+            failureDetector.recordSuccess(donorNode);
+            return values;
+        } catch(UnreachableStoreException e) {
+            failureDetector.recordException(donorNode, e);
+            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+                                                           + donorNode, e);
+        }
+    }
 
-        return getRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo().getDonorId()).get(key);
+    private void checkNodeAvailable(Node donorNode) {
+        if(!failureDetector.isAvailable(donorNode))
+            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+                                                           + donorNode
+                                                           + " is marked down by failure detector.");
     }
 
     /**
@@ -173,8 +197,20 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
             throws VoldemortException {
-
-        return getRedirectingSocketStore(getName(), metadata.getRebalancingStealInfo().getDonorId()).getAll(keys);
+        Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo()
+                                                                   .getDonorId());
+        checkNodeAvailable(donorNode);
+        try {
+            Map<ByteArray, List<Versioned<byte[]>>> map = getRedirectingSocketStore(getName(),
+                                                                                    metadata.getRebalancingStealInfo()
+                                                                                            .getDonorId()).getAll(keys);
+            failureDetector.recordSuccess(donorNode);
+            return map;
+        } catch(UnreachableStoreException e) {
+            failureDetector.recordException(donorNode, e);
+            throw new RebalancingProxyUnreachableException("Failed to reach proxy node "
+                                                           + donorNode, e);
+        }
     }
 
     /**

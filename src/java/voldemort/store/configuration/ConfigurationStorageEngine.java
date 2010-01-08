@@ -233,4 +233,8 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
     public ClosableIterator<String> keys() {
         throw new VoldemortException("keys iteration not supported.");
     }
+
+    public void truncate() {
+        throw new VoldemortException("Truncate not supported in ConfigurationStorageEngine");
+    }
 }

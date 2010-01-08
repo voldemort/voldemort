@@ -66,12 +66,9 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
         ByteArray key = new ByteArray("test".getBytes());
         RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
-        HttpStore badUrlHttpStore = new HttpStore("test",
-                                                  url,
-                                                  port,
-                                                  new HttpClient(),
-                                                  requestFormat,
-                                                  false);
+        HttpClient client = new HttpClient();
+        client.getHttpConnectionManager().getParams().setConnectionTimeout(5000);
+        HttpStore badUrlHttpStore = new HttpStore("test", url, port, client, requestFormat, false);
         try {
             badUrlHttpStore.put(key, new Versioned<byte[]>("value".getBytes(), new VectorClock()));
         } catch(Exception e) {

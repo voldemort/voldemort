@@ -51,6 +51,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='ASYNC_OPERATION_LIST', index=9, number=9,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='TRUNCATE_ENTRIES', index=10, number=10,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -66,6 +70,7 @@ ASYNC_OPERATION_STATUS = 6
 INITIATE_REBALANCE_NODE = 7
 ASYNC_OPERATION_STOP = 8
 ASYNC_OPERATION_LIST = 9
+TRUNCATE_ENTRIES = 10
 
 
 
@@ -705,6 +710,50 @@ _ASYNCOPERATIONSTATUSRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_TRUNCATEENTRIESREQUEST = descriptor.Descriptor(
+  name='TruncateEntriesRequest',
+  full_name='voldemort.TruncateEntriesRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store', full_name='voldemort.TruncateEntriesRequest.store', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_TRUNCATEENTRIESRESPONSE = descriptor.Descriptor(
+  name='TruncateEntriesResponse',
+  full_name='voldemort.TruncateEntriesResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.TruncateEntriesResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -788,6 +837,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='truncate_entries', full_name='voldemort.VoldemortAdminRequest.truncate_entries', index=11,
+      number=12, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -815,6 +871,7 @@ _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMOR
 _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -826,6 +883,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_status'].message_type = _
 _VOLDEMORTADMINREQUEST.fields_by_name['initiate_rebalance_node'].message_type = _INITIATEREBALANCENODEREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_stop'].message_type = _ASYNCOPERATIONSTOPREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_list'].message_type = _ASYNCOPERATIONLISTREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['truncate_entries'].message_type = _TRUNCATEENTRIESREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -906,6 +964,14 @@ class InitiateRebalanceNodeRequest(message.Message):
 class AsyncOperationStatusResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ASYNCOPERATIONSTATUSRESPONSE
+
+class TruncateEntriesRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _TRUNCATEENTRIESREQUEST
+
+class TruncateEntriesResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _TRUNCATEENTRIESRESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

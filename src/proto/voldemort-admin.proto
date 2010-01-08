@@ -114,6 +114,14 @@ message AsyncOperationStatusResponse {
   optional Error error = 5;
 }
 
+message TruncateEntriesRequest {
+  required string store = 1;
+}
+
+message TruncateEntriesResponse {
+  optional Error error = 1;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -125,6 +133,7 @@ enum AdminRequestType {
   INITIATE_REBALANCE_NODE = 7;
   ASYNC_OPERATION_STOP = 8;
   ASYNC_OPERATION_LIST = 9;
+  TRUNCATE_ENTRIES = 10;
 }
 
 message VoldemortAdminRequest {
@@ -139,6 +148,7 @@ message VoldemortAdminRequest {
   optional InitiateRebalanceNodeRequest initiate_rebalance_node = 9;
   optional AsyncOperationStopRequest async_operation_stop = 10;
   optional AsyncOperationListRequest async_operation_list = 11;
+  optional TruncateEntriesRequest truncate_entries = 12;
 }
 
 

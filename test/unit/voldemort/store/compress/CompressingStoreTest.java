@@ -55,7 +55,7 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
     }
 
     @Test
-    public void testPutGetWithSocketService() {
+    public void testPutGetWithSocketService() throws Exception {
         int freePort = ServerTestUtils.findFreePort();
         String clusterXml = VoldemortTestConstants.getOneNodeClusterXml();
         clusterXml = clusterXml.replace("<socket-port>6666</socket-port>", "<socket-port>"
@@ -67,8 +67,12 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
                                                                                "test",
                                                                                freePort);
         socketService.start();
+
+        Thread.sleep(1000);
+
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://localhost:"
-                                                                                                                       + freePort));
+                                                                                                                       + freePort)
+                                                                                                     .setMaxBootstrapRetries(10));
         StoreClient<String, String> storeClient = storeClientFactory.getStoreClient("test");
         storeClient.put("someKey", "someValue");
         assertEquals(storeClient.getValue("someKey"), "someValue");

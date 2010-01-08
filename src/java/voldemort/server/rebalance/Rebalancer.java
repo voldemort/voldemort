@@ -143,7 +143,7 @@ public class Rebalancer implements Runnable {
                                                                    metadataStore.getCluster());
                 List<Exception> failures = new ArrayList<Exception>();
                 try {
-                    logger.info("Rebalancer: rebalance " + stealInfo + " starting.");
+                    logger.info("starting rebalancing " + stealInfo);
                     List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                     for(String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
                         if(forceStop) {

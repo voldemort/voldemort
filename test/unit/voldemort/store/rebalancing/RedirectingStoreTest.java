@@ -33,6 +33,7 @@ import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -110,6 +111,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                    RequestFormatType.VOLDEMORT_V1),
                                     metadata,
                                     server0.getStoreRepository(),
+                                    new NoopFailureDetector(),
                                     new SocketPool(10, 1000, 10000, 10000));
     }
 

@@ -104,8 +104,7 @@ public class RebalanceUtils {
                         node.getHttpPort(),
                         node.getSocketPort(),
                         node.getAdminPort(),
-                        partitionsList,
-                        node.getStatus());
+                        partitionsList);
     }
 
     /**

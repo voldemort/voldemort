@@ -129,6 +129,26 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    public void truncate() {
+        Transaction transaction = null;
+        boolean succeeded = false;
+        try {
+            transaction = this.environment.beginTransaction(null, null);
+            bdbDatabase.getEnvironment().truncateDatabase(transaction, bdbDatabase.getDatabaseName(), false);
+            succeeded = true;
+        } catch (DatabaseException e) {
+            logger.error(e);
+            throw new PersistenceFailureException(e);
+        } finally {
+            if (succeeded) {
+                attemptCommit(transaction);
+            }
+            else {
+                attemptAbort(transaction);
+            }
+        }
+    }
+
     public List<Version> getVersions(ByteArray key) {
         return get(key, LockMode.READ_UNCOMMITTED, versionSerializer);
     }

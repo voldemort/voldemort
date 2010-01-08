@@ -94,6 +94,14 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return StoreUtils.keys(entries());
     }
 
+    public void truncate() {
+        ViewIterator iterator = new ViewIterator(target.entries());
+        while (iterator.hasNext()) {
+            Pair<ByteArray, Versioned<byte[]>> pair = iterator.next();
+            target.delete(pair.getFirst(), pair.getSecond().getVersion());
+        }
+    }
+
     public Object getCapability(StoreCapabilityType capability) {
         if(capability == StoreCapabilityType.VIEW_TARGET)
             return this.target;

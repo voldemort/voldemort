@@ -110,7 +110,8 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             return requestFormat.readGetAllResponse(sands.getInputStream());
         } catch(IOException e) {
             close(sands.getSocket());
-            throw new VoldemortException(e);
+            throw new UnreachableStoreException("Failure in getAll() on " + destination + ": "
+                                                + e.getMessage(), e);
         } finally {
             pool.checkin(destination, sands);
         }

@@ -242,7 +242,28 @@ public class AdminServiceBasicTest extends TestCase {
                      count);
     }
 
-    public void testFetch() {
+    public void testTruncate() throws Exception {
+        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+
+        // insert it into server-0 store
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+        }
+
+        // do truncate request
+        getAdminClient().truncate(0, testStoreName);
+
+        RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
+                                                               .getRoutingStrategy(testStoreName);
+        store = getStore(0, testStoreName);
+
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            assertEquals("Deleted key should be missing.", 0, store.get(entry.getKey()).size());
+        }
+    }
+
+    public void testFetch() throws IOException {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
 

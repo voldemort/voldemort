@@ -73,11 +73,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final Rebalancer rebalancer;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
-                                               StoreRepository storeRepository,
-                                               MetadataStore metadataStore,
-                                               VoldemortConfig voldemortConfig,
-                                               AsyncOperationRunner asyncRunner,
-                                               Rebalancer rebalancer) {
+                                      StoreRepository storeRepository,
+                                      MetadataStore metadataStore,
+                                      VoldemortConfig voldemortConfig,
+                                      AsyncOperationRunner asyncRunner,
+                                      Rebalancer rebalancer) {
         this.errorCodeMapper = errorCodeMapper;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
@@ -136,6 +136,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case ASYNC_OPERATION_STOP:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncOperationStop(request.getAsyncOperationStop()));
+                break;
+            case TRUNCATE_ENTRIES:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleTruncateEntries(request.getTruncateEntries()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -388,9 +392,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         boolean showComplete = request.hasShowComplete() && request.getShowComplete();
         try {
             response.addAllRequestIds(asyncRunner.getAsyncOperationList(showComplete));
-        } catch (VoldemortException e) {
+        } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")", e);
+            logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")",
+                         e);
         }
 
         return response.build();
@@ -401,9 +406,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         int requestId = request.getRequestId();
         try {
             asyncRunner.stopOperation(requestId);
-        } catch (VoldemortException e) {
+        } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")", e);
+            logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")",
+                         e);
         }
 
         return response.build();
@@ -426,6 +432,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             asyncRunner.submitOperation(requestId,
                                         new AsyncOperation(requestId, "Fetch and Update") {
+
                                             private final AtomicBoolean running = new AtomicBoolean(true);
 
                                             @Override
@@ -445,7 +452,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                                             filter);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                                                    for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
+                                                    for(long i = 0; running.get()
+                                                                    && entriesIterator.hasNext(); i++) {
                                                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
                                                         try {
@@ -578,6 +586,21 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleGetMetadata failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.TruncateEntriesResponse handleTruncateEntries(VAdminProto.TruncateEntriesRequest request) {
+        VAdminProto.TruncateEntriesResponse.Builder response = VAdminProto.TruncateEntriesResponse.newBuilder();
+        try {
+            String storeName = request.getStore();
+            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
+
+            storageEngine.truncate();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleTruncateEntries failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();
