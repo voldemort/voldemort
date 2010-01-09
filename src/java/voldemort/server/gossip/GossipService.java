@@ -25,7 +25,7 @@ public class GossipService extends AbstractService {
         super(ServiceType.GOSSIP);
         schedulerService = service;
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                           metadataStore.getCluster());
+                                                           metadataStore.getCluster(), 4, 2);
         gossiper = new Gossiper(metadataStore, adminClient, voldemortConfig.getGossipInterval());
     }
 

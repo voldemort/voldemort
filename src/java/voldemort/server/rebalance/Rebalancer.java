@@ -89,7 +89,7 @@ public class Rebalancer implements Runnable {
         stealInfo.setAttempt(stealInfo.getAttempt() + 1);
 
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadataStore.getCluster());
+                                                                       metadataStore.getCluster(), 4, 2);
         int rebalanceAsyncId = rebalanceLocalNode(stealInfo);
 
         adminClient.waitForCompletion(stealInfo.getStealerId(),
@@ -142,7 +142,7 @@ public class Rebalancer implements Runnable {
                                         @Override
                                         public void operate() throws Exception {
                                             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                               metadataStore.getCluster());
+                                                                                               metadataStore.getCluster(), 4, 2);
                                             List<Exception> failures = new ArrayList<Exception>();
                                             try {
                                                 logger.info("starting rebalancing " + stealInfo);

@@ -21,8 +21,15 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -38,6 +45,8 @@ import voldemort.client.protocol.pb.VProto;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
@@ -50,6 +59,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -90,8 +100,9 @@ public class AdminClient {
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
     private static final long MAX_DELAY = 1000 * 60;
+    private final AdminClientConfig adminClientConfig;
 
-    private Cluster cluster;
+    private Cluster currentCluster;
 
     /**
      * Create an instance of AdminClient given a bootstrap server URL. The
@@ -108,11 +119,12 @@ public class AdminClient {
      *        </ul>
      */
     public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
-        this.cluster = getClusterFromBootstrapURL(bootstrapURL);
+        this.currentCluster = getClusterFromBootstrapURL(bootstrapURL);
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+        this.adminClientConfig = adminClientConfig;
     }
 
     /**
@@ -130,11 +142,12 @@ public class AdminClient {
      *        </ul>
      */
     public AdminClient(Cluster cluster, AdminClientConfig adminClientConfig) {
-        this.cluster = cluster;
+        this.currentCluster = cluster;
         this.errorMapper = new ErrorCodeMapper();
         this.pool = createSocketPool(adminClientConfig);
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+        this.adminClientConfig = adminClientConfig;
     }
 
     private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
@@ -429,6 +442,121 @@ public class AdminClient {
     }
 
     /**
+     * RestoreData from copies on other machines for the given nodeId
+     * <p>
+     * Recovery mechanism to recover and restore data actively from replicated
+     * copies in the cluster.<br>
+     * 
+     * @param nodeId Id of the node to restoreData
+     * @param parallelTransfers number of transfers
+     * @throws InterruptedException
+     */
+    public void restoreDataFromReplications(int nodeId, int parallelTransfers) {
+        ExecutorService executors = Executors.newFixedThreadPool(parallelTransfers,
+                                                                 new ThreadFactory() {
+
+                                                                     public Thread newThread(Runnable r) {
+                                                                         Thread thread = new Thread(r);
+                                                                         thread.setName("restore-data-thread");
+                                                                         return thread;
+                                                                     }
+                                                                 });
+        try {
+            List<StoreDefinition> storeDefList = getRemoteStoreDefList(nodeId).getValue();
+            Cluster cluster = getRemoteCluster(nodeId).getValue();
+
+            List<String> writableStores = RebalanceUtils.getWritableStores(storeDefList);
+
+            for(StoreDefinition def: storeDefList) {
+                if(writableStores.contains(def.getName())) {
+                    restoreStoreFromReplication(nodeId, cluster, def, executors);
+                }
+            }
+        } finally {
+            executors.shutdown();
+            try {
+                executors.awaitTermination(adminClientConfig.getRestoreDataTimeout(),
+                                           TimeUnit.SECONDS);
+            } catch(InterruptedException e) {
+                logger.error("Interrupted while waiting restoreDataFromReplications to finish ..");
+            }
+        }
+    }
+
+    private void restoreStoreFromReplication(final int restoringNodeId,
+                                             final Cluster cluster,
+                                             final StoreDefinition storeDef,
+                                             final ExecutorService executorService) {
+        logger.info("Restoring data for store:" + storeDef.getName());
+        RoutingStrategyFactory factory = new RoutingStrategyFactory();
+        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
+
+        Map<Integer, List<Integer>> restoreMapping = getReplicationMapping(cluster,
+                                                                           restoringNodeId,
+                                                                           strategy);
+
+        // migrate partition
+        for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
+            final int donorNodeId = replicationEntry.getKey();
+            executorService.submit(new Runnable() {
+
+                public void run() {
+                    try {
+                        logger.debug("restoring data for store " + storeDef.getName() + " at node "
+                                     + restoringNodeId + " from node " + replicationEntry.getKey()
+                                     + " partitions:" + replicationEntry.getValue());
+
+                        int migrateAsyncId = migratePartitions(donorNodeId,
+                                                               restoringNodeId,
+                                                               storeDef.getName(),
+                                                               replicationEntry.getValue(),
+                                                               null);
+                        waitForCompletion(restoringNodeId,
+                                          migrateAsyncId,
+                                          adminClientConfig.getRestoreDataTimeout(),
+                                          TimeUnit.SECONDS);
+
+                        logger.debug("restoring data for store:" + storeDef.getName()
+                                     + " from node " + donorNodeId + " completed.");
+                    } catch(Exception e) {
+                        logger.error("restoring operation for store " + storeDef.getName()
+                                     + " failed while copying from node " + donorNodeId, e);
+                    }
+                }
+            });
+        }
+    }
+
+    private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
+                                                              int nodeId,
+                                                              RoutingStrategy strategy) {
+        Node node = cluster.getNodeById(nodeId);
+        Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
+
+        for(int partition: node.getPartitionIds()) {
+            List<Integer> replicationPartitionsList = strategy.getReplicatingPartitionList(partition);
+            if(replicationPartitionsList.size() > 1) {
+                int index = 0;
+                int replicatingPartition = replicationPartitionsList.get(index++);
+                while(partition == replicatingPartition) {
+                    replicatingPartition = replicationPartitionsList.get(index++);
+                }
+
+                int replicatingNode = partitionsToNodeMapping.get(replicatingPartition);
+
+                if(!restoreMapping.containsKey(replicatingNode)) {
+                    restoreMapping.put(replicatingNode, new ArrayList<Integer>());
+                }
+                restoreMapping.get(replicatingNode).add(partition);
+            }
+        }
+
+        logger.debug("restore Node/Partition mapping:" + restoreMapping);
+        return restoreMapping;
+    }
+
+    /**
      * Rebalance a stealer,donor node pair for the given storeName.<br>
      * stealInfo also have a storeName list, this is passed to client to persist
      * in case of failure and start balancing all the stores in the list only.
@@ -460,8 +588,7 @@ public class AdminClient {
     }
 
     /**
-     * cleanly close this client, freeing any resource. ======= Migrate
-     * keys/values belonging to stealPartitionList from donorNode to
+     * Migrate keys/values belonging to stealPartitionList from donorNode to
      * stealerNode. <b>Does not delete the partitions from donorNode, merely
      * copies them. </b>
      * <p>
@@ -481,8 +608,7 @@ public class AdminClient {
      *        should not be deleted.
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
-     *         stealerNodeId which is performing the operation. >>>>>>>
-     *         f1e5ec710bdd4d2df684932e6fe602133426c98f
+     *         stealerNodeId which is performing the operation.
      */
     public int migratePartitions(int donorNodeId,
                                  int stealerNodeId,
@@ -939,7 +1065,7 @@ public class AdminClient {
      * @param cluster
      */
     public void setAdminClientCluster(Cluster cluster) {
-        this.cluster = cluster;
+        this.currentCluster = cluster;
     }
 
     /**
@@ -948,6 +1074,6 @@ public class AdminClient {
      * @return
      */
     public Cluster getAdminClientCluster() {
-        return cluster;
+        return currentCluster;
     }
 }

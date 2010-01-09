@@ -443,7 +443,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                             @Override
                                             public void operate() {
                                                 AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                                               metadataStore.getCluster());
+                                                                                                               metadataStore.getCluster(), 4, 2);
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,

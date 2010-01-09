@@ -25,7 +25,9 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.gossip.GossipService;
@@ -43,6 +45,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -276,5 +279,19 @@ public class VoldemortServer extends AbstractService {
 
     public MetadataStore getMetadataStore() {
         return metadata;
+    }
+
+    @JmxOperation
+    public void restoreDataFromReplication(int numberOfParallelTransfers) {
+
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadata.getCluster(),
+                                                                       numberOfParallelTransfers * 2,
+                                                                       numberOfParallelTransfers * 2);
+        try {
+            adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);
+        } finally {
+            adminClient.stop();
+        }
     }
 }

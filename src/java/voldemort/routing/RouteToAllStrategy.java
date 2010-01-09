@@ -49,4 +49,8 @@ public class RouteToAllStrategy implements RoutingStrategy {
     public List<Integer> getPartitionList(byte[] key) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    public List<Integer> getReplicatingPartitionList(int partitionId) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

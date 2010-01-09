@@ -3,7 +3,9 @@ package voldemort.utils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -107,6 +109,18 @@ public class RebalanceUtils {
                         partitionsList);
     }
 
+    public static Map<Integer, Integer> getCurrentPartitionMapping(Cluster currentCluster) {
+        Map<Integer, Integer> partitionToNode = new HashMap<Integer, Integer>();
+
+        for(Node n: currentCluster.getNodes()) {
+            for(Integer partition: n.getPartitionIds()) {
+                partitionToNode.put(partition, n.getId());
+            }
+        }
+
+        return partitionToNode;
+    }
+
     /**
      * Get the latest cluster from all available nodes in the cluster<br>
      * Throws exception if:<br>
@@ -208,9 +222,12 @@ public class RebalanceUtils {
         }
     }
 
-    public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig, Cluster cluster) {
-        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(2)
-                                                          .setMaxThreads(2)
+    public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
+                                                    Cluster cluster,
+                                                    int numThreads,
+                                                    int numConnPerNode) {
+        AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(numConnPerNode)
+                                                          .setMaxThreads(numThreads)
                                                           .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
@@ -222,21 +239,27 @@ public class RebalanceUtils {
         for(Node node: cluster.getNodes()) {
             List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
                                                             .getValue();
-            List<String> storeNameList = new ArrayList<String>(storeDefList.size());
-            for(StoreDefinition def: storeDefList) {
-                if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
-                    storeNameList.add(def.getName());
-                }
-                if(rebalancingStoreEngineBlackList.contains(def.getType())) {
-
-                } else {
-                    logger.debug("ignoring store " + def.getName() + " for rebalancing");
-                }
-            }
-            return storeNameList;
+            return getWritableStores(storeDefList);
         }
 
         throw new VoldemortException("Unable to get StoreDefList from any node for cluster:"
                                      + cluster);
     }
+
+    public static List<String> getWritableStores(List<StoreDefinition> storeDefList) {
+        List<String> storeNameList = new ArrayList<String>(storeDefList.size());
+
+        for(StoreDefinition def: storeDefList) {
+            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
+                storeNameList.add(def.getName());
+            }
+            if(rebalancingStoreEngineBlackList.contains(def.getType())) {
+
+            } else {
+                logger.debug("ignoring store " + def.getName() + " for rebalancing");
+            }
+        }
+        return storeNameList;
+    }
+
 }

@@ -57,7 +57,7 @@ public class RebalanceClusterPlan {
                                                                int stealNodeId,
                                                                boolean deleteDonorPartition) {
         Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
-        Map<Integer, Integer> currentPartitionsToNodeMap = getCurrentPartitionMapping(currentCluster);
+        Map<Integer, Integer> currentPartitionsToNodeMap = RebalanceUtils.getCurrentPartitionMapping(currentCluster);
         List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
         List<Integer> currentList;
 
@@ -91,18 +91,6 @@ public class RebalanceClusterPlan {
         }
 
         return stealInfoList;
-    }
-
-    private static Map<Integer, Integer> getCurrentPartitionMapping(Cluster currentCluster) {
-        Map<Integer, Integer> partitionToNode = new HashMap<Integer, Integer>();
-
-        for(Node n: currentCluster.getNodes()) {
-            for(Integer partition: n.getPartitionIds()) {
-                partitionToNode.put(partition, n.getId());
-            }
-        }
-
-        return partitionToNode;
     }
 
     @Override

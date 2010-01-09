@@ -94,21 +94,33 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         }
 
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
-        int index = abs(hash.hash(key)) % this.partitionToNode.length;
+        for(int partition: getPartitionList(key)) {
+            preferenceList.add(partitionToNode[partition]);
+        }
+
+        return preferenceList;
+    }
+
+    public List<Integer> getReplicatingPartitionList(int index) {
+        List<Node> preferenceList = new ArrayList<Node>(numReplicas);
+        List<Integer> replicationPartitionsList = new ArrayList<Integer>(numReplicas);
+
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already
-            if(!preferenceList.contains(partitionToNode[index]))
+            if(!preferenceList.contains(partitionToNode[index])) {
                 preferenceList.add(partitionToNode[index]);
+                replicationPartitionsList.add(index);
+            }
 
             // if we have enough, go home
             if(preferenceList.size() >= numReplicas)
-                return preferenceList;
+                return replicationPartitionsList;
             // move to next clockwise slot on the ring
             index = (index + 1) % partitionToNode.length;
         }
 
         // we don't have enough, but that may be okay
-        return preferenceList;
+        return replicationPartitionsList;
     }
 
     public Set<Node> getNodes() {
@@ -131,21 +143,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public List<Integer> getPartitionList(byte[] key) {
-        List<Integer> preferenceList = new ArrayList<Integer>(numReplicas);
         int index = Math.abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
-        for(int i = 0; i < partitionToNode.length; i++) {
-            // add this one if we haven't already
-            if(!preferenceList.contains(index))
-                preferenceList.add(index);
-
-            // if we have enough, go home
-            if(preferenceList.size() >= numReplicas)
-                return preferenceList;
-
-            // move to next clockwise slot on the ring
-            index = (index + 1) % partitionToNode.length;
-        }
-        return preferenceList;
+        return getReplicatingPartitionList(index);
     }
-
 }
