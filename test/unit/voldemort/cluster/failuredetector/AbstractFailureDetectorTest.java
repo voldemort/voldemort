@@ -119,7 +119,7 @@ public abstract class AbstractFailureDetectorTest {
 
     @Test
     public void testGeneralJmx() throws Exception {
-        assertJmxEquals("availableNodes", "Node0,Node1,Node2,Node3,Node4,Node5,Node6,Node7,Node8");
+        assertJmxEquals("availableNodes", "0,1,2,3,4,5,6,7,8");
         assertJmxEquals("unavailableNodes", "");
         assertJmxEquals("availableNodeCount", 9);
         assertJmxEquals("nodeCount", 9);

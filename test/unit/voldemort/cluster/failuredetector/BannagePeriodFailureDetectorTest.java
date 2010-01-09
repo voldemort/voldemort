@@ -70,9 +70,10 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
 
         time.sleep(BANNAGE_MILLIS / 2);
 
-        assertJmxEquals("unavailableNodesBannageExpiration", node + "=" + (BANNAGE_MILLIS / 2));
-        assertJmxEquals("availableNodes", "Node0,Node1,Node2,Node3,Node4,Node5,Node6,Node7");
-        assertJmxEquals("unavailableNodes", "Node8");
+        assertJmxEquals("unavailableNodesBannageExpiration", node.getId() + "="
+                                                             + (BANNAGE_MILLIS / 2));
+        assertJmxEquals("availableNodes", "0,1,2,3,4,5,6,7");
+        assertJmxEquals("unavailableNodes", "8");
         assertJmxEquals("availableNodeCount", 8);
         assertJmxEquals("nodeCount", 9);
 
@@ -80,7 +81,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
         assertAvailable(node);
 
         assertJmxEquals("unavailableNodesBannageExpiration", "");
-        assertJmxEquals("availableNodes", "Node0,Node1,Node2,Node3,Node4,Node5,Node6,Node7,Node8");
+        assertJmxEquals("availableNodes", "0,1,2,3,4,5,6,7,8");
         assertJmxEquals("unavailableNodes", "");
         assertJmxEquals("availableNodeCount", 9);
         assertJmxEquals("nodeCount", 9);
