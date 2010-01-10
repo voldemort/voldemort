@@ -41,6 +41,12 @@ public class ClusterNodeDescriptor {
 
     public static final int DEFAULT_SOCKET_PORT = 6666;
 
+    /**
+     * DEFAULT_ADMIN_PORT is DEFAULT_ADMIN_PORT + 1
+     */
+
+    private static final int DEFAULT_ADMIN_PORT = DEFAULT_SOCKET_PORT + 1;
+
     private String hostName;
 
     private int id;
@@ -48,6 +54,8 @@ public class ClusterNodeDescriptor {
     private int httpPort = DEFAULT_HTTP_PORT;
 
     private int socketPort = DEFAULT_SOCKET_PORT;
+
+    private int adminPort = DEFAULT_ADMIN_PORT;
 
     private List<Integer> partitions;
 
@@ -140,6 +148,14 @@ public class ClusterNodeDescriptor {
         this.socketPort = socketPort;
     }
 
+    public int getAdminPort() {
+        return adminPort;
+    }
+
+    public void setAdminPort(int adminPort) {
+        this.adminPort = adminPort;
+    }
+    
     /**
      * Returns the list of partition IDs used by this particular node.
      * 
