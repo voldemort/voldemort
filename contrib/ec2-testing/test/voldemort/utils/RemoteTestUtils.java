@@ -196,8 +196,6 @@ public class RemoteTestUtils {
         return nodeIds;
     }
 
-    // TODO: move this out to a separate place
-
     public static Map<String, Integer> generateClusterDescriptor(List<HostNamePair> hostNamePairs,
                                                                  Cluster cluster,
                                                                  RemoteTestConfig remoteTestConfig)

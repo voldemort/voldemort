@@ -123,6 +123,9 @@ public class ClusterGenerator {
 
     public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
                                                                     Cluster cluster) {
+        if (cluster.getNumberOfNodes() > hostNames.size())
+            throw new IllegalStateException("cluster size exceeds the number of available instances");
+
         List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
         for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
             Node node = cluster.getNodeById(i);
