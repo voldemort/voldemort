@@ -61,8 +61,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     @After
     public void ec2Cleanup() throws Exception {
-        stopClusterQuiet(activeHostNames, ec2RebalanceTestConfig);
-        cleanupCluster(activeHostNames, ec2RebalanceTestConfig);
+        if (activeHostNames.size() > 0) {
+            stopClusterQuiet(activeHostNames, ec2RebalanceTestConfig);
+            cleanupCluster(activeHostNames, ec2RebalanceTestConfig);
+        }
     }
 
     @Override
@@ -112,10 +114,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
                                  tmplNode.getPartitionIds());
             nodes.add(node);
             nodeIdsInv.put(nodeId, hostName);
+            activeHostNames.add(hostName);
         }
 
         Cluster cluster = new Cluster(template.getName(), nodes);
-        activeHostNames.addAll(nodeIds.keySet());
 
         deploy(activeHostNames, ec2RebalanceTestConfig);
         startClusterAsync(activeHostNames, ec2RebalanceTestConfig, nodeIds);
