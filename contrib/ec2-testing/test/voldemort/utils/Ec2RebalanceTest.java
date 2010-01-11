@@ -15,9 +15,16 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Test;
+
+import voldemort.ServerTestUtils;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.AbstractRebalanceTest;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 
 import java.io.File;
 import java.io.IOException;
@@ -78,6 +85,15 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     }
 
     @Override
+    protected SocketStore getSocketStore(String storeName, String host, int port, boolean isRouted) {
+        SocketPool socketPool = new SocketPool(2, 100000, 1000000, 32 * 1024);
+        return new SocketStore(storeName,
+                               new SocketDestination(host, port, RequestFormatType.PROTOCOL_BUFFERS),
+                               socketPool,
+                               isRouted);
+    }
+
+    @Override
     protected Cluster startServers(Cluster template, String StoreDefXmlFile, List<Integer> nodeToStart, Map<String, String> configProps) throws Exception {
         if (ec2RebalanceTestConfig.getInstanceCount() < template.getNumberOfNodes())
             throw new IllegalStateException("instanceCount must be >= number of nodes in the cluster");
@@ -117,6 +133,11 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             hostsToStop.add(nodeIdsInv.get(nodeId));
         }
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
+    }
+
+    @Test
+    public void testGracefulRecovery() throws Exception {
+        
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

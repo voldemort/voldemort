@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,7 +44,7 @@ import voldemort.versioning.Versioned;
 public abstract class AbstractRebalanceTest {
 
     private static final int NUM_KEYS = 10000;
-    private static String testStoreName = "test";
+    protected static String testStoreName = "test";
     protected static String storeDefFile = "test/common/voldemort/config/single-store.xml";
 
     HashMap<String, String> testEntries;
@@ -69,6 +68,18 @@ public abstract class AbstractRebalanceTest {
 
     protected Cluster updateCluster(Cluster template) {
         return template;
+    }
+
+    protected SocketStore getSocketStore(String storeName, String host, int port) {
+        return getSocketStore(storeName, host, port, false);
+    }
+
+    protected SocketStore getSocketStore(String storeName, String host, int port, boolean isRouted) {
+        return ServerTestUtils.getSocketStore(storeName,
+                                              host,
+                                              port,
+                                              RequestFormatType.PROTOCOL_BUFFERS,
+                                              isRouted);
     }
 
     @Test
@@ -371,11 +382,11 @@ public abstract class AbstractRebalanceTest {
         populateData(updatedCluster, Arrays.asList(0));
 
         Node node = updatedCluster.getNodeById(0);
-        final Store<ByteArray, byte[]> serverSideRoutingStore = ServerTestUtils.getSocketStore(testStoreName,
-                                                                                               node.getHost(),
-                                                                                               node.getSocketPort(),
-                                                                                               RequestFormatType.PROTOCOL_BUFFERS,
-                                                                                               true);
+        final Store<ByteArray, byte[]> serverSideRoutingStore = getSocketStore(testStoreName,
+                                                                               node.getHost(),
+                                                                               node.getSocketPort(),
+                                                                               true);
+
 
         // start get operation.
         executors.execute(new Runnable() {
@@ -462,16 +473,16 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    private void populateData(Cluster cluster, List<Integer> nodeList) {
+    protected void populateData(Cluster cluster, List<Integer> nodeList) {
 
         // Create SocketStores for each Node first
         Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
         for(int nodeId: nodeList) {
             Node node = cluster.getNodeById(nodeId);
-            storeMap.put(nodeId, ServerTestUtils.getSocketStore(testStoreName,
-                                                                node.getHost(),
-                                                                node.getSocketPort(),
-                                                                RequestFormatType.PROTOCOL_BUFFERS));
+            storeMap.put(nodeId, getSocketStore(testStoreName,
+                                                node.getHost(),
+                                                node.getSocketPort()));
+
         }
 
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
@@ -498,7 +509,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    private String getBootstrapUrl(Cluster cluster, int nodeId) {
+    protected String getBootstrapUrl(Cluster cluster, int nodeId) {
         Node node = cluster.getNodeById(nodeId);
         return "tcp://" + node.getHost() + ":" + node.getSocketPort();
     }
@@ -534,17 +545,16 @@ public abstract class AbstractRebalanceTest {
 
     }
 
-    private void checkGetEntries(Node node,
+    protected void checkGetEntries(Node node,
                                  Cluster cluster,
                                  List<Integer> unavailablePartitions,
                                  List<Integer> availablePartitions) {
         int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
-        SocketStore store = ServerTestUtils.getSocketStore(testStoreName,
-                                                           node.getHost(),
-                                                           node.getSocketPort(),
-                                                           RequestFormatType.PROTOCOL_BUFFERS);
+        SocketStore store = getSocketStore(testStoreName,
+                                           node.getHost(),
+                                           node.getSocketPort());
 
         for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
