@@ -89,12 +89,13 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     }
 
     public List<Node> routeRequest(byte[] key) {
-        if(partitionToNode.length == 0) {
-            return new ArrayList<Node>(0);
-        }
+        List<Integer> partitionList = getPartitionList(key);
 
-        List<Node> preferenceList = new ArrayList<Node>(numReplicas);
-        for(int partition: getPartitionList(key)) {
+        if(partitionList.size() == 0)
+            return new ArrayList<Node>(0);
+
+        List<Node> preferenceList = new ArrayList<Node>(partitionList.size());
+        for(int partition: partitionList) {
             preferenceList.add(partitionToNode[partition]);
         }
 
@@ -104,6 +105,10 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public List<Integer> getReplicatingPartitionList(int index) {
         List<Node> preferenceList = new ArrayList<Node>(numReplicas);
         List<Integer> replicationPartitionsList = new ArrayList<Integer>(numReplicas);
+
+        if(partitionToNode.length == 0) {
+            return new ArrayList<Integer>(0);
+        }
 
         for(int i = 0; i < partitionToNode.length; i++) {
             // add this one if we haven't already

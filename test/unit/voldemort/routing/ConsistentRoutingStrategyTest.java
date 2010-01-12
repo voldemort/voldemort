@@ -72,6 +72,13 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         assertNodeOrder(getRouter(16, 3).routeRequest(key), 3, 2, 1);
     }
 
+    public void test3xPartitions() {
+        assertReplicationPartitions(getRouter(0, 3).getPartitionList(key), 0, 1, 2);
+        assertReplicationPartitions(getRouter(14, 3).getPartitionList(key), 14, 15, 16);
+        assertReplicationPartitions(getRouter(4, 3).getPartitionList(key), 4, 5, 6);
+        assertReplicationPartitions(getRouter(16, 3).getPartitionList(key), 16, 17, 1);
+    }
+
     public void testGetNodes() {
         getRouter(0, 3).getNodes().containsAll(getTestNodes());
     }
@@ -173,6 +180,16 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         assertEquals("Router produced unexpected number of nodes.", expected.length, found.size());
         for(int i = 0; i < found.size(); i++)
             assertEquals(expected[i], found.get(i).getId());
+    }
+
+    private void assertReplicationPartitions(List<Integer> partitions, int... expected) {
+        assertEquals("Router produced unexpected number of replication partitions.",
+                     expected.length,
+                     partitions.size());
+        for(int i = 0; i < partitions.size(); i++)
+            assertEquals("Replication partitions should match",
+                         new Integer(expected[i]),
+                         partitions.get(i));
     }
 
     private Node node(int id, int... tags) {
