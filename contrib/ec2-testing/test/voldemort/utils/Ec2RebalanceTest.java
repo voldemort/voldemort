@@ -5,26 +5,31 @@ import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
+import static voldemort.utils.RemoteTestUtils.startCluster;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.cleanupCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
+import static org.junit.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.AbstractRebalanceTest;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
+import voldemort.versioning.Versioned;
 
 import java.io.File;
 import java.io.IOException;
@@ -139,7 +144,89 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     @Test
     public void testGracefulRecovery() throws Exception {
-        
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                      { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
+
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                       { 0, 1, 4, 5, 6, 7, 8 }, { 2, 3 } });
+
+        List<Integer> serverList = Arrays.asList(0,1);
+        currentCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
+
+        populateData(currentCluster, Arrays.asList(0));
+        AdminClient adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
+                                                  new AdminClientConfig());
+        RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
+                                                                                      0,
+                                                                                      Arrays.asList(2, 3),
+                                                                                      Arrays.asList(testStoreName),
+                                                                                      false,
+                                                                                      0);
+        int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
+        logger.info("started rebalanceNode, request id = " + requestId);
+
+        Thread.sleep(1000);
+
+        stopServer(Arrays.asList(1));
+
+        logger.info("waiting ten seconds after shutting down the node");
+
+        Thread.sleep(10000);
+
+        String hostName = currentCluster.getNodeById(1).getHost();
+        startCluster(Arrays.asList(currentCluster.getNodeById(1).getHost()),
+                     ec2RebalanceTestConfig,
+                     ImmutableMap.<String,Integer>of(hostName, 1),
+                     false,
+                     10);
+
+        long start = System.currentTimeMillis();
+        int delay = 5000;
+        int maxDelay = 1000 * 30;
+        int timeout = 5 * 1000 * 60;
+
+        boolean rbStateEntered = false;
+
+        Versioned<MetadataStore.VoldemortState> serverState = adminClient.getRemoteServerState(1);
+        while (System.currentTimeMillis() < start + timeout &&
+               serverState.getValue() != MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
+            Thread.sleep(delay);
+            if (delay < maxDelay)
+                delay += 1000;
+            serverState = adminClient.getRemoteServerState(1);
+            logger.info("serverState -> " + serverState.getValue());
+        }
+        if (serverState.getValue() == MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
+            rbStateEntered = true;
+            logger.info("serverState -> REBALANCING_MASTER_SERVER");
+
+            delay = 5000;
+            start = System.currentTimeMillis();
+            while (System.currentTimeMillis() < start + timeout &&
+                   serverState.getValue() != MetadataStore.VoldemortState.NORMAL_SERVER) {
+                Thread.sleep(delay);
+                if (delay < maxDelay)
+                    delay *= 2;
+                serverState = adminClient.getRemoteServerState(1);
+                logger.info("serverState -> " + serverState.getValue());
+            }
+            if (serverState.getValue() == MetadataStore.VoldemortState.NORMAL_SERVER) {
+                logger.info("serverState -> REBALANCING_NORMAL_SERVER");
+                
+                for (int nodeId: Arrays.asList(0,1)) {
+                    List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();
+                    List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
+                                                                                   availablePartitions);
+
+                    checkGetEntries(currentCluster.getNodeById(nodeId),
+                                    targetCluster,
+                                    unavailablePartitions,
+                                    availablePartitions);
+                }
+            }
+        }
+        assertTrue("entered rebalancing state", rbStateEntered);
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

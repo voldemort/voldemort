@@ -263,7 +263,7 @@ public abstract class AbstractRebalanceTest {
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
-                                                                                                .setSocketTimeout(60, TimeUnit.SECONDS));
+                                                                                                .setSocketTimeout(120, TimeUnit.SECONDS));
 
         final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
                                                                                                null,
@@ -514,7 +514,7 @@ public abstract class AbstractRebalanceTest {
         return "tcp://" + node.getHost() + ":" + node.getSocketPort();
     }
 
-    private List<Integer> getUnavailablePartitions(Cluster targetCluster,
+    protected List<Integer> getUnavailablePartitions(Cluster targetCluster,
                                                    List<Integer> availablePartitions) {
         List<Integer> unavailablePartitions = new ArrayList<Integer>();
 
