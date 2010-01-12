@@ -24,6 +24,8 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
@@ -51,6 +53,7 @@ import com.google.common.collect.Maps;
  * @param <V> The value type
  */
 @Threadsafe
+@JmxManaged(description = "A voldemort client")
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
@@ -69,10 +72,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-        reinit();
+        reBootstrap();
     }
 
-    private void reinit() {
+    @JmxOperation(description = "rebootstrap metadata from the cluster.")
+    public void reBootstrap() {
         logger.info("bootstrapping metadata !!");
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
@@ -89,7 +93,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 return store.delete(key, version);
             } catch(InvalidMetadataException e) {
-                reinit();
+                reBootstrap();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -118,7 +122,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 List<Versioned<V>> items = store.get(key);
                 return getItemOrThrow(key, defaultValue, items);
             } catch(InvalidMetadataException e) {
-                reinit();
+                reBootstrap();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -130,7 +134,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 return store.getVersions(key);
             } catch(InvalidMetadataException e) {
-                reinit();
+                reBootstrap();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts
@@ -161,7 +165,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 items = store.getAll(keys);
                 break;
             } catch(InvalidMetadataException e) {
-                reinit();
+                reBootstrap();
             }
         }
         Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
@@ -205,7 +209,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 store.put(key, versioned);
                 return;
             } catch(InvalidMetadataException e) {
-                reinit();
+                reBootstrap();
             }
         }
         throw new VoldemortException(this.metadataRefreshAttempts

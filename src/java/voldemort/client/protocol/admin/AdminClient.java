@@ -480,6 +480,7 @@ public class AdminClient {
             } catch(InterruptedException e) {
                 logger.error("Interrupted while waiting restoreDataFromReplications to finish ..");
             }
+            logger.info("Finished restoring data.");
         }
     }
 
@@ -502,9 +503,9 @@ public class AdminClient {
 
                 public void run() {
                     try {
-                        logger.debug("restoring data for store " + storeDef.getName() + " at node "
-                                     + restoringNodeId + " from node " + replicationEntry.getKey()
-                                     + " partitions:" + replicationEntry.getValue());
+                        logger.info("restoring data for store " + storeDef.getName() + " at node "
+                                    + restoringNodeId + " from node " + replicationEntry.getKey()
+                                    + " partitions:" + replicationEntry.getValue());
 
                         int migrateAsyncId = migratePartitions(donorNodeId,
                                                                restoringNodeId,
@@ -516,8 +517,8 @@ public class AdminClient {
                                           adminClientConfig.getRestoreDataTimeout(),
                                           TimeUnit.SECONDS);
 
-                        logger.debug("restoring data for store:" + storeDef.getName()
-                                     + " from node " + donorNodeId + " completed.");
+                        logger.info("restoring data for store:" + storeDef.getName()
+                                    + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
                         logger.error("restoring operation for store " + storeDef.getName()
                                      + " failed while copying from node " + donorNodeId, e);
@@ -548,7 +549,9 @@ public class AdminClient {
                 if(!restoreMapping.containsKey(replicatingNode)) {
                     restoreMapping.put(replicatingNode, new ArrayList<Integer>());
                 }
-                restoreMapping.get(replicatingNode).add(partition);
+
+                if(!restoreMapping.get(replicatingNode).contains(replicatingPartition))
+                    restoreMapping.get(replicatingNode).add(replicatingPartition);
             }
         }
 

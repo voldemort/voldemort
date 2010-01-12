@@ -125,8 +125,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
-
-        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        DefaultStoreClient<K, V> storeClient = new DefaultStoreClient<K, V>(storeName,
+                                                                            resolver,
+                                                                            this,
+                                                                            3);
+        registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(storeClient.getClass()),
+                                              "store-" + storeName + jmxId), storeClient);
+        return storeClient;
     }
 
     @SuppressWarnings("unchecked")

@@ -281,7 +281,7 @@ public class VoldemortServer extends AbstractService {
         return metadata;
     }
 
-    @JmxOperation
+    @JmxOperation(description = "force restore data from replication")
     public void restoreDataFromReplication(int numberOfParallelTransfers) {
 
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
