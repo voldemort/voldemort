@@ -6,6 +6,7 @@ import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
 import static voldemort.utils.RemoteTestUtils.startCluster;
+import static voldemort.utils.RemoteTestUtils.startClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.cleanupCluster;
@@ -25,6 +26,7 @@ import voldemort.client.rebalance.AbstractRebalanceTest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
@@ -51,6 +53,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     @BeforeClass
     public static void ec2Setup() throws Exception {
         ec2RebalanceTestConfig = new Ec2RebalanceTestConfig();
+        NUM_KEYS = ec2RebalanceTestConfig.numKeys;
+
         hostNamePairs = createInstances(ec2RebalanceTestConfig);
         hostNames = toHostNames(hostNamePairs);
 
@@ -155,6 +159,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         targetCluster = updateCluster(targetCluster);
 
         populateData(currentCluster, Arrays.asList(0));
+
         AdminClient adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
                                                   new AdminClientConfig());
         RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
@@ -169,29 +174,22 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         Thread.sleep(500);
 
         stopServer(Arrays.asList(1));
-
         logger.info("waiting ten seconds after shutting down the node");
 
         Thread.sleep(10000);
 
         String hostName = currentCluster.getNodeById(1).getHost();
-        startClusterAsync(Arrays.asList(currentCluster.getNodeById(1).getHost()),
-                     ec2RebalanceTestConfig,
-                     ImmutableMap.<String,Integer>of(hostName, 1));
-
-        Thread.sleep(1000);
-
-        long start = System.currentTimeMillis();
-        int delay = 250;
-        int maxDelay = 1000 * 30;
-        int timeout = 5 * 1000 * 60;
+        startClusterNode(hostName, ec2RebalanceTestConfig, 1);
 
         adminClient.stop();
         adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
                                                   new AdminClientConfig());
         Versioned<MetadataStore.VoldemortState> serverState = adminClient.getRemoteServerState(1);
 
-
+        int delay = 250;
+        int maxDelay = 1000 * 30;
+        int timeout = 5 * 1000 * 60;
+        long start = System.currentTimeMillis();
         while (System.currentTimeMillis() < start + timeout &&
                serverState.getValue() != MetadataStore.VoldemortState.NORMAL_SERVER) {
             Thread.sleep(delay);
@@ -202,30 +200,32 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         }
         
         if (serverState.getValue() == MetadataStore.VoldemortState.NORMAL_SERVER) {
-            logger.info("serverState -> NORMAL_SERVER");
-
             for (int nodeId: Arrays.asList(1)) {
                 List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();
                 List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
                                                                                availablePartitions);
 
-                checkGetEntries(currentCluster.getNodeById(nodeId),
-                                targetCluster,
-                                unavailablePartitions,
-                                availablePartitions);
+                try {
+                    checkGetEntries(currentCluster.getNodeById(nodeId),
+                                    targetCluster,
+                                    unavailablePartitions,
+                                    availablePartitions);
+                } catch (InvalidMetadataException e) {
+                    logger.warn(e);
+                }
             }
         }
-
-
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {
         private String configDirName;
+        private int numKeys;
 
         @Override
         protected void init(Properties properties) {
             super.init(properties);
             configDirName = properties.getProperty("ec2ConfigDirName");
+            numKeys = getIntProperty(properties, "ec2NumKeys", 1000);
 
             try {
                 FileUtils.copyFile(new File(storeDefFile), new File(configDirName + "/stores.xml"));

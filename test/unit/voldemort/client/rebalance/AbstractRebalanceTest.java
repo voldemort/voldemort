@@ -43,7 +43,7 @@ import voldemort.versioning.Versioned;
 
 public abstract class AbstractRebalanceTest {
 
-    private static final int NUM_KEYS = 10000;
+    protected static int NUM_KEYS = 10000;
     protected static String testStoreName = "test";
     protected static String storeDefFile = "test/common/voldemort/config/single-store.xml";
 
