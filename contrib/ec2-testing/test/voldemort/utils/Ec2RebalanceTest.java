@@ -5,15 +5,13 @@ import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
-import static voldemort.utils.RemoteTestUtils.startCluster;
 import static voldemort.utils.RemoteTestUtils.startClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.cleanupCluster;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.junit.*;
@@ -97,7 +95,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     @Override
     protected SocketStore getSocketStore(String storeName, String host, int port, boolean isRouted) {
-        SocketPool socketPool = new SocketPool(2, 100000, 1000000, 32 * 1024);
+        SocketPool socketPool = new SocketPool(2, 60 * 1000, 60 * 1000, 32 * 1024);
         return new SocketStore(storeName,
                                new SocketDestination(host, port, RequestFormatType.PROTOCOL_BUFFERS),
                                socketPool,
@@ -171,8 +169,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
         logger.info("started rebalanceNode, request id = " + requestId);
 
-        Thread.sleep(500);
-
+        Thread.sleep(25);
         stopServer(Arrays.asList(1));
         logger.info("waiting ten seconds after shutting down the node");
 
@@ -214,7 +211,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
                     logger.warn(e);
                 }
             }
-        }
+        } else 
+            fail("Server state never reached NORMAL_SERVER");
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {
