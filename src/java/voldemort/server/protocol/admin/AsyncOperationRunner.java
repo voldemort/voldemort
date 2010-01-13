@@ -5,6 +5,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.google.common.collect.ImmutableSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -95,12 +97,9 @@ public class AsyncOperationRunner extends AbstractService {
 
     public List<Integer> getAsyncOperationList(boolean showComplete) {
         /**
-         * I have some concers about the thread safety of this. I am afraid
-         * that it may cause {@link java.util.ConcurrentModificationException}
-         *
-         * TODO: unit test, including multiple threads accessing this
+         * Create a copy to avoid a concurrent modification exception
          */
-        Set<Integer> keySet = operations.keySet();
+        Set<Integer> keySet = ImmutableSet.copyOf(operations.keySet());
 
         if (showComplete)
             return new ArrayList<Integer>(keySet);
@@ -114,7 +113,6 @@ public class AsyncOperationRunner extends AbstractService {
     }
 
     public AsyncOperationStatus getOperationStatus(int requestId) {
-        // TODO: unit test
         if(!operations.containsKey(requestId))
             throw new VoldemortException("No operation with id " + requestId + " found");
 
