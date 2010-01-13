@@ -16,14 +16,20 @@
 
 package voldemort.cluster.failuredetector;
 
+import static org.junit.Assert.assertEquals;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
+
 import org.junit.Test;
 
 import voldemort.cluster.Node;
+import voldemort.store.UnreachableStoreException;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
@@ -45,6 +51,29 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     @Override
     protected Time createTime() throws Exception {
         return SystemTime.INSTANCE;
+    }
+
+    @Test
+    public void testCatastrophicErrors() throws Exception {
+        Node node = Iterables.get(cluster.getNodes(), 8);
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new ConnectException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        failureDetector.waitForAvailability(node);
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new UnknownHostException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        failureDetector.waitForAvailability(node);
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new NoRouteToHostException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        failureDetector.waitForAvailability(node);
     }
 
     @Test

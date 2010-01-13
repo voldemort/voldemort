@@ -150,6 +150,7 @@ public class VoldemortConfig implements Serializable {
     private int failureDetectorThresholdCountMinimum;
     private long failureDetectorThresholdInterval;
     private long failureDetectorAsyncRecoveryInterval;
+    private volatile List<String> failureDetectorCatastrophicErrorTypes;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
@@ -300,6 +301,8 @@ public class VoldemortConfig implements Serializable {
                                                               FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
         this.failureDetectorAsyncRecoveryInterval = props.getLong("failuredetector.asyncrecovery.interval",
                                                                   FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
+        this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
+                                                                   FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -978,6 +981,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
         this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
+    }
+
+    public List<String> getFailureDetectorCatastrophicErrorTypes() {
+        return failureDetectorCatastrophicErrorTypes;
+    }
+
+    public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+        this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
     }
 
     public int getRetentionCleanupFirstStartTimeInHour() {

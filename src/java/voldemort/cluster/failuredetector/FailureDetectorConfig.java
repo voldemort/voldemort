@@ -16,7 +16,11 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.List;
 
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
@@ -24,6 +28,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * FailureDetectorConfig simply holds all the data that was available to it upon
@@ -48,6 +54,10 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_ASYNC_RECOVERY_INTERVAL = 10000;
 
+    public static final List<String> DEFAULT_CATASTROPHIC_ERROR_TYPES = ImmutableList.of(ConnectException.class.getName(),
+                                                                                         UnknownHostException.class.getName(),
+                                                                                         NoRouteToHostException.class.getName());
+
     public static final boolean DEFAULT_IS_JMX_ENABLED = false;
 
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
@@ -61,6 +71,8 @@ public class FailureDetectorConfig {
     protected long thresholdInterval = DEFAULT_THRESHOLD_INTERVAL;
 
     protected long asyncRecoveryInterval = DEFAULT_ASYNC_RECOVERY_INTERVAL;
+
+    protected List<String> catastrophicErrorTypes = DEFAULT_CATASTROPHIC_ERROR_TYPES;
 
     protected boolean isJmxEnabled = DEFAULT_IS_JMX_ENABLED;
 
@@ -105,6 +117,7 @@ public class FailureDetectorConfig {
         setThresholdCountMinimum(config.getFailureDetectorThresholdCountMinimum());
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
+        setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setJmxEnabled(config.isJmxEnabled());
     }
 
@@ -128,6 +141,7 @@ public class FailureDetectorConfig {
         setThresholdCountMinimum(config.getFailureDetectorThresholdCountMinimum());
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
+        setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setJmxEnabled(config.isJmxEnabled());
     }
 
@@ -322,6 +336,63 @@ public class FailureDetectorConfig {
 
     public FailureDetectorConfig setAsyncRecoveryInterval(long asyncRecoveryInterval) {
         this.asyncRecoveryInterval = asyncRecoveryInterval;
+        return this;
+    }
+
+    /**
+     * Returns the list of Java Exception types that are considered
+     * catastrophic. Some FailureDetector implementations may not mark a given
+     * node as unavailable on each and every call to recordException. Instead
+     * they may apply logic to determine if such an exception should cause the
+     * node to be marked as unavailable. However, the list of so-called
+     * catastrophic errors provides such FailureDetector implementations a hint
+     * that receipt of such errors should cause the node to be marked as
+     * unavailable immediately, regardless of other logic.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return List of fully-qualified Java Exception class names against which
+     *         to check the exception provided to recordException; this list
+     *         should be immutable
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorCatastrophicErrorTypes
+     * @see ClientConfig#getFailureDetectorCatastrophicErrorTypes
+     */
+
+    public List<String> getCatastrophicErrorTypes() {
+        return catastrophicErrorTypes;
+    }
+
+    /**
+     * Assigns the list of Java Exception types that are considered
+     * catastrophic. Some FailureDetector implementations may not mark a given
+     * node as unavailable on each and every call to recordException. Instead
+     * they may apply logic to determine if such an exception should cause the
+     * node to be marked as unavailable. However, the list of so-called
+     * catastrophic errors provides such FailureDetector implementations a hint
+     * that receipt of such errors should cause the node to be marked as
+     * unavailable immediately, regardless of other logic.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param catastrophicErrorTypes List of fully-qualified Java Exception
+     *        class names against which to check the exception provided to
+     *        recordException; this list should be immutable and non-null
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorCatastrophicErrorTypes
+     * @see ClientConfig#getFailureDetectorCatastrophicErrorTypes
+     */
+
+    public FailureDetectorConfig setCatastrophicErrorTypes(List<String> catastrophicErrorTypes) {
+        this.catastrophicErrorTypes = Utils.notNull(catastrophicErrorTypes);
         return this;
     }
 

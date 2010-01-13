@@ -16,15 +16,22 @@
 
 package voldemort.cluster.failuredetector;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
+
 import org.junit.Test;
 
 import voldemort.MockTime;
 import voldemort.cluster.Node;
+import voldemort.store.UnreachableStoreException;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Iterables;
@@ -45,6 +52,32 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
     @Override
     protected Time createTime() throws Exception {
         return new MockTime(0);
+    }
+
+    @Test
+    public void testCatastrophicErrors() throws Exception {
+        Node node = Iterables.get(cluster.getNodes(), 8);
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new ConnectException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        time.sleep(BANNAGE_MILLIS + 1);
+        assertTrue(failureDetector.isAvailable(node));
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new UnknownHostException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        time.sleep(BANNAGE_MILLIS + 1);
+        assertTrue(failureDetector.isAvailable(node));
+
+        failureDetector.recordException(node,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new NoRouteToHostException("intentionalerror")));
+        assertEquals(false, failureDetector.isAvailable(node));
+        time.sleep(BANNAGE_MILLIS + 1);
+        assertTrue(failureDetector.isAvailable(node));
     }
 
     @Test

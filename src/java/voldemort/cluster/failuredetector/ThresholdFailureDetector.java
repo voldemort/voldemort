@@ -126,7 +126,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         }
 
         final long currentTime = getConfig().getTime().getMilliseconds();
-
+        String catastrophicError = getCatastrophicError(e);
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -140,7 +140,12 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 nodeStatus.incrementSuccess(successDelta);
                 nodeStatus.incrementTotal(1);
 
-                if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
+                if(catastrophicError != null) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(node + " experienced catastrophic error: " + catastrophicError);
+
+                    setUnavailable(node, e);
+                } else if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
                     if(logger.isTraceEnabled())
@@ -153,6 +158,20 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 }
             }
         }
+    }
+
+    protected String getCatastrophicError(UnreachableStoreException e) {
+        Throwable t = e != null ? e.getCause() : null;
+
+        if(t == null)
+            return null;
+
+        for(String errorType: getConfig().getCatastrophicErrorTypes()) {
+            if(t.getClass().getName().equals(errorType))
+                return errorType;
+        }
+
+        return null;
     }
 
 }
