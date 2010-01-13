@@ -166,7 +166,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
         logger.info("started rebalanceNode, request id = " + requestId);
 
-        Thread.sleep(1000);
+        Thread.sleep(500);
 
         stopServer(Arrays.asList(1));
 
@@ -175,58 +175,48 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         Thread.sleep(10000);
 
         String hostName = currentCluster.getNodeById(1).getHost();
-        startCluster(Arrays.asList(currentCluster.getNodeById(1).getHost()),
+        startClusterAsync(Arrays.asList(currentCluster.getNodeById(1).getHost()),
                      ec2RebalanceTestConfig,
-                     ImmutableMap.<String,Integer>of(hostName, 1),
-                     false,
-                     10);
+                     ImmutableMap.<String,Integer>of(hostName, 1));
+
+        Thread.sleep(1000);
 
         long start = System.currentTimeMillis();
-        int delay = 5000;
+        int delay = 250;
         int maxDelay = 1000 * 30;
         int timeout = 5 * 1000 * 60;
 
-        boolean rbStateEntered = false;
-
+        adminClient.stop();
+        adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
+                                                  new AdminClientConfig());
         Versioned<MetadataStore.VoldemortState> serverState = adminClient.getRemoteServerState(1);
+
+
         while (System.currentTimeMillis() < start + timeout &&
-               serverState.getValue() != MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
+               serverState.getValue() != MetadataStore.VoldemortState.NORMAL_SERVER) {
             Thread.sleep(delay);
             if (delay < maxDelay)
-                delay += 1000;
+                delay *= 2;
             serverState = adminClient.getRemoteServerState(1);
             logger.info("serverState -> " + serverState.getValue());
         }
-        if (serverState.getValue() == MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER) {
-            rbStateEntered = true;
-            logger.info("serverState -> REBALANCING_MASTER_SERVER");
+        
+        if (serverState.getValue() == MetadataStore.VoldemortState.NORMAL_SERVER) {
+            logger.info("serverState -> NORMAL_SERVER");
 
-            delay = 5000;
-            start = System.currentTimeMillis();
-            while (System.currentTimeMillis() < start + timeout &&
-                   serverState.getValue() != MetadataStore.VoldemortState.NORMAL_SERVER) {
-                Thread.sleep(delay);
-                if (delay < maxDelay)
-                    delay *= 2;
-                serverState = adminClient.getRemoteServerState(1);
-                logger.info("serverState -> " + serverState.getValue());
-            }
-            if (serverState.getValue() == MetadataStore.VoldemortState.NORMAL_SERVER) {
-                logger.info("serverState -> REBALANCING_NORMAL_SERVER");
-                
-                for (int nodeId: Arrays.asList(0,1)) {
-                    List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();
-                    List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
-                                                                                   availablePartitions);
+            for (int nodeId: Arrays.asList(1)) {
+                List<Integer> availablePartitions = targetCluster.getNodeById(nodeId).getPartitionIds();
+                List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
+                                                                               availablePartitions);
 
-                    checkGetEntries(currentCluster.getNodeById(nodeId),
-                                    targetCluster,
-                                    unavailablePartitions,
-                                    availablePartitions);
-                }
+                checkGetEntries(currentCluster.getNodeById(nodeId),
+                                targetCluster,
+                                unavailablePartitions,
+                                availablePartitions);
             }
         }
-        assertTrue("entered rebalancing state", rbStateEntered);
+
+
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {
