@@ -1,9 +1,6 @@
 package voldemort.server.protocol.admin;
 
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.ImmutableSet;
@@ -15,11 +12,14 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.scheduler.SchedulerService;
-import voldemort.utils.SystemTime;
 
 /**
+ * Asynchronous job scheduler for admin service operations.
+ *
+ * TODO: requesting a unique id, then creating an operation with that id seems like a bad API design.
+ * TODO: rename to something more sensible (AsyncOperationService?)
+ *
  * @author afeinberg
- * Asynchronous job scheduler for admin service operations
  */
 @JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationRunner extends AbstractService {
@@ -95,13 +95,19 @@ public class AsyncOperationRunner extends AbstractService {
         return result;
     }
 
-    public List<Integer> getAsyncOperationList(boolean showComplete) {
+    /**
+     * Get list of asynchronous operations on this node. By default, only the pending
+     * operations are returned.
+     * @param showCompleted Show completed operations
+     * @return A list of operation ids.
+     */
+    public List<Integer> getAsyncOperationList(boolean showCompleted) {
         /**
-         * Create a copy to avoid a concurrent modification exception
+         * Create a copy using an immutable set to avoid a {@link java.util.ConcurrentModificationException}
          */
         Set<Integer> keySet = ImmutableSet.copyOf(operations.keySet());
 
-        if (showComplete)
+        if (showCompleted)
             return new ArrayList<Integer>(keySet);
 
         List<Integer> keyList = new ArrayList<Integer>();
@@ -138,6 +144,10 @@ public class AsyncOperationRunner extends AbstractService {
         operations.get(requestId).stop();
     }
 
+    /**
+     * Generate a unique request id
+     * @return A new, guaranteed unique, request id
+     */
     public int getUniqueRequestId() {
         return lastOperationId.getAndIncrement();
     }

@@ -6,6 +6,9 @@ import org.apache.commons.collections.map.LRUMap;
  * Extends LRUMap so that only <em>completed</em> operations may be removed from
  * the map LRUMap is in this case can only be constructed with a specified size
  * and will only be constructed with removeUntilScanable flag as true.
+ *
+ * TODO: replace {@link org.apache.commons.collections.map.LRUMap} with one based on {@link java.util.LinkedHashMap}.
+ * TODO: rename this to something more sensible (AsyncOperationMap/Cache?)
  * 
  * @author afeinberg
  */

@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.utils.SystemTime;
-import voldemort.utils.Time;
 
 /**
  * @author afeinberg
