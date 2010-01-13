@@ -22,9 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -160,20 +157,10 @@ public class RemoteTestUtils {
                                                                   RemoteTestConfig remoteTestConfig,
                                                                   boolean useExternal)
              throws Exception {
-        // This isn't too elegant, but it works
-        List<String> hostNames = Lists.transform(hostNamePairs,
-                                                 useExternal ?
-                                                 new Function<HostNamePair, String> () {
-                                                     public String apply(HostNamePair hostNamePair) {
-                                                         return hostNamePair.getExternalHostName();
-                                                     }
-                                                 } :
-                                                 new Function<HostNamePair, String> () {
-                                                     public String apply(HostNamePair hostNamePair) {
-                                                         return hostNamePair.getInternalHostName();
-                                                     }
-                                                 }
-        );
+        List<String> hostNames = new ArrayList<String>();
+        for (HostNamePair hostNamePair: hostNamePairs) {
+            hostNames.add(useExternal ? hostNamePair.getExternalHostName() : hostNamePair.getInternalHostName());
+        }
 
         ClusterGenerator clusterGenerator = new ClusterGenerator();
         List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
@@ -200,12 +187,12 @@ public class RemoteTestUtils {
                                                                  Cluster cluster,
                                                                  RemoteTestConfig remoteTestConfig)
             throws Exception {
-        List<String> hostNames = Lists.transform(hostNamePairs,
-                                                 new Function<HostNamePair, String> () {
-                                                     public String apply(HostNamePair hostNamePair) {
-                                                         return hostNamePair.getExternalHostName();
-                                                     }
-                                                 });
+        List<String> hostNames = new ArrayList<String>();
+
+        for (HostNamePair hostNamePair: hostNamePairs) {
+            hostNames.add(hostNamePair.getExternalHostName());
+        }
+
         ClusterGenerator clusterGenerator = new ClusterGenerator();
         List<ClusterNodeDescriptor> nodes = clusterGenerator.createClusterNodeDescriptors(hostNames,
                                                                                           cluster);
