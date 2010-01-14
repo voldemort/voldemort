@@ -357,7 +357,7 @@ public abstract class AbstractRebalanceTest {
             for(Exception e: exceptions) {
                 e.printStackTrace();
             }
-            fail("Should not see any exceptions !!");
+            fail("Should not see any exceptions.");
         }
     }
 

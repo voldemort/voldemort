@@ -59,7 +59,7 @@ public class ClientConfig {
     private volatile long failureDetectorThresholdInterval = FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL;
     private volatile long failureDetectorAsyncRecoveryInterval = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
 
-    private volatile int maxBootstrapRetries = 1;
+    private volatile int maxBootstrapRetries = 2;
 
     public ClientConfig() {}
 

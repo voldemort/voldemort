@@ -478,7 +478,7 @@ public class AdminClient {
                 executors.awaitTermination(adminClientConfig.getRestoreDataTimeout(),
                                            TimeUnit.SECONDS);
             } catch(InterruptedException e) {
-                logger.error("Interrupted while waiting restoreDataFromReplications to finish ..");
+                logger.error("Interrupted while waiting restore operation to finish.");
             }
             logger.info("Finished restoring data.");
         }
@@ -520,8 +520,8 @@ public class AdminClient {
                         logger.info("restoring data for store:" + storeDef.getName()
                                     + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
-                        logger.error("restoring operation for store " + storeDef.getName()
-                                     + " failed while copying from node " + donorNodeId, e);
+                        logger.error("restore operation for store " + storeDef.getName()
+                                     + "from node " + donorNodeId + " failed.", e);
                     }
                 }
             });
@@ -555,7 +555,6 @@ public class AdminClient {
             }
         }
 
-        logger.debug("restore Node/Partition mapping:" + restoreMapping);
         return restoreMapping;
     }
 
@@ -887,8 +886,8 @@ public class AdminClient {
             if(value.equals(currentValue))
                 return;
 
-            logger.debug("WaitForCompletion() waiting for value " + value + " for metadata key "
-                         + key + " at remote node " + nodeId + " currentValue " + currentValue);
+            logger.debug("waiting for value " + value + " for metadata key " + key
+                         + " from remote node " + nodeId + " currentValue " + currentValue);
 
             if(delay < MAX_DELAY)
                 delay <<= 1;
@@ -900,8 +899,8 @@ public class AdminClient {
             }
         }
         throw new VoldemortException("Failed to get matching value " + value + " for key " + key
-                                     + " at remote node " + nodeId + " in maxWait" + maxWait + " "
-                                     + timeUnit.toString());
+                                     + " at remote node " + nodeId + " in maximum wait" + maxWait
+                                     + " " + timeUnit.toString() + " time.");
     }
 
     /**

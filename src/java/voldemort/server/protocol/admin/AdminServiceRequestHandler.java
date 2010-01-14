@@ -324,7 +324,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     } catch(ObsoleteVersionException e) {
                         // log and ignore
-                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException .. Ignoring.");
+                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException, Ignoring.");
                     }
 
                     if(throttler != null) {
@@ -443,7 +443,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                             @Override
                                             public void operate() {
                                                 AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                                               metadataStore.getCluster(), 4, 2);
+                                                                                                               metadataStore.getCluster(),
+                                                                                                               4,
+                                                                                                               2);
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
@@ -461,7 +463,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                               entry.getSecond());
                                                         } catch(ObsoleteVersionException e) {
                                                             // log and ignore
-                                                            logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                            logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
                                                         }
 
                                                         throttler.maybeThrottle(entrySize(entry.getFirst(),
