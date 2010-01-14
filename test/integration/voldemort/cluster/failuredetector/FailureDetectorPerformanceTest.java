@@ -53,6 +53,7 @@ public abstract class FailureDetectorPerformanceTest {
                                + failureDetectorConfig.getThresholdInterval())
               .withRequiredArg()
               .ofType(Long.class);
+        parser.accepts("help", "This help");
 
         OptionSet options = parser.parse(args);
 
