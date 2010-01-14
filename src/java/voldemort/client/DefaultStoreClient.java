@@ -73,7 +73,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     private void reinit() {
-        logger.info("bootstrapping metadata !!");
+        logger.info("bootstrapping metadata.");
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
