@@ -53,16 +53,18 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
 
-        long currTime = failureDetectorConfig.getTime().getMilliseconds();
-
         for(Node node: failureDetectorConfig.getNodes()) {
-            NodeStatus nodeStatus = new NodeStatus();
-            nodeStatus.setLastChecked(currTime);
-            nodeStatus.setStartMillis(currTime);
-            nodeStatus.setAvailable(true);
-
-            nodeStatusMap.put(node, nodeStatus);
+            nodeStatusMap.put(node, createNodeStatus(node, failureDetectorConfig.getTime()
+                                                                                .getMilliseconds()));
         }
+    }
+
+    private NodeStatus createNodeStatus(Node node, long currTime) {
+        NodeStatus nodeStatus = new NodeStatus();
+        nodeStatus.setLastChecked(currTime);
+        nodeStatus.setStartMillis(currTime);
+        nodeStatus.setAvailable(true);
+        return nodeStatus;
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
@@ -201,9 +203,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     protected NodeStatus getNodeStatus(Node node) {
         NodeStatus nodeStatus = nodeStatusMap.get(node);
 
-        if(nodeStatus == null)
-            throw new IllegalArgumentException(node.getId()
-                                               + " is not a valid node for this cluster");
+        if(nodeStatus == null) {
+            logger.warn("creating new node status for node " + node + " for failure detector.");
+            nodeStatusMap.put(node, createNodeStatus(node, failureDetectorConfig.getTime()
+                                                                                .getMilliseconds()));
+        }
 
         return nodeStatus;
     }
