@@ -3,6 +3,7 @@ package voldemort.client.rebalance;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -130,8 +131,10 @@ public class RebalanceController {
                             int stealerNodeId = rebalanceTask.getStealerNode();
                             List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
 
+                            // seed random with different seeds
+                            Random random = new Random(stealerNodeId);
                             while(rebalanceSubTaskList.size() > 0) {
-                                int index = (int) Math.random() * rebalanceSubTaskList.size();
+                                int index = (int) random.nextDouble() * rebalanceSubTaskList.size();
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
                                             + " with rebalanceInfo:" + rebalanceSubTask);
