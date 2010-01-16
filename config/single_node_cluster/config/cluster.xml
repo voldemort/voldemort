@@ -2,17 +2,10 @@
         <name>mycluster</name>
         <server>
                 <id>0</id>
-                <host>miner16.qa</host>
+                <host>localhost</host>
                 <http-port>8089</http-port>
                 <socket-port>6666</socket-port>
                 <partitions>0, 1, 2, 3, 4, 5</partitions>
-        </server>
-        <server>
-                <id>1</id>
-                <host>miner17.qa</host>
-                <http-port>8089</http-port>
-                <socket-port>6666</socket-port>
-                <partitions>6,7,8,9,10</partitions>
         </server>
 </cluster>
 

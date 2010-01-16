@@ -16,6 +16,8 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.lang.Thread.UncaughtExceptionHandler;
+
 import org.apache.log4j.Level;
 
 import voldemort.annotations.jmx.JmxManaged;
@@ -53,6 +55,12 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         recoveryThread = new Thread(this, "AsyncNodeRecoverer");
         recoveryThread.setDaemon(true);
+        recoveryThread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+
+            public void uncaughtException(Thread t, Throwable e) {
+                logger.error("Uncaught exception in failure detector recovery thread:", e);
+            }
+        });
         recoveryThread.start();
     }
 

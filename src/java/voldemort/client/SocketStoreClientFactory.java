@@ -62,7 +62,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketBufferSize());
-        registerJmx(JmxUtils.createObjectName(SocketPool.class), socketPool);
+        if(config.isJmxEnabled())
+            JmxUtils.registerMbean(socketPool, JmxUtils.createObjectName(SocketPool.class));
 
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
