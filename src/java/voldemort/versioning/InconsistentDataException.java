@@ -38,11 +38,6 @@ public class InconsistentDataException extends VoldemortException {
         this.versions = versions;
     }
 
-    @Override
-    public short getId() {
-        return 8;
-    }
-
     public List<?> getVersions() {
         return this.versions;
     }

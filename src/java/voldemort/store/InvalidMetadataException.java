@@ -38,9 +38,4 @@ public class InvalidMetadataException extends VoldemortApplicationException {
         super(s, t);
     }
 
-    @Override
-    public short getId() {
-        return 9;
-    }
-
 }

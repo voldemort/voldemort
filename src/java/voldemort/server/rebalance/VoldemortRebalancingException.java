@@ -25,8 +25,4 @@ public class VoldemortRebalancingException extends VoldemortApplicationException
         return causes;
     }
 
-    @Override
-    public short getId() {
-        return 14;
-    }
 }

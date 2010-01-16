@@ -1,6 +1,6 @@
 package voldemort.store.views;
 
-import voldemort.VoldemortException;
+import voldemort.VoldemortApplicationException;
 
 /**
  * Error indicating a write operation on a read-only view or vice-versa
@@ -8,13 +8,9 @@ import voldemort.VoldemortException;
  * @author jay
  * 
  */
-public class UnsupportedViewOperationException extends VoldemortException {
+public class UnsupportedViewOperationException extends VoldemortApplicationException {
 
     private static final long serialVersionUID = 1;
-
-    public UnsupportedViewOperationException() {
-        super();
-    }
 
     public UnsupportedViewOperationException(String s) {
         super(s);
