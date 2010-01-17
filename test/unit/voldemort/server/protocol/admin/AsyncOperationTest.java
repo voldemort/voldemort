@@ -3,6 +3,7 @@ package voldemort.server.protocol.admin;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -10,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.utils.SystemTime;
+import voldemort.utils.impl.CommandOutputListener;
 
 /**
  * @author afeinberg
@@ -22,6 +24,7 @@ public class AsyncOperationTest extends TestCase {
 
         final AtomicBoolean completedOp0 = new AtomicBoolean(false);
         final AtomicBoolean completedOp1 = new AtomicBoolean(false);
+        final CountDownLatch latch = new CountDownLatch(1);
 
         int opId0 = asyncOperationRunner.getUniqueRequestId();
         asyncOperationRunner.submitOperation(opId0,
@@ -44,6 +47,7 @@ public class AsyncOperationTest extends TestCase {
                                                  @Override
                                                  public void operate() throws Exception {
                                                      completedOp1.set(true);
+                                                     latch.countDown();
                                                  }
 
                                                  @Override
@@ -51,7 +55,7 @@ public class AsyncOperationTest extends TestCase {
 
                                                  }
                                              });
-
+        latch.await();
         List<Integer> opList = asyncOperationRunner.getAsyncOperationList(false);
         assertFalse("doesn't list completed operations", opList.contains(1));
         assertTrue("lists a pending operation", opList.contains(0));
