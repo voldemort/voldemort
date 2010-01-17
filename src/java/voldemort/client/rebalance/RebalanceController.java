@@ -134,7 +134,7 @@ public class RebalanceController {
                                 int index = (int) Math.random() * rebalanceSubTaskList.size();
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
-                                            + " rebalanceInfo:" + rebalanceSubTask);
+                                            + " with rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
                                     int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);
@@ -156,12 +156,12 @@ public class RebalanceController {
                                                                   rebalanceConfig.getRebalancingClientTimeoutSeconds(),
                                                                   TimeUnit.SECONDS);
 
-                                    logger.info("Successfully finished RebalanceSubTask attempt:"
+                                    logger.info("Successfully finished rebalance attempt:"
                                                 + rebalanceSubTask);
                                 } catch(UnreachableStoreException e) {
                                     logger.error("StealerNode "
                                                          + stealerNodeId
-                                                         + " is unreachable, please make sure it is up and running ..",
+                                                         + " is unreachable, please make sure it is up and running.",
                                                  e);
                                 } catch(VoldemortRebalancingException e) {
                                     logger.error(e);
@@ -192,7 +192,7 @@ public class RebalanceController {
                 return adminClient.rebalanceNode(rebalanceSubTask);
             } catch(AlreadyRebalancingException e) {
                 logger.info("Node " + rebalanceSubTask.getStealerId()
-                            + " is currently rebalancing will wait till it finish ..");
+                            + " is currently rebalancing will wait till it finish.");
                 adminClient.waitForCompletion(rebalanceSubTask.getStealerId(),
                                               MetadataStore.SERVER_STATE_KEY,
                                               VoldemortState.NORMAL_SERVER.toString(),
@@ -202,7 +202,8 @@ public class RebalanceController {
             }
         }
 
-        throw new VoldemortException("Failed to start rebalancing for rebalanceSubTask "
+        throw new VoldemortException("Failed to start rebalancing at node "
+                                     + rebalanceSubTask.getStealerId() + " with rebalanceInfo:"
                                      + rebalanceSubTask, exception);
     }
 
@@ -212,7 +213,7 @@ public class RebalanceController {
             executorService.awaitTermination(rebalanceConfig.getRebalancingClientTimeoutSeconds(),
                                              TimeUnit.SECONDS);
         } catch(Exception e) {
-            logger.warn("Error while stoping executor service .. ", e);
+            logger.warn("Error while stoping executor service.", e);
         }
     }
 

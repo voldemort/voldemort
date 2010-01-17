@@ -68,14 +68,14 @@ public class Rebalancer implements Runnable {
             RebalancePartitionsInfo stealInfo = metadataStore.getRebalancingStealInfo();
 
             try {
-                logger.warn("Rebalance server found incomplete rebalancing attempt " + stealInfo
-                            + " restarting ...");
+                logger.warn("Rebalance server found incomplete rebalancing attempt, restarting rebalancing task "
+                            + stealInfo);
 
                 if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                     attemptRebalance(stealInfo);
                 } else {
-                    logger.warn("Rebalancing for rebalancing task:" + stealInfo
-                                + " failed multiple times, Aborting more trials...");
+                    logger.warn("Rebalancing for rebalancing task " + stealInfo
+                                + " failed multiple times, Aborting more trials.");
                     metadataStore.cleanAllRebalancingState();
                 }
             } catch(Exception e) {
@@ -89,7 +89,9 @@ public class Rebalancer implements Runnable {
         stealInfo.setAttempt(stealInfo.getAttempt() + 1);
 
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadataStore.getCluster(), 4, 2);
+                                                                       metadataStore.getCluster(),
+                                                                       4,
+                                                                       2);
         int rebalanceAsyncId = rebalanceLocalNode(stealInfo);
 
         adminClient.waitForCompletion(stealInfo.getStealerId(),
@@ -142,14 +144,16 @@ public class Rebalancer implements Runnable {
                                         @Override
                                         public void operate() throws Exception {
                                             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                               metadataStore.getCluster(), 4, 2);
+                                                                                               metadataStore.getCluster(),
+                                                                                               4,
+                                                                                               2);
                                             List<Exception> failures = new ArrayList<Exception>();
                                             try {
-                                                logger.info("starting rebalancing " + stealInfo);
+                                                logger.info("starting rebalancing task" + stealInfo);
                                                 List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                                                 for(String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
                                                     if(forceStop) {
-                                                        logger.info("Stopping rebalancing Operation cleanly as stop() was called.");
+                                                        logger.info("Force stopping rebalancing operation.");
                                                         metadataStore.cleanAllRebalancingState();
                                                         return;
                                                     }
@@ -182,9 +186,7 @@ public class Rebalancer implements Runnable {
                                                     // successfull.
                                                     metadataStore.cleanAllRebalancingState();
                                                 } else {
-                                                    throw new VoldemortRebalancingException("Rebalancer: Failed to rebalance completely, unbalanced stores:"
-                                                                                                    + stealInfo.getUnbalancedStoreList()
-                                                                                                    + " rebalanceInfo:"
+                                                    throw new VoldemortRebalancingException("Failed to rebalance task "
                                                                                                     + stealInfo,
                                                                                             failures);
                                                 }
