@@ -37,9 +37,4 @@ public class UnreachableStoreException extends VoldemortException {
         super(s, t);
     }
 
-    @Override
-    public short getId() {
-        return 7;
-    }
-
 }

@@ -16,7 +16,6 @@
 
 package voldemort.server.scheduler;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Date;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
@@ -40,30 +39,13 @@ public class SchedulerService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(SchedulerService.class.getName());
 
-    private static final ThreadFactory schedulerThreadFactory = new ThreadFactory() {
-
-        public Thread newThread(Runnable r) {
-            Thread thread = new Thread(r);
-            thread.setDaemon(true);
-            thread.setName(r.getClass().getName());
-            thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-                public void uncaughtException(Thread t, Throwable e) {
-                    logger.error("Scheduled task failed!", e);
-                }
-            });
-
-            return thread;
-        }
-    };
-
     private final ScheduledThreadPoolExecutor scheduler;
     private final Time time;
 
     public SchedulerService(int schedulerThreads, Time time) {
         super(ServiceType.SCHEDULER);
         this.time = time;
-        this.scheduler = new ScheduledThreadPoolExecutor(schedulerThreads, schedulerThreadFactory);
+        this.scheduler = new SchedulerThreadPool(schedulerThreads);
     }
 
     @Override
@@ -88,6 +70,24 @@ public class SchedulerService extends AbstractService {
 
     private long delayMs(Date runDate) {
         return Math.max(0, runDate.getTime() - time.getMilliseconds());
+    }
+
+    /**
+     * A scheduled thread pool that fixes some default behaviors
+     */
+    private static class SchedulerThreadPool extends ScheduledThreadPoolExecutor {
+
+        public SchedulerThreadPool(int numThreads) {
+            super(numThreads, new ThreadFactory() {
+
+                public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r);
+                    thread.setDaemon(true);
+                    thread.setName(r.getClass().getName());
+                    return thread;
+                }
+            });
+        }
     }
 
 }

@@ -62,8 +62,4 @@ public class InsufficientOperationalNodesException extends VoldemortException {
         return this.causes;
     }
 
-    @Override
-    public short getId() {
-        return 2;
-    }
 }

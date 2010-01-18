@@ -10,8 +10,4 @@ public class AlreadyRebalancingException extends VoldemortApplicationException {
         super(s);
     }
 
-    @Override
-    public short getId() {
-        return 13;
-    }
 }

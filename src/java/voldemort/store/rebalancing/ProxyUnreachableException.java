@@ -18,8 +18,4 @@ public class ProxyUnreachableException extends VoldemortException {
         super(t);
     }
 
-    @Override
-    public short getId() {
-        return 15;
-    }
 }

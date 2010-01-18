@@ -119,4 +119,18 @@ public class VectorClockTest extends TestCase {
                              clocks[n + 1]);
         }
     }
+
+    public void testIncrementAndSerialize() {
+        int node = 1;
+        VectorClock vc = getClock(node);
+        assertEquals(node, vc.getMaxVersion());
+        int increments = 3000;
+        for(int i = 0; i < increments; i++) {
+            vc.incrementVersion(node, 45);
+            // serialize
+            vc = new VectorClock(vc.toBytes());
+        }
+        assertEquals(increments + 1, vc.getMaxVersion());
+    }
+
 }
