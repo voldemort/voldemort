@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,8 @@
 
 package voldemort.performance;
 
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+
 import java.io.File;
 import java.io.FileReader;
 import java.util.Map;
@@ -30,7 +32,6 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.BasicStoreVerifier;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
@@ -67,7 +68,7 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(cluster.getNodes())
                                                                                                 .setStoreVerifier(new BasicStoreVerifier<ByteArray, byte[]>(clientMapping,
                                                                                                                                                             new ByteArray("key".getBytes())));
-        FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
+        FailureDetector failureDetector = create(failureDetectorConfig, false);
 
         Store<ByteArray, byte[]> store = new RoutedStore("test",
                                                          clientMapping,

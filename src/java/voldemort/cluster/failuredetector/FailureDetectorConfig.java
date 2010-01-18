@@ -60,8 +60,6 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 1000;
 
-    public static final boolean DEFAULT_IS_JMX_ENABLED = false;
-
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
 
     protected long bannagePeriod = DEFAULT_BANNAGE_PERIOD;
@@ -77,8 +75,6 @@ public class FailureDetectorConfig {
     protected List<String> catastrophicErrorTypes = DEFAULT_CATASTROPHIC_ERROR_TYPES;
 
     protected long requestLengthThreshold = DEFAULT_REQUEST_LENGTH_THRESHOLD;
-
-    protected boolean isJmxEnabled = DEFAULT_IS_JMX_ENABLED;
 
     protected Collection<Node> nodes;
 
@@ -123,7 +119,6 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
-        setJmxEnabled(config.isJmxEnabled());
     }
 
     /**
@@ -148,7 +143,6 @@ public class FailureDetectorConfig {
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
         setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
-        setJmxEnabled(config.isJmxEnabled());
     }
 
     /**
@@ -538,15 +532,6 @@ public class FailureDetectorConfig {
             throw new IllegalArgumentException("requestLengthThreshold must be positive");
 
         this.requestLengthThreshold = requestLengthThreshold;
-        return this;
-    }
-
-    public boolean isJmxEnabled() {
-        return isJmxEnabled;
-    }
-
-    public FailureDetectorConfig setJmxEnabled(boolean isJmxEnabled) {
-        this.isJmxEnabled = isJmxEnabled;
         return this;
     }
 

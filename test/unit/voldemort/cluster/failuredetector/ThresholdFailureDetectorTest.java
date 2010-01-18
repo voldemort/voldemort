@@ -44,9 +44,9 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
-                                                                                 .setTime(time)
-                                                                                 .setJmxEnabled(true);
-        return create(failureDetectorConfig);
+                                                                                 .setTime(time);
+
+        return create(failureDetectorConfig, true);
     }
 
     @Override
