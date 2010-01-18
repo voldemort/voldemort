@@ -48,7 +48,7 @@ import com.google.common.collect.AbstractIterator;
 public class AdminServiceBasicTest extends TestCase {
 
     private static int NUM_RUNS = 100;
-    private static int TEST_STREAM_KEYS_SIZE = 10000;
+    private static int TEST_STREAM_KEYS_SIZE = 10;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
@@ -375,21 +375,15 @@ public class AdminServiceBasicTest extends TestCase {
         String testStoreName = "test-recovery-data";
 
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
-        List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
         // insert it into server-0 store
-        int fetchPartitionKeyCount = 0;
         Store<ByteArray, byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
-            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
-                fetchPartitionKeyCount++;
-            }
         }
 
         // assert server 1 is empty
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            ByteArray key = entry.getKey();
             assertSame("entry should NOT be present at store", 0, store.get(entry.getKey()).size());
         }
 
@@ -400,12 +394,11 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             ByteArray key = entry.getKey();
-            if(isKeyPartition(key, 1, testStoreName, Arrays.asList(4, 5, 6, 7))) {
-                assertSame("entry should be present at store", 1, store.get(entry.getKey()).size());
-                assertEquals("entry value should match",
-                             new String(entry.getValue()),
-                             new String(store.get(entry.getKey()).get(0).getValue()));
-            }
+            assertSame("entry should be present for key " + key, 1, store.get(entry.getKey())
+                                                                         .size());
+            assertEquals("entry value should match",
+                         new String(entry.getValue()),
+                         new String(store.get(entry.getKey()).get(0).getValue()));
         }
     }
 

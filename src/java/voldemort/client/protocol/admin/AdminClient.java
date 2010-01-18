@@ -495,7 +495,6 @@ public class AdminClient {
         Map<Integer, List<Integer>> restoreMapping = getReplicationMapping(cluster,
                                                                            restoringNodeId,
                                                                            strategy);
-
         // migrate partition
         for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
             final int donorNodeId = replicationEntry.getKey();
@@ -535,12 +534,12 @@ public class AdminClient {
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
-        for(int partition: node.getPartitionIds()) {
+        for(int partition: getNodePartitions(cluster, nodeId, strategy)) {
             List<Integer> replicationPartitionsList = strategy.getReplicatingPartitionList(partition);
             if(replicationPartitionsList.size() > 1) {
                 int index = 0;
                 int replicatingPartition = replicationPartitionsList.get(index++);
-                while(partition == replicatingPartition) {
+                while(partitionsToNodeMapping.get(replicatingPartition) == nodeId) {
                     replicatingPartition = replicationPartitionsList.get(index++);
                 }
 
@@ -556,6 +555,28 @@ public class AdminClient {
         }
 
         return restoreMapping;
+    }
+
+    private List<Integer> getNodePartitions(Cluster cluster, int nodeId, RoutingStrategy strategy) {
+        List<Integer> partitionsList = new ArrayList<Integer>(cluster.getNodeById(nodeId)
+                                                                     .getPartitionIds());
+        Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
+
+        // add all partitions which nodeId replicates
+        for(Node node: cluster.getNodes()) {
+            if(node.getId() != nodeId) {
+                for(int partition: node.getPartitionIds()) {
+                    List<Integer> replicatedPartitions = strategy.getReplicatingPartitionList(partition);
+                    for(int replicationPartition: replicatedPartitions) {
+                        if(partitionsToNodeMapping.get(replicationPartition) == nodeId) {
+                            partitionsList.add(partition);
+                        }
+                    }
+                }
+            }
+        }
+
+        return partitionsList;
     }
 
     /**
