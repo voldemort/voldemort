@@ -176,16 +176,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             return values;
         } catch(UnreachableStoreException e) {
             failureDetector.recordException(donorNode, e);
-            throw new ProxyUnreachableException("Failed to reach proxy node "
-                                                           + donorNode, e);
+            throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
     }
 
     private void checkNodeAvailable(Node donorNode) {
         if(!failureDetector.isAvailable(donorNode))
-            throw new ProxyUnreachableException("Failed to reach proxy node "
-                                                           + donorNode
-                                                           + " is marked down by failure detector.");
+            throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode
+                                                + " is marked down by failure detector.");
     }
 
     /**
@@ -208,8 +206,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             return map;
         } catch(UnreachableStoreException e) {
             failureDetector.recordException(donorNode, e);
-            throw new ProxyUnreachableException("Failed to reach proxy node "
-                                                           + donorNode, e);
+            throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
     }
 
@@ -263,16 +260,20 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private Store<ByteArray, byte[]> getRedirectingSocketStore(String storeName, int donorNodeId) {
         if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
-            Node donorNode = getNodeIfPresent(donorNodeId);
-            logger.info("Creating redirectingSocketStore for donorNode " + donorNode + " store "
-                        + storeName);
-            storeRepository.addRedirectingSocketStore(donorNode.getId(),
-                                                      new SocketStore(storeName,
-                                                                      new SocketDestination(donorNode.getHost(),
-                                                                                            donorNode.getSocketPort(),
-                                                                                            RequestFormatType.PROTOCOL_BUFFERS),
-                                                                      socketPool,
-                                                                      RequestRoutingType.IGNORE_CHECKS));
+            synchronized(storeRepository) {
+                if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
+                    Node donorNode = getNodeIfPresent(donorNodeId);
+                    logger.info("Creating redirectingSocketStore for donorNode " + donorNode
+                                + " store " + storeName);
+                    storeRepository.addRedirectingSocketStore(donorNode.getId(),
+                                                              new SocketStore(storeName,
+                                                                              new SocketDestination(donorNode.getHost(),
+                                                                                                    donorNode.getSocketPort(),
+                                                                                                    RequestFormatType.PROTOCOL_BUFFERS),
+                                                                              socketPool,
+                                                                              RequestRoutingType.IGNORE_CHECKS));
+                }
+            }
         }
 
         return storeRepository.getRedirectingSocketStore(storeName, donorNodeId);
