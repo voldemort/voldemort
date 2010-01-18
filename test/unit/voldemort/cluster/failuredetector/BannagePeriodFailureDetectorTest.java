@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -59,6 +59,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
         Node node = Iterables.get(cluster.getNodes(), 8);
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new ConnectException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
@@ -66,6 +67,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
         assertTrue(failureDetector.isAvailable(node));
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new UnknownHostException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
@@ -73,6 +75,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
         assertTrue(failureDetector.isAvailable(node));
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new NoRouteToHostException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
@@ -152,7 +155,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
         recordException(failureDetector, node);
         assertUnavailable(node);
 
-        recordSuccess(failureDetector, node, false);
+        recordSuccess(failureDetector, node, 0, false);
         assertAvailable(node);
     }
 

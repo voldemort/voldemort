@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -151,6 +151,7 @@ public class VoldemortConfig implements Serializable {
     private long failureDetectorThresholdInterval;
     private long failureDetectorAsyncRecoveryInterval;
     private volatile List<String> failureDetectorCatastrophicErrorTypes;
+    private long failureDetectorRequestLengthThreshold;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
@@ -303,6 +304,8 @@ public class VoldemortConfig implements Serializable {
                                                                   FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
         this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
                                                                    FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
+        this.failureDetectorRequestLengthThreshold = props.getLong("failuredetector.request.length.threshold",
+                                                                   clientRoutingTimeoutMs / 10);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -989,6 +992,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
         this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
+    }
+
+    public long getFailureDetectorRequestLengthThreshold() {
+        return failureDetectorRequestLengthThreshold;
+    }
+
+    public void setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+        this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
     }
 
     public int getRetentionCleanupFirstStartTimeInHour() {

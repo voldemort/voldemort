@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -58,6 +58,8 @@ public class FailureDetectorConfig {
                                                                                          UnknownHostException.class.getName(),
                                                                                          NoRouteToHostException.class.getName());
 
+    public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 1000;
+
     public static final boolean DEFAULT_IS_JMX_ENABLED = false;
 
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
@@ -73,6 +75,8 @@ public class FailureDetectorConfig {
     protected long asyncRecoveryInterval = DEFAULT_ASYNC_RECOVERY_INTERVAL;
 
     protected List<String> catastrophicErrorTypes = DEFAULT_CATASTROPHIC_ERROR_TYPES;
+
+    protected long requestLengthThreshold = DEFAULT_REQUEST_LENGTH_THRESHOLD;
 
     protected boolean isJmxEnabled = DEFAULT_IS_JMX_ENABLED;
 
@@ -118,6 +122,7 @@ public class FailureDetectorConfig {
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
+        setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
         setJmxEnabled(config.isJmxEnabled());
     }
 
@@ -142,6 +147,7 @@ public class FailureDetectorConfig {
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
         setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
+        setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
         setJmxEnabled(config.isJmxEnabled());
     }
 
@@ -393,6 +399,15 @@ public class FailureDetectorConfig {
 
     public FailureDetectorConfig setCatastrophicErrorTypes(List<String> catastrophicErrorTypes) {
         this.catastrophicErrorTypes = Utils.notNull(catastrophicErrorTypes);
+        return this;
+    }
+
+    public long getRequestLengthThreshold() {
+        return requestLengthThreshold;
+    }
+
+    public FailureDetectorConfig setRequestLengthThreshold(long requestLengthThreshold) {
+        this.requestLengthThreshold = requestLengthThreshold;
         return this;
     }
 

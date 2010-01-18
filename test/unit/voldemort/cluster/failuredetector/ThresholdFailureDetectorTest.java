@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,6 +17,7 @@
 package voldemort.cluster.failuredetector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
 import static voldemort.MutableStoreVerifier.create;
@@ -58,22 +59,50 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         Node node = Iterables.get(cluster.getNodes(), 8);
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new ConnectException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
         failureDetector.waitForAvailability(node);
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new UnknownHostException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
         failureDetector.waitForAvailability(node);
 
         failureDetector.recordException(node,
+                                        0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new NoRouteToHostException("intentionalerror")));
         assertEquals(false, failureDetector.isAvailable(node));
         failureDetector.waitForAvailability(node);
+    }
+
+    @Test
+    public void testTimeouts() throws Exception {
+        Node node = Iterables.get(cluster.getNodes(), 8);
+
+        assertTrue(failureDetector.isAvailable(node));
+        failureDetector.recordSuccess(node, 0);
+        assertTrue(failureDetector.isAvailable(node));
+
+        int minimum = failureDetector.getConfig().getThresholdCountMinimum();
+
+        for(int i = 0; i < minimum; i++)
+            failureDetector.recordSuccess(node, failureDetector.getConfig()
+                                                               .getRequestLengthThreshold());
+
+        assertTrue(failureDetector.isAvailable(node));
+
+        for(int i = 0; i < minimum; i++)
+            failureDetector.recordSuccess(node, failureDetector.getConfig()
+                                                               .getRequestLengthThreshold() + 1);
+
+        assertEquals(false, failureDetector.isAvailable(node));
+        failureDetector.waitForAvailability(node);
+        assertTrue(failureDetector.isAvailable(node));
     }
 
     @Test
@@ -115,7 +144,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
         // We go offline, but are then able to make contact with the server
         // which we mimic by recording a success.
-        recordSuccess(failureDetector, node, false);
+        recordSuccess(failureDetector, node, 0, false);
 
         failureDetector.waitForAvailability(node);
 

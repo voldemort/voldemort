@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -49,6 +49,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
+        if(failureDetectorConfig == null)
+            throw new IllegalArgumentException("FailureDetectorConfig must be non-null");
+
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
@@ -66,10 +69,16 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     public void addFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
+        if(failureDetectorListener == null)
+            throw new IllegalArgumentException("FailureDetectorListener must be non-null");
+
         listeners.put(failureDetectorListener, failureDetectorListener);
     }
 
     public void removeFailureDetectorListener(FailureDetectorListener failureDetectorListener) {
+        if(failureDetectorListener == null)
+            throw new IllegalArgumentException("FailureDetectorListener must be non-null");
+
         listeners.remove(failureDetectorListener);
     }
 
@@ -116,6 +125,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     public void waitForAvailability(Node node) throws InterruptedException {
+        checkNodeArg(node);
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -125,6 +135,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     public long getLastChecked(Node node) {
+        checkNodeArg(node);
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -206,6 +217,18 @@ public abstract class AbstractFailureDetector implements FailureDetector {
                                                + " is not a valid node for this cluster");
 
         return nodeStatus;
+    }
+
+    protected void checkNodeArg(Node node) {
+        if(node == null)
+            throw new IllegalArgumentException("node must be non-null");
+    }
+
+    protected void checkArgs(Node node, long requestTime) {
+        checkNodeArg(node);
+
+        if(requestTime < 0)
+            throw new IllegalArgumentException("requestTime - " + requestTime + " - less than 0");
     }
 
     /**
