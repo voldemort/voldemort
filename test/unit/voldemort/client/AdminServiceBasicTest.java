@@ -48,7 +48,7 @@ import com.google.common.collect.AbstractIterator;
 public class AdminServiceBasicTest extends TestCase {
 
     private static int NUM_RUNS = 100;
-    private static int TEST_STREAM_KEYS_SIZE = 10;
+    private static int TEST_STREAM_KEYS_SIZE = 10000;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
