@@ -327,20 +327,105 @@ public class FailureDetectorConfig {
         return this;
     }
 
+    /**
+     * Returns the interval of time for each the success ratio is valid. After
+     * this number of milliseconds passes, a new interval is started and all
+     * internal state of a node is cleared out. However, it may not necessarily
+     * be marked as available if it was unavailable in the previous interval.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Millisecond interval for the success ratio
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThresholdInterval
+     * @see ClientConfig#getFailureDetectorThresholdInterval
+     */
+
     public long getThresholdInterval() {
         return thresholdInterval;
     }
 
+    /**
+     * Assigns the interval of time for each the success ratio is valid. After
+     * this number of milliseconds passes, a new interval is started and all
+     * internal state of a node is cleared out. However, it may not necessarily
+     * be marked as available if it was unavailable in the previous interval.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param Millisecond interval for the success ratio
+     * 
+     * @exception IllegalArgumentException Thrown if the thresholdInterval
+     *            parameter is less than or equal to 0
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThresholdInterval
+     * @see ClientConfig#getFailureDetectorThresholdInterval
+     */
+
     public FailureDetectorConfig setThresholdInterval(long thresholdInterval) {
+        if(thresholdInterval <= 0)
+            throw new IllegalArgumentException("thresholdInterval must be greater than 0");
+
         this.thresholdInterval = thresholdInterval;
         return this;
     }
+
+    /**
+     * Returns the interval of time (in milliseconds) that the thread will wait
+     * before checking if a given node has recovered.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link AsyncRecoveryFailureDetector} and {@link ThresholdFailureDetector}
+     * implementations.
+     * 
+     * @return Integer representing the millisecond interval for the success
+     *         ratio
+     * 
+     * @see AsyncRecoveryFailureDetector
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorAsyncRecoveryInterval
+     * @see ClientConfig#getFailureDetectorAsyncRecoveryInterval
+     */
 
     public long getAsyncRecoveryInterval() {
         return asyncRecoveryInterval;
     }
 
+    /**
+     * Assigns the interval of time (in milliseconds) that the thread will wait
+     * before checking if a given node has recovered.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link AsyncRecoveryFailureDetector} and {@link ThresholdFailureDetector}
+     * implementations.
+     * 
+     * @param Number of milliseconds to wait between recovery attempts
+     * 
+     * @exception IllegalArgumentException Thrown if the thresholdInterval
+     *            parameter is less than or equal to 0
+     * 
+     * @see AsyncRecoveryFailureDetector
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorAsyncRecoveryInterval
+     * @see ClientConfig#getFailureDetectorAsyncRecoveryInterval
+     */
+
     public FailureDetectorConfig setAsyncRecoveryInterval(long asyncRecoveryInterval) {
+        if(asyncRecoveryInterval <= 0)
+            throw new IllegalArgumentException("asyncRecoveryInterval must be greater than 0");
+
         this.asyncRecoveryInterval = asyncRecoveryInterval;
         return this;
     }
@@ -402,11 +487,56 @@ public class FailureDetectorConfig {
         return this;
     }
 
+    /**
+     * Returns the maximum time (in milliseconds) that a request (get, put,
+     * delete, etc.) can take before a given <i>successful</i> event is
+     * considered as a failure because the requests are--while
+     * successful--considered to be taking too long to complete.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Number of milliseconds representing maximum amount of time the
+     *         request should take before being considered as a failure
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorRequestLengthThreshold
+     * @see ClientConfig#getFailureDetectorRequestLengthThreshold
+     */
+
     public long getRequestLengthThreshold() {
         return requestLengthThreshold;
     }
 
+    /**
+     * Assigns the value for the maximum time (in milliseconds) that a request
+     * (get, put, delete, etc.) can take before a given <i>successful</i> event
+     * is considered as a failure because the requests are--while
+     * successful--considered to be taking too long to complete.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param requestLengthThreshold Number of milliseconds representing maximum
+     *        amount of time the request should take before being considered as
+     *        a failure
+     * 
+     * @exception IllegalArgumentException Thrown if the requestLengthThreshold
+     *            parameter is less than 0
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorRequestLengthThreshold
+     * @see ClientConfig#getFailureDetectorRequestLengthThreshold
+     */
+
     public FailureDetectorConfig setRequestLengthThreshold(long requestLengthThreshold) {
+        if(requestLengthThreshold <= 0)
+            throw new IllegalArgumentException("requestLengthThreshold must be positive");
+
         this.requestLengthThreshold = requestLengthThreshold;
         return this;
     }
