@@ -184,6 +184,8 @@ public class Rebalancer implements Runnable {
 
                                                 }
 
+                                                waitForShutdown();
+
                                                 if(stealInfo.getUnbalancedStoreList().isEmpty()) {
                                                     logger.info("Rebalancer: rebalance "
                                                                 + stealInfo
@@ -202,6 +204,17 @@ public class Rebalancer implements Runnable {
                                                 releaseRebalancingPermit();
                                                 adminClient.stop();
                                                 adminClient = null;
+                                            }
+                                        }
+
+                                        private void waitForShutdown() {
+                                            try {
+                                                executors.shutdown();
+                                                executors.awaitTermination(voldemortConfig.getAdminSocketTimeout(),
+                                                                           TimeUnit.SECONDS);
+                                            } catch(InterruptedException e) {
+                                                logger.error("Interrupted while awaiting termination for executors.",
+                                                             e);
                                             }
                                         }
 
