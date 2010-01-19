@@ -99,11 +99,11 @@ public class ClusterViewer {
         // a replica of it any longer).
 
         Set<Map.Entry<Integer,Integer>> replicaPairs = ImmutableSet.<Map.Entry<Integer,Integer>>builder()
-                .addAll(replicaMap.entries())
-                .build();
+                       .addAll(replicaMap.entries())
+                       .build();
         Set<Map.Entry<Integer,Integer>> otherReplicaPairs = ImmutableSet.<Map.Entry<Integer,Integer>>builder().
-                addAll(otherReplicas.entries())
-                .build();
+                       addAll(otherReplicas.entries())
+                       .build();
 
         for (Map.Entry<Integer,Integer> pair: replicaPairs) {
             if (!otherReplicaPairs.contains(pair))
@@ -127,17 +127,17 @@ public class ClusterViewer {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
         parser.accepts("stores", "[REQUIRED] path to stores xml config file")
-                .withRequiredArg()
-                .describedAs("stores.xml");
+                       .withRequiredArg()
+                       .describedAs("stores.xml");
         parser.accepts("cluster", "[REQUIRED] path to cluster xml config file")
-                .withRequiredArg()
-                .describedAs("cluster.xml");
+                       .withRequiredArg()
+                       .describedAs("cluster.xml");
         parser.accepts("other-cluster", "Cluster to compare with")
-                .withRequiredArg()
-                .describedAs("targetCluster.xml");
+                       .withRequiredArg()
+                       .describedAs("targetCluster.xml");
         parser.accepts("store-name", "[REQUIRED] store name")
-                .withRequiredArg()
-                .describedAs("store name");
+                       .withRequiredArg()
+                       .describedAs("store name");
         OptionSet options = parser.parse(args);
 
         if (options.has("help")) {

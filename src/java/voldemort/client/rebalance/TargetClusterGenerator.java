@@ -71,8 +71,8 @@ public class TargetClusterGenerator {
     public boolean hasMultipleCopies(Cluster newCluster) {
         for (Node n: newCluster.getNodes()) {
             Set<Integer> partitionSet = ImmutableSet.<Integer>builder()
-                    .addAll(n.getPartitionIds())
-                    .build();
+                           .addAll(n.getPartitionIds())
+                           .build();
 
             for (int partition: partitionSet) {
                 for (int replica: masterToReplicas.get(partition)) {
