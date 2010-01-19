@@ -157,6 +157,7 @@ public class VoldemortConfig implements Serializable {
     private int maxRebalancingAttempt;
     private int rebalancingTimeoutInSeconds;
     private int rebalancingServicePeriod;
+    private int maxParallelStoresRebalancing;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -279,6 +280,8 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", -1);
+
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
 
@@ -1067,4 +1070,13 @@ public class VoldemortConfig implements Serializable {
     public boolean isEnableRebalanceService() {
         return enableRebalanceService;
     }
+
+    public int getMaxParallelStoresRebalancing() {
+        return maxParallelStoresRebalancing;
+    }
+
+    public void setMaxParallelStoresRebalancing(int maxParallelStoresRebalancing) {
+        this.maxParallelStoresRebalancing = maxParallelStoresRebalancing;
+    }
+
 }
