@@ -2,19 +2,20 @@ package voldemort.server.rebalance;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
-import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
@@ -130,53 +131,60 @@ public class Rebalancer implements Runnable {
         checkCurrentState(metadataStore, stealInfo);
         setRebalancingState(metadataStore, stealInfo);
 
+        // get max parallel store rebalancing allowed
+        final int maxParallelStoresRebalancing = (-1 != voldemortConfig.getMaxParallelStoresRebalancing()) ? voldemortConfig.getMaxParallelStoresRebalancing()
+                                                                                                          : stealInfo.getUnbalancedStoreList()
+                                                                                                                     .size();
+
         int requestId = asyncRunner.getUniqueRequestId();
 
         asyncRunner.submitOperation(requestId,
                                     new AsyncOperation(requestId, "Rebalance Operation:"
                                                                   + stealInfo.toString()) {
 
-                                        private int migratePartitionsAsyncId = -1;
-                                        private String currentStore = null;
+                                        private List<Integer> rebalanceStatusList = new ArrayList<Integer>();
                                         AdminClient adminClient = null;
                                         volatile boolean forceStop = false;
+                                        final ExecutorService executors = createExecutors(maxParallelStoresRebalancing);
 
                                         @Override
                                         public void operate() throws Exception {
                                             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                                                metadataStore.getCluster(),
-                                                                                               4,
-                                                                                               2);
-                                            List<Exception> failures = new ArrayList<Exception>();
+                                                                                               maxParallelStoresRebalancing * 4,
+                                                                                               maxParallelStoresRebalancing * 2);
+                                            final List<Exception> failures = new ArrayList<Exception>();
                                             try {
                                                 logger.info("starting rebalancing task" + stealInfo);
-                                                List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
-                                                for(String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
-                                                    if(forceStop) {
-                                                        logger.info("Force stopping rebalancing operation.");
-                                                        metadataStore.cleanAllRebalancingState();
-                                                        return;
-                                                    }
-                                                    try {
-                                                        rebalanceStore(storeName,
-                                                                       adminClient,
-                                                                       stealInfo);
 
-                                                        // remove store from
-                                                        // stealInfo unbalanced
-                                                        // list.
-                                                        tempUnbalancedStoreList.remove(storeName);
-                                                        stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
-                                                        setRebalancingState(metadataStore,
-                                                                            stealInfo);
-                                                    } catch(Exception e) {
-                                                        logger.error("rebalanceSubTask:"
-                                                                     + stealInfo
-                                                                     + " failed for store:"
-                                                                     + storeName, e);
-                                                        failures.add(e);
-                                                    }
+                                                for(final String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
+
+                                                    executors.submit(new Runnable() {
+
+                                                        public void run() {
+                                                            try {
+                                                                rebalanceStore(storeName,
+                                                                               adminClient,
+                                                                               stealInfo);
+
+                                                                List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
+                                                                tempUnbalancedStoreList.remove(storeName);
+                                                                stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                                                                setRebalancingState(metadataStore,
+                                                                                    stealInfo);
+                                                            } catch(Exception e) {
+                                                                logger.error("rebalanceSubTask:"
+                                                                             + stealInfo
+                                                                             + " failed for store:"
+                                                                             + storeName, e);
+                                                                failures.add(e);
+                                                            }
+                                                        }
+                                                    });
+
                                                 }
+
+                                                waitForShutdown();
 
                                                 if(stealInfo.getUnbalancedStoreList().isEmpty()) {
                                                     logger.info("Rebalancer: rebalance "
@@ -196,19 +204,31 @@ public class Rebalancer implements Runnable {
                                                 releaseRebalancingPermit();
                                                 adminClient.stop();
                                                 adminClient = null;
-                                                migratePartitionsAsyncId = -1;
+                                            }
+                                        }
+
+                                        private void waitForShutdown() {
+                                            try {
+                                                executors.shutdown();
+                                                executors.awaitTermination(voldemortConfig.getAdminSocketTimeout(),
+                                                                           TimeUnit.SECONDS);
+                                            } catch(InterruptedException e) {
+                                                logger.error("Interrupted while awaiting termination for executors.",
+                                                             e);
                                             }
                                         }
 
                                         @Override
                                         public void stop() {
                                             updateStatus("stop() called on rebalance operation !!");
-                                            if(null != adminClient
-                                               && -1 != migratePartitionsAsyncId) {
-                                                adminClient.stopAsyncRequest(metadataStore.getNodeId(),
-                                                                             migratePartitionsAsyncId);
+                                            if(null != adminClient) {
+                                                for(int asyncID: rebalanceStatusList) {
+                                                    adminClient.stopAsyncRequest(metadataStore.getNodeId(),
+                                                                                 asyncID);
+                                                }
                                             }
-                                            forceStop = true;
+
+                                            executors.shutdownNow();
                                         }
 
                                         private void rebalanceStore(String storeName,
@@ -217,20 +237,22 @@ public class Rebalancer implements Runnable {
                                                 throws Exception {
                                             updateStatus("starting partitions migration for store:"
                                                          + storeName);
-                                            currentStore = storeName;
 
-                                            migratePartitionsAsyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                                                                     metadataStore.getNodeId(),
-                                                                                                     storeName,
-                                                                                                     stealInfo.getPartitionList(),
-                                                                                                     null);
+                                            int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                                                                                        metadataStore.getNodeId(),
+                                                                                        storeName,
+                                                                                        stealInfo.getPartitionList(),
+                                                                                        null);
+                                            rebalanceStatusList.add(asyncId);
+
                                             adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                                                          migratePartitionsAsyncId,
+                                                                          asyncId,
                                                                           voldemortConfig.getAdminSocketTimeout(),
                                                                           TimeUnit.SECONDS);
 
+                                            rebalanceStatusList.remove((Object) new Integer(asyncId));
+
                                             if(stealInfo.isDeleteDonorPartitions()) {
-                                                logger.warn("Deleting data from donorNode after rebalancing !!");
                                                 adminClient.deletePartitions(stealInfo.getDonorId(),
                                                                              storeName,
                                                                              stealInfo.getPartitionList(),
@@ -238,32 +260,12 @@ public class Rebalancer implements Runnable {
                                                 logger.info("Deleted partitions "
                                                             + stealInfo.getPartitionList()
                                                             + " from donorNode:"
-                                                            + stealInfo.getDonorId());
+                                                            + stealInfo.getDonorId()
+                                                            + " for store " + storeName);
                                             }
 
                                             updateStatus("partitions migration for store:"
                                                          + storeName + " completed.");
-
-                                            // reset asyncId
-                                            migratePartitionsAsyncId = -1;
-                                            currentStore = null;
-                                        }
-
-                                        @Override
-                                        @JmxGetter(name = "asyncTaskStatus")
-                                        public AsyncOperationStatus getStatus() {
-                                            if(-1 != migratePartitionsAsyncId
-                                               && null != currentStore)
-                                                try {
-                                                    updateStatus("partitions migration for store:"
-                                                                 + currentStore
-                                                                 + " status:"
-                                                                 + asyncRunner.getStatus(migratePartitionsAsyncId));
-                                                } catch(Exception e) {
-                                                    // ignore
-                                                }
-
-                                            return super.getStatus();
                                         }
                                     });
 
@@ -282,5 +284,17 @@ public class Rebalancer implements Runnable {
                                          + " is already rebalancing from:"
                                          + metadataStore.getRebalancingStealInfo()
                                          + " rejecting rebalance request:" + stealInfo);
+    }
+
+    private ExecutorService createExecutors(int numThreads) {
+
+        return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(r.getClass().getName());
+                return thread;
+            }
+        });
     }
 }
