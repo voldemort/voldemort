@@ -103,6 +103,25 @@ public class ClusterViewer {
             System.out.println("No replica mappings have changed.");
     }
 
+    /**
+     * Main method to run on test cluster/store XML files. Example usage with a <b>good</b> target cluster.xml:
+     * <code>
+     * ./bin/run-class.sh voldemort.ClusterViewer \
+     * --cluster ./test/common/voldemort/config/rebalance-tool-original-cluster.xml \
+     * --stores ./test/common/voldemort/config/rebalance-tool-stores.xml \
+     * --store-name test --other-cluster ./test/common/voldemort/config/rebalance-tool-good-cluster.xml
+     * </code>
+     * Example usage with <b>bad</b> target cluster.xml:
+     * <code>
+     * ./bin/run-class.sh voldemort.ClusterViewer \
+     * --cluster ./test/common/voldemort/config/rebalance-tool-original-cluster.xml \
+     * --stores ./test/common/voldemort/config/rebalance-tool-stores.xml \
+     * --store-name test --other-cluster ./test/common/voldemort/config/rebalance-tool-bad-cluster.xml
+     * </code>
+     *
+     * @param args See USAGE for details
+     * @throws IOException If unable to read input files
+     */
     public static void main(String [] args) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
