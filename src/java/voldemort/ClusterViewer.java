@@ -1,13 +1,14 @@
 package voldemort;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.client.rebalance.TargetClusterGenerator;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
@@ -22,105 +23,84 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- @author afeinberg
+ * Inspect a cluster configuration to determine whether it can be rebalanced to a target cluster geometry.
+ *
+ * @author afeinberg
  */
 public class ClusterViewer {
-    private final Cluster cluster;
+
+    private final Cluster originalCluster;
     private final StoreDefinition storeDefinition;
-    private final RoutingStrategy routingStrategy;
-    private final Multimap<Integer,Integer> partitionMap;
-    private final Multimap<Integer,Integer> replicaMap;
 
-    public ClusterViewer (Cluster cluster,
-                          StoreDefinition storeDefinition,
-                          RoutingStrategy routingStrategy) {
-        this.cluster = cluster;
+
+    /**
+     * Constructs a <code>ClusterViewer</code> initialized with an original cluster a store definition.
+     *
+     * @param originalCluster The original cluster
+     * @param storeDefinition A store definition, which specifies the replication-factor (needed to calculate routes). 
+     */
+    public ClusterViewer(Cluster originalCluster,
+                         StoreDefinition storeDefinition) {
+        this.originalCluster = originalCluster;
         this.storeDefinition = storeDefinition;
-        this.routingStrategy = routingStrategy;
 
-        Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>> geometry = createGeometry();
-        partitionMap = geometry.getFirst();
-        replicaMap = geometry.getSecond();
     }
 
-    protected Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>> createGeometry () {
-        return createGeometry(this.cluster, this.routingStrategy);
+    /**
+     * Prints out the layout display mapping between replicas and their partitions for the cluster with which
+     * the <code>ClusterViewer</code> has been constructed.
+     */
+    public void viewMasterToReplica() {
+        viewMasterToReplica(originalCluster);
     }
 
-    protected Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>> createGeometry (Cluster cluster, RoutingStrategy routingStrategy) {
-        Multimap<Integer, Integer> nodePartitions = LinkedHashMultimap.create();
-        Multimap<Integer, Integer> replicas = TreeMultimap.create();
-
-        for  (Node node: cluster.getNodes()) {
-            List<Integer> partitionIds = node.getPartitionIds();
-            nodePartitions.replaceValues(node.getId(), partitionIds);
-
-            for (int partitionId: partitionIds) {
-                if (!replicas.containsKey(partitionId))
-                    replicas.replaceValues(partitionId, routingStrategy.getReplicatingPartitionList(partitionId));
-            }
+    /**
+     * Prints out the a layout displaying mapping between replicas and their partitions for a given cluster.
+     *
+     * @param cluster Cluster to examine
+     */
+    public void viewMasterToReplica(Cluster cluster) {
+        TargetClusterGenerator clusterGenerator = new TargetClusterGenerator(cluster, storeDefinition);
+        System.out.println(cluster);
+        Multimap<Integer,Integer> masterToReplicas = clusterGenerator.getMasterToReplicas();
+        System.out.println("\nReplication: ");
+        for (int partition: masterToReplicas.keySet()) {
+            Set<Integer> replicas = Sets.union(ImmutableSet.of(partition),
+                                               ImmutableSet.copyOf(masterToReplicas.get(partition)));
+            System.out.println("\t" + partition + " -> " + Joiner.on(", ").join(replicas));
         }
-
-        return new Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>>(nodePartitions, replicas);
-    }
-
-    public void view () {
-        view(this.partitionMap, this.replicaMap);
-    }
-
-    public void view (Cluster cluster, RoutingStrategy routingStrategy) {
-        Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>> geometry = createGeometry(cluster, routingStrategy);
-        view(geometry.getFirst(), geometry.getSecond());
-    }
-
-    public void view (Multimap<Integer,Integer> partitionMap, Multimap<Integer,Integer> replicaMap) {
-        Multimap<Integer,Integer> invertedPartitionMap = LinkedHashMultimap.create();
-        Multimaps.invertFrom(partitionMap, invertedPartitionMap);
-
-        System.out.println("====================================");
-        System.out.println("store: " + storeDefinition.getName());
-        System.out.println("====================================");
-
-        for (int partitionId: replicaMap.keySet()) {
-            int masterNode = invertedPartitionMap.get(partitionId).iterator().next();
-            System.out.println("partition " + partitionId + " mastered by node " + masterNode) ;
-            System.out.println("\t replicas: " + Joiner.on(", ").join(replicaMap.get(partitionId)));
-        }
-
         System.out.println();
     }
 
-    public void compareMapping(Cluster otherCluster, RoutingStrategy otherRoutingStrategy) {
-        Pair<Multimap<Integer,Integer>,Multimap<Integer,Integer>> otherGeometry = createGeometry(otherCluster, otherRoutingStrategy);
-        Multimap<Integer,Integer> otherPartitions = otherGeometry.getFirst();
-        Multimap<Integer,Integer> otherReplicas = otherGeometry.getSecond();
+    /**
+     * Compares cluster with which the <code>ClusterViewer</code> has been constructed to another cluster,
+     * determining the feasibility of rebalancing to that cluster's layout.
+     *
+     * @param target The target cluster geometry.
+     */
+    public void compareToCluster(Cluster target) {
+        TargetClusterGenerator clusterGenerator = new TargetClusterGenerator(originalCluster, storeDefinition);
+        Multimap<Node,Integer> multipleCopies = clusterGenerator.getMultipleCopies(target);
+        if (multipleCopies.size() > 0) {
+            for (Node n: multipleCopies.keySet()) {
+                System.out.println(n + " has multiple copies of data: " + Joiner.on(", ").join(multipleCopies.get(n)));
+            }
+        } else
+            System.out.println("No multiple copies found.");
 
-        // First check for broken replicas (i.e. partition x *used* to be a replica of partition y, but is not
-        // a replica of it any longer).
-
-        Set<Map.Entry<Integer,Integer>> replicaPairs = ImmutableSet.<Map.Entry<Integer,Integer>>builder()
-                       .addAll(replicaMap.entries())
-                       .build();
-        Set<Map.Entry<Integer,Integer>> otherReplicaPairs = ImmutableSet.<Map.Entry<Integer,Integer>>builder().
-                       addAll(otherReplicas.entries())
-                       .build();
-
-        for (Map.Entry<Integer,Integer> pair: replicaPairs) {
-            if (!otherReplicaPairs.contains(pair))
-                System.out.println("Other cluster lacks replication " + pair.getKey() + " -> " + pair.getValue());
-        }
-
-        // Now check for double replication
-        for (int nodeId: otherPartitions.keySet()) {
-            Set<Integer> partitionsAtNode = ImmutableSet.<Integer>builder().addAll(otherPartitions.get(nodeId)).build();
-            for (int partitionId: partitionsAtNode) {
-                for (int replicaId: replicaMap.get(partitionId)) {
-                    if (replicaId != partitionId && partitionsAtNode.contains(replicaId))
-                        System.err.println("Double replication on node " + nodeId + ": " + replicaId +
-                                           " is replica of " + partitionId);
+        System.out.println();
+        
+        Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = clusterGenerator.getRemappedReplicas(target);
+        if (remappedReplicas.size() > 0) {
+            for (int partition: remappedReplicas.keySet()) {
+                System.out.println("Mapping for partition " + partition + " has changed: ");
+                for (Pair<Integer,Integer> pair: remappedReplicas.get(partition)) {
+                    System.out.println("\tUsed to have " + partition + " -> " + pair.getFirst() + "; now have: "
+                                       + partition + " -> " + pair.getSecond());
                 }
             }
-        }
+        } else
+            System.out.println("No replica mappings have changed.");
     }
 
     public static void main(String [] args) throws IOException {
@@ -172,24 +152,18 @@ public class ClusterViewer {
             if (storeDef == null)
                 Utils.croak("No store found with name \"" + storeName + "\"");
 
-            RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                 cluster);
+            ClusterViewer clusterViewer = new ClusterViewer(cluster, storeDef);
 
-            ClusterViewer clusterViewer = new ClusterViewer(cluster,
-                              storeDef,
-                              routingStrategy);
             System.out.println("Original cluster: ");
-            clusterViewer.view();
+            clusterViewer.viewMasterToReplica();
 
             if (options.has("other-cluster")) {
                 String otherClusterFile = (String) options.valueOf("other-cluster");
                 Cluster otherCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(otherClusterFile)));
-                RoutingStrategy otherRoutingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                          otherCluster);
 
                 System.out.println("New cluster: ");
-                clusterViewer.view(otherCluster, otherRoutingStrategy);
-                clusterViewer.compareMapping(otherCluster, otherRoutingStrategy);
+                clusterViewer.viewMasterToReplica(otherCluster);
+                clusterViewer.compareToCluster(otherCluster);
             }
 
         } catch (FileNotFoundException e) {
