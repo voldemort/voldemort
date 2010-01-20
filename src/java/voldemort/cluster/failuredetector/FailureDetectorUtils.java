@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,11 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.lang.management.ManagementFactory;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
 
@@ -33,36 +28,23 @@ import voldemort.utils.ReflectUtils;
 
 public class FailureDetectorUtils {
 
-    public static FailureDetector create(FailureDetectorConfig failureDetectorConfig) {
-        Class<?> clazz = ReflectUtils.loadClass(failureDetectorConfig.getImplementationClassName());
-        FailureDetector fd = (FailureDetector) ReflectUtils.callConstructor(clazz,
-                                                                            new Class[] { FailureDetectorConfig.class },
-                                                                            new Object[] { failureDetectorConfig });
-
-        if(failureDetectorConfig.isJmxEnabled()) {
-            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-            ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(fd.getClass()),
-                                                        fd.getClass().getSimpleName());
-
-            if(mbeanServer.isRegistered(name))
-                JmxUtils.unregisterMbean(mbeanServer, name);
-
-            JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(fd), name);
-        }
-
-        return fd;
-    }
-
     public static FailureDetector create(FailureDetectorConfig failureDetectorConfig,
-                                         FailureDetectorListener... failureDetectorListener) {
-        FailureDetector fd = create(failureDetectorConfig);
+                                         boolean registerMbean,
+                                         FailureDetectorListener... failureDetectorListeners) {
+        Class<?> clazz = ReflectUtils.loadClass(failureDetectorConfig.getImplementationClassName());
+        FailureDetector failureDetector = (FailureDetector) ReflectUtils.callConstructor(clazz,
+                                                                                         new Class[] { FailureDetectorConfig.class },
+                                                                                         new Object[] { failureDetectorConfig });
 
-        if(failureDetectorListener != null) {
-            for(FailureDetectorListener fdl: failureDetectorListener)
-                fd.addFailureDetectorListener(fdl);
+        if(failureDetectorListeners != null) {
+            for(FailureDetectorListener failureDetectorListener: failureDetectorListeners)
+                failureDetector.addFailureDetectorListener(failureDetectorListener);
         }
 
-        return fd;
+        if(registerMbean)
+            JmxUtils.registerMbean(failureDetector.getClass().getSimpleName(), failureDetector);
+
+        return failureDetector;
     }
 
 }

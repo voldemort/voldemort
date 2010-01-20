@@ -17,7 +17,6 @@
 package voldemort.client;
 
 import java.io.StringReader;
-import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -25,9 +24,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
@@ -49,6 +45,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
@@ -86,10 +84,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
-    private final MBeanServer mbeanServer;
     private final int jmxId;
     protected FailureDetector failureDetector;
     private final int maxBootstrapRetries;
+    private final StoreStats stats;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
@@ -100,22 +98,17 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
-        if(isJmxEnabled)
-            this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
-        else
-            this.mbeanServer = null;
         this.jmxId = jmxIdCounter.getAndIncrement();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
-        registerThreadPoolJmx(threadPool);
-    }
-
-    private void registerThreadPoolJmx(ExecutorService threadPool) {
-        try {
-            registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
-                                                  JmxUtils.getClassName(threadPool.getClass())
-                                                          + jmxId), threadPool);
-        } catch(Exception e) {
-            logger.error("Error registering threadpool jmx: ", e);
+        this.stats = new StoreStats();
+        if(this.isJmxEnabled) {
+            JmxUtils.registerMbean(threadPool,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                             JmxUtils.getClassName(threadPool.getClass())
+                                                                     + jmxId()));
+            JmxUtils.registerMbean(new StoreStatsJmx(stats),
+                                   JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                             "aggregate-perf" + jmxId()));
         }
     }
 
@@ -172,13 +165,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
-            store = new StatTrackingStore(store);
-            try {
-                registerJmx(JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                      store.getName() + jmxId), store);
-            } catch(Exception e) {
-                logger.error("Error in JMX registration: ", e);
-            }
+            StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
+            store = statStore;
+            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                             store.getName() + jmxId()));
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -313,19 +304,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             failureDetector.destroy();
     }
 
-    protected void registerJmx(ObjectName name, Object object) {
-        if(this.isJmxEnabled) {
-            synchronized(mbeanServer) {
-                try {
-
-                    if(mbeanServer.isRegistered(name))
-                        JmxUtils.unregisterMbean(mbeanServer, name);
-                    JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(object), name);
-                } catch(Exception e) {
-                    logger.error("Error while registering mbean: ", e);
-                }
-            }
-        }
+    /* Give a unique id to avoid jmx clashes */
+    private String jmxId() {
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
 }

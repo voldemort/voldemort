@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,6 +18,7 @@ package voldemort.cluster.failuredetector;
 
 import static voldemort.MutableStoreVerifier.create;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.io.IOException;
 
@@ -53,6 +54,7 @@ public abstract class FailureDetectorPerformanceTest {
                                + failureDetectorConfig.getThresholdInterval())
               .withRequiredArg()
               .ofType(Long.class);
+        parser.accepts("help", "This help");
 
         OptionSet options = parser.parse(args);
 
@@ -107,7 +109,7 @@ public abstract class FailureDetectorPerformanceTest {
             String result = null;
 
             try {
-                FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
+                FailureDetector failureDetector = create(failureDetectorConfig, false);
 
                 try {
                     result = test(failureDetector);

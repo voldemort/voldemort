@@ -44,9 +44,4 @@ public class UnknownFailure extends VoldemortException {
         super(t);
     }
 
-    @Override
-    public short getId() {
-        return 6;
-    }
-
 }

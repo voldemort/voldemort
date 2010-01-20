@@ -231,7 +231,7 @@ public class StoreDefinitionsMapper {
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
-                                           .setType(ViewStorageConfiguration.TYPE)
+                                           .setType(ViewStorageConfiguration.TYPE_NAME)
                                            .setRoutingPolicy(policy)
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
