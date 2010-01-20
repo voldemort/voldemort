@@ -1,15 +1,17 @@
 package voldemort.client.rebalance;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.Pair;
 
-import java.util.Map;
-import java.util.Set;
-
+import java.util.*;
 
 /**
  * Generate a target cluster for rebalancing given an existing cluster and a new node.
@@ -17,19 +19,46 @@ import java.util.Set;
  * @author afeinberg
  */
 public class TargetClusterGenerator {
-    private final StoreDefinition storeDefinition;
-    private final Multimap<Integer,Integer> masterToReplicas;
 
+    private final StoreDefinition storeDefinition;
+    private final ListMultimap<Integer,Integer> masterToReplicas;
+
+    /**
+     * Constructs a <tt>TargetClusterGenerator</tt> for a given cluster and store definition.
+     *
+     * @param cluster Original cluster
+     * @param storeDefinition Store definition to extract information such as replication-factor from. Typically
+     * this should be the store with the highest replication count. 
+     */
     public TargetClusterGenerator(Cluster cluster, StoreDefinition storeDefinition) {
         RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
-        ImmutableMultimap.Builder<Integer,Integer> builder = ImmutableSetMultimap.builder();
 
+        this.storeDefinition = storeDefinition;
+        this.masterToReplicas = createMasterToReplicas(cluster, routingStrategy);
+    }
+
+    /**
+     * Get a mapping of master partition to replicas of that partition. If a store's replication-factor is N,
+     * a key is mastered by partition n<sub>0</sub>, then partitions n<sub>i</sub> (for 0 < i < N) are replicas of
+     * partition  n<sub>_</sub>0 <b>iff</b> any requests for this key to this store are also routed to those partitions
+     * (in addition to partition n<sub>0</sub>).
+     *
+     * @return Multimap with key being partition id, values being replicas of the partition
+     */
+    public Multimap<Integer,Integer> getMasterToReplicas() {
+        return masterToReplicas;
+    }
+
+    private ListMultimap<Integer,Integer> createMasterToReplicas(Cluster cluster, RoutingStrategy routingStrategy) {
+        ListMultimap<Integer,Integer> lmm = ArrayListMultimap.create();
         for (int i = 0; i < cluster.getNumberOfPartitions(); i++) {
-            builder.putAll(i, routingStrategy.getReplicatingPartitionList(i));
+            for (int replica: routingStrategy.getReplicatingPartitionList(i)) {
+                if (replica != i)
+                    lmm.put(i, replica);
+            }
         }
 
-        this.masterToReplicas = builder.build();
-        this.storeDefinition = storeDefinition;
+        return lmm;
     }
 
     /**
@@ -61,56 +90,93 @@ public class TargetClusterGenerator {
      * <li>Node B: 1, 4</li>
      * <li>Node C: 2, 5</li>
      * <li>Node D: 7, 8</li>
-     * As you can see, node D holds partitions 7 and 8 which in the original cluster configuration
-     * we replicas of each other. Now the only populated replica of partition 7 resides on the <b>same node</b> as
-     * partition 7 itself.
+     * Now node D holds partitions 7 and 8 which in the original cluster configuration
+     * we replicas of each other. This means the only populated replica of partition 7 resides on the
+     * <b>same node</b> as partition 7 itself, reducing node-level redundancy for keys mastered by that
+     * partition. 
      *
      * @param newCluster Suggested cluster geometry
-     * @return True if there would multiple copies of the same data on a node, false otherwise.
+     * @return <p> Multimap with key being the node with multiple copies, values being the copies (including the
+     * master partition). For described example it would be <code>{Node_D: [7,8]}</code>. </p>
      */
-    public boolean hasMultipleCopies(Cluster newCluster) {
+    public Multimap<Node,Integer> getMultipleCopies(Cluster newCluster) {
+        Multimap<Node,Integer> copies = LinkedHashMultimap.create();
         for (Node n: newCluster.getNodes()) {
-            Set<Integer> partitionSet = ImmutableSet.<Integer>builder()
-                           .addAll(n.getPartitionIds())
-                           .build();
+            List<Integer> partitions = n.getPartitionIds();
 
-            for (int partition: partitionSet) {
+            for (int partition: partitions) {
                 for (int replica: masterToReplicas.get(partition)) {
-                    if (replica != partition && partitionSet.contains(replica))
-                        return true;
+                    if (partitions.contains(replica)) {
+                        if (!copies.get(n).contains(partition))
+                            copies.put(n, partition);
+                        copies.put(n, replica);
+                    }
                 }
             }
         }
 
-        return false;
+        return copies;
     }
 
-    /***
-     * When a new is node is inserted into a cluster and existing partitions are placed on that node, the partition
-     * replication scheme may be remapped. This counts how many partitions->replica mappings from the original cluster
-     * had been removed in the new cluster.
+    /**
+     * When {@link voldemort.routing.ConsistentRoutingStrategy} is used, replication mapping of partitions
+     * (i.e., if a key k is mastered by partition p, in addition to p, which partitions can have requests for
+     * k routed to them?) is determined by the replication-factor N and the nodes in the cluster, such that
+     * each partition is replicated to N distinct nodes.
      *
      * @param newCluster Suggested cluster geometry
-     * @return Count of replicas that have been lost, for all partitions in the cluster
+     * @return <p> Multimap with key being a master replica, values being pairs of (original replica, new replica).
+     * For example target layout described in
+     * {@link voldemort.client.rebalance.TargetClusterGenerator#getMultipleCopies(voldemort.cluster.Cluster)}
+     * the return value would be <code>{7: [(7,8), (7,0)]}</code>. </p>
+     */
+    public Multimap<Integer, Pair<Integer,Integer>> getRemappedReplicas(Cluster newCluster) {
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, newCluster);
+        ListMultimap<Integer,Integer> newMasterToReplicas = createMasterToReplicas(newCluster, routingStrategy);
+
+        Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = ArrayListMultimap.create();
+        for (int partition: masterToReplicas.keySet()) {
+            List<Integer> oldReplicas = masterToReplicas.get(partition);
+            List<Integer> newReplicas = newMasterToReplicas.get(partition);
+
+            if (oldReplicas.size() != newReplicas.size())
+                throw new IllegalStateException("replica count differs for partition " + partition);
+
+            for (int i=0; i < oldReplicas.size(); i++) {
+                int oldReplica = oldReplicas.get(i);
+                if (!newReplicas.contains(oldReplica)) {
+                    Pair<Integer,Integer> pair = new Pair<Integer,Integer>(oldReplica, newReplicas.get(i));
+                    remappedReplicas.put(partition, pair);
+                }
+            }
+        }
+
+        return remappedReplicas;
+    }
+
+    /**
+     * If we were to rebalance to the specified geometry, would there be multiple copies of the same partition
+     * residing on the same node? See
+     * {@link voldemort.client.rebalance.TargetClusterGenerator#getMultipleCopies(voldemort.cluster.Cluster)}
+     * for more detailed documentation.
+     *
+     * @param newCluster Suggested cluster geometry.
+     * @return True if there are multiple copies of data on the same node, false otherwise
+     */
+    public boolean hasMultipleCopies(Cluster newCluster) {
+        return getMultipleCopies(newCluster).size() > 0;
+    }
+
+    /**
+     * If we were to rebalance to the specified geometry, determine how many existing replication mappings would
+     * change. See
+     * {@link voldemort.client.rebalance.TargetClusterGenerator#getRemappedReplicas(voldemort.cluster.Cluster)}
+     * for more detailed documentation.
+     *
+     * @param newCluster Suggested cluster geometry.
+     * @return Count of changed partition to replica mappings.
      */
     public int getRemappedReplicaCount(Cluster newCluster) {
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, newCluster);
-        ImmutableMultimap.Builder<Integer,Integer> builder = ImmutableSetMultimap.builder();
-
-        for (int i = 0; i < newCluster.getNumberOfPartitions(); i++) {
-            builder.putAll(i, routingStrategy.getReplicatingPartitionList(i));
-        }
-
-        Multimap<Integer,Integer> newMasterToReplicas = builder.build();
-
-        int missingReplicas = 0;
-        for (Map.Entry<Integer,Integer> entry: masterToReplicas.entries()) {
-            int master = entry.getKey();
-            int replica = entry.getValue();
-            if (!newMasterToReplicas.get(master).contains(replica))
-                missingReplicas++;
-        }
-
-        return missingReplicas;
+        return getRemappedReplicas(newCluster).entries().size();
     }
 }
