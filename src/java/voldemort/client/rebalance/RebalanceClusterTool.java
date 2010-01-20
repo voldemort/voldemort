@@ -14,23 +14,23 @@ import voldemort.utils.Pair;
 import java.util.*;
 
 /**
- * Generate a target cluster for rebalancing given an existing cluster and a new node.
+ * Tools to manipulate cluster geometries and verify them for correctness, reliability and efficiency.
  *
  * @author afeinberg
  */
-public class TargetClusterGenerator {
+public class RebalanceClusterTool {
 
     private final StoreDefinition storeDefinition;
     private final ListMultimap<Integer,Integer> masterToReplicas;
 
     /**
-     * Constructs a <tt>TargetClusterGenerator</tt> for a given cluster and store definition.
+     * Constructs a <tt>RebalanceClusterTool</tt> for a given cluster and store definition.
      *
      * @param cluster Original cluster
      * @param storeDefinition Store definition to extract information such as replication-factor from. Typically
      * this should be the store with the highest replication count. 
      */
-    public TargetClusterGenerator(Cluster cluster, StoreDefinition storeDefinition) {
+    public RebalanceClusterTool(Cluster cluster, StoreDefinition storeDefinition) {
         RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
 
         this.storeDefinition = storeDefinition;
@@ -127,7 +127,7 @@ public class TargetClusterGenerator {
      * @param newCluster Suggested cluster geometry
      * @return <p> Multimap with key being a master replica, values being pairs of (original replica, new replica).
      * For example target layout described in
-     * {@link voldemort.client.rebalance.TargetClusterGenerator#getMultipleCopies(voldemort.cluster.Cluster)}
+     * {@link RebalanceClusterTool#getMultipleCopies(voldemort.cluster.Cluster)}
      * the return value would be <code>{7: [(7,8), (7,0)]}</code>. </p>
      */
     public Multimap<Integer, Pair<Integer,Integer>> getRemappedReplicas(Cluster newCluster) {
@@ -157,7 +157,7 @@ public class TargetClusterGenerator {
     /**
      * If we were to rebalance to the specified geometry, would there be multiple copies of the same partition
      * residing on the same node? See
-     * {@link voldemort.client.rebalance.TargetClusterGenerator#getMultipleCopies(voldemort.cluster.Cluster)}
+     * {@link RebalanceClusterTool#getMultipleCopies(voldemort.cluster.Cluster)}
      * for more detailed documentation.
      *
      * @param newCluster Suggested cluster geometry.
@@ -170,7 +170,7 @@ public class TargetClusterGenerator {
     /**
      * If we were to rebalance to the specified geometry, determine how many existing replication mappings would
      * change. See
-     * {@link voldemort.client.rebalance.TargetClusterGenerator#getRemappedReplicas(voldemort.cluster.Cluster)}
+     * {@link RebalanceClusterTool#getRemappedReplicas(voldemort.cluster.Cluster)}
      * for more detailed documentation.
      *
      * @param newCluster Suggested cluster geometry.

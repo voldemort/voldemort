@@ -6,7 +6,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.client.rebalance.TargetClusterGenerator;
+import voldemort.client.rebalance.RebalanceClusterTool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -60,9 +60,9 @@ public class ClusterViewer {
      * @param cluster Cluster to examine
      */
     public void viewMasterToReplica(Cluster cluster) {
-        TargetClusterGenerator clusterGenerator = new TargetClusterGenerator(cluster, storeDefinition);
+        RebalanceClusterTool clusterTool = new RebalanceClusterTool(cluster, storeDefinition);
         System.out.println(cluster);
-        Multimap<Integer,Integer> masterToReplicas = clusterGenerator.getMasterToReplicas();
+        Multimap<Integer,Integer> masterToReplicas = clusterTool.getMasterToReplicas();
         System.out.println("\nReplication: ");
         for (int partition: masterToReplicas.keySet()) {
             Set<Integer> replicas = Sets.union(ImmutableSet.of(partition),
@@ -79,8 +79,8 @@ public class ClusterViewer {
      * @param target The target cluster geometry.
      */
     public void compareToCluster(Cluster target) {
-        TargetClusterGenerator clusterGenerator = new TargetClusterGenerator(originalCluster, storeDefinition);
-        Multimap<Node,Integer> multipleCopies = clusterGenerator.getMultipleCopies(target);
+        RebalanceClusterTool clusterTool = new RebalanceClusterTool(originalCluster, storeDefinition);
+        Multimap<Node,Integer> multipleCopies = clusterTool.getMultipleCopies(target);
         if (multipleCopies.size() > 0) {
             for (Node n: multipleCopies.keySet()) {
                 System.out.println(n + " has multiple copies of data: " + Joiner.on(", ").join(multipleCopies.get(n)));
@@ -90,7 +90,7 @@ public class ClusterViewer {
 
         System.out.println();
         
-        Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = clusterGenerator.getRemappedReplicas(target);
+        Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = clusterTool.getRemappedReplicas(target);
         if (remappedReplicas.size() > 0) {
             for (int partition: remappedReplicas.keySet()) {
                 System.out.println("Mapping for partition " + partition + " has changed: ");
