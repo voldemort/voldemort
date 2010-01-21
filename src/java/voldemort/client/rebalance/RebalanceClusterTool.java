@@ -1,9 +1,6 @@
 package voldemort.client.rebalance;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.*;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -20,6 +17,7 @@ import java.util.*;
  */
 public class RebalanceClusterTool {
 
+    private final Cluster cluster;
     private final StoreDefinition storeDefinition;
     private final ListMultimap<Integer,Integer> masterToReplicas;
 
@@ -33,6 +31,7 @@ public class RebalanceClusterTool {
     public RebalanceClusterTool(Cluster cluster, StoreDefinition storeDefinition) {
         RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster);
 
+        this.cluster = cluster;
         this.storeDefinition = storeDefinition;
         this.masterToReplicas = createMasterToReplicas(cluster, routingStrategy);
     }
@@ -59,6 +58,31 @@ public class RebalanceClusterTool {
         }
 
         return lmm;
+    }
+
+    /**
+     * Attempt inserting a node into a cluster the <code>RebalanceClusterTool</tt> was constructed with
+     * while following these constraints:
+     * <ul>
+     * <li>
+     * No node should receive multiple copies of same data
+     * (checked by {@link voldemort.client.rebalance.RebalanceClusterTool#getMultipleCopies(voldemort.cluster.Cluster)}.
+     * </li>
+     * <li>Partitions should be as evenly distributed among nodes as possible.</li>
+     * <li>Number of replicas re-mapped should be as low as possible
+     * (checked by {@link voldemort.client.rebalance.RebalanceClusterTool#getRemappedReplicas(voldemort.cluster.Cluster)}).
+     * <li>Minimize the number of copies that have to be performed.</li>
+     * </li>
+     * </ul>
+     *
+     * @param template A template node: with correct hostname, port, id information but with arbitrary partition ids
+     * @return If successful, a new cluster containing the template node; otherwise null.
+     */
+    public Cluster insertNode(Node template,
+                              int minNumberOfPartitions,
+                              int desiredNumberOfPartitions) {
+        // TODO: complete implementation
+        return null;
     }
 
     /**
