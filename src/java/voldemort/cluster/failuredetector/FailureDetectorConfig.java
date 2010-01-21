@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,7 +16,11 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.List;
 
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
@@ -24,6 +28,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * FailureDetectorConfig simply holds all the data that was available to it upon
@@ -48,7 +54,11 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_ASYNC_RECOVERY_INTERVAL = 10000;
 
-    public static final boolean DEFAULT_IS_JMX_ENABLED = false;
+    public static final List<String> DEFAULT_CATASTROPHIC_ERROR_TYPES = ImmutableList.of(ConnectException.class.getName(),
+                                                                                         UnknownHostException.class.getName(),
+                                                                                         NoRouteToHostException.class.getName());
+
+    public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 1000;
 
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
 
@@ -62,7 +72,9 @@ public class FailureDetectorConfig {
 
     protected long asyncRecoveryInterval = DEFAULT_ASYNC_RECOVERY_INTERVAL;
 
-    protected boolean isJmxEnabled = DEFAULT_IS_JMX_ENABLED;
+    protected List<String> catastrophicErrorTypes = DEFAULT_CATASTROPHIC_ERROR_TYPES;
+
+    protected long requestLengthThreshold = DEFAULT_REQUEST_LENGTH_THRESHOLD;
 
     protected Collection<Node> nodes;
 
@@ -105,7 +117,8 @@ public class FailureDetectorConfig {
         setThresholdCountMinimum(config.getFailureDetectorThresholdCountMinimum());
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
-        setJmxEnabled(config.isJmxEnabled());
+        setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
+        setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
     }
 
     /**
@@ -128,7 +141,8 @@ public class FailureDetectorConfig {
         setThresholdCountMinimum(config.getFailureDetectorThresholdCountMinimum());
         setThresholdInterval(config.getFailureDetectorThresholdInterval());
         setAsyncRecoveryInterval(config.getFailureDetectorAsyncRecoveryInterval());
-        setJmxEnabled(config.isJmxEnabled());
+        setCatastrophicErrorTypes(config.getFailureDetectorCatastrophicErrorTypes());
+        setRequestLengthThreshold(config.getFailureDetectorRequestLengthThreshold());
     }
 
     /**
@@ -307,30 +321,217 @@ public class FailureDetectorConfig {
         return this;
     }
 
+    /**
+     * Returns the interval of time for each the success ratio is valid. After
+     * this number of milliseconds passes, a new interval is started and all
+     * internal state of a node is cleared out. However, it may not necessarily
+     * be marked as available if it was unavailable in the previous interval.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Millisecond interval for the success ratio
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThresholdInterval
+     * @see ClientConfig#getFailureDetectorThresholdInterval
+     */
+
     public long getThresholdInterval() {
         return thresholdInterval;
     }
 
+    /**
+     * Assigns the interval of time for each the success ratio is valid. After
+     * this number of milliseconds passes, a new interval is started and all
+     * internal state of a node is cleared out. However, it may not necessarily
+     * be marked as available if it was unavailable in the previous interval.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param Millisecond interval for the success ratio
+     * 
+     * @exception IllegalArgumentException Thrown if the thresholdInterval
+     *            parameter is less than or equal to 0
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorThresholdInterval
+     * @see ClientConfig#getFailureDetectorThresholdInterval
+     */
+
     public FailureDetectorConfig setThresholdInterval(long thresholdInterval) {
+        if(thresholdInterval <= 0)
+            throw new IllegalArgumentException("thresholdInterval must be greater than 0");
+
         this.thresholdInterval = thresholdInterval;
         return this;
     }
+
+    /**
+     * Returns the interval of time (in milliseconds) that the thread will wait
+     * before checking if a given node has recovered.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link AsyncRecoveryFailureDetector} and {@link ThresholdFailureDetector}
+     * implementations.
+     * 
+     * @return Integer representing the millisecond interval for the success
+     *         ratio
+     * 
+     * @see AsyncRecoveryFailureDetector
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorAsyncRecoveryInterval
+     * @see ClientConfig#getFailureDetectorAsyncRecoveryInterval
+     */
 
     public long getAsyncRecoveryInterval() {
         return asyncRecoveryInterval;
     }
 
+    /**
+     * Assigns the interval of time (in milliseconds) that the thread will wait
+     * before checking if a given node has recovered.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the
+     * {@link AsyncRecoveryFailureDetector} and {@link ThresholdFailureDetector}
+     * implementations.
+     * 
+     * @param Number of milliseconds to wait between recovery attempts
+     * 
+     * @exception IllegalArgumentException Thrown if the thresholdInterval
+     *            parameter is less than or equal to 0
+     * 
+     * @see AsyncRecoveryFailureDetector
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorAsyncRecoveryInterval
+     * @see ClientConfig#getFailureDetectorAsyncRecoveryInterval
+     */
+
     public FailureDetectorConfig setAsyncRecoveryInterval(long asyncRecoveryInterval) {
+        if(asyncRecoveryInterval <= 0)
+            throw new IllegalArgumentException("asyncRecoveryInterval must be greater than 0");
+
         this.asyncRecoveryInterval = asyncRecoveryInterval;
         return this;
     }
 
-    public boolean isJmxEnabled() {
-        return isJmxEnabled;
+    /**
+     * Returns the list of Java Exception types that are considered
+     * catastrophic. Some FailureDetector implementations may not mark a given
+     * node as unavailable on each and every call to recordException. Instead
+     * they may apply logic to determine if such an exception should cause the
+     * node to be marked as unavailable. However, the list of so-called
+     * catastrophic errors provides such FailureDetector implementations a hint
+     * that receipt of such errors should cause the node to be marked as
+     * unavailable immediately, regardless of other logic.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return List of fully-qualified Java Exception class names against which
+     *         to check the exception provided to recordException; this list
+     *         should be immutable
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorCatastrophicErrorTypes
+     * @see ClientConfig#getFailureDetectorCatastrophicErrorTypes
+     */
+
+    public List<String> getCatastrophicErrorTypes() {
+        return catastrophicErrorTypes;
     }
 
-    public FailureDetectorConfig setJmxEnabled(boolean isJmxEnabled) {
-        this.isJmxEnabled = isJmxEnabled;
+    /**
+     * Assigns the list of Java Exception types that are considered
+     * catastrophic. Some FailureDetector implementations may not mark a given
+     * node as unavailable on each and every call to recordException. Instead
+     * they may apply logic to determine if such an exception should cause the
+     * node to be marked as unavailable. However, the list of so-called
+     * catastrophic errors provides such FailureDetector implementations a hint
+     * that receipt of such errors should cause the node to be marked as
+     * unavailable immediately, regardless of other logic.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param catastrophicErrorTypes List of fully-qualified Java Exception
+     *        class names against which to check the exception provided to
+     *        recordException; this list should be immutable and non-null
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorCatastrophicErrorTypes
+     * @see ClientConfig#getFailureDetectorCatastrophicErrorTypes
+     */
+
+    public FailureDetectorConfig setCatastrophicErrorTypes(List<String> catastrophicErrorTypes) {
+        this.catastrophicErrorTypes = Utils.notNull(catastrophicErrorTypes);
+        return this;
+    }
+
+    /**
+     * Returns the maximum time (in milliseconds) that a request (get, put,
+     * delete, etc.) can take before a given <i>successful</i> event is
+     * considered as a failure because the requests are--while
+     * successful--considered to be taking too long to complete.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @return Number of milliseconds representing maximum amount of time the
+     *         request should take before being considered as a failure
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorRequestLengthThreshold
+     * @see ClientConfig#getFailureDetectorRequestLengthThreshold
+     */
+
+    public long getRequestLengthThreshold() {
+        return requestLengthThreshold;
+    }
+
+    /**
+     * Assigns the value for the maximum time (in milliseconds) that a request
+     * (get, put, delete, etc.) can take before a given <i>successful</i> event
+     * is considered as a failure because the requests are--while
+     * successful--considered to be taking too long to complete.
+     * 
+     * <p/>
+     * 
+     * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
+     * implementation.
+     * 
+     * @param requestLengthThreshold Number of milliseconds representing maximum
+     *        amount of time the request should take before being considered as
+     *        a failure
+     * 
+     * @exception IllegalArgumentException Thrown if the requestLengthThreshold
+     *            parameter is less than 0
+     * 
+     * @see ThresholdFailureDetector
+     * @see VoldemortConfig#getFailureDetectorRequestLengthThreshold
+     * @see ClientConfig#getFailureDetectorRequestLengthThreshold
+     */
+
+    public FailureDetectorConfig setRequestLengthThreshold(long requestLengthThreshold) {
+        if(requestLengthThreshold <= 0)
+            throw new IllegalArgumentException("requestLengthThreshold must be positive");
+
+        this.requestLengthThreshold = requestLengthThreshold;
         return this;
     }
 

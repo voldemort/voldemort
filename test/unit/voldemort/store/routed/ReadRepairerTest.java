@@ -141,7 +141,7 @@ public class ReadRepairerTest extends TestCase {
                                                                                  .setStoreVerifier(create(subStores))
                                                                                  .setTime(time);
 
-        failureDetector = create(failureDetectorConfig);
+        failureDetector = create(failureDetectorConfig, false);
 
         RoutedStore store = new RoutedStore("test",
                                             subStores,

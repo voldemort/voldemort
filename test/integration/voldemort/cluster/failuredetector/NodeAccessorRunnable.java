@@ -1,3 +1,19 @@
+/*
+ * Copyright 2009-2010 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.cluster.failuredetector;
 
 import java.util.concurrent.CountDownLatch;
@@ -48,15 +64,18 @@ public class NodeAccessorRunnable implements Runnable {
         try {
             while(countDownLatch.getCount() > 0) {
                 if(failureDetector.isAvailable(node)) {
+                    long start = System.currentTimeMillis();
                     try {
                         failureDetectorConfig.getStoreVerifier().verifyStore(node);
-                        failureDetector.recordSuccess(node);
+                        failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
 
                         if(successCounter != null)
                             successCounter.incrementAndGet();
                     } catch(UnreachableStoreException e) {
                         failureDetectorConfig.getTime().sleep(failureDelay);
-                        failureDetector.recordException(node, exception);
+                        failureDetector.recordException(node,
+                                                        System.currentTimeMillis() - start,
+                                                        exception);
 
                         if(failureCounter != null)
                             failureCounter.incrementAndGet();

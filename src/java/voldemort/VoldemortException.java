@@ -30,10 +30,6 @@ public class VoldemortException extends RuntimeException {
         super();
     }
 
-    public short getId() {
-        return 1;
-    }
-
     public VoldemortException(String s, Throwable t) {
         super(s, t);
     }

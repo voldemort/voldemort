@@ -27,16 +27,13 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.management.Descriptor;
-import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
 import javax.management.MBeanException;
 import javax.management.MBeanOperationInfo;
 import javax.management.MBeanParameterInfo;
-import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.modelmbean.InvalidTargetObjectTypeException;
 import javax.management.modelmbean.ModelMBean;
@@ -47,6 +44,8 @@ import javax.management.modelmbean.ModelMBeanInfoSupport;
 import javax.management.modelmbean.ModelMBeanNotificationInfo;
 import javax.management.modelmbean.ModelMBeanOperationInfo;
 import javax.management.modelmbean.RequiredModelMBean;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
@@ -66,6 +65,9 @@ import voldemort.annotations.jmx.JmxSetter;
  * 
  */
 public class JmxUtils {
+
+    private static final Object LOCK = new Object();
+    private static final Logger logger = Logger.getLogger(JmxUtils.class);
 
     /**
      * Create a model mbean from an object using the description given in the
@@ -274,22 +276,15 @@ public class JmxUtils {
     }
 
     /**
-     * Register the given mbean with the server
+     * Register the given mbean with the platform mbean server
      * 
-     * @param server The server to register with
      * @param mbean The mbean to register
      * @param name The name to register under
      */
-    public static void registerMbean(MBeanServer server, ModelMBean mbean, ObjectName name) {
-        try {
-            server.registerMBean(mbean, name);
-        } catch(InstanceAlreadyExistsException e) {
-            throw new VoldemortException(e);
-        } catch(MBeanRegistrationException e) {
-            throw new VoldemortException(e);
-        } catch(NotCompliantMBeanException e) {
-            throw new VoldemortException(e);
-        }
+    public static void registerMbean(Object mbean, ObjectName name) {
+        registerMbean(ManagementFactory.getPlatformMBeanServer(),
+                      JmxUtils.createModelMBean(mbean),
+                      name);
     }
 
     /**
@@ -303,13 +298,30 @@ public class JmxUtils {
      * @param obj The object to register as an mbean
      */
     public static ObjectName registerMbean(String typeName, Object obj) {
-        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+        MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(obj.getClass()),
                                                     typeName);
-        if(mbeanServer.isRegistered(name))
-            JmxUtils.unregisterMbean(mbeanServer, name);
-        JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(obj), name);
+        registerMbean(server, JmxUtils.createModelMBean(obj), name);
         return name;
+    }
+
+    /**
+     * Register the given mbean with the server
+     * 
+     * @param server The server to register with
+     * @param mbean The mbean to register
+     * @param name The name to register under
+     */
+    public static void registerMbean(MBeanServer server, ModelMBean mbean, ObjectName name) {
+        try {
+            synchronized(LOCK) {
+                if(server.isRegistered(name))
+                    JmxUtils.unregisterMbean(server, name);
+                server.registerMBean(mbean, name);
+            }
+        } catch(Exception e) {
+            logger.error("Error registering mbean:", e);
+        }
     }
 
     /**
@@ -321,10 +333,8 @@ public class JmxUtils {
     public static void unregisterMbean(MBeanServer server, ObjectName name) {
         try {
             server.unregisterMBean(name);
-        } catch(InstanceNotFoundException e) {
-            throw new VoldemortException(e);
-        } catch(MBeanRegistrationException e) {
-            throw new VoldemortException(e);
+        } catch(Exception e) {
+            logger.error("Error unregistering mbean", e);
         }
     }
 
@@ -336,10 +346,8 @@ public class JmxUtils {
     public static void unregisterMbean(ObjectName name) {
         try {
             ManagementFactory.getPlatformMBeanServer().unregisterMBean(name);
-        } catch(InstanceNotFoundException e) {
-            throw new VoldemortException(e);
-        } catch(MBeanRegistrationException e) {
-            throw new VoldemortException(e);
+        } catch(Exception e) {
+            logger.error("Error unregistering mbean", e);
         }
     }
 

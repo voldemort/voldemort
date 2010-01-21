@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -103,14 +103,14 @@ public abstract class AbstractFailureDetectorTest {
         }
 
         try {
-            failureDetector.recordException(invalidNode, null);
+            failureDetector.recordException(invalidNode, 0, null);
             fail("Should not be able to call recordException on invalid node");
         } catch(IllegalArgumentException e) {
             // Expected...
         }
 
         try {
-            failureDetector.recordSuccess(invalidNode);
+            failureDetector.recordSuccess(invalidNode, 0);
             fail("Should not be able to call recordSuccess on invalid node");
         } catch(IllegalArgumentException e) {
             // Expected...

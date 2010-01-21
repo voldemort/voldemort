@@ -14,7 +14,6 @@ public class ProxyUnreachableException extends UnreachableStoreException {
         super(s);
     }
 
-    @Override
     public short getId() {
         return 15;
     }

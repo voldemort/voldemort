@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -122,9 +122,10 @@ public interface FailureDetector {
      * available.
      * 
      * @param node Node to check
+     * @param requestTime Length of time (in milliseconds) to perform request
      */
 
-    public void recordSuccess(Node node);
+    public void recordSuccess(Node node, long requestTime);
 
     /**
      * Allows external callers to provide input to the FailureDetector that an
@@ -135,10 +136,11 @@ public interface FailureDetector {
      * call to isAvailable return true, depending on the implementation.
      * 
      * @param node Node to check
+     * @param requestTime Length of time (in milliseconds) to perform request
      * @param e Exception that occurred when trying to access the node
      */
 
-    public void recordException(Node node, UnreachableStoreException e);
+    public void recordException(Node node, long requestTime, UnreachableStoreException e);
 
     /**
      * Adds a FailureDetectorListener instance that can receive event callbacks
