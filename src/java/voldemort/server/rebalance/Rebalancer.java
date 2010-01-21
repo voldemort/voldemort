@@ -235,9 +235,8 @@ public class Rebalancer implements Runnable {
                                                                     AdminClient adminClient,
                                                                     RebalancePartitionsInfo stealInfo)
                                                 throws Exception {
-                                            updateStatus("starting partitions migration for store:"
-                                                         + storeName);
-
+                                            logger.info("starting partitions migration for store:"
+                                                        + storeName);
                                             int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                                                         metadataStore.getNodeId(),
                                                                                         storeName,
@@ -257,15 +256,15 @@ public class Rebalancer implements Runnable {
                                                                              storeName,
                                                                              stealInfo.getPartitionList(),
                                                                              null);
-                                                logger.info("Deleted partitions "
-                                                            + stealInfo.getPartitionList()
-                                                            + " from donorNode:"
-                                                            + stealInfo.getDonorId()
-                                                            + " for store " + storeName);
+                                                logger.debug("Deleted partitions "
+                                                             + stealInfo.getPartitionList()
+                                                             + " from donorNode:"
+                                                             + stealInfo.getDonorId()
+                                                             + " for store " + storeName);
                                             }
 
-                                            updateStatus("partitions migration for store:"
-                                                         + storeName + " completed.");
+                                            logger.info("partitions migration for store:"
+                                                        + storeName + " completed.");
                                         }
                                     });
 

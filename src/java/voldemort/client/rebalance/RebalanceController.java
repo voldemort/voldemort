@@ -117,6 +117,9 @@ public class RebalanceController {
 
         ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 
+        // seed random with different seeds
+        final Random random = new Random();
+
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
             executor.execute(new Runnable() {
@@ -131,13 +134,12 @@ public class RebalanceController {
                             int stealerNodeId = rebalanceTask.getStealerNode();
                             List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
 
-                            // seed random with different seeds
-                            Random random = new Random(stealerNodeId);
                             while(rebalanceSubTaskList.size() > 0) {
-                                int index = (int) random.nextDouble() * rebalanceSubTaskList.size();
+                                int index = (int) (random.nextDouble() * rebalanceSubTaskList.size());
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
-                                            + " with rebalanceInfo:" + rebalanceSubTask);
+                                            + " with rebalanceInfo:" + rebalanceSubTask + " index:"
+                                            + index);
 
                                 try {
                                     int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);

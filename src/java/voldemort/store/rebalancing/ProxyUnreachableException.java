@@ -1,8 +1,8 @@
 package voldemort.store.rebalancing;
 
-import voldemort.VoldemortException;
+import voldemort.store.UnreachableStoreException;
 
-public class ProxyUnreachableException extends VoldemortException {
+public class ProxyUnreachableException extends UnreachableStoreException {
 
     private static final long serialVersionUID = 1L;
 
@@ -12,10 +12,6 @@ public class ProxyUnreachableException extends VoldemortException {
 
     public ProxyUnreachableException(String s) {
         super(s);
-    }
-
-    public ProxyUnreachableException(Throwable t) {
-        super(t);
     }
 
     @Override

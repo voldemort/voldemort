@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
@@ -211,7 +212,7 @@ public class VoldemortConfig implements Serializable {
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
         // Admin client should have less threads but very high buffer size.
-        this.adminMaxThreads = props.getInt("admin.max.threads", 10);
+        this.adminMaxThreads = props.getInt("admin.max.threads", 20);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
@@ -280,10 +281,10 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
-        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", -1);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
-                                                             FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
+                                                             BannagePeriodFailureDetector.class.getName());
 
         // We're changing the property from "client.node.bannage.ms" to
         // "failuredetector.bannage.period" so if we have the old one, migrate
