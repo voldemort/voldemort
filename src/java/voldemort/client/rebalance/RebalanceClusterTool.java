@@ -79,10 +79,129 @@ public class RebalanceClusterTool {
      * @return If successful, a new cluster containing the template node; otherwise null.
      */
     public Cluster insertNode(Node template,
-                              int minNumberOfPartitions,
-                              int desiredNumberOfPartitions) {
-        // TODO: complete implementation
-        return null;
+                              int minPartitions,
+                              int desiredParitions,
+                              int maxRemap) {
+        List<Node> nodes = new ArrayList<Node>();
+        nodes.addAll(cluster.getNodes());
+        nodes.add(template);
+        Cluster templateCluster = new Cluster(cluster.getName(), nodes);
+        Cluster targetCluster = null;
+        boolean foundBest = false;
+
+        for (int i = desiredParitions; i >= minPartitions && !foundBest; i--) {
+            System.out.println("Trying to move " + i + " partitions to the new node");
+            Cluster candidateCluster = createTargetCluster(templateCluster,
+                                                           i,
+                                                           maxRemap,
+                                                           ImmutableSet.<Integer>of(),
+                                                           masterToReplicas.keySet());
+            
+            // If we were able to successfully move partitions to the new node
+            if (candidateCluster.getNodeById(template.getId()).getNumberOfPartitions() > template.getNumberOfPartitions()) {
+                targetCluster = candidateCluster;
+                System.out.println("Success moving " + i + " partitions");
+                foundBest = isGoodEnough(candidateCluster, i);
+                if (foundBest) {
+                    System.out.println("Moving " + i + " partitions " + "found to be \"optimal\"");
+                } else
+                    System.out.println("Correct but suboptimal cluster, trying to move a smaller number of partitions");
+            }
+        }
+
+        return targetCluster;
+    }
+
+    private Cluster createTargetCluster(Cluster candidate,
+                                        int minPartitions,
+                                        int maxRemap,
+                                        Set<Integer> partitionsMoved,
+                                        Set<Integer> allPartitions) {
+        // This is pretty much a *brute force* method
+
+        // Base case: if we've tried all the partitions, return
+        Set<Integer> partitionsNotMoved = Sets.difference(allPartitions, partitionsMoved);
+        if (partitionsNotMoved.isEmpty())
+            return candidate;
+
+        // If the candidate is already good enough, return
+        if (isGoodEnough(candidate, minPartitions))
+            return candidate;
+
+        // Otherwise try the highest numbered partition that we haven't yet tried.
+        for (int i=candidate.getNumberOfPartitions() - 1; i >= 0; i--) {
+            if (!partitionsMoved.contains(i)) {
+                Cluster attempt = moveToLastNode(candidate, i, maxRemap);
+                if (attempt != null) {
+                    // If that succeeds, recur with partitionsMoved now containing the new partition
+                    return createTargetCluster(attempt,
+                                               minPartitions,
+                                               maxRemap,
+                                               Sets.union(partitionsMoved, ImmutableSet.of(i)),
+                                               allPartitions);
+                }
+            }
+        }
+
+        return candidate;
+    }
+
+    private Cluster moveToLastNode(Cluster candidate,
+                                   int partition,
+                                   int maxRemap) {
+        Node lastNode = candidate.getNodeById(candidate.getNumberOfNodes() - 1);
+        if (lastNode.getPartitionIds().contains(partition))
+            return null;
+
+        List<Node> nodes = new ArrayList<Node>();
+        for (int i = 0; i < candidate.getNumberOfNodes() - 1; i++) {
+            Node currNode = candidate.getNodeById(i);
+            if (currNode.getPartitionIds().contains(partition)) {
+                List<Integer> currNodePartitions = new ArrayList<Integer>();
+                for (int oldPartition: currNode.getPartitionIds()) {
+                    if (oldPartition != partition)
+                        currNodePartitions.add(oldPartition);
+                }
+                nodes.add(new Node(i,
+                                   currNode.getHost(),
+                                   currNode.getHttpPort(),
+                                   currNode.getSocketPort(),
+                                   currNode.getAdminPort(),
+                                   currNodePartitions));
+            } else
+                nodes.add(currNode);
+        }
+        
+        List<Integer> lastNodePartitions = new ArrayList<Integer>();
+        lastNodePartitions.addAll(lastNode.getPartitionIds());
+        lastNodePartitions.add(partition);
+        Collections.sort(lastNodePartitions);
+        nodes.add(new Node(lastNode.getId(),
+                           lastNode.getHost(),
+                           lastNode.getHttpPort(),
+                           lastNode.getSocketPort(),
+                           lastNode.getAdminPort(),
+                           lastNodePartitions));
+
+        Cluster attempt = new Cluster(candidate.getName(), nodes);
+        if (hasMultipleCopies(attempt) || getRemappedReplicaCount(attempt) > maxRemap)
+            return null;
+
+        return attempt;
+    }
+
+    public boolean isGoodEnough(Cluster candidate, int minPartitions) {
+        Node lastNode = candidate.getNodeById(candidate.getNumberOfNodes()-1);
+        if (lastNode.getNumberOfPartitions() != minPartitions)
+            return false;
+
+        for (int i=0; i < candidate.getNumberOfNodes() - 1; i++) {
+            Node curr = candidate.getNodeById(i);
+            if (curr.getNumberOfPartitions() < minPartitions)
+                return false;
+        }
+        
+        return true;
     }
 
     /**
