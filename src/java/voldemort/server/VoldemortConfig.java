@@ -133,8 +133,8 @@ public class VoldemortConfig implements Serializable {
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
 
-    private int streamMaxReadBytesPerSec;
-    private int streamMaxWriteBytesPerSec;
+    private long streamMaxReadBytesPerSec;
+    private long streamMaxWriteBytesPerSec;
 
     public int getGossipInterval() {
         return gossipInterval;
@@ -221,8 +221,9 @@ public class VoldemortConfig implements Serializable {
         this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 10 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxReadBytesPerSec = props.getBytes("stream.read.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
+                                                        10 * 1000 * 1000);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -608,19 +609,19 @@ public class VoldemortConfig implements Serializable {
         return enableAdminServer;
     }
 
-    public int getStreamMaxReadBytesPerSec() {
+    public long getStreamMaxReadBytesPerSec() {
         return streamMaxReadBytesPerSec;
     }
 
-    public void setStreamMaxReadBytesPerSec(int streamMaxReadBytesPerSec) {
+    public void setStreamMaxReadBytesPerSec(long streamMaxReadBytesPerSec) {
         this.streamMaxReadBytesPerSec = streamMaxReadBytesPerSec;
     }
 
-    public int getStreamMaxWriteBytesPerSec() {
+    public long getStreamMaxWriteBytesPerSec() {
         return streamMaxWriteBytesPerSec;
     }
 
-    public void setStreamMaxWriteBytesPerSec(int streamMaxWriteBytesPerSec) {
+    public void setStreamMaxWriteBytesPerSec(long streamMaxWriteBytesPerSec) {
         this.streamMaxWriteBytesPerSec = streamMaxWriteBytesPerSec;
     }
 
