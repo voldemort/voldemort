@@ -17,6 +17,7 @@
 package voldemort.client;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -254,8 +255,6 @@ public class AdminServiceBasicTest extends TestCase {
         // do truncate request
         getAdminClient().truncate(0, testStoreName);
 
-        RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
-                                                               .getRoutingStrategy(testStoreName);
         store = getStore(0, testStoreName);
 
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
@@ -263,7 +262,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
-    public void testFetch() throws IOException {
+    public void testFetch() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
 
@@ -350,8 +349,8 @@ public class AdminServiceBasicTest extends TestCase {
         RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
                                                                         0,
                                                                         rebalancePartitionList,
+                                                                        new ArrayList<Integer>(0),
                                                                         Arrays.asList(testStoreName),
-                                                                        false,
                                                                         0);
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);

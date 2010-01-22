@@ -638,9 +638,9 @@ _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
-      name='deleteDonorPartitions', full_name='voldemort.InitiateRebalanceNodeRequest.deleteDonorPartitions', index=4,
-      number=6, type=8, cpp_type=7, label=2,
-      default_value=False,
+      name='deletePartitions', full_name='voldemort.InitiateRebalanceNodeRequest.deletePartitions', index=4,
+      number=6, type=5, cpp_type=1, label=3,
+      default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),

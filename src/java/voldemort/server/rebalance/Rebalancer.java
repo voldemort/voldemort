@@ -144,7 +144,6 @@ public class Rebalancer implements Runnable {
 
                                         private List<Integer> rebalanceStatusList = new ArrayList<Integer>();
                                         AdminClient adminClient = null;
-                                        volatile boolean forceStop = false;
                                         final ExecutorService executors = createExecutors(maxParallelStoresRebalancing);
 
                                         @Override
@@ -231,13 +230,13 @@ public class Rebalancer implements Runnable {
                                             executors.shutdownNow();
                                         }
 
+                                        @SuppressWarnings("cast")
                                         private void rebalanceStore(String storeName,
                                                                     AdminClient adminClient,
                                                                     RebalancePartitionsInfo stealInfo)
                                                 throws Exception {
-                                            updateStatus("starting partitions migration for store:"
-                                                         + storeName);
-
+                                            logger.info("starting partitions migration for store:"
+                                                        + storeName);
                                             int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                                                         metadataStore.getNodeId(),
                                                                                         storeName,
@@ -252,20 +251,20 @@ public class Rebalancer implements Runnable {
 
                                             rebalanceStatusList.remove((Object) new Integer(asyncId));
 
-                                            if(stealInfo.isDeleteDonorPartitions()) {
+                                            if(stealInfo.getDeletePartitionsList().size() > 0) {
                                                 adminClient.deletePartitions(stealInfo.getDonorId(),
                                                                              storeName,
-                                                                             stealInfo.getPartitionList(),
+                                                                             stealInfo.getDeletePartitionsList(),
                                                                              null);
-                                                logger.info("Deleted partitions "
-                                                            + stealInfo.getPartitionList()
-                                                            + " from donorNode:"
-                                                            + stealInfo.getDonorId()
-                                                            + " for store " + storeName);
+                                                logger.debug("Deleted partitions "
+                                                             + stealInfo.getDeletePartitionsList()
+                                                             + " from donorNode:"
+                                                             + stealInfo.getDonorId()
+                                                             + " for store " + storeName);
                                             }
 
-                                            updateStatus("partitions migration for store:"
-                                                         + storeName + " completed.");
+                                            logger.info("partitions migration for store:"
+                                                        + storeName + " completed.");
                                         }
                                     });
 

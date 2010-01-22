@@ -16,23 +16,37 @@ public class RebalancePartitionsInfo {
     private final int stealerId;
     private final int donorId;
     private final List<Integer> partitionList;
-    private final boolean deleteDonorPartitions;
+    private final List<Integer> deletePartitionsList;
     private List<String> unbalancedStoreList;
 
     private int attempt;
 
+    /**
+     * Rebalance Partitions info maintains all information needed for
+     * rebalancing of one stealer node from one donor node.
+     * <p>
+     * 
+     * @param stealerNodeId
+     * @param donorId
+     * @param partitionList
+     * @param deletePartitionsList : For cases where replication mapping is
+     *        changing due to partition migration we only want to copy data and
+     *        not delete them from donor node.
+     * @param unbalancedStoreList
+     * @param attempt
+     */
     public RebalancePartitionsInfo(int stealerNodeId,
                                    int donorId,
                                    List<Integer> partitionList,
+                                   List<Integer> deletePartitionsList,
                                    List<String> unbalancedStoreList,
-                                   boolean deleteDonorPartitions,
                                    int attempt) {
         super();
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.partitionList = partitionList;
         this.attempt = attempt;
-        this.deleteDonorPartitions = deleteDonorPartitions;
+        this.deletePartitionsList = deletePartitionsList;
         this.unbalancedStoreList = unbalancedStoreList;
     }
 
@@ -45,7 +59,7 @@ public class RebalancePartitionsInfo {
             this.donorId = (Integer) map.get("donorId");
             this.partitionList = (List<Integer>) map.get("partitionList");
             this.attempt = (Integer) map.get("attempt");
-            this.deleteDonorPartitions = (Boolean) map.get("deleteDonorPartitions");
+            this.deletePartitionsList = (List<Integer>) map.get("deletePartitionsList");
             this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
@@ -53,8 +67,8 @@ public class RebalancePartitionsInfo {
         }
     }
 
-    public boolean isDeleteDonorPartitions() {
-        return deleteDonorPartitions;
+    public List<Integer> getDeletePartitionsList() {
+        return deletePartitionsList;
     }
 
     public void setAttempt(int attempt) {
@@ -98,7 +112,7 @@ public class RebalancePartitionsInfo {
                               .put("donorId", donorId)
                               .put("partitionList", partitionList)
                               .put("unbalancedStoreList", unbalancedStoreList)
-                              .put("deleteDonorPartitions", deleteDonorPartitions)
+                              .put("deletePartitionsList", deletePartitionsList)
                               .put("attempt", attempt)
                               .build();
 

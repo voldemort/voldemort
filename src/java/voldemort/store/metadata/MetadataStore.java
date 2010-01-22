@@ -74,7 +74,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String CLUSTER_STATE_KEY = "cluster.state";
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
-    public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info";
+    public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY,
                                                                   STORES_KEY,
@@ -140,6 +140,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @param key
      * @param value
      */
+    @SuppressWarnings("unchecked")
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
 
@@ -230,8 +231,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore get()");
             }
         } catch(Exception e) {
-            throw new VoldemortException("Failed to get() for key:"
-                                         + ByteUtils.getString(keyBytes.get(), "UTF-8"), e);
+            throw new VoldemortException("Failed to read metadata key:"
+                                                 + ByteUtils.getString(keyBytes.get(), "UTF-8")
+                                                 + " delete config/.temp config/.version directories and restart.",
+                                         e);
         }
 
     }
@@ -358,8 +361,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         initCache(REBALANCING_STEAL_INFO, new RebalancePartitionsInfo(-1,
                                                                       -1,
                                                                       new ArrayList<Integer>(0),
+                                                                      new ArrayList<Integer>(0),
                                                                       Arrays.asList(""),
-                                                                      false,
                                                                       0));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());

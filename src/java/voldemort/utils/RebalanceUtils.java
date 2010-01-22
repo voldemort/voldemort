@@ -235,7 +235,7 @@ public class RebalanceUtils {
         return new AdminClient(cluster, config);
     }
 
-    public static List<String> getStoreNameList(Cluster cluster, AdminClient adminClient) {
+    public static List<StoreDefinition> getStoreNameList(Cluster cluster, AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
             List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
                                                             .getValue();
@@ -246,12 +246,12 @@ public class RebalanceUtils {
                                      + cluster);
     }
 
-    public static List<String> getWritableStores(List<StoreDefinition> storeDefList) {
-        List<String> storeNameList = new ArrayList<String>(storeDefList.size());
+    public static List<StoreDefinition> getWritableStores(List<StoreDefinition> storeDefList) {
+        List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
 
         for(StoreDefinition def: storeDefList) {
             if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
-                storeNameList.add(def.getName());
+                storeNameList.add(def);
             }
             if(rebalancingStoreEngineBlackList.contains(def.getType())) {
 
@@ -262,4 +262,24 @@ public class RebalanceUtils {
         return storeNameList;
     }
 
+    public static StoreDefinition getMaxReplicationStore(List<StoreDefinition> storeDefList) {
+        int maxReplication = 0;
+        StoreDefinition maxStore = null;
+        for(StoreDefinition def: storeDefList) {
+            if(maxReplication < def.getReplicationFactor()) {
+                maxReplication = def.getReplicationFactor();
+                maxStore = def;
+            }
+        }
+
+        return maxStore;
+    }
+
+    public static List<String> getStoreNames(List<StoreDefinition> storeDefList) {
+        List<String> storeList = new ArrayList<String>(storeDefList.size());
+        for(StoreDefinition def: storeDefList) {
+            storeList.add(def.getName());
+        }
+        return storeList;
+    }
 }

@@ -43,7 +43,7 @@ import voldemort.versioning.Versioned;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 10000;
+    protected static int NUM_KEYS = 100;
     protected static String testStoreName = "test";
     protected static String storeDefFile = "test/common/voldemort/config/single-store.xml";
 
@@ -263,7 +263,8 @@ public abstract class AbstractRebalanceTest {
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
-                                                                                                .setSocketTimeout(120, TimeUnit.SECONDS));
+                                                                                                .setSocketTimeout(120,
+                                                                                                                  TimeUnit.SECONDS));
 
         final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
                                                                                                null,
@@ -363,8 +364,8 @@ public abstract class AbstractRebalanceTest {
 
     @Test
     public void testServerSideRouting() throws Exception {
-        Cluster localCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3 }, {} });
+        Cluster localCluster = ServerTestUtils.getLocalCluster(2,
+                                                               new int[][] { { 0, 1, 2, 3 }, {} });
 
         Cluster localTargetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { {},
                 { 0, 1, 2, 3 } });
@@ -386,7 +387,6 @@ public abstract class AbstractRebalanceTest {
                                                                                node.getHost(),
                                                                                node.getSocketPort(),
                                                                                true);
-
 
         // start get operation.
         executors.execute(new Runnable() {
@@ -479,9 +479,8 @@ public abstract class AbstractRebalanceTest {
         Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
         for(int nodeId: nodeList) {
             Node node = cluster.getNodeById(nodeId);
-            storeMap.put(nodeId, getSocketStore(testStoreName,
-                                                node.getHost(),
-                                                node.getSocketPort()));
+            storeMap.put(nodeId,
+                         getSocketStore(testStoreName, node.getHost(), node.getSocketPort()));
 
         }
 
@@ -515,7 +514,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     protected List<Integer> getUnavailablePartitions(Cluster targetCluster,
-                                                   List<Integer> availablePartitions) {
+                                                     List<Integer> availablePartitions) {
         List<Integer> unavailablePartitions = new ArrayList<Integer>();
 
         for(Node node: targetCluster.getNodes()) {
@@ -546,15 +545,13 @@ public abstract class AbstractRebalanceTest {
     }
 
     protected void checkGetEntries(Node node,
-                                 Cluster cluster,
-                                 List<Integer> unavailablePartitions,
-                                 List<Integer> availablePartitions) {
+                                   Cluster cluster,
+                                   List<Integer> unavailablePartitions,
+                                   List<Integer> availablePartitions) {
         int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
-        SocketStore store = getSocketStore(testStoreName,
-                                           node.getHost(),
-                                           node.getSocketPort());
+        SocketStore store = getSocketStore(testStoreName, node.getHost(), node.getSocketPort());
 
         for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));

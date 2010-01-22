@@ -465,12 +465,10 @@ public class AdminClient {
             List<StoreDefinition> storeDefList = getRemoteStoreDefList(nodeId).getValue();
             Cluster cluster = getRemoteCluster(nodeId).getValue();
 
-            List<String> writableStores = RebalanceUtils.getWritableStores(storeDefList);
+            List<StoreDefinition> writableStores = RebalanceUtils.getWritableStores(storeDefList);
 
-            for(StoreDefinition def: storeDefList) {
-                if(writableStores.contains(def.getName())) {
-                    restoreStoreFromReplication(nodeId, cluster, def, executors);
-                }
+            for(StoreDefinition def: writableStores) {
+                restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
         } finally {
             executors.shutdown();
@@ -530,7 +528,6 @@ public class AdminClient {
     private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
                                                               int nodeId,
                                                               RoutingStrategy strategy) {
-        Node node = cluster.getNodeById(nodeId);
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
@@ -594,7 +591,7 @@ public class AdminClient {
                                                                                                                 .setStealerId(stealInfo.getStealerId())
                                                                                                                 .addAllPartitions(stealInfo.getPartitionList())
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
-                                                                                                                .setDeleteDonorPartitions(stealInfo.isDeleteDonorPartitions())
+                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)

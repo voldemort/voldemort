@@ -89,16 +89,15 @@ public class RebalanceController {
      * @param targetCluster: target Cluster configuration
      */
     public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
-        logger.info("Current Cluster configuration:" + currentCluster);
-        logger.info("Target Cluster configuration:" + targetCluster);
+        logger.debug("Current Cluster configuration:" + currentCluster);
+        logger.debug("Target Cluster configuration:" + targetCluster);
 
         adminClient.setAdminClientCluster(currentCluster);
 
-        List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
-
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
-                                                                                   storeList,
+                                                                                   RebalanceUtils.getStoreNameList(currentCluster,
+                                                                                                                   adminClient),
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
@@ -117,6 +116,9 @@ public class RebalanceController {
 
         ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 
+        // seed random with different seeds
+        final Random random = new Random();
+
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
             executor.execute(new Runnable() {
@@ -131,10 +133,8 @@ public class RebalanceController {
                             int stealerNodeId = rebalanceTask.getStealerNode();
                             List<RebalancePartitionsInfo> rebalanceSubTaskList = rebalanceTask.getRebalanceTaskList();
 
-                            // seed random with different seeds
-                            Random random = new Random(stealerNodeId);
                             while(rebalanceSubTaskList.size() > 0) {
-                                int index = (int) random.nextDouble() * rebalanceSubTaskList.size();
+                                int index = (int) (random.nextDouble() * rebalanceSubTaskList.size());
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
                                             + " with rebalanceInfo:" + rebalanceSubTask);

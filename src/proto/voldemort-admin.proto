@@ -102,7 +102,7 @@ message InitiateRebalanceNodeRequest {
   required int32 donor_id = 3;
   repeated int32 partitions = 4;
   required int32 attempt = 5;
-  required bool  deleteDonorPartitions = 6;
+  repeated int32  deletePartitions = 6;
   repeated string unbalanced_store = 7;
 }
 
