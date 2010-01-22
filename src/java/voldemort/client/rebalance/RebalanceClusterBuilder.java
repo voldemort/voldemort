@@ -19,6 +19,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ * Insert a node into the cluster in a way that preserves most of the existing cluster's characteristics
+ * and moves as little data around as possible.
+ * 
+ * Most of the logic resides in {@link voldemort.client.rebalance.RebalanceClusterTool}, see that class for
+ * more documentation.
+ * 
  * @author afeinberg
  */
 public class RebalanceClusterBuilder {
@@ -40,6 +46,18 @@ public class RebalanceClusterBuilder {
         this.desiredNumPartitions = desiredNumPartitions;
     }
 
+    /**
+     * Create an instance of <tt>RebalanceClusterBuilder</tt>. Parses the cluster.xml and stores.xml file to
+     * find the store with the highest replication-factor.
+     *
+     * @param clusterXmlFile Path to the original cluster.xml
+     * @param storesXmlFile Path to the stores.xml
+     * @param maxRemappedReplicas Maximum number of partition to replica mappings that can change
+     * @param minNumPartitions Minimum number of partitions that should be moved to new nodes
+     * @param desiredNumPartitions Desired number of partitions to move to the new node
+     * @return Constructed instance of <tt>RebalanceClusterBuilder</tt>
+     * @throws IOException If unable to read from cluster.xml or stores.xml
+     */
     public static RebalanceClusterBuilder create(String clusterXmlFile,
                                                  String storesXmlFile,
                                                  int maxRemappedReplicas,
@@ -61,6 +79,17 @@ public class RebalanceClusterBuilder {
                                            desiredNumPartitions);
     }
 
+    /**
+     * Create a targetCluster.xml as a string. If a file is specified, output to that file; otherwise print to
+     * screen. Fail and exit if we're unable to add the new node at all.
+     *
+     * @param targetClusterXmlFile File to write to (will be written to STDOUT if null)
+     * @param host Host name of the new node
+     * @param httpPort Http port for the new node
+     * @param socketPort Socket port for the new node
+     * @param adminPort Admin port for the new node
+     * @throws IOException If we're unable to write the cluster XML to file
+     */
     public void build(String targetClusterXmlFile,
                       String host,
                       int httpPort,
@@ -122,6 +151,17 @@ public class RebalanceClusterBuilder {
         }
     }
 
+    /**
+     * Main method to run to create a targetCluster.xml. Example usage:
+     * <code>
+     * ./bin/voldemort-rebalance-configure.sh \
+     * --cluster ./test/common/voldemort/config/rebalance-tool-big-cluster.xml \
+     * --stores ./test/common/voldemort/config/rebalance-tool-stores.xml \
+     * --host node6 --http-port 8081 --socket-port 6666 --target-cluster ./targetCluster.xml
+     * </code>
+     * @param args See USAGE for details
+     * @throws IOException If unable to read input files or write to output file
+     */
     public static void main(String [] args) throws IOException {
         OptionParser parser = new OptionParser();
 

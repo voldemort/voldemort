@@ -61,7 +61,7 @@ public class RebalanceClusterTool {
     }
 
     /**
-     * Attempt inserting a node into a cluster the <code>RebalanceClusterTool</tt> was constructed with
+     * Attempt inserting a node into a cluster the <tt>RebalanceClusterTool</tt> was constructed with
      * while following these constraints:
      * <ul>
      * <li>
@@ -75,12 +75,15 @@ public class RebalanceClusterTool {
      * </li>
      * </ul>
      *
-     * @param template A template node: with correct hostname, port, id information but with arbitrary partition ids
+     * @param template A template node: with correct hostname, port, id information but with empty partition id list
+     * @param minPartitions We want to move <b>at least</b> this many partitions to this node
+     * @param desiredPartitions The number of partitions that we'd want <b>ideally</b> to move to the new node
+     * @param maxRemap Maximum number of existing partition to replica mappings that we can remap
      * @return If successful, a new cluster containing the template node; otherwise null.
      */
     public Cluster insertNode(Node template,
                               int minPartitions,
-                              int desiredParitions,
+                              int desiredPartitions,
                               int maxRemap) {
         List<Node> nodes = new ArrayList<Node>();
         nodes.addAll(cluster.getNodes());
@@ -89,7 +92,7 @@ public class RebalanceClusterTool {
         Cluster targetCluster = null;
         boolean foundBest = false;
 
-        for (int i = desiredParitions; i >= minPartitions && !foundBest; i--) {
+        for (int i = desiredPartitions; i >= minPartitions && !foundBest; i--) {
             System.out.println("Trying to move " + i + " partitions to the new node");
             Cluster candidateCluster = createTargetCluster(templateCluster,
                                                            i,
