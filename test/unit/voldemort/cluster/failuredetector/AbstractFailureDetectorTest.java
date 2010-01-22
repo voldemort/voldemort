@@ -33,6 +33,7 @@ import javax.management.remote.JMXServiceURL;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import voldemort.cluster.Cluster;
@@ -79,7 +80,9 @@ public abstract class AbstractFailureDetectorTest {
         assertEquals(false, failureDetector.isAvailable(node));
     }
 
+    // No longer a valid test: assumes the node list is static, but now it's being changed on demand
     @Test
+    @Ignore
     public void testInvalidNode() throws Exception {
         Node invalidNode = new Node(10000,
                                     "localhost",
