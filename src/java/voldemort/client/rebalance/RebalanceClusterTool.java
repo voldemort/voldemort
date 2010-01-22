@@ -105,9 +105,9 @@ public class RebalanceClusterTool {
                 targetCluster = candidateCluster;
                 System.out.println("Success moving " + i + " partitions");
                 foundBest = isGoodEnough(candidateCluster, i);
-                if (foundBest) {
+                if (foundBest)
                     System.out.println("Moving " + i + " partitions " + "found to be \"optimal\"");
-                } else
+                else
                     System.out.println("Correct but suboptimal cluster, trying to move a smaller number of partitions");
             }
         }
