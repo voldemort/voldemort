@@ -89,8 +89,8 @@ public class RebalanceController {
      * @param targetCluster: target Cluster configuration
      */
     public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
-        logger.info("Current Cluster configuration:" + currentCluster);
-        logger.info("Target Cluster configuration:" + targetCluster);
+        logger.debug("Current Cluster configuration:" + currentCluster);
+        logger.debug("Target Cluster configuration:" + targetCluster);
 
         adminClient.setAdminClientCluster(currentCluster);
 
@@ -137,8 +137,7 @@ public class RebalanceController {
                                 int index = (int) (random.nextDouble() * rebalanceSubTaskList.size());
                                 RebalancePartitionsInfo rebalanceSubTask = rebalanceSubTaskList.remove(index);
                                 logger.info("Starting rebalancing for stealerNode:" + stealerNodeId
-                                            + " with rebalanceInfo:" + rebalanceSubTask + " index:"
-                                            + index);
+                                            + " with rebalanceInfo:" + rebalanceSubTask);
 
                                 try {
                                     int rebalanceAsyncId = startNodeRebalancing(rebalanceSubTask);
