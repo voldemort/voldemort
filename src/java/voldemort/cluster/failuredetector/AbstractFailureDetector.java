@@ -216,8 +216,8 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         if(nodeStatus == null) {
             logger.warn("creating new node status for node " + node + " for failure detector.");
-            nodeStatusMap.put(node, createNodeStatus(node, failureDetectorConfig.getTime()
-                                                                                .getMilliseconds()));
+            nodeStatus = createNodeStatus(node, failureDetectorConfig.getTime().getMilliseconds());
+            nodeStatusMap.put(node, nodeStatus);
         }
 
         return nodeStatus;
