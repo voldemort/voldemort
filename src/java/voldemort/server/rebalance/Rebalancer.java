@@ -144,7 +144,6 @@ public class Rebalancer implements Runnable {
 
                                         private List<Integer> rebalanceStatusList = new ArrayList<Integer>();
                                         AdminClient adminClient = null;
-                                        volatile boolean forceStop = false;
                                         final ExecutorService executors = createExecutors(maxParallelStoresRebalancing);
 
                                         @Override
@@ -231,6 +230,7 @@ public class Rebalancer implements Runnable {
                                             executors.shutdownNow();
                                         }
 
+                                        @SuppressWarnings("cast")
                                         private void rebalanceStore(String storeName,
                                                                     AdminClient adminClient,
                                                                     RebalancePartitionsInfo stealInfo)

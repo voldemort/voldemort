@@ -140,6 +140,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @param key
      * @param value
      */
+    @SuppressWarnings("unchecked")
     public void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
 

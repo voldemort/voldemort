@@ -255,8 +255,6 @@ public class AdminServiceBasicTest extends TestCase {
         // do truncate request
         getAdminClient().truncate(0, testStoreName);
 
-        RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
-                                                               .getRoutingStrategy(testStoreName);
         store = getStore(0, testStoreName);
 
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
@@ -264,7 +262,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
-    public void testFetch() throws IOException {
+    public void testFetch() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
 

@@ -80,6 +80,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
      * Math.abs returns Integer.MIN_VALUE if a == Integer.MIN_VALUE and this
      * method returns Integer.MAX_VALUE in that case.
      */
+    @SuppressWarnings("unused")
     private static int abs(int a) {
         if(a >= 0)
             return a;

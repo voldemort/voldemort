@@ -221,14 +221,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         writeResults(outputStream, results);
     }
 
-    private void handleGetIgnoreInvalidMetadataException(DataInputStream inputStream,
-                                                         DataOutputStream outputStream,
-                                                         Store<ByteArray, byte[]> store)
-            throws IOException {
-        Store<ByteArray, byte[]> uncheckedStore = getStoreRepository().getStorageEngine(store.getName());
-        handleGet(inputStream, outputStream, uncheckedStore);
-    }
-
     private void handleGetAll(DataInputStream inputStream,
                               DataOutputStream outputStream,
                               Store<ByteArray, byte[]> store) throws IOException {

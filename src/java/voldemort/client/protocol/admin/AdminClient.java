@@ -528,7 +528,6 @@ public class AdminClient {
     private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
                                                               int nodeId,
                                                               RoutingStrategy strategy) {
-        Node node = cluster.getNodeById(nodeId);
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
