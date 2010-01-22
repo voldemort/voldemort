@@ -94,11 +94,10 @@ public class RebalanceController {
 
         adminClient.setAdminClientCluster(currentCluster);
 
-        List<String> storeList = RebalanceUtils.getStoreNameList(currentCluster, adminClient);
-
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
-                                                                                   storeList,
+                                                                                   RebalanceUtils.getStoreNameList(currentCluster,
+                                                                                                                   adminClient),
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 

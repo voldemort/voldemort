@@ -2,16 +2,22 @@ package voldemort.client.rebalance;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.StoreDefinition;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+
+import com.google.common.collect.Multimap;
 
 /**
  * Compares the currentCluster configuration with the desired
@@ -25,12 +31,14 @@ import voldemort.utils.RebalanceUtils;
 public class RebalanceClusterPlan {
 
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
+    private final List<StoreDefinition> storeDefList;
 
     public RebalanceClusterPlan(Cluster currentCluster,
                                 Cluster targetCluster,
-                                List<String> storeList,
+                                List<StoreDefinition> storeDefList,
                                 boolean deleteDonorPartition) {
-        rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
+        this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
+        this.storeDefList = storeDefList;
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should not change !!");
@@ -38,7 +46,7 @@ public class RebalanceClusterPlan {
         for(Node node: targetCluster.getNodes()) {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
                                                                                    targetCluster,
-                                                                                   storeList,
+                                                                                   RebalanceUtils.getStoreNames(storeDefList),
                                                                                    node.getId(),
                                                                                    deleteDonorPartition);
             if(rebalanceNodeList.size() > 0) {
@@ -56,41 +64,108 @@ public class RebalanceClusterPlan {
                                                                List<String> storeList,
                                                                int stealNodeId,
                                                                boolean deleteDonorPartition) {
-        Map<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
         Map<Integer, Integer> currentPartitionsToNodeMap = RebalanceUtils.getCurrentPartitionMapping(currentCluster);
-        List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
-        List<Integer> currentList;
+        List<Integer> stealList = getStealList(currentCluster, targetCluster, stealNodeId);
 
-        if(RebalanceUtils.containsNode(currentCluster, stealNodeId))
-            currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
-        else
-            currentList = new ArrayList<Integer>();
+        Map<Integer, List<Integer>> masterPartitionsMap = getStealMasterPartitions(stealList,
+                                                                                   currentPartitionsToNodeMap);
 
-        for(int p: targetList) {
-            if(!currentList.contains(p)) {
-                // new extra partition
-                int currentMasterNode = currentPartitionsToNodeMap.get(p);
-                // create array if needed
-                if(!stealPartitionsMap.containsKey(currentMasterNode)) {
-                    stealPartitionsMap.put(currentMasterNode, new ArrayList<Integer>());
-                }
+        // copies partitions needed to satisfy new replication mapping.
+        // these partitions should be copied but not deleted from original node.
+        Map<Integer, List<Integer>> replicationPartitionsMap = getReplicationChanges(currentCluster,
+                                                                                     targetCluster,
+                                                                                     stealNodeId,
+                                                                                     currentPartitionsToNodeMap);
 
-                // add partition to list.
-                stealPartitionsMap.get(currentMasterNode).add(p);
+        List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
+        for(Node donorNode: currentCluster.getNodes()) {
+            Set<Integer> stealPartitions = new HashSet<Integer>();
+            Set<Integer> deletePartitions = new HashSet<Integer>();
+
+            if(masterPartitionsMap.containsKey(donorNode.getId())) {
+                stealPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
+                if(deleteDonorPartition)
+                    deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
+            }
+
+            if(replicationPartitionsMap.containsKey(donorNode.getId())) {
+                stealPartitions.addAll(replicationPartitionsMap.get(donorNode.getId()));
+            }
+
+            if(stealPartitions.size() > 0) {
+                stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
+                                                              donorNode.getId(),
+                                                              new ArrayList<Integer>(stealPartitions),
+                                                              new ArrayList<Integer>(deletePartitions),
+                                                              storeList,
+                                                              0));
             }
         }
 
-        List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
-        for(Entry<Integer, List<Integer>> stealEntry: stealPartitionsMap.entrySet()) {
-            stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
-                                                          stealEntry.getKey(),
-                                                          stealEntry.getValue(),
-                                                          storeList,
-                                                          deleteDonorPartition,
-                                                          0));
+        return stealInfoList;
+    }
+
+    private List<Integer> getStealList(Cluster currentCluster,
+                                       Cluster targetCluster,
+                                       int stealNodeId) {
+        List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
+                                                                       .getPartitionIds());
+
+        List<Integer> currentList = new ArrayList<Integer>();
+        if(RebalanceUtils.containsNode(currentCluster, stealNodeId))
+            currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
+
+        // remove all current partitions from targetList
+        targetList.removeAll(currentList);
+
+        return targetList;
+    }
+
+    private Map<Integer, List<Integer>> getReplicationChanges(Cluster currentCluster,
+                                                              Cluster targetCluster,
+                                                              int stealNodeId,
+                                                              Map<Integer, Integer> currentPartitionsToNodeMap) {
+        Map<Integer, List<Integer>> replicationMapping = new HashMap<Integer, List<Integer>>();
+        List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
+
+        // get changing replication mapping
+        RebalanceClusterTool clusterTool = new RebalanceClusterTool(currentCluster,
+                                                                    RebalanceUtils.getMaxReplicationStore(this.storeDefList));
+        Multimap<Integer, Pair<Integer, Integer>> replicationChanges = clusterTool.getRemappedReplicas(targetCluster);
+
+        for(final Entry<Integer, Pair<Integer, Integer>> entry: replicationChanges.entries()) {
+            int newReplicationPartition = entry.getValue().getSecond();
+            if(targetList.contains(newReplicationPartition)) {
+                // stealerNode need to replicate some new partition now.
+                int donorNode = currentPartitionsToNodeMap.get(entry.getKey());
+                // TODO LOW: not copying partitions on same node for now
+                if(donorNode != stealNodeId)
+                    createAndAdd(replicationMapping, donorNode, entry.getKey());
+            }
         }
 
-        return stealInfoList;
+        return replicationMapping;
+    }
+
+    private Map<Integer, List<Integer>> getStealMasterPartitions(List<Integer> stealList,
+                                                                 Map<Integer, Integer> currentPartitionsToNodeMap) {
+        HashMap<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
+        for(int p: stealList) {
+            int donorNode = currentPartitionsToNodeMap.get(p);
+            createAndAdd(stealPartitionsMap, donorNode, p);
+        }
+
+        return stealPartitionsMap;
+    }
+
+    private void createAndAdd(Map<Integer, List<Integer>> map, int key, int value) {
+        // create array if needed
+        if(!map.containsKey(key)) {
+            map.put(key, new ArrayList<Integer>());
+        }
+
+        // add partition to list.
+        map.get(key).add(value);
     }
 
     @Override

@@ -18,6 +18,7 @@ package voldemort.store.rebalancing;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -141,8 +142,8 @@ public class RedirectingStoreTest extends TestCase {
                                new RebalancePartitionsInfo(0,
                                                            1,
                                                            Arrays.asList(1),
+                                                           new ArrayList<Integer>(0),
                                                            Arrays.asList(testStoreName),
-                                                           false,
                                                            0));
 
         // for Rebalancing State we should see proxyGet()
@@ -176,8 +177,8 @@ public class RedirectingStoreTest extends TestCase {
                                new RebalancePartitionsInfo(0,
                                                            1,
                                                            Arrays.asList(1),
+                                                           new ArrayList<Integer>(0),
                                                            Arrays.asList(testStoreName),
-                                                           false,
                                                            0));
 
         // for Rebalancing State we should see proxyPut()

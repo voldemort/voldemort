@@ -251,13 +251,13 @@ public class Rebalancer implements Runnable {
 
                                             rebalanceStatusList.remove((Object) new Integer(asyncId));
 
-                                            if(stealInfo.isDeleteDonorPartitions()) {
+                                            if(stealInfo.getDeletePartitionsList().size() > 0) {
                                                 adminClient.deletePartitions(stealInfo.getDonorId(),
                                                                              storeName,
-                                                                             stealInfo.getPartitionList(),
+                                                                             stealInfo.getDeletePartitionsList(),
                                                                              null);
                                                 logger.debug("Deleted partitions "
-                                                             + stealInfo.getPartitionList()
+                                                             + stealInfo.getDeletePartitionsList()
                                                              + " from donorNode:"
                                                              + stealInfo.getDonorId()
                                                              + " for store " + storeName);

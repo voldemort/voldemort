@@ -370,8 +370,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
+                                                                                     request.getDeletePartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
-                                                                                     request.getDeleteDonorPartitions(),
                                                                                      request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
@@ -712,14 +712,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                             .getNodeById(metadataStore.getNodeId())
                                                                             .getPartitionIds());
 
-        ownedPartitions.removeAll(keyPartitions);
+        ownedPartitions.removeAll(partitionList);
 
-        for(int p: partitionList) {
+        for(int p: keyPartitions) {
             if(ownedPartitions.contains(p)) {
                 return false;
             }
 
-            if(keyPartitions.contains(p)) {
+            if(partitionList.contains(p)) {
                 return true;
             }
         }

@@ -6299,12 +6299,17 @@ public final class VAdminProto {
     public boolean hasAttempt() { return hasAttempt; }
     public int getAttempt() { return attempt_; }
     
-    // required bool deleteDonorPartitions = 6;
-    public static final int DELETEDONORPARTITIONS_FIELD_NUMBER = 6;
-    private boolean hasDeleteDonorPartitions;
-    private boolean deleteDonorPartitions_ = false;
-    public boolean hasDeleteDonorPartitions() { return hasDeleteDonorPartitions; }
-    public boolean getDeleteDonorPartitions() { return deleteDonorPartitions_; }
+    // repeated int32 deletePartitions = 6;
+    public static final int DELETEPARTITIONS_FIELD_NUMBER = 6;
+    private java.util.List<java.lang.Integer> deletePartitions_ =
+      java.util.Collections.emptyList();
+    public java.util.List<java.lang.Integer> getDeletePartitionsList() {
+      return deletePartitions_;
+    }
+    public int getDeletePartitionsCount() { return deletePartitions_.size(); }
+    public int getDeletePartitions(int index) {
+      return deletePartitions_.get(index);
+    }
     
     // repeated string unbalanced_store = 7;
     public static final int UNBALANCED_STORE_FIELD_NUMBER = 7;
@@ -6322,7 +6327,6 @@ public final class VAdminProto {
       if (!hasStealerId) return false;
       if (!hasDonorId) return false;
       if (!hasAttempt) return false;
-      if (!hasDeleteDonorPartitions) return false;
       return true;
     }
     
@@ -6340,8 +6344,8 @@ public final class VAdminProto {
       if (hasAttempt()) {
         output.writeInt32(5, getAttempt());
       }
-      if (hasDeleteDonorPartitions()) {
-        output.writeBool(6, getDeleteDonorPartitions());
+      for (int element : getDeletePartitionsList()) {
+        output.writeInt32(6, element);
       }
       for (java.lang.String element : getUnbalancedStoreList()) {
         output.writeString(7, element);
@@ -6376,9 +6380,14 @@ public final class VAdminProto {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(5, getAttempt());
       }
-      if (hasDeleteDonorPartitions()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(6, getDeleteDonorPartitions());
+      {
+        int dataSize = 0;
+        for (int element : getDeletePartitionsList()) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(element);
+        }
+        size += dataSize;
+        size += 1 * getDeletePartitionsList().size();
       }
       {
         int dataSize = 0;
@@ -6526,6 +6535,10 @@ public final class VAdminProto {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
         }
+        if (result.deletePartitions_ != java.util.Collections.EMPTY_LIST) {
+          result.deletePartitions_ =
+            java.util.Collections.unmodifiableList(result.deletePartitions_);
+        }
         if (result.unbalancedStore_ != java.util.Collections.EMPTY_LIST) {
           result.unbalancedStore_ =
             java.util.Collections.unmodifiableList(result.unbalancedStore_);
@@ -6561,8 +6574,11 @@ public final class VAdminProto {
         if (other.hasAttempt()) {
           setAttempt(other.getAttempt());
         }
-        if (other.hasDeleteDonorPartitions()) {
-          setDeleteDonorPartitions(other.getDeleteDonorPartitions());
+        if (!other.deletePartitions_.isEmpty()) {
+          if (result.deletePartitions_.isEmpty()) {
+            result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
+          }
+          result.deletePartitions_.addAll(other.deletePartitions_);
         }
         if (!other.unbalancedStore_.isEmpty()) {
           if (result.unbalancedStore_.isEmpty()) {
@@ -6612,7 +6628,7 @@ public final class VAdminProto {
               break;
             }
             case 48: {
-              setDeleteDonorPartitions(input.readBool());
+              addDeletePartitions(input.readInt32());
               break;
             }
             case 58: {
@@ -6712,21 +6728,37 @@ public final class VAdminProto {
         return this;
       }
       
-      // required bool deleteDonorPartitions = 6;
-      public boolean hasDeleteDonorPartitions() {
-        return result.hasDeleteDonorPartitions();
+      // repeated int32 deletePartitions = 6;
+      public java.util.List<java.lang.Integer> getDeletePartitionsList() {
+        return java.util.Collections.unmodifiableList(result.deletePartitions_);
       }
-      public boolean getDeleteDonorPartitions() {
-        return result.getDeleteDonorPartitions();
+      public int getDeletePartitionsCount() {
+        return result.getDeletePartitionsCount();
       }
-      public Builder setDeleteDonorPartitions(boolean value) {
-        result.hasDeleteDonorPartitions = true;
-        result.deleteDonorPartitions_ = value;
+      public int getDeletePartitions(int index) {
+        return result.getDeletePartitions(index);
+      }
+      public Builder setDeletePartitions(int index, int value) {
+        result.deletePartitions_.set(index, value);
         return this;
       }
-      public Builder clearDeleteDonorPartitions() {
-        result.hasDeleteDonorPartitions = false;
-        result.deleteDonorPartitions_ = false;
+      public Builder addDeletePartitions(int value) {
+        if (result.deletePartitions_.isEmpty()) {
+          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        result.deletePartitions_.add(value);
+        return this;
+      }
+      public Builder addAllDeletePartitions(
+          java.lang.Iterable<? extends java.lang.Integer> values) {
+        if (result.deletePartitions_.isEmpty()) {
+          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        super.addAll(values, result.deletePartitions_);
+        return this;
+      }
+      public Builder clearDeletePartitions() {
+        result.deletePartitions_ = java.util.Collections.emptyList();
         return this;
       }
       
@@ -8967,47 +8999,46 @@ public final class VAdminProto {
       "\n\nrequest_id\030\001 \002(\005\022\034\n\rshow_complete\030\002 \002(" +
       "\010:\005false\"R\n\032AsyncOperationListResponse\022\023" +
       "\n\013request_ids\030\001 \003(\005\022\037\n\005error\030\002 \001(\0132\020.vol" +
-      "demort.Error\"\242\001\n\034InitiateRebalanceNodeRe",
+      "demort.Error\"\235\001\n\034InitiateRebalanceNodeRe",
       "quest\022\022\n\nstealer_id\030\002 \002(\005\022\020\n\010donor_id\030\003 " +
       "\002(\005\022\022\n\npartitions\030\004 \003(\005\022\017\n\007attempt\030\005 \002(\005" +
-      "\022\035\n\025deleteDonorPartitions\030\006 \002(\010\022\030\n\020unbal" +
-      "anced_store\030\007 \003(\t\"\212\001\n\034AsyncOperationStat" +
-      "usResponse\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013descri" +
-      "ption\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030" +
-      "\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.voldemort.Error\"\'" +
-      "\n\026TruncateEntriesRequest\022\r\n\005store\030\001 \002(\t\"" +
-      ":\n\027TruncateEntriesResponse\022\037\n\005error\030\001 \001(" +
-      "\0132\020.voldemort.Error\"\270\006\n\025VoldemortAdminRe",
-      "quest\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminReq" +
-      "uestType\0223\n\014get_metadata\030\002 \001(\0132\035.voldemo" +
-      "rt.GetMetadataRequest\0229\n\017update_metadata" +
-      "\030\003 \001(\0132 .voldemort.UpdateMetadataRequest" +
-      "\022J\n\030update_partition_entries\030\004 \001(\0132(.vol" +
-      "demort.UpdatePartitionEntriesRequest\022H\n\027" +
-      "fetch_partition_entries\030\005 \001(\0132\'.voldemor" +
-      "t.FetchPartitionEntriesRequest\022J\n\030delete" +
-      "_partition_entries\030\006 \001(\0132(.voldemort.Del" +
-      "etePartitionEntriesRequest\022K\n\031initiate_f",
-      "etch_and_update\030\007 \001(\0132(.voldemort.Initia" +
-      "teFetchAndUpdateRequest\022F\n\026async_operati" +
-      "on_status\030\010 \001(\0132&.voldemort.AsyncOperati" +
-      "onStatusRequest\022H\n\027initiate_rebalance_no" +
-      "de\030\t \001(\0132\'.voldemort.InitiateRebalanceNo" +
-      "deRequest\022B\n\024async_operation_stop\030\n \001(\0132" +
-      "$.voldemort.AsyncOperationStopRequest\022B\n" +
-      "\024async_operation_list\030\013 \001(\0132$.voldemort." +
-      "AsyncOperationListRequest\022;\n\020truncate_en" +
-      "tries\030\014 \001(\0132!.voldemort.TruncateEntriesR",
-      "equest*\264\002\n\020AdminRequestType\022\020\n\014GET_METAD" +
-      "ATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PAR" +
-      "TITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTR" +
-      "IES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031I" +
-      "NITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPER" +
-      "ATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NOD" +
-      "E\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_O" +
-      "PERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\nB-\n" +
-      "\034voldemort.client.protocol.pbB\013VAdminPro" +
-      "toH\001"
+      "\022\030\n\020deletePartitions\030\006 \003(\005\022\030\n\020unbalanced" +
+      "_store\030\007 \003(\t\"\212\001\n\034AsyncOperationStatusRes" +
+      "ponse\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013description" +
+      "\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030\004 \001(\010" +
+      "\022\037\n\005error\030\005 \001(\0132\020.voldemort.Error\"\'\n\026Tru" +
+      "ncateEntriesRequest\022\r\n\005store\030\001 \002(\t\":\n\027Tr" +
+      "uncateEntriesResponse\022\037\n\005error\030\001 \001(\0132\020.v" +
+      "oldemort.Error\"\270\006\n\025VoldemortAdminRequest",
+      "\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminRequestT" +
+      "ype\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.Ge" +
+      "tMetadataRequest\0229\n\017update_metadata\030\003 \001(" +
+      "\0132 .voldemort.UpdateMetadataRequest\022J\n\030u" +
+      "pdate_partition_entries\030\004 \001(\0132(.voldemor" +
+      "t.UpdatePartitionEntriesRequest\022H\n\027fetch" +
+      "_partition_entries\030\005 \001(\0132\'.voldemort.Fet" +
+      "chPartitionEntriesRequest\022J\n\030delete_part" +
+      "ition_entries\030\006 \001(\0132(.voldemort.DeletePa" +
+      "rtitionEntriesRequest\022K\n\031initiate_fetch_",
+      "and_update\030\007 \001(\0132(.voldemort.InitiateFet" +
+      "chAndUpdateRequest\022F\n\026async_operation_st" +
+      "atus\030\010 \001(\0132&.voldemort.AsyncOperationSta" +
+      "tusRequest\022H\n\027initiate_rebalance_node\030\t " +
+      "\001(\0132\'.voldemort.InitiateRebalanceNodeReq" +
+      "uest\022B\n\024async_operation_stop\030\n \001(\0132$.vol" +
+      "demort.AsyncOperationStopRequest\022B\n\024asyn" +
+      "c_operation_list\030\013 \001(\0132$.voldemort.Async" +
+      "OperationListRequest\022;\n\020truncate_entries" +
+      "\030\014 \001(\0132!.voldemort.TruncateEntriesReques",
+      "t*\264\002\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000" +
+      "\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITIO" +
+      "N_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003" +
+      "\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIA" +
+      "TE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION" +
+      "_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030" +
+      "\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERAT" +
+      "ION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\nB-\n\034vold" +
+      "emort.client.protocol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -9163,7 +9194,7 @@ public final class VAdminProto {
           internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor,
-              new java.lang.String[] { "StealerId", "DonorId", "Partitions", "Attempt", "DeleteDonorPartitions", "UnbalancedStore", },
+              new java.lang.String[] { "StealerId", "DonorId", "Partitions", "Attempt", "DeletePartitions", "UnbalancedStore", },
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.Builder.class);
           internal_static_voldemort_AsyncOperationStatusResponse_descriptor =

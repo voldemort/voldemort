@@ -76,8 +76,8 @@ public class MetadataStoreTest extends TestCase {
             return ByteUtils.getBytes(new RebalancePartitionsInfo(0,
                                                                   (int) Math.random() * 5,
                                                                   partition,
+                                                                  new ArrayList<Integer>(0),
                                                                   Arrays.asList("testStoreName"),
-                                                                  false,
                                                                   (int) Math.random() * 3).toJsonString(),
                                       "UTF-8");
         }
