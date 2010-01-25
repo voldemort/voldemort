@@ -90,26 +90,24 @@ public class RebalanceClusterTool {
         nodes.add(template);
         Cluster templateCluster = new Cluster(cluster.getName(), nodes);
         Cluster targetCluster = null;
-        boolean foundBest = false;
-
-        for (int i = desiredPartitions; i >= minPartitions && !foundBest; i--) {
-            System.out.println("Trying to move " + i + " partitions to the new node");
+        boolean found = false;
+        for (int i = desiredPartitions; i >= minPartitions && !found; i--) {
             Cluster candidateCluster = createTargetCluster(templateCluster,
                                                            i,
                                                            maxRemap,
                                                            ImmutableSet.<Integer>of(),
                                                            masterToReplicas.keySet());
-            
             // If we were able to successfully move partitions to the new node
             if (candidateCluster.getNodeById(template.getId()).getNumberOfPartitions() > template.getNumberOfPartitions()) {
                 targetCluster = candidateCluster;
-                System.out.println("Success moving " + i + " partitions");
-                foundBest = isGoodEnough(candidateCluster, i);
-                if (foundBest)
-                    System.out.println("Moving " + i + " partitions " + "found to be \"optimal\"");
-                else
-                    System.out.println("Correct but suboptimal cluster, trying to move a smaller number of partitions");
+                found = isGoodEnough(candidateCluster, i);
             }
+        }
+
+        if (!found) {
+            System.err.println("================================================================================");
+            System.err.println("Warning: target cluster doesn't meet all constraints, please verify it manually!");
+            System.err.println("================================================================================");
         }
 
         return targetCluster;
@@ -131,18 +129,19 @@ public class RebalanceClusterTool {
         if (isGoodEnough(candidate, minPartitions))
             return candidate;
 
-        // Otherwise try the highest numbered partition that we haven't yet tried.
+        // Otherwise, try the highest numbered partition that we haven't yet moved
         for (int i=candidate.getNumberOfPartitions() - 1; i >= 0; i--) {
             if (!partitionsMoved.contains(i)) {
                 Cluster attempt = moveToLastNode(candidate, i, maxRemap);
-                if (attempt != null) {
-                    // If that succeeds, recur with partitionsMoved now containing the new partition
+
+                // If successful, recur with partitionsMoved containing the new partition
+                if (attempt != null)
                     return createTargetCluster(attempt,
                                                minPartitions,
                                                maxRemap,
                                                Sets.union(partitionsMoved, ImmutableSet.of(i)),
                                                allPartitions);
-                }
+
             }
         }
 
@@ -249,7 +248,6 @@ public class RebalanceClusterTool {
         Multimap<Node,Integer> copies = LinkedHashMultimap.create();
         for (Node n: newCluster.getNodes()) {
             List<Integer> partitions = n.getPartitionIds();
-
             for (int partition: partitions) {
                 for (int replica: masterToReplicas.get(partition)) {
                     if (partitions.contains(replica)) {
@@ -279,7 +277,6 @@ public class RebalanceClusterTool {
     public Multimap<Integer, Pair<Integer,Integer>> getRemappedReplicas(Cluster newCluster) {
         RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, newCluster);
         ListMultimap<Integer,Integer> newMasterToReplicas = createMasterToReplicas(newCluster, routingStrategy);
-
         Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = ArrayListMultimap.create();
         for (int partition: masterToReplicas.keySet()) {
             List<Integer> oldReplicas = masterToReplicas.get(partition);

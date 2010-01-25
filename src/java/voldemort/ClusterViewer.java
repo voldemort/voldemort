@@ -88,9 +88,9 @@ public class ClusterViewer {
         } else
             System.out.println("No multiple copies found.");
 
-        System.out.println();
-        
         Multimap<Integer, Pair<Integer,Integer>> remappedReplicas = clusterTool.getRemappedReplicas(target);
+        System.out.println();
+
         if (remappedReplicas.size() > 0) {
             for (int partition: remappedReplicas.keySet()) {
                 System.out.println("Mapping for partition " + partition + " has changed: ");
@@ -172,7 +172,6 @@ public class ClusterViewer {
                 Utils.croak("No store found with name \"" + storeName + "\"");
 
             ClusterViewer clusterViewer = new ClusterViewer(cluster, storeDef);
-
             System.out.println("Original cluster: ");
             clusterViewer.viewMasterToReplica();
 
@@ -184,7 +183,6 @@ public class ClusterViewer {
                 clusterViewer.viewMasterToReplica(otherCluster);
                 clusterViewer.compareToCluster(otherCluster);
             }
-
         } catch (FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }

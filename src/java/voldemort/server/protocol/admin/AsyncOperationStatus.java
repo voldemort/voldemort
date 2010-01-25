@@ -57,16 +57,7 @@ public class AsyncOperationStatus {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder().append("id=")
-                                              .append(id)
-                                              .append(" description=")
-                                              .append(description)
-                                              .append(" complete=")
-                                              .append(complete.get())
-                                              .append(" status=")
-                                              .append(status)
-                                              .append(" hasException=")
-                                              .append(hasException());
-        return sb.toString();
+        return "Task(id = " + getId() + ", description = " + getDescription() + ", complete = "
+               + isComplete() + ", status = " + getStatus() + ")";
     }
 }
