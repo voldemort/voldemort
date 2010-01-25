@@ -1,3 +1,20 @@
+Release 0.70 on 1/25/2010
+
+Changes made since 0.60.1:
+
+* Rebalancing support merged into the main branch: 
+  http://wiki.github.com/voldemort/voldemort/voldemort-rebalancing 
+* New failure detection mechanism merged into the main branch:
+  http://wiki.github.com/voldemort/voldemort/failure-detection
+* Added a way to programatically list and stop asynchronous 
+  operations; sharing a common threadpool between SchedulerService,
+  AsyncOperationRunner and GossipService.
+* Gossip protocol merged into the main branch.
+* Fixed issue 190: add a way of aggregating performance data over
+  all stores.
+* Fixed issue 181: stack trackes shouldn't be filled for Obsolete
+  version exception.
+
 Release 0.60.1 on 12/18/2009
 
 Minor changes made since 0.60:
