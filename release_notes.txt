@@ -1,12 +1,37 @@
+Release 0.70 on 1/27/2010
+
+Changes made since 0.60.1:
+
+* A beta of rebalancing (dynamic cluster expansion) support merged
+  into the main branch. See the project's wiki for more information:
+  http://wiki.github.com/voldemort/voldemort/voldemort-rebalancing
+* New failure detector merged into the main branch:
+  http://wiki.github.com/voldemort/voldemort/failure-detection
+* Beta mechanism for restoring all of node's data from replicas on
+  demand. This is an alternative to a more gradual mechanism provided
+  by read-repair: useful when a machine is down for a prolonged period
+  and is then re-inserted into the cluster.
+  Invoked via JMX: the operation is restoreDataFromReplication in the
+  voldemort.server.VoldemortServer MBean, with a mandatory parameter
+  (integer >= 1) indicating the number of transfers to do in parallel.
+* Simple gossip protocol (for cluster metadata) merged
+  into the main branch. Disabled by default: use "enable.gossip=true"
+  to enable, use "gossip.interval.ms" to set an interval at which gossip
+  occurs (default: 30000 i.e., 30 seconds).
+* Fixed issue 190: add a way of aggregating performance data over
+  all stores
+* Fixed issue 181: stack trackes shouldn't be filled for Obsolete
+  version exception
+
 Release 0.60.1 on 12/18/2009
 
 Minor changes made since 0.60:
 
- * Better logging in the exception thrown if config/.temp and
-   config/.version are copied
- * Bumping up the version to 0.60.1 in order to release updated
-   archives, fixing an error in the stores.xml for single_node_cluster
-   sample config
+* Better logging in the exception thrown if config/.temp and
+  config/.version are copied
+* Bumping up the version to 0.60.1 in order to release updated
+  archives, fixing an error in the stores.xml for single_node_cluster
+  sample config
 
 Release 0.60 on 12/15/2009
 

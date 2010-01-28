@@ -86,11 +86,6 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                config.getMaxConnectionsPerNode());
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
-
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-
-        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -106,6 +101,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                              reroute);
     }
 
+    @Override
     protected FailureDetector initFailureDetector(final ClientConfig config,
                                                   final Collection<Node> nodes) {
         ClientStoreVerifier<ByteArray, byte[]> storeVerifier = new ClientStoreVerifier<ByteArray, byte[]>() {

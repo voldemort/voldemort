@@ -65,11 +65,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                          config.getSocketBufferSize());
         if(config.isJmxEnabled())
             JmxUtils.registerMbean(socketPool, JmxUtils.createObjectName(SocketPool.class));
-
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-
-        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -83,6 +78,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                RoutingTier.SERVER.equals(routingTier));
     }
 
+    @Override
     protected FailureDetector initFailureDetector(final ClientConfig config,
                                                   final Collection<Node> nodes) {
         failureDetectorListener = new FailureDetectorListener() {
@@ -145,7 +141,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     @Override
     public void close() {
         this.socketPool.close();
-        this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
+        if (failureDetector != null)
+            this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
         this.getThreadPool().shutdown();
 
         super.close();

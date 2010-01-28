@@ -69,6 +69,7 @@ public class RebalanceClusterBuilder {
         if (desiredNumPartitions < minNumPartitions)
             desiredNumPartitions = cluster.getNumberOfPartitions() / (cluster.getNumberOfNodes() + 1);
 
+        // TODO: replace this with a more reasonable default
         if (maxRemappedReplicas < 0)
             maxRemappedReplicas = cluster.getNumberOfPartitions() / 2;
 
@@ -99,6 +100,7 @@ public class RebalanceClusterBuilder {
         StoreDefinition store = stores.get(0);
         for (int i=1; i < stores.size(); i++) {
             StoreDefinition curr = stores.get(i);
+            
             if (store.getReplicationFactor() > curr.getReplicationFactor())
                 store = curr;
         }
