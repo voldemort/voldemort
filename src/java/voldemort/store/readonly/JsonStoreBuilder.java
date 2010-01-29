@@ -41,10 +41,13 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Utils;
@@ -231,10 +234,6 @@ public class JsonStoreBuilder {
             }
         }
 
-        SerializerFactory factory = new DefaultSerializerFactory();
-        Serializer keySerializer = factory.getSerializer(storeDefinition.getKeySerializer());
-        Serializer valueSerializer = factory.getSerializer(storeDefinition.getValueSerializer());
-
         logger.info("Reading items...");
         int count = 0;
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
@@ -243,7 +242,7 @@ public class JsonStoreBuilder {
                                                                                tempDir.getAbsolutePath(),
                                                                                ioBufferSize,
                                                                                numThreads);
-        JsonObjectIterator iter = new JsonObjectIterator(reader, keySerializer, valueSerializer);
+        JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
             byte[] keyMd5 = pair.getKeyMd5();
@@ -292,6 +291,7 @@ public class JsonStoreBuilder {
             ByteUtils.writeInt(bytes, value.length, 4);
             System.arraycopy(key, 0, bytes, 8, key.length);
             System.arraycopy(value, 0, bytes, 8 + key.length, value.length);
+
             return bytes;
         }
 
@@ -316,14 +316,22 @@ public class JsonStoreBuilder {
         private final Serializer<Object> keySerializer;
         private final Serializer<Object> valueSerializer;
         private final MessageDigest digest;
+        private final SerializerDefinition keySerializerDefinition;
+        private final SerializerDefinition valueSerializerDefinition;
+        private CompressionStrategy valueCompressor;
+        private CompressionStrategy keyCompressor;
 
-        public JsonObjectIterator(JsonReader reader,
-                                  Serializer<Object> keySerializer,
-                                  Serializer<Object> valueSerializer) {
+        public JsonObjectIterator(JsonReader reader, StoreDefinition storeDefinition) {
+            SerializerFactory factory = new DefaultSerializerFactory();
+
             this.reader = reader;
-            this.keySerializer = keySerializer;
-            this.valueSerializer = valueSerializer;
             this.digest = ByteUtils.getDigest("MD5");
+            this.keySerializerDefinition = storeDefinition.getKeySerializer();
+            this.valueSerializerDefinition = storeDefinition.getValueSerializer();
+            this.keySerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getKeySerializer());
+            this.valueSerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getValueSerializer());
+            this.keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
+            this.valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
         }
 
         @Override
@@ -338,13 +346,25 @@ public class JsonStoreBuilder {
                                                  e);
                 }
                 byte[] keyBytes = keySerializer.toBytes(key);
+                byte[] valueBytes = valueSerializer.toBytes(value);
+
+                // compress key and values if required
+                if(keySerializerDefinition.hasCompression()) {
+                    keyBytes = keyCompressor.deflate(keyBytes);
+                }
+
+                if(valueSerializerDefinition.hasCompression()) {
+                    valueBytes = valueCompressor.deflate(valueBytes);
+                }
+
                 byte[] keyMd5 = digest.digest(keyBytes);
                 digest.reset();
-                byte[] valueBytes = valueSerializer.toBytes(value);
 
                 return new KeyValuePair(keyBytes, keyMd5, valueBytes);
             } catch(EndOfFileException e) {
                 return endOfData();
+            } catch(IOException e) {
+                throw new VoldemortException("Unable to deflate key/value pair.", e);
             }
         }
 

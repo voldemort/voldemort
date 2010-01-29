@@ -16,9 +16,9 @@
   <view>
     <name>test-view</name>
     <view-of>test</view-of>
-    <value-transformation>
-      voldemort.store.views.UpperCaseViewTransform
-    </value-transformation>
+    <view-class>
+      voldemort.store.views.UpperCaseView
+    </view-class>
     <value-serializer>
       <type>string</type>
     </value-serializer>

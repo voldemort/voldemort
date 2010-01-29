@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -43,13 +44,13 @@ public class AdminServiceFailureTest extends TestCase {
     private Cluster cluster;
     private SocketService adminServer;
     StorageEngine<ByteArray, byte[]> failingStorageEngine;
-    private Thread thread;
 
     private enum StreamOperations {
         FETCH_ENTRIES,
         FETCH_KEYS,
         DELETE_PARTITIONS,
-        UPDATE_ENTRIES
+        UPDATE_ENTRIES,
+        TRUNCATE_ENTRIES
     }
 
     @Override
@@ -83,7 +84,9 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                     TestUtils.createTempDir()
                                                                                                              .getAbsolutePath(),
                                                                                                     null,
-                                                                                                    null),
+                                                                                                    null,
+                                                                                                    new Properties()),
+                                                                 null,
                                                                  null),
                                  node.getAdminPort(),
                                  2,
@@ -144,17 +147,14 @@ public class AdminServiceFailureTest extends TestCase {
                 return;
             case FETCH_ENTRIES:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchPartitionEntries(nodeId,
-                                                                       storeName,
-                                                                       partitionList,
-                                                                       null));
+                consumeIterator(getAdminClient().fetchEntries(nodeId,
+                                                              storeName,
+                                                              partitionList,
+                                                              null));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchPartitionKeys(nodeId,
-                                                                    storeName,
-                                                                    partitionList,
-                                                                    null));
+                consumeIterator(getAdminClient().fetchKeys(nodeId, storeName, partitionList, null));
                 return;
             case UPDATE_ENTRIES:
                 getAdminClient().updateEntries(nodeId,
@@ -162,6 +162,11 @@ public class AdminServiceFailureTest extends TestCase {
                                                getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
                                                null);
                 return;
+            case TRUNCATE_ENTRIES:
+                putAlltoStore();
+                getAdminClient().truncate(nodeId, storeName);
+                return;
+
             default:
                 throw new RuntimeException("Unknown operation");
         }

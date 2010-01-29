@@ -64,4 +64,9 @@ public interface StorageEngine<K, V> extends Store<K, V> {
      * @return An iterator over the keys in this StorageEngine.
      */
     public ClosableIterator<K> keys();
+
+    /**
+     * Truncate all entries in the store
+     */
+    public void truncate();
 }

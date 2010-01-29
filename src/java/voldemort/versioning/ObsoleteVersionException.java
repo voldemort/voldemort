@@ -16,7 +16,7 @@
 
 package voldemort.versioning;
 
-import voldemort.store.StoreOperationFailureException;
+import voldemort.VoldemortApplicationException;
 
 /**
  * An exception that indicates an attempt by the user to overwrite a newer value
@@ -27,7 +27,7 @@ import voldemort.store.StoreOperationFailureException;
  * @author jay
  * 
  */
-public class ObsoleteVersionException extends StoreOperationFailureException {
+public class ObsoleteVersionException extends VoldemortApplicationException {
 
     private static final long serialVersionUID = 1L;
 
@@ -39,9 +39,14 @@ public class ObsoleteVersionException extends StoreOperationFailureException {
         super(message, cause);
     }
 
+    /**
+     * Override to avoid the overhead of stack trace. For a given store there is
+     * really only one method (put) that can throw this so retaining the stack
+     * trace is not useful
+     */
     @Override
-    public short getId() {
-        return 4;
+    public Throwable fillInStackTrace() {
+        return this;
     }
 
 }

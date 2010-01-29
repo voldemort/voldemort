@@ -30,8 +30,6 @@
 
 namespace Voldemort {
 
-using namespace boost;
-
 /**
  * Represents a connection to a Voldemort cluster and can be used to
  * create @ref StoreClient instances to interact with individual
@@ -70,7 +68,7 @@ public:
      * @see getStoreClient(std::string&)
      */
     virtual StoreClient* getStoreClient(const std::string& storeName,
-                                        shared_ptr<InconsistencyResolver>& resolver) = 0;
+                                        boost::shared_ptr<InconsistencyResolver>& resolver) = 0;
 
     /**
      * Get the underlying store, not the public StoreClient interface.
@@ -85,7 +83,7 @@ public:
      * @return the appropriate store
      */
     virtual Store* getRawStore(const std::string& storeName,
-                               shared_ptr<InconsistencyResolver>& resolver) = 0;
+                               boost::shared_ptr<InconsistencyResolver>& resolver) = 0;
    
 };
 

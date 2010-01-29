@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -77,5 +78,14 @@ public interface StoreClientFactory {
      * Close the store client
      */
     public void close();
+
+    /**
+     * Returns the FailureDetector specific to the cluster against
+     * which this client factory is based.
+     * 
+     * @return FailureDetector
+     */
+
+    public FailureDetector getFailureDetector();
 
 }

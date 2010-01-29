@@ -48,8 +48,8 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
+import voldemort.store.views.View;
 import voldemort.store.views.ViewStorageConfiguration;
-import voldemort.store.views.ViewTransformation;
 import voldemort.utils.ReflectUtils;
 
 /**
@@ -82,7 +82,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     public final static String VIEW_ELMT = "view";
     public final static String VIEW_TARGET_ELMT = "view-of";
-    public final static String VIEW_VALUE_TRANS_ELMT = "value-transformation";
+    public final static String VIEW_TRANS_ELMT = "view-class";
     private final static String STORE_VERSION_ATTR = "version";
 
     private final Schema schema;
@@ -227,11 +227,11 @@ public class StoreDefinitionsMapper {
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
 
         // get transformations
-        ViewTransformation<?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_VALUE_TRANS_ELMT));
+        View<?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_TRANS_ELMT));
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
-                                           .setType(ViewStorageConfiguration.TYPE)
+                                           .setType(ViewStorageConfiguration.TYPE_NAME)
                                            .setRoutingPolicy(policy)
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
@@ -241,16 +241,15 @@ public class StoreDefinitionsMapper {
                                            .setRequiredReads(requiredReads)
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
-                                           .setValueTransformation(valTrans)
+                                           .setView(valTrans)
                                            .build();
     }
 
-    private ViewTransformation<?, ?, ?> loadTransformation(String className) {
+    private View<?, ?, ?> loadTransformation(String className) {
         if(className == null)
             return null;
         Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (ViewTransformation<?, ?, ?>) ReflectUtils.callConstructor(transClass,
-                                                                          new Object[] {});
+        return (View<?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -341,9 +340,12 @@ public class StoreDefinitionsMapper {
         Element store = new Element(VIEW_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(VIEW_TARGET_ELMT).setText(storeDefinition.getViewTargetStoreName()));
-        store.addContent(new Element(VIEW_VALUE_TRANS_ELMT).setText(storeDefinition.getValueTransformation()
-                                                                                   .getClass()
-                                                                                   .getName()));
+        if(storeDefinition.getValueTransformation() == null)
+            throw new MappingException("View " + storeDefinition.getName()
+                                       + " has no defined transformation class.");
+        store.addContent(new Element(VIEW_TRANS_ELMT).setText(storeDefinition.getValueTransformation()
+                                                                             .getClass()
+                                                                             .getName()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
         if(storeDefinition.hasPreferredReads())

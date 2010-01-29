@@ -126,6 +126,14 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return StoreUtils.keys(entries());
     }
 
+    public void truncate() {
+        try {
+            coll.clear();
+        } catch(MongoDBException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         DirectBufferTLS tls = getTLS();

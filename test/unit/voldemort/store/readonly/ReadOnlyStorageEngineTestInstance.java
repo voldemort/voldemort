@@ -25,7 +25,11 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.compress.CompressingStore;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
@@ -36,18 +40,18 @@ public class ReadOnlyStorageEngineTestInstance {
     private final File baseDir;
     private final Map<Integer, Store<String, String>> nodeStores;
     private final RoutingStrategy routingStrategy;
-    private final Serializer<String> serializer;
+    private final Serializer<String> keySerializer;
 
     private ReadOnlyStorageEngineTestInstance(Map<String, String> data,
                                               File baseDir,
                                               Map<Integer, Store<String, String>> nodeStores,
                                               RoutingStrategy routingStrategy,
-                                              Serializer<String> serializer) {
+                                              Serializer<String> keySerializer) {
         this.data = data;
         this.baseDir = baseDir;
         this.nodeStores = nodeStores;
         this.routingStrategy = routingStrategy;
-        this.serializer = serializer;
+        this.keySerializer = keySerializer;
     }
 
     public void delete() {
@@ -79,7 +83,10 @@ public class ReadOnlyStorageEngineTestInstance {
                                                            File baseDir,
                                                            int testSize,
                                                            int numNodes,
-                                                           int repFactor) throws Exception {
+                                                           int repFactor,
+                                                           SerializerDefinition keySerDef,
+                                                           SerializerDefinition valueSerDef)
+            throws Exception {
         // create some test data
         Map<String, String> data = createTestData(testSize);
         JsonReader reader = makeTestDataReader(data, baseDir);
@@ -87,17 +94,18 @@ public class ReadOnlyStorageEngineTestInstance {
         // set up definitions for cluster and store
         List<Node> nodes = new ArrayList<Node>();
         for(int i = 0; i < numNodes; i++) {
-            nodes.add(new Node(i, "localhost", 8080 + i, 6666 + i, Arrays.asList(4 * i,
-                                                                                 4 * i + 1,
-                                                                                 4 * i + 2,
-                                                                                 4 * i + 3)));
+            nodes.add(new Node(i,
+                               "localhost",
+                               8080 + i,
+                               6666 + i,
+                               7000 + i,
+                               Arrays.asList(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3)));
         }
         Cluster cluster = new Cluster("test", nodes);
-        SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
         StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
                                                                .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
-                                                               .setKeySerializer(serDef)
-                                                               .setValueSerializer(serDef)
+                                                               .setKeySerializer(keySerDef)
+                                                               .setValueSerializer(valueSerDef)
                                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                                .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                .setReplicationFactor(repFactor)
@@ -125,7 +133,8 @@ public class ReadOnlyStorageEngineTestInstance {
 
         File nodeDir = TestUtils.createTempDir(baseDir);
         @SuppressWarnings("unchecked")
-        Serializer<String> serializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(serDef);
+        Serializer<String> keySerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(keySerDef);
+        Serializer<String> valueSerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(valueSerDef);
         Map<Integer, Store<String, String>> nodeStores = Maps.newHashMap();
         for(int i = 0; i < numNodes; i++) {
             File currNode = new File(nodeDir, Integer.toString(i));
@@ -133,19 +142,29 @@ public class ReadOnlyStorageEngineTestInstance {
             currNode.deleteOnExit();
             Utils.move(new File(outputDir, "node-" + Integer.toString(i)), new File(currNode,
                                                                                     "version-0"));
-            nodeStores.put(i, SerializingStore.wrap(new ReadOnlyStorageEngine("test",
-                                                                              strategy,
-                                                                              currNode,
-                                                                              1),
-                                                    serializer,
-                                                    serializer));
+
+            CompressionStrategyFactory comppressionStrategyFactory = new CompressionStrategyFactory();
+            CompressionStrategy keyCompressionStrat = comppressionStrategyFactory.get(keySerDef.getCompression());
+            CompressionStrategy valueCompressionStrat = comppressionStrategyFactory.get(valueSerDef.getCompression());
+            Store<ByteArray, byte[]> innerStore = new CompressingStore(new ReadOnlyStorageEngine("test",
+                                                                                                 strategy,
+                                                                                                 currNode,
+                                                                                                 1),
+                                                                       keyCompressionStrat,
+                                                                       valueCompressionStrat);
+
+            nodeStores.put(i, SerializingStore.wrap(innerStore, keySerializer, valueSerializer));
         }
 
-        return new ReadOnlyStorageEngineTestInstance(data, baseDir, nodeStores, router, serializer);
+        return new ReadOnlyStorageEngineTestInstance(data,
+                                                     baseDir,
+                                                     nodeStores,
+                                                     router,
+                                                     keySerializer);
     }
 
     public List<Node> routeRequest(String key) {
-        return this.routingStrategy.routeRequest(this.serializer.toBytes(key));
+        return this.routingStrategy.routeRequest(this.keySerializer.toBytes(key));
     }
 
     public Map<String, String> getData() {

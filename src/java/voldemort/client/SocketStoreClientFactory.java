@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,12 +16,22 @@
 
 package voldemort.client;
 
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+
+import java.io.StringReader;
 import java.net.URI;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.ClientStoreVerifier;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.store.Store;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
@@ -44,6 +54,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
 
     private final SocketPool socketPool;
     private final RoutingTier routingTier;
+    private FailureDetectorListener failureDetectorListener;
 
     public SocketStoreClientFactory(ClientConfig config) {
         super(config);
@@ -52,7 +63,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                          config.getSocketBufferSize());
-        registerJmx(JmxUtils.createObjectName(SocketPool.class), socketPool);
+        if(config.isJmxEnabled())
+            JmxUtils.registerMbean(socketPool, JmxUtils.createObjectName(SocketPool.class));
     }
 
     @Override
@@ -64,6 +76,51 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                new SocketDestination(Utils.notNull(host), port, type),
                                socketPool,
                                RoutingTier.SERVER.equals(routingTier));
+    }
+
+    @Override
+    protected FailureDetector initFailureDetector(final ClientConfig config,
+                                                  final Collection<Node> nodes) {
+        failureDetectorListener = new FailureDetectorListener() {
+
+            public void nodeAvailable(Node node) {
+
+            }
+
+            public void nodeUnavailable(Node node) {
+                if(logger.isInfoEnabled())
+                    logger.info(node + " has been marked as unavailable, destroying socket pool");
+
+                // Kill the socket pool for this node...
+                SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                      node.getSocketPort(),
+                                                                      config.getRequestFormatType());
+                socketPool.close(destination);
+            }
+
+        };
+
+        ClientStoreVerifier<ByteArray, byte[]> storeVerifier = new ClientStoreVerifier<ByteArray, byte[]>() {
+
+            @Override
+            protected ByteArray getKey() {
+                return new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
+            }
+
+            @Override
+            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+                return SocketStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
+                                                              node.getHost(),
+                                                              node.getSocketPort(),
+                                                              config.getRequestFormatType());
+            }
+
+        };
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
+                                                                                       .setStoreVerifier(storeVerifier);
+
+        return create(failureDetectorConfig, true, failureDetectorListener);
     }
 
     @Override
@@ -81,9 +138,14 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                + url.getScheme() + "'.");
     }
 
+    @Override
     public void close() {
         this.socketPool.close();
+        if (failureDetector != null)
+            this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
         this.getThreadPool().shutdown();
+
+        super.close();
     }
 
 }

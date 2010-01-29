@@ -484,6 +484,13 @@ _VOLDEMORTREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='requestRouteType', full_name='voldemort.VoldemortRequest.requestRouteType', index=7,
+      number=8, type=5, cpp_type=1, label=1,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],

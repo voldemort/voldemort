@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,6 +15,8 @@
  */
 
 package voldemort.server.storage;
+
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
@@ -42,6 +44,9 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -57,23 +62,33 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
+import voldemort.store.stats.DataSetStats;
 import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
+import voldemort.versioning.Versioned;
 
 /**
  * The service responsible for managing all storage types
@@ -94,6 +109,8 @@ public class StorageService extends AbstractService {
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
+    private final FailureDetector failureDetector;
+    private final StoreStats storeStats;
 
     public StorageService(StoreRepository storeRepository,
                           MetadataStore metadata,
@@ -113,6 +130,13 @@ public class StorageService extends AbstractService {
                                          config.getClientConnectionTimeoutMs(),
                                          config.getSocketTimeoutMs(),
                                          config.getSocketBufferSize());
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
+                                                                                                                  .getNodes())
+                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeRepository,
+                                                                                                                                          voldemortConfig.getNodeId()));
+        this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
+        this.storeStats = new StoreStats();
     }
 
     private void initStorageConfig(String configClassName) {
@@ -144,7 +168,7 @@ public class StorageService extends AbstractService {
             initStorageConfig(configClassName);
 
         /* Initialize view storage configuration */
-        storageConfigs.put(ViewStorageConfiguration.TYPE,
+        storageConfigs.put(ViewStorageConfiguration.TYPE_NAME,
                            new ViewStorageConfiguration(voldemortConfig,
                                                         metadata.getStoreDefList(),
                                                         storeRepository));
@@ -172,6 +196,12 @@ public class StorageService extends AbstractService {
             if(def.isView())
                 openStore(def);
 
+        // enable aggregate jmx statistics
+        if(voldemortConfig.isStatTrackingEnabled())
+            JmxUtils.registerMbean(new StoreStatsJmx(this.storeStats),
+                                   JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                             "aggregate-perf"));
+
         logger.info("All stores initialized.");
     }
 
@@ -181,7 +211,7 @@ public class StorageService extends AbstractService {
                                                                    storeDef.getType());
         registerEngine(engine);
 
-        if(voldemortConfig.isServerRoutingEnabled() || voldemortConfig.isRedirectRoutingEnabled())
+        if(voldemortConfig.isServerRoutingEnabled())
             registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
         if(storeDef.hasRetentionPeriod())
@@ -205,59 +235,97 @@ public class StorageService extends AbstractService {
                                                         SystemTime.INSTANCE);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store, metadata, storeRepository);
+            store = new RedirectingStore(store,
+                                         metadata,
+                                         storeRepository,
+                                         failureDetector,
+                                         socketPool);
 
         if(voldemortConfig.isMetadataCheckingEnabled())
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
 
         if(voldemortConfig.isStatTrackingEnabled()) {
-            store = new StatTrackingStore<ByteArray, byte[]>(store);
-
+            StatTrackingStore<ByteArray, byte[]> statStore = new StatTrackingStore<ByteArray, byte[]>(store,
+                                                                                                      this.storeStats);
+            store = statStore;
             if(voldemortConfig.isJmxEnabled()) {
 
                 MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                 ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                             store.getName());
 
-                if(mbeanServer.isRegistered(name))
-                    JmxUtils.unregisterMbean(mbeanServer, name);
-                JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+                synchronized(mbeanServer) {
+                    if(mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+                    JmxUtils.registerMbean(mbeanServer,
+                                           JmxUtils.createModelMBean(new StoreStatsJmx(statStore.getStats())),
+                                           name);
+                }
             }
         }
 
         storeRepository.addLocalStore(store);
     }
 
+    /**
+     * For server side routing create NodeStore (socketstore) and pass it on to
+     * a {@link RebootstrappingStore}.
+     * <p>
+     * 
+     * The {@link RebootstrappingStore} handles invalid-metadata exceptions
+     * introduced due to changes in cluster.xml at different nodes.
+     * 
+     * @param def
+     * @param cluster
+     * @param localNode
+     */
     public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
         Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
+
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store;
-            if(node.getId() == localNode) {
-                store = this.storeRepository.getLocalStore(def.getName());
-            } else {
-                store = new SocketStore(def.getName(),
-                                        new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              voldemortConfig.getRequestFormatType()),
-                                        socketPool,
-                                        false);
-            }
+            Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
         }
 
         Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
                                                                nodeStores,
-                                                               cluster,
+                                                               metadata.getCluster(),
                                                                def,
                                                                true,
                                                                this.clientThreadPool,
                                                                voldemortConfig.getRoutingTimeoutMs(),
-                                                               voldemortConfig.getClientNodeBannageMs(),
+                                                               failureDetector,
                                                                SystemTime.INSTANCE);
+
+        routedStore = new RebootstrappingStore(metadata,
+                                               storeRepository,
+                                               voldemortConfig,
+                                               socketPool,
+                                               (RoutedStore) routedStore);
+
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
                                                                          new VectorClockInconsistencyResolver<byte[]>());
         this.storeRepository.addRoutedStore(routedStore);
+    }
+
+    private Store<ByteArray, byte[]> getNodeStore(String storeName, Node node, int localNode) {
+        Store<ByteArray, byte[]> store;
+        if(node.getId() == localNode) {
+            store = this.storeRepository.getLocalStore(storeName);
+        } else {
+            store = createNodeStore(storeName, node);
+        }
+        return store;
+    }
+
+    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node) {
+        return new SocketStore(storeName,
+                               new SocketDestination(node.getHost(),
+                                                     node.getSocketPort(),
+                                                     voldemortConfig.getRequestFormatType()),
+                               socketPool,
+                               false);
     }
 
     /**
@@ -367,6 +435,16 @@ public class StorageService extends AbstractService {
         this.clientThreadPool.shutdownNow();
         logger.info("Closed client threadpool.");
 
+        if(this.failureDetector != null) {
+            try {
+                this.failureDetector.destroy();
+            } catch(Exception e) {
+                lastException = e;
+            }
+        }
+
+        logger.info("Closed failure detector.");
+
         /* If there is an exception, throw it */
         if(lastException instanceof VoldemortException)
             throw (VoldemortException) lastException;
@@ -429,4 +507,78 @@ public class StorageService extends AbstractService {
             throw new VoldemortException(e);
         }
     }
+
+    @JmxOperation(description = "Print stats on a given store", impact = MBeanOperationInfo.ACTION)
+    public void logStoreStats(final String storeName) {
+        this.scheduler.scheduleNow(new Runnable() {
+
+            public void run() {
+                StorageEngine<ByteArray, byte[]> store = storeRepository.getStorageEngine(storeName);
+                if(store == null) {
+                    logger.error("Invalid store name '" + storeName + "'.");
+                    return;
+                }
+                logger.info("Data statistics for store '" + store.getName() + "':\n\n"
+                            + calculateStats(store) + "\n\n");
+            }
+        });
+
+    }
+
+    @JmxOperation(description = "Print stats on a given store", impact = MBeanOperationInfo.ACTION)
+    public void logStoreStats() {
+        this.scheduler.scheduleNow(new Runnable() {
+
+            public void run() {
+                try {
+                    DataSetStats totals = new DataSetStats();
+                    List<String> names = new ArrayList<String>();
+                    List<DataSetStats> stats = new ArrayList<DataSetStats>();
+                    for(StorageEngine<ByteArray, byte[]> store: storeRepository.getAllStorageEngines()) {
+                        if(store instanceof ReadOnlyStorageEngine
+                           || store instanceof ViewStorageEngine || store instanceof MetadataStore)
+                            continue;
+                        logger.info(store.getClass());
+                        logger.info("Calculating stats for '" + store.getName() + "'...");
+                        DataSetStats curr = calculateStats(store);
+                        names.add(store.getName());
+                        stats.add(curr);
+                        totals.add(curr);
+                    }
+                    for(int i = 0; i < names.size(); i++)
+                        logger.info("\n\nData statistics for store '" + names.get(i) + "':\n"
+                                    + stats.get(i) + "\n\n");
+                    logger.info("Totals: \n " + totals + "\n\n");
+                } catch(Exception e) {
+                    logger.error("Error in thread: ", e);
+                }
+            }
+        });
+
+    }
+
+    private DataSetStats calculateStats(StorageEngine<ByteArray, byte[]> store) {
+        DataSetStats stats = new DataSetStats();
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iter = store.entries();
+        try {
+            int count = 0;
+            while(iter.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> pair = iter.next();
+                VectorClock clock = (VectorClock) pair.getSecond().getVersion();
+                stats.countEntry(pair.getFirst().length(), pair.getSecond().getValue().length
+                                                           + clock.sizeInBytes());
+                if(count % 10000 == 0)
+                    logger.debug("Processing key " + count);
+                count++;
+            }
+        } finally {
+            iter.close();
+        }
+        return stats;
+    }
+
+    public SocketPool getStorageSocketPool() {
+        return socketPool;
+    }
+
 }

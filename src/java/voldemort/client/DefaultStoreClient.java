@@ -20,7 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
@@ -48,8 +53,10 @@ import com.google.common.collect.Maps;
  * @param <V> The value type
  */
 @Threadsafe
+@JmxManaged(description = "A voldemort client")
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
+    private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
     private final StoreClientFactory storeFactory;
 
     private final int metadataRefreshAttempts;
@@ -65,10 +72,12 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-        reinit();
+        bootStrap();
     }
 
-    private void reinit() {
+    @JmxOperation(description = "bootstrap metadata from the cluster.")
+    public void bootStrap() {
+        logger.info("bootstrapping metadata.");
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
@@ -84,11 +93,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 return store.delete(key, version);
             } catch(InvalidMetadataException e) {
-                reinit();
+                bootStrap();
             }
         }
-        throw new InvalidMetadataException(this.metadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
     }
 
     public V getValue(K key, V defaultValue) {
@@ -113,11 +122,23 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 List<Versioned<V>> items = store.get(key);
                 return getItemOrThrow(key, defaultValue, items);
             } catch(InvalidMetadataException e) {
-                reinit();
+                bootStrap();
             }
         }
-        throw new InvalidMetadataException(this.metadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
+    }
+
+    private List<Version> getVersions(K key) {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                return store.getVersions(key);
+            } catch(InvalidMetadataException e) {
+                bootStrap();
+            }
+        }
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
     }
 
     private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
@@ -138,13 +159,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         Map<K, List<Versioned<V>>> items = null;
         for(int attempts = 0;; attempts++) {
             if(attempts >= this.metadataRefreshAttempts)
-                throw new InvalidMetadataException(this.metadataRefreshAttempts
-                                                   + " metadata refresh attempts failed.");
+                throw new VoldemortException(this.metadataRefreshAttempts
+                                             + " metadata refresh attempts failed.");
             try {
                 items = store.getAll(keys);
                 break;
             } catch(InvalidMetadataException e) {
-                reinit();
+                bootStrap();
             }
         }
         Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
@@ -188,11 +209,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 store.put(key, versioned);
                 return;
             } catch(InvalidMetadataException e) {
-                reinit();
+                bootStrap();
             }
         }
-        throw new InvalidMetadataException(this.metadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
     }
 
     public boolean applyUpdate(UpdateAction<K, V> action) {
@@ -228,6 +249,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return strategy.routeRequest(keySerializer.toBytes(key));
     }
 
+    @SuppressWarnings("unused")
     private Version getVersion(K key) {
         List<Version> versions = getVersions(key);
         if(versions.size() == 0)
@@ -237,17 +259,5 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         else
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
                                                 + ") = " + versions, versions);
-    }
-
-    private List<Version> getVersions(K key) {
-        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
-            try {
-                return store.getVersions(key);
-            } catch(InvalidMetadataException e) {
-                reinit();
-            }
-        }
-        throw new InvalidMetadataException(this.metadataRefreshAttempts
-                                           + " metadata refresh attempts failed.");
     }
 }

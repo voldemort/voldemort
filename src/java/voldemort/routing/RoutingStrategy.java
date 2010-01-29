@@ -49,10 +49,18 @@ public interface RoutingStrategy {
     public List<Integer> getPartitionList(byte[] key);
 
     /**
+     * Get the replication partitions list for the given partition.
+     * 
+     * @param partitionId
+     * @return The List of partitionId where this partition is replicated.
+     */
+    public List<Integer> getReplicatingPartitionList(int partitionId);
+
+    /**
      * Get the collection of nodes that are candidates for routing.
      * 
      * @return The collection of nodes
      */
     public Set<Node> getNodes();
-    
+
 }

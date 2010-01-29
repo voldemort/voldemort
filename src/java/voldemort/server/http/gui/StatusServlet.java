@@ -156,7 +156,7 @@ public class StatusServlet extends HttpServlet {
 
                 StatTrackingStore<?, ?> statStore = (StatTrackingStore<?, ?>) store;
 
-                Map<Tracked, RequestCounter> stats = statStore.getCounters();
+                Map<Tracked, RequestCounter> stats = statStore.getStats().getCounters();
 
                 if(i++ > 0) {
                     sb.append(",");
@@ -200,7 +200,7 @@ public class StatusServlet extends HttpServlet {
                 }
 
                 sb.append(",\n        \"num_exceptions\": ");
-                sb.append(statStore.getNumberOfExceptions());
+                sb.append(statStore.getStats().getCount(Tracked.EXCEPTION));
                 sb.append("\n");
 
                 sb.append("    }");

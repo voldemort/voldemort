@@ -17,10 +17,12 @@
 package voldemort.client;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +30,7 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortServer;
@@ -35,6 +38,7 @@ import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
@@ -44,6 +48,7 @@ import com.google.common.collect.AbstractIterator;
  */
 public class AdminServiceBasicTest extends TestCase {
 
+    private static int NUM_RUNS = 100;
     private static int TEST_STREAM_KEYS_SIZE = 10000;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -61,13 +66,15 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
-                                                                                             storesXmlfile),
+                                                                                             storesXmlfile,
+                                                                                             new Properties()),
                                                           cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -113,15 +120,21 @@ public class AdminServiceBasicTest extends TestCase {
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
-        client.updateRemoteCluster(0, updatedCluster);
+        for(int i = 0; i < NUM_RUNS; i++) {
+            VectorClock clock = ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
+                                                                                                    System.currentTimeMillis());
+            client.updateRemoteCluster(0, updatedCluster, clock);
 
-        assertEquals("Cluster should match",
-                     updatedCluster,
-                     getVoldemortServer(0).getMetadataStore().getCluster());
-        assertEquals("AdminClient.getMetdata() should match",
-                     client.getRemoteCluster(getVoldemortServer(0).getIdentityNode().getId())
-                           .getValue(),
-                     updatedCluster);
+            assertEquals("Cluster should match",
+                         updatedCluster,
+                         getVoldemortServer(0).getMetadataStore().getCluster());
+            assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
+                                                                        .getValue(), updatedCluster);
+
+            // version should match
+            assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
+                                                                        .getVersion());
+        }
 
     }
 
@@ -129,7 +142,9 @@ public class AdminServiceBasicTest extends TestCase {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         MetadataStore.VoldemortState state = getVoldemortServer(0).getMetadataStore()
                                                                   .getServerState();
@@ -139,7 +154,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // change back to NORMAL state
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -148,7 +165,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // lets revert back to REBALANCING STATE AND CHECK
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
 
@@ -157,7 +176,9 @@ public class AdminServiceBasicTest extends TestCase {
                      state);
 
         client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER);
+                                       MetadataStore.VoldemortState.NORMAL_SERVER,
+                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
+                                                                                                               System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -179,9 +200,6 @@ public class AdminServiceBasicTest extends TestCase {
         // do delete partitions request
         getAdminClient().deletePartitions(0, testStoreName, deletePartitionsList, null);
 
-        RoutingStrategy routingStrategy = getVoldemortServer(0).getMetadataStore()
-                                                               .getRoutingStrategy(testStoreName);
-
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
@@ -191,7 +209,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
-    public void testFetchPartitionKeys() throws IOException {
+    public void testFetchPartitionKeys() {
 
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
@@ -206,10 +224,10 @@ public class AdminServiceBasicTest extends TestCase {
             }
         }
 
-        Iterator<ByteArray> fetchIt = getAdminClient().fetchPartitionKeys(0,
-                                                                          testStoreName,
-                                                                          fetchPartitionsList,
-                                                                          null);
+        Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
+                                                                 testStoreName,
+                                                                 fetchPartitionsList,
+                                                                 null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -225,7 +243,26 @@ public class AdminServiceBasicTest extends TestCase {
                      count);
     }
 
-    public void testFetch() throws IOException {
+    public void testTruncate() throws Exception {
+        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+
+        // insert it into server-0 store
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+        }
+
+        // do truncate request
+        getAdminClient().truncate(0, testStoreName);
+
+        store = getStore(0, testStoreName);
+
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            assertEquals("Deleted key should be missing.", 0, store.get(entry.getKey()).size());
+        }
+    }
+
+    public void testFetch() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
 
@@ -239,10 +276,10 @@ public class AdminServiceBasicTest extends TestCase {
             }
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchPartitionEntries(0,
-                                                                                                      testStoreName,
-                                                                                                      fetchPartitionsList,
-                                                                                                      null);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
+                                                                                             testStoreName,
+                                                                                             fetchPartitionsList,
+                                                                                             null);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -293,6 +330,77 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
+    // check the basic rebalanceNode call.
+    public void testRebalanceNode() {
+        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+        List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
+
+        // insert it into server-0 store
+        int fetchPartitionKeyCount = 0;
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
+                fetchPartitionKeyCount++;
+            }
+        }
+
+        List<Integer> rebalancePartitionList = Arrays.asList(1, 3);
+        RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
+                                                                        0,
+                                                                        rebalancePartitionList,
+                                                                        new ArrayList<Integer>(0),
+                                                                        Arrays.asList(testStoreName),
+                                                                        0);
+        int asyncId = adminClient.rebalanceNode(stealInfo);
+        assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
+
+        getAdminClient().waitForCompletion(1, asyncId, 60, TimeUnit.SECONDS);
+
+        // assert data is copied correctly
+        store = getStore(1, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            if(isKeyPartition(entry.getKey(), 1, testStoreName, rebalancePartitionList)) {
+                assertSame("entry should be present at store", 1, store.get(entry.getKey()).size());
+                assertEquals("entry value should match",
+                             new String(entry.getValue()),
+                             new String(store.get(entry.getKey()).get(0).getValue()));
+            }
+        }
+    }
+
+    public void testRecoverData() {
+        // use store with replication 2, required write 2 for this test.
+        String testStoreName = "test-recovery-data";
+
+        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+        // insert it into server-0 store
+        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+        }
+
+        // assert server 1 is empty
+        store = getStore(1, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            assertSame("entry should NOT be present at store", 0, store.get(entry.getKey()).size());
+        }
+
+        // recover all data
+        adminClient.restoreDataFromReplications(1, 2);
+
+        // assert server 1 has all entries for its partitions
+        store = getStore(1, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            ByteArray key = entry.getKey();
+            assertSame("entry should be present for key " + key, 1, store.get(entry.getKey())
+                                                                         .size());
+            assertEquals("entry value should match",
+                         new String(entry.getValue()),
+                         new String(store.get(entry.getKey()).get(0).getValue()));
+        }
+    }
+
     /**
      * @throws IOException
      */
@@ -317,11 +425,7 @@ public class AdminServiceBasicTest extends TestCase {
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
-        int id = client.fetchAndUpdateStreams(0,
-                                              1,
-                                              testStoreName,
-                                              fetchAndUpdatePartitionsList,
-                                              null);
+        int id = client.migratePartitions(0, 1, testStoreName, fetchAndUpdatePartitionsList, null);
         client.waitForCompletion(1, id, 60, TimeUnit.SECONDS);
 
         // check values

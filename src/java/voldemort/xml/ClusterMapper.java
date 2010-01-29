@@ -125,7 +125,8 @@ public class ClusterMapper {
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
         for(String aPartition: COMMA_SEP.split(partitionsText))
-            partitions.add(Integer.parseInt(aPartition.trim()));
+            if(aPartition.trim().length() > 0)
+                partitions.add(Integer.parseInt(aPartition.trim()));
 
         return new Node(id, host, httpPort, socketPort, adminPort, partitions);
     }

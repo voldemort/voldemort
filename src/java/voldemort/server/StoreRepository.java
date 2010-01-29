@@ -67,12 +67,18 @@ public class StoreRepository {
      */
     private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[]>> nodeStores;
 
+    /*
+     * Stores that add redirectingSocketStores
+     */
+    private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[]>> redirectingSocketStores;
+
     public StoreRepository() {
         super();
         this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
         this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
+        this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
     }
 
     public boolean hasLocalStore(String name) {
@@ -164,6 +170,22 @@ public class StoreRepository {
         return vals;
     }
 
+    public boolean hasRedirectingSocketStore(String name, int nodeId) {
+        return this.redirectingSocketStores.containsKey(Pair.create(name, nodeId));
+    }
+
+    public Store<ByteArray, byte[]> getRedirectingSocketStore(String storeName, Integer id) {
+        return redirectingSocketStores.get(Pair.create(storeName, id));
+    }
+
+    public void addRedirectingSocketStore(int nodeId, Store<ByteArray, byte[]> store) {
+        Pair<String, Integer> key = Pair.create(store.getName(), nodeId);
+        Store<ByteArray, byte[]> found = this.redirectingSocketStores.putIfAbsent(key, store);
+        if(found != null)
+            throw new VoldemortException("Store '" + store.getName() + "' for node " + nodeId
+                                         + " has already been initialized.");
+    }
+
     public StorageEngine<ByteArray, Slop> getSlopStore() {
         if(this.slopStore == null)
             throw new IllegalStateException("Slop store has not been set!");
@@ -177,5 +199,4 @@ public class StoreRepository {
     public boolean hasSlopStore() {
         return this.slopStore != null;
     }
-
 }

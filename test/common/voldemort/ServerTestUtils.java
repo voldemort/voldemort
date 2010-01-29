@@ -23,7 +23,7 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Properties;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
@@ -31,11 +31,11 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
-import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.ProtoBuffAdminClientRequestFormat;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
@@ -53,6 +53,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -118,6 +119,7 @@ public class ServerTestUtils {
                                                createMetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
                                                                    new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml))),
                                                null,
+                                               null,
                                                null);
     }
 
@@ -154,11 +156,26 @@ public class ServerTestUtils {
     }
 
     public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
+        return getSocketStore(storeName, "localhost", port, type);
+    }
+
+    public static SocketStore getSocketStore(String storeName,
+                                             String host,
+                                             int port,
+                                             RequestFormatType type) {
+        return getSocketStore(storeName, host, port, type, false);
+    }
+
+    public static SocketStore getSocketStore(String storeName,
+                                             String host,
+                                             int port,
+                                             RequestFormatType type,
+                                             boolean isRouted) {
         SocketPool socketPool = new SocketPool(2, 10000, 100000, 32 * 1024);
         return new SocketStore(storeName,
-                               new SocketDestination("localhost", port, type),
+                               new SocketDestination(host, port, type),
                                socketPool,
-                               false);
+                               isRouted);
     }
 
     public static Context getJettyServer(String clusterXml,
@@ -321,11 +338,22 @@ public class ServerTestUtils {
         return map;
     }
 
+    public static HashMap<String, String> createRandomKeyValueString(int numKeys) {
+        HashMap<String, String> map = new HashMap<String, String>();
+        for(int cnt = 0; cnt <= numKeys; cnt++) {
+            int keyInt = (int) (Math.random() * 100000);
+            map.put("" + keyInt, "value-" + keyInt);
+        }
+
+        return map;
+    }
+
     public static VoldemortConfig createServerConfig(int nodeId,
                                                      String baseDir,
                                                      String clusterFile,
-                                                     String storeFile) throws IOException {
-        Props props = new Props();
+                                                     String storeFile,
+                                                     Properties properties) throws IOException {
+        Props props = new Props(properties);
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
@@ -338,8 +366,8 @@ public class ServerTestUtils {
         config.setMysqlDatabaseName("voldemort");
         config.setMysqlUsername("voldemort");
         config.setMysqlPassword("voldemort");
-        config.setStreamMaxReadBytesPerSec(10 * 1000);
-        config.setStreamMaxWriteBytesPerSec(10 * 1000);
+        config.setStreamMaxReadBytesPerSec(10 * 1000 * 1000);
+        config.setStreamMaxWriteBytesPerSec(10 * 1000 * 1000);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());
@@ -362,40 +390,63 @@ public class ServerTestUtils {
         return config;
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(Cluster cluster) {
+    public static AdminClient getAdminClient(Cluster cluster) {
 
-        ClientConfig config = new ClientConfig();
-        config.setMaxConnectionsPerNode(2);
-        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
-        config.setSocketBufferSize(32 * 1024);
-
-        return new ProtoBuffAdminClientRequestFormat(cluster, config);
+        AdminClientConfig config = new AdminClientConfig();
+        return new AdminClient(cluster, config);
     }
 
-    public static ProtoBuffAdminClientRequestFormat getAdminClient(String bootstrapURL) {
-        ClientConfig config = new ClientConfig();
-        config.setMaxConnectionsPerNode(2);
-        config.setConnectionTimeout(10000, TimeUnit.MILLISECONDS);
-        config.setSocketTimeout(5 * 60 * 1000, TimeUnit.MILLISECONDS);
-        config.setSocketBufferSize(32 * 1024);
-
-        return new ProtoBuffAdminClientRequestFormat(bootstrapURL, config);
+    public static AdminClient getAdminClient(String bootstrapURL) {
+        AdminClientConfig config = new AdminClientConfig();
+        return new AdminClient(bootstrapURL, config);
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
-        return new SocketRequestHandlerFactory(repository, null, null, null);
+        return new SocketRequestHandlerFactory(repository, null, null, null, null);
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
-        server.stop();
-        FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+        try {
+            server.stop();
+        } finally {
+            FileUtils.deleteDirectory(new File(server.getVoldemortConfig().getVoldemortHome()));
+        }
     }
 
     public static VoldemortServer startVoldemortServer(VoldemortConfig config, Cluster cluster) {
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
+
+        ServerTestUtils.waitForServerStart(server.getIdentityNode());
+        // wait till server start or throw exception
         return server;
     }
 
+    public static void waitForServerStart(Node node) {
+        boolean success = false;
+        int retries = 10;
+        Store<ByteArray, ?> store = null;
+        while(retries-- > 0) {
+            store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
+                                                   node.getSocketPort());
+            try {
+                store.get(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()));
+                success = true;
+            } catch(UnreachableStoreException e) {
+                store.close();
+                store = null;
+                System.out.println("UnreachableSocketStore sleeping will try again " + retries
+                                   + " times.");
+                try {
+                    Thread.sleep(1000);
+                } catch(InterruptedException e1) {
+                    // ignore
+                }
+            }
+        }
+
+        store.close();
+        if(!success)
+            throw new RuntimeException("Failed to connect with server:" + node);
+    }
 }

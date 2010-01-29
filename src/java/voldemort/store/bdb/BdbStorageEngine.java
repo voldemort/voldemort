@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.sleepycat.je.*;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
@@ -32,6 +31,7 @@ import voldemort.serialization.VersionedSerializer;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
+import voldemort.store.StorageInitializationException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
@@ -45,6 +45,7 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+
 import com.google.common.collect.Lists;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -54,6 +55,7 @@ import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
 import com.sleepycat.je.Transaction;
 
@@ -69,18 +71,22 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private static final Hex hexCodec = new Hex();
 
     private final String name;
-    private final Database bdbDatabase;
+    private Database bdbDatabase;
     private final Environment environment;
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
     private final boolean cursorPreload;
     private final Serializer<Version> versionSerializer;
+    private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
     public BdbStorageEngine(String name, Environment environment, Database database) {
         this(name, environment, database, false);
     }
 
-    public BdbStorageEngine(String name, Environment environment, Database database, boolean cursorPreload) {
+    public BdbStorageEngine(String name,
+                            Environment environment,
+                            Database database,
+                            boolean cursorPreload) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
@@ -105,13 +111,13 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
-            if (cursorPreload) {
+            if(cursorPreload) {
                 PreloadConfig preloadConfig = new PreloadConfig();
                 preloadConfig.setLoadLNs(true);
-                bdbDatabase.preload(preloadConfig);
+                getBdbDatabase().preload(preloadConfig);
             }
-            
-            Cursor cursor = bdbDatabase.openCursor(null, null);
+
+            Cursor cursor = getBdbDatabase().openCursor(null, null);
             return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
             logger.error(e);
@@ -121,11 +127,76 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<ByteArray> keys() {
         try {
-            Cursor cursor = bdbDatabase.openCursor(null, null);
+            Cursor cursor = getBdbDatabase().openCursor(null, null);
             return new BdbKeysIterator(cursor);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
+        }
+    }
+
+    public void truncate() {
+
+        if(isTruncating.compareAndSet(false, true)) {
+            Transaction transaction = null;
+            boolean succeeded = false;
+
+            try {
+                transaction = this.environment.beginTransaction(null, null);
+
+                // close current bdbDatabase first
+                bdbDatabase.close();
+
+                // truncate the database
+                environment.truncateDatabase(transaction, this.getName(), false);
+                succeeded = true;
+            } catch(DatabaseException e) {
+                logger.error(e);
+                throw new VoldemortException("Failed to truncate Bdb store " + getName(), e);
+
+            } finally {
+
+                commitOrAbort(succeeded, transaction);
+
+                // reopen the bdb database for future queries.
+                if(reopenBdbDatabase()) {
+                    isTruncating.compareAndSet(true, false);
+                } else {
+                    throw new VoldemortException("Failed to reopen Bdb Database after truncation, All request will fail on store "
+                                                 + getName());
+                }
+            }
+        } else {
+            throw new VoldemortException("Store " + getName()
+                                         + " is already truncating, cannot start another one.");
+        }
+    }
+
+    private void commitOrAbort(boolean succeeded, Transaction transaction) {
+        try {
+            if(succeeded) {
+                attemptCommit(transaction);
+            } else {
+                attemptAbort(transaction);
+            }
+        } catch(Exception e) {
+            logger.error(e);
+        }
+    }
+
+    /**
+     * Reopens the bdb Database after a successful truncate operation.
+     */
+    private boolean reopenBdbDatabase() {
+        try {
+            bdbDatabase = environment.openDatabase(null,
+                                                   this.getName(),
+                                                   this.bdbDatabase.getConfig());
+            return true;
+        } catch(DatabaseException e) {
+            throw new StorageInitializationException("Failed to reinitialize BdbStorageEngine for store:"
+                                                             + getName() + " after truncation.",
+                                                     e);
         }
     }
 
@@ -143,7 +214,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
         Cursor cursor = null;
         try {
-            cursor = bdbDatabase.openCursor(null, null);
+            cursor = getBdbDatabase().openCursor(null, null);
             return get(cursor, key, lockMode, serializer);
         } catch(DatabaseException e) {
             logger.error(e);
@@ -153,13 +224,31 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
+    /**
+     * truncate() operation mandates that all opened Database be closed before
+     * attempting truncation.
+     * <p>
+     * This method throws an exception while truncation is happening to any
+     * request attempting in parallel with store truncation.
+     * 
+     * @return
+     */
+    private Database getBdbDatabase() {
+        if(isTruncating.get()) {
+            throw new VoldemortException("Bdb Store " + getName()
+                                         + " is currently truncating cannot serve any request.");
+        }
+
+        return bdbDatabase;
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
         Cursor cursor = null;
         try {
-            cursor = bdbDatabase.openCursor(null, null);
+            cursor = getBdbDatabase().openCursor(null, null);
             for(ByteArray key: keys) {
                 List<Versioned<byte[]>> values = get(cursor,
                                                      key,
@@ -209,7 +298,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             // if there is a version obsoleted by this value delete it
             // if there is a version later than this one, throw an exception
             DatabaseEntry valueEntry = new DatabaseEntry();
-            cursor = bdbDatabase.openCursor(transaction, null);
+            cursor = getBdbDatabase().openCursor(transaction, null);
             for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, LockMode.RMW); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
                                                                                                                                                                 valueEntry,
                                                                                                                                                                 LockMode.RMW)) {
@@ -256,7 +345,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
             transaction = this.environment.beginTransaction(null, null);
             DatabaseEntry keyEntry = new DatabaseEntry(key.get());
             DatabaseEntry valueEntry = new DatabaseEntry();
-            cursor = bdbDatabase.openCursor(transaction, null);
+            cursor = getBdbDatabase().openCursor(transaction, null);
             OperationStatus status = cursor.getSearchKey(keyEntry,
                                                          valueEntry,
                                                          LockMode.READ_UNCOMMITTED);
@@ -301,7 +390,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void close() throws PersistenceFailureException {
         try {
             if(this.isOpen.compareAndSet(true, false))
-                this.bdbDatabase.close();
+                this.getBdbDatabase().close();
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException("Shutdown failed.", e);
@@ -341,7 +430,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         try {
             StatsConfig config = new StatsConfig();
             config.setFast(setFast);
-            return this.bdbDatabase.getStats(config);
+            return this.getBdbDatabase().getStats(config);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new VoldemortException(e);

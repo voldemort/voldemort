@@ -58,6 +58,7 @@ public class HttpService extends AbstractService {
     private Server httpServer;
     private Context context;
 
+    @SuppressWarnings("unused")
     public HttpService(VoldemortServer server,
                        StoreRepository storeRepository,
                        RequestFormatType requestType,
@@ -71,7 +72,8 @@ public class HttpService extends AbstractService {
         this.requestHandler = new SocketRequestHandlerFactory(server.getStoreRepository(),
                                                               server.getMetadataStore(),
                                                               server.getVoldemortConfig(),
-                                                              server.getAsyncRunner()).getRequestHandler(requestType);
+                                                              server.getAsyncRunner(),
+                                                              null).getRequestHandler(requestType);
     }
 
     @Override

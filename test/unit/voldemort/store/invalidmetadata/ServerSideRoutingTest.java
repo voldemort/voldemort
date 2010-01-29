@@ -18,6 +18,7 @@ package voldemort.store.invalidmetadata;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -43,7 +44,6 @@ public class ServerSideRoutingTest extends TestCase {
 
     private static int TEST_VALUES_SIZE = 1000;
     private static String testStoreName = "test-replication-memory";
-    private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
     /**
      * TODO : enable this test after serversideRouting is fixed.
@@ -65,6 +65,7 @@ public class ServerSideRoutingTest extends TestCase {
     // checkServerSideRouting(server0, server1);
     }
 
+    @SuppressWarnings("unused")
     private void checkServerSideRouting(VoldemortServer server0, VoldemortServer server1) {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
@@ -91,6 +92,7 @@ public class ServerSideRoutingTest extends TestCase {
         }
     }
 
+    @SuppressWarnings("unused")
     private VoldemortServer startServer(int node,
                                         String storesXmlfile,
                                         Cluster cluster,
@@ -99,7 +101,8 @@ public class ServerSideRoutingTest extends TestCase {
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
-                                                                    storesXmlfile);
+                                                                    storesXmlfile,
+                                                                    new Properties());
 
         if(metadataChecking)
             config.setEnableMetadataChecking(true);

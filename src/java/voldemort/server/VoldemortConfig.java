@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -94,7 +96,6 @@ public class VoldemortConfig implements Serializable {
     private int clientRoutingTimeoutMs;
     private int clientMaxConnectionsPerNode;
     private int clientConnectionTimeoutMs;
-    private int clientNodeBannageMs;
     private int clientMaxThreads;
     private int clientThreadIdleMs;
     private int clientMaxQueuedRequests;
@@ -116,6 +117,9 @@ public class VoldemortConfig implements Serializable {
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
     private boolean enableRedirectRouting;
+    private boolean enableNetworkClassLoader;
+    private boolean enableGossip;
+    private boolean enableRebalanceService;
 
     private List<String> storageConfigurations;
 
@@ -129,31 +133,34 @@ public class VoldemortConfig implements Serializable {
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
 
-    public int getAdminSocketTimeout() {
-        return adminSocketTimeout;
+    private long streamMaxReadBytesPerSec;
+    private long streamMaxWriteBytesPerSec;
+
+    public int getGossipInterval() {
+        return gossipInterval;
     }
 
-    public void setAdminSocketTimeout(int adminSocketTimeout) {
-        this.adminSocketTimeout = adminSocketTimeout;
+    public void setGossipInterval(int gossipInterval) {
+        this.gossipInterval = gossipInterval;
     }
 
-    public int getAdminConnectionTimeout() {
-        return adminConnectionTimeout;
-    }
-
-    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
-        this.adminConnectionTimeout = adminConnectionTimeout;
-    }
-
-    private int streamMaxReadBytesPerSec;
-    private int streamMaxWriteBytesPerSec;
+    private int gossipInterval;
+    private String failureDetectorImplementation;
+    private long failureDetectorBannagePeriod;
+    private int failureDetectorThreshold;
+    private int failureDetectorThresholdCountMinimum;
+    private long failureDetectorThresholdInterval;
+    private long failureDetectorAsyncRecoveryInterval;
+    private volatile List<String> failureDetectorCatastrophicErrorTypes;
+    private long failureDetectorRequestLengthThreshold;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
 
-    public VoldemortConfig(int nodeId, String voldemortHome) {
-        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
-    }
+    private int maxRebalancingAttempt;
+    private int rebalancingTimeoutInSeconds;
+    private int rebalancingServicePeriod;
+    private int maxParallelStoresRebalancing;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -207,15 +214,16 @@ public class VoldemortConfig implements Serializable {
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
         // Admin client should have less threads but very high buffer size.
-        this.adminMaxThreads = props.getInt("admin.max.threads", 10);
+        this.adminMaxThreads = props.getInt("admin.max.threads", 20);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
-        this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.ms", 5 * 60 * 1000);
-        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.ms", 10000);
+        this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
+        this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 1 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 1 * 1000 * 1000);
+        this.streamMaxReadBytesPerSec = props.getBytes("stream.read.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
+                                                        10 * 1000 * 1000);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -227,7 +235,6 @@ public class VoldemortConfig implements Serializable {
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
-        this.clientNodeBannageMs = props.getInt("client.node.bannage.ms", 10000);
         this.clientMaxThreads = props.getInt("client.max.threads", 100);
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 5000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
@@ -242,7 +249,10 @@ public class VoldemortConfig implements Serializable {
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
+        this.enableGossip = props.getBoolean("enable.gossip", false);
+        this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
 
+        this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 3);
@@ -269,6 +279,41 @@ public class VoldemortConfig implements Serializable {
         String requestFormatName = props.getString("request.format",
                                                    RequestFormatType.VOLDEMORT_V1.getCode());
         this.requestFormatType = RequestFormatType.fromCode(requestFormatName);
+
+        // rebalancing parameters
+        this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
+        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
+        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
+
+        this.failureDetectorImplementation = props.getString("failuredetector.implementation",
+                                                             BannagePeriodFailureDetector.class.getName());
+
+        // We're changing the property from "client.node.bannage.ms" to
+        // "failuredetector.bannage.period" so if we have the old one, migrate
+        // it over.
+        if(props.containsKey("client.node.bannage.ms")
+           && !props.containsKey("failuredetector.bannage.period")) {
+            props.put("failuredetector.bannage.period", props.get("client.node.bannage.ms"));
+        }
+
+        this.failureDetectorBannagePeriod = props.getLong("failuredetector.bannage.period",
+                                                          FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD);
+        this.failureDetectorThreshold = props.getInt("failuredetector.threshold",
+                                                     FailureDetectorConfig.DEFAULT_THRESHOLD);
+        this.failureDetectorThresholdCountMinimum = props.getInt("failuredetector.threshold.countminimum",
+                                                                 FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM);
+        this.failureDetectorThresholdInterval = props.getLong("failuredetector.threshold.interval",
+                                                              FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
+        this.failureDetectorAsyncRecoveryInterval = props.getLong("failuredetector.asyncrecovery.interval",
+                                                                  FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
+        this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
+                                                                   FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
+        this.failureDetectorRequestLengthThreshold = props.getLong("failuredetector.request.length.threshold",
+                                                                   clientRoutingTimeoutMs / 10);
+
+        // network class loader disable by default.
+        this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
 
         validateParams();
     }
@@ -564,19 +609,19 @@ public class VoldemortConfig implements Serializable {
         return enableAdminServer;
     }
 
-    public int getStreamMaxReadBytesPerSec() {
+    public long getStreamMaxReadBytesPerSec() {
         return streamMaxReadBytesPerSec;
     }
 
-    public void setStreamMaxReadBytesPerSec(int streamMaxReadBytesPerSec) {
+    public void setStreamMaxReadBytesPerSec(long streamMaxReadBytesPerSec) {
         this.streamMaxReadBytesPerSec = streamMaxReadBytesPerSec;
     }
 
-    public int getStreamMaxWriteBytesPerSec() {
+    public long getStreamMaxWriteBytesPerSec() {
         return streamMaxWriteBytesPerSec;
     }
 
-    public void setStreamMaxWriteBytesPerSec(int streamMaxWriteBytesPerSec) {
+    public void setStreamMaxWriteBytesPerSec(long streamMaxWriteBytesPerSec) {
         this.streamMaxWriteBytesPerSec = streamMaxWriteBytesPerSec;
     }
 
@@ -684,12 +729,22 @@ public class VoldemortConfig implements Serializable {
         this.clientConnectionTimeoutMs = connectionTimeoutMs;
     }
 
+    /**
+     * @deprecated Use {@link #getFailureDetectorBannagePeriod()} instead
+     */
+
+    @Deprecated
     public int getClientNodeBannageMs() {
-        return clientNodeBannageMs;
+        return (int) failureDetectorBannagePeriod;
     }
 
+    /**
+     * @deprecated Use {@link #setFailureDetectorBannagePeriod(long)} instead
+     */
+
+    @Deprecated
     public void setClientNodeBannageMs(int nodeBannageMs) {
-        this.clientNodeBannageMs = nodeBannageMs;
+        this.failureDetectorBannagePeriod = nodeBannageMs;
     }
 
     public int getClientMaxThreads() {
@@ -888,6 +943,70 @@ public class VoldemortConfig implements Serializable {
         this.numCleanupPermits = numCleanupPermits;
     }
 
+    public String getFailureDetectorImplementation() {
+        return failureDetectorImplementation;
+    }
+
+    public void setFailureDetectorImplementation(String failureDetectorImplementation) {
+        this.failureDetectorImplementation = failureDetectorImplementation;
+    }
+
+    public long getFailureDetectorBannagePeriod() {
+        return failureDetectorBannagePeriod;
+    }
+
+    public void setFailureDetectorBannagePeriod(long failureDetectorBannagePeriod) {
+        this.failureDetectorBannagePeriod = failureDetectorBannagePeriod;
+    }
+
+    public int getFailureDetectorThreshold() {
+        return failureDetectorThreshold;
+    }
+
+    public void setFailureDetectorThreshold(int failureDetectorThreshold) {
+        this.failureDetectorThreshold = failureDetectorThreshold;
+    }
+
+    public int getFailureDetectorThresholdCountMinimum() {
+        return failureDetectorThresholdCountMinimum;
+    }
+
+    public void setFailureDetectorThresholdCountMinimum(int failureDetectorThresholdCountMinimum) {
+        this.failureDetectorThresholdCountMinimum = failureDetectorThresholdCountMinimum;
+    }
+
+    public long getFailureDetectorThresholdInterval() {
+        return failureDetectorThresholdInterval;
+    }
+
+    public void setFailureDetectorThresholdInterval(long failureDetectorThresholdInterval) {
+        this.failureDetectorThresholdInterval = failureDetectorThresholdInterval;
+    }
+
+    public long getFailureDetectorAsyncRecoveryInterval() {
+        return failureDetectorAsyncRecoveryInterval;
+    }
+
+    public void setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
+        this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
+    }
+
+    public List<String> getFailureDetectorCatastrophicErrorTypes() {
+        return failureDetectorCatastrophicErrorTypes;
+    }
+
+    public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+        this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
+    }
+
+    public long getFailureDetectorRequestLengthThreshold() {
+        return failureDetectorRequestLengthThreshold;
+    }
+
+    public void setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+        this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
+    }
+
     public int getRetentionCleanupFirstStartTimeInHour() {
         return retentionCleanupFirstStartTimeInHour;
     }
@@ -904,12 +1023,84 @@ public class VoldemortConfig implements Serializable {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
     }
 
+    public int getAdminSocketTimeout() {
+        return adminSocketTimeout;
+    }
+
+    public void setAdminSocketTimeout(int adminSocketTimeout) {
+        this.adminSocketTimeout = adminSocketTimeout;
+    }
+
+    public int getAdminConnectionTimeout() {
+        return adminConnectionTimeout;
+    }
+
+    public void setAdminConnectionTimeout(int adminConnectionTimeout) {
+        this.adminConnectionTimeout = adminConnectionTimeout;
+    }
+
+    public void setMaxRebalancingAttempt(int maxRebalancingAttempt) {
+        this.maxRebalancingAttempt = maxRebalancingAttempt;
+    }
+
+    public int getMaxRebalancingAttempt() {
+        return this.maxRebalancingAttempt;
+    }
+
+    public int getRebalancingTimeout() {
+        return rebalancingTimeoutInSeconds;
+    }
+
+    public void setRebalancingTimeout(int rebalancingTimeout) {
+        this.rebalancingTimeoutInSeconds = rebalancingTimeout;
+    }
+
+    public VoldemortConfig(int nodeId, String voldemortHome) {
+        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
+
+    public boolean isGossipEnabled() {
+        return enableGossip;
+    }
+
+    public void setEnableGossip(boolean enableGossip) {
+        this.enableGossip = enableGossip;
+    }
+
     public String getReadOnlySearchStrategy() {
         return readOnlySearchStrategy;
     }
 
     public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
         this.readOnlySearchStrategy = readOnlySearchStrategy;
+    }
+
+    public boolean isNetworkClassLoaderEnabled() {
+        return enableNetworkClassLoader;
+    }
+
+    public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
+        this.enableNetworkClassLoader = enableNetworkClassLoader;
+    }
+
+    public int getRebalancingServicePeriod() {
+        return rebalancingServicePeriod;
+    }
+
+    public void setEnableRebalanceService(boolean enableRebalanceService) {
+        this.enableRebalanceService = enableRebalanceService;
+    }
+
+    public boolean isEnableRebalanceService() {
+        return enableRebalanceService;
+    }
+
+    public int getMaxParallelStoresRebalancing() {
+        return maxParallelStoresRebalancing;
+    }
+
+    public void setMaxParallelStoresRebalancing(int maxParallelStoresRebalancing) {
+        this.maxParallelStoresRebalancing = maxParallelStoresRebalancing;
     }
 
 }

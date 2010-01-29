@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,8 @@
 
 package voldemort.performance;
 
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+
 import java.io.File;
 import java.io.FileReader;
 import java.util.Map;
@@ -27,6 +29,9 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.BasicStoreVerifier;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
@@ -53,11 +58,18 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                          + File.separator
                                                                          + "/cluster.xml"));
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
-        StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
+        VoldemortConfig voldemortConfig = new VoldemortConfig(propsA);
+        StorageConfiguration conf = new BdbStorageConfiguration(voldemortConfig);
         for(Node node: cluster.getNodes())
             clientMapping.put(node.getId(), conf.getStore("test" + node.getId()));
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
+
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(cluster.getNodes())
+                                                                                                .setStoreVerifier(new BasicStoreVerifier<ByteArray, byte[]>(clientMapping,
+                                                                                                                                                            new ByteArray("key".getBytes())));
+        FailureDetector failureDetector = create(failureDetectorConfig, false);
+
         Store<ByteArray, byte[]> store = new RoutedStore("test",
                                                          clientMapping,
                                                          cluster,
@@ -70,7 +82,8 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                                      RoutingStrategyType.CONSISTENT_STRATEGY),
                                                          10,
                                                          true,
-                                                         10000L);
+                                                         10000L,
+                                                         failureDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory

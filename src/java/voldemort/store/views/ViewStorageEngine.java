@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.Experimental;
 import voldemort.serialization.Serializer;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -25,6 +26,7 @@ import com.google.common.collect.AbstractIterator;
  * @author jay
  * 
  */
+@Experimental
 public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
@@ -33,7 +35,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final Serializer<Object> valSerializer;
     private final Serializer<Object> targetKeySerializer;
     private final Serializer<Object> targetValSerializer;
-    private final ViewTransformation<Object, Object, Object> valueTrans;
+    private final View<Object, Object, Object> view;
 
     @SuppressWarnings("unchecked")
     public ViewStorageEngine(String name,
@@ -41,7 +43,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
                              Serializer<?> valSerializer,
                              Serializer<?> targetKeySerializer,
                              Serializer<?> targetValSerializer,
-                             ViewTransformation<?, ?, ?> valueTrans) {
+                             View<?, ?, ?> valueTrans) {
         this.name = name;
         this.target = Utils.notNull(target);
         this.serializingStore = new SerializingStore(target,
@@ -50,7 +52,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.valSerializer = (Serializer<Object>) valSerializer;
         this.targetKeySerializer = (Serializer<Object>) targetKeySerializer;
         this.targetValSerializer = (Serializer<Object>) targetValSerializer;
-        this.valueTrans = (ViewTransformation<Object, Object, Object>) valueTrans;
+        this.view = (View<Object, Object, Object>) valueTrans;
         if(valueTrans == null)
             throw new IllegalArgumentException("View without either a key transformation or a value transformation.");
     }
@@ -92,6 +94,14 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return StoreUtils.keys(entries());
     }
 
+    public void truncate() {
+        ViewIterator iterator = new ViewIterator(target.entries());
+        while (iterator.hasNext()) {
+            Pair<ByteArray, Versioned<byte[]>> pair = iterator.next();
+            target.delete(pair.getFirst(), pair.getSecond().getVersion());
+        }
+    }
+
     public Object getCapability(StoreCapabilityType capability) {
         if(capability == StoreCapabilityType.VIEW_TARGET)
             return this.target;
@@ -102,21 +112,15 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void close() throws VoldemortException {}
 
     private byte[] valueFromViewSchema(ByteArray key, byte[] value) {
-        if(this.valueTrans == null)
-            return value;
-        else
-            return this.targetValSerializer.toBytes(this.valueTrans.fromViewToStore(this.serializingStore,
-                                                                                    this.targetKeySerializer.toObject(key.get()),
-                                                                                    this.valSerializer.toObject(value)));
+        return this.targetValSerializer.toBytes(this.view.viewToStore(this.serializingStore,
+                                                                      this.targetKeySerializer.toObject(key.get()),
+                                                                      this.valSerializer.toObject(value)));
     }
 
     private byte[] valueToViewSchema(ByteArray key, byte[] value) {
-        if(this.valueTrans == null)
-            return value;
-        else
-            return this.valSerializer.toBytes(this.valueTrans.fromStoreToView(this.serializingStore,
-                                                                              this.targetKeySerializer.toObject(key.get()),
-                                                                              this.targetValSerializer.toObject(value)));
+        return this.valSerializer.toBytes(this.view.storeToView(this.serializingStore,
+                                                                this.targetKeySerializer.toObject(key.get()),
+                                                                this.targetValSerializer.toObject(value)));
     }
 
     private class ViewIterator extends AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>

@@ -31,6 +31,7 @@ import org.apache.commons.httpclient.methods.PostMethod;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -52,7 +53,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
     private final String storeName;
     private final HttpClient httpClient;
     private final RequestFormat requestFormat;
-    private final boolean reroute;
+    private final RequestRoutingType reroute;
     private final String storeUrl;
 
     public HttpStore(String storeName,
@@ -64,7 +65,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         this.storeName = storeName;
         this.httpClient = client;
         this.requestFormat = format;
-        this.reroute = reroute;
+        this.reroute = RequestRoutingType.getRequestRoutingType(reroute, false);
         this.storeUrl = "http://" + host + ":" + port + "/stores";
     }
 

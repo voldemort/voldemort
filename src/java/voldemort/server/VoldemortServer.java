@@ -25,22 +25,27 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationRunner;
+import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.server.socket.AdminService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.JmxUtils;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -61,7 +66,6 @@ public class VoldemortServer extends AbstractService {
     private static final Logger logger = Logger.getLogger(VoldemortServer.class.getName());
     public static final long DEFAULT_PUSHER_POLL_MS = 60 * 1000;
 
-    private final static int ASYNC_REQUEST_THREADS = 8;
     private final static int ASYNC_REQUEST_CACHE_SIZE = 64;
 
     private final Node identityNode;
@@ -69,7 +73,7 @@ public class VoldemortServer extends AbstractService {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
-    private final AsyncOperationRunner asyncRunner;
+    private AsyncOperationRunner asyncRunner;
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
@@ -78,7 +82,6 @@ public class VoldemortServer extends AbstractService {
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
         this.services = createServices();
     }
 
@@ -93,23 +96,30 @@ public class VoldemortServer extends AbstractService {
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
                                 new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
-        this.asyncRunner = new AsyncOperationRunner(ASYNC_REQUEST_THREADS, ASYNC_REQUEST_CACHE_SIZE);
+
         this.services = createServices();
     }
 
     public AsyncOperationRunner getAsyncRunner() {
         return asyncRunner;
     }
-    
+
     private List<VoldemortService> createServices() {
 
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
                                                           SystemTime.INSTANCE);
-        services.add(new StorageService(storeRepository, metadata, scheduler, voldemortConfig));
+        StorageService storageService = new StorageService(storeRepository,
+                                                           metadata,
+                                                           scheduler,
+                                                           voldemortConfig);
+
+        asyncRunner = new AsyncOperationRunner(scheduler, ASYNC_REQUEST_CACHE_SIZE);
+
+        services.add(storageService);
         services.add(scheduler);
-        services.add(this.asyncRunner);
+        services.add(asyncRunner);
 
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,
@@ -121,7 +131,8 @@ public class VoldemortServer extends AbstractService {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
                                                                                                 this.metadata,
                                                                                                 this.voldemortConfig,
-                                                                                                this.asyncRunner);
+                                                                                                this.asyncRunner,
+                                                                                                null);
 
             if(voldemortConfig.getUseNioConnector()) {
                 logger.info("Using NIO Connector.");
@@ -144,17 +155,32 @@ public class VoldemortServer extends AbstractService {
         }
 
         if(voldemortConfig.isAdminServerEnabled()) {
+            Rebalancer rebalancer = null;
+            if(voldemortConfig.isEnableRebalanceService()) {
+                RebalancerService rebalancerService = new RebalancerService(metadata,
+                                                                            voldemortConfig,
+                                                                            asyncRunner,
+                                                                            scheduler);
+                services.add(rebalancerService);
+                rebalancer = rebalancerService.getRebalancer();
+            }
+
             SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
-                                                                                                     this.asyncRunner);
-            services.add(new SocketService(adminRequestHandlerFactory,
-                                           identityNode.getAdminPort(),
-                                           voldemortConfig.getAdminCoreThreads(),
-                                           voldemortConfig.getAdminMaxThreads(),
-                                           voldemortConfig.getAdminSocketBufferSize(),
-                                           "admin-server",
-                                           voldemortConfig.isJmxEnabled()));
+                                                                                                     this.asyncRunner,
+                                                                                                     rebalancer);
+            services.add(new AdminService(adminRequestHandlerFactory,
+                                          identityNode.getAdminPort(),
+                                          voldemortConfig.getAdminCoreThreads(),
+                                          voldemortConfig.getAdminMaxThreads(),
+                                          voldemortConfig.getAdminSocketBufferSize(),
+                                          "admin-server",
+                                          voldemortConfig.isJmxEnabled()));
+        }
+
+        if(voldemortConfig.isGossipEnabled()) {
+            services.add(new GossipService(this.metadata, scheduler, voldemortConfig));
         }
 
         if(voldemortConfig.isJmxEnabled())
@@ -171,13 +197,6 @@ public class VoldemortServer extends AbstractService {
             service.start();
         long end = System.currentTimeMillis();
         logger.info("Startup completed in " + (end - start) + " ms.");
-
-        // check serverState
-        if(!metadata.getServerState().equals(VoldemortState.NORMAL_SERVER)) {
-            logger.warn("Server started in " + metadata.getServerState() + " state.");
-            // TODO fix me : handle server start in not normal state aka
-            // rebalancing
-        }
     }
 
     /**
@@ -260,5 +279,19 @@ public class VoldemortServer extends AbstractService {
 
     public MetadataStore getMetadataStore() {
         return metadata;
+    }
+
+    @JmxOperation(description = "force restore data from replication")
+    public void restoreDataFromReplication(int numberOfParallelTransfers) {
+
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       metadata.getCluster(),
+                                                                       numberOfParallelTransfers * 2,
+                                                                       numberOfParallelTransfers * 2);
+        try {
+            adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);
+        } finally {
+            adminClient.stop();
+        }
     }
 }

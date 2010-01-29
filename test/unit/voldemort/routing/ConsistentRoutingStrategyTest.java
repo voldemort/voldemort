@@ -24,13 +24,10 @@ import java.util.List;
 import java.util.Random;
 
 import junit.framework.TestCase;
-import voldemort.MockTime;
 import voldemort.cluster.Node;
-import voldemort.cluster.NodeStatus;
 import voldemort.utils.ConstantHashFunction;
 import voldemort.utils.FnvHashFunction;
 import voldemort.utils.HashFunction;
-import voldemort.utils.Time;
 import cern.jet.random.ChiSquare;
 import cern.jet.random.engine.MersenneTwister;
 
@@ -41,7 +38,6 @@ import com.google.common.collect.Multiset;
 public class ConsistentRoutingStrategyTest extends TestCase {
 
     private final byte[] key = new byte[0];
-    private final Time time = new MockTime(0);
 
     private List<Node> getTestNodes() {
         return ImmutableList.of(node(0, 2, 7, 14),
@@ -76,6 +72,13 @@ public class ConsistentRoutingStrategyTest extends TestCase {
         assertNodeOrder(getRouter(16, 3).routeRequest(key), 3, 2, 1);
     }
 
+    public void test3xPartitions() {
+        assertReplicationPartitions(getRouter(0, 3).getPartitionList(key), 0, 1, 2);
+        assertReplicationPartitions(getRouter(14, 3).getPartitionList(key), 14, 15, 16);
+        assertReplicationPartitions(getRouter(4, 3).getPartitionList(key), 4, 5, 6);
+        assertReplicationPartitions(getRouter(16, 3).getPartitionList(key), 16, 17, 1);
+    }
+
     public void testGetNodes() {
         getRouter(0, 3).getNodes().containsAll(getTestNodes());
     }
@@ -108,8 +111,8 @@ public class ConsistentRoutingStrategyTest extends TestCase {
             tags.add(i);
 
         for(int i = 0; i < numNodes; i++)
-            nodes.add(new Node(i, "host", 8080, 6666, tags.subList(tagsPerNode * i, tagsPerNode
-                                                                                    * (i + 1))));
+            nodes.add(new Node(i, "host", 8080, 6666, 6667, tags.subList(tagsPerNode * i,
+                                                                         tagsPerNode * (i + 1))));
 
         // use a seed so that this test is repeatable
         Random random = new Random(2158745224L);
@@ -179,11 +182,21 @@ public class ConsistentRoutingStrategyTest extends TestCase {
             assertEquals(expected[i], found.get(i).getId());
     }
 
+    private void assertReplicationPartitions(List<Integer> partitions, int... expected) {
+        assertEquals("Router produced unexpected number of replication partitions.",
+                     expected.length,
+                     partitions.size());
+        for(int i = 0; i < partitions.size(); i++)
+            assertEquals("Replication partitions should match",
+                         new Integer(expected[i]),
+                         partitions.get(i));
+    }
+
     private Node node(int id, int... tags) {
         List<Integer> list = new ArrayList<Integer>(tags.length);
         for(int tag: tags)
             list.add(tag);
-        return new Node(id, "localhost", 8080, 6666, 6667, list, new NodeStatus(time));
+        return new Node(id, "localhost", 8080, 6666, 6667, list);
     }
 
 }

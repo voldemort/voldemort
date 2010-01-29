@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableList;
  * 
  */
 @Threadsafe
-public class Node implements Serializable {
+public class Node implements Serializable, Comparable<Node> {
 
     private static final Logger logger = Logger.getLogger(Node.class.getName());
 
@@ -46,11 +46,6 @@ public class Node implements Serializable {
     private final int socketPort;
     private final int adminPort;
     private final List<Integer> partitions;
-    private final NodeStatus status;
-
-    public Node(int id, String host, int httpPort, int socketPort, List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, -1, partitions, new NodeStatus());
-    }
 
     public Node(int id,
                 String host,
@@ -58,28 +53,17 @@ public class Node implements Serializable {
                 int socketPort,
                 int adminPort,
                 List<Integer> partitions) {
-        this(id, host, httpPort, socketPort, adminPort, partitions, new NodeStatus());
-    }
-
-    public Node(int id,
-                String host,
-                int httpPort,
-                int socketPort,
-                int adminPort,
-                List<Integer> partitions,
-                NodeStatus status) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
-        this.status = status;
         this.partitions = ImmutableList.copyOf(partitions);
 
         // fix default value for adminPort if not defined
         if(adminPort == -1) {
             adminPort = socketPort + 1;
-            logger.warn("admin-port not defined for node:" + id + " using default value:"
-                        + adminPort + " as (socket_port + 1):");
+            logger.warn("admin-port not defined for node:" + id
+                        + " using default value(socket_port + 1):" + adminPort);
         }
 
         this.adminPort = adminPort;
@@ -103,10 +87,6 @@ public class Node implements Serializable {
 
     public int getId() {
         return id;
-    }
-
-    public NodeStatus getStatus() {
-        return status;
     }
 
     public List<Integer> getPartitionIds() {
@@ -135,7 +115,7 @@ public class Node implements Serializable {
 
     @Override
     public String toString() {
-        return "Node" + getId();
+        return "Node" + getId() + " partitionList:" + partitions;
     }
 
     @Override
@@ -154,4 +134,7 @@ public class Node implements Serializable {
         return getId();
     }
 
+    public int compareTo(Node other) {
+        return new Integer(this.id).compareTo(other.getId());
+    }
 }

@@ -16,15 +16,17 @@
 
 package voldemort.store;
 
-import voldemort.VoldemortException;
+import voldemort.VoldemortApplicationException;
 
 /**
- * Store should throw this Exception to indicate that the metadata (Cluster configuration/ Stores Configuration) at client is not in sync with this store metadata.
+ * Store should throw this Exception to indicate that the metadata (Cluster
+ * configuration/ Stores Configuration) at client is not in sync with this store
+ * metadata.
  * 
  * @author bbansal
  * 
  */
-public class InvalidMetadataException extends VoldemortException {
+public class InvalidMetadataException extends VoldemortApplicationException {
 
     private static final long serialVersionUID = 1L;
 
@@ -34,11 +36,6 @@ public class InvalidMetadataException extends VoldemortException {
 
     public InvalidMetadataException(String s, Throwable t) {
         super(s, t);
-    }
-
-    @Override
-    public short getId() {
-        return 9;
     }
 
 }

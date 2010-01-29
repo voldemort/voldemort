@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.commons.lang.StringUtils;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 
 /**
  * ClusterGenerator generates a cluster.xml file given either a list of hosts or
@@ -119,6 +121,32 @@ public class ClusterGenerator {
         return list;
     }
 
+    public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
+                                                                    Cluster cluster) {
+        if (cluster.getNumberOfNodes() > hostNames.size())
+            throw new IllegalStateException("cluster size exceeds the number of available instances");
+
+        List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
+        for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
+            Node node = cluster.getNodeById(i);
+            String hostName = hostNames.get(i);
+            List<Integer> partitions = node.getPartitionIds();
+
+            ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
+            cnd.setHostName(hostName);
+            cnd.setId(i);
+            cnd.setSocketPort(node.getSocketPort());
+            cnd.setHttpPort(node.getHttpPort());
+            cnd.setAdminPort(node.getAdminPort());
+            cnd.setPartitions(partitions);
+
+            list.add(cnd);
+        }
+
+        return list;
+    }
+
+
     /**
      * Creates a String representing the format used by cluster.xml given the
      * cluster name, host names, and number of partitions for each host.
@@ -166,6 +194,7 @@ public class ClusterGenerator {
             pw.println("\t\t<host>" + cnd.getHostName() + "</host>");
             pw.println("\t\t<http-port>" + cnd.getHttpPort() + "</http-port>");
             pw.println("\t\t<socket-port>" + cnd.getSocketPort() + "</socket-port>");
+            pw.println("\t\t<admin-port>" + cnd.getAdminPort() + "</admin-port>");
             pw.println("\t\t<partitions>" + partitions + "</partitions>");
             pw.println("\t</server>");
         }

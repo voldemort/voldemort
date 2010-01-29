@@ -18,10 +18,15 @@ package voldemort.store.routed;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static voldemort.FailureDetectorTestUtils.recordException;
+import static voldemort.FailureDetectorTestUtils.recordSuccess;
+import static voldemort.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -29,15 +34,27 @@ import java.util.Random;
 import java.util.Set;
 
 import junit.framework.TestCase;
+
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;
@@ -49,20 +66,44 @@ import com.google.common.collect.Sets;
  * 
  */
 @SuppressWarnings("unchecked")
+@RunWith(Parameterized.class)
 public class ReadRepairerTest extends TestCase {
 
     private ReadRepairer<String, Integer> repairer = new ReadRepairer<String, Integer>();
     private List<NodeValue<String, Integer>> empty = new ArrayList<NodeValue<String, Integer>>();
     private Random random = new Random(1456);
 
+    private Time time = new MockTime();
+    private final Class<FailureDetector> failureDetectorClass;
+    private FailureDetector failureDetector;
+
+    public ReadRepairerTest(Class<FailureDetector> failureDetectorClass) {
+        this.failureDetectorClass = failureDetectorClass;
+    }
+
+    @Override
+    @After
+    public void tearDown() throws Exception {
+        if(failureDetector != null)
+            failureDetector.destroy();
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { BannagePeriodFailureDetector.class } });
+    }
+
+    @Test
     public void testEmptyList() throws Exception {
         assertEquals(empty, repairer.getRepairs(empty));
     }
 
+    @Test
     public void testSingleValue() throws Exception {
         assertEquals(empty, repairer.getRepairs(asList(getValue(1, 1, new int[] { 1 }))));
     }
 
+    @Test
     public void testAllEqual() throws Exception {
         List<NodeValue<String, Integer>> values = asList(getValue(1, 1, new int[] { 1 }),
                                                          getValue(2, 1, new int[] { 1 }),
@@ -75,7 +116,8 @@ public class ReadRepairerTest extends TestCase {
      * read-repair
      */
 
-    public void testMissingKeysAreAddedToNodeWhenDoingReadRepair() {
+    @Test
+    public void testMissingKeysAreAddedToNodeWhenDoingReadRepair() throws Exception {
         ByteArray key = TestUtils.toByteArray("key");
         byte[] value = "foo".getBytes();
 
@@ -93,10 +135,28 @@ public class ReadRepairerTest extends TestCase {
                           new InMemoryStorageEngine<ByteArray, byte[]>("test"));
         }
 
-        RoutedStore store = new RoutedStore("test", subStores, cluster, storeDef, 1, true, 1000L);
-        Iterables.get(cluster.getNodes(), 0).getStatus().setUnavailable();
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                 .setBannagePeriod(1000)
+                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setStoreVerifier(create(subStores))
+                                                                                 .setTime(time);
+
+        failureDetector = create(failureDetectorConfig, false);
+
+        RoutedStore store = new RoutedStore("test",
+                                            subStores,
+                                            cluster,
+                                            storeDef,
+                                            1,
+                                            true,
+                                            1000L,
+                                            failureDetector);
+
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value));
-        Iterables.get(cluster.getNodes(), 0).getStatus().setAvailable();
+        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
+        time.sleep(2000);
+
         assertEquals(2, store.get(key).size());
         // Last get should have repaired the missing key from node 0 so all
         // stores should now return a value
@@ -104,9 +164,9 @@ public class ReadRepairerTest extends TestCase {
 
         ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
         // Try again, now use getAll to read repair
-        Iterables.get(cluster.getNodes(), 0).getStatus().setUnavailable();
+        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(anotherKey, new Versioned<byte[]>(value));
-        Iterables.get(cluster.getNodes(), 0).getStatus().setAvailable();
+        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
         assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
         assertEquals(3, store.get(anotherKey).size());
     }

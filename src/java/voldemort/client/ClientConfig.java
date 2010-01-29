@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,6 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.Props;
@@ -44,14 +45,23 @@ public class ClientConfig {
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile long routingTimeoutMs = 15000;
-    private volatile long nodeBannageMs = 30000;
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
-    private volatile int maxBootstrapRetries = 1;
+
+    private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
+    private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
+    private volatile int failureDetectorThreshold = FailureDetectorConfig.DEFAULT_THRESHOLD;
+    private volatile int failureDetectorThresholdCountMinimum = FailureDetectorConfig.DEFAULT_THRESHOLD_COUNT_MINIMUM;
+    private volatile long failureDetectorThresholdInterval = FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL;
+    private volatile long failureDetectorAsyncRecoveryInterval = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
+    private volatile List<String> failureDetectorCatastrophicErrorTypes = FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES;
+    private long failureDetectorRequestLengthThreshold = FailureDetectorConfig.DEFAULT_REQUEST_LENGTH_THRESHOLD;
+
+    private volatile int maxBootstrapRetries = 2;
 
     public ClientConfig() {}
 
@@ -71,6 +81,14 @@ public class ClientConfig {
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
+    public static final String FAILUREDETECTOR_IMPLEMENTATION_PROPERTY = "failuredetector_implementation";
+    public static final String FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY = "failuredetector_bannage_period";
+    public static final String FAILUREDETECTOR_THRESHOLD_PROPERTY = "failuredetector_threshold";
+    public static final String FAILUREDETECTOR_THRESHOLD_INTERVAL_PROPERTY = "failuredetector_threshold_interval";
+    public static final String FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM_PROPERTY = "failuredetector_threshold_countminimum";
+    public static final String FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL_PROPERTY = "failuredetector_asyncscan_interval";
+    public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY = "failuredetector_catastrophic_error_types";
+    public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
 
     /**
@@ -107,9 +125,6 @@ public class ClientConfig {
         if(props.containsKey(ROUTING_TIMEOUT_MS_PROPERTY))
             this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
 
-        if(props.containsKey(NODE_BANNAGE_MS_PROPERTY))
-            this.setNodeBannagePeriod(props.getInt(NODE_BANNAGE_MS_PROPERTY), TimeUnit.MILLISECONDS);
-
         if(props.containsKey(SOCKET_BUFFER_SIZE_PROPERTY))
             this.setSocketBufferSize(props.getInt(SOCKET_BUFFER_SIZE_PROPERTY));
 
@@ -129,9 +144,42 @@ public class ClientConfig {
         if(props.containsKey(ENABLE_JMX_PROPERTY))
             this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
 
+        if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
+            this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
+
+        // We're changing the property from "node_bannage_ms" to
+        // "failuredetector_bannage_period" so if we have the old one, migrate
+        // it over.
+        if(props.containsKey(NODE_BANNAGE_MS_PROPERTY)
+           && !props.containsKey(FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY)) {
+            props.put(FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY, props.get(NODE_BANNAGE_MS_PROPERTY));
+        }
+
+        if(props.containsKey(FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY))
+            this.setFailureDetectorBannagePeriod(props.getLong(FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_THRESHOLD_PROPERTY))
+            this.setFailureDetectorThreshold(props.getInt(FAILUREDETECTOR_THRESHOLD_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM_PROPERTY))
+            this.setFailureDetectorThresholdCountMinimum(props.getInt(FAILUREDETECTOR_THRESHOLD_COUNTMINIMUM_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_THRESHOLD_INTERVAL_PROPERTY))
+            this.setFailureDetectorThresholdInterval(props.getLong(FAILUREDETECTOR_THRESHOLD_INTERVAL_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL_PROPERTY))
+            this.setFailureDetectorAsyncRecoveryInterval(props.getLong(FAILUREDETECTOR_ASYNCRECOVERY_INTERVAL_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY))
+            this.setFailureDetectorCatastrophicErrorTypes(props.getList(FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY));
+
+        if(props.containsKey(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY))
+            this.setFailureDetectorRequestLengthThreshold(props.getLong(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY));
+        else
+            this.setFailureDetectorRequestLengthThreshold(getRoutingTimeout(TimeUnit.MILLISECONDS) / 10);
+
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
-
     }
 
     public int getMaxConnectionsPerNode() {
@@ -200,8 +248,12 @@ public class ClientConfig {
         return this;
     }
 
+    /**
+     * @deprecated Use {@link #getFailureDetectorBannagePeriod()} instead
+     */
+    @Deprecated
     public int getNodeBannagePeriod(TimeUnit unit) {
-        return toInt(unit.convert(nodeBannageMs, TimeUnit.MILLISECONDS));
+        return toInt(unit.convert(failureDetectorBannagePeriod, TimeUnit.MILLISECONDS));
     }
 
     /**
@@ -209,9 +261,12 @@ public class ClientConfig {
      * 
      * @param nodeBannagePeriod The period of time to ban the node
      * @param unit The time unit of the given value
+     * 
+     * @deprecated Use {@link #setFailureDetectorBannagePeriod(long)} instead
      */
+    @Deprecated
     public ClientConfig setNodeBannagePeriod(int nodeBannagePeriod, TimeUnit unit) {
-        this.nodeBannageMs = unit.toMillis(nodeBannagePeriod);
+        this.failureDetectorBannagePeriod = unit.toMillis(nodeBannagePeriod);
         return this;
     }
 
@@ -380,14 +435,88 @@ public class ClientConfig {
         return this;
     }
 
+    public String getFailureDetectorImplementation() {
+        return failureDetectorImplementation;
+    }
+
+    public ClientConfig setFailureDetectorImplementation(String failureDetectorImplementation) {
+        this.failureDetectorImplementation = failureDetectorImplementation;
+        return this;
+    }
+
+    public long getFailureDetectorBannagePeriod() {
+        return failureDetectorBannagePeriod;
+    }
+
+    public ClientConfig setFailureDetectorBannagePeriod(long failureDetectorBannagePeriod) {
+        this.failureDetectorBannagePeriod = failureDetectorBannagePeriod;
+        return this;
+    }
+
+    public int getFailureDetectorThreshold() {
+        return failureDetectorThreshold;
+    }
+
+    public ClientConfig setFailureDetectorThreshold(int failureDetectorThreshold) {
+        this.failureDetectorThreshold = failureDetectorThreshold;
+        return this;
+    }
+
+    public int getFailureDetectorThresholdCountMinimum() {
+        return failureDetectorThresholdCountMinimum;
+    }
+
+    public ClientConfig setFailureDetectorThresholdCountMinimum(int failureDetectorThresholdCountMinimum) {
+        this.failureDetectorThresholdCountMinimum = failureDetectorThresholdCountMinimum;
+        return this;
+    }
+
+    public long getFailureDetectorThresholdInterval() {
+        return failureDetectorThresholdInterval;
+    }
+
+    public ClientConfig setFailureDetectorThresholdInterval(long failureDetectorThresholdInterval) {
+        this.failureDetectorThresholdInterval = failureDetectorThresholdInterval;
+        return this;
+    }
+
+    public long getFailureDetectorAsyncRecoveryInterval() {
+        return failureDetectorAsyncRecoveryInterval;
+    }
+
+    public ClientConfig setFailureDetectorAsyncRecoveryInterval(long failureDetectorAsyncRecoveryInterval) {
+        this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
+        return this;
+    }
+
+    public List<String> getFailureDetectorCatastrophicErrorTypes() {
+        return failureDetectorCatastrophicErrorTypes;
+    }
+
+    public ClientConfig setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+        this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
+        return this;
+    }
+
+    public long getFailureDetectorRequestLengthThreshold() {
+        return failureDetectorRequestLengthThreshold;
+    }
+
+    public ClientConfig setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+        this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
+        return this;
+    }
+
     public int getMaxBootstrapRetries() {
         return maxBootstrapRetries;
     }
 
-    public void setMaxBootstrapRetries(int maxBootstrapRetries) {
+    public ClientConfig setMaxBootstrapRetries(int maxBootstrapRetries) {
         if(maxBootstrapRetries < 1)
             throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
 
         this.maxBootstrapRetries = maxBootstrapRetries;
+        return this;
     }
+
 }

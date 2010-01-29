@@ -25,9 +25,13 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.serialization.Compression;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.ImmutableMap;
 
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
@@ -42,10 +46,17 @@ public class ReadOnlyStorageEngineTest {
 
     private File dir;
     private SearchStrategy strategy;
+    private SerializerDefinition serDef;
+    private SerializerDefinition lzfSerDef;
 
     public ReadOnlyStorageEngineTest(SearchStrategy strategy) {
         this.strategy = strategy;
         this.dir = TestUtils.createTempDir();
+        this.serDef = new SerializerDefinition("json", "'string'");
+        this.lzfSerDef = new SerializerDefinition("json",
+                                                  ImmutableMap.of(0, "'string'"),
+                                                  true,
+                                                  new Compression("lzf", null));
     }
 
     @After
@@ -63,7 +74,61 @@ public class ReadOnlyStorageEngineTest {
                                                                                               dir,
                                                                                               TEST_SIZE,
                                                                                               2,
-                                                                                              2);
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              serDef);
+        // run test multiple times to check caching
+        for(int i = 0; i < 3; i++) {
+            for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
+                for(Node node: testData.routeRequest(entry.getKey())) {
+                    Store<String, String> store = testData.getNodeStores().get(node.getId());
+                    List<Versioned<String>> found = store.get(entry.getKey());
+                    assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
+                                 + " for node " + node.getId() + ".", 1, found.size());
+                    Versioned<String> obj = found.get(0);
+                    assertEquals(entry.getValue(), obj.getValue());
+                }
+            }
+        }
+
+        testData.delete();
+    }
+
+    @Test
+    public void canGetGoodCompressedValues() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              lzfSerDef);
+        // run test multiple times to check caching
+        for(int i = 0; i < 3; i++) {
+            for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
+                for(Node node: testData.routeRequest(entry.getKey())) {
+                    Store<String, String> store = testData.getNodeStores().get(node.getId());
+                    List<Versioned<String>> found = store.get(entry.getKey());
+                    assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
+                                 + " for node " + node.getId() + ".", 1, found.size());
+                    Versioned<String> obj = found.get(0);
+                    assertEquals(entry.getValue(), obj.getValue());
+                }
+            }
+        }
+
+        testData.delete();
+    }
+
+    @Test
+    public void canGetGoodCompressedKeys() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2,
+                                                                                              lzfSerDef,
+                                                                                              serDef);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
@@ -90,7 +155,9 @@ public class ReadOnlyStorageEngineTest {
                                                                                               dir,
                                                                                               TEST_SIZE,
                                                                                               2,
-                                                                                              2);
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              serDef);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(int j = 0; j < TEST_SIZE; j++) {
@@ -112,7 +179,9 @@ public class ReadOnlyStorageEngineTest {
                                                                                               dir,
                                                                                               TEST_SIZE,
                                                                                               2,
-                                                                                              2);
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              serDef);
         Set<String> keys = testData.getData().keySet();
         Set<String> gotten = new HashSet<String>();
         for(Map.Entry<Integer, Store<String, String>> entry: testData.getNodeStores().entrySet()) {
@@ -183,6 +252,18 @@ public class ReadOnlyStorageEngineTest {
 
         engine.rollback();
         assertVersionsExist(dir, 0);
+    }
+
+    @Test(expected = VoldemortException.class)
+    public void testBadSwapThrows() throws IOException {
+        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        assertVersionsExist(dir, 0);
+
+        // swap to a new bad version
+        File newDir = TestUtils.createTempDir();
+        createStoreFiles(newDir, 73, 1024, 2);
+        engine.swapFiles(newDir.getAbsolutePath());
     }
 
     private void assertVersionsExist(File dir, int... versions) {

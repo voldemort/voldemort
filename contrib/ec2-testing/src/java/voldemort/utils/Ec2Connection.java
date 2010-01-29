@@ -78,10 +78,10 @@ public interface Ec2Connection {
      * @throws Exception Thrown on errors
      */
 
-    public List<HostNamePair> create(String ami,
-                                     String keypairId,
-                                     Ec2InstanceType instanceType,
-                                     int instanceCount) throws Exception;
+    public List<HostNamePair> createInstances(String ami,
+                                              String keypairId,
+                                              Ec2InstanceType instanceType,
+                                              int instanceCount) throws Exception;
 
     /**
      * Deletes the EC2 instances represented by the given external host names.
@@ -93,6 +93,18 @@ public interface Ec2Connection {
      * @throws Exception Thrown on errors
      */
 
-    public void delete(List<String> hostNames) throws Exception;
+    public void deleteInstancesByHostName(List<String> hostNames) throws Exception;
+
+    /**
+     * Deletes the EC2 instances represented by the given instance IDs. Like the
+     * create method, this method blocks until the instances represented by the
+     * given IDs have terminated.
+     * 
+     * @param instanceIds EC2 instance IDs to terminate
+     * 
+     * @throws Exception Thrown on errors
+     */
+
+    public void deleteInstancesByInstanceId(List<String> instanceIds) throws Exception;
 
 }

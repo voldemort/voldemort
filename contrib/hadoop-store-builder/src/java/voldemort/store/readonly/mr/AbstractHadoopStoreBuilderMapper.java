@@ -30,6 +30,9 @@ import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -50,6 +53,10 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
     private ConsistentRoutingStrategy routingStrategy;
     private Serializer<Object> keySerializer;
     private Serializer<Object> valueSerializer;
+    private CompressionStrategy valueCompressor;
+    private CompressionStrategy keyCompressor;
+    private SerializerDefinition keySerializerDefinition;
+    private SerializerDefinition valueSerializerDefinition;
 
     public abstract Object makeKey(K key, V value);
 
@@ -70,6 +77,15 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
         byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
+        // compress key and values if required
+        if(keySerializerDefinition.hasCompression()) {
+            keyBytes = keyCompressor.deflate(keyBytes);
+        }
+
+        if(valueSerializerDefinition.hasCompression()) {
+            valBytes = valueCompressor.deflate(valBytes);
+        }
+
         // copy the bytes into an array with 4 additional bytes for the node id
         byte[] nodeIdAndValue = new byte[valBytes.length + 4];
         System.arraycopy(valBytes, 0, nodeIdAndValue, 4, valBytes.length);
@@ -89,12 +105,16 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
     @SuppressWarnings("unchecked")
     public void configure(JobConf conf) {
         super.configure(conf);
+
         md5er = ByteUtils.getDigest("md5");
-        keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(getStoreDef().getKeySerializer());
-        valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(getStoreDef().getValueSerializer());
+        keySerializerDefinition = getStoreDef().getKeySerializer();
+        valueSerializerDefinition = getStoreDef().getValueSerializer();
+        keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(keySerializerDefinition);
+        valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(valueSerializerDefinition);
+        keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
+        valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
 
         routingStrategy = new ConsistentRoutingStrategy(getCluster().getNodes(),
                                                         getStoreDef().getReplicationFactor());
     }
-
 }
