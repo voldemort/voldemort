@@ -465,12 +465,10 @@ public class AdminClient {
             List<StoreDefinition> storeDefList = getRemoteStoreDefList(nodeId).getValue();
             Cluster cluster = getRemoteCluster(nodeId).getValue();
 
-            List<String> writableStores = RebalanceUtils.getWritableStores(storeDefList);
+            List<StoreDefinition> writableStores = RebalanceUtils.getWritableStores(storeDefList);
 
-            for(StoreDefinition def: storeDefList) {
-                if(writableStores.contains(def.getName())) {
-                    restoreStoreFromReplication(nodeId, cluster, def, executors);
-                }
+            for(StoreDefinition def: writableStores) {
+                restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
         } finally {
             executors.shutdown();
@@ -478,8 +476,9 @@ public class AdminClient {
                 executors.awaitTermination(adminClientConfig.getRestoreDataTimeout(),
                                            TimeUnit.SECONDS);
             } catch(InterruptedException e) {
-                logger.error("Interrupted while waiting restoreDataFromReplications to finish ..");
+                logger.error("Interrupted while waiting restore operation to finish.");
             }
+            logger.info("Finished restoring data.");
         }
     }
 
@@ -494,7 +493,6 @@ public class AdminClient {
         Map<Integer, List<Integer>> restoreMapping = getReplicationMapping(cluster,
                                                                            restoringNodeId,
                                                                            strategy);
-
         // migrate partition
         for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
             final int donorNodeId = replicationEntry.getKey();
@@ -502,9 +500,9 @@ public class AdminClient {
 
                 public void run() {
                     try {
-                        logger.debug("restoring data for store " + storeDef.getName() + " at node "
-                                     + restoringNodeId + " from node " + replicationEntry.getKey()
-                                     + " partitions:" + replicationEntry.getValue());
+                        logger.info("restoring data for store " + storeDef.getName() + " at node "
+                                    + restoringNodeId + " from node " + replicationEntry.getKey()
+                                    + " partitions:" + replicationEntry.getValue());
 
                         int migrateAsyncId = migratePartitions(donorNodeId,
                                                                restoringNodeId,
@@ -516,11 +514,11 @@ public class AdminClient {
                                           adminClientConfig.getRestoreDataTimeout(),
                                           TimeUnit.SECONDS);
 
-                        logger.debug("restoring data for store:" + storeDef.getName()
-                                     + " from node " + donorNodeId + " completed.");
+                        logger.info("restoring data for store:" + storeDef.getName()
+                                    + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
-                        logger.error("restoring operation for store " + storeDef.getName()
-                                     + " failed while copying from node " + donorNodeId, e);
+                        logger.error("restore operation for store " + storeDef.getName()
+                                     + "from node " + donorNodeId + " failed.", e);
                     }
                 }
             });
@@ -530,16 +528,15 @@ public class AdminClient {
     private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
                                                               int nodeId,
                                                               RoutingStrategy strategy) {
-        Node node = cluster.getNodeById(nodeId);
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
-        for(int partition: node.getPartitionIds()) {
+        for(int partition: getNodePartitions(cluster, nodeId, strategy)) {
             List<Integer> replicationPartitionsList = strategy.getReplicatingPartitionList(partition);
             if(replicationPartitionsList.size() > 1) {
                 int index = 0;
                 int replicatingPartition = replicationPartitionsList.get(index++);
-                while(partition == replicatingPartition) {
+                while(partitionsToNodeMapping.get(replicatingPartition) == nodeId) {
                     replicatingPartition = replicationPartitionsList.get(index++);
                 }
 
@@ -548,12 +545,35 @@ public class AdminClient {
                 if(!restoreMapping.containsKey(replicatingNode)) {
                     restoreMapping.put(replicatingNode, new ArrayList<Integer>());
                 }
-                restoreMapping.get(replicatingNode).add(partition);
+
+                if(!restoreMapping.get(replicatingNode).contains(replicatingPartition))
+                    restoreMapping.get(replicatingNode).add(replicatingPartition);
             }
         }
 
-        logger.debug("restore Node/Partition mapping:" + restoreMapping);
         return restoreMapping;
+    }
+
+    private List<Integer> getNodePartitions(Cluster cluster, int nodeId, RoutingStrategy strategy) {
+        List<Integer> partitionsList = new ArrayList<Integer>(cluster.getNodeById(nodeId)
+                                                                     .getPartitionIds());
+        Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
+
+        // add all partitions which nodeId replicates
+        for(Node node: cluster.getNodes()) {
+            if(node.getId() != nodeId) {
+                for(int partition: node.getPartitionIds()) {
+                    List<Integer> replicatedPartitions = strategy.getReplicatingPartitionList(partition);
+                    for(int replicationPartition: replicatedPartitions) {
+                        if(partitionsToNodeMapping.get(replicationPartition) == nodeId) {
+                            partitionsList.add(partition);
+                        }
+                    }
+                }
+            }
+        }
+
+        return partitionsList;
     }
 
     /**
@@ -571,7 +591,7 @@ public class AdminClient {
                                                                                                                 .setStealerId(stealInfo.getStealerId())
                                                                                                                 .addAllPartitions(stealInfo.getPartitionList())
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
-                                                                                                                .setDeleteDonorPartitions(stealInfo.isDeleteDonorPartitions())
+                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -884,8 +904,8 @@ public class AdminClient {
             if(value.equals(currentValue))
                 return;
 
-            logger.debug("WaitForCompletion() waiting for value " + value + " for metadata key "
-                         + key + " at remote node " + nodeId + " currentValue " + currentValue);
+            logger.debug("waiting for value " + value + " for metadata key " + key
+                         + " from remote node " + nodeId + " currentValue " + currentValue);
 
             if(delay < MAX_DELAY)
                 delay <<= 1;
@@ -897,8 +917,8 @@ public class AdminClient {
             }
         }
         throw new VoldemortException("Failed to get matching value " + value + " for key " + key
-                                     + " at remote node " + nodeId + " in maxWait" + maxWait + " "
-                                     + timeUnit.toString());
+                                     + " at remote node " + nodeId + " in maximum wait" + maxWait
+                                     + " " + timeUnit.toString() + " time.");
     }
 
     /**

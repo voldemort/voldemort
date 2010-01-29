@@ -20,6 +20,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -324,7 +325,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     } catch(ObsoleteVersionException e) {
                         // log and ignore
-                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException .. Ignoring.");
+                        logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException, Ignoring.");
                     }
 
                     if(throttler != null) {
@@ -369,8 +370,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
+                                                                                     request.getDeletePartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
-                                                                                     request.getDeleteDonorPartitions(),
                                                                                      request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
@@ -443,7 +444,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                             @Override
                                             public void operate() {
                                                 AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                                               metadataStore.getCluster(), 4, 2);
+                                                                                                               metadataStore.getCluster(),
+                                                                                                               4,
+                                                                                                               2);
                                                 try {
                                                     StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeName);
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
@@ -461,7 +464,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                               entry.getSecond());
                                                         } catch(ObsoleteVersionException e) {
                                                             // log and ignore
-                                                            logger.debug("FetchAndUpdate threw ObsoleteVersionException .. Ignoring.");
+                                                            logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
                                                         }
 
                                                         throttler.maybeThrottle(entrySize(entry.getFirst(),
@@ -524,7 +527,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
-                if(validPartition(entry.getFirst().get(), partitions, routingStrategy)
+                if(checkKeyBelongsToDeletePartition(entry.getFirst().get(),
+                                                    partitions,
+                                                    routingStrategy)
                    && filter.accept(entry.getFirst(), entry.getSecond())) {
                     if(storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
                         deleteSuccess++;
@@ -673,6 +678,48 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         for(int p: partitionList) {
             if(keyPartitions.contains(p)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check that the key belong to a delete partition.
+     * <p>
+     * return false if key is mastered at or replicated at any of the partitions
+     * belonging to the node not specified to be deleted specifically by the
+     * user. <br>
+     * Fix problem during rebalancing with accidental deletion of data due to
+     * changes in replication partition set.
+     * 
+     * TODO LOW: This assumes that the underlying storageEngines saves all
+     * partition together and there is no need to copy data from partition a -->
+     * b on the same machine. if this changes this will need to be made as an
+     * active copy here.
+     * 
+     * @param key
+     * @param partitionList
+     * @param routingStrategy
+     * @return
+     */
+    protected boolean checkKeyBelongsToDeletePartition(byte[] key,
+                                                       List<Integer> partitionList,
+                                                       RoutingStrategy routingStrategy) {
+        List<Integer> keyPartitions = routingStrategy.getPartitionList(key);
+        List<Integer> ownedPartitions = new ArrayList<Integer>(metadataStore.getCluster()
+                                                                            .getNodeById(metadataStore.getNodeId())
+                                                                            .getPartitionIds());
+
+        ownedPartitions.removeAll(partitionList);
+
+        for(int p: keyPartitions) {
+            if(ownedPartitions.contains(p)) {
+                return false;
+            }
+
+            if(partitionList.contains(p)) {
                 return true;
             }
         }

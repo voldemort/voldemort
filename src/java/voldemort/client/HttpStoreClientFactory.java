@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,6 +15,8 @@
  */
 
 package voldemort.client;
+
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.io.StringReader;
 import java.net.URI;
@@ -38,7 +40,6 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.ClientStoreVerifier;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.metadata.MetadataStore;
@@ -85,11 +86,6 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                                                config.getMaxConnectionsPerNode());
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
-
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-
-        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -105,6 +101,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
                              reroute);
     }
 
+    @Override
     protected FailureDetector initFailureDetector(final ClientConfig config,
                                                   final Collection<Node> nodes) {
         ClientStoreVerifier<ByteArray, byte[]> storeVerifier = new ClientStoreVerifier<ByteArray, byte[]>() {
@@ -127,7 +124,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
                                                                                        .setStoreVerifier(storeVerifier);
 
-        return FailureDetectorUtils.create(failureDetectorConfig);
+        return create(failureDetectorConfig, config.isJmxEnabled());
     }
 
     @Override

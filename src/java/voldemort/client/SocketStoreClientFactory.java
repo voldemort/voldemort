@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,8 @@
 
 package voldemort.client;
 
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+
 import java.io.StringReader;
 import java.net.URI;
 import java.util.Collection;
@@ -28,7 +30,6 @@ import voldemort.cluster.failuredetector.ClientStoreVerifier;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorListener;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
@@ -64,11 +65,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                          config.getSocketBufferSize());
         if(config.isJmxEnabled())
             JmxUtils.registerMbean(socketPool, JmxUtils.createObjectName(SocketPool.class));
-
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-
-        failureDetector = initFailureDetector(config, cluster.getNodes());
     }
 
     @Override
@@ -82,6 +78,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                RoutingTier.SERVER.equals(routingTier));
     }
 
+    @Override
     protected FailureDetector initFailureDetector(final ClientConfig config,
                                                   final Collection<Node> nodes) {
         failureDetectorListener = new FailureDetectorListener() {
@@ -123,7 +120,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
                                                                                        .setStoreVerifier(storeVerifier);
 
-        return FailureDetectorUtils.create(failureDetectorConfig, failureDetectorListener);
+        return create(failureDetectorConfig, true, failureDetectorListener);
     }
 
     @Override
@@ -144,7 +141,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     @Override
     public void close() {
         this.socketPool.close();
-        this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
+        if (failureDetector != null)
+            this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
         this.getThreadPool().shutdown();
 
         super.close();

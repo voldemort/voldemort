@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,9 +43,9 @@ import voldemort.versioning.Versioned;
 
 public abstract class AbstractRebalanceTest {
 
-    private static final int NUM_KEYS = 10000;
-    private static String testStoreName = "test";
-    private static String storeDefFile = "test/common/voldemort/config/single-store.xml";
+    protected static int NUM_KEYS = 100;
+    protected static String testStoreName = "test";
+    protected static String storeDefFile = "test/common/voldemort/config/single-store.xml";
 
     HashMap<String, String> testEntries;
 
@@ -63,12 +62,28 @@ public abstract class AbstractRebalanceTest {
     protected abstract Cluster startServers(Cluster cluster,
                                             String StoreDefXmlFile,
                                             List<Integer> nodeToStart,
-                                            Map<String, String> configProps) throws IOException;
+                                            Map<String, String> configProps) throws Exception;
 
-    protected abstract void stopServer(List<Integer> nodesToStop) throws IOException;
+    protected abstract void stopServer(List<Integer> nodesToStop) throws Exception;
+
+    protected Cluster updateCluster(Cluster template) {
+        return template;
+    }
+
+    protected SocketStore getSocketStore(String storeName, String host, int port) {
+        return getSocketStore(storeName, host, port, false);
+    }
+
+    protected SocketStore getSocketStore(String storeName, String host, int port, boolean isRouted) {
+        return ServerTestUtils.getSocketStore(storeName,
+                                              host,
+                                              port,
+                                              RequestFormatType.PROTOCOL_BUFFERS,
+                                              isRouted);
+    }
 
     @Test
-    public void testSingleRebalance() throws IOException {
+    public void testSingleRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
@@ -78,12 +93,13 @@ public abstract class AbstractRebalanceTest {
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
 
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(currentCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0));
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
         } finally {
             // stop servers
@@ -92,7 +108,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
-    public void testDeleteAfterRebalancing() throws IOException {
+    public void testDeleteAfterRebalancing() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
@@ -102,27 +118,29 @@ public abstract class AbstractRebalanceTest {
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
 
         RebalanceClientConfig rebalanceConfig = new RebalanceClientConfig();
         rebalanceConfig.setDeleteAfterRebalancingEnabled(true);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       rebalanceConfig);
+
         try {
-            populateData(currentCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0));
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
 
             // check that all keys are partitions 2,3 are Indeeed deleted.
             // assign all partitions to node 0 by force ..
             rebalanceClient.getAdminClient()
                            .updateRemoteCluster(0,
-                                                currentCluster,
+                                                updatedCluster,
                                                 ((VectorClock) RebalanceUtils.getLatestCluster(null,
                                                                                                rebalanceClient.getAdminClient())
                                                                              .getVersion()).incremented(0,
                                                                                                         System.currentTimeMillis()));
-            checkGetEntries(currentCluster.getNodeById(0),
-                            currentCluster,
+            checkGetEntries(updatedCluster.getNodeById(0),
+                            updatedCluster,
                             Arrays.asList(2, 3),
                             null);
 
@@ -133,7 +151,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
-    public void testDeleteAfterRebalancingDisabled() throws IOException {
+    public void testDeleteAfterRebalancingDisabled() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
@@ -143,25 +161,26 @@ public abstract class AbstractRebalanceTest {
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
 
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(currentCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0));
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
 
             // check that all keys are partitions 2,3 are Indeeed deleted.
             // assign all partitions to node 0 by force ..
             rebalanceClient.getAdminClient()
                            .updateRemoteCluster(0,
-                                                currentCluster,
+                                                updatedCluster,
                                                 ((VectorClock) RebalanceUtils.getLatestCluster(null,
                                                                                                rebalanceClient.getAdminClient())
                                                                              .getVersion()).incremented(0,
                                                                                                         System.currentTimeMillis()));
-            checkGetEntries(currentCluster.getNodeById(0),
-                            currentCluster,
+            checkGetEntries(updatedCluster.getNodeById(0),
+                            updatedCluster,
                             null,
                             Arrays.asList(2, 3));
 
@@ -172,7 +191,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
-    public void testMultipleRebalance() throws IOException {
+    public void testMultipleRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {}, {} });
 
@@ -182,12 +201,13 @@ public abstract class AbstractRebalanceTest {
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1, 2);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
 
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(currentCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0));
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
         } finally {
             // stop servers
@@ -196,7 +216,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
-    public void testMultipleParallelRebalance() throws IOException {
+    public void testMultipleParallelRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {}, {} });
 
@@ -206,14 +226,15 @@ public abstract class AbstractRebalanceTest {
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1, 2);
         Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
-        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
         try {
-            populateData(currentCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0));
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
         } finally {
             // stop servers
@@ -222,7 +243,7 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
-    public void testProxyGetDuringRebalancing() throws IOException, InterruptedException {
+    public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3 }, {} });
 
@@ -238,10 +259,12 @@ public abstract class AbstractRebalanceTest {
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
         // populate data now.
-        populateData(currentCluster, Arrays.asList(0));
+        populateData(updatedCluster, Arrays.asList(0));
 
-        final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(currentCluster,
-                                                                                                                                  0)));
+        final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
+                                                                                                                                  0))
+                                                                                                .setSocketTimeout(120,
+                                                                                                                  TimeUnit.SECONDS));
 
         final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
                                                                                                null,
@@ -297,11 +320,11 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
-                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                                   0),
                                                                                   new RebalanceClientConfig());
                     rebalanceAndCheck(updatedCluster,
-                                      targetCluster,
+                                      updateCluster(targetCluster),
                                       rebalanceClient,
                                       Arrays.asList(1));
 
@@ -315,7 +338,7 @@ public abstract class AbstractRebalanceTest {
                     // stop servers
                     try {
                         stopServer(serverList);
-                    } catch(IOException e) {
+                    } catch(Exception e) {
                         throw new RuntimeException(e);
                     }
                 }
@@ -335,35 +358,35 @@ public abstract class AbstractRebalanceTest {
             for(Exception e: exceptions) {
                 e.printStackTrace();
             }
-            fail("Should not see any exceptions !!");
+            fail("Should not see any exceptions.");
         }
     }
 
     @Test
-    public void testServerSideRouting() throws IOException, InterruptedException {
-        final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3 }, {} });
+    public void testServerSideRouting() throws Exception {
+        Cluster localCluster = ServerTestUtils.getLocalCluster(2,
+                                                               new int[][] { { 0, 1, 2, 3 }, {} });
 
-        final Cluster targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { {},
+        Cluster localTargetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { {},
                 { 0, 1, 2, 3 } });
 
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
-        final Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        final Cluster updatedCluster = startServers(localCluster, storeDefFile, serverList, null);
+        final Cluster targetCluster = updateCluster(localTargetCluster);
 
         ExecutorService executors = Executors.newFixedThreadPool(2);
         final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
         // populate data now.
-        populateData(currentCluster, Arrays.asList(0));
+        populateData(updatedCluster, Arrays.asList(0));
 
-        Node node = currentCluster.getNodeById(0);
-        final Store<ByteArray, byte[]> serverSideRoutingStore = ServerTestUtils.getSocketStore(testStoreName,
-                                                                                               node.getHost(),
-                                                                                               node.getSocketPort(),
-                                                                                               RequestFormatType.PROTOCOL_BUFFERS,
-                                                                                               true);
+        Node node = updatedCluster.getNodeById(0);
+        final Store<ByteArray, byte[]> serverSideRoutingStore = getSocketStore(testStoreName,
+                                                                               node.getHost(),
+                                                                               node.getSocketPort(),
+                                                                               true);
 
         // start get operation.
         executors.execute(new Runnable() {
@@ -413,7 +436,7 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
-                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                                   0),
                                                                                   new RebalanceClientConfig());
                     rebalanceAndCheck(updatedCluster,
@@ -431,7 +454,7 @@ public abstract class AbstractRebalanceTest {
                     // stop servers
                     try {
                         stopServer(serverList);
-                    } catch(IOException e) {
+                    } catch(Exception e) {
                         throw new RuntimeException(e);
                     }
                 }
@@ -450,16 +473,15 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    private void populateData(Cluster cluster, List<Integer> nodeList) {
+    protected void populateData(Cluster cluster, List<Integer> nodeList) {
 
         // Create SocketStores for each Node first
         Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
         for(int nodeId: nodeList) {
             Node node = cluster.getNodeById(nodeId);
-            storeMap.put(nodeId, ServerTestUtils.getSocketStore(testStoreName,
-                                                                node.getHost(),
-                                                                node.getSocketPort(),
-                                                                RequestFormatType.PROTOCOL_BUFFERS));
+            storeMap.put(nodeId,
+                         getSocketStore(testStoreName, node.getHost(), node.getSocketPort()));
+
         }
 
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
@@ -486,13 +508,13 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    private String getBootstrapUrl(Cluster cluster, int nodeId) {
+    protected String getBootstrapUrl(Cluster cluster, int nodeId) {
         Node node = cluster.getNodeById(nodeId);
         return "tcp://" + node.getHost() + ":" + node.getSocketPort();
     }
 
-    private List<Integer> getUnavailablePartitions(Cluster targetCluster,
-                                                   List<Integer> availablePartitions) {
+    protected List<Integer> getUnavailablePartitions(Cluster targetCluster,
+                                                     List<Integer> availablePartitions) {
         List<Integer> unavailablePartitions = new ArrayList<Integer>();
 
         for(Node node: targetCluster.getNodes()) {
@@ -522,17 +544,14 @@ public abstract class AbstractRebalanceTest {
 
     }
 
-    private void checkGetEntries(Node node,
-                                 Cluster cluster,
-                                 List<Integer> unavailablePartitions,
-                                 List<Integer> availablePartitions) {
+    protected void checkGetEntries(Node node,
+                                   Cluster cluster,
+                                   List<Integer> unavailablePartitions,
+                                   List<Integer> availablePartitions) {
         int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
-        SocketStore store = ServerTestUtils.getSocketStore(testStoreName,
-                                                           node.getHost(),
-                                                           node.getSocketPort(),
-                                                           RequestFormatType.PROTOCOL_BUFFERS);
+        SocketStore store = getSocketStore(testStoreName, node.getHost(), node.getSocketPort());
 
         for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));

@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -58,6 +58,8 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
     }
 
     public boolean isAvailable(Node node) {
+        checkNodeArg(node);
+
         long bannagePeriod = failureDetectorConfig.getBannagePeriod();
         long currentTime = failureDetectorConfig.getTime().getMilliseconds();
 
@@ -83,11 +85,13 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         }
     }
 
-    public void recordException(Node node, UnreachableStoreException e) {
+    public void recordException(Node node, long requestTime, UnreachableStoreException e) {
+        checkArgs(node, requestTime);
         setUnavailable(node, e);
     }
 
-    public void recordSuccess(Node node) {
+    public void recordSuccess(Node node, long requestTime) {
+        checkArgs(node, requestTime);
         setAvailable(node);
     }
 
@@ -112,4 +116,5 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
         return StringUtils.join(list, ",");
     }
+
 }

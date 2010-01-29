@@ -17,13 +17,13 @@ import voldemort.versioning.Versioned;
 /**
  * @author afeinberg
  * 
- *         This implements a gossipKey protocol for metadata. The algorithm is
- *         fairly simple. Until the service is stopped on a node, that node
- *         will:
+ *         Implementation of a gossip (epidemic) protocol for metadata. The algorithm is
+ *         fairly simple. Until the service is stopped on a node, that node will:
+ *
  *         <p>
  *         <ol>
  *         <li>Select a random peer that isn't myself.</li>
- *         <li>For each key in a list of metadata keys:
+ *         <li>For each key in a list of metadata keys (defined in {@link voldemort.store.metadata.MetadataStore}):
  *         <p>
  *         <ol>
  *         <li>Pull the value and it's vector clock from the randomly selected
@@ -52,8 +52,8 @@ public class Gossiper implements Runnable {
     private final static Logger logger = Logger.getLogger(Gossiper.class);
 
     /**
-     * Create a Gossiper object, to be submitted to an Executor or anything else
-     * which will invoke the run method).
+     * Create a <code>Gossiper</code> object, to be submitted to a {@link java.util.concurrent.Executor} or any
+     * other object which can invoke the {@link #run()} method.
      * 
      * @param metadataStore The instance of {@link MetadataStore} for the
      *        specific node.
@@ -68,7 +68,7 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * If the run method was to be invoked, then we should gossipKey.
+     * If the run method was to be invoked, then we should gossip.
      */
     public void start() {
         logger.info("Gossip started");
@@ -76,13 +76,17 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * After the current operation finishes, no longer gossipKey.
+     * After the current operation finishes, no longer gossip.
      */
     public void stop() {
         logger.info("Gossip stopped");
         running.set(false);
     }
 
+    /**
+     * Perform gossip: until receiving a shutdown signal, pick a node at random, gossip with that node
+     * and then sleep for a pre-defined interval. 
+     */
     public void run() {
         while(running.get()) {
             try {
@@ -92,7 +96,10 @@ public class Gossiper implements Runnable {
             }
             Node node = selectPeer();
             adminClient.setAdminClientCluster(metadataStore.getCluster());
-            logger.info(metadataStore.getNodeId() + " starting gossipKey with " + node);
+
+            if (logger.isDebugEnabled())
+                logger.debug(metadataStore.getNodeId() + " starting gossip with " + node);
+
             for(String key: MetadataStore.GOSSIP_KEYS) {
                 try {
                     gossipKey(node, key);
@@ -104,14 +111,13 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * Randomly, select a node that isn't myself.
+     * Randomly select a node that isn't myself.
      * 
      * @return A node that isn't myself
      */
-    protected Node selectPeer() {
+    private Node selectPeer() {
         Cluster cluster = metadataStore.getCluster();
         int nodes = cluster.getNumberOfNodes();
-
         Node node;
         do {
             node = cluster.getNodeById(random.nextInt(nodes));
@@ -126,14 +132,12 @@ public class Gossiper implements Runnable {
 
         /**
          * First check the version that we have internally and the version on
-         * the remote server. Using {@link AdminClient#getRemotedata} as to
-         * avoid having to convert between Versioned<byte[]> and
-         * Versioned<String>
+         * the remote server. Using {@link AdminClient#getRemoteMetadata(int, String)} to
+         * avoid having to convert between <code>Versioned<byte[]></code> and
+         * <code>Versioned<String></code>
          */
-
         Versioned<String> remoteVersioned = adminClient.getRemoteMetadata(node.getId(), key);
-        Versioned<String> localVersioned = adminClient.getRemoteMetadata(metadataStore.getNodeId(),
-                                                                         key);
+        Versioned<String> localVersioned = adminClient.getRemoteMetadata(metadataStore.getNodeId(), key);
         Version localVersion = localVersioned.getVersion();
         Version remoteVersion = remoteVersioned.getVersion();
 
@@ -146,15 +150,17 @@ public class Gossiper implements Runnable {
              */
             case AFTER: {
                 adminClient.updateRemoteMetadata(metadataStore.getNodeId(), key, remoteVersioned);
-                logger.info("My " + key + " occured BEFORE the key from " + node + ". Accepted theirs.");
+                logger.info("My " + key + " occurred BEFORE the version at " + node + ". Accepted theirs.");
                 break;
             }
+
             /**
              * Do nothing if they have older data, wait for them to pull from us.
              */
             case BEFORE: {
                 break;
             }
+
             /**
              * {@link Occured.CONCURRENTLY} indicates that there is a
              * conflict. In this case, ideally, we should do sensible
@@ -164,8 +170,8 @@ public class Gossiper implements Runnable {
              * log an error.
              */
             case CONCURRENTLY: {
-                logger.error("My " + key + " occured CONCURRENTLY. My value: " + localVersioned + "; Their value "
-                        + remoteVersioned);
+                logger.error("My " + key + " occurred CONCURRENTLY with " + node + ". My value is " + localVersioned
+                             + ", their value is " + remoteVersioned);
                 break;
             }
         }

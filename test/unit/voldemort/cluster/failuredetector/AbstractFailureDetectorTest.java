@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 LinkedIn, Inc
+ * Copyright 2009-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -33,6 +33,7 @@ import javax.management.remote.JMXServiceURL;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import voldemort.cluster.Cluster;
@@ -79,7 +80,9 @@ public abstract class AbstractFailureDetectorTest {
         assertEquals(false, failureDetector.isAvailable(node));
     }
 
+    // No longer a valid test: assumes the node list is static, but now it's being changed on demand
     @Test
+    @Ignore
     public void testInvalidNode() throws Exception {
         Node invalidNode = new Node(10000,
                                     "localhost",
@@ -103,14 +106,14 @@ public abstract class AbstractFailureDetectorTest {
         }
 
         try {
-            failureDetector.recordException(invalidNode, null);
+            failureDetector.recordException(invalidNode, 0, null);
             fail("Should not be able to call recordException on invalid node");
         } catch(IllegalArgumentException e) {
             // Expected...
         }
 
         try {
-            failureDetector.recordSuccess(invalidNode);
+            failureDetector.recordSuccess(invalidNode, 0);
             fail("Should not be able to call recordSuccess on invalid node");
         } catch(IllegalArgumentException e) {
             // Expected...

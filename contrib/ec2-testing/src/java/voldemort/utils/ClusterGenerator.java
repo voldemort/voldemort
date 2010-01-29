@@ -123,9 +123,11 @@ public class ClusterGenerator {
 
     public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
                                                                     Cluster cluster) {
-        List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
+        if (cluster.getNumberOfNodes() > hostNames.size())
+            throw new IllegalStateException("cluster size exceeds the number of available instances");
 
-        for(int i = 0; i < hostNames.size(); i++) {
+        List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
+        for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
             Node node = cluster.getNodeById(i);
             String hostName = hostNames.get(i);
             List<Integer> partitions = node.getPartitionIds();
@@ -135,6 +137,7 @@ public class ClusterGenerator {
             cnd.setId(i);
             cnd.setSocketPort(node.getSocketPort());
             cnd.setHttpPort(node.getHttpPort());
+            cnd.setAdminPort(node.getAdminPort());
             cnd.setPartitions(partitions);
 
             list.add(cnd);
@@ -191,6 +194,7 @@ public class ClusterGenerator {
             pw.println("\t\t<host>" + cnd.getHostName() + "</host>");
             pw.println("\t\t<http-port>" + cnd.getHttpPort() + "</http-port>");
             pw.println("\t\t<socket-port>" + cnd.getSocketPort() + "</socket-port>");
+            pw.println("\t\t<admin-port>" + cnd.getAdminPort() + "</admin-port>");
             pw.println("\t\t<partitions>" + partitions + "</partitions>");
             pw.println("\t</server>");
         }

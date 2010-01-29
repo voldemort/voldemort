@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,6 +15,8 @@
  */
 
 package voldemort.server.storage;
+
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
@@ -44,7 +46,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
-import voldemort.cluster.failuredetector.FailureDetectorUtils;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
@@ -134,7 +135,7 @@ public class StorageService extends AbstractService {
                                                                                                                   .getNodes())
                                                                                                 .setStoreVerifier(new ServerStoreVerifier(storeRepository,
                                                                                                                                           voldemortConfig.getNodeId()));
-        this.failureDetector = FailureDetectorUtils.create(failureDetectorConfig);
+        this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
         this.storeStats = new StoreStats();
     }
 

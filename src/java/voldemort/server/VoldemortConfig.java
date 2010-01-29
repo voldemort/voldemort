@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
@@ -132,8 +133,8 @@ public class VoldemortConfig implements Serializable {
     private int adminSocketTimeout;
     private int adminConnectionTimeout;
 
-    private int streamMaxReadBytesPerSec;
-    private int streamMaxWriteBytesPerSec;
+    private long streamMaxReadBytesPerSec;
+    private long streamMaxWriteBytesPerSec;
 
     public int getGossipInterval() {
         return gossipInterval;
@@ -150,6 +151,8 @@ public class VoldemortConfig implements Serializable {
     private int failureDetectorThresholdCountMinimum;
     private long failureDetectorThresholdInterval;
     private long failureDetectorAsyncRecoveryInterval;
+    private volatile List<String> failureDetectorCatastrophicErrorTypes;
+    private long failureDetectorRequestLengthThreshold;
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
@@ -157,6 +160,7 @@ public class VoldemortConfig implements Serializable {
     private int maxRebalancingAttempt;
     private int rebalancingTimeoutInSeconds;
     private int rebalancingServicePeriod;
+    private int maxParallelStoresRebalancing;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -210,15 +214,16 @@ public class VoldemortConfig implements Serializable {
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
         // Admin client should have less threads but very high buffer size.
-        this.adminMaxThreads = props.getInt("admin.max.threads", 10);
+        this.adminMaxThreads = props.getInt("admin.max.threads", 20);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
                                                           10 * 1000 * 1000);
-        this.adminConnectionTimeout = props.getInt("admin.client.socket.timeout.sec", 60);
+        this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 
-        this.streamMaxReadBytesPerSec = props.getInt("stream.read.byte.per.sec", 10 * 1000 * 1000);
-        this.streamMaxWriteBytesPerSec = props.getInt("stream.write.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxReadBytesPerSec = props.getBytes("stream.read.byte.per.sec", 10 * 1000 * 1000);
+        this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
+                                                        10 * 1000 * 1000);
 
         this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
@@ -279,8 +284,10 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
+
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
-                                                             FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
+                                                             BannagePeriodFailureDetector.class.getName());
 
         // We're changing the property from "client.node.bannage.ms" to
         // "failuredetector.bannage.period" so if we have the old one, migrate
@@ -300,6 +307,10 @@ public class VoldemortConfig implements Serializable {
                                                               FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL);
         this.failureDetectorAsyncRecoveryInterval = props.getLong("failuredetector.asyncrecovery.interval",
                                                                   FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL);
+        this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
+                                                                   FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
+        this.failureDetectorRequestLengthThreshold = props.getLong("failuredetector.request.length.threshold",
+                                                                   clientRoutingTimeoutMs / 10);
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);
@@ -598,19 +609,19 @@ public class VoldemortConfig implements Serializable {
         return enableAdminServer;
     }
 
-    public int getStreamMaxReadBytesPerSec() {
+    public long getStreamMaxReadBytesPerSec() {
         return streamMaxReadBytesPerSec;
     }
 
-    public void setStreamMaxReadBytesPerSec(int streamMaxReadBytesPerSec) {
+    public void setStreamMaxReadBytesPerSec(long streamMaxReadBytesPerSec) {
         this.streamMaxReadBytesPerSec = streamMaxReadBytesPerSec;
     }
 
-    public int getStreamMaxWriteBytesPerSec() {
+    public long getStreamMaxWriteBytesPerSec() {
         return streamMaxWriteBytesPerSec;
     }
 
-    public void setStreamMaxWriteBytesPerSec(int streamMaxWriteBytesPerSec) {
+    public void setStreamMaxWriteBytesPerSec(long streamMaxWriteBytesPerSec) {
         this.streamMaxWriteBytesPerSec = streamMaxWriteBytesPerSec;
     }
 
@@ -980,6 +991,22 @@ public class VoldemortConfig implements Serializable {
         this.failureDetectorAsyncRecoveryInterval = failureDetectorAsyncRecoveryInterval;
     }
 
+    public List<String> getFailureDetectorCatastrophicErrorTypes() {
+        return failureDetectorCatastrophicErrorTypes;
+    }
+
+    public void setFailureDetectorCatastrophicErrorTypes(List<String> failureDetectorCatastrophicErrorTypes) {
+        this.failureDetectorCatastrophicErrorTypes = failureDetectorCatastrophicErrorTypes;
+    }
+
+    public long getFailureDetectorRequestLengthThreshold() {
+        return failureDetectorRequestLengthThreshold;
+    }
+
+    public void setFailureDetectorRequestLengthThreshold(long failureDetectorRequestLengthThreshold) {
+        this.failureDetectorRequestLengthThreshold = failureDetectorRequestLengthThreshold;
+    }
+
     public int getRetentionCleanupFirstStartTimeInHour() {
         return retentionCleanupFirstStartTimeInHour;
     }
@@ -1067,4 +1094,13 @@ public class VoldemortConfig implements Serializable {
     public boolean isEnableRebalanceService() {
         return enableRebalanceService;
     }
+
+    public int getMaxParallelStoresRebalancing() {
+        return maxParallelStoresRebalancing;
+    }
+
+    public void setMaxParallelStoresRebalancing(int maxParallelStoresRebalancing) {
+        this.maxParallelStoresRebalancing = maxParallelStoresRebalancing;
+    }
+
 }

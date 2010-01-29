@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009 Mustard Grain, Inc., 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -58,13 +58,16 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         recoveryThread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
             public void uncaughtException(Thread t, Throwable e) {
-                logger.error("Uncaught exception in failure detector recovery thread:", e);
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error("Uncaught exception in failure detector recovery thread:", e);
             }
         });
+
         recoveryThread.start();
     }
 
     public boolean isAvailable(Node node) {
+        checkNodeArg(node);
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -72,12 +75,15 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         }
     }
 
-    public void recordException(Node node, UnreachableStoreException e) {
+    public void recordException(Node node, long requestTime, UnreachableStoreException e) {
+        checkArgs(node, requestTime);
         setUnavailable(node, e);
     }
 
-    public void recordSuccess(Node node) {
-    // Do nothing. Nodes only become available in our thread...
+    public void recordSuccess(Node node, long requestTime) {
+        // Nodes only become available in our thread, but let's sanity-check our
+        // arguments...
+        checkArgs(node, requestTime);
     }
 
     @Override

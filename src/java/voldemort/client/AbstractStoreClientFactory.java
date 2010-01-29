@@ -19,6 +19,7 @@ package voldemort.client;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -88,8 +89,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats stats;
+    private final ClientConfig config;
 
     public AbstractStoreClientFactory(ClientConfig config) {
+        this.config = config;
         this.threadPool = new ClientThreadPool(config.getMaxThreads(),
                                                config.getThreadIdleTime(TimeUnit.MILLISECONDS),
                                                config.getMaxQueuedRequests());
@@ -119,7 +122,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
 
-        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);     
     }
 
     @SuppressWarnings("unchecked")
@@ -156,7 +159,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          repairReads,
                                                          threadPool,
                                                          routingTimeoutMs,
-                                                         failureDetector,
+                                                         getFailureDetector(),
                                                          SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
@@ -188,7 +191,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializedStore;
     }
 
-    public FailureDetector getFailureDetector() {
+    protected abstract FailureDetector initFailureDetector(final ClientConfig config,
+                                                           final Collection<Node> nodes);
+    
+    public synchronized FailureDetector getFailureDetector() {
+        if (failureDetector == null) {
+            String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+            failureDetector = initFailureDetector(config, cluster.getNodes());
+        }
+
         return failureDetector;
     }
 
@@ -236,8 +248,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 if(found.size() == 1)
                     return found.get(0).getValue();
             } catch(Exception e) {
-                logger.warn("Failed to bootstrap from " + url);
-                logger.debug(e);
+                logger.warn("Failed to bootstrap from " + url, e);
             }
         }
         throw new BootstrapFailureException("No available boostrap servers found!");

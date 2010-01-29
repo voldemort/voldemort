@@ -1,0 +1,27 @@
+<cluster>
+	<name>mycluster</name>
+	<server>
+		<id>0</id>
+		<host>localhost</host>
+		<http-port>3330</http-port>
+		<socket-port>3331</socket-port>
+		<admin-port>3332</admin-port>
+		<partitions>0, 3, 6</partitions>
+	</server>
+	<server>
+		<id>1</id>
+		<host>localhost</host>
+		<http-port>3333</http-port>
+		<socket-port>3334</socket-port>
+		<admin-port>3335</admin-port>
+		<partitions>1, 4, 7</partitions>
+	</server>
+	<server>
+	  <id>2</id>
+	  <host>localhost</host>
+	  <http-port>3336</http-port>
+	  <socket-port>3337</socket-port>
+	  <admin-port>3338</admin-port>
+	  <partitions>2, 5, 8</partitions>
+	</server>
+</cluster>

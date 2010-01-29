@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009-2010 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -67,13 +67,29 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     }
 
     @Override
-    public void recordException(Node node, UnreachableStoreException e) {
+    public void recordException(Node node, long requestTime, UnreachableStoreException e) {
+        checkArgs(node, requestTime);
         update(node, 0, e);
     }
 
     @Override
-    public void recordSuccess(Node node) {
-        update(node, 1, null);
+    public void recordSuccess(Node node, long requestTime) {
+        checkArgs(node, requestTime);
+
+        int successDelta = 1;
+
+        if(requestTime > getConfig().getRequestLengthThreshold()) {
+            // Consider slow requests as "soft" errors that are counted against
+            // us in our success threshold.
+            if(logger.isTraceEnabled())
+                logger.trace(node + " recording success, but request time (" + requestTime
+                             + ") exceeded threshold (" + getConfig().getRequestLengthThreshold()
+                             + ")");
+
+            successDelta = 0;
+        }
+
+        update(node, successDelta, null);
     }
 
     @JmxGetter(name = "nodeThresholdStats", description = "Each node is listed with its status (available/unavailable) and success percentage")
@@ -117,7 +133,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         }
     }
 
-    private void update(Node node, int successDelta, UnreachableStoreException e) {
+    protected void update(Node node, int successDelta, UnreachableStoreException e) {
         if(logger.isTraceEnabled()) {
             if(e != null)
                 logger.trace(node + " updated, successDelta: " + successDelta, e);
@@ -126,7 +142,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         }
 
         final long currentTime = getConfig().getTime().getMilliseconds();
-
+        String catastrophicError = getCatastrophicError(e);
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
@@ -140,7 +156,12 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 nodeStatus.incrementSuccess(successDelta);
                 nodeStatus.incrementTotal(1);
 
-                if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
+                if(catastrophicError != null) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(node + " experienced catastrophic error: " + catastrophicError);
+
+                    setUnavailable(node, e);
+                } else if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
                     if(logger.isTraceEnabled())
@@ -153,6 +174,20 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 }
             }
         }
+    }
+
+    protected String getCatastrophicError(UnreachableStoreException e) {
+        Throwable t = e != null ? e.getCause() : null;
+
+        if(t == null)
+            return null;
+
+        for(String errorType: getConfig().getCatastrophicErrorTypes()) {
+            if(t.getClass().getName().equals(errorType))
+                return errorType;
+        }
+
+        return null;
     }
 
 }

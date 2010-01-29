@@ -203,6 +203,11 @@ public class Ec2RemoteTestConfig extends RemoteTestConfig {
         return value != null ? Integer.parseInt(value) : 0;
     }
 
+    protected int getIntProperty(Properties properties, String propertyName, int defaultValue) {
+        String value = properties.getProperty(propertyName);
+        return value != null ? Integer.parseInt(value) : defaultValue;
+    }
+
     protected Properties getEc2Properties() {
         String propertiesFileName = System.getProperty("ec2PropertiesFile");
 
