@@ -88,7 +88,9 @@ public class HdfsFetcher implements FileFetcher {
     public File fetch(String fileUrl) throws IOException {
         Path path = new Path(fileUrl);
         Configuration config = new Configuration();
-        config.setInt("io.file.buffer.size", bufferSize);
+        config.setInt("io.socket.receive.buffer", bufferSize);
+        config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
+                   ConfigurableSocketFactory.class.getName());
         FileSystem fs = path.getFileSystem(config);
         EventThrottler throttler = null;
         if(maxBytesPerSecond != null)
@@ -204,7 +206,7 @@ public class HdfsFetcher implements FileFetcher {
 
         @JmxGetter(name = "bytesPerSecond", description = "The rate of the transfer in bytes/second.")
         public double getBytesPerSecond() {
-            double ellapsedSecs = System.nanoTime() - lastReportNs / (double) Time.NS_PER_SECOND;
+            double ellapsedSecs = (System.nanoTime() - lastReportNs) / (double) Time.NS_PER_SECOND;
             return bytesSinceLastReport / ellapsedSecs;
         }
 
@@ -232,24 +234,31 @@ public class HdfsFetcher implements FileFetcher {
             else
                 return 0;
         }
-
     }
 
     /*
      * Main method for testing fetching
      */
     public static void main(String[] args) throws Exception {
-        if(args.length != 2)
-            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url maxBytesPerSec");
+        if(args.length != 1)
+            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url");
         String url = args[0];
-        long maxBytesPerSec = Long.parseLong(args[1]);
+        long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
-        FileStatus status = p.getFileSystem(new Configuration()).getFileStatus(p);
+        Configuration config = new Configuration();
+        config.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+        config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
+                   ConfigurableSocketFactory.class.getName());
+        config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
+        FileStatus status = p.getFileSystem(config).getFileStatus(p);
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, null, DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
         File location = fetcher.fetch(url);
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
-        System.out.println("Fetch to " + location + " completed: " + rate + " bytes/sec.");
+        NumberFormat nf = NumberFormat.getInstance();
+        nf.setMaximumFractionDigits(2);
+        System.out.println("Fetch to " + location + " completed: "
+                           + nf.format(rate / (1024.0 * 1024.0)) + " MB/sec.");
     }
 }
