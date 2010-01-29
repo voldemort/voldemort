@@ -25,8 +25,6 @@ This product includes jdom, a library developed by jdom.org.
 
 This product includes jopt-simple, a library for parsing command line options (http://jopt-simple.sourceforge.net/).
 
-This product includes h2-lzf, which contains classes for LZF compression originally found in the H2 database (http://www.h2database.com/html/main.html). H2 is dual licensed and available under a modified version of the MPL 1.1 (Mozilla Public License) or under the (unmodified) EPL 1.0 (Eclipse Public License).
-
 This product includes BDB, Java edition, A library developed by Oracle (http://www.oracle.com/database/berkeley-db/je/index.html), which includes
 the following license information:
 
