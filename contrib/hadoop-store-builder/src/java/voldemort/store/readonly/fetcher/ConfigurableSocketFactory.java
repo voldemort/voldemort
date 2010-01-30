@@ -71,12 +71,10 @@ class ConfigurableSocketFactory extends SocketFactory implements Configurable {
         return socket;
     }
 
-    @Override
     public Configuration getConf() {
         return this.configuration;
     }
 
-    @Override
     public void setConf(Configuration conf) {
         this.configuration = conf;
         this.socketReceiveBufferSize = conf.getInt("io.socket.receive.buffer", 100 * 1024 * 1024);
