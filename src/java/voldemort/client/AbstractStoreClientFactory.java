@@ -86,7 +86,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
     private final int jmxId;
-    protected FailureDetector failureDetector;
+    protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats stats;
     private final ClientConfig config;
@@ -194,14 +194,21 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
                                                            final Collection<Node> nodes);
     
-    public synchronized FailureDetector getFailureDetector() {
-        if (failureDetector == null) {
+    public FailureDetector getFailureDetector() {
+        // first check: avoids locking as the field is volatile
+        FailureDetector result = failureDetector;
+        if (result == null) {
             String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
             Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
-            failureDetector = initFailureDetector(config, cluster.getNodes());
+            synchronized(this) {
+                // second check: avoids double initialization
+                result = failureDetector;
+                if (result == null)
+                    failureDetector = result = initFailureDetector(config, cluster.getNodes());
+            }
         }
 
-        return failureDetector;
+        return result;
     }
 
     private CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
