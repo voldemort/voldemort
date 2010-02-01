@@ -16,6 +16,7 @@
 
 package voldemort.store.rebalancing;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -40,9 +41,6 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 
 /**
  * The RedirectingStore extends {@link DelegatingStore}
@@ -120,13 +118,13 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
-
-        proxyGetAllAndLocalPut(Iterables.filter(keys, new Predicate<ByteArray>() {
-
-            public boolean apply(ByteArray key) {
-                return redirectingKey(key);
-            }
-        }));
+        List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
+        for (ByteArray key: keys) {
+            if (redirectingKey(key))
+                redirectingKeys.add(key);
+        }
+        if (!redirectingKeys.isEmpty())
+            proxyGetAllAndLocalPut(redirectingKeys);
 
         return getInnerStore().getAll(keys);
     }
