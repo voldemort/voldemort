@@ -62,7 +62,7 @@ public class StoreServlet extends HttpServlet {
         // servlet context
         if(this.requestHandler == null) {
             ServletContext context = this.getServletContext();
-            VoldemortServer server = (VoldemortServer) Utils.notNull(context.getAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY));
+            VoldemortServer server = (VoldemortServer) Utils.notNull(context.getAttribute(VoldemortServletContextListener.SERVER_KEY));
             HttpService httpService = (HttpService) server.getService(ServiceType.HTTP);
             this.requestHandler = httpService.getRequestHandler();
         }
