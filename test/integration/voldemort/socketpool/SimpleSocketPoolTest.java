@@ -72,6 +72,7 @@ public class SimpleSocketPoolTest extends TestCase {
                                                                                null,
                                                                                null,
                                                                                null,
+                                                                               null,
                                                                                null),
                                                "test");
         server.start();

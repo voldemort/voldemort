@@ -55,6 +55,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='TRUNCATE_ENTRIES', index=10, number=10,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='ADD_STORE', index=11, number=11,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -71,6 +75,7 @@ INITIATE_REBALANCE_NODE = 7
 ASYNC_OPERATION_STOP = 8
 ASYNC_OPERATION_LIST = 9
 TRUNCATE_ENTRIES = 10
+ADD_STORE = 11
 
 
 
@@ -754,6 +759,50 @@ _TRUNCATEENTRIESRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_ADDSTOREREQUEST = descriptor.Descriptor(
+  name='AddStoreRequest',
+  full_name='voldemort.AddStoreRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='storeDefinition', full_name='voldemort.AddStoreRequest.storeDefinition', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_ADDSTORERESPONSE = descriptor.Descriptor(
+  name='AddStoreResponse',
+  full_name='voldemort.AddStoreResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.AddStoreResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -844,6 +893,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='add_store', full_name='voldemort.VoldemortAdminRequest.add_store', index=12,
+      number=13, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -872,6 +928,7 @@ _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_cli
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -884,6 +941,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['initiate_rebalance_node'].message_type = 
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_stop'].message_type = _ASYNCOPERATIONSTOPREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_list'].message_type = _ASYNCOPERATIONLISTREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['truncate_entries'].message_type = _TRUNCATEENTRIESREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['add_store'].message_type = _ADDSTOREREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -972,6 +1030,14 @@ class TruncateEntriesRequest(message.Message):
 class TruncateEntriesResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _TRUNCATEENTRIESRESPONSE
+
+class AddStoreRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ADDSTOREREQUEST
+
+class AddStoreResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ADDSTORERESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

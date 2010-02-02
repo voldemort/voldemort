@@ -149,6 +149,7 @@ public class RemoteStoreComparisonTest {
         /** * Do HTTP tests ** */
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
         HttpService httpService = new HttpService(null,
+                                                  null,
                                                   repository,
                                                   RequestFormatType.VOLDEMORT_V0,
                                                   numThreads,

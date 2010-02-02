@@ -258,7 +258,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 logger.warn("Failed to bootstrap from " + url, e);
             }
         }
-        throw new BootstrapFailureException("No available boostrap servers found!");
+        throw new BootstrapFailureException("No available bootstrap servers found!");
     }
 
     public URI[] validateUrls(String[] urls) {

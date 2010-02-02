@@ -77,7 +77,8 @@ public class AdminServiceFailureTest extends TestCase {
         storeRepository.addStorageEngine(storageEngine);
         storeRepository.addLocalStore(storageEngine);
 
-        return new SocketService(new SocketRequestHandlerFactory(storeRepository,
+        return new SocketService(new SocketRequestHandlerFactory(null,
+                                                                 storeRepository,
                                                                  ServerTestUtils.createMetadataStore(cluster,
                                                                                                      storeDefs),
                                                                  ServerTestUtils.createServerConfig(0,

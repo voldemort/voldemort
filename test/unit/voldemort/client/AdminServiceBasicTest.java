@@ -33,8 +33,13 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
@@ -136,6 +141,49 @@ public class AdminServiceBasicTest extends TestCase {
                                                                         .getVersion());
         }
 
+    }
+
+    public void testAddStore() throws Exception {
+        AdminClient adminClient = getAdminClient();
+
+        StoreDefinition definition = new StoreDefinitionBuilder().setName("updateTest")
+                                                                 .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(1)
+                                                                 .setPreferredReads(1)
+                                                                 .setRequiredReads(1)
+                                                                 .setPreferredWrites(1)
+                                                                 .setRequiredWrites(1)
+                                                                 .build();
+        adminClient.addStore(definition);
+
+        // now test the store
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(
+                cluster.getNodeById(0).getSocketUrl().toString()));
+
+        StoreClient<Object, Object> client = factory.getStoreClient("updateTest");
+        client.put("abc", "123");
+        String s  = (String) client.get("abc").getValue();
+        assertEquals(s, "123");
+
+        // test again with a unknown store
+        try {
+            client = factory.getStoreClient("updateTest2");
+            client.put("abc", "123");
+            s  = (String) client.get("abc").getValue();
+            assertEquals(s, "123");
+            fail("Should have received bootstrap failure exception");
+        } catch (Exception e) {
+            if (!(e instanceof BootstrapFailureException))
+                throw e;
+        }
+
+        // make sure that the store list we get back from AdminClient
+        Versioned<List<StoreDefinition>> list = adminClient.getRemoteStoreDefList(0);
+        assertTrue(list.getValue().contains(definition));
     }
 
     public void testStateTransitions() {
