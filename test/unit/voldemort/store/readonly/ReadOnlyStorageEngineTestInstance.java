@@ -134,6 +134,7 @@ public class ReadOnlyStorageEngineTestInstance {
         File nodeDir = TestUtils.createTempDir(baseDir);
         @SuppressWarnings("unchecked")
         Serializer<String> keySerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(keySerDef);
+        @SuppressWarnings("unchecked")
         Serializer<String> valueSerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(valueSerDef);
         Map<Integer, Store<String, String>> nodeStores = Maps.newHashMap();
         for(int i = 0; i < numNodes; i++) {
