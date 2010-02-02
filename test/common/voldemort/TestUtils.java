@@ -307,7 +307,7 @@ public class TestUtils {
 
         // make a temp dir
         File dataDir = new File(baseDir + File.separatorChar + "read-only-temp-index-"
-                                + new Integer((int) (Math.random() * 1000)));
+                                + ((int) (Math.random() * 1000)));
         // build and open store
         JsonStoreBuilder storeBuilder = new JsonStoreBuilder(jsonReader,
                                                              cluster,
@@ -356,7 +356,7 @@ public class TestUtils {
 
             SortedSet<Integer> bPartitonSet = new TreeSet<Integer>(nodeB.getPartitionIds());
             for(int p: nodeA.getPartitionIds()) {
-                if(!bPartitonSet.contains(new Integer(p))) {
+                if(!bPartitonSet.contains(p)) {
                     diffPartition++;
                 }
             }
