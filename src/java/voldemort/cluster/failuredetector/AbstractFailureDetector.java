@@ -131,7 +131,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         NodeStatus nodeStatus = getNodeStatus(node);
 
         synchronized(nodeStatus) {
-            if(!isAvailable(node))
+            while(!isAvailable(node))
                 nodeStatus.wait();
         }
     }
