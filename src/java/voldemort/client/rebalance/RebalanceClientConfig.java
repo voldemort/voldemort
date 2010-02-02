@@ -11,9 +11,9 @@ public class RebalanceClientConfig extends AdminClientConfig {
     private int rebalancingClientTimeoutSeconds = 7 * 24 * 60 * 60;
     private boolean deleteAfterRebalancingEnabled;
 
-    public static String MaxParallelRebalancingString = "max.parallel.rebalancing";
-    public static String RebalancingClientTimeoutSeconds = "rebalancing.client.timeout.seconds";
-    public static String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
+    public static final String MaxParallelRebalancingString = "max.parallel.rebalancing";
+    public static final String RebalancingClientTimeoutSeconds = "rebalancing.client.timeout.seconds";
+    public static final String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
 
     public RebalanceClientConfig(Properties properties) {
         super(properties);
