@@ -210,7 +210,6 @@ public class JsonStoreBuilder {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public void build() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
                     + cluster.getNumberOfNodes() + " with " + numChunks + " chunks per node.");
@@ -321,6 +320,7 @@ public class JsonStoreBuilder {
         private CompressionStrategy valueCompressor;
         private CompressionStrategy keyCompressor;
 
+        @SuppressWarnings("unchecked")
         public JsonObjectIterator(JsonReader reader, StoreDefinition storeDefinition) {
             SerializerFactory factory = new DefaultSerializerFactory();
 

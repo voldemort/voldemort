@@ -11,7 +11,7 @@ public class ResourcePoolTestUtils {
         return new ResourceFactory<String, String>() {
 
             public String create(String key) throws Exception {
-                return new String("resource");
+                return "resource";
             }
 
             public void destroy(String key, String obj) throws Exception {}
