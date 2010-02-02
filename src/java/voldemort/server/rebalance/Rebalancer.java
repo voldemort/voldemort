@@ -230,7 +230,6 @@ public class Rebalancer implements Runnable {
                                             executors.shutdownNow();
                                         }
 
-                                        @SuppressWarnings("cast")
                                         private void rebalanceStore(String storeName,
                                                                     AdminClient adminClient,
                                                                     RebalancePartitionsInfo stealInfo)
@@ -249,7 +248,7 @@ public class Rebalancer implements Runnable {
                                                                           voldemortConfig.getAdminSocketTimeout(),
                                                                           TimeUnit.SECONDS);
 
-                                            rebalanceStatusList.remove((Object) new Integer(asyncId));
+                                            rebalanceStatusList.remove((Object) asyncId);
 
                                             if(stealInfo.getDeletePartitionsList().size() > 0) {
                                                 adminClient.deletePartitions(stealInfo.getDonorId(),
