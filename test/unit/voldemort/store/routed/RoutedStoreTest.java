@@ -59,6 +59,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.stats.StatTrackingStore;
+import voldemort.store.stats.Tracked;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
@@ -685,6 +687,53 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
     }
 
+    /**
+     * See Issue #211: Unnecessary read repairs during getAll with more than one
+     * key
+     */
+    @Test
+    public void testNoReadRepair() throws Exception {
+        cluster = VoldemortTestConstants.getThreeNodeCluster();
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               3,
+                                                               2,
+                                                               1,
+                                                               3,
+                                                               2,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+
+        /* We just need to keep a store from one node */
+        StatTrackingStore<ByteArray, byte[]> statTrackingStore = null;
+        for(int i = 0; i < 3; ++i) {
+            statTrackingStore = new StatTrackingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
+                                                                         null);
+            subStores.put(Iterables.get(cluster.getNodes(), i).getId(), statTrackingStore);
+        }
+        setFailureDetector(subStores);
+        RoutedStore routedStore = new RoutedStore("test",
+                                                  subStores,
+                                                  cluster,
+                                                  storeDef,
+                                                  1,
+                                                  true,
+                                                  1000L,
+                                                  failureDetector);
+        ByteArray key1 = aKey;
+        routedStore.put(key1, Versioned.value("value1".getBytes()));
+        ByteArray key2 = TestUtils.toByteArray("voldemort");
+        routedStore.put(key2, Versioned.value("value2".getBytes()));
+
+        long putCount = statTrackingStore.getStats().getCount(Tracked.PUT);
+        routedStore.getAll(Arrays.asList(key1, key2));
+        /* Read repair happens asynchronously, so we wait a bit */
+        Thread.sleep(500);
+        assertEquals("put count should remain the same if there are no read repairs",
+                     putCount,
+                     statTrackingStore.getStats().getCount(Tracked.PUT));
+    }
+
     private void assertOperationalNodes(int expected) {
         int found = 0;
         for(Node n: cluster.getNodes())
@@ -706,5 +755,4 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                                  .setStoreVerifier(create(subStores));
         failureDetector = create(failureDetectorConfig, false);
     }
-
 }
