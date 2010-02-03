@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import voldemort.annotations.concurrency.Threadsafe;
@@ -27,6 +28,8 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.Version;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 /**
@@ -50,6 +53,27 @@ public class ReadRepairer<K, V> {
      * @return A set of repairs to perform
      */
     public List<NodeValue<K, V>> getRepairs(List<NodeValue<K, V>> nodeValues) {
+        int size = nodeValues.size();
+        if(size <= 1)
+            return Collections.emptyList();
+
+        Map<K, List<NodeValue<K, V>>> keyToNodeValues = Maps.newHashMap();
+        for(NodeValue<K, V> nodeValue: nodeValues) {
+            List<NodeValue<K, V>> keyNodeValues = keyToNodeValues.get(nodeValue.getKey());
+            if(keyNodeValues == null) {
+                keyNodeValues = Lists.newArrayListWithCapacity(5);
+                keyToNodeValues.put(nodeValue.getKey(), keyNodeValues);
+            }
+            keyNodeValues.add(nodeValue);
+        }
+
+        List<NodeValue<K, V>> result = Lists.newArrayList();
+        for(List<NodeValue<K, V>> keyNodeValues: keyToNodeValues.values())
+            result.addAll(singleKeyGetRepairs(keyNodeValues));
+        return result;
+    }
+
+    private List<NodeValue<K, V>> singleKeyGetRepairs(List<NodeValue<K, V>> nodeValues) {
         int size = nodeValues.size();
         if(size <= 1)
             return Collections.emptyList();
