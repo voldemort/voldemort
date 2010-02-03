@@ -91,7 +91,7 @@ public class HttpService extends AbstractService {
             httpServer.setSendServerVersion(false);
             httpServer.setSendDateHeader(false);
             Context context = new Context(httpServer, "/", Context.NO_SESSIONS);
-            context.setAttribute(VoldemortServletContextListener.SERVER_CONFIG_KEY, server);
+            context.setAttribute(VoldemortServletContextListener.SERVER_KEY, server);
             context.setAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY,
                                  velocityEngine);
             context.addServlet(new ServletHolder(new AdminServlet(server, velocityEngine)),

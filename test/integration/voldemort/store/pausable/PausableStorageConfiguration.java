@@ -14,7 +14,7 @@ import voldemort.utils.ByteArray;
  */
 public class PausableStorageConfiguration implements StorageConfiguration {
 
-    private final String TYPE_NAME = "pausable";
+    private static final String TYPE_NAME = "pausable";
 
     public PausableStorageConfiguration(@SuppressWarnings("unused") VoldemortConfig config) {}
 

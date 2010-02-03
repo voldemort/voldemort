@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 import voldemort.Attempt;
@@ -29,27 +27,40 @@ public class GossiperTest extends TestCase {
 
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
     private Cluster cluster;
+    private Properties props = new Properties();
 
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
 
+
+
     @Override
     public void setUp() throws IOException {
+        props.put("enable.gossip", "true");
+        props.put("gossip.interval.ms", "250");
+
         cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 } });
+                                                                   { 8, 9, 10, 11 } });
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(0,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
                                                                                             storesXmlfile,
-                                                                                            new Properties()),
+                                                                                            props),
                                                          cluster));
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
                                                                                             storesXmlfile,
-                                                                                            new Properties()),
+                                                                                            props),
+                                                         cluster));
+        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(2,
+                                                                                            TestUtils.createTempDir()
+                                                                                                     .getAbsolutePath(),
+                                                                                            null,
+                                                                                            storesXmlfile,
+                                                                                            props),
                                                          cluster));
     }
 
@@ -77,18 +88,18 @@ public class GossiperTest extends TestCase {
         // Create a new partitioning scheme with room for a new server
         final Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
                                                                    ports,
-                                                                   new int[][] { { 0, 1, 2 },
-                                                                           { 3, 4, 5 },
-                                                                           { 6, 7, 8 },
-                                                                           { 9, 10, 11 } });
-
+                                                                   new int[][] {{ 0, 4, 8 },
+                                                                                { 1, 5, 9 },
+                                                                                { 2, 6, 10 },
+                                                                                { 3, 7, 11 }});
+        
         // Start the new server
         VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(3,
                                                                                                             TestUtils.createTempDir()
                                                                                                                      .getAbsolutePath(),
                                                                                                             null,
                                                                                                             storesXmlfile,
-                                                                                                            new Properties()),
+                                                                                                            props),
                                                                          newCluster);
         servers.add(newServer);
 
@@ -121,20 +132,6 @@ public class GossiperTest extends TestCase {
             Thread.currentThread().interrupt();
         }
 
-        // Start a thread pool for gossipers and start gossiping
-        ExecutorService executorService = Executors.newFixedThreadPool(newCluster.getNumberOfNodes() + 1);
-
-        List<Gossiper> gossipers = new ArrayList<Gossiper>(newCluster.getNumberOfNodes());
-        for(VoldemortServer server: servers) {
-            Gossiper gossiper = new Gossiper(server.getMetadataStore(),
-                                             getAdminClient(server.getMetadataStore().getCluster(),
-                                                            server.getVoldemortConfig()),
-                                             50);
-            gossiper.start();
-            executorService.submit(gossiper);
-            gossipers.add(gossiper);
-        }
-
         // Wait up to a second for gossip to spread
         try {
             TestUtils.assertWithBackoff(1000, new Attempt() {
@@ -160,9 +157,6 @@ public class GossiperTest extends TestCase {
             });
         } catch(InterruptedException e) {
             Thread.currentThread().interrupt();
-        } finally {
-            for(Gossiper gossiper: gossipers)
-                gossiper.stop();
         }
     }
 }

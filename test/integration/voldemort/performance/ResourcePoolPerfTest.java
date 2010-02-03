@@ -72,7 +72,7 @@ public class ResourcePoolPerfTest {
     private static class StringResourceFactory implements ResourceFactory<Integer, String> {
 
         public String create(Integer key) {
-            return new String(key + "-val");
+            return key + "-val";
         }
 
         public void destroy(Integer key, String obj) {}
@@ -91,7 +91,7 @@ public class ResourcePoolPerfTest {
         public void destroyObject(Object k, Object v) {}
 
         public Object makeObject(Object k) {
-            return new String(k + "-val");
+            return k + "-val";
         }
 
         public boolean validateObject(Object k, Object v) {

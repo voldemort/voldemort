@@ -244,9 +244,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 counter++;
                 if(0 == counter % 100000) {
                     long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-                    logger.debug("fetchEntries() scanned " + counter + " entries, fetched "
-                                 + fetched + " entries for store:" + storageEngine.getName()
-                                 + " partition:" + partitionList + " in " + totalTime + " s");
+                    if(logger.isDebugEnabled())
+                        logger.debug("fetchEntries() scanned " + counter + " entries, fetched "
+                                     + fetched + " entries for store:" + storageEngine.getName()
+                                     + " partition:" + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -287,9 +288,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 counter++;
                 if(0 == counter % 100000) {
                     long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-                    logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
-                                 + " keys for store:" + storageEngine.getName() + " partition:"
-                                 + partitionList + " in " + totalTime + " s");
+                    if(logger.isDebugEnabled())
+                        logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
+                                     + " keys for store:" + storageEngine.getName() + " partition:"
+                                     + partitionList + " in " + totalTime + " s");
                 }
             }
         } finally {
@@ -336,8 +338,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 counter++;
                 if(0 == counter % 100000) {
                     long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-                    logger.debug("updateEntries() updated " + counter + " entries for store:"
-                                 + storageEngine.getName() + " in " + totalTime + " s");
+                    if(logger.isDebugEnabled())
+                        logger.debug("updateEntries() updated " + counter + " entries for store:"
+                                     + storageEngine.getName() + " in " + totalTime + " s");
                 }
 
                 int size = inputStream.readInt();

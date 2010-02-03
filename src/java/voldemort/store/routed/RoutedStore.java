@@ -98,7 +98,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
     private final StoreDefinition storeDef;
     private final FailureDetector failureDetector;
 
-    private RoutingStrategy routingStrategy;
+    private volatile RoutingStrategy routingStrategy;
 
     /**
      * Create a RoutedStoreClient

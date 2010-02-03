@@ -135,6 +135,6 @@ public class Node implements Serializable, Comparable<Node> {
     }
 
     public int compareTo(Node other) {
-        return new Integer(this.id).compareTo(other.getId());
+        return Integer.valueOf(this.id).compareTo(other.getId());
     }
 }
