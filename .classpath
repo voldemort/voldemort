@@ -43,6 +43,6 @@
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.2.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
-  <classpathentry kind="lib" path="lib/je-4.0.71.jar"/>
+	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

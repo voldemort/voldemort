@@ -58,6 +58,7 @@ import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -290,6 +291,21 @@ public class ReadRepairerTest extends TestCase {
                          expSet,
                          repairSet);
         }
+    }
+
+    /**
+     * See Issue #211: Unnecessary read repairs during getAll with more than one
+     * key
+     */
+    @Test
+    public void testMultipleKeys() {
+        List<NodeValue<String, Integer>> nodeValues = Lists.newArrayList();
+        nodeValues.add(getValue(0, 1, new int[2]));
+        nodeValues.add(getValue(0, 2, new int[0]));
+        nodeValues.add(getValue(1, 2, new int[0]));
+        nodeValues.add(getValue(2, 1, new int[2]));
+        List<NodeValue<String, Integer>> repairs = repairer.getRepairs(nodeValues);
+        assertEquals("There should be no repairs.", 0, repairs.size());
     }
 
     private NodeValue<String, Integer> getValue(int nodeId, int value, int[] version) {
