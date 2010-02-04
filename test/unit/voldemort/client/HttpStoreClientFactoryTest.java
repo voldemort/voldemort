@@ -16,6 +16,8 @@
 
 package voldemort.client;
 
+import org.junit.After;
+import org.junit.Before;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 
@@ -36,6 +38,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
     private String url;
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         context = ServerTestUtils.getJettyServer(getClusterXml(),
@@ -51,6 +54,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
     }
 
     @Override
+    @After
     public void tearDown() throws Exception {
         httpStore.close();
         server.stop();

@@ -1,19 +1,41 @@
 package voldemort.socketpool;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
+import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.server.AbstractSocketService;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
-import voldemort.server.socket.SocketServer;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
 import voldemort.store.socket.SocketAndStreams;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.pool.ResourceFactory;
 import voldemort.utils.pool.ResourcePoolConfig;
 
+@RunWith(Parameterized.class)
 public class SimpleSocketPoolTest extends TestCase {
 
+    private final boolean useNio;
+
+    public SimpleSocketPoolTest(boolean useNio) {
+        this.useNio = useNio;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
+
+    @Test
     public void testPoolLimitNoTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(1000,
                                                                               TimeUnit.MILLISECONDS)
@@ -38,6 +60,7 @@ public class SimpleSocketPoolTest extends TestCase {
         assertEquals("We should see Zero timeoutRequests", 0, testStats.timeoutRequests);
     }
 
+    @Test
     public void testPoolLimitSomeTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
                                                                               TimeUnit.MILLISECONDS)
@@ -62,18 +85,20 @@ public class SimpleSocketPoolTest extends TestCase {
         assertEquals("We should see some timeoutRequests", true, testStats.timeoutRequests > 0);
     }
 
+    @Test
     public void testSocketPoolLimitSomeTimeout() throws Exception {
         // start a dummy server
-        SocketServer server = new SocketServer(7666,
-                                               50,
-                                               50,
-                                               1000,
-                                               new SocketRequestHandlerFactory(null,
-                                                                               null,
-                                                                               null,
-                                                                               null,
-                                                                               null),
-                                               "test");
+        AbstractSocketService server = ServerTestUtils.getSocketService(useNio,
+                                                                        new SocketRequestHandlerFactory(null,
+                                                                                                        null,
+                                                                                                        null,
+                                                                                                        null,
+                                                                                                        null),
+                                                                        7666,
+                                                                        50,
+                                                                        50,
+                                                                        1000);
+
         server.start();
 
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
@@ -102,9 +127,10 @@ public class SimpleSocketPoolTest extends TestCase {
         // borrow timeout >> doSomething() no timeout expected
         TestStats testStats = test.startTest(factory, config, 50, 200);
         assertEquals("We should see some timeoutRequests", true, testStats.timeoutRequests > 0);
-        server.shutdown();
+        server.stop();
     }
 
+    @Test
     public void testNoTimeout() throws Exception {
         final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(100,
                                                                               TimeUnit.MILLISECONDS)
@@ -128,4 +154,5 @@ public class SimpleSocketPoolTest extends TestCase {
         TestStats testStats = test.startTest(factory, config, 20, 200);
         assertEquals("We should see Zero timeoutRequests", 0, testStats.timeoutRequests);
     }
+
 }

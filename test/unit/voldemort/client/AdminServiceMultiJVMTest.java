@@ -18,11 +18,18 @@ package voldemort.client;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Map.Entry;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.admin.AdminClient;
@@ -39,6 +46,7 @@ import voldemort.versioning.Versioned;
  * 
  * @author bbansal
  */
+@RunWith(Parameterized.class)
 public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
 
     private static int TEST_KEYS = 10000;
@@ -47,11 +55,23 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     private Process pid;
     private AdminClient adminClient;
     private String voldemortHome;
+    private final boolean useNio;
+
+    public AdminServiceMultiJVMTest(boolean useNio) {
+        this.useNio = useNio;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
 
     @Override
+    @Before
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2);
-        voldemortHome = ServerJVMTestUtils.createAndInitializeVoldemortHome(0,
+        voldemortHome = ServerJVMTestUtils.createAndInitializeVoldemortHome(useNio,
+                                                                            0,
                                                                             storesXmlfile,
                                                                             cluster);
         pid = ServerJVMTestUtils.startServerJVM(cluster.getNodeById(0), voldemortHome);
@@ -59,6 +79,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     }
 
     @Override
+    @After
     public void tearDown() throws IOException {
         System.out.println("teardown called");
         adminClient.stop();

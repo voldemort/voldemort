@@ -5,6 +5,9 @@ import java.util.Iterator;
 import java.util.Set;
 
 import junit.framework.TestCase;
+
+import org.junit.Test;
+
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.store.Store;
@@ -23,6 +26,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
     protected abstract Store<ByteArray, byte[]> getStore(int nodeId, String storeName);
 
+    @Test
     public void testFetchAsStreamWithFilter() {
         // user store should be present
         Store<ByteArray, byte[]> store = getStore(0, testStoreName);
@@ -41,9 +45,9 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
         // make fetch stream call with filter
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
-                                                                                                            testStoreName,
-                                                                                                            Arrays.asList(new Integer[] { 0 }),
-                                                                                                            filter);
+                                                                                                   testStoreName,
+                                                                                                   Arrays.asList(new Integer[] { 0 }),
+                                                                                                   filter);
 
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {
@@ -54,6 +58,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         }
     }
 
+    @Test
     public void testDeleteStreamWithFilter() {
         // user store should be present
         Store<ByteArray, byte[]> store = getStore(0, testStoreName);
@@ -89,6 +94,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateAsStreamWithFilter() {
         VoldemortFilter filter = new VoldemortFilterImpl();
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();

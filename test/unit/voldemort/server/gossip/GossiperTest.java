@@ -2,10 +2,19 @@ package voldemort.server.gossip;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
 import junit.framework.TestCase;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.Attempt;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -23,6 +32,7 @@ import voldemort.versioning.Versioned;
 /**
  * @author afeinberg
  */
+@RunWith(Parameterized.class)
 public class GossiperTest extends TestCase {
 
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
@@ -31,31 +41,43 @@ public class GossiperTest extends TestCase {
 
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
+    private final boolean useNio;
 
+    public GossiperTest(boolean useNio) {
+        this.useNio = useNio;
+    }
 
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
 
     @Override
+    @Before
     public void setUp() throws IOException {
         props.put("enable.gossip", "true");
         props.put("gossip.interval.ms", "250");
 
         cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                                                                   { 8, 9, 10, 11 } });
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(0,
+                { 8, 9, 10, 11 } });
+        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                            0,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
                                                                                             storesXmlfile,
                                                                                             props),
                                                          cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
+        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                            1,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
                                                                                             storesXmlfile,
                                                                                             props),
                                                          cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(2,
+        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                            2,
                                                                                             TestUtils.createTempDir()
                                                                                                      .getAbsolutePath(),
                                                                                             null,
@@ -68,6 +90,7 @@ public class GossiperTest extends TestCase {
         return new AdminClient(newCluster, new AdminClientConfig());
     }
 
+    @Test
     public void testGossiper() throws Exception {
         // First create a new cluster:
         // Allocate ports for all nodes in the new cluster, to match existing
@@ -88,13 +111,14 @@ public class GossiperTest extends TestCase {
         // Create a new partitioning scheme with room for a new server
         final Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
                                                                    ports,
-                                                                   new int[][] {{ 0, 4, 8 },
-                                                                                { 1, 5, 9 },
-                                                                                { 2, 6, 10 },
-                                                                                { 3, 7, 11 }});
-        
+                                                                   new int[][] { { 0, 4, 8 },
+                                                                           { 1, 5, 9 },
+                                                                           { 2, 6, 10 },
+                                                                           { 3, 7, 11 } });
+
         // Start the new server
-        VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(3,
+        VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                                            3,
                                                                                                             TestUtils.createTempDir()
                                                                                                                      .getAbsolutePath(),
                                                                                                             null,

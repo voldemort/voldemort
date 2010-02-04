@@ -348,7 +348,8 @@ public class ServerTestUtils {
         return map;
     }
 
-    public static VoldemortConfig createServerConfig(int nodeId,
+    public static VoldemortConfig createServerConfig(boolean useNio,
+                                                     int nodeId,
                                                      String baseDir,
                                                      String clusterFile,
                                                      String storeFile,
@@ -368,6 +369,8 @@ public class ServerTestUtils {
         config.setMysqlPassword("voldemort");
         config.setStreamMaxReadBytesPerSec(10 * 1000 * 1000);
         config.setStreamMaxWriteBytesPerSec(10 * 1000 * 1000);
+
+        config.setUseNioConnector(useNio);
 
         // clean and reinit metadata dir.
         File tempDir = new File(config.getMetadataDirectory());

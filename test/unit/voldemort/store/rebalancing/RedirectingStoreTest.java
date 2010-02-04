@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -28,6 +29,12 @@ import java.util.Map.Entry;
 import junit.framework.TestCase;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -52,6 +59,7 @@ import voldemort.versioning.Versioned;
  * @author bbansal
  * 
  */
+@RunWith(Parameterized.class)
 public class RedirectingStoreTest extends TestCase {
 
     private static int TEST_VALUES_SIZE = 1000;
@@ -61,8 +69,19 @@ public class RedirectingStoreTest extends TestCase {
     VoldemortServer server0;
     VoldemortServer server1;
     Cluster targetCluster;
+    private final boolean useNio;
+
+    public RedirectingStoreTest(boolean useNio) {
+        this.useNio = useNio;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
 
     @Override
+    @Before
     public void setUp() throws IOException {
         Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { {}, { 0, 1 } });
         targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
@@ -76,6 +95,7 @@ public class RedirectingStoreTest extends TestCase {
     }
 
     @Override
+    @After
     public void tearDown() {
         try {
             server0.stop();
@@ -90,7 +110,8 @@ public class RedirectingStoreTest extends TestCase {
 
     private VoldemortServer startServer(int node, String storesXmlfile, Cluster cluster)
             throws IOException {
-        VoldemortConfig config = ServerTestUtils.createServerConfig(node,
+        VoldemortConfig config = ServerTestUtils.createServerConfig(useNio,
+                                                                    node,
                                                                     TestUtils.createTempDir()
                                                                              .getAbsolutePath(),
                                                                     null,
@@ -116,6 +137,7 @@ public class RedirectingStoreTest extends TestCase {
                                     new SocketPool(10, 1000, 10000, 10000));
     }
 
+    @Test
     public void testProxyGet() {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
@@ -151,6 +173,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                testStoreName), Arrays.asList(1));
     }
 
+    @Test
     public void testProxyPut() {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);

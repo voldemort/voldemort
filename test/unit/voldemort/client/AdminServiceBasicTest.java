@@ -19,6 +19,7 @@ package voldemort.client;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -27,6 +28,14 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
@@ -46,6 +55,7 @@ import com.google.common.collect.AbstractIterator;
 /**
  * @author afeinberg, bbansal
  */
+@RunWith(Parameterized.class)
 public class AdminServiceBasicTest extends TestCase {
 
     private static int NUM_RUNS = 100;
@@ -57,19 +67,33 @@ public class AdminServiceBasicTest extends TestCase {
     private Cluster cluster;
     private AdminClient adminClient;
 
+    private final boolean useNio;
+
+    public AdminServiceBasicTest(boolean useNio) {
+        this.useNio = useNio;
+    }
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
+
     @Override
+    @Before
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         servers = new VoldemortServer[2];
 
-        servers[0] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(0,
+        servers[0] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                             0,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
                                                                                              storesXmlfile,
                                                                                              new Properties()),
                                                           cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(1,
+        servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                             1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
                                                                                              null,
@@ -81,6 +105,7 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Override
+    @After
     public void tearDown() throws IOException, InterruptedException {
         adminClient.stop();
         for(VoldemortServer server: servers) {
@@ -117,6 +142,7 @@ public class AdminServiceBasicTest extends TestCase {
         return false;
     }
 
+    @Test
     public void testUpdateClusterMetadata() {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
@@ -138,6 +164,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     }
 
+    @Test
     public void testStateTransitions() {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();
@@ -186,6 +213,7 @@ public class AdminServiceBasicTest extends TestCase {
                      state);
     }
 
+    @Test
     public void testDeletePartitionEntries() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
@@ -209,6 +237,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
+    @Test
     public void testFetchPartitionKeys() {
 
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
@@ -243,6 +272,7 @@ public class AdminServiceBasicTest extends TestCase {
                      count);
     }
 
+    @Test
     public void testTruncate() throws Exception {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
@@ -262,6 +292,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
+    @Test
     public void testFetch() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchPartitionsList = Arrays.asList(0, 2);
@@ -300,6 +331,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     }
 
+    @Test
     public void testUpdate() {
         final HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
@@ -331,6 +363,7 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     // check the basic rebalanceNode call.
+    @Test
     public void testRebalanceNode() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
@@ -355,7 +388,7 @@ public class AdminServiceBasicTest extends TestCase {
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
 
-        getAdminClient().waitForCompletion(1, asyncId, 60, TimeUnit.SECONDS);
+        getAdminClient().waitForCompletion(1, asyncId, 120, TimeUnit.SECONDS);
 
         // assert data is copied correctly
         store = getStore(1, testStoreName);
@@ -369,6 +402,7 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
+    @Test
     public void testRecoverData() {
         // use store with replication 2, required write 2 for this test.
         String testStoreName = "test-recovery-data";
@@ -404,6 +438,7 @@ public class AdminServiceBasicTest extends TestCase {
     /**
      * @throws IOException
      */
+    @Test
     public void testFetchAndUpdate() throws IOException {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
