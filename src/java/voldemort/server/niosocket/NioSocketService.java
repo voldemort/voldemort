@@ -62,6 +62,8 @@ public class NioSocketService extends AbstractSocketService {
 
     private ServerSocketChannel serverSocketChannel;
 
+    private final InetSocketAddress endpoint;
+
     private final SelectorManager[] selectorManagers;
 
     private final ExecutorService selectorManagerThreadPool;
@@ -90,6 +92,8 @@ public class NioSocketService extends AbstractSocketService {
             throw new VoldemortException(e);
         }
 
+        this.endpoint = new InetSocketAddress(port);
+
         this.selectorManagers = new SelectorManager[selectors];
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
                                                                       new DaemonThreadFactory("voldemort-niosocket-server"));
@@ -103,22 +107,29 @@ public class NioSocketService extends AbstractSocketService {
 
     @Override
     protected void startInner() {
+        if(logger.isEnabledFor(Level.INFO))
+            logger.info("Starting Voldemort NIO socket server (" + serviceName + ") on port "
+                        + port);
+
         try {
             for(int i = 0; i < selectorManagers.length; i++) {
-                selectorManagers[i] = new SelectorManager(requestHandlerFactory, socketBufferSize);
+                selectorManagers[i] = new SelectorManager(endpoint,
+                                                          requestHandlerFactory,
+                                                          socketBufferSize);
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 
-            InetSocketAddress endpoint = new InetSocketAddress(port);
             serverSocketChannel.socket().bind(endpoint);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 
-            acceptorThread = new Thread(new Acceptor(endpoint));
+            acceptorThread = new Thread(new Acceptor());
             acceptorThread.start();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(e.getMessage(), e);
+
+            throw new VoldemortException(e);
         }
 
         enableJmx(this);
@@ -126,6 +137,9 @@ public class NioSocketService extends AbstractSocketService {
 
     @Override
     protected void stopInner() {
+        if(logger.isEnabledFor(Level.INFO))
+            logger.info("NIO socket service shutting down");
+
         try {
             // Signal the thread to stop accepting new connections...
             acceptorThread.interrupt();
@@ -141,7 +155,16 @@ public class NioSocketService extends AbstractSocketService {
         }
 
         try {
-            selectorManagerThreadPool.shutdownNow();
+            for(int i = 0; i < selectorManagers.length; i++) {
+                try {
+                    selectorManagers[i].close();
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e.getMessage(), e);
+                }
+            }
+
+            selectorManagerThreadPool.shutdown();
             boolean terminated = selectorManagerThreadPool.awaitTermination(15, TimeUnit.SECONDS);
 
             if(!terminated) {
@@ -170,19 +193,20 @@ public class NioSocketService extends AbstractSocketService {
 
     private class Acceptor implements Runnable {
 
-        private InetSocketAddress endpoint;
-
-        private Acceptor(InetSocketAddress endpoint) {
-            this.endpoint = endpoint;
-        }
-
         public void run() {
             if(logger.isInfoEnabled())
-                logger.info("Server now listening for connections on " + endpoint);
+                logger.info("Server now listening for connections");
 
             AtomicInteger counter = new AtomicInteger();
 
-            while(!Thread.currentThread().isInterrupted()) {
+            while(true) {
+                if(Thread.currentThread().isInterrupted()) {
+                    if(logger.isInfoEnabled())
+                        logger.info("Thread interrupted");
+
+                    break;
+                }
+
                 try {
                     SocketChannel socketChannel = serverSocketChannel.accept();
 
@@ -199,7 +223,9 @@ public class NioSocketService extends AbstractSocketService {
                 } catch(ClosedByInterruptException e) {
                     // If you're *really* interested...
                     if(logger.isTraceEnabled())
-                        logger.trace(e.getMessage(), e);
+                        logger.trace("Interrupted, closing");
+
+                    break;
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e.getMessage(), e);
@@ -207,7 +233,7 @@ public class NioSocketService extends AbstractSocketService {
             }
 
             if(logger.isInfoEnabled())
-                logger.info("Server has stopped listening for connections on " + endpoint);
+                logger.info("Server has stopped listening for connections");
         }
 
     }

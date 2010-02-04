@@ -40,7 +40,6 @@ import voldemort.server.protocol.admin.AsyncOperationRunner;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.scheduler.SchedulerService;
-import voldemort.server.socket.AdminService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
@@ -170,13 +169,25 @@ public class VoldemortServer extends AbstractService {
                                                                                                      this.voldemortConfig,
                                                                                                      this.asyncRunner,
                                                                                                      rebalancer);
-            services.add(new AdminService(adminRequestHandlerFactory,
-                                          identityNode.getAdminPort(),
-                                          voldemortConfig.getAdminCoreThreads(),
-                                          voldemortConfig.getAdminMaxThreads(),
-                                          voldemortConfig.getAdminSocketBufferSize(),
-                                          "admin-server",
-                                          voldemortConfig.isJmxEnabled()));
+
+            if(voldemortConfig.getUseNioConnector()) {
+                logger.info("Using NIO Connector for Admin Service.");
+                services.add(new NioSocketService(adminRequestHandlerFactory,
+                                                  identityNode.getAdminPort(),
+                                                  voldemortConfig.getAdminSocketBufferSize(),
+                                                  voldemortConfig.getNioConnectorSelectors(),
+                                                  "admin-server",
+                                                  voldemortConfig.isJmxEnabled()));
+            } else {
+                logger.info("Using BIO Connector for Admin Service.");
+                services.add(new SocketService(adminRequestHandlerFactory,
+                                               identityNode.getAdminPort(),
+                                               voldemortConfig.getAdminCoreThreads(),
+                                               voldemortConfig.getAdminMaxThreads(),
+                                               voldemortConfig.getAdminSocketBufferSize(),
+                                               "admin-server",
+                                               voldemortConfig.isJmxEnabled()));
+            }
         }
 
         if(voldemortConfig.isGossipEnabled()) {

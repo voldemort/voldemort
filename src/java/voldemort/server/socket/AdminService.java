@@ -2,6 +2,7 @@ package voldemort.server.socket;
 
 import voldemort.server.protocol.RequestHandlerFactory;
 
+@Deprecated
 public class AdminService extends SocketService {
 
     public AdminService(RequestHandlerFactory requestHandlerFactory,

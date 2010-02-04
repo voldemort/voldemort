@@ -13,9 +13,12 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.StreamRequestHandler;
+import voldemort.server.protocol.StreamRequestHandler.StreamRequestHandlerState;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -70,7 +73,36 @@ public class SocketServerSession implements Runnable {
                         + " connected successfully with protocol " + protocol.getCode());
 
             while(!isInterrupted() && !socket.isClosed() && !isClosed) {
-                handler.handleRequest(inputStream, outputStream);
+                StreamRequestHandler srh = handler.handleRequest(inputStream, outputStream);
+
+                if(srh != null) {
+                    if(logger.isTraceEnabled())
+                        logger.trace("Request is streaming");
+
+                    StreamRequestHandlerState srhs = null;
+
+                    try {
+                        do {
+                            if(logger.isTraceEnabled())
+                                logger.trace("About to enter streaming request handler");
+
+                            srhs = srh.handleRequest(inputStream, outputStream);
+
+                            if(logger.isTraceEnabled())
+                                logger.trace("Finished invocation of streaming request handler, result is "
+                                             + srhs);
+
+                        } while(srhs != StreamRequestHandlerState.COMPLETE);
+                    } catch(VoldemortException e) {
+                        srh.handleError(outputStream, e);
+                        outputStream.flush();
+
+                        break;
+                    } finally {
+                        srh.close(outputStream);
+                    }
+                }
+
                 outputStream.flush();
             }
             if(isInterrupted())

@@ -17,6 +17,8 @@
 package voldemort.server.niosocket;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -93,6 +95,8 @@ import voldemort.server.protocol.RequestHandlerFactory;
 
 public class SelectorManager implements Runnable {
 
+    private final InetSocketAddress endpoint;
+
     private final Selector selector;
 
     private final Queue<SocketChannel> socketChannelQueue;
@@ -101,27 +105,76 @@ public class SelectorManager implements Runnable {
 
     private final int socketBufferSize;
 
+    private volatile boolean isClosed;
+
     private final Logger logger = Logger.getLogger(getClass());
 
-    public SelectorManager(RequestHandlerFactory requestHandlerFactory, int socketBufferSize)
-                                                                                             throws IOException {
+    public SelectorManager(InetSocketAddress endpoint,
+                           RequestHandlerFactory requestHandlerFactory,
+                           int socketBufferSize) throws IOException {
+        this.endpoint = endpoint;
         this.selector = Selector.open();
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        isClosed = false;
     }
 
     public void accept(SocketChannel socketChannel) {
+        if(isClosed)
+            throw new IllegalStateException("Cannot accept more channels, selector manager closed");
+
         socketChannelQueue.add(socketChannel);
         selector.wakeup();
+    }
+
+    public void close() {
+        if(isClosed)
+            return;
+
+        isClosed = true;
+
+        try {
+            for(SelectionKey sk: selector.keys()) {
+                try {
+                    if(logger.isTraceEnabled())
+                        logger.trace("Closing SelectionKey's channel " + sk + " for " + endpoint);
+
+                    sk.channel().close();
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e.getMessage(), e);
+                }
+
+                try {
+                    if(logger.isTraceEnabled())
+                        logger.trace("Cancelling SelectionKey " + sk + " for " + endpoint);
+
+                    sk.cancel();
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e.getMessage(), e);
+                }
+            }
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e.getMessage(), e);
+        }
+
+        try {
+            selector.close();
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e.getMessage(), e);
+        }
     }
 
     public void run() {
         try {
             while(true) {
-                if(Thread.currentThread().isInterrupted()) {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Interrupted");
+                if(isClosed) {
+                    if(logger.isInfoEnabled())
+                        logger.info("Closed, exiting" + " for " + endpoint);
 
                     break;
                 }
@@ -130,6 +183,13 @@ public class SelectorManager implements Runnable {
 
                 try {
                     int selected = selector.select();
+
+                    if(isClosed) {
+                        if(logger.isInfoEnabled())
+                            logger.info("Closed, exiting for " + endpoint);
+
+                        break;
+                    }
 
                     if(selected > 0) {
                         Iterator<SelectionKey> i = selector.selectedKeys().iterator();
@@ -144,6 +204,11 @@ public class SelectorManager implements Runnable {
                             }
                         }
                     }
+                } catch(ClosedSelectorException e) {
+                    if(logger.isDebugEnabled())
+                        logger.debug("Selector is closed, exiting for " + endpoint);
+
+                    break;
                 } catch(Throwable t) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error(t.getMessage(), t);
@@ -154,7 +219,7 @@ public class SelectorManager implements Runnable {
                 logger.error(t.getMessage(), t);
         } finally {
             try {
-                selector.close();
+                close();
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.ERROR))
                     logger.error(e.getMessage(), e);
@@ -167,6 +232,13 @@ public class SelectorManager implements Runnable {
             SocketChannel socketChannel = null;
 
             while((socketChannel = socketChannelQueue.poll()) != null) {
+                if(isClosed) {
+                    if(logger.isInfoEnabled())
+                        logger.debug("Closed, exiting for " + endpoint);
+
+                    break;
+                }
+
                 try {
                     if(logger.isDebugEnabled())
                         logger.debug("Registering connection from "
@@ -194,7 +266,16 @@ public class SelectorManager implements Runnable {
                                                                              socketChannel,
                                                                              requestHandlerFactory,
                                                                              socketBufferSize);
-                    socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+
+                    if(!isClosed)
+                        socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+                } catch(ClosedSelectorException e) {
+                    if(logger.isDebugEnabled())
+                        logger.debug("Selector is closed, exiting");
+
+                    close();
+
+                    break;
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error(e.getMessage(), e);

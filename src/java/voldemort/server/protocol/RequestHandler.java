@@ -13,8 +13,8 @@ import java.nio.ByteBuffer;
  */
 public interface RequestHandler {
 
-    public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
-            throws IOException;
+    public StreamRequestHandler handleRequest(DataInputStream inputStream,
+                                              DataOutputStream outputStream) throws IOException;
 
     /**
      * This method is used by non-blocking code to determine if the give buffer

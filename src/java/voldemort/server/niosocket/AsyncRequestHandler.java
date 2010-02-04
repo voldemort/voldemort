@@ -30,9 +30,12 @@ import java.nio.channels.SocketChannel;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.server.protocol.StreamRequestHandler;
+import voldemort.server.protocol.StreamRequestHandler.StreamRequestHandlerState;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteBufferBackedOutputStream;
 import voldemort.utils.ByteUtils;
@@ -54,6 +57,8 @@ import voldemort.utils.ByteUtils;
 
 public class AsyncRequestHandler implements Runnable {
 
+    private int lastCompleteStreamPosition = -1;
+
     private final Selector selector;
 
     private final SocketChannel socketChannel;
@@ -69,6 +74,8 @@ public class AsyncRequestHandler implements Runnable {
     private final ByteBufferBackedOutputStream outputStream;
 
     private RequestHandler requestHandler;
+
+    private StreamRequestHandler streamRequestHandler;
 
     private final Logger logger = Logger.getLogger(getClass());
 
@@ -94,19 +101,16 @@ public class AsyncRequestHandler implements Runnable {
         SelectionKey selectionKey = socketChannel.keyFor(selector);
 
         try {
-            if(selectionKey.isReadable()) {
+            if(selectionKey.isReadable())
                 read(selectionKey);
-            } else if(selectionKey.isWritable()) {
+            else if(selectionKey.isWritable())
                 write(selectionKey);
-            } else if(!selectionKey.isValid()) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Selection key not valid");
-
-                close(selectionKey);
-            } else {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Unknown state, not readable, writable, or valid...");
-            }
+            else if(!selectionKey.isValid())
+                throw new IllegalStateException("Selection key not valid for "
+                                                + socketChannel.socket().getRemoteSocketAddress());
+            else
+                throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
+                                                + socketChannel.socket().getRemoteSocketAddress());
         } catch(ClosedByInterruptException e) {
             close(selectionKey);
         } catch(CancelledKeyException e) {
@@ -116,36 +120,26 @@ public class AsyncRequestHandler implements Runnable {
         } catch(Throwable t) {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(t.getMessage(), t);
-        }
-    }
 
-    int getPort() {
-        return socketChannel.socket().getPort();
+            close(selectionKey);
+        }
     }
 
     private void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
 
-        ByteBuffer inputBuffer = inputStream.getBuffer();
-
-        if((count = socketChannel.read(inputBuffer)) == -1)
-            throw new EOFException();
+        if((count = socketChannel.read(inputStream.getBuffer())) == -1)
+            throw new EOFException("EOF for " + socketChannel.socket().getRemoteSocketAddress());
 
         if(logger.isTraceEnabled())
-            logger.trace("Read " + count + "bytes, total: " + inputBuffer.position() + " for "
-                         + socketChannel.socket().getRemoteSocketAddress());
+            logInputBufferState("Read " + count + " bytes");
 
-        if(count == 0) {
-            if(logger.isDebugEnabled())
-                logger.debug("Read of zero bytes for "
-                             + socketChannel.socket().getRemoteSocketAddress());
-
+        if(count == 0)
             return;
-        }
 
-        final int position = inputBuffer.position();
+        final int position = inputStream.getBuffer().position();
 
-        inputBuffer.flip();
+        inputStream.getBuffer().flip();
 
         // We have to do this on the first request.
         if(requestHandler == null) {
@@ -154,71 +148,229 @@ public class AsyncRequestHandler implements Runnable {
             }
         }
 
-        if(requestHandler != null && requestHandler.isCompleteRequest(inputBuffer)) {
+        if(streamRequestHandler != null) {
+            if(lastCompleteStreamPosition != -1) {
+                if(logger.isTraceEnabled())
+                    logInputBufferState("Before adjusting for last complete stream position");
+
+                inputStream.getBuffer().position(lastCompleteStreamPosition);
+
+                if(logger.isTraceEnabled())
+                    logInputBufferState("After adjusting for last complete stream position");
+            }
+
+            if(logger.isTraceEnabled())
+                logInputBufferState("Continuing existing streaming request");
+
+            handleStreamRequest(selectionKey);
+        } else if(requestHandler != null
+                  && requestHandler.isCompleteRequest(inputStream.getBuffer())) {
             // If we have the full request, flip the buffer for reading
             // and execute the request
-            inputBuffer.rewind();
+            inputStream.getBuffer().rewind();
 
-            if(logger.isDebugEnabled())
-                logger.debug("Starting execution for "
+            if(logger.isTraceEnabled())
+                logger.trace("Starting execution for "
                              + socketChannel.socket().getRemoteSocketAddress());
 
-            requestHandler.handleRequest(new DataInputStream(inputStream),
-                                         new DataOutputStream(outputStream));
+            streamRequestHandler = requestHandler.handleRequest(new DataInputStream(inputStream),
+                                                                new DataOutputStream(outputStream));
 
-            if(logger.isDebugEnabled())
-                logger.debug("Finished execution for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+            if(streamRequestHandler != null) {
+                if(lastCompleteStreamPosition != -1)
+                    inputStream.getBuffer().position(lastCompleteStreamPosition);
 
-            // We've written to the buffer in the handleRequest invocation, so
-            // we're done with the input and can reset/resize, flip the output
-            // buffer, and let the Selector know we're ready to write.
-            if(inputBuffer.capacity() >= resizeThreshold) {
-                inputBuffer = ByteBuffer.allocate(socketBufferSize);
-                inputStream.setBuffer(inputBuffer);
+                handleStreamRequest(selectionKey);
             } else {
-                inputBuffer.clear();
-            }
+                if(logger.isTraceEnabled())
+                    logger.trace("Finished execution for "
+                                 + socketChannel.socket().getRemoteSocketAddress());
 
-            outputStream.getBuffer().flip();
-            selectionKey.interestOps(SelectionKey.OP_WRITE);
+                clearInputBuffer();
+                prepForWrite(selectionKey);
+            }
         } else {
-            inputBuffer.position(position);
-            inputBuffer.limit(inputBuffer.capacity());
-
-            if(!inputBuffer.hasRemaining()) {
-                // We haven't read all the data needed for the request AND we
-                // don't have enough data in our buffer. So expand it. Note:
-                // doubling the current buffer size is arbitrary.
-                inputBuffer = ByteUtils.expand(inputBuffer, inputBuffer.capacity() * 2);
-                inputStream.setBuffer(inputBuffer);
-            }
+            handleIncompleteRequest(position);
         }
     }
 
     private void write(SelectionKey selectionKey) throws IOException {
         ByteBuffer outputBuffer = outputStream.getBuffer();
 
-        // Write what we can now...
-        int count = socketChannel.write(outputBuffer);
+        if(outputBuffer.hasRemaining()) {
+            // Write what we can now...
+            int count = socketChannel.write(outputBuffer);
+
+            if(logger.isTraceEnabled())
+                logger.trace("Wrote " + count + " bytes, remaining: " + outputBuffer.remaining()
+                             + " for " + socketChannel.socket().getRemoteSocketAddress());
+        } else {
+            if(logger.isTraceEnabled())
+                logger.trace("Wrote no bytes for "
+                             + socketChannel.socket().getRemoteSocketAddress());
+        }
+
+        if(outputBuffer.hasRemaining())
+            return;
+
+        // If we don't have anything else to write, that means we're done with
+        // the request! So clear the buffers (resizing if necessary) and signal
+        // the Selector that we're ready to take the next request.
+        if(outputBuffer.capacity() >= resizeThreshold) {
+            outputBuffer = ByteBuffer.allocate(socketBufferSize);
+            outputStream.setBuffer(outputBuffer);
+        } else {
+            outputBuffer.clear();
+        }
+
+        if(streamRequestHandler != null && !streamRequestHandler.isStreamingReads()) {
+            if(logger.isTraceEnabled())
+                logger.trace("Request is streaming for "
+                             + socketChannel.socket().getRemoteSocketAddress());
+
+            handleStreamRequest(selectionKey);
+        } else {
+            selectionKey.interestOps(SelectionKey.OP_READ);
+        }
+    }
+
+    private void handleStreamRequest(SelectionKey selectionKey) throws IOException {
+        DataInputStream dataInputStream = new DataInputStream(inputStream);
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+
+        int preRequestPosition = inputStream.getBuffer().position();
+
+        StreamRequestHandlerState state = handleStreamRequestInternal(selectionKey,
+                                                                      dataInputStream,
+                                                                      dataOutputStream);
+        if(state == StreamRequestHandlerState.READING) {
+            // We've read our request but aren't ready to write anything
+            // just yet as we're streaming reads from the client.
+            do {
+                lastCompleteStreamPosition = -1;
+                preRequestPosition = inputStream.getBuffer().position();
+                state = handleStreamRequestInternal(selectionKey, dataInputStream, dataOutputStream);
+            } while(state == StreamRequestHandlerState.READING);
+        }
+
+        if(state == null) {
+            // We got an error...
+            clearInputBuffer();
+            lastCompleteStreamPosition = -1;
+        } else if(state == StreamRequestHandlerState.INCOMPLETE_READ) {
+            // We need the data that's in there so far and aren't ready
+            // to write anything out yet, so don't clear the input
+            // buffer or signal that we're ready to write.
+            lastCompleteStreamPosition = preRequestPosition;
+            handleIncompleteRequest(-1);
+        } else if(state == StreamRequestHandlerState.WRITING) {
+            // We've read our request and are ready to start streaming
+            // writes to the client.
+            clearInputBuffer();
+
+            prepForWrite(selectionKey);
+        } else if(state == StreamRequestHandlerState.COMPLETE) {
+            streamRequestHandler.close(dataOutputStream);
+            streamRequestHandler = null;
+
+            // Treat this as a normal request. Assume that all completed
+            // requests want to write something back to the client.
+            clearInputBuffer();
+
+            prepForWrite(selectionKey);
+        }
+    }
+
+    private StreamRequestHandlerState handleStreamRequestInternal(SelectionKey selectionKey,
+                                                                  DataInputStream dataInputStream,
+                                                                  DataOutputStream dataOutputStream)
+            throws IOException {
+        StreamRequestHandlerState state = null;
+
+        try {
+            if(logger.isTraceEnabled())
+                logInputBufferState("Before streaming request handler");
+
+            state = streamRequestHandler.handleRequest(dataInputStream, dataOutputStream);
+
+            if(logger.isTraceEnabled())
+                logInputBufferState("After streaming request handler");
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e.getMessage(), e);
+
+            VoldemortException error = e instanceof VoldemortException ? (VoldemortException) e
+                                                                      : new VoldemortException(e);
+            streamRequestHandler.handleError(dataOutputStream, error);
+            streamRequestHandler.close(dataOutputStream);
+
+            prepForWrite(selectionKey);
+
+            streamRequestHandler = null;
+
+            close(selectionKey);
+        }
+
+        return state;
+    }
+
+    /**
+     * Flips the output buffer, and lets the Selector know we're ready to write.
+     * 
+     * @param selectionKey
+     */
+
+    private void prepForWrite(SelectionKey selectionKey) {
+        outputStream.getBuffer().flip();
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    /**
+     * We've written to the buffer in the handleRequest invocation, so we're
+     * done with the input and can reset/resize.
+     * 
+     * @param inputBuffer
+     */
+
+    private void clearInputBuffer() {
+        ByteBuffer inputBuffer = inputStream.getBuffer();
 
         if(logger.isTraceEnabled())
-            logger.trace("Wrote " + count + "bytes, remaining: " + outputBuffer.remaining()
-                         + " for " + socketChannel.socket().getRemoteSocketAddress());
+            logInputBufferState("About to clear read buffer");
 
-        if(!outputBuffer.hasRemaining()) {
-            // If we don't have anything else to write, that means we're done
-            // with the request! So clear the buffers (resizing if necessary)
-            // and signal the Selector that we're ready to take the next
-            // request.
-            if(outputBuffer.capacity() >= resizeThreshold) {
-                outputBuffer = ByteBuffer.allocate(socketBufferSize);
-                outputStream.setBuffer(outputBuffer);
-            } else {
-                outputBuffer.clear();
-            }
+        if(inputBuffer.capacity() >= resizeThreshold) {
+            inputBuffer = ByteBuffer.allocate(socketBufferSize);
+            inputStream.setBuffer(inputBuffer);
+        } else {
+            inputBuffer.clear();
+        }
 
-            selectionKey.interestOps(SelectionKey.OP_READ);
+        if(logger.isTraceEnabled())
+            logInputBufferState("Cleared read buffer");
+    }
+
+    private void handleIncompleteRequest(int newPosition) {
+        ByteBuffer buffer = inputStream.getBuffer();
+
+        if(logger.isTraceEnabled())
+            logInputBufferState("Incomplete read request detected, before update");
+
+        if(newPosition != -1)
+            buffer.position(newPosition);
+
+        buffer.limit(buffer.capacity());
+
+        if(logger.isTraceEnabled())
+            logInputBufferState("Incomplete read request detected, after update");
+
+        if(!buffer.hasRemaining()) {
+            // We haven't read all the data needed for the request AND we
+            // don't have enough data in our buffer. So expand it. Note:
+            // doubling the current buffer size is arbitrary.
+            inputStream.setBuffer(ByteUtils.expand(buffer, buffer.capacity() * 2));
+
+            if(logger.isTraceEnabled())
+                logInputBufferState("Expanded input buffer");
         }
     }
 
@@ -229,16 +381,16 @@ public class AsyncRequestHandler implements Runnable {
 
         try {
             socketChannel.socket().close();
-        } catch(IOException ex) {
+        } catch(IOException e) {
             if(logger.isEnabledFor(Level.WARN))
-                logger.warn(ex, ex);
+                logger.warn(e.getMessage(), e);
         }
 
         try {
             socketChannel.close();
-        } catch(IOException ex) {
+        } catch(IOException e) {
             if(logger.isEnabledFor(Level.WARN))
-                logger.warn(ex, ex);
+                logger.warn(e.getMessage(), e);
         }
 
         try {
@@ -246,7 +398,7 @@ public class AsyncRequestHandler implements Runnable {
             selectionKey.cancel();
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e, e);
+                logger.warn(e.getMessage(), e);
         }
     }
 
@@ -280,8 +432,7 @@ public class AsyncRequestHandler implements Runnable {
             // sticking the bytes in the output buffer, signaling the Selector,
             // and returning false to denote no further processing is needed.
             outputStream.getBuffer().put(ByteUtils.getBytes("ok", "UTF-8"));
-            outputStream.getBuffer().flip();
-            selectionKey.interestOps(SelectionKey.OP_WRITE);
+            prepForWrite(selectionKey);
 
             return false;
         } catch(IllegalArgumentException e) {
@@ -297,6 +448,15 @@ public class AsyncRequestHandler implements Runnable {
 
             return true;
         }
+    }
+
+    private void logInputBufferState(String preamble) {
+        logger.trace(preamble + " - position: " + inputStream.getBuffer().position() + ", limit: "
+                     + inputStream.getBuffer().limit() + ", remaining: "
+                     + inputStream.getBuffer().remaining() + ", capacity: "
+                     + inputStream.getBuffer().capacity() + ", lastCompleteStreamPosition: "
+                     + lastCompleteStreamPosition + " - for "
+                     + socketChannel.socket().getRemoteSocketAddress());
     }
 
 }

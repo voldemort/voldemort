@@ -16,6 +16,7 @@ import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
 import voldemort.server.protocol.RequestHandler;
+import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
@@ -46,8 +47,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         this.protocolVersion = protocolVersion;
     }
 
-    public void handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
-            throws IOException {
+    public StreamRequestHandler handleRequest(DataInputStream inputStream,
+                                              DataOutputStream outputStream) throws IOException {
         byte opCode = inputStream.readByte();
         String storeName = inputStream.readUTF();
         RequestRoutingType routingType = getRoutingType(inputStream);
@@ -78,6 +79,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             }
         }
         outputStream.flush();
+        return null;
     }
 
     private RequestRoutingType getRoutingType(DataInputStream inputStream) throws IOException {
