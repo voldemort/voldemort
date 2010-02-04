@@ -230,7 +230,7 @@ public class VoldemortConfig implements Serializable {
 
         this.useNioConnector = props.getBoolean("enable.nio.connector", false);
         this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
-                                                  Runtime.getRuntime().availableProcessors());
+                                                  Runtime.getRuntime().availableProcessors() * 4);
 
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
