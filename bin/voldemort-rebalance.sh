@@ -18,4 +18,4 @@
 
 base_dir=$(dirname $0)/..
 
-$base_dir/bin/run-class.sh jline.ConsoleRunner voldemort.client.rebalance.RebalanceCLI $@
+$base_dir/bin/run-class.sh voldemort.client.rebalance.RebalanceCLI $@
