@@ -1,16 +1,16 @@
 package voldemort.serialization.thrift;
 
+import org.apache.thrift.TBase;
+import org.apache.thrift.TException;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TJSONProtocol;
+import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.protocol.TSimpleJSONProtocol;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
+
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
-
-import com.facebook.thrift.TBase;
-import com.facebook.thrift.TException;
-import com.facebook.thrift.protocol.TBinaryProtocol;
-import com.facebook.thrift.protocol.TJSONProtocol;
-import com.facebook.thrift.protocol.TProtocol;
-import com.facebook.thrift.protocol.TSimpleJSONProtocol;
-import com.facebook.thrift.transport.TTransport;
-import com.facebook.thrift.transport.TTransportException;
 
 /**
  * ThriftSerializer uses one of the Thrift protocols (binary, json and
@@ -30,7 +30,7 @@ import com.facebook.thrift.transport.TTransportException;
  * languages is available, a semi-colon separated list will be accepted for the
  * schema-info element (one for each language).
  */
-public class ThriftSerializer<T extends TBase> implements Serializer<T> {
+public class ThriftSerializer<T extends TBase<?>> implements Serializer<T> {
 
     private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=com.xyz.Foo,protocol=binary</schema-info> where com.xyz.Foo is the fully qualified name of the message.";
 

@@ -2,8 +2,8 @@ package voldemort.serialization.thrift;
 
 import java.io.ByteArrayOutputStream;
 
-import com.facebook.thrift.transport.TTransport;
-import com.facebook.thrift.transport.TTransportException;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 public class MemoryBuffer extends TTransport {
 
