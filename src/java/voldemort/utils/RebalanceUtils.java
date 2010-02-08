@@ -142,7 +142,7 @@ public class RebalanceUtils {
             try {
                 Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
                 VectorClock newClock = (VectorClock) versionedCluster.getVersion();
-                if(null != newClock && !clusterList.contains(newClock)) {
+                if(null != newClock && !clusterList.contains(versionedCluster)) {
                     // check no two clocks are concurrent.
                     checkNotConcurrent(clusterList, newClock);
 
