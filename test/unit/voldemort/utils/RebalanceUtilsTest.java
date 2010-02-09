@@ -178,7 +178,29 @@ public class RebalanceUtilsTest extends TestCase {
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
-                     (new RebalancePartitionsInfo(info.toJsonString())).toString());
+                     (RebalancePartitionsInfo.fromString(info.toJsonString())).toString());
     }
 
+    public void testCreateRebalancePartitionsInfoList() {
+        List<RebalancePartitionsInfo> rebalancePartitionsInfoList = new ArrayList<RebalancePartitionsInfo>();
+        rebalancePartitionsInfoList.add(new RebalancePartitionsInfo(2,
+                                                                    0,
+                                                                    Arrays.asList(1, 2, 3, 4),
+                                                                    new ArrayList<Integer>(0),
+                                                                    Arrays.asList("test1", "test2"),
+                                                                    0));
+        rebalancePartitionsInfoList.add(new RebalancePartitionsInfo(3,
+                                                                    1,
+                                                                    Arrays.asList(5, 6, 7, 8),
+                                                                    new ArrayList<Integer>(0),
+                                                                    Arrays.asList("test1", "test2"),
+                                                                    0));
+
+        String listAsJson = RebalancePartitionsInfo.listToJsonString(rebalancePartitionsInfoList);
+        System.out.println("infoList: " + listAsJson);
+
+        assertEquals("RebalanceStealInfo List constructed from String -> listToJsonString should match.",
+                     listAsJson,
+                     RebalancePartitionsInfo.listToJsonString(RebalancePartitionsInfo.listFromString(listAsJson)));
+    }
 }

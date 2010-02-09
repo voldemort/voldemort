@@ -2,6 +2,7 @@ package voldemort.client.rebalance;
 
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -97,20 +98,47 @@ public class RebalancePartitionsInfo {
     }
 
     @SuppressWarnings("unchecked")
-    public RebalancePartitionsInfo(String line) {
+    public static RebalancePartitionsInfo fromString(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
             Map<String, Object> map = (Map<String, Object>) reader.read();
-            this.stealerId = (Integer) map.get("stealerId");
-            this.donorId = (Integer) map.get("donorId");
-            this.partitionList = (List<Integer>) map.get("partitionList");
-            this.attempt = (Integer) map.get("attempt");
-            this.deletePartitionsList = (List<Integer>) map.get("deletePartitionsList");
-            this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+            return fromMap(map);
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
                                          e);
         }
+    }
+
+    public static List<RebalancePartitionsInfo> listFromString(String line) {
+        try {
+            List<RebalancePartitionsInfo> rebalancePartitionsInfoList = new ArrayList<RebalancePartitionsInfo>();
+            JsonReader reader = new JsonReader(new StringReader(line));
+            for (Object o: reader.readArray()) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> map = (Map<String, Object>) o;
+                rebalancePartitionsInfoList.add(fromMap(map));
+            }
+            return rebalancePartitionsInfoList;
+        } catch (Exception e) {
+            throw new VoldemortException("Failed to create a RebalanceStealInfo List from String: " + line,
+                                         e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    protected static RebalancePartitionsInfo fromMap(Map<String, Object> map) {
+        int stealerId = (Integer) map.get("stealerId");
+        int donorId = (Integer) map.get("donorId");
+        List<Integer> partitionList = (List<Integer>) map.get("partitionList");
+        int attempt = (Integer) map.get("attempt");
+        List<Integer> deletePartitionsList = (List<Integer>) map.get("deletePartitionsList");
+        List<String> unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+        return new RebalancePartitionsInfo(stealerId,
+                                           donorId,
+                                           partitionList,
+                                           deletePartitionsList,
+                                           unbalancedStoreList,
+                                           attempt);
     }
 
     public List<Integer> getDeletePartitionsList() {
@@ -161,17 +189,34 @@ public class RebalancePartitionsInfo {
 
     @SuppressWarnings("unchecked")
     public String toJsonString() {
-        Map map = ImmutableMap.builder()
-                              .put("stealerId", stealerId)
-                              .put("donorId", donorId)
-                              .put("partitionList", partitionList)
-                              .put("unbalancedStoreList", unbalancedStoreList)
-                              .put("deletePartitionsList", deletePartitionsList)
-                              .put("attempt", attempt)
-                              .build();
+        Map map = toMap();
 
         StringWriter writer = new StringWriter();
         new JsonWriter(writer).write(map);
+        writer.flush();
+        return writer.toString();
+    }
+
+    public ImmutableMap<Object, Object> toMap() {
+        return ImmutableMap.builder()
+                           .put("stealerId", stealerId)
+                           .put("donorId", donorId)
+                           .put("partitionList", partitionList)
+                           .put("unbalancedStoreList", unbalancedStoreList)
+                           .put("deletePartitionsList", deletePartitionsList)
+                           .put("attempt", attempt)
+                           .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static String listToJsonString(List<RebalancePartitionsInfo> rebalancePartitionsInfoList) {
+        List maps = new ArrayList();
+        for (RebalancePartitionsInfo rebalancePartitionsInfo: rebalancePartitionsInfoList) {
+            maps.add(rebalancePartitionsInfo.toMap());
+        }
+
+        StringWriter writer = new StringWriter();
+        new JsonWriter(writer).write(maps);
         writer.flush();
         return writer.toString();
     }

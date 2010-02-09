@@ -1,6 +1,7 @@
 package voldemort.server.rebalance;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -8,6 +9,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -66,7 +70,7 @@ public class Rebalancer implements Runnable {
             // free permit here for rebalanceLocalNode to acquire.
             releaseRebalancingPermit();
 
-            RebalancePartitionsInfo stealInfo = metadataStore.getRebalancingStealInfo();
+            RebalancePartitionsInfo stealInfo = metadataStore.getRebalancingStealInfo().get(0);
 
             try {
                 logger.warn("Rebalance server found incomplete rebalancing attempt, restarting rebalancing task "
@@ -119,7 +123,7 @@ public class Rebalancer implements Runnable {
     public int rebalanceLocalNode(final RebalancePartitionsInfo stealInfo) {
 
         if(!acquireRebalancingPermit()) {
-            RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo();
+            RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo().get(0);
             throw new AlreadyRebalancingException("Node "
                                                   + metadataStore.getCluster()
                                                                  .getNodeById(info.getStealerId())
@@ -272,15 +276,15 @@ public class Rebalancer implements Runnable {
 
     private void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
         metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
-        metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfo);
+        metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, Arrays.asList(stealInfo));
     }
 
     private void checkCurrentState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
         if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
-           && metadataStore.getRebalancingStealInfo().getDonorId() != stealInfo.getDonorId())
+           && !Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
             throw new VoldemortException("Server " + metadataStore.getNodeId()
                                          + " is already rebalancing from:"
-                                         + metadataStore.getRebalancingStealInfo()
+                                         + Joiner.on(",").join(metadataStore.getRebalancingStealInfo())
                                          + " rejecting rebalance request:" + stealInfo);
     }
 
@@ -294,5 +298,17 @@ public class Rebalancer implements Runnable {
                 return thread;
             }
         });
+    }
+
+    private final static class DonorIdPredicate implements Predicate<RebalancePartitionsInfo> {
+        private final int donorId;
+
+        public DonorIdPredicate(int donorId) {
+            this.donorId = donorId;
+        }
+
+        public boolean apply(RebalancePartitionsInfo rebalancePartitionsInfo) {
+            return donorId == rebalancePartitionsInfo.getDonorId();
+        }
     }
 }
