@@ -58,9 +58,11 @@ import voldemort.utils.DaemonThreadFactory;
 
 public class NioSocketService extends AbstractSocketService {
 
+    private static final int SHUTDOWN_TIMEOUT_MS = 15000;
+
     private final RequestHandlerFactory requestHandlerFactory;
 
-    private ServerSocketChannel serverSocketChannel;
+    private final ServerSocketChannel serverSocketChannel;
 
     private final InetSocketAddress endpoint;
 
@@ -72,7 +74,7 @@ public class NioSocketService extends AbstractSocketService {
 
     private final StatusManager statusManager;
 
-    private Thread acceptorThread;
+    private final Thread acceptorThread;
 
     private final Logger logger = Logger.getLogger(getClass());
 
@@ -98,6 +100,7 @@ public class NioSocketService extends AbstractSocketService {
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
                                                                       new DaemonThreadFactory("voldemort-niosocket-server"));
         this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
+        this.acceptorThread = new Thread(new Acceptor());
     }
 
     @Override
@@ -123,12 +126,8 @@ public class NioSocketService extends AbstractSocketService {
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 
-            acceptorThread = new Thread(new Acceptor());
             acceptorThread.start();
         } catch(Exception e) {
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(e.getMessage(), e);
-
             throw new VoldemortException(e);
         }
 
@@ -138,16 +137,22 @@ public class NioSocketService extends AbstractSocketService {
     @Override
     protected void stopInner() {
         if(logger.isEnabledFor(Level.INFO))
-            logger.info("NIO socket service shutting down");
+            logger.info("Stopping Voldemort NIO socket server (" + serviceName + ") on port "
+                        + port);
 
         try {
             // Signal the thread to stop accepting new connections...
+            if(logger.isTraceEnabled())
+                logger.trace("Interrupted acceptor thread, waiting " + SHUTDOWN_TIMEOUT_MS
+                             + " ms for termination");
+
             acceptorThread.interrupt();
-            acceptorThread.join(15000);
+            acceptorThread.join(SHUTDOWN_TIMEOUT_MS);
 
             if(acceptorThread.isAlive()) {
                 if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Acceptor thread pool did not stop");
+                    logger.warn("Acceptor thread pool did not stop cleanly after "
+                                + SHUTDOWN_TIMEOUT_MS + " ms");
             }
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
@@ -155,6 +160,13 @@ public class NioSocketService extends AbstractSocketService {
         }
 
         try {
+            // We close instead of interrupting the thread pool. Why? Because as
+            // of 0.70, the SelectorManager services RequestHandler in the same
+            // thread as itself. So, if we interrupt the SelectorManager in the
+            // thread pool, we interrupt the request. In some RequestHandler
+            // implementations interruptions are not handled gracefully and/or
+            // indicate other errors which cause odd side effects. So we
+            // implement a non-interrupt-based shutdown via close.
             for(int i = 0; i < selectorManagers.length; i++) {
                 try {
                     selectorManagers[i].close();
@@ -164,12 +176,21 @@ public class NioSocketService extends AbstractSocketService {
                 }
             }
 
+            // As per the above comment - we use shutdown and *not* shutdownNow
+            // to avoid using interrupts to signal shutdown.
             selectorManagerThreadPool.shutdown();
-            boolean terminated = selectorManagerThreadPool.awaitTermination(15, TimeUnit.SECONDS);
+
+            if(logger.isTraceEnabled())
+                logger.trace("Shut down SelectorManager thread pool acceptor, waiting "
+                             + SHUTDOWN_TIMEOUT_MS + " ms for termination");
+
+            boolean terminated = selectorManagerThreadPool.awaitTermination(SHUTDOWN_TIMEOUT_MS,
+                                                                            TimeUnit.MILLISECONDS);
 
             if(!terminated) {
                 if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Selector manager thread pool terminated abnormally");
+                    logger.warn("SelectorManager thread pool did not stop cleanly after "
+                                + SHUTDOWN_TIMEOUT_MS + " ms");
             }
         } catch(Exception e) {
             if(logger.isEnabledFor(Level.WARN))
@@ -195,14 +216,14 @@ public class NioSocketService extends AbstractSocketService {
 
         public void run() {
             if(logger.isInfoEnabled())
-                logger.info("Server now listening for connections");
+                logger.info("Server now listening for connections on port " + port);
 
             AtomicInteger counter = new AtomicInteger();
 
             while(true) {
                 if(Thread.currentThread().isInterrupted()) {
                     if(logger.isInfoEnabled())
-                        logger.info("Thread interrupted");
+                        logger.info("Acceptor thread interrupted");
 
                     break;
                 }
@@ -223,7 +244,7 @@ public class NioSocketService extends AbstractSocketService {
                 } catch(ClosedByInterruptException e) {
                     // If you're *really* interested...
                     if(logger.isTraceEnabled())
-                        logger.trace("Interrupted, closing");
+                        logger.trace("Acceptor thread interrupted, closing");
 
                     break;
                 } catch(Exception e) {
@@ -233,7 +254,7 @@ public class NioSocketService extends AbstractSocketService {
             }
 
             if(logger.isInfoEnabled())
-                logger.info("Server has stopped listening for connections");
+                logger.info("Server has stopped listening for connections on port " + port);
         }
 
     }
