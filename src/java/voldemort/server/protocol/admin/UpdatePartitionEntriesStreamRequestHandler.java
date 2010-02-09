@@ -29,8 +29,6 @@ import voldemort.versioning.Versioned;
 /**
  * UpdatePartitionEntriesStreamRequestHandler implements the streaming logic for
  * updating partition entries.
- * 
- * @author Bhupesh Bansal
  */
 
 public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequestHandler {

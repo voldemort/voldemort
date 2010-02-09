@@ -19,6 +19,7 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -41,8 +42,11 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
+import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
@@ -55,6 +59,9 @@ import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -67,6 +74,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
+    private final StorageService storageService;
     private final StoreRepository storeRepository;
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
@@ -74,12 +82,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final Rebalancer rebalancer;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
+                                      StorageService storageService,
                                       StoreRepository storeRepository,
                                       MetadataStore metadataStore,
                                       VoldemortConfig voldemortConfig,
                                       AsyncOperationRunner asyncRunner,
                                       Rebalancer rebalancer) {
         this.errorCodeMapper = errorCodeMapper;
+        this.storageService = storageService;
         this.metadataStore = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
@@ -147,6 +157,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case TRUNCATE_ENTRIES:
                 ProtoUtils.writeMessage(outputStream,
                                         handleTruncateEntries(request.getTruncateEntries()));
+                break;
+            case ADD_STORE:
+                ProtoUtils.writeMessage(outputStream, handleAddStore(request.getAddStore()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -435,6 +448,56 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleTruncateEntries failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
+
+    public VAdminProto.AddStoreResponse handleAddStore(VAdminProto.AddStoreRequest request) {
+        VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
+
+        // don't try to add a store in the middle of rebalancing
+        if(metadataStore.getServerState()
+                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
+           || metadataStore.getServerState()
+                           .equals(MetadataStore.VoldemortState.REBALANCING_CLUSTER)) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper,
+                                                     new VoldemortException("Rebalancing in progress")));
+            return response.build();
+        }
+
+        try {
+            // adding a store requires decoding the passed in store string
+            StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+            StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+
+            if(!storeRepository.hasLocalStore(def.getName())) {
+                // open the store
+                storageService.openStore(def);
+
+                // update stores list in metadata store (this also has the
+                // effect of updating the stores.xml file)
+                List<StoreDefinition> currentStoreDefs;
+                List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY);
+
+                if(((v.size() > 0) ? 1 : 0) > 0) {
+                    Versioned<byte[]> currentValue = v.get(0);
+                    currentStoreDefs = mapper.readStoreList(new StringReader(ByteUtils.getString(currentValue.getValue(),
+                                                                                                 "UTF-8")));
+                } else {
+                    currentStoreDefs = Lists.newArrayList();
+                }
+                currentStoreDefs.add(def);
+
+                metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
+            } else {
+                throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
+                                                                       def.getName()));
+            }
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
         }
 
         return response.build();

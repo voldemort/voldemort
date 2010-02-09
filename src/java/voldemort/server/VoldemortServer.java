@@ -122,12 +122,14 @@ public class VoldemortServer extends AbstractService {
 
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,
+                                         storageService,
                                          storeRepository,
                                          RequestFormatType.VOLDEMORT_V1,
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
         if(voldemortConfig.isSocketServerEnabled()) {
-            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
+            RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
+                                                                                                this.storeRepository,
                                                                                                 this.metadata,
                                                                                                 this.voldemortConfig,
                                                                                                 this.asyncRunner,
@@ -164,7 +166,8 @@ public class VoldemortServer extends AbstractService {
                 rebalancer = rebalancerService.getRebalancer();
             }
 
-            SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(this.storeRepository,
+            SocketRequestHandlerFactory adminRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
+                                                                                                     this.storeRepository,
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
                                                                                                      this.asyncRunner,

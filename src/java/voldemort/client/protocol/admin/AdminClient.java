@@ -1082,6 +1082,29 @@ public class AdminClient {
     }
 
     /**
+     * Add a new store definition to all active nodes in the cluster.
+     *
+     * @param def the definition of the store to add
+     */
+    public void addStore(StoreDefinition def) {
+        String value = storeMapper.writeStore(def);
+
+        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                         .setStoreDefinition(value);
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                                                         .setAddStore(addStoreRequest)
+                                                                                         .build();
+        for (Node node : currentCluster.getNodes()) {
+            VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
+                                                                           request,
+                                                                           VAdminProto.AddStoreResponse.newBuilder());
+            if(response.hasError())
+                throwException(response.getError());
+        }
+    }
+
+    /**
      * Set cluster info for AdminClient to use.
      * 
      * @param cluster

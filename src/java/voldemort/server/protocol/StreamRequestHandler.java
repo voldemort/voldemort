@@ -6,17 +6,36 @@ import java.io.IOException;
 
 import voldemort.VoldemortException;
 
+/**
+ * Implements an iterator-esque streaming request handler wherein we keep
+ * executing handleRequest until it returns
+ * {@link StreamRequestHandlerState#COMPLETE}.
+ * 
+ * @author Kirk True
+ */
+
 public interface StreamRequestHandler {
+
+    /**
+     * Handles a "segment" of a streaming request.
+     * 
+     * @param inputStream
+     * @param outputStream
+     * 
+     * @return {@link StreamRequestHandlerState}
+     * 
+     * @throws IOException
+     */
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException;
 
-    public StreamRequestDirection getDirection();
-
     public void close(DataOutputStream outputStream) throws IOException;
 
     public void handleError(DataOutputStream outputStream, VoldemortException e) throws IOException;
+
+    public StreamRequestDirection getDirection();
 
     public enum StreamRequestHandlerState {
 
