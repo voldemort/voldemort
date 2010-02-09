@@ -39,10 +39,10 @@
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
 	<classpathentry kind="lib" path="lib/jline-0.9.94.jar"/>
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
-	<classpathentry kind="lib" path="lib/je-3.3.87.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.2.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
 	<classpathentry kind="lib" path="lib/libthrift-0.2.0.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
+	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
