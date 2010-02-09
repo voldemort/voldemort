@@ -70,8 +70,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         startTime = System.currentTimeMillis();
     }
 
-    public final boolean isStreamingReads() {
-        return false;
+    public final StreamRequestDirection getDirection() {
+        return StreamRequestDirection.WRITING;
     }
 
     public final void close(DataOutputStream outputStream) throws IOException {

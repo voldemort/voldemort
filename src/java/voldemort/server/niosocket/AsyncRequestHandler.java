@@ -35,6 +35,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.StreamRequestHandler;
+import voldemort.server.protocol.StreamRequestHandler.StreamRequestDirection;
 import voldemort.server.protocol.StreamRequestHandler.StreamRequestHandlerState;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteBufferBackedOutputStream;
@@ -220,7 +221,8 @@ public class AsyncRequestHandler implements Runnable {
         else
             outputStream.getBuffer().clear();
 
-        if(streamRequestHandler != null && !streamRequestHandler.isStreamingReads()) {
+        if(streamRequestHandler != null
+           && streamRequestHandler.getDirection() == StreamRequestDirection.WRITING) {
             // In the case of streaming writes, it's possible we can process
             // another segment of the stream. We process streaming writes this
             // way because there won't be any other notification for us to do

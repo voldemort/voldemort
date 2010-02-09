@@ -12,7 +12,7 @@ public interface StreamRequestHandler {
                                                    DataOutputStream outputStream)
             throws IOException;
 
-    public boolean isStreamingReads();
+    public StreamRequestDirection getDirection();
 
     public void close(DataOutputStream outputStream) throws IOException;
 
@@ -24,6 +24,13 @@ public interface StreamRequestHandler {
         READING,
         WRITING,
         INCOMPLETE_READ;
+
+    }
+
+    public enum StreamRequestDirection {
+
+        READING,
+        WRITING;
 
     }
 

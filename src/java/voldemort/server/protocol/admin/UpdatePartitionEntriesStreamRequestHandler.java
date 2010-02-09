@@ -26,6 +26,13 @@ import voldemort.utils.NetworkClassLoader;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
+/**
+ * UpdatePartitionEntriesStreamRequestHandler implements the streaming logic for
+ * updating partition entries.
+ * 
+ * @author Bhupesh Bansal
+ */
+
 public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequestHandler {
 
     private VAdminProto.UpdatePartitionEntriesRequest request;
@@ -139,8 +146,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
         return StreamRequestHandlerState.READING;
     }
 
-    public boolean isStreamingReads() {
-        return true;
+    public StreamRequestDirection getDirection() {
+        return StreamRequestDirection.READING;
     }
 
     public void close(DataOutputStream outputStream) throws IOException {

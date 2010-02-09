@@ -25,6 +25,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -105,7 +106,7 @@ public class SelectorManager implements Runnable {
 
     private final int socketBufferSize;
 
-    private volatile boolean isClosed;
+    private final AtomicBoolean isClosed;
 
     private final Logger logger = Logger.getLogger(getClass());
 
@@ -117,11 +118,11 @@ public class SelectorManager implements Runnable {
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
-        isClosed = false;
+        this.isClosed = new AtomicBoolean(false);
     }
 
     public void accept(SocketChannel socketChannel) {
-        if(isClosed)
+        if(isClosed.get())
             throw new IllegalStateException("Cannot accept more channels, selector manager closed");
 
         socketChannelQueue.add(socketChannel);
@@ -129,10 +130,10 @@ public class SelectorManager implements Runnable {
     }
 
     public void close() {
-        if(isClosed)
+        // Attempt to close, but if already closed, then we've been beaten to
+        // the punch...
+        if(!isClosed.compareAndSet(false, true))
             return;
-
-        isClosed = true;
 
         try {
             for(SelectionKey sk: selector.keys()) {
@@ -172,7 +173,7 @@ public class SelectorManager implements Runnable {
     public void run() {
         try {
             while(true) {
-                if(isClosed) {
+                if(isClosed.get()) {
                     if(logger.isInfoEnabled())
                         logger.info("Closed, exiting" + " for " + endpoint);
 
@@ -184,7 +185,7 @@ public class SelectorManager implements Runnable {
                 try {
                     int selected = selector.select();
 
-                    if(isClosed) {
+                    if(isClosed.get()) {
                         if(logger.isInfoEnabled())
                             logger.info("Closed, exiting for " + endpoint);
 
@@ -232,7 +233,7 @@ public class SelectorManager implements Runnable {
             SocketChannel socketChannel = null;
 
             while((socketChannel = socketChannelQueue.poll()) != null) {
-                if(isClosed) {
+                if(isClosed.get()) {
                     if(logger.isInfoEnabled())
                         logger.debug("Closed, exiting for " + endpoint);
 
@@ -267,7 +268,7 @@ public class SelectorManager implements Runnable {
                                                                              requestHandlerFactory,
                                                                              socketBufferSize);
 
-                    if(!isClosed)
+                    if(!isClosed.get())
                         socketChannel.register(selector, SelectionKey.OP_READ, attachment);
                 } catch(ClosedSelectorException e) {
                     if(logger.isDebugEnabled())
