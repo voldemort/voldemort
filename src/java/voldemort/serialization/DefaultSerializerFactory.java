@@ -19,12 +19,13 @@ package voldemort.serialization;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.thrift.TBase;
+
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.serialization.protobuf.ProtoBufSerializer;
 import voldemort.serialization.thrift.ThriftSerializer;
 
-import com.facebook.thrift.TBase;
 import com.google.protobuf.Message;
 
 /**
@@ -61,7 +62,7 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {
-            return new ThriftSerializer<TBase>(serializerDef.getCurrentSchemaInfo());
+            return new ThriftSerializer<TBase<?>>(serializerDef.getCurrentSchemaInfo());
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());

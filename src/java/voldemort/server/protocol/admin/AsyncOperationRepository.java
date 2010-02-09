@@ -40,7 +40,7 @@ public class AsyncOperationRepository extends LRUMap {
         for(Object value: values()) {
             AsyncOperation operation = (AsyncOperation) value;
             builder.append(operation.toString());
-            builder.append(", ");
+            builder.append(",\n");
         }
         builder.append("])");
 
