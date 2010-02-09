@@ -113,9 +113,10 @@ public class ServerTestUtils {
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(String clusterXml,
                                                                        String storesXml,
-                                                                       StoreRepository storeRepsitory) {
+                                                                       StoreRepository storeRepository) {
 
-        return new SocketRequestHandlerFactory(storeRepsitory,
+        return new SocketRequestHandlerFactory(null,
+                                               storeRepository,
                                                createMetadataStore(new ClusterMapper().readCluster(new StringReader(clusterXml)),
                                                                    new StoreDefinitionsMapper().readStoreList(new StringReader(storesXml))),
                                                null,
@@ -402,7 +403,7 @@ public class ServerTestUtils {
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {
-        return new SocketRequestHandlerFactory(repository, null, null, null, null);
+        return new SocketRequestHandlerFactory(null, repository, null, null, null, null);
     }
 
     public static void stopVoldemortServer(VoldemortServer server) throws IOException {
