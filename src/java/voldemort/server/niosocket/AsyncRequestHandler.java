@@ -57,8 +57,6 @@ import voldemort.utils.ByteUtils;
 
 public class AsyncRequestHandler implements Runnable {
 
-    private int lastCompleteStreamPosition = -1;
-
     private final Selector selector;
 
     private final SocketChannel socketChannel;
@@ -149,16 +147,6 @@ public class AsyncRequestHandler implements Runnable {
         }
 
         if(streamRequestHandler != null) {
-            if(lastCompleteStreamPosition != -1) {
-                if(logger.isTraceEnabled())
-                    logInputBufferState("Before adjusting for last complete stream position");
-
-                inputStream.getBuffer().position(lastCompleteStreamPosition);
-
-                if(logger.isTraceEnabled())
-                    logInputBufferState("After adjusting for last complete stream position");
-            }
-
             if(logger.isTraceEnabled())
                 logInputBufferState("Continuing existing streaming request");
 
@@ -177,9 +165,6 @@ public class AsyncRequestHandler implements Runnable {
                                                                 new DataOutputStream(outputStream));
 
             if(streamRequestHandler != null) {
-                if(lastCompleteStreamPosition != -1)
-                    inputStream.getBuffer().position(lastCompleteStreamPosition);
-
                 handleStreamRequest(selectionKey);
             } else {
                 if(logger.isTraceEnabled())
@@ -247,7 +232,6 @@ public class AsyncRequestHandler implements Runnable {
             // We've read our request but aren't ready to write anything
             // just yet as we're streaming reads from the client.
             do {
-                lastCompleteStreamPosition = -1;
                 preRequestPosition = inputStream.getBuffer().position();
                 state = handleStreamRequestInternal(selectionKey, dataInputStream, dataOutputStream);
             } while(state == StreamRequestHandlerState.READING);
@@ -256,13 +240,22 @@ public class AsyncRequestHandler implements Runnable {
         if(state == null) {
             // We got an error...
             clearInputBuffer();
-            lastCompleteStreamPosition = -1;
         } else if(state == StreamRequestHandlerState.INCOMPLETE_READ) {
             // We need the data that's in there so far and aren't ready
             // to write anything out yet, so don't clear the input
-            // buffer or signal that we're ready to write.
-            lastCompleteStreamPosition = preRequestPosition;
-            handleIncompleteRequest(-1);
+            // buffer or signal that we're ready to write. But we do want to
+            // compact the buffer as we don't want it to trigger an increase in
+            // the buffer if we don't need to...
+            // A) figure out where we are in the buffer...
+            int currentPosition = inputStream.getBuffer().position();
+            // B) position ourselves at the start of the partial "segment"...
+            inputStream.getBuffer().position(preRequestPosition);
+            // C) then move the buffer down such that preRequestPosition's data
+            // is at index 0...
+            inputStream.getBuffer().compact();
+            // D) and reset the position to be ready for the rest of the reads
+            // and the limit to allow more data.
+            handleIncompleteRequest(currentPosition - preRequestPosition);
         } else if(state == StreamRequestHandlerState.WRITING) {
             // We've read our request and are ready to start streaming
             // writes to the client.
@@ -350,24 +343,21 @@ public class AsyncRequestHandler implements Runnable {
     }
 
     private void handleIncompleteRequest(int newPosition) {
-        ByteBuffer buffer = inputStream.getBuffer();
-
         if(logger.isTraceEnabled())
             logInputBufferState("Incomplete read request detected, before update");
 
-        if(newPosition != -1)
-            buffer.position(newPosition);
-
-        buffer.limit(buffer.capacity());
+        inputStream.getBuffer().position(newPosition);
+        inputStream.getBuffer().limit(inputStream.getBuffer().capacity());
 
         if(logger.isTraceEnabled())
             logInputBufferState("Incomplete read request detected, after update");
 
-        if(!buffer.hasRemaining()) {
+        if(!inputStream.getBuffer().hasRemaining()) {
             // We haven't read all the data needed for the request AND we
             // don't have enough data in our buffer. So expand it. Note:
             // doubling the current buffer size is arbitrary.
-            inputStream.setBuffer(ByteUtils.expand(buffer, buffer.capacity() * 2));
+            inputStream.setBuffer(ByteUtils.expand(inputStream.getBuffer(),
+                                                   inputStream.getBuffer().capacity() * 2));
 
             if(logger.isTraceEnabled())
                 logInputBufferState("Expanded input buffer");
@@ -454,8 +444,7 @@ public class AsyncRequestHandler implements Runnable {
         logger.trace(preamble + " - position: " + inputStream.getBuffer().position() + ", limit: "
                      + inputStream.getBuffer().limit() + ", remaining: "
                      + inputStream.getBuffer().remaining() + ", capacity: "
-                     + inputStream.getBuffer().capacity() + ", lastCompleteStreamPosition: "
-                     + lastCompleteStreamPosition + " - for "
+                     + inputStream.getBuffer().capacity() + " - for "
                      + socketChannel.socket().getRemoteSocketAddress());
     }
 
