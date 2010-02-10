@@ -3,8 +3,7 @@ package voldemort.serialization.protobuf;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import org.apache.commons.lang.StringUtils;
-
+import voldemort.serialization.SerializationUtils;
 import voldemort.serialization.Serializer;
 
 import com.google.protobuf.Message;
@@ -28,15 +27,13 @@ import com.google.protobuf.Message;
  */
 public class ProtoBufSerializer<T extends Message> implements Serializer<T> {
 
-    private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
-
     private final Method parseFromMethod;
     private final Class<T> messageClass;
 
     @SuppressWarnings("unchecked")
     public ProtoBufSerializer(String currentSchemaInfo) {
         try {
-            this.messageClass = (Class<T>) Class.forName(getJavaFqnForMessage(currentSchemaInfo),
+            this.messageClass = (Class<T>) Class.forName(SerializationUtils.getJavaClassFromSchemaInfo(currentSchemaInfo),
                                                          false,
                                                          Thread.currentThread()
                                                                .getContextClassLoader());
@@ -51,21 +48,6 @@ public class ProtoBufSerializer<T extends Message> implements Serializer<T> {
         } catch(ClassNotFoundException e) {
             throw new IllegalArgumentException(e);
         }
-    }
-
-    private String getJavaFqnForMessage(String currentSchemaInfo) {
-        if(StringUtils.isEmpty(currentSchemaInfo))
-            throw new IllegalArgumentException("The type protobuf requires a non-empty schema-info.");
-
-        String[] languagePairs = StringUtils.split(currentSchemaInfo, ',');
-        if(languagePairs.length > 1)
-            throw new IllegalArgumentException(ONLY_JAVA_CLIENTS_SUPPORTED);
-
-        String[] javaPair = StringUtils.split(languagePairs[0], '=');
-        if(javaPair.length != 2 || !javaPair[0].trim().equals("java"))
-            throw new IllegalArgumentException(ONLY_JAVA_CLIENTS_SUPPORTED);
-
-        return javaPair[1].trim();
     }
 
     public byte[] toBytes(T object) {
