@@ -178,7 +178,7 @@ public class VoldemortServer extends AbstractService {
                 services.add(new NioSocketService(adminRequestHandlerFactory,
                                                   identityNode.getAdminPort(),
                                                   voldemortConfig.getAdminSocketBufferSize(),
-                                                  voldemortConfig.getNioConnectorSelectors(),
+                                                  voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
                                                   voldemortConfig.isJmxEnabled()));
             } else {
