@@ -211,15 +211,15 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             this.executor.execute(new Runnable() {
 
                 public void run() {
-                    long start = System.currentTimeMillis();
+                    long startNs = System.nanoTime();
                     try {
                         boolean deleted = innerStores.get(node.getId()).delete(key, version);
                         successes.incrementAndGet();
                         deletedSomething.compareAndSet(false, deleted);
-                        failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                        recordSuccess(node, startNs);
                     } catch(UnreachableStoreException e) {
                         failures.add(e);
-                        failureDetector.recordException(node, System.currentTimeMillis() - start, e);
+                        recordException(node, startNs, e);
                     } catch(VoldemortApplicationException e) {
                         throw e;
                     } catch(Exception e) {
@@ -394,7 +394,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                 List<Node> extraNodes = keyToExtraNodesMap.get(key);
                 if(extraNodes != null) {
                     for(Node node: extraNodes) {
-                        long start = System.currentTimeMillis();
+                        long startNs = System.nanoTime();
                         try {
                             List<Versioned<byte[]>> values = innerStores.get(node.getId()).get(key);
                             fillRepairReadsValues(nodeValues, key, node, values);
@@ -403,14 +403,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                 result.put(key, Lists.newArrayList(values));
                             else
                                 versioneds.addAll(values);
-                            failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                            recordSuccess(node, startNs);
                             if(++successCount >= storeDef.getPreferredReads())
                                 break;
 
                         } catch(UnreachableStoreException e) {
                             failures.add(e);
-                            failureDetector.recordException(node, System.currentTimeMillis()
-                                                                  - start, e);
+                            recordException(node, startNs, e);
                         } catch(VoldemortApplicationException e) {
                             throw e;
                         } catch(Exception e) {
@@ -529,17 +528,17 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         // reads to make up for these.
         while(successes < this.storeDef.getPreferredReads() && nodeIndex < nodes.size()) {
             Node node = nodes.get(nodeIndex);
-            long start = System.currentTimeMillis();
+            long startNs = System.nanoTime();
             try {
                 retrieved.add(new GetResult<R>(node,
                                                key,
                                                fetcher.execute(innerStores.get(node.getId()), key),
                                                null));
                 ++successes;
-                failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                recordSuccess(node, startNs);
             } catch(UnreachableStoreException e) {
                 failures.add(e);
-                failureDetector.recordException(node, System.currentTimeMillis() - start, e);
+                recordException(node, startNs, e);
             } catch(VoldemortApplicationException e) {
                 throw e;
             } catch(Exception e) {
@@ -671,16 +670,16 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         Versioned<byte[]> versionedCopy = null;
         for(; currentNode < numNodes; currentNode++) {
             Node current = nodes.get(currentNode);
-            long start = System.currentTimeMillis();
+            long startNsLocal = System.nanoTime();
             try {
                 versionedCopy = incremented(versioned, current.getId());
                 innerStores.get(current.getId()).put(key, versionedCopy);
                 successes.getAndIncrement();
-                failureDetector.recordSuccess(current, System.currentTimeMillis() - start);
+                recordSuccess(current, startNsLocal);
                 master = current;
                 break;
             } catch(UnreachableStoreException e) {
-                failureDetector.recordException(current, System.currentTimeMillis() - start, e);
+                recordException(current, startNsLocal, e);
                 failures.add(e);
             } catch(VoldemortApplicationException e) {
                 throw e;
@@ -710,13 +709,13 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             this.executor.execute(new Runnable() {
 
                 public void run() {
-                    long start = System.currentTimeMillis();
+                    long startNsLocal = System.nanoTime();
                     try {
                         innerStores.get(node.getId()).put(key, finalVersionedCopy);
                         successes.incrementAndGet();
-                        failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                        recordSuccess(node, startNsLocal);
                     } catch(UnreachableStoreException e) {
-                        failureDetector.recordException(node, System.currentTimeMillis() - start, e);
+                        recordException(node, startNsLocal, e);
                         failures.add(e);
                     } catch(ObsoleteVersionException e) {
                         // ignore this completely here
@@ -859,6 +858,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         return get(key, VERSION_OP, null);
     }
 
+    private void recordException(Node node, long startNs, UnreachableStoreException e) {
+        failureDetector.recordException(node, (System.nanoTime() - startNs) / Time.NS_PER_MS, e);
+    }
+
+    private void recordSuccess(Node node, long startNs) {
+        failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+    }
+
     private final class GetCallable<R> implements Callable<GetResult<R>> {
 
         private final Node node;
@@ -880,10 +887,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                     logger.trace("Attempting get operation on node " + node.getId() + " for key '"
                                  + ByteUtils.toHexString(key.get()) + "'.");
                 fetched = fetcher.execute(innerStores.get(node.getId()), key);
-                failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                recordSuccess(node, System.currentTimeMillis() - start);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                failureDetector.recordException(node, System.currentTimeMillis() - start, e);
+                recordException(node, System.currentTimeMillis() - start, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;
@@ -938,10 +945,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                   Collections.<Versioned<byte[]>> emptyList());
                     }
                 }
-                failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                recordSuccess(node, System.currentTimeMillis() - start);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                failureDetector.recordException(node, System.currentTimeMillis() - start, e);
+                recordException(node, System.currentTimeMillis() - start, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;

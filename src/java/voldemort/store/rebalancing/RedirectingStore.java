@@ -38,6 +38,7 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -119,11 +120,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
-        for (ByteArray key: keys) {
-            if (redirectingKey(key))
+        for(ByteArray key: keys) {
+            if(redirectingKey(key))
                 redirectingKeys.add(key);
         }
-        if (!redirectingKeys.isEmpty())
+        if(!redirectingKeys.isEmpty())
             proxyGetAllAndLocalPut(redirectingKeys);
 
         return getInnerStore().getAll(keys);
@@ -166,15 +167,15 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo()
                                                                    .getDonorId());
         checkNodeAvailable(donorNode);
-        long start = System.currentTimeMillis();
+        long startNs = System.nanoTime();
         try {
             List<Versioned<byte[]>> values = getRedirectingSocketStore(getName(),
                                                                        metadata.getRebalancingStealInfo()
                                                                                .getDonorId()).get(key);
-            failureDetector.recordSuccess(donorNode, System.currentTimeMillis() - start);
+            recordSuccess(donorNode, startNs);
             return values;
         } catch(UnreachableStoreException e) {
-            failureDetector.recordException(donorNode, System.currentTimeMillis() - start, e);
+            recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
     }
@@ -197,15 +198,15 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo()
                                                                    .getDonorId());
         checkNodeAvailable(donorNode);
-        long start = System.currentTimeMillis();
+        long startNs = System.nanoTime();
         try {
             Map<ByteArray, List<Versioned<byte[]>>> map = getRedirectingSocketStore(getName(),
                                                                                     metadata.getRebalancingStealInfo()
                                                                                             .getDonorId()).getAll(keys);
-            failureDetector.recordSuccess(donorNode, System.currentTimeMillis() - start);
+            recordSuccess(donorNode, startNs);
             return map;
         } catch(UnreachableStoreException e) {
-            failureDetector.recordException(donorNode, System.currentTimeMillis() - start, e);
+            recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
     }
@@ -288,4 +289,13 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
                                          + " at node " + metadata.getNodeId(), e);
         }
     }
+
+    private void recordException(Node node, long startNs, UnreachableStoreException e) {
+        failureDetector.recordException(node, (System.nanoTime() - startNs) / Time.NS_PER_MS, e);
+    }
+
+    private void recordSuccess(Node node, long startNs) {
+        failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+    }
+
 }
