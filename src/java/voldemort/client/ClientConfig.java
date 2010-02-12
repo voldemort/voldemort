@@ -511,6 +511,12 @@ public class ClientConfig {
         return maxBootstrapRetries;
     }
 
+    /**
+     * If we are unable to bootstrap, how many times should we re-try?
+     *
+     * @param maxBootstrapRetries Maximum times to retry bootstrapping (must be >= 1)
+     * @throws IllegalArgumentException If maxBootstrapRetries < 1
+     */
     public ClientConfig setMaxBootstrapRetries(int maxBootstrapRetries) {
         if(maxBootstrapRetries < 1)
             throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");

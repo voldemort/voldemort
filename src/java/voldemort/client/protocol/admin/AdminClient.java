@@ -105,7 +105,7 @@ public class AdminClient {
     private Cluster currentCluster;
 
     /**
-     * Create an instance of AdminClient given a bootstrap server URL. The
+     * Create an instance of AdminClient given a URL of a node in the cluster. The
      * bootstrap URL is used to get the cluster metadata.
      * 
      * @param bootstrapURL URL pointing to the bootstrap node
@@ -1057,8 +1057,8 @@ public class AdminClient {
     }
 
     /**
-     * Retrieve the server state (
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) from a
+     * Retrieve the server
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} from a
      * remote node.
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
@@ -1068,10 +1068,9 @@ public class AdminClient {
     }
 
     /**
-     * <<<<<<< HEAD update serverState on a remote node.
-     * 
-     * @param nodeId
-     * @param state
+     * Update the server
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state}
+     * on a remote node.
      */
     public void updateRemoteClusterState(int nodeId,
                                          MetadataStore.VoldemortState state,
