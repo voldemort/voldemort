@@ -39,6 +39,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
 
         ByteArray key = keyIterator.next();
 
+        throttler.maybeThrottle(key.length());
         if(validPartition(key.get()) && filter.accept(key, null)) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
@@ -46,8 +47,6 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             fetched++;
             Message message = response.build();
             ProtoUtils.writeMessage(outputStream, message);
-
-            throttler.maybeThrottle(key.length());
         }
 
         // log progress

@@ -50,6 +50,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         if(validPartition(key.get())) {
             for(Versioned<byte[]> value: storageEngine.get(key)) {
+                throttler.maybeThrottle(key.length());
                 if(filter.accept(key, value)) {
                     fetched++;
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
@@ -63,7 +64,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                     Message message = response.build();
                     ProtoUtils.writeMessage(outputStream, message);
 
-                    throttler.maybeThrottle(AdminServiceRequestHandler.entrySize(key, value));
+                    throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
             }
         }

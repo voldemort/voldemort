@@ -126,7 +126,7 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                     logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException, Ignoring.");
             }
 
-            throttler.maybeThrottle(AdminServiceRequestHandler.entrySize(key, value));
+            throttler.maybeThrottle(key.length() + AdminServiceRequestHandler.valueSize(value));
         }
 
         // log progress

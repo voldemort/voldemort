@@ -297,17 +297,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                     && entriesIterator.hasNext(); i++) {
                                                         Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
+                                                        ByteArray key = entry.getFirst();
+                                                        Versioned<byte[]> value = entry.getSecond();
                                                         try {
-                                                            storageEngine.put(entry.getFirst(),
-                                                                              entry.getSecond());
+                                                            storageEngine.put(key,
+                                                                              value);
                                                         } catch(ObsoleteVersionException e) {
                                                             // log and ignore
                                                             logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
                                                         }
 
-                                                        throttler.maybeThrottle(entrySize(entry.getFirst(),
-                                                                                          entry.getSecond()));
-
+                                                        throttler.maybeThrottle(key.length() + valueSize(value));
                                                         if((i % 1000) == 0) {
                                                             updateStatus(i + " entries processed");
                                                         }
@@ -368,14 +368,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
 
-                if(checkKeyBelongsToDeletePartition(entry.getFirst().get(),
+                ByteArray key = entry.getFirst();
+                Versioned<byte[]> value = entry.getSecond();
+                throttler.maybeThrottle(key.length() + valueSize(value));
+                if(checkKeyBelongsToDeletePartition(key.get(),
                                                     partitions,
                                                     routingStrategy)
-                   && filter.accept(entry.getFirst(), entry.getSecond())) {
-                    if(storageEngine.delete(entry.getFirst(), entry.getSecond().getVersion()))
+                   && filter.accept(key, value)) {
+                    if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;
-                    if(throttler != null)
-                        throttler.maybeThrottle(entrySize(entry.getFirst(), entry.getSecond()));
                 }
             }
             response.setCount(deleteSuccess);
@@ -575,9 +576,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return filter;
     }
 
-    static int entrySize(ByteArray key, Versioned<byte[]> value) {
-        return key.get().length + value.getValue().length
-               + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
+    static int valueSize(Versioned<byte[]> value) {
+        return value.getValue().length + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
     }
 
     static StorageEngine<ByteArray, byte[]> getStorageEngine(StoreRepository storeRepository,
