@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Provides an unmocked end to end unit test of a Voldemort server.
+ * Provides an unmocked end to end unit test of a Voldemort cluster.
  *
  * @author afeinberg
  */
@@ -73,7 +73,7 @@ public class EndToEndTest {
     }
 
     /**
-     * Test the basic get/put/getAll functionality.
+     * Test the basic get/getAll/put/delete functionality.
      */
     @Test
     public void testSanity() {
