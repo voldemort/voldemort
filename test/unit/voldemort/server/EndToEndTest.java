@@ -67,7 +67,7 @@ public class EndToEndTest {
                                                                                             new Properties()),
                                                          cluster));
         Node node = cluster.getNodeById(0);
-        String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getAdminPort();
+        String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
         StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
         storeClient = storeClientFactory.getStoreClient(STORE_NAME);
     }
