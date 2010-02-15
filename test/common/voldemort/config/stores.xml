@@ -64,7 +64,7 @@
       <schema-info>UTF-8</schema-info>
     </value-serializer>
   </store>
-      <store>
+    <store>
     <name>test-replication-persistent</name>
     <persistence>bdb</persistence>
     <routing>client</routing>
@@ -77,6 +77,22 @@
     </key-serializer>
     <value-serializer>
       <type>java-serialization</type>
+    </value-serializer>
+  </store>
+  <store>
+    <name>test-readrepair-memory</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>2</replication-factor>
+    <required-reads>2</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
     </value-serializer>
   </store>
 </stores>
