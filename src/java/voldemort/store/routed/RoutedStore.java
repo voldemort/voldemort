@@ -881,16 +881,16 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         public GetResult<R> call() throws Exception {
             List<R> fetched = Collections.emptyList();
             Throwable exception = null;
-            long start = System.currentTimeMillis();
+            long startNs = System.nanoTime();
             try {
                 if(logger.isTraceEnabled())
                     logger.trace("Attempting get operation on node " + node.getId() + " for key '"
                                  + ByteUtils.toHexString(key.get()) + "'.");
                 fetched = fetcher.execute(innerStores.get(node.getId()), key);
-                recordSuccess(node, System.currentTimeMillis() - start);
+                recordSuccess(node, startNs);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                recordException(node, System.currentTimeMillis() - start, e);
+                recordException(node, startNs, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;
@@ -931,7 +931,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
             Map<ByteArray, List<Versioned<byte[]>>> retrieved = Collections.emptyMap();
             Throwable exception = null;
             List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
-            long start = System.currentTimeMillis();
+            long startNs = System.nanoTime();
             try {
                 retrieved = innerStores.get(node.getId()).getAll(nodeKeys);
                 if(repairReads) {
@@ -945,10 +945,10 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                   Collections.<Versioned<byte[]>> emptyList());
                     }
                 }
-                recordSuccess(node, System.currentTimeMillis() - start);
+                recordSuccess(node, startNs);
             } catch(UnreachableStoreException e) {
                 exception = e;
-                recordException(node, System.currentTimeMillis() - start, e);
+                recordException(node, startNs, e);
             } catch(Throwable e) {
                 if(e instanceof Error)
                     throw (Error) e;

@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;
+import voldemort.utils.Time;
 
 public class NodeAccessorRunnable implements Runnable {
 
@@ -64,17 +65,18 @@ public class NodeAccessorRunnable implements Runnable {
         try {
             while(countDownLatch.getCount() > 0) {
                 if(failureDetector.isAvailable(node)) {
-                    long start = System.currentTimeMillis();
+                    long startNs = System.nanoTime();
                     try {
                         failureDetectorConfig.getStoreVerifier().verifyStore(node);
-                        failureDetector.recordSuccess(node, System.currentTimeMillis() - start);
+                        failureDetector.recordSuccess(node,
+                                                      ((System.nanoTime() - startNs) / Time.NS_PER_MS));
 
                         if(successCounter != null)
                             successCounter.incrementAndGet();
                     } catch(UnreachableStoreException e) {
                         failureDetectorConfig.getTime().sleep(failureDelay);
                         failureDetector.recordException(node,
-                                                        System.currentTimeMillis() - start,
+                                                        ((System.nanoTime() - startNs) / Time.NS_PER_MS),
                                                         exception);
 
                         if(failureCounter != null)
