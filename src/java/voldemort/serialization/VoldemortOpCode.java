@@ -27,6 +27,6 @@ public class VoldemortOpCode {
     public static final byte DELETE_PARTITIONS_OP_CODE = 7;
     public static final byte UPDATE_METADATA_OP_CODE = 8;
     public static final byte REDIRECT_GET_OP_CODE = 9;
-    public static final byte GET_METADATA_OP_CODE = 10;
-    public static final byte GET_VERSION_OP_CODE = 11;
+    public static final byte GET_VERSION_OP_CODE = 10;
+    public static final byte GET_METADATA_OP_CODE = 11;
 }
