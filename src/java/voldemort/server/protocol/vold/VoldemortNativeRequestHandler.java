@@ -88,7 +88,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             routingType = RequestRoutingType.getRequestRoutingType(isRouted, false);
         }
 
-        else if(protocolVersion > 1) {
+        if(protocolVersion > 1) {
             int routingTypeCode = inputStream.readByte();
             routingType = RequestRoutingType.getRequestRoutingType(routingTypeCode);
         }
