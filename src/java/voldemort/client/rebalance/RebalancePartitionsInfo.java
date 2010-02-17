@@ -18,8 +18,22 @@ public class RebalancePartitionsInfo {
     private final List<Integer> partitionList;
     private final List<Integer> deletePartitionsList;
     private List<String> unbalancedStoreList;
-
     private int attempt;
+
+    /**
+     * TODO(MED) : We need to add stealMasterPartitions for issue#210. The core
+     * issue is we needed a way to differentiate between master partitions copy
+     * and partitions copy needed to satisfy replication constraints. (master
+     * partition ownership need to be changed and can be deleted from original
+     * node). <br>
+     * Currently we are using partitionList, deletePartitionsList and
+     * stealMasterPartitions to do it, We can do it in much better ways. This is
+     * currently being done to avoid changing wire protocol (admin) and
+     * this#toJsonString() code as this would make the new version incompatible
+     * with the last one, changing this#toJsonString() means you might need to
+     * clear .temp directories to start the server.
+     */
+    private List<Integer> stealMasterPartitions;
 
     /**
      * Rebalance Partitions info maintains all information needed for
@@ -48,6 +62,38 @@ public class RebalancePartitionsInfo {
         this.attempt = attempt;
         this.deletePartitionsList = deletePartitionsList;
         this.unbalancedStoreList = unbalancedStoreList;
+    }
+
+    /**
+     * Rebalance Partitions info maintains all information needed for
+     * rebalancing of one stealer node from one donor node.
+     * <p>
+     * 
+     * @param stealerNodeId
+     * @param donorId
+     * @param partitionList
+     * @param deletePartitionsList : selected list of partitions which only
+     *        should be deleted
+     * @param stealMasterPartitions : partitions for which we should change the
+     *        ownership in cluster.
+     * @param unbalancedStoreList
+     * @param attempt
+     */
+    public RebalancePartitionsInfo(int stealerNodeId,
+                                   int donorId,
+                                   List<Integer> partitionList,
+                                   List<Integer> deletePartitionsList,
+                                   List<Integer> stealMasterPartitions,
+                                   List<String> unbalancedStoreList,
+                                   int attempt) {
+        super();
+        this.stealerId = stealerNodeId;
+        this.donorId = donorId;
+        this.partitionList = partitionList;
+        this.attempt = attempt;
+        this.deletePartitionsList = deletePartitionsList;
+        this.unbalancedStoreList = unbalancedStoreList;
+        this.stealMasterPartitions = stealMasterPartitions;
     }
 
     @SuppressWarnings("unchecked")
@@ -97,6 +143,14 @@ public class RebalancePartitionsInfo {
 
     public void setUnbalancedStoreList(List<String> storeList) {
         this.unbalancedStoreList = storeList;
+    }
+
+    public List<Integer> getStealMasterPartitions() {
+        return stealMasterPartitions;
+    }
+
+    public void setStealMasterPartitions(List<Integer> stealMasterPartitions) {
+        this.stealMasterPartitions = stealMasterPartitions;
     }
 
     @Override
