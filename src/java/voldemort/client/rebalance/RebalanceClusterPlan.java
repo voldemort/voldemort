@@ -81,9 +81,11 @@ public class RebalanceClusterPlan {
         for(Node donorNode: currentCluster.getNodes()) {
             Set<Integer> stealPartitions = new HashSet<Integer>();
             Set<Integer> deletePartitions = new HashSet<Integer>();
-
+            Set<Integer> stealMasterPartitions = new HashSet<Integer>();// create Set for steal master partitions 
+            
             if(masterPartitionsMap.containsKey(donorNode.getId())) {
                 stealPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
+                stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));// add one steal master partition
                 if(deleteDonorPartition)
                     deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
             }
@@ -97,6 +99,7 @@ public class RebalanceClusterPlan {
                                                               donorNode.getId(),
                                                               new ArrayList<Integer>(stealPartitions),
                                                               new ArrayList<Integer>(deletePartitions),
+                                                              new ArrayList<Integer>(stealMasterPartitions),// create RebalancePartitionsInfo with stealMasterPartitions 
                                                               storeList,
                                                               0));
             }
