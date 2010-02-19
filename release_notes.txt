@@ -1,3 +1,39 @@
+Release 0.80 on 2/18/2010
+
+Changes made since 0.70.1:
+
+* IMPORTANT: backwards compatibility between the client and server has
+  changed. A backwards incompatibility in the wire protocol was found
+  between releases 0.60 to 0.70.1 and releases prior to 0.60. We chose
+  to make 0.80 compatible with 0.57.1 and earlier versions, while
+  introducing an incompatibility with 0.60-0.70.1. What this means is
+  that if you're presently running 0.60 and higher, you would need to
+  upgrade the Voldemort jar files on *all* servers and clients.
+* Upgraded the BDB storage engine to use BerkeleyDB-JE 4.0.92,
+  retaining ability to use BerkeleyDB-JE 3.3.* if desired. IMPORTANT:
+  if one switches from BerkeleyDB-JE 3.3.* to 4.0.92 they will be able
+  to access all of existing data. Once a switch has been made to
+  4.0.92 the data will not be readable by earlier versions of BDB. If
+  there's a chance that a roll back to 3.3.* might be needed, the best
+  course of action will be to make a backup of existing data
+  prior to upgrading.
+  Switching between 3.3.* and 4.0.* would also require rebuilding the
+  class files (e.g., by running "ant clean && ant release" after
+  replacing the BDB jar files).
+* Compression support for read-only stores
+* Increased the socket buffer size for transferring read-only
+  stores from Hadoop for improved performance over high-latency links
+* NIO support for the Admin Service, including Streaming
+  Functionality
+* Support for adding stores on the fly via the Admin
+  Service
+* Fixed issue 209: Incorrect object passed to List.contains in 
+  RebalanceUtils.getLatestCluster()
+* Fixed issue 211: Unnecessary read repairs during getAll() with more
+  than one key
+* Other enhancements: better CLI for rebalancing, throttling in
+  Admin Service is now based on all disk activity
+
 Release 0.70.1 on 2/1/2010
 
 Changes made since 0.70:
