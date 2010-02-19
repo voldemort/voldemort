@@ -28,10 +28,11 @@ import voldemort.versioning.Versioned;
 public class RebalanceController {
 
     private static final int MAX_TRIES = 2;
-
+    private static final long SEED = 5276239082346L;
     private static Logger logger = Logger.getLogger(RebalanceController.class);
 
     private final AdminClient adminClient;
+    private final Random random = new Random(SEED);
     RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
@@ -115,9 +116,6 @@ public class RebalanceController {
                                         new ArrayList<Integer>());
 
         ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
-
-        // seed random with different seeds
-        final Random random = new Random();
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
