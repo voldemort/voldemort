@@ -17,13 +17,10 @@
 package voldemort.store.rebalancing;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -64,7 +61,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
     private final SocketPool socketPool;
-    private final Predicate<RebalancePartitionsInfo> unbalancedStorePredicate;
     private FailureDetector failureDetector;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
@@ -77,12 +73,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         this.storeRepository = storeRepository;
         this.socketPool = socketPool;
         this.failureDetector = detector;
-
-        this.unbalancedStorePredicate = new Predicate<RebalancePartitionsInfo>() {
-            public boolean apply(RebalancePartitionsInfo rebalancePartitionsInfo) {
-                return rebalancePartitionsInfo.getUnbalancedStoreList().contains(getName());
-            }
-        };
     }
 
     @Override
@@ -98,9 +88,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     private boolean redirectingKey(ByteArray key) {
-        return MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
-               && Iterables.any(metadata.getRebalancingStealInfo(), unbalancedStorePredicate)
-               && checkKeyBelongsToStolenPartitions(key);
+        String storeName = getName();
+        if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())) {
+            for (RebalancePartitionsInfo rebalancePartitionsInfo: metadata.getRebalancingStealInfo()) {
+                if (rebalancePartitionsInfo.getUnbalancedStoreList().contains(storeName)) {
+                    return checkKeyBelongsToStolenPartitions(key, rebalancePartitionsInfo);
+                }
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -158,12 +155,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         return getInnerStore().delete(key, version);
     }
 
-    protected boolean checkKeyBelongsToStolenPartitions(ByteArray key) {
-        for(int partitionId: metadata.getRoutingStrategy(getName()).getPartitionList(key.get())) {
-            if(Iterables.any(metadata.getRebalancingStealInfo(), new PartitionIdPredicate(partitionId))) {
+    protected boolean checkKeyBelongsToStolenPartitions(ByteArray key, RebalancePartitionsInfo rebalancePartitionsInfo) {
+        for (int partitionId: metadata.getRoutingStrategy(getName()).getPartitionList(key.get())) {
+            if (rebalancePartitionsInfo.getPartitionList().contains(partitionId))
                 return true;
-            }
         }
+
         return false;
     }
 
@@ -177,11 +174,10 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         RebalancePartitionsInfo rebalancePartitionsInfo=null;
         List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
         for(int partitionId: partitionIds) {
-            Iterator<RebalancePartitionsInfo> iterator = Iterables.filter(metadata.getRebalancingStealInfo(),
-                                                                          new PartitionIdPredicate(partitionId)).iterator();
-            if (iterator.hasNext()) {
-                rebalancePartitionsInfo = iterator.next();
-                break;
+            for (RebalancePartitionsInfo candidate: metadata.getRebalancingStealInfo()) {
+                if (candidate.getPartitionList().contains(partitionId)) {
+                    rebalancePartitionsInfo = candidate;
+                }
             }
         }
 
@@ -236,7 +232,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
-     * In RebalancingStealer state put should be commited on stealer node. <br>
+     * In RebalancingStealer state put should be committed on stealer node. <br>
      * to follow voldemort version guarantees stealer <br>
      * node should query donor node and put that value (proxyValue) before
      * committing the value from client.
@@ -246,7 +242,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * 
      * 
      * @param key
-     * @param value
      * @throws VoldemortException
      */
     private void proxyGetAndLocalPut(ByteArray key) throws VoldemortException {
@@ -322,18 +317,4 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private void recordSuccess(Node node, long startNs) {
         failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
     }
-
-
-    private final static class PartitionIdPredicate implements Predicate<RebalancePartitionsInfo> {
-        private final int partitionId;
-        
-        public PartitionIdPredicate(int partitionId) {
-            this.partitionId = partitionId;
-        }
-
-        public boolean apply(RebalancePartitionsInfo rebalancePartitionsInfo) {
-            return rebalancePartitionsInfo.getPartitionList().contains(partitionId);
-        }
-    }
-
 }
