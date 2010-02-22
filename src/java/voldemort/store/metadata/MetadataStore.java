@@ -445,7 +445,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueObject = RebalancePartitionsInfo.listFromString(value.getValue());
+            String valueString = value.getValue();
+            if (valueString.startsWith("[")) {
+                valueObject = RebalancePartitionsInfo.listFromString(valueString);
+            } else {
+                valueObject = Arrays.asList(RebalancePartitionsInfo.fromString(valueString));
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for String to Object serialization.");
