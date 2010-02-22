@@ -857,10 +857,11 @@ public class AdminClient {
                 logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
                              + status);
                 description = status.getDescription();
-                if(status.isComplete())
-                    return;
                 if(status.hasException())
                     throw status.getException();
+
+                if(status.isComplete())
+                    return;
 
                 if(delay < MAX_DELAY)
                     delay <<= 1;
