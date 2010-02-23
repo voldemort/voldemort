@@ -19,6 +19,7 @@ package voldemort.performance;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -121,14 +122,38 @@ public class RemoteTest {
         System.exit(1);
     }
 
+
+    public static Class<?> findKeyType(StoreDefinition storeDefinition) throws Exception {
+        SerializerDefinition serializerDefinition = storeDefinition.getKeySerializer();
+        if (serializerDefinition != null) {
+            if ("string".equals(serializerDefinition.getName())) {
+                return String.class;
+            } else if ("json".equals(serializerDefinition.getName())) {
+                if (serializerDefinition.getCurrentSchemaInfo().contains("int")) {
+                    return Integer.class;
+                } else if (serializerDefinition.getCurrentSchemaInfo().contains("string")) {
+                    return String.class;
+                }
+            } else if ("identity".equals(serializerDefinition.getName())) {
+                return byte[].class;
+            }
+        }
+
+        throw new Exception("Can't determine key type for key serializer " + storeDefinition.getName());
+    }
+
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
         parser.accepts("r", "execute read operations");
         parser.accepts("w", "execute write operations");
         parser.accepts("d", "execute delete operations");
+        parser.accepts("m", "generate a mix of read and write requests");
         parser.accepts("i", "ignore null values");
         parser.accepts("v", "verbose");
+        parser.accepts("interval", "print requests on this interval")
+                       .withRequiredArg()
+                       .ofType(Integer.class);
         parser.accepts("handshake", "perform a handshake");
         parser.accepts("verify", "verify values read");
         parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
@@ -162,6 +187,7 @@ public class RemoteTest {
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
         Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
+        final Integer interval = CmdUtils.valueOf(options, "interval", 100000);
         final boolean verifyValues = options.has("verify");
         final boolean verbose = options.has("v");
 
@@ -178,7 +204,9 @@ public class RemoteTest {
         if(options.has("d")) {
             ops += "d";
         }
-
+        if (options.has("m")) {
+            ops += "m";
+        }
         if(ops.length() == 0) {
             ops = "rwd";
         }
@@ -209,24 +237,7 @@ public class RemoteTest {
             }
         }
 
-        Class<?> keyType = null;
-        SerializerDefinition serializerDefinition = storeDef.getKeySerializer();
-        if (serializerDefinition != null) {
-            if ("string".equals(serializerDefinition.getName())) {
-                keyType = String.class;
-            } else if ("json".equals(serializerDefinition.getName())) {
-                if (serializerDefinition.getCurrentSchemaInfo().contains("int")) {
-                    keyType = Integer.class;
-                } else if (serializerDefinition.getCurrentSchemaInfo().contains("string")) {
-                    keyType = String.class;
-                }
-            } else if ("identity".equals(serializerDefinition.getName())) {
-                keyType = byte[].class;
-            } else {
-                throw new Exception("Can't determine key type for key serializer " + serializerDefinition.getName());
-            }
-        }
-
+        Class<?> keyType = findKeyType(storeDef);
         final String value = TestUtils.randomLetters(valueSize);
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
 
@@ -255,8 +266,9 @@ public class RemoteTest {
                 final AtomicInteger successes = new AtomicInteger(0);
                 final KeyProvider<?> keyProvider0 = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch0 = new CountDownLatch(numRequests);
-                long start = System.currentTimeMillis();
+                final long start = System.currentTimeMillis();
                 for(int i = 0; i < numRequests; i++) {
+                    final int j = i;
                     service.execute(new Runnable() {
 
                         public void run() {
@@ -267,15 +279,15 @@ public class RemoteTest {
                                 e.printStackTrace();
                             } finally {
                                 latch0.countDown();
+                                if (j % interval == 0) {
+                                    printStatistics("deletes", successes.get(), start);
+                                }
                             }
                         }
                     });
                 }
                 latch0.await();
-                long deleteTime = System.currentTimeMillis() - start;
-                System.out.println("Throughput: " + (numRequests / (float) deleteTime * 1000)
-                                   + " deletes/sec.");
-                System.out.println(successes.get() + " things deleted.");
+                printStatistics("deletes", successes.get(), start);
             }
 
             if(ops.contains("w")) {
@@ -283,8 +295,9 @@ public class RemoteTest {
                 System.out.println("Beginning write test.");
                 final KeyProvider<?> keyProvider1 = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch1 = new CountDownLatch(numRequests);
-                long start = System.currentTimeMillis();
+                final long start = System.currentTimeMillis();
                 for(int i = 0; i < numRequests; i++) {
+                    final int j = i;
                     service.execute(new Runnable() {
 
                         public void run() {
@@ -298,60 +311,111 @@ public class RemoteTest {
                                 }
                             } finally {
                                 latch1.countDown();
+                                if (j % interval == 0) {
+                                    printStatistics("writes", numWrites.get(), start);
+                                }
                             }
                         }
                     });
                 }
                 latch1.await();
-                long writeTime = System.currentTimeMillis() - start;
-                System.out.println("Throughput: " + (numWrites.get() / (float) writeTime * 1000)
-                                   + " writes/sec.");
+                printStatistics("writes", numWrites.get(), start);
             }
 
             if(ops.contains("r")) {
                 final boolean ignoreNulls = options.has("i");
                 final AtomicInteger numReads = new AtomicInteger(0);
                 System.out.println("Beginning read test.");
-                final KeyProvider<?> keyProvider2 = getKeyProvider(keyType, startNum, keys);
-                final CountDownLatch latch2 = new CountDownLatch(numRequests);
-                long start = System.currentTimeMillis();
-                keyProvider2.next();
+                final KeyProvider<?> keyProvider = getKeyProvider(keyType, startNum, keys);
+                final CountDownLatch latch = new CountDownLatch(numRequests);
+                final long start = System.currentTimeMillis();
+                keyProvider.next();
                 for(int i = 0; i < numRequests; i++) {
+                    final int j = i;
                     service.execute(new Runnable() {
 
                         public void run() {
                             try {
-                                Object key = keyProvider2.next();
+                                Object key = keyProvider.next();
                                 Versioned<Object> v = store.get(key);
                                 numReads.incrementAndGet();
                                 if(v == null && !ignoreNulls) {
                                     throw new Exception("value returned is null for key " + key);
                                 }
 
-                                if (verifyValues) {
-                                    if(!value.equals(v.getValue())) {
+                                if (verifyValues && !value.equals(v.getValue())) {
                                         throw new Exception("value returned isn't same as set value for key " + key);
-                                    }
                                 }
-
                             } catch(Exception e) {
                                 if (verbose) {
                                     e.printStackTrace();
                                 }
                             } finally {
-                                latch2.countDown();
+                                latch.countDown();
+                                if (j % interval == 0) {
+                                    printStatistics("reads", numReads.get(), start);
+                                }
                             }
                         }
                     });
                 }
-                latch2.await();
-                long readTime = System.currentTimeMillis() - start;
-                System.out.println("Throughput: " + (numReads.get() / (float) readTime * 1000.0)
-                                   + " reads/sec.");
+                latch.await();
+                printStatistics("reads", numReads.get(), start);
             }
         }
 
+        if (ops.contains("m")) {
+            final Random random = new Random();
+            final AtomicInteger numReads = new AtomicInteger(0);
+            final AtomicInteger numWrites = new AtomicInteger(0);
+            System.out.println("Beginning read test.");
+            final KeyProvider<?> keyProvider = getKeyProvider(keyType, startNum, keys);
+            final CountDownLatch latch = new CountDownLatch(numRequests);
+            final long start = System.currentTimeMillis();
+            keyProvider.next();
+            for(int i = 0; i < numRequests; i++) {
+                final int j = i;
+                service.execute(new Runnable() {
+
+                    public void run() {
+                        try {
+                            Object key = keyProvider.next();
+                            Versioned<Object> v = store.get(key);
+                            numReads.incrementAndGet();
+                            // write 25% of the values we read back
+                            if(v != null && random.nextInt(4) == 1) {
+                                store.put(key, v.getValue());
+                                numWrites.incrementAndGet();
+                            }
+                        } catch(Exception e) {
+                            if (verbose) {
+                                e.printStackTrace();
+                            }
+                        } finally {
+                            if (j % interval == 0) {
+                                printStatistics("reads", numReads.get(), start);
+                                printStatistics("writes", numWrites.get(), start);
+                            }
+                            latch.countDown();
+
+                        }
+                    }
+                });
+            }
+            latch.await();
+            printStatistics("reads", numReads.get(), start);
+            printStatistics("writes", numWrites.get(), start);
+        }
+
+
         System.exit(0);
+    }
+
+    private static void printStatistics(String noun, int successes, long start) {
+        long deleteTime = System.currentTimeMillis() - start;
+        System.out.println("Throughput: " + (successes / (float) deleteTime * 1000)
+                           + noun + "/sec.");
+        System.out.println(successes + " things succesful " + noun + ".");
     }
 
     public static List<Integer> loadKeys(String path) throws IOException {
