@@ -75,6 +75,8 @@ public class RemoteTest {
         parser.accepts("r", "execute read operations");
         parser.accepts("w", "execute write operations");
         parser.accepts("d", "execute delete operations");
+        parser.accepts("i", "ignore null values");
+        parser.accepts("v", "verbose");
         parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
         parser.accepts("start-key-index", "starting point when using int keys. Default = 0")
               .withRequiredArg()
@@ -106,6 +108,7 @@ public class RemoteTest {
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
         Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
+        final boolean verbose = options.has("v");
 
         if(options.has("request-file")) {
             keys = loadKeys((String) options.valueOf("request-file"));
@@ -193,6 +196,7 @@ public class RemoteTest {
             }
 
             if(ops.contains("w")) {
+                final AtomicInteger numWrites = new AtomicInteger(0);
                 System.out.println("Beginning write test.");
                 final KeyProvider keyProvider1 = new KeyProvider(startNum, keys);
                 final CountDownLatch latch1 = new CountDownLatch(numRequests);
@@ -204,8 +208,11 @@ public class RemoteTest {
                             try {
                                 String key = keyProvider1.next();
                                 store.put(key, value);
+                                numWrites.incrementAndGet();
                             } catch(Exception e) {
-                                e.printStackTrace();
+                                if (verbose) {
+                                    e.printStackTrace();
+                                }
                             } finally {
                                 latch1.countDown();
                             }
@@ -214,11 +221,13 @@ public class RemoteTest {
                 }
                 latch1.await();
                 long writeTime = System.currentTimeMillis() - start;
-                System.out.println("Throughput: " + (numRequests / (float) writeTime * 1000)
+                System.out.println("Throughput: " + (numWrites.get() / (float) writeTime * 1000)
                                    + " writes/sec.");
             }
 
             if(ops.contains("r")) {
+                final boolean ignoreNulls = options.has("i");
+                final AtomicInteger numReads = new AtomicInteger(0);
                 System.out.println("Beginning read test.");
                 final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
                 final CountDownLatch latch2 = new CountDownLatch(numRequests);
@@ -231,8 +240,8 @@ public class RemoteTest {
                             try {
                                 String key = keyProvider2.next();
                                 Versioned<String> v = store.get(key);
-
-                                if(v == null) {
+                                numReads.incrementAndGet();
+                                if(v == null && !ignoreNulls) {
                                     throw new Exception("value returned is null for key " + key);
                                 }
 
@@ -244,7 +253,9 @@ public class RemoteTest {
                                 }
 
                             } catch(Exception e) {
-                                e.printStackTrace();
+                                if (verbose) {
+                                    e.printStackTrace();
+                                }
                             } finally {
                                 latch2.countDown();
                             }
@@ -253,7 +264,7 @@ public class RemoteTest {
                 }
                 latch2.await();
                 long readTime = System.currentTimeMillis() - start;
-                System.out.println("Throughput: " + (numRequests / (float) readTime * 1000.0)
+                System.out.println("Throughput: " + (numReads.get() / (float) readTime * 1000.0)
                                    + " reads/sec.");
             }
         }
