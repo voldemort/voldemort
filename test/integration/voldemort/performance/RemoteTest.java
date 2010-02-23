@@ -16,11 +16,7 @@
 
 package voldemort.performance;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -36,29 +32,85 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.versioning.Versioned;
 
 public class RemoteTest {
 
     public static final int MAX_WORKERS = 8;
+  
+    public abstract static class KeyProvider<T> {
 
-    public static class KeyProvider {
-
-        private final List<String> keys;
+        private final List<Integer> keys;
         private final AtomicInteger index;
 
-        public KeyProvider(int start, List<String> keys) {
+        private KeyProvider(int start, List<Integer> keys) {
             this.index = new AtomicInteger(start);
             this.keys = keys;
         }
 
-        public String next() {
-            if(keys != null) {
+        public Integer nextInteger() {
+           if(keys != null) {
                 return keys.get(index.getAndIncrement() % keys.size());
-            } else {
-                return Integer.toString(index.getAndIncrement());
-            }
+           } else {
+               return index.getAndIncrement();
+           }
+        }
+
+        public abstract T next();
+    }
+
+    public static class IntegerKeyProvider extends KeyProvider<Integer> {
+
+        private IntegerKeyProvider(int start, List<Integer> keys) {
+            super(start, keys);
+        }
+
+        @Override
+        public Integer next() {
+           return nextInteger();
+        }
+    }
+
+    public static class StringKeyProvider extends KeyProvider<String> {
+
+        private StringKeyProvider(int start, List<Integer> keys) {
+            super(start, keys);
+        }
+
+        @Override
+        public String next() {
+            return Integer.toString(nextInteger());
+        }
+    }
+
+    public static class ByteArrayKeyProvider extends KeyProvider<byte[]> {
+
+        private ByteArrayKeyProvider(int start, List<Integer> keys) {
+            super(start, keys);
+        }
+
+        @Override
+        public byte[] next() {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            bos.write(nextInteger());
+            return bos.toByteArray();
+        }
+    }
+
+    public static KeyProvider getKeyProvider(Class<?> cls, int start, List<Integer> keys) {
+        if (cls == Integer.class) {
+            return new IntegerKeyProvider(start, keys);
+        } else if (cls == String.class) {
+            return new StringKeyProvider(start, keys);
+        } else if (cls == byte[].class) {
+            return new ByteArrayKeyProvider(start, keys);
+        } else {
+            throw new IllegalArgumentException("No KeyProvider exists for class " + cls);
         }
     }
 
@@ -77,6 +129,8 @@ public class RemoteTest {
         parser.accepts("d", "execute delete operations");
         parser.accepts("i", "ignore null values");
         parser.accepts("v", "verbose");
+        parser.accepts("handshake", "perform a handshake");
+        parser.accepts("verify", "verify values read");
         parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
         parser.accepts("start-key-index", "starting point when using int keys. Default = 0")
               .withRequiredArg()
@@ -102,12 +156,13 @@ public class RemoteTest {
         String storeName = nonOptions.get(1);
         int numRequests = Integer.parseInt(nonOptions.get(2));
         String ops = "";
-        List<String> keys = null;
+        List<Integer> keys = null;
 
         Integer startNum = CmdUtils.valueOf(options, "start-key-index", 0);
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
         Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
+        final boolean verifyValues = options.has("verify");
         final boolean verbose = options.has("v");
 
         if(options.has("request-file")) {
@@ -135,16 +190,42 @@ public class RemoteTest {
         System.out.println("threads : " + numThreads);
 
         System.out.println("Bootstraping cluster data.");
-        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setMaxThreads(numThreads)
-                                                                                    .setMaxTotalConnections(numThreads)
-                                                                                    .setMaxConnectionsPerNode(numThreads)
-                                                                                    .setBootstrapUrls(url)
-                                                                                    .setConnectionTimeout(60,
-                                                                                                          TimeUnit.SECONDS)
-                                                                                    .setSocketTimeout(60,
-                                                                                                      TimeUnit.SECONDS)
-                                                                                    .setSocketBufferSize(4 * 1024));
-        final StoreClient<String, String> store = factory.getStoreClient(storeName);
+        ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
+                                                      .setMaxTotalConnections(numThreads)
+                                                      .setMaxConnectionsPerNode(numThreads)
+                                                      .setBootstrapUrls(url)
+                                                      .setConnectionTimeout(60,TimeUnit.SECONDS)
+                                                      .setSocketTimeout(60,TimeUnit.SECONDS)
+                                                      .setSocketBufferSize(4 * 1024);
+        StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
+        final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(0).getValue();
+
+        StoreDefinition storeDef = null;
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            if (storeName.equals(storeDefinition.getName())) {
+                storeDef = storeDefinition;
+            }
+        }
+
+        Class<?> keyType = null;
+        SerializerDefinition serializerDefinition = storeDef.getKeySerializer();
+        if (serializerDefinition != null) {
+            if ("string".equals(serializerDefinition.getName())) {
+                keyType = String.class;
+            } else if ("json".equals(serializerDefinition.getName())) {
+                if (serializerDefinition.getCurrentSchemaInfo().contains("int")) {
+                    keyType = Integer.class;
+                } else if (serializerDefinition.getCurrentSchemaInfo().contains("string")) {
+                    keyType = String.class;
+                }
+            } else if ("identity".equals(serializerDefinition.getName())) {
+                keyType = byte[].class;
+            } else {
+                throw new Exception("Can't determine key type for key serializer " + serializerDefinition.getName());
+            }
+        }
 
         final String value = TestUtils.randomLetters(valueSize);
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
@@ -154,13 +235,15 @@ public class RemoteTest {
          * which will then use that value for other queries
          */
 
-        final String key = new KeyProvider(startNum, keys).next();
+        if (options.has("handshake")) {
+            final Object key = getKeyProvider(keyType, startNum, keys).next();
 
-        // We need to delete just in case there's an existing value there that
-        // would otherwise cause the test run to bomb out.
-        store.delete(key);
-        store.put(key, new Versioned<String>(value));
-        store.delete(key);
+            // We need to delete just in case there's an existing value there that
+            // would otherwise cause the test run to bomb out.
+            store.delete(key);
+            store.put(key, new Versioned<String>(value));
+            store.delete(key);
+        }
 
         for(int loopCount = 0; loopCount < numIterations; loopCount++) {
 
@@ -170,7 +253,7 @@ public class RemoteTest {
             if(ops.contains("d")) {
                 System.out.println("Beginning delete test.");
                 final AtomicInteger successes = new AtomicInteger(0);
-                final KeyProvider keyProvider0 = new KeyProvider(startNum, keys);
+                final KeyProvider<?> keyProvider0 = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch0 = new CountDownLatch(numRequests);
                 long start = System.currentTimeMillis();
                 for(int i = 0; i < numRequests; i++) {
@@ -198,7 +281,7 @@ public class RemoteTest {
             if(ops.contains("w")) {
                 final AtomicInteger numWrites = new AtomicInteger(0);
                 System.out.println("Beginning write test.");
-                final KeyProvider keyProvider1 = new KeyProvider(startNum, keys);
+                final KeyProvider<?> keyProvider1 = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch1 = new CountDownLatch(numRequests);
                 long start = System.currentTimeMillis();
                 for(int i = 0; i < numRequests; i++) {
@@ -206,7 +289,7 @@ public class RemoteTest {
 
                         public void run() {
                             try {
-                                String key = keyProvider1.next();
+                                Object key = keyProvider1.next();
                                 store.put(key, value);
                                 numWrites.incrementAndGet();
                             } catch(Exception e) {
@@ -229,7 +312,7 @@ public class RemoteTest {
                 final boolean ignoreNulls = options.has("i");
                 final AtomicInteger numReads = new AtomicInteger(0);
                 System.out.println("Beginning read test.");
-                final KeyProvider keyProvider2 = new KeyProvider(startNum, keys);
+                final KeyProvider<?> keyProvider2 = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch2 = new CountDownLatch(numRequests);
                 long start = System.currentTimeMillis();
                 keyProvider2.next();
@@ -238,18 +321,17 @@ public class RemoteTest {
 
                         public void run() {
                             try {
-                                String key = keyProvider2.next();
-                                Versioned<String> v = store.get(key);
+                                Object key = keyProvider2.next();
+                                Versioned<Object> v = store.get(key);
                                 numReads.incrementAndGet();
                                 if(v == null && !ignoreNulls) {
                                     throw new Exception("value returned is null for key " + key);
                                 }
 
-                                if(!value.equals(v.getValue())) {
-                                    throw new Exception("value returned isn't same as set value.  My val size = "
-                                                        + value.length()
-                                                        + " ret size = "
-                                                        + v.getValue().length() + " for key " + key);
+                                if (verifyValues) {
+                                    if(!value.equals(v.getValue())) {
+                                        throw new Exception("value returned isn't same as set value for key " + key);
+                                    }
                                 }
 
                             } catch(Exception e) {
@@ -272,9 +354,9 @@ public class RemoteTest {
         System.exit(0);
     }
 
-    public static List<String> loadKeys(String path) throws IOException {
+    public static List<Integer> loadKeys(String path) throws IOException {
 
-        List<String> targets = new ArrayList<String>();
+        List<Integer> targets = new ArrayList<Integer>();
         File file = new File(path);
         BufferedReader reader = null;
 
@@ -282,7 +364,7 @@ public class RemoteTest {
             reader = new BufferedReader(new FileReader(file));
             String text;
             while((text = reader.readLine()) != null) {
-                targets.add(text);
+                targets.add(Integer.valueOf(text.replaceAll("\\s+", "")));
             }
         } finally {
             try {
