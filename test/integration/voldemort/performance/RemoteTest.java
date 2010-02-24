@@ -29,15 +29,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.TestUtils;
-import voldemort.client.ClientConfig;
-import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.StoreClient;
-import voldemort.client.StoreClientFactory;
+import voldemort.client.*;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class RemoteTest {
@@ -302,9 +300,13 @@ public class RemoteTest {
 
                         public void run() {
                             try {
-                                Object key = keyProvider1.next();
-                                store.put(key, value);
-                                numWrites.incrementAndGet();
+                                final Object key = keyProvider1.next();
+                                store.applyUpdate(new UpdateAction<Object,Object>() {
+                                    public void update(StoreClient<Object,Object> storeClient) {
+                                        storeClient.put(key, value);
+                                        numWrites.incrementAndGet();
+                                    }
+                                }, 64);
                             } catch(Exception e) {
                                 if (verbose) {
                                     e.printStackTrace();
@@ -378,27 +380,31 @@ public class RemoteTest {
                 service.execute(new Runnable() {
 
                     public void run() {
-                        try {
-                            Object key = keyProvider.next();
-                            Versioned<Object> v = store.get(key);
-                            numReads.incrementAndGet();
-                            // write 25% of the values we read back
-                            if(v != null && random.nextInt(4) == 1) {
-                                store.put(key, v.getValue());
-                                numWrites.incrementAndGet();
-                            }
-                        } catch(Exception e) {
-                            if (verbose) {
-                                e.printStackTrace();
-                            }
-                        } finally {
-                            if (j % interval == 0) {
-                                printStatistics("reads", numReads.get(), start);
-                                printStatistics("writes", numWrites.get(), start);
-                            }
-                            latch.countDown();
+                            try {
+                                final Object key = keyProvider.next();
 
-                        }
+                                store.applyUpdate(new UpdateAction<Object,Object>() {
+                                    public void update(StoreClient<Object,Object> storeClient) {
+                                        Versioned<Object> v = store.get(key);
+                                        numReads.incrementAndGet();
+                                        if(v != null) {
+                                            storeClient.put(key, v);
+                                        }
+                                        numWrites.incrementAndGet();
+                                    }
+                                }, 64);
+                            } catch(Exception e) {
+                                if (verbose) {
+                                    e.printStackTrace();
+                                }
+                            } finally {
+                                if (j % interval == 0) {
+                                    printStatistics("reads", numReads.get(), start);
+                                    printStatistics("writes", numWrites.get(), start);
+                                }
+                                latch.countDown();
+
+                            }
                     }
                 });
             }
@@ -414,8 +420,8 @@ public class RemoteTest {
     private static void printStatistics(String noun, int successes, long start) {
         long deleteTime = System.currentTimeMillis() - start;
         System.out.println("Throughput: " + (successes / (float) deleteTime * 1000)
-                           + noun + "/sec.");
-        System.out.println(successes + " things succesful " + noun + ".");
+                           + " " + noun + "/sec.");
+        System.out.println(successes + " successful " + noun + ".");
     }
 
     public static List<Integer> loadKeys(String path) throws IOException {
