@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -147,8 +147,11 @@ public class RemoteTest {
         parser.accepts("w", "execute write operations");
         parser.accepts("d", "execute delete operations");
         parser.accepts("m", "generate a mix of read and write requests");
-        parser.accepts("i", "ignore null values");
         parser.accepts("v", "verbose");
+        parser.accepts("ignore-nulls", "ignore null values");
+        parser.accepts("node", "go to this node id")
+                       .withRequiredArg()
+                       .ofType(Integer.class);
         parser.accepts("interval", "print requests on this interval")
                        .withRequiredArg()
                        .ofType(Integer.class);
@@ -185,6 +188,7 @@ public class RemoteTest {
         Integer valueSize = CmdUtils.valueOf(options, "value-size", 1024);
         Integer numIterations = CmdUtils.valueOf(options, "iterations", 1);
         Integer numThreads = CmdUtils.valueOf(options, "threads", MAX_WORKERS);
+        Integer nodeId = CmdUtils.valueOf(options, "node", 0);
         final Integer interval = CmdUtils.valueOf(options, "interval", 100000);
         final boolean verifyValues = options.has("verify");
         final boolean verbose = options.has("v");
@@ -226,7 +230,7 @@ public class RemoteTest {
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
         final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(0).getValue();
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
 
         StoreDefinition storeDef = null;
         for (StoreDefinition storeDefinition: storeDefinitionList) {
