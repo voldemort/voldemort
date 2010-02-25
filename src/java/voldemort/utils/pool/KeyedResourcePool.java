@@ -228,19 +228,7 @@ public class KeyedResourcePool<K, V> {
         }
     }
 
-    public void close(K key) {
-        Pool<V> pool = resourcesMap.get(key);
-
-        if(pool == null)
-            throw new IllegalArgumentException("Invalid key '" + key
-                                               + "': no resource pool exists for that key.");
-
-        // destroy each resource in the queue
-        for(V value = pool.nonBlockingGet(); value != null; value = pool.nonBlockingGet())
-            destroyResource(key, pool, value);
-
-        resourcesMap.remove(key);
-    }
+    public void close(K key) { }
 
     /**
      * Return the total number of resources for the given key whether they are
