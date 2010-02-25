@@ -329,8 +329,9 @@ public class RemoteTest {
             }
 
             if(ops.contains("r")) {
-                final boolean ignoreNulls = options.has("i");
+                final boolean ignoreNulls = options.has("ignore-nulls");
                 final AtomicInteger numReads = new AtomicInteger(0);
+                final AtomicInteger numNulls = new AtomicInteger(0);
                 System.out.println("Beginning read test.");
                 final KeyProvider<?> keyProvider = getKeyProvider(keyType, startNum, keys);
                 final CountDownLatch latch = new CountDownLatch(numRequests);
@@ -345,8 +346,11 @@ public class RemoteTest {
                                 Object key = keyProvider.next();
                                 Versioned<Object> v = store.get(key);
                                 numReads.incrementAndGet();
-                                if(v == null && !ignoreNulls) {
-                                    throw new Exception("value returned is null for key " + key);
+                                if(v == null) {
+                                    numNulls.incrementAndGet();
+                                    if (!ignoreNulls) {
+                                        throw new Exception("value returned is null for key " + key);
+                                    }
                                 }
 
                                 if (verifyValues && !value.equals(v.getValue())) {
@@ -360,6 +364,7 @@ public class RemoteTest {
                                 latch.countDown();
                                 if (j % interval == 0) {
                                     printStatistics("reads", numReads.get(), start);
+                                    printStatistics("nulls", numNulls.get(), start);
                                 }
                             }
                         }
@@ -371,7 +376,7 @@ public class RemoteTest {
         }
 
         if (ops.contains("m")) {
-            final Random random = new Random();
+            final AtomicInteger numNulls = new AtomicInteger(0);
             final AtomicInteger numReads = new AtomicInteger(0);
             final AtomicInteger numWrites = new AtomicInteger(0);
             System.out.println("Beginning read test.");
@@ -393,6 +398,8 @@ public class RemoteTest {
                                         numReads.incrementAndGet();
                                         if(v != null) {
                                             storeClient.put(key, v);
+                                        } else {
+                                            numNulls.incrementAndGet();
                                         }
                                         numWrites.incrementAndGet();
                                     }
@@ -405,6 +412,8 @@ public class RemoteTest {
                                 if (j % interval == 0) {
                                     printStatistics("reads", numReads.get(), start);
                                     printStatistics("writes", numWrites.get(), start);
+                                    printStatistics("nulls", numNulls.get(), start);
+                                    printStatistics("transactions", j, start);
                                 }
                                 latch.countDown();
 
