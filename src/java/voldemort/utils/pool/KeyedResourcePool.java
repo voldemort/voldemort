@@ -1,5 +1,7 @@
 package voldemort.utils.pool;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -235,11 +237,11 @@ public class KeyedResourcePool<K, V> {
             throw new IllegalArgumentException("Invalid key '" + key
                                                + "': no resource pool exists for that key.");
 
-        // destroy each resource in the queue
-        for(V value = pool.nonBlockingGet(); value != null; value = pool.nonBlockingGet())
-            destroyResource(key, pool, value);
+        List<V> list = pool.close();
 
-        resourcesMap.remove(key);
+        // destroy each resource currently in the queue
+        for(V value: list)
+            destroyResource(key, pool, value);
     }
 
     /**
@@ -322,5 +324,12 @@ public class KeyedResourcePool<K, V> {
         public boolean nonBlockingPut(V v) {
             return this.queue.offer(v);
         }
+
+        public List<V> close() {
+            List<V> list = new ArrayList<V>();
+            queue.drainTo(list);
+            return list;
+        }
+
     }
 }

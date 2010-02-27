@@ -16,8 +16,10 @@
 
 package voldemort.server.socket;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import junit.framework.TestCase;
 
@@ -120,6 +122,40 @@ public class SocketPoolTest extends TestCase {
             SocketAndStreams sas = pool.checkout(dest);
             assertEquals(type, sas.getRequestFormatType());
         }
+    }
+
+    @Test
+    public void testCloseWithInFlightSockets() throws Exception {
+        List<SocketAndStreams> list = new ArrayList<SocketAndStreams>();
+
+        for(int i = 0; i < maxConnectionsPerNode; i++)
+            list.add(pool.checkout(dest1));
+
+        assertEquals(list.size(), pool.getNumberSocketsCreated());
+        assertEquals(list.size(), pool.getNumberOfActiveConnections());
+
+        pool.close(dest1);
+
+        assertEquals(list.size(), pool.getNumberOfActiveConnections());
+        assertEquals(0, pool.getNumberSocketsDestroyed());
+
+        for(SocketAndStreams sas: list)
+            pool.checkin(dest1, sas);
+
+        assertEquals(0, pool.getNumberOfActiveConnections());
+        assertEquals(list.size(), pool.getNumberSocketsDestroyed());
+        assertEquals(0, pool.getNumberOfCheckedInConnections());
+    }
+
+    @Test
+    public void testSocketClosedWhenCheckedInAfterPoolKeyClosed() throws Exception {
+        SocketAndStreams sas1 = pool.checkout(dest1);
+        SocketAndStreams sas2 = pool.checkout(dest1);
+        assertTrue(sas1 != sas2);
+        pool.checkin(dest1, sas1);
+        pool.close(dest1);
+        pool.checkin(dest1, sas2);
+        pool.close(dest1);
     }
 
 }

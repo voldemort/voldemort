@@ -114,6 +114,7 @@ public class SocketPool {
     }
 
     public void close(SocketDestination destination) {
+        socketFactory.updateSocketDestinationClosedTimestamp(destination);
         pool.close(destination);
     }
 
@@ -122,6 +123,7 @@ public class SocketPool {
      */
     public void close() {
         pool.close();
+        socketFactory.close();
     }
 
     @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")
