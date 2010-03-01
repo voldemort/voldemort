@@ -75,7 +75,7 @@ final class NodeValue<K, V> implements Serializable, Cloneable {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(nodeId, key, value);
+        return Objects.hashCode(nodeId, key, value.getVersion());
     }
 
     @Override
