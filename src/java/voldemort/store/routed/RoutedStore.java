@@ -67,7 +67,6 @@ import com.google.common.collect.Maps;
 /**
  * A Store which multiplexes requests to different internal Stores
  * 
- * @author jay
  * 
  */
 public class RoutedStore implements Store<ByteArray, byte[]> {

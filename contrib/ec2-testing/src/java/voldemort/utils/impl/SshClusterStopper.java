@@ -34,7 +34,6 @@ import voldemort.utils.RemoteOperationException;
  * SshClusterStopper is an implementation of ClusterStopper that essentially
  * just SSH's into all of the machines and runs voldemort-stop.sh.
  * 
- * @author Kirk True
  */
 
 public class SshClusterStopper extends CommandLineRemoteOperation implements ClusterStopper {

@@ -38,7 +38,6 @@ import com.google.common.base.Joiner;
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
  * HTTP.
  * 
- * @author jay
  * 
  */
 public class StoreSwapper {

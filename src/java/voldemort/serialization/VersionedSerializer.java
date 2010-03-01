@@ -25,7 +25,6 @@ import voldemort.versioning.Versioned;
  * A Serializer that removes the Versioned wrapper and delegates to a
  * user-supplied serializer to deal with the remaining bytes
  * 
- * @author jay
  * 
  * @param <T> The Versioned type
  */

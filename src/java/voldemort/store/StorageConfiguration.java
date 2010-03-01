@@ -29,7 +29,6 @@ import voldemort.utils.ByteArray;
  * indignity of having a StorageEngineFactoryFactory to handle the mapping of
  * store type => factory. And we can't have that.
  * 
- * @author jay
  * 
  */
 public interface StorageConfiguration {

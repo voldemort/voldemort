@@ -3,7 +3,6 @@ package voldemort.utils.pool;
 /**
  * Basic interface for poolable Object Factory
  * 
- * @author bbansal
  * 
  */
 public interface ResourceFactory<K, V> {

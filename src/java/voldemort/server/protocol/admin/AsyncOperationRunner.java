@@ -19,7 +19,6 @@ import voldemort.server.scheduler.SchedulerService;
  * TODO: requesting a unique id, then creating an operation with that id seems like a bad API design.
  * TODO: rename to something more sensible (AsyncOperationService?)
  *
- * @author afeinberg
  */
 @JmxManaged(description = "Asynchronous operation execution")
 public class AsyncOperationRunner extends AbstractService {

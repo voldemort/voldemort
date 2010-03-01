@@ -24,8 +24,6 @@ import java.io.IOException;
  * implementation by Thomas (which itself was inspired by original C code by
  * Marc A Lehmann)
  * 
- * @author Thomas Mueller
- * @author tsaloranta@gmail.com
  */
 public class LZFDecoder {
 

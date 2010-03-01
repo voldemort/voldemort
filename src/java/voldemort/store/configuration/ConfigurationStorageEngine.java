@@ -43,7 +43,6 @@ import voldemort.versioning.Versioned;
  * A FileSystem based Storage Engine to persist configuration metadata.<br>
  * <imp>Used only by {@link MetadataStore}</imp><br>
  * 
- * @author bbansal
  * 
  */
 public class ConfigurationStorageEngine implements StorageEngine<String, String> {

@@ -35,7 +35,6 @@ import com.google.common.collect.Sets;
 /**
  * A representation of the voldemort cluster
  * 
- * @author jay
  * 
  */
 @Threadsafe

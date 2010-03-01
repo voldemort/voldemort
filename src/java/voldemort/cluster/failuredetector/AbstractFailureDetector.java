@@ -33,7 +33,6 @@ import voldemort.store.UnreachableStoreException;
  * AbstractFailureDetector serves as a building block for FailureDetector
  * implementations.
  * 
- * @author Kirk True
  */
 
 public abstract class AbstractFailureDetector implements FailureDetector {

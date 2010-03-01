@@ -27,7 +27,6 @@ import voldemort.cluster.Node;
 /**
  * A routing strategy which just routes each request to all the nodes given
  * 
- * @author jay
  * 
  */
 public class RouteToAllStrategy implements RoutingStrategy {

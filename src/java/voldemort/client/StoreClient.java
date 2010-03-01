@@ -29,7 +29,6 @@ import voldemort.versioning.Versioned;
  * The user-facing interface to a Voldemort store. Gives basic put/get/delete
  * plus helper functions.
  * 
- * @author jay
  * 
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored

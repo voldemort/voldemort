@@ -25,7 +25,6 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 
 /**
- * @author jay
  * 
  */
 public abstract class AbstractByteArrayStoreTest extends AbstractStoreTest<ByteArray, byte[]> {

@@ -40,7 +40,6 @@ import voldemort.versioning.Versioned;
  * InvalidMetadata can cause trouble for server side routing by not allowing
  * requests from random partitions on a server.
  * 
- * @author bbansal
  * 
  */
 public class ServerSideRoutingTest extends TestCase {

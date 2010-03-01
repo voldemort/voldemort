@@ -33,7 +33,6 @@ import voldemort.versioning.Versioned;
  * inner store, and throws {@link InvalidMetadataException} if a client requests
  * a partition which is not or should not be available at this node.
  * 
- * @author bbansal
  * 
  */
 public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byte[]> {

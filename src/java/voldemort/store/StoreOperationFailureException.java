@@ -21,7 +21,6 @@ import voldemort.VoldemortException;
 /**
  * Thrown to indicate the failure of some store operation (put, get, delete)
  * 
- * @author jay
  * 
  */
 public class StoreOperationFailureException extends VoldemortException {

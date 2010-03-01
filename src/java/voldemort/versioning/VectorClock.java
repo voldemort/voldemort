@@ -31,7 +31,6 @@ import com.google.common.collect.Lists;
  * means implicitly all the versions are at zero, but we only actually store
  * those greater than zero.
  * 
- * @author jay
  * 
  */
 @NotThreadsafe

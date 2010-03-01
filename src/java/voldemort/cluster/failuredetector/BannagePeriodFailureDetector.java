@@ -42,8 +42,6 @@ import voldemort.store.UnreachableStoreException;
  * available for access, the caller will then invoke recordSuccess and the node
  * will be marked available in the truest sense of the word.
  * 
- * @author jay
- * @author Kirk True
  * 
  * @see VoldemortConfig#getFailureDetectorBannagePeriod
  * @see ClientConfig#getFailureDetectorBannagePeriod

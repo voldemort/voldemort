@@ -23,7 +23,6 @@ package voldemort.client;
  * 
  * The update action must be idempotent since it may be called multiple times.
  * 
- * @author jay
  * 
  */
 public abstract class UpdateAction<K, V> {

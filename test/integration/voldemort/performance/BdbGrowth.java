@@ -32,7 +32,6 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 
 /**
- * @author jay
  * 
  */
 public class BdbGrowth {

@@ -26,7 +26,6 @@ import java.io.ObjectOutputStream;
  * Transform java objects into bytes using java's built in serialization
  * mechanism
  * 
- * @author jay
  * 
  * @param <T> The type of the object
  */

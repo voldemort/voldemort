@@ -20,7 +20,6 @@ import voldemort.versioning.Versioned;
  * paused all operations on the store will block indefinitely. The methods to
  * pause and unpause are also exposed through JMX.
  * 
- * @author jay
  * 
  * @param <K> The type of the key
  * @param <V> The type of the value

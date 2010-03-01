@@ -22,7 +22,6 @@ import java.io.OutputStream;
 /**
  * A simple string Output Stream.
  * 
- * @author bbansal
  * 
  */
 public class StringOutputStream extends OutputStream {

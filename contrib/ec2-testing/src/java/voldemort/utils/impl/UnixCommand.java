@@ -27,7 +27,6 @@ import java.util.List;
 /**
  * A wrapper for executing a UNIX command.
  * 
- * @author Jay Kreps
  */
 
 public class UnixCommand {

@@ -60,7 +60,6 @@ import voldemort.cluster.failuredetector.FailureDetector;
  * There are quite a few properties that are needed which are provided for these
  * tests to run. Please see {@link Ec2RemoteTestConfig} for details.
  * 
- * @author Kirk True
  */
 
 public class Ec2FailureDetectorTest {
@@ -289,7 +288,6 @@ public class Ec2FailureDetectorTest {
      * </tr>
      * </table>
      * 
-     * @author Kirk True
      */
 
     private static class Ec2FailureDetectorTestConfig extends Ec2RemoteTestConfig {

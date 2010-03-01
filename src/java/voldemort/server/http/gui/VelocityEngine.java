@@ -32,7 +32,6 @@ import voldemort.utils.Utils;
  * Wrapper class that abstracts some of the configuration details and wraps some
  * irritating exceptions.
  * 
- * @author jay
  * 
  */
 public class VelocityEngine {

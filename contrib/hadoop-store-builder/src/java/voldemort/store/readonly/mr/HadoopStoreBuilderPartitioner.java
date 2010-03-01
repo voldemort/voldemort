@@ -26,7 +26,6 @@ import voldemort.utils.ByteUtils;
  * A Partitioner that splits data so that all data for the same nodeId, chunkId
  * combination ends up in the same reduce (and hence in the same store chunk)
  * 
- * @author bbansal, jay
  * 
  */
 public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigurable implements

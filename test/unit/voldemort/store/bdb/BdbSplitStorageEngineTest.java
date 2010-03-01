@@ -38,7 +38,6 @@ import com.sleepycat.je.StatsConfig;
 /**
  * checks that
  * 
- * @author bbansal
  * 
  */
 public class BdbSplitStorageEngineTest extends TestCase {

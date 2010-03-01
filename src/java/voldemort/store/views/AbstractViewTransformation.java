@@ -6,7 +6,6 @@ import voldemort.store.Store;
  * A view that fails all operations. Override one of the methods to add either
  * reads or writes.
  * 
- * @author jay
  * 
  * @param <K> The type of the key
  * @param <V> The type of objects in the view

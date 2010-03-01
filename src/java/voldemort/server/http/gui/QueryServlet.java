@@ -42,7 +42,6 @@ import com.google.common.collect.Maps;
  * 
  * http://code.google.com/p/project-voldemort/issues/detail?id=61
  * 
- * @author jay
  * 
  */
 @SuppressWarnings("all")

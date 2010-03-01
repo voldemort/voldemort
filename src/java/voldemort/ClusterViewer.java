@@ -25,7 +25,6 @@ import java.util.*;
 /**
  * Inspect a cluster configuration to determine whether it can be rebalanced to a target cluster geometry.
  *
- * @author afeinberg
  */
 public class ClusterViewer {
 

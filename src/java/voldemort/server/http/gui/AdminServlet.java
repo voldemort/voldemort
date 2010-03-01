@@ -33,7 +33,6 @@ import com.google.common.collect.Maps;
 /**
  * Main servlet for the admin interface
  * 
- * @author jay
  * 
  */
 public class AdminServlet extends HttpServlet {

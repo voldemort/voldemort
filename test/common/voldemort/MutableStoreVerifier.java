@@ -20,7 +20,6 @@ import voldemort.versioning.Versioned;
  * availability discovery to fail (which we want to be able to control for our
  * tests).
  * 
- * @author Kirk True
  */
 
 public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> {

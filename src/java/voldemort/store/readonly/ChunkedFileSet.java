@@ -18,7 +18,6 @@ import voldemort.utils.Utils;
 /**
  * A set of chunked data and index files for a read-only store
  * 
- * @author jay
  * 
  */
 public class ChunkedFileSet {

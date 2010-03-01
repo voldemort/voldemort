@@ -51,7 +51,6 @@ import com.google.common.collect.Lists;
 /**
  * A read-only store that fronts a big file
  * 
- * @author jay
  * 
  */
 public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {

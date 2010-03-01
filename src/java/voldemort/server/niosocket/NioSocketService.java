@@ -51,7 +51,6 @@ import voldemort.utils.DaemonThreadFactory;
  * some of the NIO frameworks to handle this more cleanly, efficiently, and to
  * handle corner cases.
  * 
- * @author Kirk True
  * 
  * @see voldemort.server.socket.SocketService
  */

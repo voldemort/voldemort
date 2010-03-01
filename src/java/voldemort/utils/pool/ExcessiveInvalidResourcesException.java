@@ -4,7 +4,6 @@ package voldemort.utils.pool;
  * Indicates that we have exceeded the maximum number of successive invalid
  * resources that can be created in a single checkout.
  * 
- * @author jay
  * 
  */
 public class ExcessiveInvalidResourcesException extends RuntimeException {

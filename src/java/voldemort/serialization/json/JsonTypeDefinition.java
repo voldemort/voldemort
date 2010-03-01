@@ -30,7 +30,6 @@ import voldemort.serialization.SerializationException;
 /**
  * A Java collections object that represents the expected type
  * 
- * @author jay
  * 
  */
 public class JsonTypeDefinition implements Serializable {

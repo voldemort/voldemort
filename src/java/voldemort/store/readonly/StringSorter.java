@@ -30,7 +30,6 @@ import voldemort.utils.Utils;
 /**
  * Perform an external sort on the lines of the file
  * 
- * @author jay
  * 
  */
 public class StringSorter {

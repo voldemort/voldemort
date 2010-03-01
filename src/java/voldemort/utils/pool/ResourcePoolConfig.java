@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * Resource pool config class.
  * 
- * @author bbansal
  * 
  */
 public class ResourcePoolConfig {

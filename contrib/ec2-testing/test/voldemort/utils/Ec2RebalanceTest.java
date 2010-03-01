@@ -44,7 +44,6 @@ import voldemort.store.socket.SocketStore;
 import voldemort.versioning.Versioned;
 
 /**
- * @author afeinberg
  */
 public class Ec2RebalanceTest extends AbstractRebalanceTest {
 

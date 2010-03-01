@@ -27,7 +27,6 @@ import java.util.List;
  * This API defines methods to create, delete, and retrieve a list of the remote
  * hosts from EC2.
  * 
- * @author Kirk True
  */
 
 public interface Ec2Connection {

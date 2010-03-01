@@ -9,7 +9,6 @@ import voldemort.utils.ByteArray;
 /**
  * The storage configuration for the PausableStorageEngine
  * 
- * @author jay
  * 
  */
 public class PausableStorageConfiguration implements StorageConfiguration {

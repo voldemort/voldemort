@@ -107,7 +107,6 @@ import voldemort.VoldemortException;
  * </tr>
  * </table>
  * 
- * @author Kirk True
  */
 
 public class Ec2RemoteTestConfig extends RemoteTestConfig {

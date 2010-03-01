@@ -28,7 +28,6 @@ import voldemort.serialization.SerializationException;
 /**
  * Read in JSON objects from a java.io.Reader
  * 
- * @author jay
  * 
  */
 public class JsonReader {

@@ -42,7 +42,6 @@ import voldemort.utils.JmxUtils;
 /**
  * A service that manages JMX registration
  * 
- * @author jay
  * 
  */
 @JmxManaged(description = "The JMX service")

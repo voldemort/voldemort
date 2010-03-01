@@ -11,7 +11,6 @@ import voldemort.VoldemortException;
  * executing handleRequest until it returns
  * {@link StreamRequestHandlerState#COMPLETE}.
  * 
- * @author Kirk True
  */
 
 public interface StreamRequestHandler {

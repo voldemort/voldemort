@@ -24,7 +24,6 @@ import voldemort.utils.JmxUtils;
  * AbstractSocketService abstracts the different implementations so that we can
  * use this common super class by various callers.
  * 
- * @author Kirk True
  */
 
 @JmxManaged(description = "A server that handles remote operations on stores via TCP/IP.")

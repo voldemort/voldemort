@@ -85,7 +85,6 @@ import voldemort.versioning.Versioned;
  * buffer management. Both that and performance are next to be fixed.
  * </p>
  * 
- * @author geir
  */
 public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
 

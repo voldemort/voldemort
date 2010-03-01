@@ -39,7 +39,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 /**
  * Build a test store from the generated data
  * 
- * @author jay
  * 
  */
 public class BuildTestStore extends Configured implements Tool {

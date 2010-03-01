@@ -22,7 +22,6 @@ import java.util.concurrent.Callable;
  * ExitCodeCallable is an implementation of Callable to allow the UnixCommand to
  * be executed in the context of a thread pool.
  * 
- * @author Kirk True
  * 
  * @param <T> Type of return object
  */

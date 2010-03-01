@@ -28,7 +28,6 @@ import voldemort.versioning.Versioned;
  * A StorageEngine that handles serialization to bytes, transforming each
  * request to a request to StorageEngine<byte[],byte[]>
  * 
- * @author jay
  * 
  * @param <K> The key type
  * @param <V> The value type

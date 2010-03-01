@@ -10,7 +10,6 @@ import voldemort.utils.ByteUtils;
  * strategy depends entirely on the uniform distribution of the keys that is
  * guaranteed by the md5 hash.
  * 
- * @author jay
  * 
  */
 public class InterpolationSearchStrategy implements SearchStrategy {

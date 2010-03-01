@@ -21,7 +21,6 @@ import voldemort.utils.ByteUtils;
 /**
  * A base test for testing search strategies for the read-only store
  * 
- * @author jay
  * 
  */
 @RunWith(Parameterized.class)

@@ -32,7 +32,6 @@ import voldemort.versioning.Versioned;
 /**
  * Expire old data
  * 
- * @author jay
  * 
  */
 public class DataCleanupJob<K, V> implements Runnable {

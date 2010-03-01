@@ -47,7 +47,6 @@ import voldemort.versioning.Versioned;
  * 
  * Check the Filter class parameter in AdminServer stream API's <br>
  * 
- * @author bbansal
  * 
  */
 @RunWith(Parameterized.class)

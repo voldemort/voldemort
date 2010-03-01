@@ -6,7 +6,6 @@ package voldemort;
  * These exceptions are thrown by Voldemort servers to voldemort client for some
  * special handling.
  * 
- * @author bbansal
  * 
  */
 public class VoldemortApplicationException extends VoldemortException {

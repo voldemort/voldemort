@@ -38,7 +38,6 @@ import com.google.common.collect.Multimap;
  * 
  * This class computes the set of repairs that need to be made.
  * 
- * @author jay
  * 
  * @param <K> The class of the key in the fetch
  * @param <V> The class of the value in the fetch

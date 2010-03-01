@@ -39,7 +39,6 @@ import voldemort.versioning.Versioned;
  * The {@link voldemort.client.protocol.RequestFormat} for a low-overhead custom
  * binary protocol
  * 
- * @author jay
  * 
  */
 public class VoldemortNativeClientRequestFormat implements RequestFormat {

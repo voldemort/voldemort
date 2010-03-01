@@ -42,7 +42,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 /**
  * Builds a read-only voldemort store as a hadoop job from the given input data.
  * 
- * @author bbansal, jay
  */
 public class HadoopStoreBuilder {
 

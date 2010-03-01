@@ -27,7 +27,6 @@ import voldemort.versioning.Versioned;
  * Does all the normal tests but also uses a high memory pressure test to make
  * sure that values are collected.
  * 
- * @author jay
  * 
  */
 public class CacheStorageEngineTest extends InMemoryStorageEngineTest {

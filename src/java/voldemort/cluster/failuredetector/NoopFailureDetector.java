@@ -23,7 +23,6 @@ import voldemort.store.UnreachableStoreException;
  * NoopFailureDetector is used for testing classes which don't actually need a
  * working FailureDetector ;)
  * 
- * @author Kirk True
  */
 
 public class NoopFailureDetector implements FailureDetector {

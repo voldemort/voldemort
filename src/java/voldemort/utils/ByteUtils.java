@@ -28,7 +28,6 @@ import java.security.NoSuchAlgorithmException;
 /**
  * Utility functions for munging on bytes
  * 
- * @author jay
  * 
  */
 public class ByteUtils {

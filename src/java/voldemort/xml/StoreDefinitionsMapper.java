@@ -55,7 +55,6 @@ import voldemort.utils.ReflectUtils;
 /**
  * Parses a stores.xml file
  * 
- * @author jay
  * 
  */
 public class StoreDefinitionsMapper {

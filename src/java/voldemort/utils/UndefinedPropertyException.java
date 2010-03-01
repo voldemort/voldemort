@@ -19,7 +19,6 @@ package voldemort.utils;
 /**
  * Thrown when a required property is not present
  * 
- * @author jay
  * 
  */
 public class UndefinedPropertyException extends ConfigurationException {

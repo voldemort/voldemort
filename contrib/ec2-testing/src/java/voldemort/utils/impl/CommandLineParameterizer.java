@@ -31,7 +31,6 @@ import org.apache.commons.lang.StringUtils;
  * The format for parameters is ${variableName}. These variables appear in a
  * template and are substituted on demand.
  * 
- * @author Kirk True
  */
 
 public class CommandLineParameterizer {

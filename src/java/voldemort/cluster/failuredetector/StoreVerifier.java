@@ -32,7 +32,6 @@ import voldemort.store.UnreachableStoreException;
  * This is used by some FailureDetector implementations to attempt contact with
  * the node before marking said node as available.
  * 
- * @author Kirk True
  */
 
 public interface StoreVerifier {

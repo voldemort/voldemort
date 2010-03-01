@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 /**
  * A request handler that answers client requests in some given format
  * 
- * @author jay
  * 
  */
 public interface RequestHandler {

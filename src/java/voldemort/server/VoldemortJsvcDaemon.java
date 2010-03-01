@@ -34,7 +34,6 @@ import org.apache.log4j.Logger;
  * See <a href="http://commons.apache.org/daemon/jsvc.html">Commons Daemon</a>
  * documentation for more info.
  * 
- * @author Eric Evans <eevans@racklabs.com>
  * 
  */
 public class VoldemortJsvcDaemon {

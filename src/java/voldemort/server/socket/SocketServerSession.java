@@ -28,7 +28,6 @@ import voldemort.utils.ByteUtils;
  * object, which will choose an appropriate request handler to handle the actual
  * request/response.
  * 
- * @author jay
  * 
  */
 public class SocketServerSession implements Runnable {

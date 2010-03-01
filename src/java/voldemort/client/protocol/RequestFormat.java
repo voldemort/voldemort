@@ -33,7 +33,6 @@ import voldemort.versioning.Versioned;
  * companion class on the server side is
  * {@link voldemort.server.protocol.RequestHandler}
  * 
- * @author jay
  * 
  */
 public interface RequestFormat {

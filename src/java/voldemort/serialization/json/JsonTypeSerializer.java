@@ -40,7 +40,6 @@ import voldemort.utils.ByteUtils;
  * Official motto of this class: "I fought the static type system, and the type
  * system won."
  * 
- * @author jay
  * 
  */
 public class JsonTypeSerializer implements Serializer<Object> {

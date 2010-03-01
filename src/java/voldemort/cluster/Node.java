@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 /**
  * A node in the voldemort cluster
  * 
- * @author jay
  * 
  */
 @Threadsafe

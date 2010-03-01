@@ -25,7 +25,6 @@ import com.google.common.collect.Lists;
 /**
  * VectorClock tests
  * 
- * @author jay
  * 
  */
 public class VectorClockTest extends TestCase {

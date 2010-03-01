@@ -19,7 +19,6 @@ package voldemort.serialization;
 /**
  * Map objects to byte arrays and back again
  * 
- * @author jay
  * 
  * @param <T> The type of the object that is mapped by this serializer
  */

@@ -24,7 +24,6 @@ import voldemort.server.protocol.RequestHandlerFactory;
 /**
  * The VoldemortService that loads up the socket server
  * 
- * @author jay
  */
 
 public class SocketService extends AbstractSocketService {

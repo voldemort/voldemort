@@ -25,7 +25,6 @@ import voldemort.VoldemortException;
  * Extends Java HashMap {@link HashMap} as a Write through cache <br>
  * provide a hook to write custom write back strategies
  * 
- * @author bbansal
  * 
  */
 public abstract class WriteThroughCache<K, V> extends Hashtable<K, V> {

@@ -29,7 +29,6 @@ import voldemort.client.protocol.RequestFormatType;
  * A wrapper class that wraps a socket with its DataInputStream and
  * DataOutputStream
  * 
- * @author jay
  * 
  */
 public class SocketAndStreams {

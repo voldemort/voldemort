@@ -23,7 +23,6 @@ import voldemort.VoldemortApplicationException;
  * configuration/ Stores Configuration) at client is not in sync with this store
  * metadata.
  * 
- * @author bbansal
  * 
  */
 public class InvalidMetadataException extends VoldemortApplicationException {

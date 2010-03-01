@@ -28,7 +28,6 @@ import com.google.common.base.Objects;
 /**
  * Represents an undelivered operation to a store.
  * 
- * @author jay
  * 
  */
 public class Slop {

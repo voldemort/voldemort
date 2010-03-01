@@ -28,7 +28,6 @@ import voldemort.versioning.Versioned;
  * A wrapper that increments the version on the value for puts and delegates all
  * other operations
  * 
- * @author jay
  * 
  * @param <K> The key type
  * @param <V> The value type

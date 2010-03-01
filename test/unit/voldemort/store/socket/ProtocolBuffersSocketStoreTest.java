@@ -12,7 +12,6 @@ import voldemort.client.protocol.RequestFormatType;
 /**
  * Protocol buffers socket store tests
  * 
- * @author jay
  * 
  */
 

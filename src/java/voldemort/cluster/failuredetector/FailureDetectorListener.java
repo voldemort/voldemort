@@ -28,7 +28,6 @@ import voldemort.cluster.Node;
  * implementation properly implements the hashCode/equals methods to ensure
  * adding and removing instances from the FailureDetector work as expected.
  * 
- * @author Kirk True
  * 
  * @see FailureDetector#addFailureDetectorListener
  * @see FailureDetector#removeFailureDetectorListener

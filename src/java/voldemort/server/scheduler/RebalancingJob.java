@@ -36,7 +36,6 @@ import voldemort.versioning.Versioned;
  * does not, it does a PUT on the key to assure that it is written to its proper
  * home and then deletes it from the local node.
  * 
- * @author jay
  * 
  */
 public class RebalancingJob implements Runnable {

@@ -34,7 +34,6 @@ import voldemort.store.UnreachableStoreException;
  * may take several seconds. Rather than cause the thread to block, we perform
  * this check in a background thread.
  * 
- * @author Kirk True
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")

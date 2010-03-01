@@ -29,7 +29,6 @@ package voldemort.utils.impl;
  * progress, etc. So this mechanism should not be used for anything much more
  * than logging or incidental state management.
  * 
- * @author Kirk True
  */
 
 public interface CommandOutputListener {

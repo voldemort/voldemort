@@ -31,7 +31,6 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * methods for the underlying buffer should it need to expand and contract on
  * reuse.
  * 
- * @author Kirk True
  */
 
 @NotThreadsafe

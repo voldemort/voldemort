@@ -25,7 +25,6 @@ import voldemort.utils.Utils;
  * Apply the given inconsistency resolvers in order until there are 1 or fewer
  * items left.
  * 
- * @author jay
  * 
  */
 public class ChainedResolver<T> implements InconsistencyResolver<T> {

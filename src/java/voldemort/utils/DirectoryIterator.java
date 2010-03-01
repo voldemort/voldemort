@@ -12,7 +12,6 @@ import com.google.common.collect.AbstractIterator;
  * An iterator over all the files contained in a set of directories, including
  * any subdirectories
  * 
- * @author jay
  * 
  */
 @NotThreadsafe

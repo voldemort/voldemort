@@ -42,7 +42,6 @@ import voldemort.versioning.Versioned;
  * The client implementation of a socket store--translates each request into a
  * network operation to be handled by the socket server on the other side.
  * 
- * @author jay
  * 
  */
 public class SocketStore implements Store<ByteArray, byte[]> {

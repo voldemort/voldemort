@@ -32,7 +32,6 @@ import voldemort.versioning.Versioned;
 /**
  * A store wrapper that handles debug logging.
  * 
- * @author jay
  * 
  */
 public class LoggingStore<K, V> extends DelegatingStore<K, V> {

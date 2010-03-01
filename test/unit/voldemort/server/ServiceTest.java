@@ -19,7 +19,6 @@ package voldemort.server;
 import junit.framework.TestCase;
 
 /**
- * @author jay
  * 
  */
 public class ServiceTest extends TestCase {

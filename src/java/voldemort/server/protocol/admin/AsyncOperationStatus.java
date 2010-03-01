@@ -3,7 +3,6 @@ package voldemort.server.protocol.admin;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * @author afeinberg
  */
 public class AsyncOperationStatus {
 

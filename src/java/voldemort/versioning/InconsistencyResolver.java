@@ -23,7 +23,6 @@ import java.util.List;
  * Applications can implement this to provide a method for reconciling conflicts
  * that cannot be resolved simply by the version information.
  * 
- * @author jay
  * 
  */
 public interface InconsistencyResolver<T> {

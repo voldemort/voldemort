@@ -46,7 +46,6 @@ import voldemort.utils.Utils;
 /**
  * A fetcher that fetches the store files from HDFS
  * 
- * @author jay
  * 
  */
 public class HdfsFetcher implements FileFetcher {

@@ -38,7 +38,6 @@ import voldemort.xml.ClusterMapper;
 /**
  * Tests of HTTP store against the HTTP server
  * 
- * @author jay
  * 
  */
 public class HttpStoreTest extends AbstractByteArrayStoreTest {

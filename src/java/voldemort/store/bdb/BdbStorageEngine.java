@@ -62,7 +62,6 @@ import com.sleepycat.je.Transaction;
 /**
  * A store that uses BDB for persistence
  * 
- * @author jay
  * 
  */
 public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {

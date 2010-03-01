@@ -22,7 +22,6 @@ import java.util.List;
 /**
  * Resolve inconsistencies based on timestamp in the vector clock
  * 
- * @author jay
  * 
  * @param <T> The type f the versioned object
  */

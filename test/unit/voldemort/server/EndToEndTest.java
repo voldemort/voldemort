@@ -23,7 +23,6 @@ import java.util.*;
 /**
  * Provides an unmocked end to end unit test of a Voldemort cluster.
  *
- * @author afeinberg
  */
 @RunWith(Parameterized.class)
 public class EndToEndTest {

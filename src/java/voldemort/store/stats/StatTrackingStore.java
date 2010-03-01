@@ -33,7 +33,6 @@ import voldemort.versioning.Versioned;
 /**
  * A store wrapper that tracks basic usage statistics
  * 
- * @author jay
  * 
  */
 public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {

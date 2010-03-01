@@ -37,7 +37,6 @@ import static org.junit.Assert.fail;
 
 /**
  *
- * @author afeinberg
  */
 public class Ec2GossipTest {
     private static Ec2GossipTestConfig ec2GossipTestConfig;

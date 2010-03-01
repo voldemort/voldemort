@@ -11,7 +11,6 @@ import voldemort.store.Store;
  * unimplemented method should throw an
  * {@link voldemort.store.views.UnsupportedViewOperationException}.
  * 
- * @author jay
  * 
  * @param <K> The type of the key
  * @param <V> The type of things in the view

@@ -19,7 +19,6 @@ package voldemort.routing;
 import junit.framework.TestCase;
 
 /**
- * @author jay
  * 
  */
 public class PartitionedRoutingStrategyTest extends TestCase {

@@ -24,7 +24,6 @@ import voldemort.server.VoldemortServer;
  * Start VoldemortServer locally using ServerTestUtils and run rebalancing
  * tests.
  * 
- * @author bbansal
  * 
  */
 @RunWith(Parameterized.class)

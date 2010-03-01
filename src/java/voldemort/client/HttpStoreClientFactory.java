@@ -47,7 +47,6 @@ import voldemort.utils.ByteArray;
  * A {@link voldemort.client.StoreClientFactory StoreClientFactory} that creates
  * a remote client that connects and bootstraps itself via HTTP.
  * 
- * @author jay
  * 
  */
 public class HttpStoreClientFactory extends AbstractStoreClientFactory {

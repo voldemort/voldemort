@@ -27,7 +27,6 @@ import voldemort.versioning.Versioned;
 /**
  * A store that does no Harm :)
  * 
- * @author bbansal
  * 
  */
 public class DoNothingStore<K, V> implements Store<K, V> {

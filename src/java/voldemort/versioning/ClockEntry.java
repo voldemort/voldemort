@@ -25,7 +25,6 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * version from a specific machine, the VectorClock keeps track of the complete
  * system version, which will consist of many individual Version objects.
  * 
- * @author jay
  * 
  */
 @NotThreadsafe

@@ -27,7 +27,6 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.store.http.HttpStore;
 
 /**
- * @author jay
  * 
  */
 public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {

@@ -28,7 +28,6 @@ import voldemort.store.UnreachableStoreException;
  * already present at the time of FailureDetector implementation creation. This
  * is usually (always) in the case of tests rather than running "live."
  * 
- * @author Kirk True
  */
 
 public class BasicStoreVerifier<K, V> implements StoreVerifier {

@@ -32,7 +32,6 @@ import voldemort.xml.StoreDefinitionsMapper;
  * A base class with basic configuration values shared by all the mapper,
  * reducer, and partitioner
  * 
- * @author jay
  * 
  */
 public class AbstractStoreBuilderConfigurable {

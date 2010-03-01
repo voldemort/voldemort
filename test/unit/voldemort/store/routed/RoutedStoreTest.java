@@ -76,7 +76,6 @@ import com.google.common.collect.Maps;
 /**
  * Basic tests for RoutedStore
  * 
- * @author jay
  * 
  */
 @RunWith(Parameterized.class)

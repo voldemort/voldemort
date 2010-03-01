@@ -24,7 +24,6 @@ import java.lang.annotation.Target;
 /**
  * Mark the given parameter as accessible from JMX
  * 
- * @author jay
  * 
  */
 @Retention(RetentionPolicy.RUNTIME)

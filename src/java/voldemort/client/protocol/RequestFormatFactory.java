@@ -23,7 +23,6 @@ import voldemort.client.protocol.vold.VoldemortNativeClientRequestFormat;
  * A factory for producing the appropriate client request format given a
  * {@link voldemort.client.protocol.RequestFormatType}
  * 
- * @author jay
  * 
  */
 public class RequestFormatFactory {

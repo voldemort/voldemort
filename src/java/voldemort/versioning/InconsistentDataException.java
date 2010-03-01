@@ -24,7 +24,6 @@ import voldemort.VoldemortException;
  * Thrown when multiple inconsistent values are found and no resolution strategy
  * resolves the problem
  * 
- * @author jay
  * 
  */
 public class InconsistentDataException extends VoldemortException {

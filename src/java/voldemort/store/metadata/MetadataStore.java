@@ -62,7 +62,6 @@ import com.google.common.collect.Lists;
  * Metadata Store keeps a in memory write-through-cache for performance.
  * 
  * 
- * @author bbansal
  * 
  */
 public class MetadataStore implements StorageEngine<ByteArray, byte[]> {

@@ -29,7 +29,6 @@ import voldemort.versioning.Versioned;
 /**
  * A Store that uses a InconsistencyResolver to eliminate some duplicates.
  * 
- * @author jay
  * 
  */
 /*

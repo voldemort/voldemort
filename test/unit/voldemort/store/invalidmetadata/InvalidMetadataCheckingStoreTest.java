@@ -36,7 +36,6 @@ import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
 
 /**
- * @author bbansal
  * 
  */
 public class InvalidMetadataCheckingStoreTest extends TestCase {

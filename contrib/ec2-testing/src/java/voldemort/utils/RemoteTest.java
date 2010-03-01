@@ -52,7 +52,6 @@ package voldemort.utils;
  * possible.
  * </ol>
  * 
- * @author Kirk True
  * 
  * @see RemoteTestResult
  */

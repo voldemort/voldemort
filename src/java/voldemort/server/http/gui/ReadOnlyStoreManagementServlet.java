@@ -54,7 +54,6 @@ import com.google.common.collect.Maps;
  * data=data-file-url</li>
  * </ol>
  * 
- * @author jay
  * 
  */
 public class ReadOnlyStoreManagementServlet extends HttpServlet {

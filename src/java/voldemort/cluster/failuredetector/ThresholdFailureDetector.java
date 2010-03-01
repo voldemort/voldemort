@@ -56,7 +56,6 @@ import voldemort.store.UnreachableStoreException;
  * success threshold) overshadowing a subsequent stream of 10,000,000 failures
  * because this is only 10% of the total and above a given threshold.
  * 
- * @author Kirk True
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")

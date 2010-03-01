@@ -29,7 +29,6 @@ import voldemort.versioning.Versioned;
  * JVM. please make sure to make the class either public or a static inner class
  * so that it can be loaded w/o parent object if needed. </i>
  * 
- * @author bbansal
  */
 public interface VoldemortFilter {
 

@@ -5,7 +5,6 @@ import voldemort.store.Store;
 /**
  * A simple test view that translates all reads into uppercase
  * 
- * @author jay
  * 
  */
 public class UpperCaseView implements View<String, String, String> {

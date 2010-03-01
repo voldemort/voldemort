@@ -46,7 +46,6 @@ import voldemort.server.protocol.RequestHandlerFactory;
 /**
  * A simple socket-based server for serving voldemort requests
  * 
- * @author jay
  * 
  */
 @JmxManaged

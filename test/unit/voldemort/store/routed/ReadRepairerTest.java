@@ -63,7 +63,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /**
- * @author jay
  * 
  */
 @SuppressWarnings("unchecked")

@@ -37,7 +37,6 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * expansion. Additionally, some callers might wish to "un-expand" the buffer
  * back to a more reasonable size after use.
  * 
- * @author Kirk True
  */
 
 @NotThreadsafe

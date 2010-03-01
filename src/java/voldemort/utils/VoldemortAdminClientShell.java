@@ -16,7 +16,6 @@ import java.util.List;
 /**
  * Toy shell for voldemort admin client
  *
- * @author afeinberg
  */
 public class VoldemortAdminClientShell extends VoldemortClientShell {
     private static final String PROMPT = "> ";

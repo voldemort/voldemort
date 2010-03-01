@@ -47,7 +47,6 @@ import voldemort.utils.Utils;
  * data as values. This data is output as a SequenceFile where the key is the
  * given key, and the value is the produced value.
  * 
- * @author jay
  * 
  */
 public class GenerateData extends Configured implements Tool {

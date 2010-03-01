@@ -5,7 +5,6 @@ import java.text.NumberFormat;
 /**
  * Statistics about the keys and values in a store
  * 
- * @author jay
  * 
  */
 public class DataSetStats {

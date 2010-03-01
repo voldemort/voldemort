@@ -32,7 +32,6 @@ import com.google.common.collect.MapMaker;
  * collections ReferenceMap with Soft references on both keys and values. This
  * behaves like a cache, discarding values when under memory pressure.
  * 
- * @author jay
  * 
  */
 public class CacheStorageConfiguration implements StorageConfiguration {

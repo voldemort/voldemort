@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
  * {@link FailureDetectorUtils}'s {@link FailureDetectorUtils#create create}
  * method to create a full-blown {@link FailureDetector} instance.
  * 
- * @author Kirk True
  */
 
 public class FailureDetectorConfig {

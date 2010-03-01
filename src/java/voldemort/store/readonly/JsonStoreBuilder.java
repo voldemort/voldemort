@@ -60,7 +60,6 @@ import com.google.common.collect.AbstractIterator;
 /**
  * Build a read-only store from given input.
  * 
- * @author jay
  * 
  */
 public class JsonStoreBuilder {

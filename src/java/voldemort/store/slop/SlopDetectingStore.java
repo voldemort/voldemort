@@ -38,7 +38,6 @@ import voldemort.versioning.Versioned;
  * 
  * @see voldemort.server.scheduler.SlopPusherJob
  * 
- * @author jay
  * 
  */
 public class SlopDetectingStore extends DelegatingStore<ByteArray, byte[]> {

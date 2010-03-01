@@ -37,7 +37,6 @@ import com.xerox.amazonws.ec2.ReservationDescription.Instance;
  * TypicaEc2Connection implements the Ec2Connection interface using the Typica
  * library (http://code.google.com/p/typica/) for EC2 access.
  * 
- * @author Kirk True
  */
 
 public class TypicaEc2Connection implements Ec2Connection {

@@ -23,7 +23,6 @@ package voldemort.cluster.failuredetector;
  * 
  * Operations on this class are not atomic, but that is okay.
  * 
- * @author jay
  * 
  */
 class NodeStatus {

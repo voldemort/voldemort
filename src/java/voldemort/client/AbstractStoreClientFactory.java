@@ -66,7 +66,6 @@ import com.google.common.collect.Maps;
  * A base class for various {@link voldemort.client.StoreClientFactory
  * StoreClientFactory} implementations
  * 
- * @author jay
  * 
  */
 public abstract class AbstractStoreClientFactory implements StoreClientFactory {

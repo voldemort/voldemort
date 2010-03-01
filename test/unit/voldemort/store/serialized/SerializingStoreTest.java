@@ -25,7 +25,6 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 
 /**
- * @author jay
  * 
  */
 public class SerializingStoreTest extends AbstractStoreTest<String, String> {

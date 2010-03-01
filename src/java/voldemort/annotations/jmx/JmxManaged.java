@@ -24,7 +24,6 @@ import java.lang.annotation.Target;
 /**
  * Mark the annotated class for management via JMX
  * 
- * @author jay
  * 
  */
 @Retention(RetentionPolicy.RUNTIME)

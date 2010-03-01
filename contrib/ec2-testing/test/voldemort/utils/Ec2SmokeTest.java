@@ -46,7 +46,6 @@ import org.junit.Test;
  * There are quite a few properties that are needed which are provided for these
  * tests to run. Please see {@link Ec2SmokeTestConfig} for details.
  * 
- * @author Kirk True
  */
 
 public class Ec2SmokeTest {
@@ -152,7 +151,6 @@ public class Ec2SmokeTest {
      * </tr>
      * </table>
      * 
-     * @author Kirk True
      */
 
     private static class Ec2SmokeTestConfig extends Ec2RemoteTestConfig {

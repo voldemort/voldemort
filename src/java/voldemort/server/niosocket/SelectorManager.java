@@ -91,7 +91,6 @@ import voldemort.server.protocol.RequestHandlerFactory;
  * connections and SelectorManager A with none. There's no provision to
  * re-balance the remaining requests evenly.
  * 
- * @author Kirk True
  */
 
 public class SelectorManager implements Runnable {

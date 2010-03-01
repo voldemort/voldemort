@@ -23,7 +23,6 @@ import voldemort.VoldemortException;
  * 
  * This is a user-initiated failure.
  * 
- * @author jay
  * 
  */
 public class SerializationException extends VoldemortException {

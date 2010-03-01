@@ -21,7 +21,6 @@ import voldemort.VoldemortException;
 /**
  * When we don't know what the hell happened, call it one of these.
  * 
- * @author jay
  * 
  */
 public class UnknownFailure extends VoldemortException {

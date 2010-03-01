@@ -22,7 +22,6 @@ import voldemort.VoldemortException;
  * This exception indicates that the server was unable to initialize on or more
  * storage services or stores within a service.
  * 
- * @author jay
  * 
  */
 public class StorageInitializationException extends VoldemortException {

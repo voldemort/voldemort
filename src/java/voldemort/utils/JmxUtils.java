@@ -61,7 +61,6 @@ import voldemort.annotations.jmx.JmxSetter;
  * annotations in Java 6, but we don't want to require Java 6 just for our own
  * convenience. Hence reinventing the wheel.
  * 
- * @author jay
  * 
  */
 public class JmxUtils {

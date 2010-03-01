@@ -23,7 +23,6 @@ import voldemort.VoldemortException;
  * (e.g. because none of the given nodes could be connected to). This is
  * generally an unrecoverable failure.
  * 
- * @author jay
  * 
  */
 public class BootstrapFailureException extends VoldemortException {
