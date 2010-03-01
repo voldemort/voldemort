@@ -23,11 +23,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Date;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -51,44 +48,11 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
 
-    /**
-     * Keep track of the last time that we closed the sockets for a specific
-     * SocketDestination. That way we know which sockets were created *before*
-     * the SocketDestination was closed. For any sockets in the pool at time of
-     * closure of the SocketDestination, these are shut down immediately. For
-     * in-flight sockets that aren't in the pool at time of closure of the
-     * SocketDestination, these are caught when they're checked in via validate
-     * noting the relation of the timestamps.
-     * 
-     * See bug #222.
-     */
-    private final Map<SocketDestination, Long> socketDestinationClosedTimestamps;
-    private final Map<Socket, Long> socketCreateTimestamps;
-
     public SocketResourceFactory(int soTimeoutMs, int socketBufferSize) {
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
-        this.socketDestinationClosedTimestamps = new ConcurrentHashMap<SocketDestination, Long>();
-        this.socketCreateTimestamps = new ConcurrentHashMap<Socket, Long>();
-    }
-
-    /**
-     * Note the time that the SocketDestination was closed so that we can catch
-     * sockets that are checked in *after* the fact and note that they're part
-     * of the "old" set of sockets that should be closed.
-     * 
-     * @param dest
-     */
-
-    void updateSocketDestinationClosedTimestamp(SocketDestination dest) {
-        socketDestinationClosedTimestamps.put(dest, new Long(System.nanoTime()));
-    }
-
-    void close() {
-        socketDestinationClosedTimestamps.clear();
-        socketCreateTimestamps.clear();
     }
 
     /**
@@ -100,8 +64,6 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         if(logger.isDebugEnabled())
             logger.debug("Destroyed socket " + numDestroyed + " connection to " + dest.getHost()
                          + ":" + dest.getPort());
-
-        socketCreateTimestamps.remove(sands.getSocket());
     }
 
     /**
@@ -119,8 +81,6 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
 
         SocketAndStreams sands = new SocketAndStreams(socket, dest.getRequestFormatType());
         negotiateProtocol(sands, dest.getRequestFormatType());
-
-        socketCreateTimestamps.put(socket, new Long(System.nanoTime()));
 
         return sands;
     }
@@ -162,23 +122,25 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     }
 
     public boolean validate(SocketDestination dest, SocketAndStreams sands) {
-        Long socketCreateTimestamp = socketCreateTimestamps.get(sands.getSocket());
-        Long socketDestinationClosedTimestamp = socketDestinationClosedTimestamps.get(dest);
+        /**
+         * Keep track of the last time that we closed the sockets for a specific
+         * SocketDestination. That way we know which sockets were created
+         * *before* the SocketDestination was closed. For any sockets in the
+         * pool at time of closure of the SocketDestination, these are shut down
+         * immediately. For in-flight sockets that aren't in the pool at time of
+         * closure of the SocketDestination, these are caught when they're
+         * checked in via validate noting the relation of the timestamps.
+         * 
+         * See bug #222.
+         */
 
-        if(socketCreateTimestamp != null) {
-            if(socketDestinationClosedTimestamp != null
-               && socketCreateTimestamp.longValue() <= socketDestinationClosedTimestamp.longValue()) {
-                if(logger.isDebugEnabled())
-                    logger.debug("Socket connection " + sands + " was created on "
-                                 + new Date(socketCreateTimestamp / Time.NS_PER_MS)
-                                 + " before socket pool was closed and re-created (on "
-                                 + new Date(socketDestinationClosedTimestamp / Time.NS_PER_MS)
-                                 + ")");
-                return false;
-            }
-        } else {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Socket connection " + sands + " does not have a create timestamp");
+        if(sands.getCreateTimestamp() <= dest.getLastClosedTimestamp()) {
+            if(logger.isDebugEnabled())
+                logger.debug("Socket connection " + sands + " was created on "
+                             + new Date(sands.getCreateTimestamp() / Time.NS_PER_MS)
+                             + " before socket pool was closed and re-created (on "
+                             + new Date(dest.getLastClosedTimestamp() / Time.NS_PER_MS) + ")");
+            return false;
         }
 
         Socket s = sands.getSocket();
