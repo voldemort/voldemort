@@ -43,7 +43,6 @@ import voldemort.versioning.Versioned;
 /**
  * A toy shell to interact with the server via the command line
  * 
- * @author jay
  * 
  */
 public class VoldemortClientShell {

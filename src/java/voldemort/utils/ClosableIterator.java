@@ -21,7 +21,6 @@ import java.util.Iterator;
 /**
  * An iterator that must be closed after use
  * 
- * @author jay
  * 
  * @param <T> The type being iterated over
  */

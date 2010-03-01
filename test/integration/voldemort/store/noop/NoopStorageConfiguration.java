@@ -31,7 +31,6 @@ import voldemort.utils.ByteArray;
  * 
  * b) use "noop" as the store type in stores.xml
  * 
- * @author geir
  * 
  */
 public class NoopStorageConfiguration implements StorageConfiguration {

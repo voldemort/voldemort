@@ -27,7 +27,6 @@ import voldemort.utils.ByteArray;
 /**
  * Basic StorageConfiguration implementation for MongoDBStorageEngine
  * 
- * @author geir
  */
 public class MongoDBStorageConfiguration implements StorageConfiguration {
 

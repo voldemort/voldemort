@@ -36,7 +36,6 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * A less fucked properties class - Implements Map instead of extending HashMap
  * - Hash helpers for getting typed values
  * 
- * @author jay
  * 
  */
 @NotThreadsafe

@@ -8,7 +8,6 @@ import voldemort.VoldemortException;
  * 
  * @see voldemort.store.StoreCapabilityType
  * 
- * @author jay
  * 
  */
 public class NoSuchCapabilityException extends VoldemortException {

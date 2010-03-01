@@ -21,7 +21,6 @@ import java.util.Date;
 /**
  * Time implementation that just reads from the system clock
  * 
- * @author jay
  * 
  */
 public class SystemTime implements Time {

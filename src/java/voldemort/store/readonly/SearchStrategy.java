@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
  * A way to search for a key in a file of sorted 16 byte keys and 4 byte
  * position offsets
  * 
- * @author jay
  * 
  */
 public interface SearchStrategy {

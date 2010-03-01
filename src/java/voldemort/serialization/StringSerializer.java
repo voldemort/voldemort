@@ -21,7 +21,6 @@ import voldemort.utils.ByteUtils;
 /**
  * A Serializer that serializes strings
  * 
- * @author jay
  * 
  */
 public class StringSerializer implements Serializer<String> {

@@ -34,7 +34,6 @@ import voldemort.versioning.Versioned;
  * A task which goes through the slop table and attempts to push out all the
  * slop to its rightful owner node
  * 
- * @author jay
  * 
  */
 public class SlopPusherJob implements Runnable {

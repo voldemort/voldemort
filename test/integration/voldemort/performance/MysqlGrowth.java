@@ -33,7 +33,6 @@ import org.apache.commons.dbcp.BasicDataSource;
  * create table test_table (key_ varchar(200) primary key, value_ varchar(200))
  * engine=InnoDB;
  * 
- * @author jay
  * 
  */
 public class MysqlGrowth {

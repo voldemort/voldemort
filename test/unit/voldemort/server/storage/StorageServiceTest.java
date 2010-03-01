@@ -17,7 +17,6 @@ import voldemort.store.metadata.MetadataStore;
 /**
  * Test that the storage service is able to load all stores.
  * 
- * @author jay
  * 
  */
 public class StorageServiceTest extends TestCase {

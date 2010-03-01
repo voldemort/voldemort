@@ -46,7 +46,6 @@ import voldemort.utils.RemoteOperationException;
  * line invocations are then placed (in arbitrary order) into a list that is
  * returned to the caller.
  * 
- * @author Kirk True
  * 
  * @param <T> Return type for the operation, specific to the subclass
  *        implementation

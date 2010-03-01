@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableCollection;
  * A runner class to facitilate the launching of HadoopStoreBuilder from the
  * command-line.
  * 
- * @author elias
  * 
  */
 public class HadoopStoreJobRunner extends Configured implements Tool {

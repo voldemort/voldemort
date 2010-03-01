@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 /**
  * Configuration parameters for the voldemort server.
  * 
- * @author jay
  * 
  */
 public class VoldemortConfig implements Serializable {

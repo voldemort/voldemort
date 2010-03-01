@@ -31,7 +31,6 @@ import voldemort.utils.Time;
 /**
  * The voldemort scheduler
  * 
- * @author jay
  * 
  */
 @JmxManaged(description = "A service that runs scheduled jobs.")

@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 /**
  * An iterable that always produces the given iterator
  * 
- * @author jay
  * 
  */
 public class DefaultIterable<V> implements Iterable<V> {

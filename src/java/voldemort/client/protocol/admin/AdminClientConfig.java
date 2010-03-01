@@ -7,7 +7,6 @@ import voldemort.utils.Props;
 /**
  * Client Configuration properties for {@link AdminClient}
  * 
- * @author bbansal
  * 
  */
 public class AdminClientConfig {

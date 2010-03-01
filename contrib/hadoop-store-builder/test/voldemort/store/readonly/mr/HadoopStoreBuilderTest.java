@@ -52,7 +52,6 @@ import voldemort.versioning.Versioned;
  * will be only one hence we will see only one node files irrespective of
  * cluster details.</strong>
  * 
- * @author bbansal, jay
  * 
  */
 public class HadoopStoreBuilderTest extends TestCase {

@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 /**
  * A wrapper class to expose store stats via JMX
  * 
- * @author jay
  * 
  */
 @JmxManaged

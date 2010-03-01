@@ -59,7 +59,6 @@ import voldemort.cluster.Node;
  * the test and server nodes in the test are all on the same network, using the
  * internal host name.
  * 
- * @author Kirk True
  * 
  * @see ClusterNodeDescriptor
  */

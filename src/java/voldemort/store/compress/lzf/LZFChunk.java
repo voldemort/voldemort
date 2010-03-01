@@ -18,7 +18,6 @@ package voldemort.store.compress.lzf;
  * Helper class used to store LZF encoded segments (compressed and
  * non-compressed) that can be sequenced to produce LZF files/streams.
  * 
- * @author Tatu Saloranta
  */
 public class LZFChunk {
 

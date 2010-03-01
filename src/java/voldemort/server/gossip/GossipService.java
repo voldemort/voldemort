@@ -10,7 +10,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.RebalanceUtils;
 
 /**
- * @author afeinberg
  */
 @JmxManaged(description = "Epidemic (gossip) protocol for propagating state/configuration to the cluster.")
 public class GossipService extends AbstractService {

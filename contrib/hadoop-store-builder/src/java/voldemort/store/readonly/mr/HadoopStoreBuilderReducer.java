@@ -38,7 +38,6 @@ import voldemort.utils.ByteUtils;
 /**
  * Take key md5s and value bytes and build a read-only store from these values
  * 
- * @author bbansal, jay
  * 
  */
 public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable implements

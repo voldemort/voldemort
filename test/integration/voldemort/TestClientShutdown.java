@@ -26,7 +26,6 @@ import voldemort.utils.Utils;
  * Code to test that the client shuts down gracefully. If this program doesn't
  * exit immediately that is bad
  * 
- * @author jay
  * 
  */
 public class TestClientShutdown {

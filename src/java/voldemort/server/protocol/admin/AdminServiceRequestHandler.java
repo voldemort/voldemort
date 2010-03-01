@@ -66,7 +66,6 @@ import com.google.common.collect.Lists;
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
  * 
- * @author afeinberg
  */
 public class AdminServiceRequestHandler implements RequestHandler {
 

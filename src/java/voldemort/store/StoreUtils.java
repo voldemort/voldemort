@@ -43,7 +43,6 @@ import com.google.common.collect.Maps;
 /**
  * Check that the given key is valid
  * 
- * @author jay
  * 
  */
 public class StoreUtils {

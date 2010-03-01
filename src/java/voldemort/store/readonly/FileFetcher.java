@@ -11,7 +11,6 @@ import java.io.IOException;
  * All implementations must provide a public constructor that takes
  * VoldemortConfig as a parameter.
  * 
- * @author jay
  * 
  */
 public interface FileFetcher {

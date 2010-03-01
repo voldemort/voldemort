@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
  * A test that the json serialization remains compatible with older serialized
  * data
  * 
- * @author jay
  * 
  */
 public class JsonBackwardsCompatibilityTest extends TestCase {

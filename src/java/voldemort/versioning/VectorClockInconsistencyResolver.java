@@ -25,7 +25,6 @@ import com.google.common.collect.Lists;
  * An inconsistency resolver that uses the object VectorClocks leaving only a
  * set of concurrent versions remaining.
  * 
- * @author jay
  * 
  */
 public class VectorClockInconsistencyResolver<T> implements InconsistencyResolver<Versioned<T>> {

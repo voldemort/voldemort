@@ -58,7 +58,6 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.AbstractIterator;
 
 /**
- * @author afeinberg, bbansal
  */
 @RunWith(Parameterized.class)
 public class AdminServiceBasicTest extends TestCase {

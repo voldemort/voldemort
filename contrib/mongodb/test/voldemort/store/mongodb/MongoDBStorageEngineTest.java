@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableMap;
  * made assumptions about key and value types rather than defer to getValues()
  * and getKeys()
  * 
- * @author geir
  */
 public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[]> {
 

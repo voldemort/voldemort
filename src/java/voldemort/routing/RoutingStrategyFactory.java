@@ -8,7 +8,6 @@ import voldemort.store.StoreDefinition;
  * A factory that gets the appropriate {@link RoutingStrategy} for a given
  * {@link RoutingStrategyType}.
  * 
- * @author bbansal
  * 
  */
 public class RoutingStrategyFactory {

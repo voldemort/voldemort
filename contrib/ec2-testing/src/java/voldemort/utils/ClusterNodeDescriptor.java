@@ -22,7 +22,6 @@ import java.util.List;
  * ClusterNodeDescriptor is a simple POJO for storing the attributes of a node
  * as needed by the cluster.xml cluster descriptor file.
  * 
- * @author Kirk True
  * 
  * @see ClusterGenerator
  */

@@ -33,7 +33,6 @@ import voldemort.utils.ByteArray;
  * client lifecycle that it can be provided, so it is performed on demand using
  * the {@link StoreRepository}.
  * 
- * @author Kirk True
  */
 
 public class ServerStoreVerifier implements StoreVerifier {

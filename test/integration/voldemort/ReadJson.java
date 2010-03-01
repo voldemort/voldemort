@@ -23,7 +23,6 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.utils.Utils;
 
 /**
- * @author jay
  * 
  */
 public class ReadJson {

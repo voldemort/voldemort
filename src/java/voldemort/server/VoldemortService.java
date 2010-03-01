@@ -19,7 +19,6 @@ package voldemort.server;
 /**
  * A service that runs in the voldemort server
  * 
- * @author jay
  * 
  */
 public interface VoldemortService {

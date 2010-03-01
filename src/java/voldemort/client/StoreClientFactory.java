@@ -30,7 +30,6 @@ import voldemort.versioning.Versioned;
  * 
  * {@link voldemort.client.StoreClient StoreClient}
  * 
- * @author jay
  * 
  */
 public interface StoreClientFactory {

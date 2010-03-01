@@ -34,7 +34,6 @@ import voldemort.store.UnreachableStoreException;
  * implementations {@link SocketStoreClientFactory} and
  * {@link HttpStoreClientFactory}.
  * 
- * @author Kirk True
  */
 
 public abstract class ClientStoreVerifier<K, V> implements StoreVerifier {

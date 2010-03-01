@@ -3,7 +3,6 @@ package voldemort.routing;
 /**
  * An enumeration of RoutingStrategies type
  * 
- * @author bbansal
  * 
  */
 public class RoutingStrategyType {

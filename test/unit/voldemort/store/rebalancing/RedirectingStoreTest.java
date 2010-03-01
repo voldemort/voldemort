@@ -56,7 +56,6 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
- * @author bbansal
  * 
  */
 @RunWith(Parameterized.class)

@@ -24,7 +24,6 @@ import voldemort.VoldemortApplicationException;
  * application-level error, and indicates the application has attempted to write
  * stale data.
  * 
- * @author jay
  * 
  */
 public class ObsoleteVersionException extends VoldemortApplicationException {

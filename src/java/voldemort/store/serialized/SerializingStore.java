@@ -36,7 +36,6 @@ import com.google.common.collect.Maps;
 /**
  * A store that transforms requests to a Store<ByteArray,byte[]> to a Store<K,V>
  * 
- * @author jay
  * 
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored

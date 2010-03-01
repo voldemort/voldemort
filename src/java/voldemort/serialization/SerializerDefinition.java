@@ -27,7 +27,6 @@ import com.google.common.base.Objects;
 /**
  * A SerializerDefinition holds all the meta information for a serializer.
  * 
- * @author jay
  * 
  */
 public class SerializerDefinition {

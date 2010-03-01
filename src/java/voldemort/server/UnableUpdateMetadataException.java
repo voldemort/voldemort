@@ -19,7 +19,6 @@ package voldemort.server;
 /**
  * Thrown when a server is not able to update metadata as requested.
  * 
- * @author bbansal
  * 
  */
 public class UnableUpdateMetadataException extends RuntimeException {

@@ -23,7 +23,6 @@ import java.util.List;
 /**
  * A strategy based on merging the objects in the list
  * 
- * @author jay
  * 
  */
 public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Versioned<T>> {

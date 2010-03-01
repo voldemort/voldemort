@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * @author jay
  * 
  */
 public class JsonReaderTest extends TestCase {

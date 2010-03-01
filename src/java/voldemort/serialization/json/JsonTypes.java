@@ -21,7 +21,6 @@ import voldemort.serialization.SerializationException;
 /**
  * An enum of JsonTypes (for convenience)
  * 
- * @author jay
  * 
  */
 public enum JsonTypes {

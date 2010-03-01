@@ -93,7 +93,6 @@ import voldemort.versioning.Versioned;
 /**
  * The service responsible for managing all storage types
  * 
- * @author jay
  * 
  */
 @JmxManaged(description = "Start and stop all stores.")

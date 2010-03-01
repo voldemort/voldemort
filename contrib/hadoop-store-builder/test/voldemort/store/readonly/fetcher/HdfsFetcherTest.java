@@ -30,7 +30,6 @@ import voldemort.utils.ByteUtils;
 /**
  * Tests for the HDFS-based fetcher
  * 
- * @author jay
  * 
  */
 public class HdfsFetcherTest extends TestCase {

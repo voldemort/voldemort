@@ -44,7 +44,6 @@ package voldemort.utils;
  * if possible.
  * </ol>
  * 
- * @author Kirk True
  */
 
 public interface ClusterStopper extends RemoteOperation {

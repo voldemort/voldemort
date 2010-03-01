@@ -23,7 +23,6 @@ import voldemort.utils.ReflectUtils;
  * FailureDetectorUtils serves as a factory for creating a FailureDetector
  * implementation.
  * 
- * @author Kirk True
  */
 
 public class FailureDetectorUtils {

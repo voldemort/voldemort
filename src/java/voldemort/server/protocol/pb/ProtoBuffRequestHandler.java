@@ -30,7 +30,6 @@ import com.google.protobuf.Message;
 /**
  * A Protocol Buffers request handler
  * 
- * @author jay
  * 
  */
 public class ProtoBuffRequestHandler extends AbstractRequestHandler {

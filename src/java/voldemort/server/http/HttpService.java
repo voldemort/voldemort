@@ -43,7 +43,6 @@ import voldemort.server.storage.StorageService;
 /**
  * An embedded http server that uses jetty
  * 
- * @author jay
  * 
  */
 @JmxManaged(description = "A store connector that serves remote clients via HTTP.")

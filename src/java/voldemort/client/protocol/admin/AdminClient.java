@@ -86,7 +86,6 @@ import com.google.protobuf.Message;
  * (presently in development).</li>
  * </ul>
  * 
- * @author afeinberg,bbansal
  */
 public class AdminClient {
 

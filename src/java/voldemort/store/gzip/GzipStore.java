@@ -32,7 +32,6 @@ import voldemort.versioning.Versioned;
 /**
  * A Store decorator that gzips and ungzips its contents as it stores them
  * 
- * @author jay
  * 
  */
 public class GzipStore<K> extends DelegatingStore<K, byte[]> implements Store<K, byte[]> {

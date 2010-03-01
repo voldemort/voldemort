@@ -28,7 +28,6 @@ import voldemort.versioning.Versioned;
 /**
  * A storage engine that uses a java.util.ConcurrentHashMap to hold the entries
  * 
- * @author jay
  * 
  */
 public class InMemoryStorageConfiguration implements StorageConfiguration {

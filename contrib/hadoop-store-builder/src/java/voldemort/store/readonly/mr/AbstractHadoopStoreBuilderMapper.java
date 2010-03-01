@@ -43,7 +43,6 @@ import voldemort.utils.ByteUtils;
  * The values given by makeKey and makeValue will then be serialized with the
  * appropriate voldemort Serializer.
  * 
- * @author bbansal, jay
  * 
  */
 public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends

@@ -25,7 +25,6 @@ import voldemort.versioning.Versioned;
  * functions are not utils function but are forced move here to allow more
  * granular unit testing.
  * 
- * @author bbansal
  * 
  */
 public class RebalanceUtils {

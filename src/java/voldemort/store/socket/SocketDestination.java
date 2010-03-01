@@ -24,7 +24,6 @@ import com.google.common.base.Objects;
 /**
  * A host + port + protocol
  * 
- * @author jay
  * 
  */
 public class SocketDestination {

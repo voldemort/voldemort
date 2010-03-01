@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * @author afeinber
  * Generate data pseudo-random data with desired parameters on a remote cluster
  */
 public class RemoteDataGenerator {

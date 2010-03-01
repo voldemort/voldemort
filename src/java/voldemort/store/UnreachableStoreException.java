@@ -22,7 +22,6 @@ import voldemort.VoldemortException;
  * Indicates that the given store cannot be reached (say, due to network
  * failure).
  * 
- * @author jay
  * 
  */
 public class UnreachableStoreException extends VoldemortException {

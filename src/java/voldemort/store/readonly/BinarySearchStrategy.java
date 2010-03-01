@@ -8,7 +8,6 @@ import voldemort.utils.ByteUtils;
  * A search strategy that does a simple binary search into the buffer to find
  * the key
  * 
- * @author jay
  * 
  */
 public class BinarySearchStrategy implements SearchStrategy {

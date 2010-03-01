@@ -44,7 +44,6 @@ import com.google.protobuf.ByteString;
 /**
  * The client side of the protocol buffers request format
  * 
- * @author jay
  * 
  */
 public class ProtoBuffClientRequestFormat implements RequestFormat {

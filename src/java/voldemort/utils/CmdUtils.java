@@ -10,7 +10,6 @@ import joptsimple.OptionSpec;
  * Helper functions for command line parsing. Because jopt-simple is a little
  * too simple.
  * 
- * @author jay
  * 
  */
 public class CmdUtils {

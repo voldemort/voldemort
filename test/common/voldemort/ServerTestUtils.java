@@ -73,7 +73,6 @@ import com.google.common.collect.ImmutableList;
 /**
  * Helper functions for testing with real server implementations
  * 
- * @author jay
  * 
  */
 public class ServerTestUtils {

@@ -16,7 +16,6 @@ import voldemort.annotations.concurrency.NotThreadsafe;
  * This is generalized IoThrottler as it existed before, you can use it to
  * throttle on Bytes read/write,number of entries scanned etc.
  * 
- * @author jay
  * 
  */
 @NotThreadsafe

@@ -26,7 +26,6 @@ import voldemort.versioning.VectorClockInconsistencyResolver;
 /**
  * Test the InMemoryStorageEngine with threads
  * 
- * @author jay
  * 
  */
 public class InMemoryMultiThreadedTest {

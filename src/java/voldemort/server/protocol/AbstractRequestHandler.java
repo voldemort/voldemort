@@ -11,7 +11,6 @@ import voldemort.utils.ByteArray;
  * A base class with a few helper fields for writing a
  * {@link voldemort.server.protocol.RequestHandler}
  * 
- * @author jay
  * 
  */
 public abstract class AbstractRequestHandler implements RequestHandler {

@@ -34,7 +34,6 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.server.AbstractSocketService;
 
 /**
- * @author jay
  * 
  */
 

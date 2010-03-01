@@ -25,7 +25,6 @@ import java.util.Set;
  * Most of the logic resides in {@link voldemort.client.rebalance.RebalanceClusterTool}, see that class for
  * more documentation.
  * 
- * @author afeinberg
  */
 public class RebalanceClusterBuilder {
     private final Cluster cluster;

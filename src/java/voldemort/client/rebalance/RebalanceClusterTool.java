@@ -13,7 +13,6 @@ import java.util.*;
 /**
  * Tools to manipulate cluster geometries and verify them for correctness, reliability and efficiency.
  *
- * @author afeinberg
  */
 public class RebalanceClusterTool {
 

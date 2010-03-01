@@ -26,7 +26,6 @@ package voldemort.utils;
  * Should the operation span multiple remote hosts, implementations should
  * perform the operation in parallel with respect to the remote hosts.
  * 
- * @author Kirk True
  */
 
 public interface RemoteOperation {

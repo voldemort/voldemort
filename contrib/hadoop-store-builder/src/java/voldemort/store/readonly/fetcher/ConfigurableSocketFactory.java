@@ -18,7 +18,6 @@ import org.apache.log4j.Logger;
  * size. This is necessary for good performance over a higher latency link such
  * as between datacenters.
  * 
- * @author jay
  * 
  */
 class ConfigurableSocketFactory extends SocketFactory implements Configurable {

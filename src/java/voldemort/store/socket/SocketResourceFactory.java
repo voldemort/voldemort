@@ -34,7 +34,6 @@ import voldemort.utils.pool.ResourceFactory;
 /**
  * A Factory for creating sockets
  * 
- * @author jay
  * 
  */
 public class SocketResourceFactory implements ResourceFactory<SocketDestination, SocketAndStreams> {

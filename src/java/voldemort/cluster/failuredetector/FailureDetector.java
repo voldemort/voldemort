@@ -64,8 +64,6 @@ import voldemort.store.routed.RoutedStore;
  * recordException and recordSuccess should (not must) provide some input to the
  * internal algorithm.
  * 
- * @author jay
- * @author Kirk True
  * 
  * @see RoutedStore
  */

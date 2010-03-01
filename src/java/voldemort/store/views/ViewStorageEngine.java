@@ -23,7 +23,6 @@ import com.google.common.collect.AbstractIterator;
 /**
  * Views are transformations of other stores
  * 
- * @author jay
  * 
  */
 @Experimental

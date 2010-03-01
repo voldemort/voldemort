@@ -24,7 +24,6 @@ package voldemort.versioning;
  * confusing, because the numeric codes are easily confused, and because
  * concurrent versions are not necessarily "equal" in the normal sense.
  * 
- * @author jay
  * 
  */
 public interface Version {

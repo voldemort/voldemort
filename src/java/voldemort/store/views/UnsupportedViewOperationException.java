@@ -5,7 +5,6 @@ import voldemort.VoldemortApplicationException;
 /**
  * Error indicating a write operation on a read-only view or vice-versa
  * 
- * @author jay
  * 
  */
 public class UnsupportedViewOperationException extends VoldemortApplicationException {

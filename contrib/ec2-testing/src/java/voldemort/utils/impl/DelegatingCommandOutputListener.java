@@ -20,7 +20,6 @@ package voldemort.utils.impl;
  * Abstract implementation of CommandOutputListener that allows chaining of
  * calls to outputReceived.
  * 
- * @author Kirk True
  */
 
 public abstract class DelegatingCommandOutputListener implements CommandOutputListener {

@@ -53,7 +53,6 @@ import voldemort.versioning.Versioned;
 /**
  * Helper utilities for tests
  * 
- * @author jay
  * 
  */
 public class TestUtils {

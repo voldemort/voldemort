@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A thread factory that sets the threads to run as daemons. (Otherwise things
  * that embed the threadpool can't shut themselves down).
  * 
- * @author jay
  * 
  */
 public class DaemonThreadFactory implements ThreadFactory {

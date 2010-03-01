@@ -28,7 +28,6 @@ import voldemort.versioning.ObsoleteVersionException;
  * You must add matching entries in both mapResponseCodeToError and
  * mapErrorToResponseCode
  * 
- * @author jay
  * 
  */
 public class HttpResponseCodeErrorMapper {
@@ -62,7 +61,6 @@ public class HttpResponseCodeErrorMapper {
     /**
      * A struct to hold the response code and response text for an HTTP error.
      * 
-     * @author jay
      * 
      */
     public static final class ResponseCode {

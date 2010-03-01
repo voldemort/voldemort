@@ -22,7 +22,6 @@ package voldemort.utils;
  * hash = basis for each octet_of_data to be hashed hash = hash * FNV_prime hash
  * = hash xor octet_of_data return hash
  * 
- * @author jay
  * 
  */
 public class FnvHashFunction implements HashFunction {

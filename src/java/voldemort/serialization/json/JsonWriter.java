@@ -26,7 +26,6 @@ import java.util.Set;
 /**
  * Writes JSON Objects as String recognized by {@link JsonReader}
  * 
- * @author bbansal
  * 
  */
 public class JsonWriter {

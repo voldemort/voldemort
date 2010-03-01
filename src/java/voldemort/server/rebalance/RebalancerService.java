@@ -11,7 +11,6 @@ import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
 
 /**
- * @author bbansal
  */
 @JmxManaged(description = "Rebalancer service to check if server is in rebalancing state and attempt rebalancing periodically.")
 public class RebalancerService extends AbstractService {

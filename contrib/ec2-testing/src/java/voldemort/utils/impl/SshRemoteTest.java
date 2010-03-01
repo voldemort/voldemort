@@ -35,7 +35,6 @@ import voldemort.utils.RemoteTest;
  * to voldemort.performance.RemoteTest (AKA voldemort-remote-test.sh) on all of
  * the machines provided.
  * 
- * @author Kirk True
  */
 
 public class SshRemoteTest extends CommandLineRemoteOperation implements RemoteTest {

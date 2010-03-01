@@ -23,7 +23,6 @@ import voldemort.store.Store;
 import voldemort.store.memory.InMemoryStorageEngine;
 
 /**
- * @author jay
  * 
  */
 public class LoggingStoreTest extends AbstractStoreTest<String, String> {

@@ -39,7 +39,6 @@ import voldemort.utils.RemoteOperationException;
  * We set the node ID specific to each server from the command line vs. storing
  * it in the server.properties file.
  * 
- * @author Kirk True
  */
 
 public class SshClusterStarter extends CommandLineRemoteOperation implements ClusterStarter {

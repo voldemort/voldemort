@@ -29,7 +29,6 @@ import voldemort.versioning.Versioned;
 /**
  * Big honkin multithreaded stress test
  * 
- * @author jay
  * 
  */
 public class MultithreadedStressTest {

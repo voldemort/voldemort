@@ -40,7 +40,6 @@ import com.google.common.base.Joiner;
 /**
  * A simple MySQL benchmark
  * 
- * @author jay
  * 
  */
 public class MysqlBench {

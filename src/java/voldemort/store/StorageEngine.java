@@ -36,7 +36,6 @@ import voldemort.versioning.Versioned;
  * 
  * A hash value can be produced for known subtrees of a StorageEngine
  * 
- * @author jay
  * 
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored

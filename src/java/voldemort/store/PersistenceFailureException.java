@@ -21,7 +21,6 @@ import voldemort.VoldemortException;
 /**
  * Thrown by the StorageEngine if storage fails
  * 
- * @author jay
  * 
  */
 public class PersistenceFailureException extends VoldemortException {

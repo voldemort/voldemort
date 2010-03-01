@@ -27,7 +27,6 @@ import voldemort.utils.DaemonThreadFactory;
 /**
  * A thread pool with a more convenient constructor and some jmx monitoring
  * 
- * @author jay
  * 
  */
 @JmxManaged(description = "A voldemort client thread pool")

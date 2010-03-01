@@ -24,7 +24,6 @@ import voldemort.versioning.Versioned;
  * This is intended to help simultate things like MetadataExceptions which may
  * require having an out-of-date Store.
  * 
- * @author jay
  * 
  */
 public class StaticStoreClientFactory implements StoreClientFactory {

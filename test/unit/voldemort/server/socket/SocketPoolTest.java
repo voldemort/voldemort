@@ -40,7 +40,6 @@ import voldemort.store.socket.SocketPool;
 /**
  * Tests for the socket pooling
  * 
- * @author jay
  * 
  */
 @RunWith(Parameterized.class)

@@ -37,7 +37,6 @@ import com.google.common.collect.Maps;
  * The configuration that is shared between berkeley db instances. This includes
  * the db environment and the configuration
  * 
- * @author jay
  * 
  */
 public class BdbStorageConfiguration implements StorageConfiguration {

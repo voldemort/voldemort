@@ -32,7 +32,6 @@ import com.google.protobuf.Message;
  * Factory that maps serialization strings to serializers. Used to get a
  * Serializer from config serializer description.
  * 
- * @author jay
  * 
  */
 public class DefaultSerializerFactory implements SerializerFactory {

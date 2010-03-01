@@ -9,7 +9,6 @@ import voldemort.utils.Utils;
  * A simple builder class to avoid having 10k constructor parameters in store
  * definitions
  * 
- * @author jay
  * 
  */
 public class StoreDefinitionBuilder {

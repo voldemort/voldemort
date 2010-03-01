@@ -13,7 +13,6 @@ import voldemort.server.scheduler.SchedulerService;
 import voldemort.utils.SystemTime;
 
 /**
- * @author afeinberg
  */
 public class AsyncOperationTest extends TestCase {
 

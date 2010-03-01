@@ -44,7 +44,6 @@ import voldemort.versioning.Versioned;
 /**
  * Multiple JVM test for {@link AbstractAdminServiceFilterTest}
  * 
- * @author bbansal
  */
 @RunWith(Parameterized.class)
 public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {

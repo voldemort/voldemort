@@ -28,7 +28,6 @@ import org.apache.log4j.Logger;
  * User Defined Functions (Filter API) on the server side w/o needing to add jar
  * on each server.
  * 
- * @author bbansal
  * 
  */
 public class NetworkClassLoader extends ClassLoader {

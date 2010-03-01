@@ -46,7 +46,6 @@ package voldemort.utils;
  * directory upon which this operation is being performed.
  * </ol>
  * 
- * @author Kirk True
  */
 
 public interface ClusterCleaner extends RemoteOperation {

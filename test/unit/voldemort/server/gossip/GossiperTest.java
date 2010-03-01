@@ -30,7 +30,6 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * @author afeinberg
  */
 @RunWith(Parameterized.class)
 public class GossiperTest extends TestCase {

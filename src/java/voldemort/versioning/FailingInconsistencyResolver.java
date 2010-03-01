@@ -22,7 +22,6 @@ import java.util.List;
  * An inconsistency resolver that does not attempt to resolve inconsistencies,
  * but instead just throws an exception if one should occur.
  * 
- * @author jay
  */
 public class FailingInconsistencyResolver<T> implements InconsistencyResolver<T> {
 

@@ -26,7 +26,6 @@ import voldemort.cluster.Node;
  * servers. The preference list is the order under which operations will be
  * completed in the absence of failures.
  * 
- * @author jay
  * 
  */
 public interface RoutingStrategy {

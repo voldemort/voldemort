@@ -57,7 +57,6 @@ import com.google.common.collect.ImmutableList;
  * 
  * It can be embedded or run directly via it's main method.
  * 
- * @author jay
  * 
  */
 public class VoldemortServer extends AbstractService {

@@ -37,7 +37,6 @@ import voldemort.utils.RemoteOperationException;
  * going out to the shell to do this, but rsync is very flexible and can ride
  * over SSH.
  * 
- * @author Kirk True
  */
 
 public class RsyncDeployer extends CommandLineRemoteOperation implements Deployer {

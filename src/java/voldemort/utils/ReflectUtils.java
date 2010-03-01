@@ -23,7 +23,6 @@ import java.lang.reflect.Method;
 /**
  * Utilities for reflection
  * 
- * @author jay
  * 
  */
 public class ReflectUtils {

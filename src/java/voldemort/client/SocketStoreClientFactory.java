@@ -43,7 +43,6 @@ import voldemort.utils.Utils;
  * {@link voldemort.client.StoreClient StoreClient} instances for different
  * stores.
  * 
- * @author jay
  * 
  */
 public class SocketStoreClientFactory extends AbstractStoreClientFactory {

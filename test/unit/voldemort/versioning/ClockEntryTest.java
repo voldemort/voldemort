@@ -19,7 +19,6 @@ package voldemort.versioning;
 import junit.framework.TestCase;
 
 /**
- * @author jay
  * 
  */
 public class ClockEntryTest extends TestCase {

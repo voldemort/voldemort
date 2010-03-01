@@ -28,7 +28,6 @@ import com.google.common.base.Objects;
 /**
  * The configuration information for a store.
  * 
- * @author jay
  * 
  */
 public class StoreDefinition implements Serializable {

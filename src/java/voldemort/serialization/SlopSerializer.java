@@ -29,7 +29,6 @@ import voldemort.utils.ByteUtils;
 /**
  * A Serializer for writing Slops
  * 
- * @author jay
  * 
  */
 public class SlopSerializer implements Serializer<Slop> {

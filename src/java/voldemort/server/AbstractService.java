@@ -29,7 +29,6 @@ import voldemort.utils.Utils;
 /**
  * A helper template for implementing VoldemortService
  * 
- * @author jay
  * 
  */
 public abstract class AbstractService implements VoldemortService {

@@ -46,7 +46,6 @@ import voldemort.versioning.Versioned;
  * A remote store client that transmits operations via HTTP and interacts with
  * the VoldemortHttpServer.
  * 
- * @author jay
  */
 public class HttpStore implements Store<ByteArray, byte[]> {
 

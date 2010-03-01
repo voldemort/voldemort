@@ -32,7 +32,6 @@ import voldemort.utils.Utils;
 /**
  * A configuration object that holds configuration parameters for the client.
  * 
- * @author jay
  * 
  */
 public class ClientConfig {

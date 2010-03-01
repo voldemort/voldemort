@@ -4,7 +4,6 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 
 /**
- * @author afeinberg
  */
 public abstract class AsyncOperation implements Runnable {
 

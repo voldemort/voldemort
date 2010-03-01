@@ -35,7 +35,6 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.xml.ClusterMapper;
 
 /**
- * @author jay
  * 
  */
 public abstract class AbstractStoreClientFactoryTest extends TestCase {

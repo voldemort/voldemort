@@ -44,7 +44,6 @@ import voldemort.versioning.Versioned;
 /**
  * A base-socket store test that works with any store RequestFormat
  * 
- * @author jay
  * 
  */
 public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest {

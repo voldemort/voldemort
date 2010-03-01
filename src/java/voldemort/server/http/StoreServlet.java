@@ -38,7 +38,6 @@ import voldemort.utils.Utils;
  * Handles requests from HttpStores and multiplexes them to the appropriate
  * sub-store for actual storage
  * 
- * @author jay
  * 
  */
 public class StoreServlet extends HttpServlet {

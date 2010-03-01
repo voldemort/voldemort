@@ -20,7 +20,6 @@ package voldemort.utils.impl;
  * StdOutCommandOutputListener simply takes the output from the remote system
  * and logs it using System.out/System.err.
  * 
- * @author Kirk True
  */
 
 public class StdOutCommandOutputListener extends DelegatingCommandOutputListener {

@@ -3,7 +3,6 @@ package voldemort.server;
 /**
  * The various types of voldemort services
  * 
- * @author jay
  * 
  */
 public enum ServiceType {

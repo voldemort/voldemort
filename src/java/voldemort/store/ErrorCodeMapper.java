@@ -32,7 +32,6 @@ import voldemort.versioning.ObsoleteVersionException;
 /**
  * Map error codes to exceptions and vice versa
  * 
- * @author jay
  * 
  */
 public class ErrorCodeMapper {

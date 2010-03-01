@@ -30,7 +30,6 @@ import voldemort.utils.ConfigurationException;
  * A helper class that loads the Voldemort server by bootstrapping from the
  * VOLDEMORT_HOME environment variable.
  * 
- * @author jay
  * 
  */
 public class VoldemortServletContextListener implements ServletContextListener {

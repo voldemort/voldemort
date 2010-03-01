@@ -7,7 +7,6 @@ import java.util.Map;
 /**
  * Some convenient statistics to track about the store
  * 
- * @author jay
  * 
  */
 public class StoreStats {

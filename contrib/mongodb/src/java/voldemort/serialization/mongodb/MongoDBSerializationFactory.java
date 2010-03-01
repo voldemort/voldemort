@@ -8,7 +8,6 @@ import voldemort.serialization.SerializerDefinition;
  * Serializer factory that handles MongoDB serialization as well as normal
  * serializers
  * 
- * @author jay
  * 
  */
 public class MongoDBSerializationFactory extends DefaultSerializerFactory {

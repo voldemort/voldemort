@@ -41,7 +41,6 @@ import com.google.common.collect.Sets;
  * A preference list of nodes to route to is created by taking the partition
  * into which the key hashes, and then taking the next N nodes on the ring.
  * 
- * @author jay
  * 
  */
 public class ConsistentRoutingStrategy implements RoutingStrategy {

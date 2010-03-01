@@ -47,7 +47,6 @@ import com.google.common.collect.Maps;
  * you get back from a {@link voldemort.client.StoreClientFactory
  * StoreClientFactory}
  * 
- * @author jay
  * 
  * @param <K> The key type
  * @param <V> The value type

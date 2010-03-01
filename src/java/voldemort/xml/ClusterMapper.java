@@ -47,7 +47,6 @@ import voldemort.cluster.Node;
 /**
  * Parse a cluster xml file
  * 
- * @author jay
  * 
  */
 public class ClusterMapper {

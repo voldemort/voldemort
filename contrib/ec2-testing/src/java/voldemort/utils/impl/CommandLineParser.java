@@ -31,7 +31,6 @@ import java.util.List;
  * UnixCommand. UnixCommand, in turn, uses the {@link java.lang.ProcessBuilder}
  * class to build up the command to execute.
  * 
- * @author Kirk True
  */
 
 public class CommandLineParser {

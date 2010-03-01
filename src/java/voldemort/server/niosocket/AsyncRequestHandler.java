@@ -51,7 +51,6 @@ import voldemort.utils.ByteUtils;
  * as well as determining when all the data needed for the request has been
  * read.
  * 
- * @author Kirk True
  * 
  * @see voldemort.server.protocol.RequestHandler
  */

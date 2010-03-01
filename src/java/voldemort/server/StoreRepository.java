@@ -30,7 +30,6 @@ import voldemort.utils.Pair;
  * individual nodes.</li>
  * </ol>
  * 
- * @author jay
  * 
  */
 @Threadsafe

@@ -17,7 +17,6 @@ import voldemort.store.metadata.MetadataStore;
  * A factory that gets the appropriate request handler for a given
  * {@link voldemort.client.protocol.RequestFormatType}.
  * 
- * @author jay
  * 
  */
 public class SocketRequestHandlerFactory implements RequestHandlerFactory {

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 /**
  * Test cases for views
  * 
- * @author jay
  * 
  */
 public class ViewStorageEngineTest extends TestCase {

@@ -47,7 +47,6 @@ import com.google.common.collect.Lists;
 /**
  * A StorageEngine that uses Mysql for persistence
  * 
- * @author jay
  * 
  */
 public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {

@@ -51,7 +51,6 @@ import voldemort.versioning.Versioned;
  * ignoring any {@link ObsoleteVersionException} and then serve the client
  * requests.
  * 
- * @author bbansal
  * 
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {

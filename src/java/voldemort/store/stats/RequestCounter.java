@@ -8,7 +8,6 @@ import voldemort.utils.Time;
  * A thread-safe request counter that calculates throughput for a specified
  * duration of time.
  * 
- * @author elias, gmj
  * 
  */
 public class RequestCounter {

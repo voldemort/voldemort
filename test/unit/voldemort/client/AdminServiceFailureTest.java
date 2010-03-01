@@ -41,7 +41,6 @@ import com.google.common.collect.AbstractIterator;
 /**
  * Test to check streaming behavior under failure.
  * 
- * @author bbansal
  * 
  */
 @RunWith(Parameterized.class)

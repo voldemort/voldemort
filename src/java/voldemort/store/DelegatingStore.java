@@ -30,7 +30,6 @@ import voldemort.versioning.Versioned;
  * Convenient for decorating a store and overriding only certain methods to add
  * behavior.
  * 
- * @author jay
  * 
  */
 public class DelegatingStore<K, V> implements Store<K, V> {

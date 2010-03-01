@@ -33,7 +33,6 @@ import voldemort.utils.RemoteOperationException;
  * SshClusterCleaner is an implementation of ClusterCleaner that cleans a
  * particular data directory.
  * 
- * @author Kirk True
  */
 
 public class SshClusterCleaner extends CommandLineRemoteOperation implements ClusterCleaner {

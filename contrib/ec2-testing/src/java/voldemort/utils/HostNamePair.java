@@ -34,7 +34,6 @@ package voldemort.utils;
  * names should be the same. That is, they should be identical and neither
  * should be set to null.
  * 
- * @author Kirk True
  */
 
 public class HostNamePair {

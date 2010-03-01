@@ -27,7 +27,6 @@ import voldemort.serialization.Serializer;
 /**
  * Serializer for working with MongoDB Doc objects
  * 
- * @author geir
  */
 public class MongoDBDocSerializer implements Serializer<Doc> {
 

@@ -22,8 +22,6 @@ package voldemort.store.compress.lzf;
  * implementation by Thomas (which itself was inspired by original C code by
  * Marc A Lehmann)
  * 
- * @author Thomas Mueller
- * @author Tatu Saloranta
  */
 public class ChunkEncoder {
 

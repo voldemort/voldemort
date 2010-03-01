@@ -29,7 +29,6 @@ import voldemort.versioning.Versioned;
 /**
  * Server-side request handler for voldemort native client protocol
  * 
- * @author jay
  * 
  */
 public class VoldemortNativeRequestHandler extends AbstractRequestHandler implements RequestHandler {

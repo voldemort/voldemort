@@ -36,7 +36,6 @@ import com.google.common.collect.Maps;
 /**
  * TODO: cases to consider: null values? extra bytes?
  * 
- * @author jay
  * 
  */
 @SuppressWarnings("unchecked")

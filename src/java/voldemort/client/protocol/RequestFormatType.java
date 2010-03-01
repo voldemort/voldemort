@@ -19,7 +19,6 @@ package voldemort.client.protocol;
 /**
  * An enumeration of request serialization types
  * 
- * @author jay
  * 
  */
 public enum RequestFormatType {

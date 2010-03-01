@@ -26,7 +26,6 @@ import javax.management.MBeanOperationInfo;
 /**
  * Mark the given method as accessible from JMX
  * 
- * @author jay
  * 
  */
 @Retention(RetentionPolicy.RUNTIME)

@@ -20,7 +20,6 @@ package voldemort.utils;
  * A hash function that always hashes everything to the same value. Useful for
  * testing purposes.
  * 
- * @author jay
  * 
  */
 public class ConstantHashFunction implements HashFunction {

@@ -23,7 +23,6 @@ import java.util.List;
  * An inconsistency resolution strategy that always prefers the first of the two
  * objects.
  * 
- * @author jay
  * 
  */
 public class ArbitraryInconsistencyResolver<T> implements InconsistencyResolver<T> {

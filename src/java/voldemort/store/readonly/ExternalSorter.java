@@ -52,7 +52,6 @@ import com.google.common.collect.AbstractIterator;
  * Do an external sort on data coming from an input iterator and produce a new
  * iterator over the values in sorted order
  * 
- * @author jay
  * 
  * @param <V> The type of value being sorted
  */

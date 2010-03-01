@@ -22,7 +22,6 @@ import org.apache.commons.logging.Log;
  * LoggingCommandOutputListener simply takes the output from the remote system
  * and logs it using the logging API.
  * 
- * @author Kirk True
  */
 
 public class LoggingCommandOutputListener extends DelegatingCommandOutputListener {

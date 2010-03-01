@@ -20,7 +20,6 @@ import voldemort.xml.ClusterMapper;
 /**
  * Helper function to start/stop manage a Voldemort Server in a JVM.
  * 
- * @author bbansal
  * 
  */
 public class ServerJVMTestUtils {

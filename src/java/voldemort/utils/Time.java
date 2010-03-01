@@ -21,7 +21,6 @@ import java.util.Date;
 /**
  * The interface to time itself. Oh wow, your head totally just exploded.
  * 
- * @author jay
  * 
  */
 public interface Time {

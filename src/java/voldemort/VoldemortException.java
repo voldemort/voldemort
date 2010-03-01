@@ -19,7 +19,6 @@ package voldemort;
 /**
  * Base exception that all other Voldemort exceptions extend.
  * 
- * @author jay
  * 
  */
 public class VoldemortException extends RuntimeException {

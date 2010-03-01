@@ -22,7 +22,6 @@ import java.io.IOException;
 /**
  * Simple command-line utility that can be used for testing LZF compression.
  * 
- * @author Tatu Saloranta
  */
 public class LZF {
 

@@ -30,7 +30,6 @@ import voldemort.VoldemortException;
 /**
  * Helper functions FTW!
  * 
- * @author jay
  * 
  */
 public class Utils {

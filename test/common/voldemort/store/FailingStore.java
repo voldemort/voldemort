@@ -27,7 +27,6 @@ import voldemort.versioning.Versioned;
 /**
  * A store that always throws an exception for every operation
  * 
- * @author jay
  * 
  */
 public class FailingStore<K, V> implements Store<K, V> {
