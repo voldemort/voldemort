@@ -46,12 +46,18 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     private final int socketBufferSize;
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
+    private final boolean socketKeepAlive;
 
     public SocketResourceFactory(int soTimeoutMs, int socketBufferSize) {
+        this(soTimeoutMs, socketBufferSize, false);
+    }
+
+    public SocketResourceFactory(int soTimeoutMs, int socketBufferSize, boolean socketKeepAlive) {
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
+        this.socketKeepAlive = socketKeepAlive;
     }
 
     /**
@@ -74,6 +80,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         socket.setSendBufferSize(this.socketBufferSize);
         socket.setTcpNoDelay(true);
         socket.setSoTimeout(soTimeoutMs);
+        socket.setKeepAlive(this.socketKeepAlive);
         socket.connect(new InetSocketAddress(dest.getHost(), dest.getPort()), soTimeoutMs);
 
         recordSocketCreation(dest, socket);

@@ -104,8 +104,8 @@ public class AdminClient {
     private Cluster currentCluster;
 
     /**
-     * Create an instance of AdminClient given a URL of a node in the cluster. The
-     * bootstrap URL is used to get the cluster metadata.
+     * Create an instance of AdminClient given a URL of a node in the cluster.
+     * The bootstrap URL is used to get the cluster metadata.
      * 
      * @param bootstrapURL URL pointing to the bootstrap node
      * @param adminClientConfig Configuration for AdminClient specifying client
@@ -168,7 +168,8 @@ public class AdminClient {
         return new SocketPool(config.getMaxConnectionsPerNode(),
                               (int) unit.toMillis(config.getAdminConnectionTimeoutSec()),
                               (int) unit.toMillis(config.getAdminSocketTimeoutSec()),
-                              config.getAdminSocketBufferSize());
+                              config.getAdminSocketBufferSize(),
+                              config.getAdminSocketKeepAlive());
     }
 
     private <T extends Message.Builder> T sendAndReceive(int nodeId, Message message, T builder) {
@@ -1058,8 +1059,8 @@ public class AdminClient {
 
     /**
      * Retrieve the server
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} from a
-     * remote node.
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} from
+     * a remote node.
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
@@ -1069,8 +1070,8 @@ public class AdminClient {
 
     /**
      * Update the server
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state}
-     * on a remote node.
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} on a
+     * remote node.
      */
     public void updateRemoteClusterState(int nodeId,
                                          MetadataStore.VoldemortState state,
@@ -1082,7 +1083,7 @@ public class AdminClient {
 
     /**
      * Add a new store definition to all active nodes in the cluster.
-     *
+     * 
      * @param def the definition of the store to add
      */
     public void addStore(StoreDefinition def) {
@@ -1091,10 +1092,10 @@ public class AdminClient {
         VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
                                                                                          .setStoreDefinition(value);
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                         .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                                                         .setAddStore(addStoreRequest)
-                                                                                         .build();
-        for (Node node : currentCluster.getNodes()) {
+                                                                                     .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                                                     .setAddStore(addStoreRequest)
+                                                                                     .build();
+        for(Node node: currentCluster.getNodes()) {
             VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
                                                                            request,
                                                                            VAdminProto.AddStoreResponse.newBuilder());

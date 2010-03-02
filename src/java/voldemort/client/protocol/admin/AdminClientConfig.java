@@ -17,6 +17,7 @@ public class AdminClientConfig {
     private volatile long adminConnectionTimeoutSec = 300;
     private volatile long adminSocketTimeoutSec = 3600;
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
+    private volatile boolean adminSocketKeepAlive = false;
     private volatile int restoreDataTimeout = 24 * 60 * 60;
 
     public static final String MAX_CONNECTIONS_PER_NODE_PROPERTY = "max_connections";
@@ -26,6 +27,7 @@ public class AdminClientConfig {
     public static final String ADMIN_CONNECTION_TIMEOUT_SEC_PROPERTY = "admin_connection_timeout_sec";
     public static final String ADMIN_SOCKET_TIMEOUT_SEC_PROPERTY = "admin_socket_timeout_sec";
     public static final String ADMIN_SOCKET_BUFFER_SIZE_PROPERTY = "admin_socket_buffer_size";
+    public static final String ADMIN_SOCKET_KEEPALIVE_PROPERTY = "admin_socket_keepalive";
     public static final String RESTORE_DATA_TIMEOUT = "restore.data.timeout.sec";
 
     // sets better default for AdminClient
@@ -50,6 +52,9 @@ public class AdminClientConfig {
 
         if(props.containsKey(ADMIN_SOCKET_BUFFER_SIZE_PROPERTY))
             this.setAdminSocketBufferSize(props.getInt(ADMIN_SOCKET_BUFFER_SIZE_PROPERTY));
+
+        if(props.containsKey(ADMIN_SOCKET_KEEPALIVE_PROPERTY))
+            this.setAdminSocketKeepAlive(props.getBoolean(ADMIN_SOCKET_KEEPALIVE_PROPERTY));
 
         if(props.containsKey(RESTORE_DATA_TIMEOUT))
             this.setRestoreDataTimeout(props.getInt(RESTORE_DATA_TIMEOUT));
@@ -108,6 +113,15 @@ public class AdminClientConfig {
 
     public AdminClientConfig setAdminSocketBufferSize(int adminSocketBufferSize) {
         this.adminSocketBufferSize = adminSocketBufferSize;
+        return this;
+    }
+
+    public boolean getAdminSocketKeepAlive() {
+        return adminSocketKeepAlive;
+    }
+
+    public AdminClientConfig setAdminSocketKeepAlive(boolean adminSocketKeepAlive) {
+        this.adminSocketKeepAlive = adminSocketKeepAlive;
         return this;
     }
 

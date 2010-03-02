@@ -128,7 +128,8 @@ public class StorageService extends AbstractService {
         this.socketPool = new SocketPool(config.getClientMaxConnectionsPerNode(),
                                          config.getClientConnectionTimeoutMs(),
                                          config.getSocketTimeoutMs(),
-                                         config.getSocketBufferSize());
+                                         config.getSocketBufferSize(),
+                                         config.getSocketKeepAlive());
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
                                                                                                                   .getNodes())
