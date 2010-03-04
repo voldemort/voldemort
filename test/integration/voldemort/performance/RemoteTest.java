@@ -19,7 +19,6 @@ package voldemort.performance;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,13 +29,12 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.TestUtils;
 import voldemort.client.*;
-import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.CmdUtils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 public class RemoteTest {
 
@@ -227,17 +225,9 @@ public class RemoteTest {
                                                       .setConnectionTimeout(60,TimeUnit.SECONDS)
                                                       .setSocketTimeout(60,TimeUnit.SECONDS)
                                                       .setSocketBufferSize(4 * 1024);
-        StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
+        SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
         final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
-
-        StoreDefinition storeDef = null;
-        for (StoreDefinition storeDefinition: storeDefinitionList) {
-            if (storeName.equals(storeDefinition.getName())) {
-                storeDef = storeDefinition;
-            }
-        }
+        StoreDefinition storeDef = getStoreDefinition(factory, storeName);
 
         Class<?> keyType = findKeyType(storeDef);
         final String value = TestUtils.randomLetters(valueSize);
@@ -428,6 +418,20 @@ public class RemoteTest {
 
 
         System.exit(0);
+    }
+
+    private static StoreDefinition getStoreDefinition(AbstractStoreClientFactory factory, String storeName) {
+        String storesXml = factory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
+        StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefinitionList = storeMapper.readStoreList(new StringReader(storesXml));
+
+        StoreDefinition storeDef = null;
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            if (storeName.equals(storeDefinition.getName())) {
+                storeDef = storeDefinition;
+            }
+        }
+        return storeDef;
     }
 
     private static void printStatistics(String noun, int successes, long start) {
