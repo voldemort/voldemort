@@ -769,7 +769,8 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         // Okay looks like it worked, increment the version for the caller
         VectorClock versionedClock = (VectorClock) versioned.getVersion();
-        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
+        VectorClock incrementedClock = versionedClock.incremented(master.getId(), time.getMilliseconds());
+        versioned.setVersion(incrementedClock);
     }
 
     /**
