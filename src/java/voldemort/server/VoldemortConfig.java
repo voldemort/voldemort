@@ -315,7 +315,7 @@ public class VoldemortConfig implements Serializable {
         this.failureDetectorCatastrophicErrorTypes = props.getList("failuredetector.catastrophic.error.types",
                                                                    FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES);
         this.failureDetectorRequestLengthThreshold = props.getLong("failuredetector.request.length.threshold",
-                                                                   clientRoutingTimeoutMs / 10);
+                                                                   getSocketTimeoutMs());
 
         // network class loader disable by default.
         this.enableNetworkClassLoader = props.getBoolean("enable.network.classloader", false);

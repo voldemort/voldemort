@@ -58,7 +58,7 @@ public class ClientConfig {
     private volatile long failureDetectorThresholdInterval = FailureDetectorConfig.DEFAULT_THRESHOLD_INTERVAL;
     private volatile long failureDetectorAsyncRecoveryInterval = FailureDetectorConfig.DEFAULT_ASYNC_RECOVERY_INTERVAL;
     private volatile List<String> failureDetectorCatastrophicErrorTypes = FailureDetectorConfig.DEFAULT_CATASTROPHIC_ERROR_TYPES;
-    private long failureDetectorRequestLengthThreshold = FailureDetectorConfig.DEFAULT_REQUEST_LENGTH_THRESHOLD;
+    private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
     private volatile int maxBootstrapRetries = 2;
 
@@ -175,7 +175,7 @@ public class ClientConfig {
         if(props.containsKey(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY))
             this.setFailureDetectorRequestLengthThreshold(props.getLong(FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY));
         else
-            this.setFailureDetectorRequestLengthThreshold(getRoutingTimeout(TimeUnit.MILLISECONDS) / 10);
+            this.setFailureDetectorRequestLengthThreshold(getSocketTimeout(TimeUnit.MILLISECONDS));
 
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));

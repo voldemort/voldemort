@@ -57,7 +57,7 @@ public class FailureDetectorConfig {
                                                                                          UnknownHostException.class.getName(),
                                                                                          NoRouteToHostException.class.getName());
 
-    public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 1000;
+    public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 5000;
 
     protected String implementationClassName = DEFAULT_IMPLEMENTATION_CLASS_NAME;
 
