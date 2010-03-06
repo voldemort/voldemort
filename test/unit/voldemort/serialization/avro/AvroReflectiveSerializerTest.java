@@ -21,9 +21,6 @@ import org.apache.avro.util.Utf8;
 
 /**
  * Tests the serialization using the Avro reflective approach.
- * 
- * @author antoine
- * 
  */
 public class AvroReflectiveSerializerTest extends TestCase {
 

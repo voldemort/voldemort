@@ -23,9 +23,6 @@ import org.apache.avro.util.Utf8;
 
 /**
  * Tests the serialization using the Avro generic approach.
- * 
- * @author antoine
- * 
  */
 public class AvroGenericSerializerTest extends TestCase {
 

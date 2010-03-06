@@ -23,9 +23,6 @@ import org.apache.avro.util.Utf8;
 
 /**
  * Tests the serialization using the Avro specific approach.
- * 
- * @author antoine
- * 
  */
 public class AvroSpecificSerializerTest extends TestCase {
 
