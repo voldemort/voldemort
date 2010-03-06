@@ -74,17 +74,12 @@ public class AvroSpecificSerializer implements Serializer<Object> {
                                                                                 .getSchema(clazz),
                                                                     output);
             writer.append(object);
-            writer.flush();
-            return output.toByteArray();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            if(writer != null) {
-                try {
-                    writer.close();
-                } catch(IOException e) {}
-            }
+            AvroUtils.close(writer);
         }
+        return output.toByteArray();
     }
 
     public Object toObject(byte[] bytes) {
@@ -97,11 +92,7 @@ public class AvroSpecificSerializer implements Serializer<Object> {
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            if(reader != null) {
-                try {
-                    reader.close();
-                } catch(IOException e) {}
-            }
+            AvroUtils.close(reader);
         }
     }
 }

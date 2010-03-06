@@ -58,17 +58,12 @@ public class AvroGenericSerializer implements Serializer<Object> {
 
             writer = new DataFileWriter<Object>(datumWriter).create(typeDef, output);
             writer.append(object);
-            writer.flush();
-            return output.toByteArray();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            if(writer != null) {
-                try {
-                    writer.close();
-                } catch(IOException e) {}
-            }
+            AvroUtils.close(writer);
         }
+        return output.toByteArray();
     }
 
     public Object toObject(byte[] bytes) {
@@ -81,11 +76,7 @@ public class AvroGenericSerializer implements Serializer<Object> {
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            if(reader != null) {
-                try {
-                    reader.close();
-                } catch(IOException e) {}
-            }
+            AvroUtils.close(reader);
         }
     }
 }
