@@ -51,7 +51,7 @@ public class AvroReflectiveSerializerTest extends TestCase {
 
     public void testFailWithInvalidSchemaInfo() {
         try {
-            new AvroSpecificSerializer("ruby=Map");
+            new AvroReflectiveSerializer<Object>("ruby=Map");
         } catch(Exception e) {
             return;
         }
@@ -63,9 +63,9 @@ public class AvroReflectiveSerializerTest extends TestCase {
         pojo.setDistance(1.2);
         pojo.setPoint(1);
         pojo.setName(new Utf8("name"));
-        AvroReflectiveSerializer serializer = new AvroReflectiveSerializer("java="
-                                                                           + AvroReflectiveSerializerTest.class.getCanonicalName()
-                                                                           + "$POJO");
+        AvroReflectiveSerializer<POJO> serializer = new AvroReflectiveSerializer<POJO>("java="
+                                                                                 + AvroReflectiveSerializerTest.class.getCanonicalName()
+                                                                                 + "$POJO");
         byte[] bytes = serializer.toBytes(pojo);
         assertTrue("A roundtripping should be possible", serializer.toObject(bytes).equals(pojo));
     }

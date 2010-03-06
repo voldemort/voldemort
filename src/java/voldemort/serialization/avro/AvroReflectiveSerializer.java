@@ -51,9 +51,9 @@ import voldemort.serialization.Serializer;
  * 
  * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/reflect/package-summary.html
  */
-public class AvroReflectiveSerializer implements Serializer<Object> {
+public class AvroReflectiveSerializer<T> implements Serializer<T> {
 
-    private final Class clazz;
+    private final Class<T> clazz;
 
     /**
      * Constructor accepting a Java class name under the convention
@@ -61,23 +61,23 @@ public class AvroReflectiveSerializer implements Serializer<Object> {
      * 
      * @param schemaInfo information on the schema for the serializer.
      */
+    @SuppressWarnings("unchecked")
     public AvroReflectiveSerializer(String schemaInfo) {
         try {
-            clazz = Class.forName(SerializationUtils.getJavaClassFromSchemaInfo(schemaInfo));
+            clazz = (Class<T>) Class.forName(SerializationUtils.getJavaClassFromSchemaInfo(schemaInfo));
         } catch(ClassNotFoundException e) {
             throw new SerializationException(e);
         }
     }
 
-    public byte[] toBytes(Object object) {
+    public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        DataFileWriter<Object> writer = null;
+        DataFileWriter<T> writer = null;
         try {
-            DatumWriter<Object> datumWriter = new ReflectDatumWriter<Object>(clazz);
+            DatumWriter<T> datumWriter = new ReflectDatumWriter<T>(clazz);
 
-            writer = new DataFileWriter<Object>(datumWriter).create(ReflectData.get()
-                                                                               .getSchema(clazz),
-                                                                    output);
+            writer = new DataFileWriter<T>(datumWriter).create(ReflectData.get().getSchema(clazz),
+                                                               output);
             writer.append(object);
         } catch(IOException e) {
             throw new SerializationException(e);
@@ -87,12 +87,12 @@ public class AvroReflectiveSerializer implements Serializer<Object> {
         return output.toByteArray();
     }
 
-    public Object toObject(byte[] bytes) {
+    public T toObject(byte[] bytes) {
         ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        DataFileStream<Object> reader = null;
+        DataFileStream<T> reader = null;
         try {
-            DatumReader<Object> datumReader = new ReflectDatumReader(clazz);
-            reader = new DataFileStream<Object>(input, datumReader);
+            DatumReader<T> datumReader = new ReflectDatumReader<T>(clazz);
+            reader = new DataFileStream<T>(input, datumReader);
             return reader.next();
         } catch(IOException e) {
             throw new SerializationException(e);

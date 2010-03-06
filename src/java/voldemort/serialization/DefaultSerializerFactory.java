@@ -74,7 +74,7 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(AVRO_SPECIFIC_TYPE_NAME)) {
             return new AvroSpecificSerializer<SpecificRecord>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_REFLECTIVE_TYPE_NAME)) {
-            return new AvroReflectiveSerializer(serializerDef.getCurrentSchemaInfo());
+            return new AvroReflectiveSerializer<Object>(serializerDef.getCurrentSchemaInfo());
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());
