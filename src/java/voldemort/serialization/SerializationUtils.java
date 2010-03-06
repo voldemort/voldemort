@@ -18,10 +18,7 @@ package voldemort.serialization;
 import org.apache.commons.lang.StringUtils;
 
 /**
- * @author antoine
- * 
- *         A set of Utils methods that are reused in different serializers.
- * 
+ * A set of Utils methods that are reused in different serializers.
  */
 public class SerializationUtils {
 
