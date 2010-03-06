@@ -26,6 +26,7 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.avro.specific.SpecificRecord;
 
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.SerializationUtils;
@@ -46,9 +47,9 @@ import voldemort.serialization.Serializer;
  * 
  * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic/package-summary.html
  */
-public class AvroSpecificSerializer implements Serializer<Object> {
+public class AvroSpecificSerializer<T extends SpecificRecord> implements Serializer<T> {
 
-    private final Class clazz;
+    private final Class<T> clazz;
 
     /**
      * Constructor accepting a Java class name under the convention
@@ -56,23 +57,25 @@ public class AvroSpecificSerializer implements Serializer<Object> {
      * 
      * @param schemaInfo information on the schema for the serializer.
      */
+    @SuppressWarnings("unchecked")
     public AvroSpecificSerializer(String schemaInfo) {
         try {
-            clazz = Class.forName(SerializationUtils.getJavaClassFromSchemaInfo(schemaInfo));
+            clazz = (Class<T>) Class.forName(SerializationUtils.getJavaClassFromSchemaInfo(schemaInfo));
+            if(!SpecificRecord.class.isAssignableFrom(clazz))
+                throw new IllegalArgumentException("Class provided should implement SpecificRecord");
         } catch(ClassNotFoundException e) {
             throw new SerializationException(e);
         }
     }
 
-    public byte[] toBytes(Object object) {
+    public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        DataFileWriter<Object> writer = null;
+        DataFileWriter<T> writer = null;
         try {
-            DatumWriter<Object> datumWriter = new SpecificDatumWriter(clazz);
+            DatumWriter<T> datumWriter = new SpecificDatumWriter<T>(clazz);
 
-            writer = new DataFileWriter<Object>(datumWriter).create(SpecificData.get()
-                                                                                .getSchema(clazz),
-                                                                    output);
+            writer = new DataFileWriter<T>(datumWriter).create(SpecificData.get().getSchema(clazz),
+                                                               output);
             writer.append(object);
         } catch(IOException e) {
             throw new SerializationException(e);
@@ -82,12 +85,12 @@ public class AvroSpecificSerializer implements Serializer<Object> {
         return output.toByteArray();
     }
 
-    public Object toObject(byte[] bytes) {
+    public T toObject(byte[] bytes) {
         ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        DataFileStream<Object> reader = null;
+        DataFileStream<T> reader = null;
         try {
-            DatumReader<Object> datumReader = new SpecificDatumReader(clazz);
-            reader = new DataFileStream<Object>(input, datumReader);
+            DatumReader<T> datumReader = new SpecificDatumReader<T>(clazz);
+            reader = new DataFileStream<T>(input, datumReader);
             return reader.next();
         } catch(IOException e) {
             throw new SerializationException(e);

@@ -19,6 +19,7 @@ import junit.framework.TestCase;
 
 import org.apache.avro.ipc.HandshakeRequest;
 import org.apache.avro.ipc.MD5;
+import org.apache.avro.specific.SpecificRecord;
 import org.apache.avro.util.Utf8;
 
 /**
@@ -28,7 +29,7 @@ public class AvroSpecificSerializerTest extends TestCase {
 
     public void testFailWithInvalidSchemaInfo() {
         try {
-            new AvroSpecificSerializer("ruby=Map");
+            new AvroSpecificSerializer<SpecificRecord>("ruby=Map");
         } catch(Exception e) {
             return;
         }
@@ -46,7 +47,7 @@ public class AvroSpecificSerializerTest extends TestCase {
         req.clientProtocol = new Utf8("");
         req.serverHash = new MD5();
 
-        AvroSpecificSerializer serializer = new AvroSpecificSerializer(className);
+        AvroSpecificSerializer<HandshakeRequest> serializer = new AvroSpecificSerializer<HandshakeRequest>(className);
         byte[] bytes = serializer.toBytes(req);
         assertTrue(serializer.toObject(bytes).equals(req));
     }
