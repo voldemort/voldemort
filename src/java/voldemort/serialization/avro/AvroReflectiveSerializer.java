@@ -37,8 +37,7 @@ import voldemort.serialization.avro.AvroGenericSerializer.SeekableByteArrayInput
  * 
  * Reflexivity is supported from either the class, the schema or both.
  * 
- * For now we only support the class case, the code should be stress-tested once
- * Avro 1.3 is out.
+ * For now we only support the class case.
  */
 public class AvroReflectiveSerializer implements Serializer<Object> {
 
