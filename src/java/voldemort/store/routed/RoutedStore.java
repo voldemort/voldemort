@@ -582,14 +582,26 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         return new NodeValue<ByteArray, byte[]>(node.getId(), key, new Versioned<byte[]>(null));
     }
 
-    private void repairReads(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
+    private void repairReads(List<NodeValue<ByteArray, byte[]>> nodeValues) {
         if(!repairReads || nodeValues.size() <= 1 || storeDef.getPreferredReads() <= 1)
             return;
+
+        final List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
+        /*
+         * We clone after computing read repairs in the assumption that the
+         * output will be smaller than the input. Note that we clone the
+         * version, but not the key or value as the latter two are not mutated.
+         */
+        for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
+            Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
+                                                          ((VectorClock) v.getVersion()).clone());
+            toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
+        }
 
         this.executor.execute(new Runnable() {
 
             public void run() {
-                for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
+                for(NodeValue<ByteArray, byte[]> v: toReadRepair) {
                     try {
                         if(logger.isDebugEnabled())
                             logger.debug("Doing read repair on node " + v.getNodeId()
