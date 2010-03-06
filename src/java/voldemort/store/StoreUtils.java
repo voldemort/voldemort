@@ -16,8 +16,8 @@
 
 package voldemort.store;
 
+import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -98,19 +98,18 @@ public class StoreUtils {
     }
 
     /**
-     * Closes an InputStream and logs a potential error instead of re-throwing
-     * the exception. If a {@code null} stream is passed, this method is a
-     * no-op.
+     * Closes a Closeable and logs a potential error instead of re-throwing the
+     * exception. If {@code null} is passed, this method is a no-op.
      * 
      * This is typically used in finally blocks to prevent an exception thrown
      * during close from hiding an exception thrown inside the try.
      * 
-     * @param stream the InputStream to close, may be null.
+     * @param stream the Closeable to close, may be null.
      */
-    public static void close(InputStream stream) {
-        if(stream != null) {
+    public static void close(Closeable c) {
+        if(c != null) {
             try {
-                stream.close();
+                c.close();
             } catch(IOException e) {
                 logger.error("Error closing stream", e);
             }
