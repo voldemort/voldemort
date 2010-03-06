@@ -32,8 +32,11 @@ import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 
 /**
- * AvroSerializer uses the avro protocol to serialize objects
+ * Avro serializer that uses the generic representation for Avro data. This
+ * representation is best for applications which deal with dynamic data, whose
+ * schemas are not known until runtime.
  * 
+ * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic/package-summary.html
  */
 public class AvroGenericSerializer implements Serializer<Object> {
 

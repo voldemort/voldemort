@@ -32,12 +32,24 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.avro.AvroGenericSerializer.SeekableByteArrayInput;
 
 /**
- * Avro serializer uses the avro protocol to serialize objects of a particular
- * class type using reflexivity.
+ * <p>
+ * Avro serializer that uses Java reflection to generate schemas and protocols
+ * for existing classes.
+ * </p>
  * 
- * Reflexivity is supported from either the class, the schema or both.
+ * <p>
+ * This API is not recommended except as a stepping stone for systems that
+ * currently uses Java interfaces to define RPC protocols. For new RPC systems,
+ * the Avro specific API is preferred. For systems that process dynamic data,
+ * the Avro generic API is probably best.
+ * </p>
  * 
- * For now we only support the class case.
+ * <p>
+ * Reflection is supported from either the class, the schema or both.
+ * <strong>For now we only support the class case.</strong>
+ * </p>
+ * 
+ * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/reflect/package-summary.html
  */
 public class AvroReflectiveSerializer implements Serializer<Object> {
 

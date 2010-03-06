@@ -32,8 +32,19 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.avro.AvroGenericSerializer.SeekableByteArrayInput;
 
 /**
- * Avro serializer uses the avro protocol to serialize objects of a particular
- * class type.
+ * <p>
+ * Avro serializer that relies on generated Java classes for schemas and
+ * protocols.
+ * </p>
+ * 
+ * <p>
+ * This API is recommended for most RPC uses and for data applications that
+ * always use the same datatypes, i.e., whose schemas are known at compile time.
+ * For data applications that accept dynamic datatypes the generic API is
+ * recommended.
+ * </p>
+ * 
+ * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic/package-summary.html
  */
 public class AvroSpecificSerializer implements Serializer<Object> {
 
