@@ -20,9 +20,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.file.SeekableInput;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.DatumReader;
@@ -73,12 +72,12 @@ public class AvroGenericSerializer implements Serializer<Object> {
     }
 
     public Object toObject(byte[] bytes) {
-        SeekableByteArrayInput input = new SeekableByteArrayInput(bytes);
-        DataFileReader<Object> reader = null;
+        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
+        DataFileStream<Object> reader = null;
         try {
             DatumReader<Object> datumReader = new GenericDatumReader<Object>(typeDef);
-            reader = new DataFileReader<Object>(input, datumReader);
-            return reader.next(null);
+            reader = new DataFileStream<Object>(input, datumReader);
+            return reader.next();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
@@ -89,30 +88,4 @@ public class AvroGenericSerializer implements Serializer<Object> {
             }
         }
     }
-
-    /**
-     * A simple implementation of the SeekableInput for a ByteArrayInputStream.
-     * 
-     * @author antoine
-     */
-    static class SeekableByteArrayInput extends ByteArrayInputStream implements SeekableInput {
-
-        public SeekableByteArrayInput(byte[] buf) {
-            super(buf);
-        }
-
-        public long length() throws IOException {
-            return buf.length;
-        }
-
-        public void seek(long p) throws IOException {
-            pos = (int) p;
-        }
-
-        public long tell() throws IOException {
-            return pos;
-        }
-
-    }
-
 }

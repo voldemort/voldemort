@@ -15,10 +15,11 @@
  */
 package voldemort.serialization.avro;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
@@ -29,7 +30,6 @@ import org.apache.avro.reflect.ReflectDatumWriter;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.SerializationUtils;
 import voldemort.serialization.Serializer;
-import voldemort.serialization.avro.AvroGenericSerializer.SeekableByteArrayInput;
 
 /**
  * <p>
@@ -93,12 +93,12 @@ public class AvroReflectiveSerializer implements Serializer<Object> {
     }
 
     public Object toObject(byte[] bytes) {
-        SeekableByteArrayInput input = new SeekableByteArrayInput(bytes);
-        DataFileReader<Object> reader = null;
+        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
+        DataFileStream<Object> reader = null;
         try {
             DatumReader<Object> datumReader = new ReflectDatumReader(clazz);
-            reader = new DataFileReader<Object>(input, datumReader);
-            return reader.next(null);
+            reader = new DataFileStream<Object>(input, datumReader);
+            return reader.next();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
