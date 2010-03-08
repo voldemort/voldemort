@@ -32,7 +32,7 @@ public final class Versioned<T> implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    private volatile VectorClock version;
+    private VectorClock version;
     private volatile T object;
 
     public Versioned(T object) {
@@ -46,10 +46,6 @@ public final class Versioned<T> implements Serializable {
 
     public Version getVersion() {
         return version;
-    }
-
-    public void setVersion(VectorClock version) {
-        this.version = version;
     }
 
     public T getValue() {
