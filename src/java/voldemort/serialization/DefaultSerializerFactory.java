@@ -60,11 +60,15 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(IDENTITY_SERIALIZER_TYPE_NAME)) {
             return new IdentitySerializer();
         } else if(name.equals(JSON_SERIALIZER_TYPE_NAME)) {
-            Map<Integer, JsonTypeDefinition> versions = new HashMap<Integer, JsonTypeDefinition>();
-            for(Map.Entry<Integer, String> entry: serializerDef.getAllSchemaInfoVersions()
-                                                               .entrySet())
-                versions.put(entry.getKey(), JsonTypeDefinition.fromJson(entry.getValue()));
-            return new JsonTypeSerializer(versions);
+            if(serializerDef.hasVersion()) {
+                Map<Integer, JsonTypeDefinition> versions = new HashMap<Integer, JsonTypeDefinition>();
+                for(Map.Entry<Integer, String> entry: serializerDef.getAllSchemaInfoVersions()
+                                                                   .entrySet())
+                    versions.put(entry.getKey(), JsonTypeDefinition.fromJson(entry.getValue()));
+                return new JsonTypeSerializer(versions);
+            } else {
+                return new JsonTypeSerializer(JsonTypeDefinition.fromJson(serializerDef.getCurrentSchemaInfo()));
+            }
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {

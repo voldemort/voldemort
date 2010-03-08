@@ -11,7 +11,8 @@ public class ReadOnlyUtils {
     public static final int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
     public static int chunk(byte[] key, int numChunks) {
-        return Math.abs(ByteUtils.readInt(key, 0)) % numChunks;
+        // max handles abs(Integer.MIN_VALUE)
+        return Math.max(0, Math.abs(ByteUtils.readInt(key, 0))) % numChunks;
     }
 
     public static byte[] readKey(ByteBuffer index, int indexByteOffset, byte[] foundKey) {

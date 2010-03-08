@@ -31,6 +31,7 @@ import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
@@ -108,8 +109,21 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         md5er = ByteUtils.getDigest("md5");
         keySerializerDefinition = getStoreDef().getKeySerializer();
         valueSerializerDefinition = getStoreDef().getValueSerializer();
-        keySerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(keySerializerDefinition);
-        valueSerializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(valueSerializerDefinition);
+
+        try {
+            SerializerFactory factory = new DefaultSerializerFactory();
+
+            if(conf.get("serializer.factory") != null) {
+                factory = (SerializerFactory) Class.forName(conf.get("serializer.factory"))
+                                                   .newInstance();
+            }
+
+            keySerializer = (Serializer<Object>) factory.getSerializer(keySerializerDefinition);
+            valueSerializer = (Serializer<Object>) factory.getSerializer(valueSerializerDefinition);
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
+
         keyCompressor = new CompressionStrategyFactory().get(keySerializerDefinition.getCompression());
         valueCompressor = new CompressionStrategyFactory().get(valueSerializerDefinition.getCompression());
 
