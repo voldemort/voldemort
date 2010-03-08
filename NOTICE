@@ -3,7 +3,8 @@
    ==  the Apache License, Version 2.0                                    ==
    =========================================================================
 
-This product includes the libraries 
+This product includes the libraries
+  Avro 
   commons-codec
   commons-collections
   commons-dbcp
@@ -24,6 +25,10 @@ This product includes google-collections and protocol buffers, two libraries dev
 This product includes jdom, a library developed by jdom.org.
 
 This product includes jopt-simple, a library for parsing command line options (http://jopt-simple.sourceforge.net/).
+
+This product includes Jackson, a JSON processor (http://jackson.codehaus.org/).
+
+This product includes ParaNamer, a library that allows the parameter names of non-private methods and constructors to be accessed at runtime (http://paranamer.codehaus.org/).
 
 This product includes BDB, Java edition, A library developed by Oracle (http://www.oracle.com/database/berkeley-db/je/index.html), which includes
 the following license information:
