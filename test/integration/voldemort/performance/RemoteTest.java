@@ -354,7 +354,7 @@ public class RemoteTest {
                                 latch.countDown();
                                 if (j % interval == 0) {
                                     printStatistics("reads", numReads.get(), start);
-                                    printStatistics("nulls", numNulls.get(), start);
+                                    printNulls(numNulls.get(), start);
                                 }
                             }
                         }
@@ -369,7 +369,7 @@ public class RemoteTest {
             final AtomicInteger numNulls = new AtomicInteger(0);
             final AtomicInteger numReads = new AtomicInteger(0);
             final AtomicInteger numWrites = new AtomicInteger(0);
-            System.out.println("Beginning read test.");
+            System.out.println("Beginning mixed test.");
             final KeyProvider<?> keyProvider = getKeyProvider(keyType, startNum, keys);
             final CountDownLatch latch = new CountDownLatch(numRequests);
             final long start = System.currentTimeMillis();
@@ -402,7 +402,7 @@ public class RemoteTest {
                                 if (j % interval == 0) {
                                     printStatistics("reads", numReads.get(), start);
                                     printStatistics("writes", numWrites.get(), start);
-                                    printStatistics("nulls", numNulls.get(), start);
+                                    printNulls(numNulls.get(), start);
                                     printStatistics("transactions", j, start);
                                 }
                                 latch.countDown();
@@ -432,6 +432,11 @@ public class RemoteTest {
             }
         }
         return storeDef;
+    }
+    private static void printNulls(int nulls, long start) {
+        long nullTime = System.currentTimeMillis() - start;
+        System.out.println(( nulls / (float) nullTime * 100) + " nulls/sec");
+        System.out.println(nulls + " null values.");
     }
 
     private static void printStatistics(String noun, int successes, long start) {
