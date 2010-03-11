@@ -71,6 +71,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     private final static Logger logger = Logger.getLogger(AdminServiceRequestHandler.class);
 
+    private final static Object lock = new Object();
+
     private final ErrorCodeMapper errorCodeMapper;
     private final MetadataStore metadataStore;
     private final StorageService storageService;
@@ -466,41 +468,45 @@ public class AdminServiceRequestHandler implements RequestHandler {
             return response.build();
         }
 
-        try {
-            // adding a store requires decoding the passed in store string
-            StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
-            StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+        // only allow a single store to be created at a time. We'll see concurrent errors when writing the
+        // stores.xml file out otherwise. (see ConfigurationStorageEngine.put for details)
+        synchronized(lock) {
+            try {
+                // adding a store requires decoding the passed in store string
+                StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+                StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
 
-            if(!storeRepository.hasLocalStore(def.getName())) {
-                // open the store
-                storageService.openStore(def);
+                if(!storeRepository.hasLocalStore(def.getName())) {
+                    // open the store
+                    storageService.openStore(def);
 
-                // update stores list in metadata store (this also has the
-                // effect of updating the stores.xml file)
-                List<StoreDefinition> currentStoreDefs;
-                List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY);
+                    // update stores list in metadata store (this also has the
+                    // effect of updating the stores.xml file)
+                    List<StoreDefinition> currentStoreDefs;
+                    List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY);
 
-                if(((v.size() > 0) ? 1 : 0) > 0) {
-                    Versioned<byte[]> currentValue = v.get(0);
-                    currentStoreDefs = mapper.readStoreList(new StringReader(ByteUtils.getString(currentValue.getValue(),
-                                                                                                 "UTF-8")));
+                    if(((v.size() > 0) ? 1 : 0) > 0) {
+                        Versioned<byte[]> currentValue = v.get(0);
+                        currentStoreDefs = mapper.readStoreList(new StringReader(ByteUtils.getString(currentValue.getValue(),
+                                                                                                     "UTF-8")));
+                    } else {
+                        currentStoreDefs = Lists.newArrayList();
+                    }
+                    currentStoreDefs.add(def);
+
+                    metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
                 } else {
-                    currentStoreDefs = Lists.newArrayList();
+                    throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
+                                                                           def.getName()));
                 }
-                currentStoreDefs.add(def);
 
-                metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
-            } else {
-                throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
-                                                                       def.getName()));
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
             }
 
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
+            return response.build();
         }
-
-        return response.build();
     }
 
     /**
