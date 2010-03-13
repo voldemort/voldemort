@@ -468,13 +468,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
             return response.build();
         }
 
-        // only allow a single store to be created at a time. We'll see concurrent errors when writing the
-        // stores.xml file out otherwise. (see ConfigurationStorageEngine.put for details)
-        synchronized(lock) {
-            try {
-                // adding a store requires decoding the passed in store string
-                StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
-                StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+        try {
+            // adding a store requires decoding the passed in store string
+            StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+            StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
+
+            synchronized(lock) {
+                // only allow a single store to be created at a time. We'll see concurrent errors when writing the
+                // stores.xml file out otherwise. (see ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
                     // open the store
@@ -499,14 +500,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
                                                                            def.getName()));
                 }
-
-            } catch(VoldemortException e) {
-                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-                logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
             }
-
-            return response.build();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleAddStore failed for request(" + request.toString() + ")", e);
         }
+
+        return response.build();
+
     }
 
     /**
