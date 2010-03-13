@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2010 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.protocol.admin;
 
 import java.util.*;
@@ -17,23 +33,20 @@ import voldemort.server.scheduler.SchedulerService;
  * Asynchronous job scheduler for admin service operations.
  *
  * TODO: requesting a unique id, then creating an operation with that id seems like a bad API design.
- * TODO: rename to something more sensible (AsyncOperationService?)
  *
  */
 @JmxManaged(description = "Asynchronous operation execution")
-public class AsyncOperationRunner extends AbstractService {
+public class AsyncOperationService extends AbstractService {
 
     private final Map<Integer, AsyncOperation> operations;
     private final AtomicInteger lastOperationId = new AtomicInteger(0);
     private final SchedulerService scheduler;
 
-    private final static Logger logger = Logger.getLogger(AsyncOperationRunner.class);
+    private final static Logger logger = Logger.getLogger(AsyncOperationService.class);
 
-    @SuppressWarnings("unchecked")
-    // apache commons collections aren't updated for 1.5 yet
-    public AsyncOperationRunner(SchedulerService scheduler, int cacheSize) {
+    public AsyncOperationService(SchedulerService scheduler, int cacheSize) {
         super(ServiceType.ASYNC_SCHEDULER);
-        operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
+        operations = Collections.synchronizedMap(new AsyncOperationCache(cacheSize));
         this.scheduler = scheduler;
     }
 

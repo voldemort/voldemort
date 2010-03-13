@@ -77,7 +77,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final StoreRepository storeRepository;
     private final NetworkClassLoader networkClassLoader;
     private final VoldemortConfig voldemortConfig;
-    private final AsyncOperationRunner asyncRunner;
+    private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -85,7 +85,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                       StoreRepository storeRepository,
                                       MetadataStore metadataStore,
                                       VoldemortConfig voldemortConfig,
-                                      AsyncOperationRunner asyncRunner,
+                                      AsyncOperationService asyncService,
                                       Rebalancer rebalancer) {
         this.errorCodeMapper = errorCodeMapper;
         this.storageService = storageService;
@@ -94,7 +94,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         this.voldemortConfig = voldemortConfig;
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.asyncRunner = asyncRunner;
+        this.asyncService = asyncService;
         this.rebalancer = rebalancer;
     }
 
@@ -226,7 +226,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationListResponse.Builder response = VAdminProto.AsyncOperationListResponse.newBuilder();
         boolean showComplete = request.hasShowComplete() && request.getShowComplete();
         try {
-            response.addAllRequestIds(asyncRunner.getAsyncOperationList(showComplete));
+            response.addAllRequestIds(asyncService.getAsyncOperationList(showComplete));
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")",
@@ -240,7 +240,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationStopResponse.Builder response = VAdminProto.AsyncOperationStopResponse.newBuilder();
         int requestId = request.getRequestId();
         try {
-            asyncRunner.stopOperation(requestId);
+            asyncService.stopOperation(requestId);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")",
@@ -259,7 +259,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
-        int requestId = asyncRunner.getUniqueRequestId();
+        int requestId = asyncService.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)
@@ -267,7 +267,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
 
         try {
-            asyncRunner.submitOperation(requestId,
+            asyncService.submitOperation(requestId,
                                         new AsyncOperation(requestId, "Fetch and Update") {
 
                                             private final AtomicBoolean running = new AtomicBoolean(true);
@@ -329,8 +329,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
             int requestId = request.getRequestId();
-            AsyncOperationStatus operationStatus = asyncRunner.getOperationStatus(requestId);
-            boolean requestComplete = asyncRunner.isComplete(requestId);
+            AsyncOperationStatus operationStatus = asyncService.getOperationStatus(requestId);
+            boolean requestComplete = asyncService.isComplete(requestId);
             response.setDescription(operationStatus.getDescription());
             response.setComplete(requestComplete);
             response.setStatus(operationStatus.getStatus());
