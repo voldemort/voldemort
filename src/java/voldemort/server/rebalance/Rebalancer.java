@@ -15,7 +15,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
-import voldemort.server.protocol.admin.AsyncOperationRunner;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
@@ -28,14 +28,14 @@ public class Rebalancer implements Runnable {
 
     private final AtomicBoolean rebalancePermit = new AtomicBoolean(false);
     private final MetadataStore metadataStore;
-    private final AsyncOperationRunner asyncRunner;
+    private final AsyncOperationService asyncService;
     private final VoldemortConfig voldemortConfig;
 
     public Rebalancer(MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
-                      AsyncOperationRunner asyncRunner) {
+                      AsyncOperationService asyncService) {
         this.metadataStore = metadataStore;
-        this.asyncRunner = asyncRunner;
+        this.asyncService = asyncService;
         this.voldemortConfig = voldemortConfig;
     }
 
@@ -136,9 +136,9 @@ public class Rebalancer implements Runnable {
                                                                                                           : stealInfo.getUnbalancedStoreList()
                                                                                                                      .size();
 
-        int requestId = asyncRunner.getUniqueRequestId();
+        int requestId = asyncService.getUniqueRequestId();
 
-        asyncRunner.submitOperation(requestId,
+        asyncService.submitOperation(requestId,
                                     new AsyncOperation(requestId, "Rebalance Operation:"
                                                                   + stealInfo.toString()) {
 

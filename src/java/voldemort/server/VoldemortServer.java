@@ -36,7 +36,7 @@ import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
-import voldemort.server.protocol.admin.AsyncOperationRunner;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.scheduler.SchedulerService;
@@ -71,7 +71,7 @@ public class VoldemortServer extends AbstractService {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final MetadataStore metadata;
-    private AsyncOperationRunner asyncRunner;
+    private AsyncOperationService asyncService;
 
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
@@ -98,8 +98,8 @@ public class VoldemortServer extends AbstractService {
         this.services = createServices();
     }
 
-    public AsyncOperationRunner getAsyncRunner() {
-        return asyncRunner;
+    public AsyncOperationService getAsyncRunner() {
+        return asyncService;
     }
 
     private List<VoldemortService> createServices() {
@@ -113,11 +113,11 @@ public class VoldemortServer extends AbstractService {
                                                            scheduler,
                                                            voldemortConfig);
 
-        asyncRunner = new AsyncOperationRunner(scheduler, ASYNC_REQUEST_CACHE_SIZE);
+        asyncService = new AsyncOperationService(scheduler, ASYNC_REQUEST_CACHE_SIZE);
 
         services.add(storageService);
         services.add(scheduler);
-        services.add(asyncRunner);
+        services.add(asyncService);
 
         if(voldemortConfig.isHttpServerEnabled())
             services.add(new HttpService(this,
@@ -131,7 +131,7 @@ public class VoldemortServer extends AbstractService {
                                                                                                 this.storeRepository,
                                                                                                 this.metadata,
                                                                                                 this.voldemortConfig,
-                                                                                                this.asyncRunner,
+                                                                                                this.asyncService,
                                                                                                 null);
 
             if(voldemortConfig.getUseNioConnector()) {
@@ -159,7 +159,7 @@ public class VoldemortServer extends AbstractService {
             if(voldemortConfig.isEnableRebalanceService()) {
                 RebalancerService rebalancerService = new RebalancerService(metadata,
                                                                             voldemortConfig,
-                                                                            asyncRunner,
+                                                                            asyncService,
                                                                             scheduler);
                 services.add(rebalancerService);
                 rebalancer = rebalancerService.getRebalancer();
@@ -169,7 +169,7 @@ public class VoldemortServer extends AbstractService {
                                                                                                      this.storeRepository,
                                                                                                      this.metadata,
                                                                                                      this.voldemortConfig,
-                                                                                                     this.asyncRunner,
+                                                                                                     this.asyncService,
                                                                                                      rebalancer);
 
             if(voldemortConfig.getUseNioConnector()) {

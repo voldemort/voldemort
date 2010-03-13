@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.protocol.admin;
 
 import java.util.Arrays;
@@ -16,16 +32,16 @@ import voldemort.utils.SystemTime;
  */
 public class AsyncOperationTest extends TestCase {
 
-    public void testAsyncOperationRunner() throws Exception {
+    public void testAsyncOperationService() throws Exception {
         SchedulerService schedulerService = new SchedulerService(2, SystemTime.INSTANCE);
-        AsyncOperationRunner asyncOperationRunner = new AsyncOperationRunner(schedulerService, 10);
+        AsyncOperationService asyncOperationService = new AsyncOperationService(schedulerService, 10);
 
         final AtomicBoolean completedOp0 = new AtomicBoolean(false);
         final AtomicBoolean completedOp1 = new AtomicBoolean(false);
         final CountDownLatch latch = new CountDownLatch(1);
 
-        int opId0 = asyncOperationRunner.getUniqueRequestId();
-        asyncOperationRunner.submitOperation(opId0,
+        int opId0 = asyncOperationService.getUniqueRequestId();
+        asyncOperationService.submitOperation(opId0,
                                              new AsyncOperation(opId0, "op0") {
                                                  @Override
                                                  public void operate() throws Exception {
@@ -39,8 +55,8 @@ public class AsyncOperationTest extends TestCase {
                                                  }
                                              });
 
-        int opId1 = asyncOperationRunner.getUniqueRequestId();
-        asyncOperationRunner.submitOperation(opId1,
+        int opId1 = asyncOperationService.getUniqueRequestId();
+        asyncOperationService.submitOperation(opId1,
                                              new AsyncOperation(opId1, "op1") {
                                                  @Override
                                                  public void operate() throws Exception {
@@ -54,10 +70,10 @@ public class AsyncOperationTest extends TestCase {
                                                  }
                                              });
         latch.await();
-        List<Integer> opList = asyncOperationRunner.getAsyncOperationList(false);
+        List<Integer> opList = asyncOperationService.getAsyncOperationList(false);
         assertFalse("doesn't list completed operations", opList.contains(1));
         assertTrue("lists a pending operation", opList.contains(0));
-        opList = asyncOperationRunner.getAsyncOperationList(true);
+        opList = asyncOperationService.getAsyncOperationList(true);
         assertTrue("lists all operations", opList.containsAll(Arrays.asList(0,1)));
 
         Thread.sleep(1000);

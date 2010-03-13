@@ -4,7 +4,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.protocol.admin.AsyncOperationRunner;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.protocol.admin.AdminServiceRequestHandler;
 import voldemort.server.protocol.pb.ProtoBuffRequestHandler;
 import voldemort.server.protocol.vold.VoldemortNativeRequestHandler;
@@ -25,20 +25,20 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     private final StoreRepository repository;
     private final MetadataStore metadata;
     private final VoldemortConfig voldemortConfig;
-    private final AsyncOperationRunner asyncRunner;
+    private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
 
     public SocketRequestHandlerFactory(StorageService storageService,
                                        StoreRepository repository,
                                        MetadataStore metadata,
                                        VoldemortConfig voldemortConfig,
-                                       AsyncOperationRunner asyncRunner,
+                                       AsyncOperationService asyncService,
                                        Rebalancer rebalancer) {
         this.storage = storageService;
         this.repository = repository;
         this.metadata = metadata;
         this.voldemortConfig = voldemortConfig;
-        this.asyncRunner = asyncRunner;
+        this.asyncService = asyncService;
         this.rebalancer = rebalancer;
     }
 
@@ -58,7 +58,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                                                repository,
                                                                metadata,
                                                                voldemortConfig,
-                                                               asyncRunner,
+                                                               asyncService,
                                                                rebalancer);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
