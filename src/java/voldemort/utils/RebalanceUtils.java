@@ -177,28 +177,55 @@ public class RebalanceUtils {
     }
 
     /**
-     * propagate the cluster configuration to all nodes.<br>
-     * throws an exception if failed to propagate on any of the required nodes.
-     * 
-     * @param adminClient
-     * @param masterNodeId
-     * @param cluster
+     * Attempt to propagate cluster definition to all nodes in the cluster.
+     *
+     * @throws VoldemortException If we can't propagate to a list of require nodes.
+     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient} instance to use
+     * @param cluster Cluster definition we wish to propagate
+     * @param clock Vector clock to attach to the cluster definition
+     * @param requireNodeIds If we can't propagate to these node ids, roll back and throw an exception
      */
     public static void propagateCluster(AdminClient adminClient,
                                         Cluster cluster,
                                         VectorClock clock,
+                                        List<Integer> requireNodeIds) {
+        List<Integer> allNodeIds = new ArrayList<Integer>();
+        for (Node node: cluster.getNodes()) {
+            allNodeIds.add(node.getId());
+        }
+        propagateCluster(adminClient,
+                         cluster,
+                         clock,
+                         allNodeIds,
+                         requireNodeIds);
+    }
+
+    /**
+     * Attempt to propagate a cluster definition to specified nodes.
+     *
+     * @throws VoldemortException If we can't propagate to a list of require nodes.
+     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient} instance to use.
+     * @param cluster Cluster definition we wish to propagate
+     * @param clock Vector clock to attach to the cluster definition
+     * @param attemptNodeIds Attempt to propagate to these node ids
+     * @param requiredNodeIds If we can't propagate can't propagate to these node ids, roll back and throw an exception
+     */
+    public static void propagateCluster(AdminClient adminClient,
+                                        Cluster cluster,
+                                        VectorClock clock,
+                                        List<Integer> attemptNodeIds,
                                         List<Integer> requiredNodeIds) {
         List<Integer> failures = new ArrayList<Integer>();
 
         // copy everywhere else first
-        for(Node node: cluster.getNodes()) {
-            if(!requiredNodeIds.contains(node.getId())) {
+        for(int nodeId: attemptNodeIds) {
+            if(!requiredNodeIds.contains(nodeId)) {
                 try {
-                    adminClient.updateRemoteCluster(node.getId(), cluster, clock);
+                    adminClient.updateRemoteCluster(nodeId, cluster, clock);
                 } catch(VoldemortException e) {
                     // ignore these
                     logger.debug("Failed to copy new cluster.xml(" + cluster
-                                 + ") on non-required node:" + node, e);
+                                 + ") on non-required node:" + nodeId, e);
                 }
             }
         }

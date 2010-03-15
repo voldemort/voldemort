@@ -1,15 +1,42 @@
+/*
+ * Copyright 2008-2010 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.annotations.concurrency.Immutable;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -47,7 +74,6 @@ public class VoldemortAdminTool {
 
         Set<String> missing = CmdUtils.missing(options,
                                                "url",
-                                               "store",
                                                "node");
         if (missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
@@ -59,6 +85,8 @@ public class VoldemortAdminTool {
         Integer nodeId = (Integer) options.valueOf("node");
         Integer parallelism = CmdUtils.valueOf(options, "parallelism", 5);
 
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+
         String ops = "";
         if (options.has("delete-partitions")) {
             ops += "d";
@@ -67,10 +95,8 @@ public class VoldemortAdminTool {
             ops += "r";
         }
         if (ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node) must be specified");
         }
-
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
 
         try {
             if (ops.contains("d")) {
@@ -78,15 +104,7 @@ public class VoldemortAdminTool {
                     System.out.println("Starting delete-partitions");
                     @SuppressWarnings("unchecked")
                     List<Integer> partitionIdList = (List<Integer>) options.valuesOf("partition-ids");
-                    List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
-                    List<String> storeNames = new ArrayList<String>();
-                    for (StoreDefinition storeDefinition: storeDefinitionList) {
-                        storeNames.add(storeDefinition.getName());
-                    }
-                    for (String storeName: storeNames) {
-                        System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList) + " of " + storeName);
-                        adminClient.deletePartitions(nodeId, storeName, partitionIdList, null);
-                    }
+                    executeDeletePartitions(nodeId, adminClient, partitionIdList);
                     System.out.println("Finished delete-partitions");
                 } else {
                     System.err.println("Not running delete-partitions: partition-ids must be specified when delete-partitions is invoked");
@@ -100,6 +118,18 @@ public class VoldemortAdminTool {
         } catch (Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    public static void executeDeletePartitions(Integer nodeId, AdminClient adminClient, List<Integer> partitionIdList) {
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+        List<String> storeNames = new ArrayList<String>();
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            storeNames.add(storeDefinition.getName());
+        }
+        for (String storeName: storeNames) {
+            System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList) + " of " + storeName);
+            adminClient.deletePartitions(nodeId, storeName, partitionIdList, null);
         }
     }
 }
