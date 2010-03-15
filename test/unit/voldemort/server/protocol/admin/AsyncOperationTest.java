@@ -84,7 +84,7 @@ public class AsyncOperationTest extends TestCase {
     }
 
     @SuppressWarnings("unchecked")
-    public void testAsyncOperationRepository() {
+    public void testAsyncOperationCache() {
         Map<Integer, AsyncOperation> operations = Collections.synchronizedMap(new AsyncOperationCache(2));
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         AsyncOperation completeLater = new AsyncOperation(0, "test") {
@@ -142,20 +142,23 @@ public class AsyncOperationTest extends TestCase {
             Thread.currentThread().interrupt();
         }
 
-        completeSoon = new AsyncOperation(2, "test3") {
-            @Override
-            public void stop() {}
-            @Override
-            public void operate() {
-                try {
-                    Thread.sleep(500);
-                } catch(InterruptedException e) {
-                    Thread.currentThread().interrupt();
+        for (int i=3; i < 10; i++) {
+            AsyncOperation asyncOperation = new AsyncOperation(i, "test3") {
+                @Override
+                public void stop() {}
+                @Override
+                public void operate() {
+                    try {
+                        Thread.sleep(500);
+                    } catch(InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
-            }
-        };
+            };
+            operations.put(i, asyncOperation);
+        }
 
-        operations.put(3, completeSoon);
+
 
         assertFalse("Actually does LRU heuristics", operations.containsKey(0));
     }
