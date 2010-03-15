@@ -44,11 +44,9 @@ public class AsyncOperationService extends AbstractService {
 
     private final static Logger logger = Logger.getLogger(AsyncOperationService.class);
 
-    @SuppressWarnings("unchecked")
-    // apache commons collections aren't updated for 1.5 yet
     public AsyncOperationService(SchedulerService scheduler, int cacheSize) {
         super(ServiceType.ASYNC_SCHEDULER);
-        operations = Collections.synchronizedMap(new AsyncOperationRepository(cacheSize));
+        operations = Collections.synchronizedMap(new AsyncOperationCache(cacheSize));
         this.scheduler = scheduler;
     }
 

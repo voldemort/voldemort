@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,6 +17,7 @@
 package voldemort.server.protocol.admin;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -84,8 +85,8 @@ public class AsyncOperationTest extends TestCase {
 
     @SuppressWarnings("unchecked")
     public void testAsyncOperationRepository() {
-        Map<String, AsyncOperation> operations = new AsyncOperationRepository(2);
-
+        Map<Integer, AsyncOperation> operations = Collections.synchronizedMap(new AsyncOperationCache(2));
+        final CountDownLatch countDownLatch = new CountDownLatch(1);
         AsyncOperation completeLater = new AsyncOperation(0, "test") {
 
             @Override
@@ -94,7 +95,8 @@ public class AsyncOperationTest extends TestCase {
             @Override
             public void operate() {
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(1500);
+                    countDownLatch.countDown();
                 } catch(InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -128,28 +130,33 @@ public class AsyncOperationTest extends TestCase {
         executorService.submit(completeNow);
         executorService.submit(completeSoon);
 
-        operations.put("foo1", completeLater);
-        operations.put("foo2", completeNow);
-        operations.put("foo3", completeSoon);
-        operations.put("foo4", completeLater);
-        operations.put("foo5", completeLater);
+        operations.put(0, completeLater);
+        operations.put(1, completeNow);
+        operations.put(2, completeSoon);
 
-        assertTrue("Handles overflow okay", operations.containsKey("foo4"));
+        assertTrue("Handles overflow okay", operations.containsKey(2));
 
         try {
-            Thread.sleep(1000);
+            countDownLatch.await();
         } catch(InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        operations.put("foo5", completeLater);
+        completeSoon = new AsyncOperation(2, "test3") {
+            @Override
+            public void stop() {}
+            @Override
+            public void operate() {
+                try {
+                    Thread.sleep(500);
+                } catch(InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
 
-        assertTrue(operations.containsKey("foo5"));
+        operations.put(3, completeSoon);
 
-        for (int i = 0; i < 10; i++) { 
-            operations.put("foo" + 5 + i, completeLater);
-        }
-
-        assertFalse("Actually does LRU heuristics", operations.containsKey("foo2"));
+        assertFalse("Actually does LRU heuristics", operations.containsKey(0));
     }
 }
