@@ -1,5 +1,5 @@
 /*
- * Copyright 2009 Mustard Grain, Inc.
+ * Copyright 2009-2010 Mustard Grain, Inc., LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,51 +22,63 @@ import java.util.Map;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.SocketStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Utils;
 
 /**
  * ServerStoreVerifier is used to verify store connectivity for a server
  * environment. The node->store mapping is not known at the early point in the
  * client lifecycle that it can be provided, so it is performed on demand using
  * the {@link StoreRepository}.
- * 
  */
 
 public class ServerStoreVerifier implements StoreVerifier {
 
-    private final StoreRepository storeRepository;
+    private final SocketPool socketPool;
 
-    private final int nodeId;
+    private final MetadataStore metadataStore;
+
+    private final VoldemortConfig voldemortConfig;
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    private final ByteArray key = new ByteArray((byte) 1);
+    private final ByteArray key = new ByteArray(MetadataStore.NODE_ID_KEY.getBytes());
 
-    public ServerStoreVerifier(StoreRepository storeRepository, int nodeId) {
-        this.storeRepository = storeRepository;
-        this.nodeId = nodeId;
+    public ServerStoreVerifier(SocketPool socketPool,
+                               MetadataStore metadataStore,
+                               VoldemortConfig voldemortConfig) {
+        this.socketPool = Utils.notNull(socketPool);
+        this.metadataStore = Utils.notNull(metadataStore);
+        this.voldemortConfig = Utils.notNull(voldemortConfig);
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
-        synchronized(stores) {
-            Store<ByteArray, byte[]> store = stores.get(node.getId());
+        Store<ByteArray, byte[]> store = stores.get(node.getId());
 
-            if(store == null) {
-                if(node.getId() == nodeId)
-                    store = storeRepository.getLocalStore(MetadataStore.METADATA_STORE_NAME);
-                else
-                    store = storeRepository.getNodeStore(MetadataStore.METADATA_STORE_NAME,
-                                                         node.getId());
+        if(node.getId() == voldemortConfig.getNodeId()) {
+            store = metadataStore;
+        } else {
+            synchronized(stores) {
+                store = new SocketStore(MetadataStore.METADATA_STORE_NAME,
+                                        new SocketDestination(node.getHost(),
+                                                              node.getSocketPort(),
+                                                              voldemortConfig.getRequestFormatType()),
+                                        socketPool,
+                                        false);
 
                 stores.put(node.getId(), store);
             }
-
-            store.get(key);
         }
+
+        store.get(key);
     }
 
 }

@@ -132,8 +132,9 @@ public class StorageService extends AbstractService {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
                                                                                                                   .getNodes())
-                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeRepository,
-                                                                                                                                          voldemortConfig.getNodeId()));
+                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketPool,
+                                                                                                                                          metadata,
+                                                                                                                                          config));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
         this.storeStats = new StoreStats();
     }
