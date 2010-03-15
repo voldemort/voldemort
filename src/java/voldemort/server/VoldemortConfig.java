@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
@@ -290,9 +289,8 @@ public class VoldemortConfig implements Serializable {
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000);
         this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
 
-        // FIX: need to use ThresholdFailureDetector, but blocked on issue 197.
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
-                                                             BannagePeriodFailureDetector.class.getName());
+                                                             FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
 
         // We're changing the property from "client.node.bannage.ms" to
         // "failuredetector.bannage.period" so if we have the old one, migrate
