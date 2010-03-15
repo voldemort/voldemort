@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.ClusterViewer;
+import voldemort.VoldemortClusterViewer;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -105,10 +105,10 @@ public class RebalanceClusterBuilder {
         }
 
         RebalanceClusterTool clusterTool = new RebalanceClusterTool(cluster, store);
-        ClusterViewer clusterViewer = new ClusterViewer(cluster, store);
+        VoldemortClusterViewer voldemortClusterViewer = new VoldemortClusterViewer(cluster, store);
 
         System.out.println("Original layout: ");
-        clusterViewer.viewMasterToReplica();
+        voldemortClusterViewer.viewMasterToReplica();
 
         Node template = new Node(cluster.getNumberOfNodes(),
                                  host,
@@ -134,8 +134,8 @@ public class RebalanceClusterBuilder {
             Utils.croak("Unable to insert " + template + " into " + cluster);
 
         System.out.println("Created target cluster layout: ");
-        clusterViewer.viewMasterToReplica(targetCluster);
-        clusterViewer.compareToCluster(targetCluster);
+        voldemortClusterViewer.viewMasterToReplica(targetCluster);
+        voldemortClusterViewer.compareToCluster(targetCluster);
 
         String clusterXmlString = new ClusterMapper().writeCluster(targetCluster);
         if (targetClusterXmlFile == null) {

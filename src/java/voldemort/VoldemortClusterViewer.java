@@ -26,19 +26,19 @@ import java.util.*;
  * Inspect a cluster configuration to determine whether it can be rebalanced to a target cluster geometry.
  *
  */
-public class ClusterViewer {
+public class VoldemortClusterViewer {
 
     private final Cluster originalCluster;
     private final StoreDefinition storeDefinition;
 
 
     /**
-     * Constructs a <code>ClusterViewer</code> initialized with an original cluster a store definition.
+     * Constructs a <code>VoldemortClusterViewer</code> initialized with an original cluster a store definition.
      *
      * @param originalCluster The original cluster
      * @param storeDefinition A store definition, which specifies the replication-factor (needed to calculate routes). 
      */
-    public ClusterViewer(Cluster originalCluster,
+    public VoldemortClusterViewer(Cluster originalCluster,
                          StoreDefinition storeDefinition) {
         this.originalCluster = originalCluster;
         this.storeDefinition = storeDefinition;
@@ -47,7 +47,7 @@ public class ClusterViewer {
 
     /**
      * Prints out the layout display mapping between replicas and their partitions for the cluster with which
-     * the <code>ClusterViewer</code> has been constructed.
+     * the <code>VoldemortClusterViewer</code> has been constructed.
      */
     public void viewMasterToReplica() {
         viewMasterToReplica(originalCluster);
@@ -72,7 +72,7 @@ public class ClusterViewer {
     }
 
     /**
-     * Compares cluster with which the <code>ClusterViewer</code> has been constructed to another cluster,
+     * Compares cluster with which the <code>VoldemortClusterViewer</code> has been constructed to another cluster,
      * determining the feasibility of rebalancing to that cluster's layout.
      *
      * @param target The target cluster geometry.
@@ -105,14 +105,14 @@ public class ClusterViewer {
     /**
      * Main method to run on test cluster/store XML files. Example usage with a <b>good</b> target cluster.xml:
      * <code>
-     * ./bin/run-class.sh voldemort.ClusterViewer \
+     * ./bin/run-class.sh voldemort.VoldemortClusterViewer \
      * --cluster ./test/common/voldemort/config/rebalance-tool-original-cluster.xml \
      * --stores ./test/common/voldemort/config/rebalance-tool-stores.xml \
      * --store-name test --other-cluster ./test/common/voldemort/config/rebalance-tool-good-cluster.xml
      * </code>
      * Example usage with <b>bad</b> target cluster.xml:
      * <code>
-     * ./bin/run-class.sh voldemort.ClusterViewer \
+     * ./bin/run-class.sh voldemort.VoldemortClusterViewer \
      * --cluster ./test/common/voldemort/config/rebalance-tool-original-cluster.xml \
      * --stores ./test/common/voldemort/config/rebalance-tool-stores.xml \
      * --store-name test --other-cluster ./test/common/voldemort/config/rebalance-tool-bad-cluster.xml
@@ -170,17 +170,17 @@ public class ClusterViewer {
             if (storeDef == null)
                 Utils.croak("No store found with name \"" + storeName + "\"");
 
-            ClusterViewer clusterViewer = new ClusterViewer(cluster, storeDef);
+            VoldemortClusterViewer voldemortClusterViewer = new VoldemortClusterViewer(cluster, storeDef);
             System.out.println("Original cluster: ");
-            clusterViewer.viewMasterToReplica();
+            voldemortClusterViewer.viewMasterToReplica();
 
             if (options.has("other-cluster")) {
                 String otherClusterFile = (String) options.valueOf("other-cluster");
                 Cluster otherCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(otherClusterFile)));
 
                 System.out.println("New cluster: ");
-                clusterViewer.viewMasterToReplica(otherCluster);
-                clusterViewer.compareToCluster(otherCluster);
+                voldemortClusterViewer.viewMasterToReplica(otherCluster);
+                voldemortClusterViewer.compareToCluster(otherCluster);
             }
         } catch (FileNotFoundException e) {
             Utils.croak(e.getMessage());

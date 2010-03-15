@@ -1,4 +1,4 @@
-package voldemort.client.rebalance;
+package voldemort;
 
 import com.google.common.base.Joiner;
 import joptsimple.OptionParser;
@@ -15,10 +15,8 @@ import java.util.Set;
 
 /**
  * Provides a command line interface to the {@link voldemort.client.protocol.admin.AdminClient}
- *
- * @author afeinberg
  */
-public class AdminCLI {
+public class VoldemortAdminTool {
     public static void main (String [] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
