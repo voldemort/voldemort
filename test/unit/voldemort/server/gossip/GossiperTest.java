@@ -6,6 +6,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 
@@ -30,6 +33,7 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
+ * Tests {@link voldemort.server.gossip.Gossiper}
  */
 @RunWith(Parameterized.class)
 public class GossiperTest extends TestCase {
@@ -57,32 +61,41 @@ public class GossiperTest extends TestCase {
         props.put("enable.gossip", "true");
         props.put("gossip.interval.ms", "250");
 
+        // Start all in parallel to avoid exceptions during gossip
+
         cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
                 { 8, 9, 10, 11 } });
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
-                                                                                            0,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            storesXmlfile,
-                                                                                            props),
-                                                         cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
-                                                                                            1,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            storesXmlfile,
-                                                                                            props),
-                                                         cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
-                                                                                            2,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            storesXmlfile,
-                                                                                            props),
-                                                         cluster));
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
+        final CountDownLatch countDownLatch = new CountDownLatch(3);
+
+        for (int i = 0; i < 3; i++) {
+            final int j = i;
+            executorService.submit(new Runnable() {
+                public void run()  {
+                    try {
+                        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                                                                                                            j,
+                                                                                                            TestUtils.createTempDir()
+                                                                                                                    .getAbsolutePath(),
+                                                                                                            null,
+                                                                                                            storesXmlfile,
+                                                                                                            props),
+                                                                         cluster));
+                        countDownLatch.countDown();
+                    } catch (IOException e) {
+                        throw new RuntimeException();
+                    }
+                }
+            }
+            );
+        }
+
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
     }
 
     private AdminClient getAdminClient(Cluster newCluster, VoldemortConfig newServerConfig) {
@@ -94,28 +107,29 @@ public class GossiperTest extends TestCase {
         // First create a new cluster:
         // Allocate ports for all nodes in the new cluster, to match existing
         // cluster
-        int portIdx = 0;
-        int ports[] = new int[3 * (cluster.getNumberOfNodes() + 1)];
-        for(Node node: cluster.getNodes()) {
-            ports[portIdx++] = node.getHttpPort();
-            ports[portIdx++] = node.getSocketPort();
-            ports[portIdx++] = node.getAdminPort();
+        int originalSize = cluster.getNumberOfNodes();
+        int numOriginalPorts = originalSize * 3;
+        int ports[] = new int[numOriginalPorts + 3];
+        for(int i = 0, j = 0; i < originalSize; i++, j += 3) {
+            Node node = cluster.getNodeById(i);
+            System.arraycopy(new int[] { node.getHttpPort(), node.getSocketPort(), node.getAdminPort() },
+                             0,
+                             ports,
+                             j,
+                             3);
         }
 
-        int[] freeports = ServerTestUtils.findFreePorts(3);
-        ports[portIdx++] = freeports[0];
-        ports[portIdx++] = freeports[1];
-        ports[portIdx] = freeports[2];
+        System.arraycopy(ServerTestUtils.findFreePorts(3), 0, ports, numOriginalPorts, 3);
 
         // Create a new partitioning scheme with room for a new server
-        final Cluster newCluster = ServerTestUtils.getLocalCluster(cluster.getNumberOfNodes() + 1,
+        final Cluster newCluster = ServerTestUtils.getLocalCluster(originalSize + 1,
                                                                    ports,
                                                                    new int[][] { { 0, 4, 8 },
-                                                                           { 1, 5, 9 },
-                                                                           { 2, 6, 10 },
-                                                                           { 3, 7, 11 } });
+                                                                                 { 1, 5, 9 },
+                                                                                 { 2, 6, 10 },
+                                                                                 { 3, 7, 11 } });
 
-        // Start the new server
+        // Create a new server
         VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
                                                                                                             3,
                                                                                                             TestUtils.createTempDir()
@@ -126,22 +140,21 @@ public class GossiperTest extends TestCase {
                                                                          newCluster);
         servers.add(newServer);
 
-        // Wait a while until it starts
+        // Wait a while until the new server starts
         try {
             Thread.sleep(500);
         } catch(InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        // Get the new cluster.XML
+        // Get the new cluster.xml
         AdminClient localAdminClient = getAdminClient(newCluster, newServer.getVoldemortConfig());
 
         Versioned<String> versionedClusterXML = localAdminClient.getRemoteMetadata(3,
                                                                                    MetadataStore.CLUSTER_KEY);
 
-        // Increment the version, let what would be the "donor node" know about
-        // it
-        // (this will seed the gossip)
+        // Increment the version, let what would be the "donor node" know about it
+        // to seed the Gossip.
         Version version = versionedClusterXML.getVersion();
         ((VectorClock) version).incrementVersion(3, ((VectorClock) version).getTimestamp() + 1);
         ((VectorClock) version).incrementVersion(0, ((VectorClock) version).getTimestamp() + 1);
@@ -155,7 +168,7 @@ public class GossiperTest extends TestCase {
             Thread.currentThread().interrupt();
         }
 
-        // Wait up to a second for gossip to spread
+        // Wait up to a second for Gossip to spread
         try {
             TestUtils.assertWithBackoff(1000, new Attempt() {
 

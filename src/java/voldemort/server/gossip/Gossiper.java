@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2010 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+*/
+
 package voldemort.server.gossip;
 
 import java.util.Random;
@@ -10,34 +26,21 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
- * 
- *         Implementation of a gossip (epidemic) protocol for metadata. The algorithm is
- *         fairly simple. Until the service is stopped on a node, that node will:
- *
- *         <p>
- *         <ol>
- *         <li>Select a random peer that isn't myself.</li>
- *         <li>For each key in a list of metadata keys (defined in {@link voldemort.store.metadata.MetadataStore}):
- *         <p>
- *         <ol>
- *         <li>Pull the value and it's vector clock from the randomly selected
- *         peer.</li>
- *         <li>If the pulled vector clock/timestamp is newer, set my metadata
- *         for this key to the pulled value.</li>
- *         <li>If the pulled vector clock/timestamp is the same or older, do
- *         nothing.</li>
- *         <li>If the vector clocks aren't causaully related, log an error (in
- *         future, perhaps do reconciliation).</li>
- *         </ol>
- *         </p>
- *         </li>
- *         <li>Sleep for a specified interval, then go to step 1.</li>
- *         </ol>
- *         </p>
+ * Implementation of a Gossip protocol for metadata.
+ * Periodically, choose a random peer and Gossip for all metadata keys specified in
+ * {@link voldemort.store.metadata.MetadataStore#GOSSIP_KEYS} with that peer.
+ * <p>
+ * Gossip between nodes A and B for a metadata key K starts with node A retrieving the
+ * key K and its vector clock from node B. The retrieved vector clock is then
+ * compared with the local vector clock for K. If the value at node B is determined to have
+ * come after the value at node A, node A will accept the value at node B. If the value
+ * at node B is determined to have come before the value at node A, node A will do nothing
+ * and allow node B to initiate Gossip. If the two vector clocks are found to be
+ * concurrent i.e., <em>causally unrelated</em>, an error is logged.
+ * </p>
  */
 public class Gossiper implements Runnable {
 
@@ -50,14 +53,14 @@ public class Gossiper implements Runnable {
     private final static Logger logger = Logger.getLogger(Gossiper.class);
 
     /**
-     * Create a <code>Gossiper</code> object, to be submitted to a {@link java.util.concurrent.Executor} or any
-     * other object which can invoke the {@link #run()} method.
+     * Create a <code>Gossiper</code> object, which implements {@link Runnable} allowing it to be
+     * run as a thread or be submitted to an Executor.
      * 
-     * @param metadataStore The instance of {@link MetadataStore} for the
-     *        specific node.
-     * @param adminClient A created instance of {@link AdminClient}
+     * @param metadataStore The instance of {@link voldemort.store.metadata.MetadataStore} for the
+     *        local node.
+     * @param adminClient Instance of {@link voldemort.client.protocol.admin.AdminClient}
      * @param gossipInterval Interval in <em>milliseconds</em> at which we want
-     *        to gossipKey.
+     *        to gossip.
      */
     public Gossiper(MetadataStore metadataStore, AdminClient adminClient, int gossipInterval) {
         this.metadataStore = metadataStore;
@@ -66,7 +69,7 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * If the run method was to be invoked, then we should gossip.
+     * Allow Gossip to start if {@link #run()} is invoked.
      */
     public void start() {
         logger.info("Gossip started");
@@ -74,7 +77,7 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * After the current operation finishes, no longer gossip.
+     * After the current operation finishes, stop Gossip.
      */
     public void stop() {
         logger.info("Gossip stopped");
@@ -82,8 +85,9 @@ public class Gossiper implements Runnable {
     }
 
     /**
-     * Perform gossip: until receiving a shutdown signal, pick a node at random, gossip with that node
-     * and then sleep for a pre-defined interval. 
+     * Perform Gossip: until receiving a shutdown signal, pick a peer at random,
+     * Gossip all keys listed in {@link voldemort.store.metadata.MetadataStore#GOSSIP_KEYS}
+     * with that peer and then sleep for a specified interval.
      */
     public void run() {
         while(running.get()) {
@@ -96,24 +100,26 @@ public class Gossiper implements Runnable {
             adminClient.setAdminClientCluster(metadataStore.getCluster());
 
             if (logger.isDebugEnabled())
-                logger.debug(metadataStore.getNodeId() + " starting gossip with " + node);
+                logger.debug("Starting gossip with " + node);
 
             for(String key: MetadataStore.GOSSIP_KEYS) {
                 try {
                     gossipKey(node, key);
                 } catch(VoldemortException e) {
-                    logger.error("gossipKey(): " + e);
+                    logger.warn("Unable to Gossip key " + key + " with " + node, e);
                 }
             }
         }
     }
 
     /**
-     * Randomly select a node that isn't myself.
+     * Randomly select a distinct peer. Method is <code>protected</code> rather
+     * than <code>private</code>, so that it may be  overridden if
+     * peer selection logic is to be changed e.g., to add datacenter/rack awareness.
      * 
-     * @return A node that isn't myself
+     * @return Peer for Gossip.
      */
-    private Node selectPeer() {
+    protected Node selectPeer() {
         Cluster cluster = metadataStore.getCluster();
         int nodes = cluster.getNumberOfNodes();
         Node node;
@@ -124,52 +130,63 @@ public class Gossiper implements Runnable {
         return node;
     }
 
-    private void gossipKey(Node node, String key) {
-        if (logger.isDebugEnabled())
-            logger.debug(metadataStore.getNodeId() + " gossiping " + key + " with " + node);
+    /**
+     * Perform Gossip on a specified metadata key with a remote node. As metadata is
+     * data, vector clocks are used to determine causality.
+     * <p> 
+     * Method is <code>protected</code> rather than <code>private</code>, so that it may
+     * be overridden if the behaviour for handling concurrent values of the same key was to be
+     * changed e.g., if two differently named stores were added during a network split, merge
+     * appropriate metadata to include both stores.
+     * </p>
+     *
+     * @param node Node to Gossip with.
+     * @param key Metadata key to exchange by Gossip.
+     */
+    protected void gossipKey(Node node, String key) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Gossiping key " + key);
+        }
 
-        /**
-         * First check the version that we have internally and the version on
-         * the remote server. Using {@link AdminClient#getRemoteMetadata(int, String)} to
-         * avoid having to convert between <code>Versioned<byte[]></code> and
-         * <code>Versioned<String></code>
+        /*
+         * Retrieve local and remote versions of the key. Uses AdminClient for remote as well
+         * as local operations (rather than going directly to MetadataStore for local operations),
+         * to avoid having to convert back and forth between byte[] and String.
          */
         Versioned<String> remoteVersioned = adminClient.getRemoteMetadata(node.getId(), key);
         Versioned<String> localVersioned = adminClient.getRemoteMetadata(metadataStore.getNodeId(), key);
-        Version localVersion = localVersioned.getVersion();
-        Version remoteVersion = remoteVersioned.getVersion();
-
-        switch(remoteVersion.compare(localVersion)) {
-            /**
-             * {@link Occured.BEFORE} can indicate two conditions. Either the
-             * timestamps are the same, or one came before the other. In case
-             * the localVersion occurred before remoteVersion (in terms of
-             * timestamps) we want to update with remoteVersion.
-             */
+        switch(remoteVersioned.getVersion().compare(localVersioned.getVersion())) {
+            
+            // If remote version came after local version, update with remote version
             case AFTER: {
+                logger.info("Updating key " + key + " from " + node);
                 adminClient.updateRemoteMetadata(metadataStore.getNodeId(), key, remoteVersioned);
-                logger.info("My " + key + " occurred BEFORE the version at " + node + ". Accepted theirs.");
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Updated key " + key + ": " + remoteVersioned);
+                }
+
                 break;
             }
 
-            /**
-             * Do nothing if they have older data, wait for them to pull from us.
-             */
+           // If remote version came before the local version, do nothing and wait for the other
+           // node to gossip with us.
             case BEFORE: {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Remote(" + remoteVersioned + ") came before, allowing them to initiate Gossip");
+                }
+
                 break;
             }
 
-            /**
-             * {@link Occured.CONCURRENTLY} indicates that there is a
-             * conflict. In this case, ideally, we should do sensible
-             * reconciliation (e.g. for failure detection we should exclude
-             * nodes that one machine thinks failed and the other machines
-             * do not).For the sake of simplicity, right now we will just
+            /*
+             * If we can't establish a causal relationship between two versions, there's a conflict.
+             * Ideally we should perform sensible reconciliation, but for simplicity's sake we will just
              * log an error.
              */
             case CONCURRENTLY: {
-                logger.error("My " + key + " occurred CONCURRENTLY with " + node + ". My value is " + localVersioned
-                             + ", their value is " + remoteVersioned);
+                logger.error(key + " is concurrent between local node(" + localVersioned + ") and remote at " + node +
+                             "(" + remoteVersioned + ")");
+
                 break;
             }
         }
