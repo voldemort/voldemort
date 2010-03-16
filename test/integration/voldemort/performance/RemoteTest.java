@@ -334,7 +334,7 @@ public class RemoteTest {
                                                                    percentCached);
                 final CountDownLatch latch0 = new CountDownLatch(numRequests);
                 final long[] requestTimes = new long[numRequests];
-                final long start = System.currentTimeMillis();
+                final long start = System.nanoTime();
                 for(int i = 0; i < numRequests; i++) {
                     final int j = i;
                     service.execute(new Runnable() {
@@ -373,7 +373,7 @@ public class RemoteTest {
                                                                    percentCached);
                 final CountDownLatch latch1 = new CountDownLatch(numRequests);
                 final long[] requestTimes = new long[numRequests];
-                final long start = System.currentTimeMillis();
+                final long start = System.nanoTime();
                 for(int i = 0; i < numRequests; i++) {
                     final int j = i;
                     service.execute(new Runnable() {
@@ -423,7 +423,7 @@ public class RemoteTest {
                                                                   percentCached);
                 final CountDownLatch latch = new CountDownLatch(numRequests);
                 final long[] requestTimes = new long[numRequests];
-                final long start = System.currentTimeMillis();
+                final long start = System.nanoTime();
                 keyProvider.next();
                 for(int i = 0; i < numRequests; i++) {
                     final int j = i;
@@ -480,7 +480,7 @@ public class RemoteTest {
                                                               keys,
                                                               percentCached);
             final CountDownLatch latch = new CountDownLatch(numRequests);
-            final long start = System.currentTimeMillis();
+            final long start = System.nanoTime();
             keyProvider.next();
             for(int i = 0; i < numRequests; i++) {
                 final int j = i;
@@ -544,14 +544,14 @@ public class RemoteTest {
     }
 
     private static void printNulls(int nulls, long start) {
-        long nullTime = System.currentTimeMillis() - start;
-        System.out.println((nulls / (float) nullTime * 100) + " nulls/sec");
+        long nullTime = System.nanoTime() - start;
+        System.out.println((nulls / (float) nullTime * Time.NS_PER_SECOND) + " nulls/sec");
         System.out.println(nulls + " null values.");
     }
 
     private static void printStatistics(String noun, int successes, long start) {
-        long deleteTime = System.currentTimeMillis() - start;
-        System.out.println("Throughput: " + (successes / (float) deleteTime * 1000) + " " + noun
+        long queryTime = System.nanoTime() - start;
+        System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND) + " " + noun
                            + "/sec.");
         System.out.println(successes + " successful " + noun + ".");
     }
