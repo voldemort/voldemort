@@ -110,28 +110,28 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                     continue;
 
                 if(logger.isDebugEnabled())
-                    logger.debug("Checking previously unavailable node " + node);
+                    logger.debug("Checking previously unavailable node " + node.getId());
 
                 StoreVerifier storeVerifier = getConfig().getStoreVerifier();
 
                 try {
                     // This is our test.
                     if(logger.isDebugEnabled())
-                        logger.debug("Verifying previously unavailable node " + node);
+                        logger.debug("Verifying previously unavailable node " + node.getId());
 
                     storeVerifier.verifyStore(node);
 
                     if(logger.isDebugEnabled())
-                        logger.debug("Verified previously unavailable node " + node
+                        logger.debug("Verified previously unavailable node " + node.getId()
                                      + ", will mark as available...");
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
                     if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(node + " still unavailable", e);
+                        logger.warn("Node " + node.getId() + " still unavailable", e);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
-                        logger.error(node + " unavailable due to error", e);
+                        logger.error("Node " + node.getId() + " unavailable due to error", e);
                 }
             }
         }

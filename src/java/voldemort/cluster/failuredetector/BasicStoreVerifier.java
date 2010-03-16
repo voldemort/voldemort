@@ -45,7 +45,7 @@ public class BasicStoreVerifier<K, V> implements StoreVerifier {
         Store<K, V> store = stores.get(node.getId());
 
         if(store == null)
-            throw new VoldemortException(node
+            throw new VoldemortException("Node " + node.getId()
                                          + " store is null; cannot determine node availability");
 
         // This is our test.
