@@ -61,20 +61,23 @@ public class ServerStoreVerifier implements StoreVerifier {
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
-        Store<ByteArray, byte[]> store = stores.get(node.getId());
+        Store<ByteArray, byte[]> store = null; 
 
         if(node.getId() == voldemortConfig.getNodeId()) {
             store = metadataStore;
         } else {
             synchronized(stores) {
-                store = new SocketStore(MetadataStore.METADATA_STORE_NAME,
-                                        new SocketDestination(node.getHost(),
-                                                              node.getSocketPort(),
-                                                              voldemortConfig.getRequestFormatType()),
-                                        socketPool,
-                                        false);
+                store = stores.get(node.getId());
 
-                stores.put(node.getId(), store);
+                if (store == null) {
+                    store = new SocketStore(MetadataStore.METADATA_STORE_NAME,
+                                            new SocketDestination(node.getHost(),
+                                                                  node.getSocketPort(),
+                                                                  voldemortConfig.getRequestFormatType()),
+                                            socketPool,
+                                            false);
+                    stores.put(node.getId(), store);
+                }
             }
         }
 
