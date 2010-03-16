@@ -76,19 +76,20 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         checkArgs(node, requestTime);
 
         int successDelta = 1;
+        UnreachableStoreException e = null;
 
         if(requestTime > getConfig().getRequestLengthThreshold()) {
             // Consider slow requests as "soft" errors that are counted against
             // us in our success threshold.
-            if(logger.isTraceEnabled())
-                logger.trace(node + " recording success, but request time (" + requestTime
-                             + ") exceeded threshold (" + getConfig().getRequestLengthThreshold()
-                             + ")");
+            e = new UnreachableStoreException("Node " + node.getId()
+                                              + " recording success, but request time ("
+                                              + requestTime + ") exceeded threshold ("
+                                              + getConfig().getRequestLengthThreshold() + ")");
 
             successDelta = 0;
         }
 
-        update(node, successDelta, null);
+        update(node, successDelta, e);
     }
 
     @JmxGetter(name = "nodeThresholdStats", description = "Each node is listed with its status (available/unavailable) and success percentage")
@@ -135,9 +136,9 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     protected void update(Node node, int successDelta, UnreachableStoreException e) {
         if(logger.isTraceEnabled()) {
             if(e != null)
-                logger.trace(node + " updated, successDelta: " + successDelta, e);
+                logger.trace("Node " + node.getId() + " updated, successDelta: " + successDelta, e);
             else
-                logger.trace(node + " updated, successDelta: " + successDelta);
+                logger.trace("Node " + node.getId() + " updated, successDelta: " + successDelta);
         }
 
         final long currentTime = getConfig().getTime().getMilliseconds();
@@ -157,14 +158,15 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
 
                 if(catastrophicError != null) {
                     if(logger.isTraceEnabled())
-                        logger.trace(node + " experienced catastrophic error: " + catastrophicError);
+                        logger.trace("Node " + node.getId() + " experienced catastrophic error: "
+                                     + catastrophicError);
 
                     setUnavailable(node, e);
                 } else if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
                     if(logger.isTraceEnabled())
-                        logger.trace(node + " percentage: " + percentage + "%");
+                        logger.trace("Node " + node.getId() + " percentage: " + percentage + "%");
 
                     if(percentage >= getConfig().getThreshold())
                         setAvailable(node);
