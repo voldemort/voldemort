@@ -25,6 +25,7 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
+import voldemort.utils.ByteArray;
 
 /**
  * ClientStoreVerifier is used to test stores in a client environment. The
@@ -33,33 +34,31 @@ import voldemort.store.UnreachableStoreException;
  * due to needing to be implemented differently by the known store client
  * implementations {@link SocketStoreClientFactory} and
  * {@link HttpStoreClientFactory}.
- * 
  */
 
-public abstract class ClientStoreVerifier<K, V> implements StoreVerifier {
+public abstract class ClientStoreVerifier implements StoreVerifier {
 
-    private final Map<Integer, Store<K, V>> stores;
+    private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
     protected ClientStoreVerifier() {
-        stores = new HashMap<Integer, Store<K, V>>();
+        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
+        Store<ByteArray, byte[]> store = null;
+
         synchronized(stores) {
-            Store<K, V> store = stores.get(node.getId());
+            store = stores.get(node.getId());
 
             if(store == null) {
                 store = getStoreInternal(node);
                 stores.put(node.getId(), store);
             }
-
-            K key = getKey();
-            store.get(key);
         }
+
+        store.get(KEY);
     }
 
-    protected abstract Store<K, V> getStoreInternal(Node node);
-
-    protected abstract K getKey();
+    protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);
 
 }
