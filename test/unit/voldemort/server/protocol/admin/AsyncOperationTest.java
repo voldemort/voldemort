@@ -105,7 +105,7 @@ public class AsyncOperationTest extends TestCase {
 
         ExecutorService executorService = Executors.newFixedThreadPool(5);
 
-        AsyncOperation completeNow = new AsyncOperation(1, "test 2") {
+        AsyncOperation completeNow = new AsyncOperation(1, "test") {
             @Override
             public void stop() {}
 
@@ -113,7 +113,7 @@ public class AsyncOperationTest extends TestCase {
             public void operate() {}
         };
 
-        AsyncOperation completeSoon = new AsyncOperation(2, "test3") {
+        AsyncOperation completeSoon = new AsyncOperation(2, "test") {
             @Override
             public void stop() {}
             @Override
@@ -126,39 +126,33 @@ public class AsyncOperationTest extends TestCase {
             }
         };
 
-        executorService.submit(completeLater);
-        executorService.submit(completeNow);
-        executorService.submit(completeSoon);
-
         operations.put(0, completeLater);
         operations.put(1, completeNow);
         operations.put(2, completeSoon);
 
-        assertTrue("Handles overflow okay", operations.containsKey(2));
-
+        executorService.submit(completeLater);
+        executorService.submit(completeNow);
+        executorService.submit(completeSoon);
+ 
+        assertTrue("Handles overflow okay", operations.containsKey(0) &&
+                                            operations.containsKey(1) &&
+                                            operations.containsKey(2));
+        
         try {
             countDownLatch.await();
         } catch(InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        for (int i=3; i < 10; i++) {
-            AsyncOperation asyncOperation = new AsyncOperation(i, "test3") {
+        for (int i=3; i < 32; i++) {
+            AsyncOperation asyncOperation = new AsyncOperation(i, "test") {
                 @Override
                 public void stop() {}
                 @Override
-                public void operate() {
-                    try {
-                        Thread.sleep(500);
-                    } catch(InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
+                public void operate() {}
             };
             operations.put(i, asyncOperation);
         }
-
-
 
         assertFalse("Actually does LRU heuristics", operations.containsKey(0));
     }
