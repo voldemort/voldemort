@@ -120,8 +120,8 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
                         + " for writing.");
             FileSystem fs = this.taskIndexFileName.getFileSystem(job);
-            this.indexFileStream = fs.create(this.taskIndexFileName, (short) replicationFactor);
-            this.valueFileStream = fs.create(this.taskValueFileName, (short) replicationFactor);
+            this.indexFileStream = fs.create(this.taskIndexFileName);
+            this.valueFileStream = fs.create(this.taskValueFileName);
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
         }
