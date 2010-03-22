@@ -1,3 +1,19 @@
+Release 0.80.1 on 3/23/2010
+
+Changes made since 0.80:
+
+* Issue 133: Support for Apache Avro as a serialization format
+* Issue 223: Changed the default client to use
+  TresholdFailureDetector
+* Fixed issue 222: Revised KeyedResourcePool.close(K key) to fix
+  leaking sockets
+* Fixed issue 198: Revised ReadRepairer to use a separate copy of the
+  vector clock, fixing a situation where NoSuchElementException would
+  be thrown
+* Miscellaneous enhancement: support for TCP keep-alives, improved
+  read only store utilities, command line interface to AdminClient,
+  improved load testing tools
+
 Release 0.80 on 2/18/2010
 
 Changes made since 0.70.1:
