@@ -17,28 +17,18 @@
 package voldemort;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.annotations.concurrency.Immutable;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.CmdUtils;
-import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
-import voldemort.utils.Utils;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
-import voldemort.xml.ClusterMapper;
+import voldemort.utils.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.io.*;
 import java.util.List;
 import java.util.Set;
+import java.util.Iterator;
 
 /**
  * Provides a command line interface to the {@link voldemort.client.protocol.admin.AdminClient}
@@ -48,23 +38,37 @@ public class VoldemortAdminTool {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
         parser.accepts("url", "[REQUIRED] bootstrap URL")
-                .withRequiredArg()
-                .describedAs("bootstrap-url")
-                .ofType(String.class);
+              .withRequiredArg()
+              .describedAs("bootstrap-url")
+              .ofType(String.class);
         parser.accepts("node", "[REQUIRED] node id")
-                .withRequiredArg()
-                .describedAs("node-id")
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .describedAs("node-id")
+              .ofType(Integer.class);
         parser.accepts("delete-partitions", "Delete partitions")
-                .withRequiredArg()
-                .describedAs("partition-ids")
-                .withValuesSeparatedBy(',')
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .describedAs("partition-ids")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
         parser.accepts("restore", "Restore from replication");
         parser.accepts("parallelism", "Parallelism")
-                .withRequiredArg()
-                .describedAs("parallelism")
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .describedAs("parallelism")
+              .ofType(Integer.class);
+        parser.accepts("fetch-keys", "Fetch keys")
+              .withRequiredArg()
+              .describedAs("partition-ids")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
+        parser.accepts("outdir", "Output directory")
+              .withRequiredArg()
+              .describedAs("output-directory")
+              .ofType(String.class);
+        parser.accepts("stores", "Store names")
+              .withRequiredArg()
+              .describedAs("store-names")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
         OptionSet options = parser.parse(args);
 
         if (options.has("help")) {
@@ -91,6 +95,9 @@ public class VoldemortAdminTool {
         if (options.has("delete-partitions")) {
             ops += "d";
         }
+        if (options.has("fetch-keys")) {
+            ops += "k";
+        }
         if (options.has("restore")) {
             ops += "r";
         }
@@ -98,22 +105,44 @@ public class VoldemortAdminTool {
             Utils.croak("At least one of (delete-partitions, restore, add-node) must be specified");
         }
 
+        List<String> storeNames = null;
+
+        if (options.has("stores")) {
+            // For some reason one can't just do @SuppressWarnings without identifier following it
+            @SuppressWarnings("unchecked")
+            List<String> temp = (List<String>) options.valuesOf("stores");
+            storeNames = temp;
+        }
+
         try {
             if (ops.contains("d")) {
-                if (options.has("partition-ids")) {
-                    System.out.println("Starting delete-partitions");
-                    @SuppressWarnings("unchecked")
-                    List<Integer> partitionIdList = (List<Integer>) options.valuesOf("partition-ids");
-                    executeDeletePartitions(nodeId, adminClient, partitionIdList);
-                    System.out.println("Finished delete-partitions");
-                } else {
-                    System.err.println("Not running delete-partitions: partition-ids must be specified when delete-partitions is invoked");
-                }
+                System.out.println("Starting delete-partitions");
+                @SuppressWarnings("unchecked")
+                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("delete-partitions");
+                executeDeletePartitions(nodeId,
+                                        adminClient,
+                                        partitionIdList,
+                                        storeNames);
+                System.out.println("Finished delete-partitions");
             }
             if (ops.contains("r")) {
                 System.out.println("Starting restore");
                 adminClient.restoreDataFromReplications(nodeId, parallelism);
                 System.err.println("Finished restore");
+            }
+            if (ops.contains("k")) {
+                if (!options.has("outdir")) {
+                    Utils.croak("Directory name (outdir) must be specified for fetch-keys");
+                }
+                String outputDir = (String) options.valueOf("outdir");
+                System.out.println("Starting fetch keys");
+                @SuppressWarnings("unchecked")
+                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
+                executeFetchKeys(nodeId,
+                                 adminClient,
+                                 partitionIdList,
+                                 outputDir,
+                                 storeNames);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -121,15 +150,60 @@ public class VoldemortAdminTool {
         }
     }
 
-    public static void executeDeletePartitions(Integer nodeId, AdminClient adminClient, List<Integer> partitionIdList) {
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
-        List<String> storeNames = new ArrayList<String>();
-        for (StoreDefinition storeDefinition: storeDefinitionList) {
-            storeNames.add(storeDefinition.getName());
+    public static void executeFetchKeys(Integer nodeId,
+                                        AdminClient adminClient,
+                                        List<Integer> partitionIdList,
+                                        String outputDir,
+                                        List<String> storeNames) throws IOException {
+        File directory = new File(outputDir);
+        if (directory.exists() || directory.mkdir()) {
+            List<String> stores = storeNames;
+            if (stores == null) {
+                stores = Lists.newArrayList();
+                List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+                for (StoreDefinition storeDefinition: storeDefinitionList) {
+                    stores.add(storeDefinition.getName());
+                }
+            }
+            for (String store: stores) {
+                System.out.println("Fetching keys in partitions " + Joiner.on(", ").join(partitionIdList) + " of " + store);
+
+                File outputFile = new File(directory, store + ".keys");
+                DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+
+                try {
+                    Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId, store, partitionIdList, null);
+                    while (keyIterator.hasNext()) {
+                        byte[] keyBytes = keyIterator.next().get();
+                        dos.writeInt(keyBytes.length);
+                        dos.write(keyBytes);
+                    }
+                } finally {
+                    dos.close();
+                }
+                System.out.println("Fetched keys from " + store + " to " + outputFile);
+            }
+        } else {
+            Utils.croak("Can't find or create directory " + outputDir);
         }
-        for (String storeName: storeNames) {
-            System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList) + " of " + storeName);
-            adminClient.deletePartitions(nodeId, storeName, partitionIdList, null);
+    }
+
+    public static void executeDeletePartitions(Integer nodeId,
+                                               AdminClient adminClient,
+                                               List<Integer> partitionIdList,
+                                               List<String> storeNames) {
+        List<String> stores = storeNames;
+        if (stores == null) {
+            stores = Lists.newArrayList();
+            List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+            for (StoreDefinition storeDefinition: storeDefinitionList) {
+                stores.add(storeDefinition.getName());
+            }
+        }
+        
+        for (String store: stores) {
+            System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            adminClient.deletePartitions(nodeId, store, partitionIdList, null);
         }
     }
 }
