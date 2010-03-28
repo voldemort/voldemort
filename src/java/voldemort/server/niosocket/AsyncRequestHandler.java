@@ -261,6 +261,20 @@ public class AsyncRequestHandler implements Runnable {
                 preRequestPosition = inputStream.getBuffer().position();
                 state = handleStreamRequestInternal(selectionKey, dataInputStream, dataOutputStream);
             } while(state == StreamRequestHandlerState.READING);
+        } else if(state == StreamRequestHandlerState.WRITING) {
+            // We've read our request and written one segment, but we're still
+            // ready to stream writes to the client. So let's keep executing
+            // segments as much as we can until we're there's nothing more to do
+            // or until we blow past our buffer.
+            do {
+                state = handleStreamRequestInternal(selectionKey, dataInputStream, dataOutputStream);
+            } while(state == StreamRequestHandlerState.WRITING && !outputStream.wasExpanded());
+
+            if(state != StreamRequestHandlerState.COMPLETE) {
+                // We've read our request and are ready to start streaming
+                // writes to the client.
+                prepForWrite(selectionKey);
+            }
         }
 
         if(state == null) {
@@ -291,10 +305,6 @@ public class AsyncRequestHandler implements Runnable {
             // d) ...and reset the position to be ready for the rest of the
             // reads and the limit to allow more data.
             handleIncompleteRequest(currentPosition - preRequestPosition);
-        } else if(state == StreamRequestHandlerState.WRITING) {
-            // We've read our request and are ready to start streaming
-            // writes to the client.
-            prepForWrite(selectionKey);
         } else if(state == StreamRequestHandlerState.COMPLETE) {
             streamRequestHandler.close(dataOutputStream);
             streamRequestHandler = null;
