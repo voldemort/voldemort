@@ -168,9 +168,9 @@ public class GossiperTest extends TestCase {
             Thread.currentThread().interrupt();
         }
 
-        // Wait up to a second for Gossip to spread
+        // Wait up to five seconds for Gossip to spread
         try {
-            TestUtils.assertWithBackoff(1000, new Attempt() {
+            TestUtils.assertWithBackoff(5000, new Attempt() {
 
                 public void checkCondition() {
                     int serversSeen = 0;

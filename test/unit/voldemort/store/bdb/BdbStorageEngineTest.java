@@ -157,6 +157,6 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
             iter.next();
         iter.close();
         executor.shutdownNow();
-        assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS));
+        assertTrue(executor.awaitTermination(15, TimeUnit.SECONDS));
     }
 }

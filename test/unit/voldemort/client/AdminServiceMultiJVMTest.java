@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -46,6 +47,7 @@ import voldemort.versioning.Versioned;
  * 
  */
 @RunWith(Parameterized.class)
+@Ignore
 public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
 
     private static int TEST_KEYS = 10000;
