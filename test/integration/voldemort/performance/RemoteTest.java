@@ -233,10 +233,16 @@ public class RemoteTest {
                        "percentage of requests to come from previously requested keys; valid values are in range [0..100]; 0 means caching disabled  Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
+        parser.accepts("help");
 
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = options.nonOptionArguments();
+
+        if (options.has("help")) {
+            printUsage(System.out, parser);
+        }
+
         if(nonOptions.size() != 3) {
             printUsage(System.err, parser);
         }
