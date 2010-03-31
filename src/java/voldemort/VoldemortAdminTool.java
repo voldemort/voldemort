@@ -29,6 +29,8 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.*;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 import java.io.*;
 import java.util.List;
@@ -63,6 +65,11 @@ public class VoldemortAdminTool {
               .describedAs("parallelism")
               .ofType(Integer.class);
         parser.accepts("fetch-keys", "Fetch keys")
+              .withRequiredArg()
+              .describedAs("partition-ids")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
+        parser.accepts("fetch-values", "Fetch values")
               .withRequiredArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
@@ -104,6 +111,9 @@ public class VoldemortAdminTool {
         }
         if (options.has("fetch-keys")) {
             ops += "k";
+        }
+        if (options.has("fetch-values")) {
+            ops += "v";
         }
         if (options.has("restore")) {
             ops += "r";
@@ -153,12 +163,119 @@ public class VoldemortAdminTool {
                                  storeNames,
                                  useAscii);
             }
+            if (ops.contains("v")) {
+                if (!options.has("outdir")) {
+                    Utils.croak("Directory name (outdir) must be specified for fetch-values");
+                }
+                String outputDir = (String) options.valueOf("outdir");
+                boolean useAscii = options.has("ascii");
+                @SuppressWarnings("unchecked")
+                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-values");
+                executeFetchValues(nodeId,
+                                   adminClient,
+                                   partitionIdList,
+                                   outputDir,
+                                   storeNames,
+                                   useAscii);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
         }
     }
 
+    public static void executeFetchValues(Integer nodeId,
+                                          AdminClient adminClient,
+                                          List<Integer> partitionIdList,
+                                          String outputDir,
+                                          List<String> storeNames,
+                                          boolean useAscii) throws IOException {
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
+        }
+
+        File directory = new File(outputDir);
+        if (directory.exists() || directory.mkdir()) {
+            List<String> stores = storeNames;
+            if (stores == null) {
+                stores = Lists.newArrayList();
+                stores.addAll(storeDefinitionMap.keySet());
+            }
+            for (String store: stores) {
+                System.out.println("Fetching entries in partitions " + Joiner.on(", ").join(partitionIdList) + " of " + store);
+                Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                           store,
+                                                                                                           partitionIdList,
+                                                                                                           null);
+                File outputFile = new File(directory, store + ".entries");
+                if (useAscii) {
+                    StoreDefinition storeDefinition = storeDefinitionMap.get(store);
+                    writeEntriesAscii(entriesIterator, outputFile, storeDefinition);
+                } else {
+                    writeEntriesBinary(entriesIterator, outputFile);
+                }
+
+            }
+        }
+    }
+
+    private static void writeEntriesAscii(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
+                                         File outputFile,
+                                         StoreDefinition storeDefinition) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+        SerializerFactory serializerFactory = new DefaultSerializerFactory();
+        JsonWriter jsonWriter = new JsonWriter(writer);
+
+        @SuppressWarnings("unchecked")
+        Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
+        @SuppressWarnings("unchecked")
+        Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getValueSerializer());
+
+        try {
+            while (iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> kvPair = iterator.next();
+                byte[] keyBytes = kvPair.getFirst().get();
+                VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
+                byte[] valueBytes = kvPair.getSecond().getValue();
+
+                Object keyObject = keySerializer.toObject(keyBytes);
+                Object valueObject = valueSerializer.toObject(valueBytes);
+
+                jsonWriter.write(keyObject);
+                jsonWriter.write("\t");
+                jsonWriter.write(version);
+                jsonWriter.write("\t");
+                jsonWriter.write(valueObject);
+                jsonWriter.write("\n");
+            }
+        } finally {
+            writer.close();
+        }
+    }
+
+    private static void writeEntriesBinary(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
+                                           File outputFile) throws IOException {
+        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+        try {
+            while (iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> kvPair = iterator.next();
+                byte[] keyBytes = kvPair.getFirst().get();
+                byte[] versionBytes = ((VectorClock) kvPair.getSecond().getVersion()).toBytes();
+                byte[] valueBytes = kvPair.getSecond().getValue();
+                dos.writeInt(keyBytes.length);
+                dos.write(keyBytes);
+                dos.writeInt(versionBytes.length);
+                dos.write(versionBytes);
+                dos.write(valueBytes.length);
+                dos.write(valueBytes);
+            }
+        } finally {
+            dos.close();
+        }
+    }
+                                         
     public static void executeFetchKeys(Integer nodeId,
                                         AdminClient adminClient,
                                         List<Integer> partitionIdList,
