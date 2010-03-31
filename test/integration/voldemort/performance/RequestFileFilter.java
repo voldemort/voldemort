@@ -39,8 +39,6 @@ import java.util.Set;
 
 /**
  * Filter a request file for keys that are mastered by a specified node.
- *
- * @author afeinberg
  */
 public class RequestFileFilter {
     private final StoreDefinition storeDefinition;
