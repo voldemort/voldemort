@@ -18,15 +18,21 @@ package voldemort;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerFactory;
+import voldemort.serialization.json.JsonWriter;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.*;
 
 import java.io.*;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Iterator;
 
@@ -51,6 +57,7 @@ public class VoldemortAdminTool {
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("restore", "Restore from replication");
+        parser.accepts("ascii", "Fetch keys as ASCII");
         parser.accepts("parallelism", "Parallelism")
               .withRequiredArg()
               .describedAs("parallelism")
@@ -135,6 +142,7 @@ public class VoldemortAdminTool {
                     Utils.croak("Directory name (outdir) must be specified for fetch-keys");
                 }
                 String outputDir = (String) options.valueOf("outdir");
+                boolean useAscii = options.has("ascii");
                 System.out.println("Starting fetch keys");
                 @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
@@ -142,7 +150,8 @@ public class VoldemortAdminTool {
                                  adminClient,
                                  partitionIdList,
                                  outputDir,
-                                 storeNames);
+                                 storeNames,
+                                 useAscii);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -154,37 +163,71 @@ public class VoldemortAdminTool {
                                         AdminClient adminClient,
                                         List<Integer> partitionIdList,
                                         String outputDir,
-                                        List<String> storeNames) throws IOException {
+                                        List<String> storeNames,
+                                        boolean useAscii) throws IOException {
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
+        }
+
         File directory = new File(outputDir);
         if (directory.exists() || directory.mkdir()) {
             List<String> stores = storeNames;
             if (stores == null) {
                 stores = Lists.newArrayList();
-                List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
-                for (StoreDefinition storeDefinition: storeDefinitionList) {
-                    stores.add(storeDefinition.getName());
-                }
+                stores.addAll(storeDefinitionMap.keySet());
             }
             for (String store: stores) {
                 System.out.println("Fetching keys in partitions " + Joiner.on(", ").join(partitionIdList) + " of " + store);
-
+                Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId, store, partitionIdList, null);
                 File outputFile = new File(directory, store + ".keys");
-                DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
-
-                try {
-                    Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId, store, partitionIdList, null);
-                    while (keyIterator.hasNext()) {
-                        byte[] keyBytes = keyIterator.next().get();
-                        dos.writeInt(keyBytes.length);
-                        dos.write(keyBytes);
-                    }
-                } finally {
-                    dos.close();
+                if (useAscii) {
+                    StoreDefinition storeDefinition = storeDefinitionMap.get(store);
+                    writeKeysAscii(keyIterator, outputFile, storeDefinition);
+                } else {
+                    writeKeysBinary(keyIterator, outputFile);
                 }
+
                 System.out.println("Fetched keys from " + store + " to " + outputFile);
             }
         } else {
             Utils.croak("Can't find or create directory " + outputDir);
+        }
+    }
+
+    private static void writeKeysAscii(Iterator<ByteArray> keyIterator,
+                                       File outputFile,
+                                       StoreDefinition storeDefinition) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+        SerializerFactory serializerFactory = new DefaultSerializerFactory();
+        JsonWriter jsonWriter = new JsonWriter(writer);
+
+        @SuppressWarnings("unchecked")
+        Serializer<Object> serializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
+        try {
+            while (keyIterator.hasNext()) {
+                byte[] keyBytes = keyIterator.next().get();
+                Object keyObject = serializer.toObject(keyBytes);
+                jsonWriter.write(keyObject);
+                writer.write("\n");
+            }
+        } finally {
+            writer.close();
+        }
+    }
+    
+    private static void writeKeysBinary(Iterator<ByteArray> keyIterator, File outputFile) throws IOException {
+        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+
+        try {
+            while (keyIterator.hasNext()) {
+                byte[] keyBytes = keyIterator.next().get();
+                dos.writeInt(keyBytes.length);
+                dos.write(keyBytes);
+            }
+        } finally {
+            dos.close();
         }
     }
 
