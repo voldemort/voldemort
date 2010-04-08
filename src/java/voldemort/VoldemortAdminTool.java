@@ -21,12 +21,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.map.ObjectMapper;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
-import voldemort.serialization.json.JsonWriter;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
@@ -69,7 +71,7 @@ public class VoldemortAdminTool {
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
-        parser.accepts("fetch-values", "Fetch values")
+        parser.accepts("fetch-entries", "Fetch full entries")
               .withRequiredArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
@@ -112,14 +114,14 @@ public class VoldemortAdminTool {
         if (options.has("fetch-keys")) {
             ops += "k";
         }
-        if (options.has("fetch-values")) {
+        if (options.has("fetch-entries")) {
             ops += "v";
         }
         if (options.has("restore")) {
             ops += "r";
         }
         if (ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys) must be specified");
         }
 
         List<String> storeNames = null;
@@ -171,12 +173,15 @@ public class VoldemortAdminTool {
                 boolean useAscii = options.has("ascii");
                 @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-values");
-                executeFetchValues(nodeId,
+                executeFetchEntries(nodeId,
                                    adminClient,
                                    partitionIdList,
                                    outputDir,
                                    storeNames,
                                    useAscii);
+            }
+            if (ops.contains("u")) {
+                
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -184,7 +189,7 @@ public class VoldemortAdminTool {
         }
     }
 
-    public static void executeFetchValues(Integer nodeId,
+    public static void executeFetchEntries(Integer nodeId,
                                           AdminClient adminClient,
                                           List<Integer> partitionIdList,
                                           String outputDir,
@@ -222,11 +227,12 @@ public class VoldemortAdminTool {
     }
 
     private static void writeEntriesAscii(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
-                                         File outputFile,
-                                         StoreDefinition storeDefinition) throws IOException {
+                                          File outputFile,
+                                          StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
-        JsonWriter jsonWriter = new JsonWriter(writer);
+        StringWriter stringWriter = new StringWriter();
+        JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
 
         @SuppressWarnings("unchecked")
         Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
@@ -243,13 +249,19 @@ public class VoldemortAdminTool {
                 Object keyObject = keySerializer.toObject(keyBytes);
                 Object valueObject = valueSerializer.toObject(valueBytes);
 
-                jsonWriter.write(keyObject);
-                jsonWriter.write("\t");
-                jsonWriter.write(version);
-                jsonWriter.write("\t");
-                jsonWriter.write(valueObject);
-                jsonWriter.write("\n");
+                generator.writeObject(keyObject);
+                stringWriter.write(' ');
+                stringWriter.write(version.toString());
+                generator.writeObject(valueObject);
+
+                StringBuffer buf = stringWriter.getBuffer();
+                if (buf.charAt(0) == ' ') {
+                    buf.setCharAt(0, '\n');
+                }
+                writer.write(buf.toString());
+                buf.setLength(0);
             }
+            writer.write('\n');
         } finally {
             writer.close();
         }
@@ -318,17 +330,24 @@ public class VoldemortAdminTool {
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
-        JsonWriter jsonWriter = new JsonWriter(writer);
-
+        StringWriter stringWriter = new StringWriter();
+        JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
         try {
             while (keyIterator.hasNext()) {
+                // Ugly hack to be able to separate text by newlines vs. spaces
                 byte[] keyBytes = keyIterator.next().get();
                 Object keyObject = serializer.toObject(keyBytes);
-                jsonWriter.write(keyObject);
-                writer.write("\n");
+                generator.writeObject(keyObject);
+                StringBuffer buf = stringWriter.getBuffer();
+                if (buf.charAt(0) == ' ') {
+                    buf.setCharAt(0, '\n');
+                }
+                writer.write(buf.toString());
+                buf.setLength(0);
             }
+            writer.write('\n');
         } finally {
             writer.close();
         }
