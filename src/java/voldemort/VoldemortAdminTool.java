@@ -17,6 +17,7 @@
 package voldemort;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import joptsimple.OptionParser;
@@ -33,6 +34,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.*;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import java.io.*;
 import java.util.List;
@@ -85,6 +87,11 @@ public class VoldemortAdminTool {
               .describedAs("store-names")
               .withValuesSeparatedBy(',')
               .ofType(String.class);
+        parser.accepts("add-stores", "Add stores in this stores.xml")
+              .withRequiredArg()
+              .describedAs("stores.xml")
+              .ofType(String.class);
+        
         OptionSet options = parser.parse(args);
 
         if (options.has("help")) {
@@ -96,9 +103,12 @@ public class VoldemortAdminTool {
                                                "url",
                                                "node");
         if (missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-            parser.printHelpOn(System.err);
-            System.exit(1);
+            // Not the most elegant way to do this
+            if (!(missing.equals(ImmutableSet.of("node")) && options.has("add-stores"))) {
+                System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
+                parser.printHelpOn(System.err);
+                System.exit(1);
+            }
         }
 
         String url = (String) options.valueOf("url");
@@ -119,6 +129,9 @@ public class VoldemortAdminTool {
         }
         if (options.has("restore")) {
             ops += "r";
+        }
+        if (options.has("add-stores")) {
+            ops += "a";
         }
         if (ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys) must be specified");
@@ -180,8 +193,11 @@ public class VoldemortAdminTool {
                                    storeNames,
                                    useAscii);
             }
-            if (ops.contains("u")) {
-                
+            if (ops.contains("a")) {
+                String storesXml = (String) options.valueOf("add-stores");
+                executeAddStores(adminClient,
+                                 storesXml,
+                                 storeNames);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -189,12 +205,31 @@ public class VoldemortAdminTool {
         }
     }
 
+    public static void executeAddStores(AdminClient adminClient,
+                                        String storesXml,
+                                        List<String> storeNames) throws IOException {
+        List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
+        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
+        }
+        List<String> stores = storeNames;
+        if (stores == null) {
+            stores = Lists.newArrayList();
+            stores.addAll(storeDefinitionMap.keySet());
+        }
+        for (String store: stores) {
+            System.out.println("Adding " + store);
+            adminClient.addStore(storeDefinitionMap.get(store));
+        }
+    }
+
     public static void executeFetchEntries(Integer nodeId,
-                                          AdminClient adminClient,
-                                          List<Integer> partitionIdList,
-                                          String outputDir,
-                                          List<String> storeNames,
-                                          boolean useAscii) throws IOException {
+                                           AdminClient adminClient,
+                                           List<Integer> partitionIdList,
+                                           String outputDir,
+                                           List<String> storeNames,
+                                           boolean useAscii) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for (StoreDefinition storeDefinition: storeDefinitionList) {
