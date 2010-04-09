@@ -143,14 +143,14 @@ public class ReadRepairerTest extends TestCase {
 
         failureDetector = create(failureDetectorConfig, false);
 
-        RoutedStore store = new RoutedStore("test",
-                                            subStores,
-                                            cluster,
-                                            storeDef,
-                                            1,
-                                            true,
-                                            1000L,
-                                            failureDetector);
+        RoutableStore store = new NewRoutedStore("test",
+                                                 subStores,
+                                                 cluster,
+                                                 storeDef,
+                                                 1,
+                                                 true,
+                                                 1000L,
+                                                 failureDetector);
 
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
         store.put(key, new Versioned<byte[]>(value));

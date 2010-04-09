@@ -58,7 +58,7 @@ public class StoreRepository {
     /*
      * Routed stores that write and read from multiple nodes
      */
-    private final ConcurrentMap<String, Store<ByteArray, byte[]>> routedStores;
+    private final ConcurrentMap<String, Store<ByteArray, byte[]>> routableStores;
 
     /*
      * Stores that connect to a single node only and represent a direct
@@ -75,7 +75,7 @@ public class StoreRepository {
         super();
         this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
-        this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
+        this.routableStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
         this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
         this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
     }
@@ -128,22 +128,22 @@ public class StoreRepository {
     }
 
     public boolean hasRoutedStore(String name) {
-        return this.routedStores.containsKey(name);
+        return this.routableStores.containsKey(name);
     }
 
-    public Store<ByteArray, byte[]> getRoutedStore(String storeName) {
-        return routedStores.get(storeName);
+    public Store<ByteArray, byte[]> getRoutableStore(String storeName) {
+        return routableStores.get(storeName);
     }
 
     public void addRoutedStore(Store<ByteArray, byte[]> store) {
-        Store<ByteArray, byte[]> found = this.routedStores.putIfAbsent(store.getName(), store);
+        Store<ByteArray, byte[]> found = this.routableStores.putIfAbsent(store.getName(), store);
         if(found != null)
             throw new VoldemortException("Store '" + store.getName()
                                          + "' has already been initialized.");
     }
 
-    public List<Store<ByteArray, byte[]>> getAllRoutedStores() {
-        return new ArrayList<Store<ByteArray, byte[]>>(this.routedStores.values());
+    public List<Store<ByteArray, byte[]>> getAllRoutableStores() {
+        return new ArrayList<Store<ByteArray, byte[]>>(this.routableStores.values());
     }
 
     public boolean hasNodeStore(String name, int nodeId) {

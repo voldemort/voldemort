@@ -69,7 +69,7 @@ import com.google.common.collect.Maps;
  * 
  * 
  */
-public class RoutedStore implements Store<ByteArray, byte[]> {
+public class RoutedStore implements RoutableStore {
 
     private static final Logger logger = Logger.getLogger(RoutedStore.class.getName());
 

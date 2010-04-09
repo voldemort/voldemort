@@ -43,7 +43,7 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.NewRoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
@@ -121,7 +121,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
 
-        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);     
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
     }
 
     @SuppressWarnings("unchecked")
@@ -151,15 +151,15 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
 
         boolean repairReads = !storeDef.isView();
-        Store<ByteArray, byte[]> store = new RoutedStore(storeName,
-                                                         clientMapping,
-                                                         cluster,
-                                                         storeDef,
-                                                         repairReads,
-                                                         threadPool,
-                                                         routingTimeoutMs,
-                                                         getFailureDetector(),
-                                                         SystemTime.INSTANCE);
+        Store<ByteArray, byte[]> store = new NewRoutedStore(storeName,
+                                                            clientMapping,
+                                                            cluster,
+                                                            storeDef,
+                                                            repairReads,
+                                                            threadPool,
+                                                            routingTimeoutMs,
+                                                            getFailureDetector(),
+                                                            SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
@@ -192,17 +192,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
                                                            final Collection<Node> nodes);
-    
+
     public FailureDetector getFailureDetector() {
         // first check: avoids locking as the field is volatile
         FailureDetector result = failureDetector;
-        if (result == null) {
-            String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        if(result == null) {
+            String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
+                                                             bootstrapUrls);
             Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
-                if (result == null)
+                if(result == null)
                     failureDetector = result = initFailureDetector(config, cluster.getNodes());
             }
         }

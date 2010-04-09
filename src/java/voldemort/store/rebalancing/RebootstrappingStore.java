@@ -31,7 +31,7 @@ import voldemort.store.DelegatingStore;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutableStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketPool;
 import voldemort.store.socket.SocketStore;
@@ -55,24 +55,26 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
     private final SocketPool socketPool;
-    private RoutedStore routedStore;
+    private RoutableStore routableStore;
 
     public RebootstrappingStore(MetadataStore metadataStore,
                                 StoreRepository storeRepository,
                                 VoldemortConfig voldemortConfig,
                                 SocketPool socketPool,
-                                RoutedStore routedStore) {
-        super(routedStore);
+                                RoutableStore routableStore) {
+        super(routableStore);
         this.metadata = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
         this.socketPool = socketPool;
-        this.routedStore = routedStore;
+        this.routableStore = routableStore;
     }
 
     private void reinit() {
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster(), 4, 2);
+                                                                       metadata.getCluster(),
+                                                                       4,
+                                                                       2);
         try {
             Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                adminClient);
@@ -80,7 +82,7 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
 
             checkAndAddNodeStore();
 
-            routedStore.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
+            routableStore.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
         } finally {
             adminClient.stop();
         }
@@ -94,13 +96,13 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private void checkAndAddNodeStore() {
         for(Node node: metadata.getCluster().getNodes()) {
-            if(!routedStore.getInnerStores().containsKey(node.getId())) {
+            if(!routableStore.getInnerStores().containsKey(node.getId())) {
                 if(!storeRepository.hasNodeStore(getName(), node.getId())) {
                     storeRepository.addNodeStore(node.getId(), createNodeStore(node));
                 }
-                routedStore.getInnerStores().put(node.getId(),
-                                                 storeRepository.getNodeStore(getName(),
-                                                                              node.getId()));
+                routableStore.getInnerStores().put(node.getId(),
+                                                   storeRepository.getNodeStore(getName(),
+                                                                                node.getId()));
             }
         }
     }

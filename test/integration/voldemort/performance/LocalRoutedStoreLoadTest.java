@@ -38,7 +38,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.Store;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.NewRoutedStore;
+import voldemort.store.routed.RoutableStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
@@ -70,20 +71,20 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                                                                                                             new ByteArray("key".getBytes())));
         FailureDetector failureDetector = create(failureDetectorConfig, false);
 
-        Store<ByteArray, byte[]> store = new RoutedStore("test",
-                                                         clientMapping,
-                                                         cluster,
-                                                         ServerTestUtils.getStoreDef("test",
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     RoutingStrategyType.CONSISTENT_STRATEGY),
-                                                         10,
-                                                         true,
-                                                         10000L,
-                                                         failureDetector);
+        RoutableStore store = new NewRoutedStore("test",
+                                                 clientMapping,
+                                                 cluster,
+                                                 ServerTestUtils.getStoreDef("test",
+                                                                             1,
+                                                                             1,
+                                                                             1,
+                                                                             1,
+                                                                             1,
+                                                                             RoutingStrategyType.CONSISTENT_STRATEGY),
+                                                 10,
+                                                 true,
+                                                 10000L,
+                                                 failureDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory
