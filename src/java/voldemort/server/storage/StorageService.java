@@ -50,6 +50,7 @@ import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -67,9 +68,8 @@ import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.stats.DataSetStats;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
@@ -105,7 +105,7 @@ public class StorageService extends AbstractService {
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
     private final Semaphore cleanupPermits;
-    private final SocketPool socketPool;
+    private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
     private final FailureDetector failureDetector;
@@ -125,15 +125,15 @@ public class StorageService extends AbstractService {
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
                                                      config.getClientMaxQueuedRequests());
-        this.socketPool = new SocketPool(config.getClientMaxConnectionsPerNode(),
-                                         config.getClientConnectionTimeoutMs(),
-                                         config.getSocketTimeoutMs(),
-                                         config.getSocketBufferSize(),
-                                         config.getSocketKeepAlive());
+        this.storeFactory = new ClientRequestExecutorPool(config.getClientMaxConnectionsPerNode(),
+                                                          config.getClientConnectionTimeoutMs(),
+                                                          config.getSocketTimeoutMs(),
+                                                          config.getSocketBufferSize(),
+                                                          config.getSocketKeepAlive());
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
                                                                                                                   .getNodes())
-                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketPool,
+                                                                                                .setStoreVerifier(new ServerStoreVerifier(storeFactory,
                                                                                                                                           metadata,
                                                                                                                                           config));
         this.failureDetector = create(failureDetectorConfig, config.isJmxEnabled());
@@ -240,7 +240,7 @@ public class StorageService extends AbstractService {
                                          metadata,
                                          storeRepository,
                                          failureDetector,
-                                         socketPool);
+                                         storeFactory);
 
         if(voldemortConfig.isMetadataCheckingEnabled())
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
@@ -302,7 +302,7 @@ public class StorageService extends AbstractService {
         routedStore = new RebootstrappingStore(metadata,
                                                storeRepository,
                                                voldemortConfig,
-                                               socketPool,
+                                               storeFactory,
                                                (RoutedStore) routedStore);
 
         routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
@@ -321,12 +321,11 @@ public class StorageService extends AbstractService {
     }
 
     private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node) {
-        return new SocketStore(storeName,
-                               new SocketDestination(node.getHost(),
-                                                     node.getSocketPort(),
-                                                     voldemortConfig.getRequestFormatType()),
-                               socketPool,
-                               false);
+        return storeFactory.create(storeName,
+                                   node.getHost(),
+                                   node.getSocketPort(),
+                                   voldemortConfig.getRequestFormatType(),
+                                   RequestRoutingType.NORMAL);
     }
 
     /**
@@ -578,8 +577,8 @@ public class StorageService extends AbstractService {
         return stats;
     }
 
-    public SocketPool getStorageSocketPool() {
-        return socketPool;
+    public SocketStoreFactory getSocketStoreFactory() {
+        return storeFactory;
     }
 
 }

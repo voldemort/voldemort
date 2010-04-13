@@ -25,6 +25,7 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.DelegatingStore;
@@ -32,9 +33,7 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutedStore;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -54,25 +53,27 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
-    private final SocketPool socketPool;
+    private final SocketStoreFactory storeFactory;
     private RoutedStore routedStore;
 
     public RebootstrappingStore(MetadataStore metadataStore,
                                 StoreRepository storeRepository,
                                 VoldemortConfig voldemortConfig,
-                                SocketPool socketPool,
+                                SocketStoreFactory storeFactory,
                                 RoutedStore routedStore) {
         super(routedStore);
         this.metadata = metadataStore;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
-        this.socketPool = socketPool;
+        this.storeFactory = storeFactory;
         this.routedStore = routedStore;
     }
 
     private void reinit() {
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster(), 4, 2);
+                                                                       metadata.getCluster(),
+                                                                       4,
+                                                                       2);
         try {
             Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                adminClient);
@@ -106,12 +107,11 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     private Store<ByteArray, byte[]> createNodeStore(Node node) {
-        return new SocketStore(getName(),
-                               new SocketDestination(node.getHost(),
-                                                     node.getSocketPort(),
-                                                     voldemortConfig.getRequestFormatType()),
-                               socketPool,
-                               false);
+        return storeFactory.create(getName(),
+                                   node.getHost(),
+                                   node.getSocketPort(),
+                                   voldemortConfig.getRequestFormatType(),
+                                   RequestRoutingType.NORMAL);
     }
 
     @Override

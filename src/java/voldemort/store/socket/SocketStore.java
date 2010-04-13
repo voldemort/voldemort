@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,12 +16,10 @@
 
 package voldemort.store.socket;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.Socket;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
@@ -32,9 +30,16 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.socket.clientrequest.BlockingClientRequest;
+import voldemort.store.socket.clientrequest.ClientRequest;
+import voldemort.store.socket.clientrequest.ClientRequestExecutor;
+import voldemort.store.socket.clientrequest.DeleteClientRequest;
+import voldemort.store.socket.clientrequest.GetAllClientRequest;
+import voldemort.store.socket.clientrequest.GetClientRequest;
+import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
+import voldemort.store.socket.clientrequest.PutClientRequest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -46,112 +51,74 @@ import voldemort.versioning.Versioned;
  */
 public class SocketStore implements Store<ByteArray, byte[]> {
 
-    private static final Logger logger = Logger.getLogger(SocketStore.class);
-
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
-    private final String name;
-    private final SocketPool pool;
+    private final String storeName;
+    private final ClientRequestExecutorPool pool;
+    private final ClientSelectorManager selectorManager;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
-    private final RequestRoutingType requestType;
+    private final RequestRoutingType requestRoutingType;
 
-    public SocketStore(String name, SocketDestination dest, SocketPool socketPool, boolean reroute) {
-        this.name = Utils.notNull(name);
-        this.pool = Utils.notNull(socketPool);
-        this.destination = dest;
-        this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
-        this.requestType = RequestRoutingType.getRequestRoutingType(reroute, false);
-    }
-
-    public SocketStore(String name,
+    public SocketStore(String storeName,
                        SocketDestination dest,
-                       SocketPool socketPool,
-                       RequestRoutingType requestType) {
-        this.name = Utils.notNull(name);
-        this.pool = Utils.notNull(socketPool);
+                       ClientRequestExecutorPool pool,
+                       ClientSelectorManager selectorManager,
+                       RequestRoutingType requestRoutingType) {
+        this.storeName = Utils.notNull(storeName);
+        this.pool = Utils.notNull(pool);
+        this.selectorManager = Utils.notNull(selectorManager);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
-        this.requestType = requestType;
-    }
-
-    public void close() throws VoldemortException {
-    // don't close the socket pool, it is shared
+        this.requestRoutingType = requestRoutingType;
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            requestFormat.writeDeleteRequest(sands.getOutputStream(),
-                                             name,
-                                             key,
-                                             (VectorClock) version,
-                                             requestType);
-            sands.getOutputStream().flush();
-            return requestFormat.readDeleteResponse(sands.getInputStream());
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new UnreachableStoreException("Failure in delete on " + destination + ": "
-                                                + e.getMessage(), e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+                                                                    requestFormat,
+                                                                    requestRoutingType,
+                                                                    key,
+                                                                    version);
+        return request(clientRequest, "delete");
+    }
+
+    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        GetClientRequest clientRequest = new GetClientRequest(storeName,
+                                                              requestFormat,
+                                                              requestRoutingType,
+                                                              key);
+        return request(clientRequest, "get");
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            requestFormat.writeGetAllRequest(sands.getOutputStream(), name, keys, requestType);
-            sands.getOutputStream().flush();
-            return requestFormat.readGetAllResponse(sands.getInputStream());
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new UnreachableStoreException("Failure in getAll() on " + destination + ": "
-                                                + e.getMessage(), e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+                                                                    requestFormat,
+                                                                    requestRoutingType,
+                                                                    keys);
+        return request(clientRequest, "getAll");
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Version> getVersions(ByteArray key) {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, requestType);
-
-            sands.getOutputStream().flush();
-            return requestFormat.readGetResponse(sands.getInputStream());
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new UnreachableStoreException("Failure in get on " + destination + ": "
-                                                + e.getMessage(), e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+                                                                              requestFormat,
+                                                                              requestRoutingType,
+                                                                              key);
+        return request(clientRequest, "getVersions");
     }
 
     public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = pool.checkout(destination);
-        try {
-            requestFormat.writePutRequest(sands.getOutputStream(),
-                                          name,
-                                          key,
-                                          versioned.getValue(),
-                                          (VectorClock) versioned.getVersion(),
-                                          requestType);
-            sands.getOutputStream().flush();
-            requestFormat.readPutResponse(sands.getInputStream());
-        } catch(IOException e) {
-            close(sands.getSocket());
-            throw new UnreachableStoreException("Failure in put on " + destination + ": "
-                                                + e.getMessage(), e);
-        } finally {
-            pool.checkin(destination, sands);
-        }
+        PutClientRequest clientRequest = new PutClientRequest(storeName,
+                                                              requestFormat,
+                                                              requestRoutingType,
+                                                              key,
+                                                              versioned);
+        request(clientRequest, "put");
     }
 
     public Object getCapability(StoreCapabilityType capability) {
@@ -162,30 +129,33 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     }
 
     public String getName() {
-        return name;
+        return storeName;
     }
 
-    private void close(Socket socket) {
-        try {
-            socket.close();
-        } catch(IOException e) {
-            logger.warn("Failed to close socket");
-        }
+    public void close() throws VoldemortException {
+    // don't close the socket pool, it is shared
     }
 
-    public List<Version> getVersions(ByteArray key) {
-        StoreUtils.assertValidKey(key);
-        SocketAndStreams sands = pool.checkout(destination);
+    private <T> T request(ClientRequest<T> clientRequest, String operationName) {
+        ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
+
         try {
-            requestFormat.writeGetVersionRequest(sands.getOutputStream(), name, key, requestType);
-            sands.getOutputStream().flush();
-            return requestFormat.readGetVersionResponse(sands.getInputStream());
+            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(clientRequest);
+            clientRequestExecutor.setClientRequest(blockingClientRequest);
+            blockingClientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
+            selectorManager.request(clientRequestExecutor);
+            blockingClientRequest.await();
+            return blockingClientRequest.getResult();
+        } catch(InterruptedException e) {
+            throw new UnreachableStoreException("Failure in " + operationName + " on "
+                                                + destination + ": " + e.getMessage(), e);
         } catch(IOException e) {
-            close(sands.getSocket());
-            throw new UnreachableStoreException("Failure in getVersion on " + destination + ": "
-                                                + e.getMessage(), e);
+            clientRequestExecutor.close();
+            throw new UnreachableStoreException("Failure in " + operationName + " on "
+                                                + destination + ": " + e.getMessage(), e);
         } finally {
-            pool.checkin(destination, sands);
+            pool.checkin(destination, clientRequestExecutor);
         }
     }
+
 }

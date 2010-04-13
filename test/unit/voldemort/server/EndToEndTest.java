@@ -1,9 +1,23 @@
 package voldemort.server;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
@@ -12,29 +26,28 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.versioning.Versioned;
-
-import static org.junit.runners.Parameterized.Parameters;
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.util.*;
 
 /**
  * Provides an unmocked end to end unit test of a Voldemort cluster.
- *
+ * 
  */
 @RunWith(Parameterized.class)
 public class EndToEndTest {
 
     private static final String STORE_NAME = "test-readrepair-memory";
     private static final String STORES_XML = "test/common/voldemort/config/stores.xml";
-
+    private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                        10000,
+                                                                                        100000,
+                                                                                        32 * 1024);
     private final boolean useNio;
 
     private List<VoldemortServer> servers;
     private Cluster cluster;
-    private StoreClient<String,String> storeClient;
+    private StoreClient<String, String> storeClient;
 
     public EndToEndTest(boolean useNio) {
         this.useNio = useNio;
@@ -49,18 +62,20 @@ public class EndToEndTest {
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 2, 4, 6 }, { 1, 3, 5, 7 } });
         servers = new ArrayList<VoldemortServer>();
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                         ServerTestUtils.createServerConfig(useNio,
                                                                                             0,
                                                                                             TestUtils.createTempDir()
-                                                                                                    .getAbsolutePath(),
+                                                                                                     .getAbsolutePath(),
                                                                                             null,
                                                                                             STORES_XML,
                                                                                             new Properties()),
                                                          cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                         ServerTestUtils.createServerConfig(useNio,
                                                                                             1,
                                                                                             TestUtils.createTempDir()
-                                                                                                    .getAbsolutePath(),
+                                                                                                     .getAbsolutePath(),
                                                                                             null,
                                                                                             STORES_XML,
                                                                                             new Properties()),
@@ -69,6 +84,11 @@ public class EndToEndTest {
         String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
         StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
         storeClient = storeClientFactory.getStoreClient(STORE_NAME);
+    }
+
+    @After
+    public void tearDown() {
+        socketStoreFactory.close();
     }
 
     /**
@@ -86,9 +106,12 @@ public class EndToEndTest {
 
         storeClient.put("Kazakhstan", "Astana");
         Versioned<String> v2 = storeClient.get("Kazakhstan");
-        assertEquals("clobbering a value works as expected, we have read-your-writes consistency", "Astana", v2.getValue());
+        assertEquals("clobbering a value works as expected, we have read-your-writes consistency",
+                     "Astana",
+                     v2.getValue());
 
-        Map<String, Versioned<String>> capitals = storeClient.getAll(Arrays.asList("Russia", "Ukraine"));
+        Map<String, Versioned<String>> capitals = storeClient.getAll(Arrays.asList("Russia",
+                                                                                   "Ukraine"));
 
         assertEquals("getAll works as expected", "Moscow", capitals.get("Russia").getValue());
         assertEquals("getAll works as expected", "Kiev", capitals.get("Ukraine").getValue());

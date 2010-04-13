@@ -21,14 +21,13 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
@@ -41,7 +40,7 @@ import voldemort.utils.Utils;
 
 public class ServerStoreVerifier implements StoreVerifier {
 
-    private final SocketPool socketPool;
+    private final SocketStoreFactory storeFactory;
 
     private final MetadataStore metadataStore;
 
@@ -49,10 +48,10 @@ public class ServerStoreVerifier implements StoreVerifier {
 
     private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public ServerStoreVerifier(SocketPool socketPool,
+    public ServerStoreVerifier(SocketStoreFactory storeFactory,
                                MetadataStore metadataStore,
                                VoldemortConfig voldemortConfig) {
-        this.socketPool = Utils.notNull(socketPool);
+        this.storeFactory = Utils.notNull(storeFactory);
         this.metadataStore = Utils.notNull(metadataStore);
         this.voldemortConfig = Utils.notNull(voldemortConfig);
         stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
@@ -68,12 +67,11 @@ public class ServerStoreVerifier implements StoreVerifier {
                 store = stores.get(node.getId());
 
                 if(store == null) {
-                    store = new SocketStore(MetadataStore.METADATA_STORE_NAME,
-                                            new SocketDestination(node.getHost(),
-                                                                  node.getSocketPort(),
-                                                                  voldemortConfig.getRequestFormatType()),
-                                            socketPool,
-                                            false);
+                    store = storeFactory.create(MetadataStore.METADATA_STORE_NAME,
+                                                node.getHost(),
+                                                node.getSocketPort(),
+                                                voldemortConfig.getRequestFormatType(),
+                                                RequestRoutingType.NORMAL);
                     stores.put(node.getId(), store);
                 }
             }

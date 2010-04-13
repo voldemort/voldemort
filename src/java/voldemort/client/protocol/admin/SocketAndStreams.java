@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.socket;
+package voldemort.client.protocol.admin;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

@@ -62,7 +62,9 @@ public class RebalanceTest extends AbstractRebalanceTest {
                                                                         storeXmlFile,
                                                                         properties);
 
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(config, cluster);
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                          config,
+                                                                          cluster);
             serverMap.put(node, server);
         }
 

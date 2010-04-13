@@ -65,7 +65,7 @@ public class NioSocketService extends AbstractSocketService {
 
     private final InetSocketAddress endpoint;
 
-    private final SelectorManager[] selectorManagers;
+    private final NioSelectorManager[] selectorManagers;
 
     private final ExecutorService selectorManagerThreadPool;
 
@@ -95,11 +95,11 @@ public class NioSocketService extends AbstractSocketService {
 
         this.endpoint = new InetSocketAddress(port);
 
-        this.selectorManagers = new SelectorManager[selectors];
+        this.selectorManagers = new NioSelectorManager[selectors];
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
                                                                       new DaemonThreadFactory("voldemort-niosocket-server"));
         this.statusManager = new StatusManager((ThreadPoolExecutor) this.selectorManagerThreadPool);
-        this.acceptorThread = new Thread(new Acceptor());
+        this.acceptorThread = new Thread(new Acceptor(), "NioSocketService.Acceptor");
     }
 
     @Override
@@ -115,9 +115,9 @@ public class NioSocketService extends AbstractSocketService {
 
         try {
             for(int i = 0; i < selectorManagers.length; i++) {
-                selectorManagers[i] = new SelectorManager(endpoint,
-                                                          requestHandlerFactory,
-                                                          socketBufferSize);
+                selectorManagers[i] = new NioSelectorManager(endpoint,
+                                                             requestHandlerFactory,
+                                                             socketBufferSize);
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 
@@ -237,8 +237,8 @@ public class NioSocketService extends AbstractSocketService {
                         continue;
                     }
 
-                    SelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
-                                                                       % selectorManagers.length];
+                    NioSelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
+                                                                          % selectorManagers.length];
                     selectorManager.accept(socketChannel);
                 } catch(ClosedByInterruptException e) {
                     // If you're *really* interested...

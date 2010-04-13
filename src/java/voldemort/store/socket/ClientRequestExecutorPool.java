@@ -24,8 +24,12 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxSetter;
+import voldemort.client.protocol.RequestFormatType;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;
 
@@ -37,41 +41,61 @@ import voldemort.utils.pool.ResourcePoolConfig;
  * 
  */
 @JmxManaged(description = "Voldemort socket pool.")
-public class SocketPool {
+public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
     private final AtomicInteger checkouts;
     private final AtomicLong waitNs;
     private final AtomicLong avgWaitNs;
-    private final KeyedResourcePool<SocketDestination, SocketAndStreams> pool;
-    private final SocketResourceFactory socketFactory;
+    private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    private final ClientRequestExecutorResourceFactory socketFactory;
+    private final ClientSelectorManager selectorManager;
 
-    public SocketPool(int maxConnectionsPerNode,
-                      int connectionTimeoutMs,
-                      int soTimeoutMs,
-                      int socketBufferSize,
-                      boolean socketKeepAlive) {
+    public ClientRequestExecutorPool(int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
                                                             .setMaxPoolSize(maxConnectionsPerNode)
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
-        this.socketFactory = new SocketResourceFactory(soTimeoutMs,
-                                                       socketBufferSize,
-                                                       socketKeepAlive);
-        this.pool = new KeyedResourcePool<SocketDestination, SocketAndStreams>(socketFactory,
-                                                                               config);
+        this.selectorManager = new ClientSelectorManager();
+        this.socketFactory = new ClientRequestExecutorResourceFactory(selectorManager,
+                                                                      soTimeoutMs,
+                                                                      socketBufferSize,
+                                                                      socketKeepAlive);
+        this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(socketFactory,
+                                                                                    config);
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
         this.avgWaitNs = new AtomicLong(0);
+
+        new Thread(this.selectorManager, "ClientSelector").start();
     }
 
-    public SocketPool(int maxConnectionsPerNode,
-                      int connectionTimeoutMs,
-                      int soTimeoutMs,
-                      int socketBufferSize) {
+    public ClientRequestExecutorPool(int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize) {
         // maintain backward compatibility of API
         this(maxConnectionsPerNode, connectionTimeoutMs, soTimeoutMs, socketBufferSize, false);
+    }
+
+    public SocketStore create(String storeName,
+                              String hostName,
+                              int port,
+                              RequestFormatType requestFormatType,
+                              RequestRoutingType requestRoutingType) {
+        SocketDestination dest = new SocketDestination(Utils.notNull(hostName),
+                                                       port,
+                                                       requestFormatType);
+        return new SocketStore(Utils.notNull(storeName),
+                               dest,
+                               this,
+                               selectorManager,
+                               requestRoutingType);
     }
 
     /**
@@ -80,14 +104,14 @@ public class SocketPool {
      * @param destination The socket destination you want to connect to
      * @return The socket
      */
-    public SocketAndStreams checkout(SocketDestination destination) {
+    public ClientRequestExecutor checkout(SocketDestination destination) {
         try {
             // time checkout
             long start = System.nanoTime();
-            SocketAndStreams sas = pool.checkout(destination);
+            ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
             updateStats(System.nanoTime() - start);
 
-            return sas;
+            return clientRequestExecutor;
         } catch(Exception e) {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
@@ -114,9 +138,9 @@ public class SocketPool {
      * @param destination The socket destination of the socket
      * @param socket The socket to check back in
      */
-    public void checkin(SocketDestination destination, SocketAndStreams socket) {
+    public void checkin(SocketDestination destination, ClientRequestExecutor clientRequestExecutor) {
         try {
-            pool.checkin(destination, socket);
+            pool.checkin(destination, clientRequestExecutor);
         } catch(Exception e) {
             throw new VoldemortException("Failure while checking in socket for " + destination
                                          + ": ", e);
@@ -133,6 +157,7 @@ public class SocketPool {
      */
     public void close() {
         pool.close();
+        selectorManager.close();
     }
 
     @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")

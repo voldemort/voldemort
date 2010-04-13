@@ -50,6 +50,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
@@ -66,7 +68,10 @@ public class AdminServiceBasicTest extends TestCase {
     private static int TEST_STREAM_KEYS_SIZE = 10000;
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
-
+    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024);
     private VoldemortServer[] servers;
     private Cluster cluster;
     private AdminClient adminClient;
@@ -88,7 +93,8 @@ public class AdminServiceBasicTest extends TestCase {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         servers = new VoldemortServer[2];
 
-        servers[0] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+        servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                          ServerTestUtils.createServerConfig(useNio,
                                                                                              0,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
@@ -96,7 +102,8 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                              storesXmlfile,
                                                                                              new Properties()),
                                                           cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+        servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                          ServerTestUtils.createServerConfig(useNio,
                                                                                              1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
@@ -115,6 +122,7 @@ public class AdminServiceBasicTest extends TestCase {
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
         }
+        socketStoreFactory.close();
     }
 
     private VoldemortServer getVoldemortServer(int nodeId) {
