@@ -19,6 +19,7 @@ package voldemort.client.protocol;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +49,8 @@ public interface RequestFormat {
                                        RequestRoutingType routingType) throws IOException;
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream stream) throws IOException;
+
+    public boolean isCompleteGetResponse(ByteBuffer buffer);
 
     public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException;
 

@@ -19,17 +19,22 @@ package voldemort.client.protocol.vold;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.serialization.VoldemortOpCode;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -45,6 +50,8 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
 
     private final ErrorCodeMapper mapper;
     private final int protocolVersion;
+
+    private final Logger logger = Logger.getLogger(getClass());
 
     public VoldemortNativeClientRequestFormat(int protocolVersion) {
         this.mapper = new ErrorCodeMapper();
@@ -93,6 +100,32 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     public List<Versioned<byte[]>> readGetResponse(DataInputStream inputStream) throws IOException {
         checkException(inputStream);
         return readResults(inputStream);
+    }
+
+    public boolean isCompleteGetResponse(ByteBuffer buffer) {
+        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+
+        try {
+            try {
+                readGetResponse(inputStream);
+            } catch(VoldemortException e) {
+                // Ignore application-level exceptions
+            }
+
+            // If there aren't any remaining, we've "consumed" all the bytes and
+            // thus have a complete request...
+            return !buffer.hasRemaining();
+        } catch(Exception e) {
+            // This could also occur if the various methods we call into
+            // re-throw a corrupted value error as some other type of exception.
+            // For example, updating the position on a buffer past its limit
+            // throws an InvalidArgumentException.
+            if(logger.isDebugEnabled())
+                logger.debug("Probable partial read occurred causing exception", e);
+
+            return false;
+        }
+
     }
 
     private List<Versioned<byte[]>> readResults(DataInputStream inputStream) throws IOException {

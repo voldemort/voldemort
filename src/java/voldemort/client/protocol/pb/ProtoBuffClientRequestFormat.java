@@ -19,6 +19,7 @@ package voldemort.client.protocol.pb;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,11 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setGet(VProto.GetRequest.newBuilder()
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());
+    }
+
+    public boolean isCompleteGetResponse(ByteBuffer buffer) {
+        int size = buffer.getInt();
+        return buffer.remaining() == size;
     }
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream input) throws IOException {
