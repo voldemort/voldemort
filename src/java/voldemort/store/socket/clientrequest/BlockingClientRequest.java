@@ -22,6 +22,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 
+/**
+ * BlockingClientRequest is used to implement blocking IO using the non-blocking
+ * IO-based {@link ClientRequest} logic. Essentially it wraps a vanilla
+ * ClientRequest and ands an {@link #await()} method on which the caller will
+ * wait for completion (either success or failure).
+ * 
+ * @param <T> Type of data that is returned by the request
+ */
+
 public class BlockingClientRequest<T> implements ClientRequest<T> {
 
     private final ClientRequest<T> delegate;
