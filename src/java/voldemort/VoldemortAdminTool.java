@@ -17,6 +17,7 @@
 package voldemort;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -25,6 +26,7 @@ import joptsimple.OptionSet;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
+import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -53,7 +55,7 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("bootstrap-url")
               .ofType(String.class);
-        parser.accepts("node", "[REQUIRED] node id")
+        parser.accepts("node", "node id")
               .withRequiredArg()
               .describedAs("node-id")
               .ofType(Integer.class);
@@ -73,7 +75,7 @@ public class VoldemortAdminTool {
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
-        parser.accepts("fetch-entries", "Fetch full entries")
+        parser.accepts("fetch-entries", "[EXPERIMENTAL] Fetch full entries")
               .withRequiredArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
@@ -90,6 +92,10 @@ public class VoldemortAdminTool {
         parser.accepts("add-stores", "Add stores in this stores.xml")
               .withRequiredArg()
               .describedAs("stores.xml")
+              .ofType(String.class);
+        parser.accepts("update-entries", "[EXPERIMENTAL] Insert or update entries")
+              .withRequiredArg()
+              .describedAs("input-directory")
               .ofType(String.class);
         
         OptionSet options = parser.parse(args);
@@ -132,6 +138,9 @@ public class VoldemortAdminTool {
         }
         if (options.has("add-stores")) {
             ops += "a";
+        }
+        if (options.has("update-entries")) {
+            ops += "u";
         }
         if (ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys) must be specified");
@@ -199,6 +208,16 @@ public class VoldemortAdminTool {
                                  storesXml,
                                  storeNames);
             }
+            if (ops.contains("u")) {
+                String inputDir = (String) options.valueOf("update-entries");
+                boolean useAscii = options.has("ascii");
+                executeUpdateEntries(nodeId,
+                                     adminClient,
+                                     storeNames,
+                                     inputDir,
+                                     useAscii);
+                
+            }
         } catch (Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
@@ -224,6 +243,7 @@ public class VoldemortAdminTool {
         }
     }
 
+    @Experimental
     public static void executeFetchEntries(Integer nodeId,
                                            AdminClient adminClient,
                                            List<Integer> partitionIdList,
@@ -259,6 +279,116 @@ public class VoldemortAdminTool {
 
             }
         }
+    }
+
+    @Experimental
+    private static void executeUpdateEntries(Integer nodeId,
+                                             AdminClient adminClient,
+                                             List<String> storeNames,
+                                             String inputDirPath,
+                                             boolean useAscii) throws IOException {
+        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
+        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
+        for (StoreDefinition storeDefinition: storeDefinitionList) {
+            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
+        }
+
+        File inputDir = new File(inputDirPath);
+        if (!inputDir.exists()) {
+            throw new FileNotFoundException("input directory " + inputDirPath + " doesn't exist");
+        }
+
+        if (storeNames == null) {
+            storeNames = Lists.newArrayList();
+            for (File storeFile: inputDir.listFiles()) {
+                String fileName = storeFile.getName();
+                if (fileName.endsWith(".entries")) {
+                    int extPosition = fileName.lastIndexOf(".entries");
+                    storeNames.add(fileName.substring(0, extPosition));
+                }
+            }
+        }
+
+        for (String storeName: storeNames) {
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
+            if (useAscii) {
+                StoreDefinition storeDefinition = storeDefinitionMap.get(storeName);
+                if (storeDefinition == null) {
+                    throw new IllegalArgumentException("No definition found for " + storeName);
+                }
+                iterator = readEntriesAscii(inputDir,storeName,storeDefinition);
+            } else {
+                iterator = readEntriesBinary(inputDir,storeName);
+
+            }
+            adminClient.updateEntries(nodeId, storeName, iterator, null);
+        }
+
+    }
+
+    // TODO: implement this
+    private static Iterator<Pair<ByteArray,Versioned<byte[]>>> readEntriesAscii(File inputDir,
+                                                                                String storeName,
+                                                                                StoreDefinition storeDefinition)
+                   throws IOException {
+        File inputFile = new File(inputDir, storeName + ".entries");
+        if (!inputFile.exists()) {
+            throw new FileNotFoundException("File " + inputFile.getAbsolutePath() + " does not exist!");
+        }
+
+        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>> () {
+            @Override
+            protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
+                System.err.println("Updating stores from ASCII/JSON data is not yet supported!");
+                return endOfData();
+            }
+        };
+    }
+
+    private static Iterator<Pair<ByteArray,Versioned<byte[]>>> readEntriesBinary(File inputDir, String storeName)
+                   throws IOException {
+        File inputFile = new File(inputDir, storeName + ".entries");
+        if (!inputFile.exists()) {
+            throw new FileNotFoundException("File " + inputFile.getAbsolutePath() + " does not exist!");
+        }
+        final DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(inputFile)));
+
+        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>> () {
+            @Override
+            protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
+                try {
+                    int length = dis.readInt();
+                    byte[] keyBytes = new byte[length];
+                    ByteUtils.read(dis, keyBytes);
+                    length = dis.readInt();
+                    byte[] versionBytes = new byte[length];
+                    ByteUtils.read(dis, versionBytes);
+                    length = dis.readInt();
+                    byte[] valueBytes = new byte[length];
+                    ByteUtils.read(dis, valueBytes);
+
+                    ByteArray key = new ByteArray(keyBytes);
+                    VectorClock version = new VectorClock(versionBytes);
+                    Versioned<byte[]> value = new Versioned<byte[]>(valueBytes, version);
+
+                    return new Pair<ByteArray, Versioned<byte[]>>(key, value);
+                } catch (EOFException e) {
+                    try {
+                        dis.close();
+                    } catch (IOException ie) {
+                        ie.printStackTrace();
+                    }
+                    return endOfData();
+                } catch (IOException e) {
+                    try {
+                        dis.close();
+                    } catch (IOException ie) {
+                        ie.printStackTrace();
+                    }
+                    throw new VoldemortException("Error reading from input file ", e);
+                }
+            }
+        };
     }
 
     private static void writeEntriesAscii(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
