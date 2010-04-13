@@ -77,6 +77,10 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         outputStream.write(clock.toBytes());
     }
 
+    public boolean isCompleteDeleteResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer, VoldemortOpCode.DELETE_OP_CODE);
+    }
+
     public boolean readDeleteResponse(DataInputStream inputStream) throws IOException {
         checkException(inputStream);
         return inputStream.readBoolean();
@@ -103,29 +107,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     }
 
     public boolean isCompleteGetResponse(ByteBuffer buffer) {
-        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
-
-        try {
-            try {
-                readGetResponse(inputStream);
-            } catch(VoldemortException e) {
-                // Ignore application-level exceptions
-            }
-
-            // If there aren't any remaining, we've "consumed" all the bytes and
-            // thus have a complete request...
-            return !buffer.hasRemaining();
-        } catch(Exception e) {
-            // This could also occur if the various methods we call into
-            // re-throw a corrupted value error as some other type of exception.
-            // For example, updating the position on a buffer past its limit
-            // throws an InvalidArgumentException.
-            if(logger.isDebugEnabled())
-                logger.debug("Probable partial read occurred causing exception", e);
-
-            return false;
-        }
-
+        return isCompleteResponse(buffer, VoldemortOpCode.GET_OP_CODE);
     }
 
     private List<Versioned<byte[]>> readResults(DataInputStream inputStream) throws IOException {
@@ -165,6 +147,10 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
     }
 
+    public boolean isCompleteGetAllResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer, VoldemortOpCode.GET_ALL_OP_CODE);
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
             throws IOException {
         checkException(stream);
@@ -199,6 +185,10 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         outputStream.write(value);
     }
 
+    public boolean isCompletePutResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer, VoldemortOpCode.PUT_OP_CODE);
+    }
+
     public void readPutResponse(DataInputStream inputStream) throws IOException {
         checkException(inputStream);
     }
@@ -212,6 +202,10 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
             String error = inputStream.readUTF();
             throw mapper.getError(retCode, error);
         }
+    }
+
+    public boolean isCompleteGetVersionResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer, VoldemortOpCode.GET_VERSION_OP_CODE);
     }
 
     public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException {
@@ -241,5 +235,50 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
         output.writeInt(key.length());
         output.write(key.get());
+    }
+
+    private boolean isCompleteResponse(ByteBuffer buffer, byte opCode) {
+        DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
+
+        try {
+            try {
+                switch(opCode) {
+                    case VoldemortOpCode.GET_OP_CODE:
+                        readGetResponse(inputStream);
+                        break;
+
+                    case VoldemortOpCode.GET_VERSION_OP_CODE:
+                        readGetVersionResponse(inputStream);
+                        break;
+
+                    case VoldemortOpCode.GET_ALL_OP_CODE:
+                        readGetAllResponse(inputStream);
+                        break;
+
+                    case VoldemortOpCode.DELETE_OP_CODE:
+                        readDeleteResponse(inputStream);
+                        break;
+
+                    case VoldemortOpCode.PUT_OP_CODE:
+                        readPutResponse(inputStream);
+                        break;
+                }
+            } catch(VoldemortException e) {
+                // Ignore application-level exceptions
+            }
+
+            // If there aren't any remaining, we've "consumed" all the bytes and
+            // thus have a complete request...
+            return !buffer.hasRemaining();
+        } catch(Exception e) {
+            // This could also occur if the various methods we call into
+            // re-throw a corrupted value error as some other type of exception.
+            // For example, updating the position on a buffer past its limit
+            // throws an InvalidArgumentException.
+            if(logger.isDebugEnabled())
+                logger.debug("Probable partial read occurred causing exception", e);
+
+            return false;
+        }
     }
 }

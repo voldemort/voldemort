@@ -19,6 +19,7 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
@@ -34,10 +35,8 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
         this.requestFormatType = requestFormatType;
     }
 
-    @Override
-    protected String readInternal(DataInputStream inputStream) throws IOException {
-        inputStream.readFully(responseBytes);
-        return ByteUtils.getString(responseBytes, "UTF-8");
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return buffer.remaining() == 2;
     }
 
     public void write(DataOutputStream outputStream) throws IOException {
@@ -54,6 +53,12 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
                                          + " is not an acceptable protcol for the server.");
         else
             throw new VoldemortException("Unknown server response: " + result);
+    }
+
+    @Override
+    protected String readInternal(DataInputStream inputStream) throws IOException {
+        inputStream.readFully(responseBytes);
+        return ByteUtils.getString(responseBytes, "UTF-8");
     }
 
 }

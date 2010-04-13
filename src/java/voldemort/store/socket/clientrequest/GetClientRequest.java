@@ -43,14 +43,13 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
         requestFormat.writeGetRequest(outputStream, storeName, key, requestRoutingType);
     }
 
-    @Override
-    protected List<Versioned<byte[]>> readInternal(DataInputStream inputStream) throws IOException {
-        return requestFormat.readGetResponse(inputStream);
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return requestFormat.isCompleteGetResponse(buffer);
     }
 
     @Override
-    public boolean isCompleteResponse(ByteBuffer buffer) {
-        return requestFormat.isCompleteGetResponse(buffer);
+    protected List<Versioned<byte[]>> readInternal(DataInputStream inputStream) throws IOException {
+        return requestFormat.readGetResponse(inputStream);
     }
 
 }

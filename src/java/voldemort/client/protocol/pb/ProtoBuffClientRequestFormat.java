@@ -73,6 +73,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .build());
     }
 
+    public boolean isCompleteDeleteResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer);
+    }
+
     public boolean readDeleteResponse(DataInputStream input) throws IOException {
         DeleteResponse.Builder response = ProtoUtils.readToBuilder(input,
                                                                    DeleteResponse.newBuilder());
@@ -98,8 +102,7 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     }
 
     public boolean isCompleteGetResponse(ByteBuffer buffer) {
-        int size = buffer.getInt();
-        return buffer.remaining() == size;
+        return isCompleteResponse(buffer);
     }
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream input) throws IOException {
@@ -126,6 +129,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .setRequestRouteType(routingType.getRoutingTypeCode())
                                                        .setGetAll(req)
                                                        .build());
+    }
+
+    public boolean isCompleteGetAllResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer);
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream input)
@@ -163,6 +170,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                        .build());
     }
 
+    public boolean isCompletePutResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer);
+    }
+
     public void readPutResponse(DataInputStream input) throws IOException {
         PutResponse.Builder response = ProtoUtils.readToBuilder(input, PutResponse.newBuilder());
         if(response.hasError())
@@ -171,6 +182,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
 
     public void throwException(VProto.Error error) {
         throw mapper.getError((short) error.getErrorCode(), error.getErrorMessage());
+    }
+
+    public boolean isCompleteGetVersionResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer);
     }
 
     public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException {
@@ -199,4 +214,10 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
                                                                                 .setKey(ByteString.copyFrom(key.get())))
                                                        .build());
     }
+
+    private boolean isCompleteResponse(ByteBuffer buffer) {
+        int size = buffer.getInt();
+        return buffer.remaining() == size;
+    }
+
 }

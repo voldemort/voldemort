@@ -19,6 +19,7 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import voldemort.client.protocol.RequestFormat;
 import voldemort.server.RequestRoutingType;
@@ -40,6 +41,10 @@ public class DeleteClientRequest extends AbstractStoreClientRequest<Boolean> {
         super(storeName, requestFormat, requestRoutingType);
         this.key = key;
         this.version = version;
+    }
+
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return requestFormat.isCompleteDeleteResponse(buffer);
     }
 
     public void write(DataOutputStream outputStream) throws IOException {

@@ -19,6 +19,7 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import voldemort.client.protocol.RequestFormat;
 import voldemort.server.RequestRoutingType;
@@ -40,6 +41,10 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
         super(storeName, requestFormat, requestRoutingType);
         this.key = key;
         this.versioned = versioned;
+    }
+
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return requestFormat.isCompletePutResponse(buffer);
     }
 
     public void write(DataOutputStream outputStream) throws IOException {

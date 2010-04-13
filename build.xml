@@ -373,7 +373,7 @@
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
         <fileset dir="${unittestsrc.dir}">
-          <include name="**/ProtocolBuffersSocketStoreTest.java" />
+          <include name="**/*Test.java" />
           <exclude name="**/Abstract*.java" />
         </fileset>
       </batchtest>

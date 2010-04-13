@@ -18,12 +18,10 @@ package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.utils.ByteBufferBackedInputStream;
 
 public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
@@ -44,27 +42,6 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     public void completed() {
 
-    }
-
-    public boolean isCompleteResponse(ByteBuffer buffer) {
-        try {
-            try {
-                readInternal(new DataInputStream(new ByteBufferBackedInputStream(buffer)));
-            } catch(VoldemortException e) {
-                // Ignore application-level exceptions...
-            }
-
-            return !buffer.hasRemaining();
-        } catch(Exception e) {
-            // This could also occur if the various methods we call into
-            // re-throw a corrupted value error as some other type of exception.
-            // For example, updating the position on a buffer past its limit
-            // throws an InvalidArgumentException.
-            if(logger.isDebugEnabled())
-                logger.debug("Probable partial read occurred causing exception", e);
-
-            return false;
-        }
     }
 
     public void read(DataInputStream inputStream) throws IOException {

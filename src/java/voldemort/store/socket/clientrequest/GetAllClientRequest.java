@@ -19,6 +19,7 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,10 @@ public class GetAllClientRequest extends
                                Iterable<ByteArray> keys) {
         super(storeName, requestFormat, requestRoutingType);
         this.keys = keys;
+    }
+
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return requestFormat.isCompleteGetAllResponse(buffer);
     }
 
     public void write(DataOutputStream outputStream) throws IOException {
