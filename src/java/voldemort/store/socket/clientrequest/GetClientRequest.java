@@ -19,6 +19,7 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import voldemort.client.protocol.RequestFormat;
@@ -47,9 +48,9 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
         return requestFormat.readGetResponse(inputStream);
     }
 
-    /*
-     * @Override public boolean isCompleteResponse(ByteBuffer buffer) { return
-     * requestFormat.isCompleteGetResponse(buffer); }
-     */
+    @Override
+    public boolean isCompleteResponse(ByteBuffer buffer) {
+        return requestFormat.isCompleteGetResponse(buffer);
+    }
 
 }
