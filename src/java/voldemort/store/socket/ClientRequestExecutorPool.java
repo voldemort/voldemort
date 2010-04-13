@@ -104,6 +104,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      * @param destination The socket destination you want to connect to
      * @return The socket
      */
+
     public ClientRequestExecutor checkout(SocketDestination destination) {
         try {
             // time checkout

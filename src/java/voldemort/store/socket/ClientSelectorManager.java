@@ -26,6 +26,15 @@ import org.apache.log4j.Level;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.SelectorManager;
 
+/**
+ * ClientSelectorManager builds on SelectorManager to handle the IO processing
+ * from the client perspective. {@link ClientRequestExecutor} instances are
+ * enqueued via the
+ * {@link ClientSelectorManager#submitRequest(ClientRequestExecutor)
+ * submitRequest} method to submit the request for inclusion in the next IO
+ * processing loop.
+ */
+
 public class ClientSelectorManager extends SelectorManager {
 
     private final Queue<ClientRequestExecutor> requestQueue;
@@ -34,7 +43,7 @@ public class ClientSelectorManager extends SelectorManager {
         this.requestQueue = new ConcurrentLinkedQueue<ClientRequestExecutor>();
     }
 
-    public void request(ClientRequestExecutor clientRequestExecutor) {
+    public void submitRequest(ClientRequestExecutor clientRequestExecutor) {
         if(isClosed.get())
             throw new IllegalStateException("Cannot accept more requests, selector manager closed");
 
@@ -63,9 +72,15 @@ public class ClientSelectorManager extends SelectorManager {
 
                 try {
                     SocketChannel socketChannel = clientRequestExecutor.getSocketChannel();
+
+                    // A given ClientRequestExecutor -- once submitted -- stays
+                    // registered with the Selector until its close method is
+                    // invoked. So in all but the first time through, there
+                    // should be a SelectionKey already registered...
                     SelectionKey selectionKey = socketChannel.keyFor(selector);
 
                     if(selectionKey == null) {
+                        // ...but if not, simply register it (for writing)...
                         selectionKey = socketChannel.register(selector,
                                                               SelectionKey.OP_WRITE,
                                                               clientRequestExecutor);
@@ -76,6 +91,8 @@ public class ClientSelectorManager extends SelectorManager {
                                          + " with selector");
                     }
 
+                    // ...and make sure to "reset" the ClientRequestExecutor so
+                    // that it's in the proper state...
                     clientRequestExecutor.reset(selector);
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))

@@ -17,15 +17,15 @@
 package voldemort.store.socket;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
 
 /**
  * A host + port + protocol
- * 
- * 
  */
+
 public class SocketDestination {
 
     private final String host;
@@ -66,7 +66,8 @@ public class SocketDestination {
      * @return Nanosecond-based timestamp of last close
      * 
      * @see SocketDestination#setLastClosedTimestamp()
-     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination, SocketAndStreams)
+     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
+     *      ClientRequestExecutor)
      */
 
     public long getLastClosedTimestamp() {
@@ -83,7 +84,8 @@ public class SocketDestination {
      * node is marked as unavailable.
      * 
      * @see SocketDestination#getLastClosedTimestamp()
-     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination, SocketAndStreams)
+     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
+     *      ClientRequestExecutor)
      */
 
     public void setLastClosedTimestamp() {

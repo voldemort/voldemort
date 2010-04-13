@@ -17,6 +17,7 @@
 package voldemort.store.socket;
 
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.util.Date;
@@ -32,10 +33,9 @@ import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;
 
 /**
- * A Factory for creating sockets
- * 
- * 
+ * A Factory for creating ClientRequestExecutor instances.
  */
+
 public class ClientRequestExecutorResourceFactory implements
         ResourceFactory<SocketDestination, ClientRequestExecutor> {
 
@@ -66,8 +66,9 @@ public class ClientRequestExecutorResourceFactory implements
     }
 
     /**
-     * Close the socket
+     * Close the ClientRequestExecutor.
      */
+
     public void destroy(SocketDestination dest, ClientRequestExecutor clientRequestExecutor)
             throws Exception {
         clientRequestExecutor.close();
@@ -79,8 +80,9 @@ public class ClientRequestExecutorResourceFactory implements
     }
 
     /**
-     * Create a socket for the given host/port
+     * Create a ClientRequestExecutor for the given host/port
      */
+
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
@@ -91,6 +93,8 @@ public class ClientRequestExecutorResourceFactory implements
         socketChannel.configureBlocking(false);
         socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
+        // Since we're non-blocking and it takes a non-zero amount of time to
+        // connect, invoke finishConnect and loop.
         while(!socketChannel.finishConnect()) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("Still connecting to " + dest);
@@ -101,23 +105,34 @@ public class ClientRequestExecutorResourceFactory implements
                      + dest.getPort() + " using protocol " + dest.getRequestFormatType().getCode());
 
         // check buffer sizes--you often don't get out what you put in!
-        int sendBufferSize = socketChannel.socket().getSendBufferSize();
-        int receiveBufferSize = socketChannel.socket().getReceiveBufferSize();
-        if(receiveBufferSize != this.socketBufferSize)
+        if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
             logger.debug("Requested socket receive buffer size was " + this.socketBufferSize
-                         + " bytes but actual size is " + receiveBufferSize + " bytes.");
-        if(sendBufferSize != this.socketBufferSize)
-            logger.debug("Requested socket send buffer size was " + this.socketBufferSize
-                         + " bytes but actual size is " + sendBufferSize + " bytes.");
+                         + " bytes but actual size is "
+                         + socketChannel.socket().getReceiveBufferSize() + " bytes.");
 
+        if(socketChannel.socket().getSendBufferSize() != this.socketBufferSize)
+            logger.debug("Requested socket send buffer size was " + this.socketBufferSize
+                         + " bytes but actual size is "
+                         + socketChannel.socket().getSendBufferSize() + " bytes.");
+
+        return negotiateProtocol(dest, socketChannel);
+    }
+
+    private ClientRequestExecutor negotiateProtocol(SocketDestination dest,
+                                                    SocketChannel socketChannel)
+            throws IOException, InterruptedException {
         ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(socketChannel,
                                                                                 this.socketBufferSize,
                                                                                 dest.getRequestFormatType());
         BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()));
         clientRequestExecutor.setClientRequest(clientRequest);
         clientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
-        selectorManager.request(clientRequestExecutor);
+        selectorManager.submitRequest(clientRequestExecutor);
         clientRequest.await();
+
+        // This will throw an error if the result of the protocol negotiation
+        // failed, otherwise it returns an uninteresting token we can safely
+        // ignore.
         clientRequest.getResult();
 
         return clientRequestExecutor;

@@ -136,6 +136,21 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     // don't close the socket pool, it is shared
     }
 
+    /**
+     * This method handles submitting and then waiting for the request from the
+     * server. It uses the ClientRequest API to actually write the request and
+     * then read back the response. This implementation will block for a
+     * response from the server.
+     * 
+     * @param <T> Return type
+     * 
+     * @param clientRequest ClientRequest implementation used to write the
+     *        request and read the response
+     * @param operationName Simple string representing the type of request
+     * 
+     * @return Data returned by the individual requests
+     */
+
     private <T> T request(ClientRequest<T> clientRequest, String operationName) {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
 
@@ -143,7 +158,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
             BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(clientRequest);
             clientRequestExecutor.setClientRequest(blockingClientRequest);
             blockingClientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
-            selectorManager.request(clientRequestExecutor);
+            selectorManager.submitRequest(clientRequestExecutor);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
         } catch(InterruptedException e) {

@@ -86,7 +86,6 @@ import voldemort.VoldemortException;
  * connections 1 and 3 disconnect. This leaves SelectorManager B with two
  * connections and SelectorManager A with none. There's no provision to
  * re-balance the remaining requests evenly.
- * 
  */
 
 public class SelectorManager implements Runnable {
@@ -147,6 +146,12 @@ public class SelectorManager implements Runnable {
                 logger.warn(e.getMessage(), e);
         }
     }
+
+    /**
+     * This is a stub method to process any "events" before we go back to
+     * select-ing again. This is the place to process queues for registering new
+     * Channel instances, for example.
+     */
 
     protected void processEvents() {
 
