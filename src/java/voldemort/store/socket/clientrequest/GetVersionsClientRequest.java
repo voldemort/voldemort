@@ -48,7 +48,7 @@ public class GetVersionsClientRequest extends AbstractStoreClientRequest<List<Ve
     }
 
     @Override
-    protected List<Version> readInternal(DataInputStream inputStream) throws IOException {
+    protected List<Version> parseResponseInternal(DataInputStream inputStream) throws IOException {
         return requestFormat.readGetVersionResponse(inputStream);
     }
 

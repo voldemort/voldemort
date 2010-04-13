@@ -19,19 +19,24 @@ package voldemort.store.socket.clientrequest;
 import java.io.DataInputStream;
 import java.io.IOException;
 
-import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
+
+/**
+ * AbstractClientRequest implements ClientRequest to provide some basic
+ * mechanisms that most implementations will need.
+ * 
+ * @param <T>
+ */
 
 public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
-    protected T result;
+    private T result;
 
-    protected VoldemortException error;
+    private VoldemortException error;
 
-    protected final Logger logger = Logger.getLogger(getClass());
+    private volatile boolean isCompleted = false;
 
-    protected abstract T readInternal(DataInputStream inputStream) throws IOException;
+    protected abstract T parseResponseInternal(DataInputStream inputStream) throws IOException;
 
     public void setServerError(Exception e) {
         if(e instanceof VoldemortException)
@@ -40,19 +45,22 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
             error = new VoldemortException(e);
     }
 
-    public void completed() {
-
+    public final void completed() {
+        isCompleted = true;
     }
 
     public void parseResponse(DataInputStream inputStream) throws IOException {
         try {
-            result = readInternal(inputStream);
+            result = parseResponseInternal(inputStream);
         } catch(VoldemortException e) {
             error = e;
         }
     }
 
     public T getResult() {
+        if(!isCompleted)
+            throw new IllegalStateException("Client response not complete, cannot determine result");
+
         if(error != null)
             throw error;
 

@@ -56,7 +56,7 @@ public class DeleteClientRequest extends AbstractStoreClientRequest<Boolean> {
     }
 
     @Override
-    protected Boolean readInternal(DataInputStream inputStream) throws IOException {
+    protected Boolean parseResponseInternal(DataInputStream inputStream) throws IOException {
         return requestFormat.readDeleteResponse(inputStream);
     }
 

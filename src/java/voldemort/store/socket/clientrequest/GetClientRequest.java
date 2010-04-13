@@ -48,7 +48,7 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
     }
 
     @Override
-    protected List<Versioned<byte[]>> readInternal(DataInputStream inputStream) throws IOException {
+    protected List<Versioned<byte[]>> parseResponseInternal(DataInputStream inputStream) throws IOException {
         return requestFormat.readGetResponse(inputStream);
     }
 

@@ -57,7 +57,7 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
     }
 
     @Override
-    protected Void readInternal(DataInputStream inputStream) throws IOException {
+    protected Void parseResponseInternal(DataInputStream inputStream) throws IOException {
         requestFormat.readPutResponse(inputStream);
         return null;
     }

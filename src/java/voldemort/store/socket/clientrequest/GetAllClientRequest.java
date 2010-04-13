@@ -50,7 +50,7 @@ public class GetAllClientRequest extends
     }
 
     @Override
-    protected Map<ByteArray, List<Versioned<byte[]>>> readInternal(DataInputStream inputStream)
+    protected Map<ByteArray, List<Versioned<byte[]>>> parseResponseInternal(DataInputStream inputStream)
             throws IOException {
         return requestFormat.readGetAllResponse(inputStream);
     }

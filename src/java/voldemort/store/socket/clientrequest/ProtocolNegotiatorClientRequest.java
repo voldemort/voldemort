@@ -29,8 +29,6 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
 
     private final RequestFormatType requestFormatType;
 
-    private byte[] responseBytes = new byte[2];
-
     public ProtocolNegotiatorClientRequest(RequestFormatType requestFormatType) {
         this.requestFormatType = requestFormatType;
     }
@@ -44,7 +42,11 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
     }
 
     @Override
-    public String getResult() {
+    protected String parseResponseInternal(DataInputStream inputStream) throws IOException {
+        byte[] responseBytes = new byte[2];
+        inputStream.readFully(responseBytes);
+        String result = ByteUtils.getString(responseBytes, "UTF-8");
+
         if(result.equals("ok"))
             return result;
 
@@ -53,12 +55,6 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
                                          + " is not an acceptable protcol for the server.");
         else
             throw new VoldemortException("Unknown server response: " + result);
-    }
-
-    @Override
-    protected String readInternal(DataInputStream inputStream) throws IOException {
-        inputStream.readFully(responseBytes);
-        return ByteUtils.getString(responseBytes, "UTF-8");
     }
 
 }
