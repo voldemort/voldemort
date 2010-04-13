@@ -211,7 +211,7 @@ public class ClientRequestExecutor implements Runnable {
         if(logger.isTraceEnabled())
             logger.trace("Starting read for " + socketChannel.socket().getRemoteSocketAddress());
 
-        clientRequest.read(new DataInputStream(inputStream));
+        clientRequest.parseResponse(new DataInputStream(inputStream));
 
         // At this point we've completed a full stand-alone request. So clear
         // our input buffer and prepare for outputting back to the client.

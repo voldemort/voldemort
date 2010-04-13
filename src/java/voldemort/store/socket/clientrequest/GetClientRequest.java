@@ -39,7 +39,7 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
         this.key = key;
     }
 
-    public void write(DataOutputStream outputStream) throws IOException {
+    public void formatRequest(DataOutputStream outputStream) throws IOException {
         requestFormat.writeGetRequest(outputStream, storeName, key, requestRoutingType);
     }
 

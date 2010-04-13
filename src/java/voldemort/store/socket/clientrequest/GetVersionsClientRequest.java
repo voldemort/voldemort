@@ -43,7 +43,7 @@ public class GetVersionsClientRequest extends AbstractStoreClientRequest<List<Ve
         return requestFormat.isCompleteGetVersionResponse(buffer);
     }
 
-    public void write(DataOutputStream outputStream) throws IOException {
+    public void formatRequest(DataOutputStream outputStream) throws IOException {
         requestFormat.writeGetVersionRequest(outputStream, storeName, key, requestRoutingType);
     }
 

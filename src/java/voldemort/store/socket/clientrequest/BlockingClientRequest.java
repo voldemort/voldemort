@@ -54,12 +54,12 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.isCompleteResponse(buffer);
     }
 
-    public void read(DataInputStream inputStream) throws IOException {
-        delegate.read(inputStream);
+    public void parseResponse(DataInputStream inputStream) throws IOException {
+        delegate.parseResponse(inputStream);
     }
 
-    public void write(DataOutputStream outputStream) throws IOException {
-        delegate.write(outputStream);
+    public void formatRequest(DataOutputStream outputStream) throws IOException {
+        delegate.formatRequest(outputStream);
     }
 
 }

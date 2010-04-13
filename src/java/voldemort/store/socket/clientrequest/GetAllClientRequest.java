@@ -45,7 +45,7 @@ public class GetAllClientRequest extends
         return requestFormat.isCompleteGetAllResponse(buffer);
     }
 
-    public void write(DataOutputStream outputStream) throws IOException {
+    public void formatRequest(DataOutputStream outputStream) throws IOException {
         requestFormat.writeGetAllRequest(outputStream, storeName, keys, requestRoutingType);
     }
 

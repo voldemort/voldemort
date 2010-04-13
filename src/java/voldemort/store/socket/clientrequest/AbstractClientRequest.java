@@ -44,7 +44,7 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     }
 
-    public void read(DataInputStream inputStream) throws IOException {
+    public void parseResponse(DataInputStream inputStream) throws IOException {
         try {
             result = readInternal(inputStream);
         } catch(VoldemortException e) {

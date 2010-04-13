@@ -126,7 +126,7 @@ public class ClientRequestExecutorResourceFactory implements
                                                                                 dest.getRequestFormatType());
         BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()));
         clientRequestExecutor.setClientRequest(clientRequest);
-        clientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
+        clientRequest.formatRequest(new DataOutputStream(clientRequestExecutor.getOutputStream()));
         selectorManager.submitRequest(clientRequestExecutor);
         clientRequest.await();
 

@@ -157,7 +157,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         try {
             BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(clientRequest);
             clientRequestExecutor.setClientRequest(blockingClientRequest);
-            blockingClientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
+            blockingClientRequest.formatRequest(new DataOutputStream(clientRequestExecutor.getOutputStream()));
             selectorManager.submitRequest(clientRequestExecutor);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();

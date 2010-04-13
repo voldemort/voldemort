@@ -39,7 +39,7 @@ public class ProtocolNegotiatorClientRequest extends AbstractClientRequest<Strin
         return buffer.remaining() == 2;
     }
 
-    public void write(DataOutputStream outputStream) throws IOException {
+    public void formatRequest(DataOutputStream outputStream) throws IOException {
         outputStream.write(ByteUtils.getBytes(requestFormatType.getCode(), "UTF-8"));
     }
 
