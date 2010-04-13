@@ -263,9 +263,13 @@ public class RebalanceUtils {
 
     public static List<StoreDefinition> getStoreNameList(Cluster cluster, AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
-                                                            .getValue();
-            return getWritableStores(storeDefList);
+            try {
+                List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
+                               .getValue();
+                return getWritableStores(storeDefList);
+            } catch (VoldemortException e) {
+                logger.warn(e);
+            }
         }
 
         throw new VoldemortException("Unable to get StoreDefList from any node for cluster:"
