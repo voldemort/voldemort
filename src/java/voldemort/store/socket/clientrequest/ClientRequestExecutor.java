@@ -133,6 +133,9 @@ public class ClientRequestExecutor implements Runnable {
 
             if(selectionKey != null) {
                 selectionKey.interestOps(SelectionKey.OP_WRITE);
+
+                // This wakeup is required because it's invoked by the calling
+                // code in a different thread than the SelectorManager.
                 selector.wakeup();
             }
         } else {
