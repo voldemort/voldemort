@@ -160,6 +160,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
         String fetchUrl = getRequired(req, "dir");
+        String storeName = getRequired(req, "store");
 
         // fetch the files if necessary
         File fetchDir;
@@ -167,7 +168,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             fetchDir = new File(fetchUrl);
         } else {
             logger.info("Executing fetch of " + fetchUrl);
-            fetchDir = fileFetcher.fetch(fetchUrl);
+            fetchDir = fileFetcher.fetch(fetchUrl, storeName);
             logger.info("Fetch complete.");
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());

@@ -84,7 +84,7 @@ public class HdfsFetcher implements FileFetcher {
         this.tempDir.mkdirs();
     }
 
-    public File fetch(String fileUrl) throws IOException {
+    public File fetch(String fileUrl, String storeName) throws IOException {
         Path path = new Path(fileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
@@ -99,7 +99,10 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
                                                     stats);
         try {
-            File destination = new File(this.tempDir, path.getName());
+            File storeDir = new File(this.tempDir, storeName);
+            storeDir.mkdir();
+
+            File destination = new File(storeDir.getAbsoluteFile(), path.getName());
             fetch(fs, path, destination, throttler, stats);
             return destination;
         } finally {
@@ -240,8 +243,9 @@ public class HdfsFetcher implements FileFetcher {
      */
     public static void main(String[] args) throws Exception {
         if(args.length != 1)
-            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url");
+            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url storeName");
         String url = args[0];
+        String storeName = args[1];
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
         Configuration config = new Configuration();
@@ -253,7 +257,7 @@ public class HdfsFetcher implements FileFetcher {
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, null, DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
-        File location = fetcher.fetch(url);
+        File location = fetcher.fetch(url, storeName);
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(2);

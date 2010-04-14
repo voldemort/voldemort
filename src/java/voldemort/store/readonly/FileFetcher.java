@@ -15,6 +15,6 @@ import java.io.IOException;
  */
 public interface FileFetcher {
 
-    public File fetch(String fileUrl) throws IOException;
+    public File fetch(String fileUrl, String storeName) throws IOException;
 
 }

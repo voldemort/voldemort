@@ -37,7 +37,7 @@ public class HdfsFetcherTest extends TestCase {
     public void testFetch() throws IOException {
         File testFile = File.createTempFile("test", ".dat");
         HdfsFetcher fetcher = new HdfsFetcher();
-        File fetchedFile = fetcher.fetch(testFile.getAbsolutePath());
+        File fetchedFile = fetcher.fetch(testFile.getAbsolutePath(), "storeName");
         InputStream orig = new FileInputStream(testFile);
         byte[] origBytes = IOUtils.toByteArray(orig);
         InputStream fetched = new FileInputStream(fetchedFile);
