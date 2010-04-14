@@ -62,22 +62,27 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
 
     private int socketPort;
     private AbstractSocketService socketService;
-    private SocketStore socketStore;
+    private Store<ByteArray, byte[]> socketStore;
     private final RequestFormatType requestFormatType;
     private final boolean useNio;
+    private SocketStoreFactory socketStoreFactory;
 
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
         this.socketPort = ServerTestUtils.findFreePort();
+        socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
         socketService = ServerTestUtils.getSocketService(useNio,
                                                          VoldemortTestConstants.getOneNodeClusterXml(),
                                                          VoldemortTestConstants.getSimpleStoreDefinitionsXml(),
                                                          "test",
                                                          socketPort);
         socketService.start();
-        socketStore = ServerTestUtils.getSocketStore("test", socketPort, requestFormatType);
+        socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
+                                                     "test",
+                                                     socketPort,
+                                                     requestFormatType);
     }
 
     @Override
@@ -86,6 +91,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
         super.tearDown();
         socketService.stop();
         socketStore.close();
+        socketStoreFactory.close();
     }
 
     @Override
@@ -94,7 +100,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     }
 
     @Test
-    public void testVeryLargeValues() {
+    public void testVeryLargeValues() throws Exception {
         final Store<ByteArray, byte[]> store = getStore();
         byte[] biggie = new byte[1 * 1024 * 1024];
         ByteArray key = new ByteArray(biggie);

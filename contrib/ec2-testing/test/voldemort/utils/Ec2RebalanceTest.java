@@ -36,11 +36,12 @@ import voldemort.client.rebalance.AbstractRebalanceTest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.store.InvalidMetadataException;
+import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.versioning.Versioned;
 
 /**
@@ -101,12 +102,21 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     }
 
     @Override
-    protected SocketStore getSocketStore(String storeName, String host, int port, boolean isRouted) {
-        SocketPool socketPool = new SocketPool(2, 60 * 1000, 60 * 1000, 32 * 1024);
-        return new SocketStore(storeName,
-                               new SocketDestination(host, port, RequestFormatType.PROTOCOL_BUFFERS),
-                               socketPool,
-                               isRouted);
+    protected Store<ByteArray, byte[]> getSocketStore(String storeName,
+                                                      String host,
+                                                      int port,
+                                                      boolean isRouted) {
+        SocketStoreFactory storeFactory = new ClientRequestExecutorPool(2,
+                                                                        60 * 1000,
+                                                                        60 * 1000,
+                                                                        32 * 1024);
+        RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(isRouted,
+                                                                                         false);
+        return storeFactory.create(storeName,
+                                   host,
+                                   port,
+                                   RequestFormatType.PROTOCOL_BUFFERS,
+                                   requestRoutingType);
     }
 
     @Override

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.socket;
+package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -29,6 +29,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;

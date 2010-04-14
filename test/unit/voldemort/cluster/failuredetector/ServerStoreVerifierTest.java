@@ -39,6 +39,8 @@ import voldemort.server.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.storage.StorageService;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 
 @RunWith(Parameterized.class)
 public class ServerStoreVerifierTest {
@@ -50,6 +52,11 @@ public class ServerStoreVerifierTest {
     private final boolean useNio;
 
     private Cluster cluster;
+
+    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024);
 
     public ServerStoreVerifierTest(boolean useNio) {
         this.useNio = useNio;
@@ -75,7 +82,9 @@ public class ServerStoreVerifierTest {
                                                                         storeDefFile,
                                                                         properties);
 
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(config, cluster);
+            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                          config,
+                                                                          cluster);
             serverMap.put(i, server);
         }
     }
@@ -89,6 +98,8 @@ public class ServerStoreVerifierTest {
                 // ignore these at stop time
             }
         }
+
+        socketStoreFactory.close();
     }
 
     @Test
@@ -96,7 +107,7 @@ public class ServerStoreVerifierTest {
         for(Node node: cluster.getNodes()) {
             VoldemortServer voldemortServer = serverMap.get(node.getId());
             StorageService ss = (StorageService) voldemortServer.getService(ServiceType.STORAGE);
-            ServerStoreVerifier ssv = new ServerStoreVerifier(ss.getStorageSocketPool(),
+            ServerStoreVerifier ssv = new ServerStoreVerifier(ss.getSocketStoreFactory(),
                                                               voldemortServer.getMetadataStore(),
                                                               voldemortServer.getVoldemortConfig());
 

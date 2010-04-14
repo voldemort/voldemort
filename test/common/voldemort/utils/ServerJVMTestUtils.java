@@ -15,6 +15,7 @@ import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.xml.ClusterMapper;
 
 /**
@@ -24,13 +25,15 @@ import voldemort.xml.ClusterMapper;
  */
 public class ServerJVMTestUtils {
 
-    public static Process startServerJVM(Node node, String voldemortHome) throws IOException {
+    public static Process startServerJVM(SocketStoreFactory socketStoreFactory,
+                                         Node node,
+                                         String voldemortHome) throws IOException {
         List<String> env = Arrays.asList("CLASSPATH=" + System.getProperty("java.class.path"));
 
         String command = "java  voldemort.server.VoldemortServer " + voldemortHome;
         // System.out.println("command:" + command + " env:" + env);
         Process process = Runtime.getRuntime().exec(command, env.toArray(new String[0]));
-        ServerTestUtils.waitForServerStart(node);
+        ServerTestUtils.waitForServerStart(socketStoreFactory, node);
         startOutputErrorConsumption(process);
         return process;
     }

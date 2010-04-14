@@ -37,6 +37,8 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.utils.ServerJVMTestUtils;
@@ -57,6 +59,10 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     private AdminClient adminClient;
     private String voldemortHome;
     private final boolean useNio;
+    private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                        10000,
+                                                                                        100000,
+                                                                                        32 * 1024);
 
     public AdminServiceMultiJVMTest(boolean useNio) {
         this.useNio = useNio;
@@ -75,7 +81,9 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
                                                                             0,
                                                                             storesXmlfile,
                                                                             cluster);
-        pid = ServerJVMTestUtils.startServerJVM(cluster.getNodeById(0), voldemortHome);
+        pid = ServerJVMTestUtils.startServerJVM(socketStoreFactory,
+                                                cluster.getNodeById(0),
+                                                voldemortHome);
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
@@ -86,6 +94,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
         adminClient.stop();
         ServerJVMTestUtils.StopServerJVM(pid);
         FileUtils.deleteDirectory(new File(voldemortHome));
+        socketStoreFactory.close();
     }
 
     @Override
@@ -109,6 +118,6 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     protected Store<ByteArray, byte[]> getStore(int nodeId, String storeName) {
         Node node = cluster.getNodeById(nodeId);
 
-        return ServerTestUtils.getSocketStore(storeName, node.getSocketPort());
+        return ServerTestUtils.getSocketStore(socketStoreFactory, storeName, node.getSocketPort());
     }
 }

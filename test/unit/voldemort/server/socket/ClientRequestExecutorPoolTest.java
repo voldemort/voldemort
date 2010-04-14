@@ -32,12 +32,12 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.SocketAndStreams;
-import voldemort.client.protocol.admin.SocketPool;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandlerFactory;
+import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 
 /**
  * Tests for the socket pooling
@@ -45,17 +45,17 @@ import voldemort.store.socket.SocketDestination;
  * 
  */
 @RunWith(Parameterized.class)
-public class SocketPoolTest extends TestCase {
+public class ClientRequestExecutorPoolTest extends TestCase {
 
     private int port;
     private int maxConnectionsPerNode = 3;
-    private SocketPool pool;
+    private ClientRequestExecutorPool pool;
     private SocketDestination dest1;
     private AbstractSocketService server;
 
     private final boolean useNio;
 
-    public SocketPoolTest(boolean useNio) {
+    public ClientRequestExecutorPoolTest(boolean useNio) {
         this.useNio = useNio;
     }
 
@@ -68,7 +68,7 @@ public class SocketPoolTest extends TestCase {
     @Before
     public void setUp() {
         this.port = ServerTestUtils.findFreePort();
-        this.pool = new SocketPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
+        this.pool = new ClientRequestExecutorPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,
@@ -90,18 +90,18 @@ public class SocketPoolTest extends TestCase {
 
     @Test
     public void testTwoCheckoutsGetTheSameSocket() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest1);
+        ClientRequestExecutor sas1 = pool.checkout(dest1);
         pool.checkin(dest1, sas1);
-        SocketAndStreams sas2 = pool.checkout(dest1);
+        ClientRequestExecutor sas2 = pool.checkout(dest1);
         assertTrue(sas1 == sas2);
     }
 
     @Test
     public void testClosingDeactivates() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest1);
-        sas1.getSocket().close();
+        ClientRequestExecutor sas1 = pool.checkout(dest1);
+        sas1.close();
         pool.checkin(dest1, sas1);
-        SocketAndStreams sas2 = pool.checkout(dest1);
+        ClientRequestExecutor sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
     }
 
@@ -109,14 +109,14 @@ public class SocketPoolTest extends TestCase {
     public void testVariousProtocols() throws Exception {
         for(RequestFormatType type: RequestFormatType.values()) {
             SocketDestination dest = new SocketDestination("localhost", port, type);
-            SocketAndStreams sas = pool.checkout(dest);
+            ClientRequestExecutor sas = pool.checkout(dest);
             assertEquals(type, sas.getRequestFormatType());
         }
     }
 
     @Test
     public void testCloseWithInFlightSockets() throws Exception {
-        List<SocketAndStreams> list = new ArrayList<SocketAndStreams>();
+        List<ClientRequestExecutor> list = new ArrayList<ClientRequestExecutor>();
 
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
@@ -129,7 +129,7 @@ public class SocketPoolTest extends TestCase {
         assertEquals(list.size(), pool.getNumberOfActiveConnections());
         assertEquals(0, pool.getNumberSocketsDestroyed());
 
-        for(SocketAndStreams sas: list)
+        for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
         assertEquals(0, pool.getNumberOfActiveConnections());
@@ -139,8 +139,8 @@ public class SocketPoolTest extends TestCase {
 
     @Test
     public void testSocketClosedWhenCheckedInAfterPoolKeyClosed() throws Exception {
-        SocketAndStreams sas1 = pool.checkout(dest1);
-        SocketAndStreams sas2 = pool.checkout(dest1);
+        ClientRequestExecutor sas1 = pool.checkout(dest1);
+        ClientRequestExecutor sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
         pool.checkin(dest1, sas1);
         pool.close(dest1);

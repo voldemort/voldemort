@@ -29,6 +29,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.junit.After;
 import org.junit.Before;
@@ -59,6 +61,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
 import voldemort.store.versioned.InconsistencyResolvingStore;
@@ -141,6 +145,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                    String strategy,
                                    VoldemortException e) throws Exception {
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(threads);
         int count = 0;
         for(Node n: cluster.getNodes()) {
             if(count >= cluster.getNumberOfNodes())
@@ -148,14 +154,20 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                    + " sleepy nodes, but only "
                                                    + cluster.getNumberOfNodes()
                                                    + " nodes in the cluster.");
-            else if(count < failing)
-                subStores.put(n.getId(), new FailingStore<ByteArray, byte[]>("test", e));
+
+            Store<ByteArray, byte[]> subStore = null;
+
+            if(count < failing)
+                subStore = new FailingStore<ByteArray, byte[]>("test", e);
             else if(count < failing + sleepy)
-                subStores.put(n.getId(),
-                              new SleepyStore<ByteArray, byte[]>(Long.MAX_VALUE,
-                                                                 new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+                subStore = new SleepyStore<ByteArray, byte[]>(Long.MAX_VALUE,
+                                                              new InMemoryStorageEngine<ByteArray, byte[]>("test"));
             else
-                subStores.put(n.getId(), new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+                subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+
+            subStores.put(n.getId(), subStore);
+            nonblockingStores.put(n.getId(), new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                                     subStore));
 
             count += 1;
         }
@@ -164,6 +176,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         return new NewRoutedStore("test",
                                   subStores,
+                                  nonblockingStores,
                                   cluster,
                                   ServerTestUtils.getStoreDef("test",
                                                               reads + writes,
@@ -172,8 +185,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                               writes,
                                                               writes,
                                                               strategy),
-                                  threads,
                                   true,
+                                  threadPool,
                                   1000L,
                                   failureDetector);
     }
@@ -465,19 +478,27 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
-        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
-                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
-                      new FailingReadsStore<ByteArray, byte[]>("test"));
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
+
+        int id1 = Iterables.get(cluster.getNodes(), 0).getId();
+        int id2 = Iterables.get(cluster.getNodes(), 1).getId();
+        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(id2, new FailingReadsStore<ByteArray, byte[]>("test"));
+        nonblockingStores.put(id1, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id1)));
+        nonblockingStores.put(id2, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id2)));
 
         setFailureDetector(subStores);
 
         RoutableStore routableStore = new NewRoutedStore("test",
                                                          subStores,
+                                                         nonblockingStores,
                                                          cluster,
                                                          storeDef,
-                                                         1,
                                                          true,
+                                                         threadPool,
                                                          1000L,
                                                          failureDetector);
 
@@ -518,18 +539,26 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
-        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
-                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
-                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
+
+        int id1 = Iterables.get(cluster.getNodes(), 0).getId();
+        int id2 = Iterables.get(cluster.getNodes(), 1).getId();
+        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(id2, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        nonblockingStores.put(id1, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id1)));
+        nonblockingStores.put(id2, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id2)));
 
         setFailureDetector(subStores);
         RoutableStore routableStore = new NewRoutedStore("test",
                                                          subStores,
+                                                         nonblockingStores,
                                                          cluster,
                                                          storeDef,
-                                                         1,
                                                          true,
+                                                         threadPool,
                                                          1000L,
                                                          failureDetector);
 
@@ -610,24 +639,38 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         /* The key used causes the nodes selected for writing to be [2, 0, 1] */
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
-        subStores.put(Iterables.get(cluster.getNodes(), 2).getId(),
-                      new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(Iterables.get(cluster.getNodes(), 0).getId(),
-                      new FailingStore<ByteArray, byte[]>("test"));
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
+
+        int id1 = Iterables.get(cluster.getNodes(), 0).getId();
+        int id2 = Iterables.get(cluster.getNodes(), 1).getId();
+        int id3 = Iterables.get(cluster.getNodes(), 2).getId();
+
+        subStores.put(id3, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(id1, new FailingStore<ByteArray, byte[]>("test"));
         /*
          * The bug would only show itself if the second successful required
          * write was slow (but still within the timeout).
          */
-        subStores.put(Iterables.get(cluster.getNodes(), 1).getId(),
+        subStores.put(id2,
                       new SleepyStore<ByteArray, byte[]>(100,
                                                          new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+
+        nonblockingStores.put(id1, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id1)));
+        nonblockingStores.put(id2, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id2)));
+        nonblockingStores.put(id3, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                           subStores.get(id3)));
+
         setFailureDetector(subStores);
         RoutableStore routableStore = new NewRoutedStore("test",
                                                          subStores,
+                                                         nonblockingStores,
                                                          cluster,
                                                          storeDef,
-                                                         1,
                                                          true,
+                                                         threadPool,
                                                          1000L,
                                                          failureDetector);
 
@@ -652,26 +695,31 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                  .setRequiredWrites(3)
                                                                  .build();
         Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(3);
         List<Node> nodes = new ArrayList<Node>();
         int totalDelay = 0;
         for(int i = 0; i < 3; i++) {
             int delay = 4 + i * timeout;
             totalDelay += delay;
-            stores.put(i,
-                       new SleepyStore<ByteArray, byte[]>(delay,
-                                                          new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+            Store<ByteArray, byte[]> store = new SleepyStore<ByteArray, byte[]>(delay,
+                                                                                new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+            stores.put(i, store);
             List<Integer> partitions = Arrays.asList(i);
             nodes.add(new Node(i, "none", 0, 0, 0, partitions));
+
+            nonblockingStores.put(i, new ThreadPoolBasedNonblockingStoreImpl(threadPool, store));
         }
 
         setFailureDetector(stores);
 
         RoutableStore routableStore = new NewRoutedStore("test",
                                                          stores,
+                                                         nonblockingStores,
                                                          new Cluster("test", nodes),
                                                          definition,
-                                                         3,
                                                          false,
+                                                         threadPool,
                                                          timeout,
                                                          failureDetector);
 
@@ -702,21 +750,28 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
 
         /* We just need to keep a store from one node */
         StatTrackingStore<ByteArray, byte[]> statTrackingStore = null;
         for(int i = 0; i < 3; ++i) {
+            int id = Iterables.get(cluster.getNodes(), i).getId();
             statTrackingStore = new StatTrackingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
                                                                          null);
-            subStores.put(Iterables.get(cluster.getNodes(), i).getId(), statTrackingStore);
+            subStores.put(id, statTrackingStore);
+            nonblockingStores.put(id, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                              statTrackingStore));
+
         }
         setFailureDetector(subStores);
         RoutableStore routableStore = new NewRoutedStore("test",
                                                          subStores,
+                                                         nonblockingStores,
                                                          cluster,
                                                          storeDef,
-                                                         1,
                                                          true,
+                                                         threadPool,
                                                          1000L,
                                                          failureDetector);
         ByteArray key1 = aKey;

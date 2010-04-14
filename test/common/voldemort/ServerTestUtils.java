@@ -41,6 +41,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.AbstractSocketService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -58,9 +59,7 @@ import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Props;
@@ -151,31 +150,36 @@ public class ServerTestUtils {
         return socketService;
     }
 
-    public static SocketStore getSocketStore(String storeName, int port) {
-        return getSocketStore(storeName, port, RequestFormatType.VOLDEMORT_V1);
+    public static Store<ByteArray, byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                          String storeName,
+                                                          int port) {
+        return getSocketStore(storeFactory, storeName, port, RequestFormatType.VOLDEMORT_V1);
     }
 
-    public static SocketStore getSocketStore(String storeName, int port, RequestFormatType type) {
-        return getSocketStore(storeName, "localhost", port, type);
+    public static Store<ByteArray, byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                          String storeName,
+                                                          int port,
+                                                          RequestFormatType type) {
+        return getSocketStore(storeFactory, storeName, "localhost", port, type);
     }
 
-    public static SocketStore getSocketStore(String storeName,
-                                             String host,
-                                             int port,
-                                             RequestFormatType type) {
-        return getSocketStore(storeName, host, port, type, false);
+    public static Store<ByteArray, byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                          String storeName,
+                                                          String host,
+                                                          int port,
+                                                          RequestFormatType type) {
+        return getSocketStore(storeFactory, storeName, host, port, type, false);
     }
 
-    public static SocketStore getSocketStore(String storeName,
-                                             String host,
-                                             int port,
-                                             RequestFormatType type,
-                                             boolean isRouted) {
-        SocketPool socketPool = new SocketPool(2, 10000, 100000, 32 * 1024);
-        return new SocketStore(storeName,
-                               new SocketDestination(host, port, type),
-                               socketPool,
-                               isRouted);
+    public static Store<ByteArray, byte[]> getSocketStore(SocketStoreFactory storeFactory,
+                                                          String storeName,
+                                                          String host,
+                                                          int port,
+                                                          RequestFormatType type,
+                                                          boolean isRouted) {
+        RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(isRouted,
+                                                                                         false);
+        return storeFactory.create(storeName, host, port, type, requestRoutingType);
     }
 
     public static Context getJettyServer(String clusterXml,
@@ -416,21 +420,24 @@ public class ServerTestUtils {
         }
     }
 
-    public static VoldemortServer startVoldemortServer(VoldemortConfig config, Cluster cluster) {
+    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
+                                                       VoldemortConfig config,
+                                                       Cluster cluster) {
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
 
-        ServerTestUtils.waitForServerStart(server.getIdentityNode());
+        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
         // wait till server start or throw exception
         return server;
     }
 
-    public static void waitForServerStart(Node node) {
+    public static void waitForServerStart(SocketStoreFactory socketStoreFactory, Node node) {
         boolean success = false;
         int retries = 10;
         Store<ByteArray, ?> store = null;
         while(retries-- > 0) {
-            store = ServerTestUtils.getSocketStore(MetadataStore.METADATA_STORE_NAME,
+            store = ServerTestUtils.getSocketStore(socketStoreFactory,
+                                                   MetadataStore.METADATA_STORE_NAME,
                                                    node.getSocketPort());
             try {
                 store.get(new ByteArray(MetadataStore.CLUSTER_KEY.getBytes()));

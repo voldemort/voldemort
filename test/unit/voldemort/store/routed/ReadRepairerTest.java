@@ -28,10 +28,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 
@@ -53,6 +56,8 @@ import voldemort.routing.RoutingStrategyType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
@@ -130,9 +135,13 @@ public class ReadRepairerTest extends TestCase {
                                                                2,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(1);
         for(int a = 0; a < 3; a++) {
-            subStores.put(Iterables.get(cluster.getNodes(), a).getId(),
-                          new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+            int id = Iterables.get(cluster.getNodes(), a).getId();
+            InMemoryStorageEngine<ByteArray, byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+            subStores.put(id, subStore);
+            nonblockingStores.put(id, new ThreadPoolBasedNonblockingStoreImpl(threadPool, subStore));
         }
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
@@ -145,10 +154,11 @@ public class ReadRepairerTest extends TestCase {
 
         RoutableStore store = new NewRoutedStore("test",
                                                  subStores,
+                                                 nonblockingStores,
                                                  cluster,
                                                  storeDef,
-                                                 1,
                                                  true,
+                                                 threadPool,
                                                  1000L,
                                                  failureDetector);
 

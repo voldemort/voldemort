@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +29,8 @@ import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -41,7 +44,10 @@ public class GossiperTest extends TestCase {
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
     private Cluster cluster;
     private Properties props = new Properties();
-
+    private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024);
     private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     private final boolean useNio;
@@ -68,34 +74,40 @@ public class GossiperTest extends TestCase {
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         final CountDownLatch countDownLatch = new CountDownLatch(3);
 
-        for (int i = 0; i < 3; i++) {
+        for(int i = 0; i < 3; i++) {
             final int j = i;
             executorService.submit(new Runnable() {
-                public void run()  {
+
+                public void run() {
                     try {
-                        servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+                        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                         ServerTestUtils.createServerConfig(useNio,
                                                                                                             j,
                                                                                                             TestUtils.createTempDir()
-                                                                                                                    .getAbsolutePath(),
+                                                                                                                     .getAbsolutePath(),
                                                                                                             null,
                                                                                                             storesXmlfile,
                                                                                                             props),
                                                                          cluster));
                         countDownLatch.countDown();
-                    } catch (IOException e) {
+                    } catch(IOException e) {
                         throw new RuntimeException();
                     }
                 }
-            }
-            );
+            });
         }
 
         try {
             countDownLatch.await();
-        } catch (InterruptedException e) {
+        } catch(InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
 
+    @Override
+    @After
+    public void tearDown() {
+        socketStoreFactory.close();
     }
 
     private AdminClient getAdminClient(Cluster newCluster, VoldemortConfig newServerConfig) {
@@ -112,11 +124,8 @@ public class GossiperTest extends TestCase {
         int ports[] = new int[numOriginalPorts + 3];
         for(int i = 0, j = 0; i < originalSize; i++, j += 3) {
             Node node = cluster.getNodeById(i);
-            System.arraycopy(new int[] { node.getHttpPort(), node.getSocketPort(), node.getAdminPort() },
-                             0,
-                             ports,
-                             j,
-                             3);
+            System.arraycopy(new int[] { node.getHttpPort(), node.getSocketPort(),
+                    node.getAdminPort() }, 0, ports, j, 3);
         }
 
         System.arraycopy(ServerTestUtils.findFreePorts(3), 0, ports, numOriginalPorts, 3);
@@ -125,12 +134,13 @@ public class GossiperTest extends TestCase {
         final Cluster newCluster = ServerTestUtils.getLocalCluster(originalSize + 1,
                                                                    ports,
                                                                    new int[][] { { 0, 4, 8 },
-                                                                                 { 1, 5, 9 },
-                                                                                 { 2, 6, 10 },
-                                                                                 { 3, 7, 11 } });
+                                                                           { 1, 5, 9 },
+                                                                           { 2, 6, 10 },
+                                                                           { 3, 7, 11 } });
 
         // Create a new server
-        VoldemortServer newServer = ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
+        VoldemortServer newServer = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                         ServerTestUtils.createServerConfig(useNio,
                                                                                                             3,
                                                                                                             TestUtils.createTempDir()
                                                                                                                      .getAbsolutePath(),
@@ -153,7 +163,8 @@ public class GossiperTest extends TestCase {
         Versioned<String> versionedClusterXML = localAdminClient.getRemoteMetadata(3,
                                                                                    MetadataStore.CLUSTER_KEY);
 
-        // Increment the version, let what would be the "donor node" know about it
+        // Increment the version, let what would be the "donor node" know about
+        // it
         // to seed the Gossip.
         Version version = versionedClusterXML.getVersion();
         ((VectorClock) version).incrementVersion(3, ((VectorClock) version).getTimestamp() + 1);

@@ -169,7 +169,7 @@ public class RebalanceUtils {
                                            VectorClock newClock) {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
-            if(Occured.CONCURRENTLY.equals(clock.equals(newClock)))
+            if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
                 throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
                                              + clock + " and " + newClock);
 
@@ -263,9 +263,13 @@ public class RebalanceUtils {
 
     public static List<StoreDefinition> getStoreNameList(Cluster cluster, AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
-                                                            .getValue();
-            return getWritableStores(storeDefList);
+            try {
+                List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
+                               .getValue();
+                return getWritableStores(storeDefList);
+            } catch (VoldemortException e) {
+                logger.warn(e);
+            }
         }
 
         throw new VoldemortException("Unable to get StoreDefList from any node for cluster:"

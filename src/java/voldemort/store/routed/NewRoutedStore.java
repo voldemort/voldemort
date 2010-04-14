@@ -26,7 +26,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -49,7 +48,6 @@ import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.routed.StateMachine.Event;
 import voldemort.store.routed.StateMachine.Operation;
 import voldemort.store.routed.action.AbstractAction;
@@ -68,7 +66,6 @@ import voldemort.store.routed.action.PerformSerialRequests.BlockingStoreRequest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -108,48 +105,17 @@ public class NewRoutedStore implements RoutableStore {
      *        before the operation will return
      * @param requiredWrites The minimum number of writes that must complete
      *        before the operation will return
-     * @param numberOfThreads The number of threads in the threadpool
-     */
-    public NewRoutedStore(String name,
-                          Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                          Cluster cluster,
-                          StoreDefinition storeDef,
-                          int numberOfThreads,
-                          boolean repairReads,
-                          long timeoutMs,
-                          FailureDetector failureDetector) {
-        this(name,
-             innerStores,
-             cluster,
-             storeDef,
-             repairReads,
-             Executors.newFixedThreadPool(numberOfThreads),
-             timeoutMs,
-             failureDetector,
-             SystemTime.INSTANCE);
-    }
-
-    /**
-     * Create a RoutedStoreClient
-     * 
-     * @param name The name of the store
-     * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
      * @param threadPool The threadpool to use
      */
     public NewRoutedStore(String name,
                           Map<Integer, Store<ByteArray, byte[]>> innerStores,
+                          Map<Integer, NonblockingStore> nonblockingStores,
                           Cluster cluster,
                           StoreDefinition storeDef,
                           boolean repairReads,
                           ExecutorService threadPool,
                           long timeoutMs,
-                          FailureDetector failureDetector,
-                          Time time) {
+                          FailureDetector failureDetector) {
         if(storeDef.getRequiredReads() < 1)
             throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
         if(storeDef.getRequiredWrites() < 1)
@@ -165,21 +131,15 @@ public class NewRoutedStore implements RoutableStore {
 
         this.name = name;
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(innerStores);
+        this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.repairReads = repairReads;
         this.executor = threadPool;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
         this.timeoutMs = timeoutMs;
-        this.time = Utils.notNull(time);
+        this.time = SystemTime.INSTANCE;
         this.storeDef = storeDef;
         this.failureDetector = failureDetector;
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
-
-        nonblockingStores = new HashMap<Integer, NonblockingStore>();
-
-        for(Map.Entry<Integer, Store<ByteArray, byte[]>> entry: innerStores.entrySet())
-            nonblockingStores.put(entry.getKey(),
-                                  new ThreadPoolBasedNonblockingStoreImpl(executor,
-                                                                          entry.getValue()));
     }
 
     public void updateRoutingStrategy(RoutingStrategy routingStrategy) {

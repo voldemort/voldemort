@@ -19,6 +19,7 @@ package voldemort.client.protocol;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -42,12 +43,16 @@ public interface RequestFormat {
                                 ByteArray key,
                                 RequestRoutingType routingType) throws IOException;
 
+    public boolean isCompleteGetResponse(ByteBuffer buffer);
+
+    public List<Versioned<byte[]>> readGetResponse(DataInputStream stream) throws IOException;
+
     public void writeGetVersionRequest(DataOutputStream output,
                                        String storeName,
                                        ByteArray key,
                                        RequestRoutingType routingType) throws IOException;
 
-    public List<Versioned<byte[]>> readGetResponse(DataInputStream stream) throws IOException;
+    public boolean isCompleteGetVersionResponse(ByteBuffer buffer);
 
     public List<Version> readGetVersionResponse(DataInputStream stream) throws IOException;
 
@@ -55,6 +60,8 @@ public interface RequestFormat {
                                    String storeName,
                                    Iterable<ByteArray> key,
                                    RequestRoutingType routingType) throws IOException;
+
+    public boolean isCompleteGetAllResponse(ByteBuffer buffer);
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
             throws IOException;
@@ -66,6 +73,8 @@ public interface RequestFormat {
                                 VectorClock version,
                                 RequestRoutingType routingType) throws IOException;
 
+    public boolean isCompletePutResponse(ByteBuffer buffer);
+
     public void readPutResponse(DataInputStream stream) throws IOException;
 
     public void writeDeleteRequest(DataOutputStream output,
@@ -73,6 +82,8 @@ public interface RequestFormat {
                                    ByteArray key,
                                    VectorClock version,
                                    RequestRoutingType routingType) throws IOException;
+
+    public boolean isCompleteDeleteResponse(ByteBuffer buffer);
 
     public boolean readDeleteResponse(DataInputStream input) throws IOException;
 }

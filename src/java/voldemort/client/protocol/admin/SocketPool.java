@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.socket;
+package voldemort.client.protocol.admin;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,6 +25,7 @@ import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxSetter;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.socket.SocketDestination;
 import voldemort.utils.Time;
 import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;

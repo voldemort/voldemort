@@ -31,15 +31,15 @@ import voldemort.TestUtils;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.AbstractSocketService;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.http.HttpService;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageEngine;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
@@ -93,13 +93,12 @@ public class RemoteStoreComparisonTest {
         String storeName = "test";
         StoreRepository repository = new StoreRepository();
         repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
-        SocketPool socketPool = new SocketPool(10, 1000, 1000, 32 * 1024);
-        final SocketStore socketStore = new SocketStore(storeName,
-                                                        new SocketDestination("localhost",
-                                                                              6666,
-                                                                              RequestFormatType.VOLDEMORT_V1),
-                                                        socketPool,
-                                                        false);
+        SocketStoreFactory storeFactory = new ClientRequestExecutorPool(10, 1000, 1000, 32 * 1024);
+        final Store<ByteArray, byte[]> socketStore = storeFactory.create(storeName,
+                                                                         "localhost",
+                                                                         6666,
+                                                                         RequestFormatType.VOLDEMORT_V1,
+                                                                         RequestRoutingType.NORMAL);
         RequestHandlerFactory factory = ServerTestUtils.getSocketRequestHandlerFactory(repository);
         AbstractSocketService socketService = ServerTestUtils.getSocketService(useNio,
                                                                                factory,
@@ -143,7 +142,7 @@ public class RemoteStoreComparisonTest {
         System.out.println();
 
         socketStore.close();
-        socketPool.close();
+        storeFactory.close();
         socketService.stop();
 
         /** * Do HTTP tests ** */

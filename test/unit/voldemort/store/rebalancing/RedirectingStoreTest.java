@@ -47,7 +47,8 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.SocketPool;
+import voldemort.store.socket.ClientRequestExecutorPool;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
@@ -69,6 +70,10 @@ public class RedirectingStoreTest extends TestCase {
     VoldemortServer server1;
     Cluster targetCluster;
     private final boolean useNio;
+    private final SocketStoreFactory storeFactory = new ClientRequestExecutorPool(2,
+                                                                                  10000,
+                                                                                  100000,
+                                                                                  32 * 1024);
 
     public RedirectingStoreTest(boolean useNio) {
         this.useNio = useNio;
@@ -105,6 +110,8 @@ public class RedirectingStoreTest extends TestCase {
         } catch(Exception e) {
             // ignore exceptions here
         }
+
+        storeFactory.close();
     }
 
     private VoldemortServer startServer(int node, String storesXmlfile, Cluster cluster)
@@ -126,14 +133,15 @@ public class RedirectingStoreTest extends TestCase {
     }
 
     private RedirectingStore getRedirectingStore(MetadataStore metadata, String storeName) {
-        return new RedirectingStore(ServerTestUtils.getSocketStore(storeName,
+        return new RedirectingStore(ServerTestUtils.getSocketStore(storeFactory,
+                                                                   storeName,
                                                                    server0.getIdentityNode()
                                                                           .getSocketPort(),
                                                                    RequestFormatType.VOLDEMORT_V1),
                                     metadata,
                                     server0.getStoreRepository(),
                                     new NoopFailureDetector(),
-                                    new SocketPool(10, 1000, 10000, 10000));
+                                    new ClientRequestExecutorPool(10, 1000, 10000, 10000));
     }
 
     @Test

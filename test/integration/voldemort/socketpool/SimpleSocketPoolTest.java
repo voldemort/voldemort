@@ -13,11 +13,13 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.SocketAndStreams;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
-import voldemort.store.socket.SocketAndStreams;
+import voldemort.store.socket.ClientSelectorManager;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.pool.ResourceFactory;
 import voldemort.utils.pool.ResourcePoolConfig;
 
@@ -129,6 +131,60 @@ public class SimpleSocketPoolTest extends TestCase {
         TestStats testStats = test.startTest(factory, config, 50, 200);
         assertEquals("We should see some timeoutRequests", true, testStats.timeoutRequests > 0);
         server.stop();
+    }
+
+    @Test
+    public void testClientRequestExecutorLimitSomeTimeout() throws Exception {
+        // start a dummy server
+        AbstractSocketService server = ServerTestUtils.getSocketService(useNio,
+                                                                        new SocketRequestHandlerFactory(null,
+                                                                                                        null,
+                                                                                                        null,
+                                                                                                        null,
+                                                                                                        null,
+                                                                                                        null),
+                                                                        7666,
+                                                                        50,
+                                                                        50,
+                                                                        1000);
+
+        server.start();
+
+        final ResourcePoolConfig config = new ResourcePoolConfig().setTimeout(50,
+                                                                              TimeUnit.MILLISECONDS)
+                                                                  .setMaxPoolSize(20);
+
+        ClientSelectorManager selectorManager = new ClientSelectorManager();
+        new Thread(selectorManager, "ClientSelector").start();
+
+        try {
+            ResourceFactory<SocketDestination, ClientRequestExecutor> factory = ResourcePoolTestUtils.getClientRequestExecutorFactory(selectorManager);
+            final AbstractSocketPoolTest<SocketDestination, ClientRequestExecutor> test = new AbstractSocketPoolTest<SocketDestination, ClientRequestExecutor>() {
+
+                @Override
+                protected void doSomethingWithResource(SocketDestination key,
+                                                       ClientRequestExecutor resource)
+                        throws Exception {
+                    Thread.sleep(100);
+                    int random = (int) (Math.random() * 10);
+                    if(random >= 5)
+                        resource.close();
+                }
+
+                @Override
+                protected SocketDestination getRequestKey() throws Exception {
+                    return new SocketDestination("localhost", 7666, RequestFormatType.VOLDEMORT_V1);
+                }
+
+            };
+
+            // borrow timeout >> doSomething() no timeout expected
+            TestStats testStats = test.startTest(factory, config, 50, 200);
+            assertEquals("We should see some timeoutRequests", true, testStats.timeoutRequests > 0);
+            server.stop();
+        } finally {
+            selectorManager.close();
+        }
     }
 
     @Test

@@ -43,6 +43,8 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.routed.NewRoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
@@ -51,7 +53,6 @@ import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -141,6 +142,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         // construct mapping
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
+
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
@@ -148,18 +151,20 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                       this.requestFormatType);
             store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
+            nonblockingStores.put(node.getId(), new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                                        store));
         }
 
         boolean repairReads = !storeDef.isView();
         Store<ByteArray, byte[]> store = new NewRoutedStore(storeName,
                                                             clientMapping,
+                                                            nonblockingStores,
                                                             cluster,
                                                             storeDef,
                                                             repairReads,
                                                             threadPool,
                                                             routingTimeoutMs,
-                                                            getFailureDetector(),
-                                                            SystemTime.INSTANCE);
+                                                            getFailureDetector());
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);

@@ -34,9 +34,7 @@ import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
@@ -58,18 +56,18 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private final static Logger logger = Logger.getLogger(RedirectingStore.class);
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
-    private final SocketPool socketPool;
+    private final SocketStoreFactory storeFactory;
     private FailureDetector failureDetector;
 
     public RedirectingStore(Store<ByteArray, byte[]> innerStore,
                             MetadataStore metadata,
                             StoreRepository storeRepository,
                             FailureDetector detector,
-                            SocketPool socketPool) {
+                            SocketStoreFactory storeFactory) {
         super(innerStore);
         this.metadata = metadata;
         this.storeRepository = storeRepository;
-        this.socketPool = socketPool;
+        this.storeFactory = storeFactory;
         this.failureDetector = detector;
     }
 
@@ -266,12 +264,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
                     logger.info("Creating redirectingSocketStore for donorNode " + donorNode
                                 + " store " + storeName);
                     storeRepository.addRedirectingSocketStore(donorNode.getId(),
-                                                              new SocketStore(storeName,
-                                                                              new SocketDestination(donorNode.getHost(),
-                                                                                                    donorNode.getSocketPort(),
-                                                                                                    RequestFormatType.PROTOCOL_BUFFERS),
-                                                                              socketPool,
-                                                                              RequestRoutingType.IGNORE_CHECKS));
+                                                              storeFactory.create(storeName,
+                                                                                  donorNode.getHost(),
+                                                                                  donorNode.getSocketPort(),
+                                                                                  RequestFormatType.PROTOCOL_BUFFERS,
+                                                                                  RequestRoutingType.IGNORE_CHECKS));
                 }
             }
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -25,6 +25,7 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.DelegatingStore;
@@ -32,9 +33,7 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.routed.RoutableStore;
-import voldemort.store.socket.SocketDestination;
-import voldemort.store.socket.SocketPool;
-import voldemort.store.socket.SocketStore;
+import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -54,20 +53,20 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
-    private final SocketPool socketPool;
-    private RoutableStore routableStore;
+    private final RoutableStore routableStore;
+    private final SocketStoreFactory storeFactory;
 
-    public RebootstrappingStore(MetadataStore metadataStore,
+    public RebootstrappingStore(MetadataStore metadata,
                                 StoreRepository storeRepository,
                                 VoldemortConfig voldemortConfig,
-                                SocketPool socketPool,
-                                RoutableStore routableStore) {
+                                RoutableStore routableStore,
+                                SocketStoreFactory storeFactory) {
         super(routableStore);
-        this.metadata = metadataStore;
+        this.metadata = metadata;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
-        this.socketPool = socketPool;
         this.routableStore = routableStore;
+        this.storeFactory = storeFactory;
     }
 
     private void reinit() {
@@ -108,12 +107,11 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     private Store<ByteArray, byte[]> createNodeStore(Node node) {
-        return new SocketStore(getName(),
-                               new SocketDestination(node.getHost(),
-                                                     node.getSocketPort(),
-                                                     voldemortConfig.getRequestFormatType()),
-                               socketPool,
-                               false);
+        return storeFactory.create(getName(),
+                                   node.getHost(),
+                                   node.getSocketPort(),
+                                   voldemortConfig.getRequestFormatType(),
+                                   RequestRoutingType.NORMAL);
     }
 
     @Override
