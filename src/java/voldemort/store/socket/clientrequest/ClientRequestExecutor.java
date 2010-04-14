@@ -32,16 +32,29 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.client.protocol.admin.SocketAndStreams;
+import voldemort.server.niosocket.AsyncRequestHandler;
+import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.ClientRequestExecutorResourceFactory;
+import voldemort.store.socket.ClientSelectorManager;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteBufferBackedOutputStream;
 import voldemort.utils.ByteUtils;
 
 /**
- * A wrapper class that wraps a socket with its DataInputStream and
- * DataOutputStream
+ * ClientRequestExecutor represents a persistent link between a client and
+ * server and is used by the {@link ClientSelectorManager} to execute
+ * {@link ClientRequest requests} for the client.
+ * 
+ * Instances are maintained in a pool by {@link ClientRequestExecutorPool} using
+ * a checkout/checkin pattern. When an instance is checked out, the calling code
+ * has exclusive access to that instance. Then the
+ * {@link #setClientRequest(ClientRequest) request can be set} and the instance
+ * can be {@link ClientSelectorManager#submitRequest(ClientRequestExecutor)
+ * submitted} to be executed.
+ * 
+ * @see AsyncRequestHandler
+ * @see ClientSelectorManager
  */
 
 public class ClientRequestExecutor implements Runnable {
@@ -97,7 +110,7 @@ public class ClientRequestExecutor implements Runnable {
      * @return Nanosecond-based timestamp of socket creation
      * 
      * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
-     *      SocketAndStreams)
+     *      ClientRequestExecutor)
      */
 
     public long getCreateTimestamp() {

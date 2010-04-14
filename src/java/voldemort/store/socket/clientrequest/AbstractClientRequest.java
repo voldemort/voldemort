@@ -25,7 +25,7 @@ import voldemort.VoldemortException;
  * AbstractClientRequest implements ClientRequest to provide some basic
  * mechanisms that most implementations will need.
  * 
- * @param <T>
+ * @param <T> Return type
  */
 
 public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
