@@ -16,7 +16,10 @@
 
 package voldemort.store.socket;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +32,8 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.socket.clientrequest.BlockingClientRequest;
 import voldemort.store.socket.clientrequest.ClientRequest;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
@@ -39,6 +44,7 @@ import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -49,7 +55,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class SocketStore implements Store<ByteArray, byte[]> {
+public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
@@ -68,6 +74,59 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
         this.requestRoutingType = requestRoutingType;
+    }
+
+    public void submitDeleteRequest(ByteArray key,
+                                    Version version,
+                                    NonblockingStoreCallback callback) {
+        StoreUtils.assertValidKey(key);
+        DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
+                                                                    requestFormat,
+                                                                    requestRoutingType,
+                                                                    key,
+                                                                    version);
+        requestAsync(clientRequest, callback);
+    }
+
+    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback)
+            throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        GetClientRequest clientRequest = new GetClientRequest(storeName,
+                                                              requestFormat,
+                                                              requestRoutingType,
+                                                              key);
+        requestAsync(clientRequest, callback);
+    }
+
+    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback)
+            throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+        GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
+                                                                    requestFormat,
+                                                                    requestRoutingType,
+                                                                    keys);
+        requestAsync(clientRequest, callback);
+    }
+
+    public void submitGetVersionsRequest(ByteArray key, NonblockingStoreCallback callback) {
+        StoreUtils.assertValidKey(key);
+        GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
+                                                                              requestFormat,
+                                                                              requestRoutingType,
+                                                                              key);
+        requestAsync(clientRequest, callback);
+    }
+
+    public void submitPutRequest(ByteArray key,
+                                 Versioned<byte[]> value,
+                                 NonblockingStoreCallback callback) throws VoldemortException {
+        StoreUtils.assertValidKey(key);
+        PutClientRequest clientRequest = new PutClientRequest(storeName,
+                                                              requestFormat,
+                                                              requestRoutingType,
+                                                              key,
+                                                              value);
+        requestAsync(clientRequest, callback);
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
@@ -166,6 +225,78 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         } finally {
             pool.checkin(destination, clientRequestExecutor);
         }
+    }
+
+    /**
+     * This method handles submitting and then waiting for the request from the
+     * server. It uses the ClientRequest API to actually write the request and
+     * then read back the response. This implementation will block for a
+     * response from the server.
+     * 
+     * @param <T> Return type
+     * 
+     * @param clientRequest ClientRequest implementation used to write the
+     *        request and read the response
+     * @param operationName Simple string representing the type of request
+     * 
+     * @return Data returned by the individual requests
+     */
+
+    private <T> void requestAsync(ClientRequest<T> delegate, NonblockingStoreCallback callback) {
+        ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
+        NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(delegate,
+                                                                                                              clientRequestExecutor,
+                                                                                                              callback);
+        clientRequestExecutor.addClientRequest(clientRequest);
+    }
+
+    private class NonblockingStoreCallbackClientRequest<T> implements ClientRequest<T> {
+
+        private final ClientRequest<T> clientRequest;
+
+        private final ClientRequestExecutor clientRequestExecutor;
+
+        private final NonblockingStoreCallback callback;
+
+        private final long startNs;
+
+        public NonblockingStoreCallbackClientRequest(ClientRequest<T> clientRequest,
+                                                     ClientRequestExecutor clientRequestExecutor,
+                                                     NonblockingStoreCallback callback) {
+            this.clientRequest = clientRequest;
+            this.clientRequestExecutor = clientRequestExecutor;
+            this.callback = callback;
+            this.startNs = System.nanoTime();
+        }
+
+        public void complete() {
+            try {
+                clientRequest.complete();
+                Object result = clientRequest.getResult();
+                callback.requestComplete(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+            } catch(Exception e) {
+                callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+            } finally {
+                pool.checkin(destination, clientRequestExecutor);
+            }
+        }
+
+        public boolean formatRequest(DataOutputStream outputStream) {
+            return clientRequest.formatRequest(outputStream);
+        }
+
+        public T getResult() throws VoldemortException, IOException {
+            return clientRequest.getResult();
+        }
+
+        public boolean isCompleteResponse(ByteBuffer buffer) {
+            return clientRequest.isCompleteResponse(buffer);
+        }
+
+        public void parseResponse(DataInputStream inputStream) {
+            clientRequest.parseResponse(inputStream);
+        }
+
     }
 
 }

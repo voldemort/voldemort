@@ -149,10 +149,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                       node.getHost(),
                                                       getPort(node),
                                                       this.requestFormatType);
+            NonblockingStore nonblockingStore = null;
+
+            if(store instanceof NonblockingStore)
+                nonblockingStore = (NonblockingStore) store;
+            else
+                nonblockingStore = new ThreadPoolBasedNonblockingStoreImpl(threadPool, store);
+
             store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
-            nonblockingStores.put(node.getId(), new ThreadPoolBasedNonblockingStoreImpl(threadPool,
-                                                                                        store));
+            nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
         boolean repairReads = !storeDef.isView();

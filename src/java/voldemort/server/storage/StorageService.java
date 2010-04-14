@@ -289,11 +289,17 @@ public class StorageService extends AbstractService {
 
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
+            NonblockingStore nonblockingStore = null;
+
+            if(store instanceof NonblockingStore)
+                nonblockingStore = (NonblockingStore) store;
+            else
+                nonblockingStore = new ThreadPoolBasedNonblockingStoreImpl(this.clientThreadPool,
+                                                                           store);
+
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
-            nonblockingStores.put(node.getId(),
-                                  new ThreadPoolBasedNonblockingStoreImpl(this.clientThreadPool,
-                                                                          store));
+            nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
         Store<ByteArray, byte[]> store = new NewRoutedStore(def.getName(),
