@@ -17,6 +17,7 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 
 import voldemort.VoldemortException;
@@ -32,39 +33,56 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     private T result;
 
-    private VoldemortException error;
+    private Exception error;
 
-    private volatile boolean isCompleted = false;
+    private volatile boolean isComplete = false;
+
+    protected abstract void formatRequestInternal(DataOutputStream outputStream) throws IOException;
 
     protected abstract T parseResponseInternal(DataInputStream inputStream) throws IOException;
 
-    public void setServerError(Exception e) {
-        if(e instanceof VoldemortException)
-            error = (VoldemortException) e;
-        else
-            error = new VoldemortException(e);
+    public boolean formatRequest(DataOutputStream outputStream) {
+        try {
+            formatRequestInternal(outputStream);
+        } catch(IOException e) {
+            error = e;
+            return false;
+        } catch(VoldemortException e) {
+            error = e;
+            return false;
+        }
+
+        return true;
     }
 
-    public final void completed() {
-        isCompleted = true;
-    }
-
-    public void parseResponse(DataInputStream inputStream) throws IOException {
+    public void parseResponse(DataInputStream inputStream) {
         try {
             result = parseResponseInternal(inputStream);
+        } catch(IOException e) {
+            error = e;
         } catch(VoldemortException e) {
             error = e;
         }
     }
 
-    public T getResult() {
-        if(!isCompleted)
+    public T getResult() throws VoldemortException, IOException {
+        if(!isComplete)
             throw new IllegalStateException("Client response not complete, cannot determine result");
 
-        if(error != null)
-            throw error;
+        if(error instanceof IOException)
+            throw (IOException) error;
+        else if(error instanceof VoldemortException)
+            throw (VoldemortException) error;
 
         return result;
+    }
+
+    public final void complete() {
+        isComplete = true;
+    }
+
+    public boolean isComplete() {
+        return isComplete;
     }
 
 }

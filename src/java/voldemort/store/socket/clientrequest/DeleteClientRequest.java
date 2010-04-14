@@ -47,7 +47,8 @@ public class DeleteClientRequest extends AbstractStoreClientRequest<Boolean> {
         return requestFormat.isCompleteDeleteResponse(buffer);
     }
 
-    public void formatRequest(DataOutputStream outputStream) throws IOException {
+    @Override
+    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
         requestFormat.writeDeleteRequest(outputStream,
                                          storeName,
                                          key,

@@ -16,7 +16,6 @@
 
 package voldemort.server.niosocket;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
@@ -102,7 +101,7 @@ public class NioSelectorManager extends SelectorManager {
 
     public NioSelectorManager(InetSocketAddress endpoint,
                               RequestHandlerFactory requestHandlerFactory,
-                              int socketBufferSize) throws IOException {
+                              int socketBufferSize) {
         this.endpoint = endpoint;
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;

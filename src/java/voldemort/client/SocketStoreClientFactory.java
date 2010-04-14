@@ -31,9 +31,9 @@ import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 

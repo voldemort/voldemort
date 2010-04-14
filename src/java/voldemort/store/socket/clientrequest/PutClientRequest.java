@@ -47,7 +47,8 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
         return requestFormat.isCompletePutResponse(buffer);
     }
 
-    public void formatRequest(DataOutputStream outputStream) throws IOException {
+    @Override
+    protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
         requestFormat.writePutRequest(outputStream,
                                       storeName,
                                       key,

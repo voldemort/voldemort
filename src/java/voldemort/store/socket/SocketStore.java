@@ -16,7 +16,6 @@
 
 package voldemort.store.socket;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +32,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.clientrequest.BlockingClientRequest;
 import voldemort.store.socket.clientrequest.ClientRequest;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.socket.clientrequest.DeleteClientRequest;
 import voldemort.store.socket.clientrequest.GetAllClientRequest;
 import voldemort.store.socket.clientrequest.GetClientRequest;
@@ -55,7 +55,6 @@ public class SocketStore implements Store<ByteArray, byte[]> {
 
     private final String storeName;
     private final ClientRequestExecutorPool pool;
-    private final ClientSelectorManager selectorManager;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
     private final RequestRoutingType requestRoutingType;
@@ -63,11 +62,9 @@ public class SocketStore implements Store<ByteArray, byte[]> {
     public SocketStore(String storeName,
                        SocketDestination dest,
                        ClientRequestExecutorPool pool,
-                       ClientSelectorManager selectorManager,
                        RequestRoutingType requestRoutingType) {
         this.storeName = Utils.notNull(storeName);
         this.pool = Utils.notNull(pool);
-        this.selectorManager = Utils.notNull(selectorManager);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
         this.requestRoutingType = requestRoutingType;
@@ -151,14 +148,12 @@ public class SocketStore implements Store<ByteArray, byte[]> {
      * @return Data returned by the individual requests
      */
 
-    private <T> T request(ClientRequest<T> clientRequest, String operationName) {
+    private <T> T request(ClientRequest<T> delegate, String operationName) {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
 
         try {
-            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(clientRequest);
-            clientRequestExecutor.setClientRequest(blockingClientRequest);
-            blockingClientRequest.formatRequest(new DataOutputStream(clientRequestExecutor.getOutputStream()));
-            selectorManager.submitRequest(clientRequestExecutor);
+            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate);
+            clientRequestExecutor.addClientRequest(blockingClientRequest);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
         } catch(InterruptedException e) {

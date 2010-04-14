@@ -30,46 +30,12 @@ import voldemort.client.protocol.RequestFormat;
  * the server.
  * <p/>
  * This class is used to support both blocking and non-blocking communication
- * with a remote server. Here's an example of blocking behavior:
- * 
- * <pre>
- * 
- * private &lt;T&gt; T request(ClientRequest&lt;T&gt; clientRequest, SocketDestination socketDestination) {
- *     ClientRequestExecutor clientRequestExecutor = pool.checkout(socketDestination);
- * 
- *     try {
- *         BlockingClientRequest&lt;T&gt; blockingClientRequest = new BlockingClientRequest&lt;T&gt;(clientRequest);
- *         clientRequestExecutor.setClientRequest(blockingClientRequest);
- *         blockingClientRequest.write(new DataOutputStream(clientRequestExecutor.getOutputStream()));
- *         selectorManager.submitRequest(clientRequestExecutor);
- *         blockingClientRequest.await();
- *         return blockingClientRequest.getResult();
- *     } catch(IOException e) {
- *         clientRequestExecutor.close();
- *         throw new VoldemortException(e);
- *     } finally {
- *         pool.checkin(socketDestination, clientRequestExecutor);
- *     }
- * }
- * </pre>
+ * with a remote server.
  * 
  * @param <T> Type of data that is returned by the request
  */
 
 public interface ClientRequest<T> {
-
-    /**
-     * This eventually calls into a nested {@link RequestFormat} instance's
-     * writeXxx method. The ClientRequest actually buffers all I/O, so the data
-     * written via formatRequest is actually inserted into a {@link ByteBuffer}
-     * which is later sent over the wire to the server.
-     * 
-     * @param outputStream
-     * 
-     * @throws IOException
-     */
-
-    public void formatRequest(DataOutputStream outputStream) throws IOException;
 
     /**
      * Once completed has been called, this will return the result of the
@@ -78,7 +44,25 @@ public interface ClientRequest<T> {
      * @return Result or an exception is thrown if the request failed
      */
 
-    public T getResult() throws VoldemortException;
+    public T getResult() throws VoldemortException, IOException;
+
+    /**
+     * This eventually calls into a nested {@link RequestFormat} instance's
+     * writeXxx method. The ClientRequest actually buffers all I/O, so the data
+     * written via formatRequest is actually inserted into a {@link ByteBuffer}
+     * which is later sent over the wire to the server.
+     * 
+     * <p/>
+     * 
+     * This is used internally by the {@link ClientRequest} logic and should not
+     * be invoked by users of the sub-system.
+     * 
+     * @param outputStream
+     * 
+     * @throws IOException
+     */
+
+    public boolean formatRequest(DataOutputStream outputStream);
 
     /**
      * isCompleteResponse determines if the response that the
@@ -110,10 +94,9 @@ public interface ClientRequest<T> {
      * be invoked by users of the sub-system.
      * 
      * @param inputStream
-     * @throws IOException
      */
 
-    public void parseResponse(DataInputStream inputStream) throws IOException;
+    public void parseResponse(DataInputStream inputStream);
 
     /**
      * Called by the {@link ClientRequestExecutor} once all the processing
@@ -127,8 +110,6 @@ public interface ClientRequest<T> {
      * be invoked by users of the sub-system.
      */
 
-    public void completed();
-
-    public void setServerError(Exception e);
+    public void complete();
 
 }

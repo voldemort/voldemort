@@ -17,9 +17,9 @@
 package voldemort.store.socket.clientrequest;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
@@ -31,11 +31,7 @@ import java.nio.channels.SocketChannel;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.niosocket.AsyncRequestHandler;
-import voldemort.store.socket.ClientRequestExecutorPool;
-import voldemort.store.socket.ClientRequestExecutorResourceFactory;
-import voldemort.store.socket.ClientSelectorManager;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteBufferBackedOutputStream;
@@ -59,6 +55,8 @@ import voldemort.utils.ByteUtils;
 
 public class ClientRequestExecutor implements Runnable {
 
+    private final Selector selector;
+
     private final SocketChannel socketChannel;
 
     private final int socketBufferSize;
@@ -69,26 +67,22 @@ public class ClientRequestExecutor implements Runnable {
 
     private final ByteBufferBackedOutputStream outputStream;
 
-    private final RequestFormatType requestFormatType;
-
     private final long createTimestamp;
-
-    private Selector selector;
 
     private ClientRequest<?> clientRequest;
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public ClientRequestExecutor(SocketChannel socketChannel,
-                                 int socketBufferSize,
-                                 RequestFormatType requestFormatType) {
+    public ClientRequestExecutor(Selector selector,
+                                 SocketChannel socketChannel,
+                                 int socketBufferSize) {
+        this.selector = selector;
         this.socketChannel = socketChannel;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
 
         this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize));
         this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
-        this.requestFormatType = requestFormatType;
         this.createTimestamp = System.nanoTime();
     }
 
@@ -96,20 +90,12 @@ public class ClientRequestExecutor implements Runnable {
         return socketChannel;
     }
 
-    public OutputStream getOutputStream() {
-        return outputStream;
-    }
-
-    public RequestFormatType getRequestFormatType() {
-        return requestFormatType;
-    }
-
     /**
      * Returns the nanosecond-based timestamp of when this socket was created.
      * 
      * @return Nanosecond-based timestamp of socket creation
      * 
-     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
+     * @see ClientRequestExecutorFactory#validate(SocketDestination,
      *      ClientRequestExecutor)
      */
 
@@ -117,56 +103,13 @@ public class ClientRequestExecutor implements Runnable {
         return createTimestamp;
     }
 
-    public ClientRequest<?> getClientRequest() {
-        return clientRequest;
-    }
-
-    public void setClientRequest(ClientRequest<?> clientRequest) {
-        this.clientRequest = clientRequest;
-    }
-
     public boolean isValid() {
         Socket s = socketChannel.socket();
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
 
-    public void run() {
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
-
-        try {
-            if(selectionKey.isReadable())
-                read(selectionKey);
-            else if(selectionKey.isWritable())
-                write(selectionKey);
-            else if(!selectionKey.isValid())
-                throw new IllegalStateException("Selection key not valid for "
-                                                + socketChannel.socket().getRemoteSocketAddress());
-            else
-                throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
-                                                + socketChannel.socket().getRemoteSocketAddress());
-        } catch(ClosedByInterruptException e) {
-            close(selectionKey);
-        } catch(CancelledKeyException e) {
-            close(selectionKey);
-        } catch(EOFException e) {
-            clientRequest.setServerError(e);
-            close(selectionKey);
-        } catch(Throwable t) {
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(t.getMessage(), t);
-
-            close(selectionKey);
-        }
-    }
-
-    /**
-     * Flips the output buffer, and lets the Selector know we're ready to write.
-     * 
-     * @param selectionKey
-     */
-
-    public void reset(Selector selector) {
-        this.selector = selector;
+    public void addClientRequest(ClientRequest<?> clientRequest) {
+        this.clientRequest = clientRequest;
 
         if(logger.isTraceEnabled())
             traceInputBufferState("About to clear read buffer");
@@ -179,15 +122,50 @@ public class ClientRequestExecutor implements Runnable {
         if(logger.isTraceEnabled())
             traceInputBufferState("Cleared read buffer");
 
+        outputStream.getBuffer().clear();
+
+        boolean wasSuccessful = clientRequest.formatRequest(new DataOutputStream(outputStream));
+
         outputStream.getBuffer().flip();
 
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
-        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        if(wasSuccessful) {
+            SelectionKey selectionKey = socketChannel.keyFor(selector);
+
+            if(selectionKey != null) {
+                selectionKey.interestOps(SelectionKey.OP_WRITE);
+                selector.wakeup();
+            }
+        } else {
+            clientRequest.complete();
+        }
     }
 
-    public void close() {
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
-        close(selectionKey);
+    public void run() {
+        try {
+            SelectionKey selectionKey = socketChannel.keyFor(selector);
+
+            if(selectionKey.isReadable())
+                read(selectionKey);
+            else if(selectionKey.isWritable())
+                write(selectionKey);
+            else if(!selectionKey.isValid())
+                throw new IllegalStateException("Selection key not valid for "
+                                                + socketChannel.socket().getRemoteSocketAddress());
+            else
+                throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
+                                                + socketChannel.socket().getRemoteSocketAddress());
+        } catch(ClosedByInterruptException e) {
+            close();
+        } catch(CancelledKeyException e) {
+            close();
+        } catch(EOFException e) {
+            close();
+        } catch(Throwable t) {
+            if(logger.isEnabledFor(Level.ERROR))
+                logger.error(t.getMessage(), t);
+
+            close();
+        }
     }
 
     private void read(SelectionKey selectionKey) throws IOException {
@@ -232,8 +210,7 @@ public class ClientRequestExecutor implements Runnable {
             logger.trace("Finished read for " + socketChannel.socket().getRemoteSocketAddress());
 
         selectionKey.interestOps(0);
-
-        clientRequest.completed();
+        clientRequest.complete();
     }
 
     private void write(SelectionKey selectionKey) throws IOException {
@@ -291,7 +268,9 @@ public class ClientRequestExecutor implements Runnable {
         }
     }
 
-    private void close(SelectionKey selectionKey) {
+    public void close() {
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+
         if(logger.isInfoEnabled())
             logger.info("Closing remote connection from "
                         + socketChannel.socket().getRemoteSocketAddress());
@@ -320,7 +299,7 @@ public class ClientRequestExecutor implements Runnable {
             }
         }
 
-        clientRequest.completed();
+        clientRequest.complete();
     }
 
     private void traceInputBufferState(String preamble) {

@@ -26,8 +26,8 @@ import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.versioning.Versioned;
 
 /**

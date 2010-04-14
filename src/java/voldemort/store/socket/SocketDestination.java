@@ -66,7 +66,7 @@ public class SocketDestination {
      * @return Nanosecond-based timestamp of last close
      * 
      * @see SocketDestination#setLastClosedTimestamp()
-     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
+     * @see ClientRequestExecutorFactory#validate(SocketDestination,
      *      ClientRequestExecutor)
      */
 
@@ -84,7 +84,7 @@ public class SocketDestination {
      * node is marked as unavailable.
      * 
      * @see SocketDestination#getLastClosedTimestamp()
-     * @see ClientRequestExecutorResourceFactory#validate(SocketDestination,
+     * @see ClientRequestExecutorFactory#validate(SocketDestination,
      *      ClientRequestExecutor)
      */
 

@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 
+import voldemort.VoldemortException;
+
 /**
  * BlockingClientRequest is used to implement blocking IO using the non-blocking
  * IO-based {@link ClientRequest} logic. Essentially it wraps a vanilla
@@ -42,20 +44,16 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         latch = new CountDownLatch(1);
     }
 
+    public void complete() {
+        delegate.complete();
+        latch.countDown();
+    }
+
     public void await() throws InterruptedException {
         latch.await();
     }
 
-    public void completed() {
-        delegate.completed();
-        latch.countDown();
-    }
-
-    public void setServerError(Exception e) {
-        delegate.setServerError(e);
-    }
-
-    public T getResult() {
+    public T getResult() throws VoldemortException, IOException {
         return delegate.getResult();
     }
 
@@ -63,12 +61,12 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.isCompleteResponse(buffer);
     }
 
-    public void parseResponse(DataInputStream inputStream) throws IOException {
+    public void parseResponse(DataInputStream inputStream) {
         delegate.parseResponse(inputStream);
     }
 
-    public void formatRequest(DataOutputStream outputStream) throws IOException {
-        delegate.formatRequest(outputStream);
+    public boolean formatRequest(DataOutputStream outputStream) {
+        return delegate.formatRequest(outputStream);
     }
 
 }

@@ -38,6 +38,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.AbstractSocketService;
 import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 

@@ -35,9 +35,9 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
 /**
  * Tests for the socket pooling
@@ -103,15 +103,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         pool.checkin(dest1, sas1);
         ClientRequestExecutor sas2 = pool.checkout(dest1);
         assertTrue(sas1 != sas2);
-    }
-
-    @Test
-    public void testVariousProtocols() throws Exception {
-        for(RequestFormatType type: RequestFormatType.values()) {
-            SocketDestination dest = new SocketDestination("localhost", port, type);
-            ClientRequestExecutor sas = pool.checkout(dest);
-            assertEquals(type, sas.getRequestFormatType());
-        }
     }
 
     @Test

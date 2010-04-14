@@ -14,21 +14,19 @@
  * the License.
  */
 
-package voldemort.store.socket;
+package voldemort.store.socket.clientrequest;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Date;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import voldemort.store.socket.clientrequest.BlockingClientRequest;
-import voldemort.store.socket.clientrequest.ClientRequestExecutor;
-import voldemort.store.socket.clientrequest.ProtocolNegotiatorClientRequest;
+import voldemort.store.socket.SocketDestination;
 import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;
 
@@ -36,10 +34,11 @@ import voldemort.utils.pool.ResourceFactory;
  * A Factory for creating ClientRequestExecutor instances.
  */
 
-public class ClientRequestExecutorResourceFactory implements
+public class ClientRequestExecutorFactory implements
         ResourceFactory<SocketDestination, ClientRequestExecutor> {
 
-    private final ClientSelectorManager selectorManager;
+    private final Selector selector;
+    private final Queue<ClientRequestExecutor> registrationQueue;
     private final int soTimeoutMs;
     private final int socketBufferSize;
     private final AtomicInteger created;
@@ -47,17 +46,13 @@ public class ClientRequestExecutorResourceFactory implements
     private final boolean socketKeepAlive;
     private final Logger logger = Logger.getLogger(getClass());
 
-    public ClientRequestExecutorResourceFactory(ClientSelectorManager selectorManager,
-                                                int soTimeoutMs,
-                                                int socketBufferSize) {
-        this(selectorManager, soTimeoutMs, socketBufferSize, false);
-    }
-
-    public ClientRequestExecutorResourceFactory(ClientSelectorManager selectorManager,
-                                                int soTimeoutMs,
-                                                int socketBufferSize,
-                                                boolean socketKeepAlive) {
-        this.selectorManager = selectorManager;
+    public ClientRequestExecutorFactory(Selector selector,
+                                        Queue<ClientRequestExecutor> registrationQueue,
+                                        int soTimeoutMs,
+                                        int socketBufferSize,
+                                        boolean socketKeepAlive) {
+        this.selector = selector;
+        this.registrationQueue = registrationQueue;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
@@ -115,24 +110,19 @@ public class ClientRequestExecutorResourceFactory implements
                          + " bytes but actual size is "
                          + socketChannel.socket().getSendBufferSize() + " bytes.");
 
-        return negotiateProtocol(dest, socketChannel);
-    }
-
-    private ClientRequestExecutor negotiateProtocol(SocketDestination dest,
-                                                    SocketChannel socketChannel)
-            throws IOException, InterruptedException {
-        ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(socketChannel,
-                                                                                this.socketBufferSize,
-                                                                                dest.getRequestFormatType());
+        ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(selector,
+                                                                                socketChannel,
+                                                                                socketBufferSize);
         BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()));
-        clientRequestExecutor.setClientRequest(clientRequest);
-        clientRequest.formatRequest(new DataOutputStream(clientRequestExecutor.getOutputStream()));
-        selectorManager.submitRequest(clientRequestExecutor);
-        clientRequest.await();
+        clientRequestExecutor.addClientRequest(clientRequest);
+
+        registrationQueue.add(clientRequestExecutor);
+        selector.wakeup();
 
         // This will throw an error if the result of the protocol negotiation
         // failed, otherwise it returns an uninteresting token we can safely
         // ignore.
+        clientRequest.await();
         clientRequest.getResult();
 
         return clientRequestExecutor;

@@ -39,8 +39,8 @@ import voldemort.server.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.storage.StorageService;
-import voldemort.store.socket.ClientRequestExecutorPool;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
 @RunWith(Parameterized.class)
 public class ServerStoreVerifierTest {

@@ -17,9 +17,9 @@ import voldemort.client.protocol.admin.SocketAndStreams;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.socketpool.AbstractSocketPoolTest.TestStats;
-import voldemort.store.socket.ClientSelectorManager;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.pool.ResourceFactory;
 import voldemort.utils.pool.ResourcePoolConfig;
 
@@ -154,11 +154,13 @@ public class SimpleSocketPoolTest extends TestCase {
                                                                               TimeUnit.MILLISECONDS)
                                                                   .setMaxPoolSize(20);
 
-        ClientSelectorManager selectorManager = new ClientSelectorManager();
-        new Thread(selectorManager, "ClientSelector").start();
+        ClientRequestExecutorPool clientRequestExecutorPool = new ClientRequestExecutorPool(config.getMaxPoolSize(),
+                                                                                            (int) config.getTimeout(TimeUnit.MILLISECONDS),
+                                                                                            100,
+                                                                                            1000);
 
         try {
-            ResourceFactory<SocketDestination, ClientRequestExecutor> factory = ResourcePoolTestUtils.getClientRequestExecutorFactory(selectorManager);
+            ResourceFactory<SocketDestination, ClientRequestExecutor> factory = clientRequestExecutorPool.getFactory();
             final AbstractSocketPoolTest<SocketDestination, ClientRequestExecutor> test = new AbstractSocketPoolTest<SocketDestination, ClientRequestExecutor>() {
 
                 @Override
@@ -183,7 +185,7 @@ public class SimpleSocketPoolTest extends TestCase {
             assertEquals("We should see some timeoutRequests", true, testStats.timeoutRequests > 0);
             server.stop();
         } finally {
-            selectorManager.close();
+            clientRequestExecutorPool.close();
         }
     }
 
