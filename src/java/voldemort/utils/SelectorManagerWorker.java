@@ -116,8 +116,6 @@ public abstract class SelectorManagerWorker implements Runnable {
     }
 
     public void close() {
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
-
         if(logger.isInfoEnabled())
             logger.info("Closing remote connection from "
                         + socketChannel.socket().getRemoteSocketAddress());
@@ -136,12 +134,16 @@ public abstract class SelectorManagerWorker implements Runnable {
                 logger.warn(e.getMessage(), e);
         }
 
-        try {
-            selectionKey.attach(null);
-            selectionKey.cancel();
-        } catch(Exception e) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e.getMessage(), e);
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+
+        if(selectionKey != null) {
+            try {
+                selectionKey.attach(null);
+                selectionKey.cancel();
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(e.getMessage(), e);
+            }
         }
     }
 

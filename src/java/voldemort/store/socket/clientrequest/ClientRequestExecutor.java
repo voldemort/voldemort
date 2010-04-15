@@ -26,6 +26,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
+import org.apache.log4j.Level;
+
 import voldemort.server.niosocket.AsyncRequestHandler;
 import voldemort.utils.SelectorManagerWorker;
 
@@ -64,7 +66,11 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
 
-    public void addClientRequest(ClientRequest<?> clientRequest) {
+    public synchronized void addClientRequest(ClientRequest<?> clientRequest) {
+        if(logger.isTraceEnabled())
+            logger.trace("Associating client with "
+                         + socketChannel.socket().getRemoteSocketAddress());
+
         this.clientRequest = clientRequest;
         outputStream.getBuffer().clear();
 
@@ -92,10 +98,26 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                 // This wakeup is required because it's invoked by the calling
                 // code in a different thread than the SelectorManager.
                 selector.wakeup();
+            } else {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn("Client associated with "
+                                + socketChannel.socket().getRemoteSocketAddress()
+                                + " was not registered with Selector, assuming initial protocol negotiation");
             }
         } else {
-            clientRequest.complete();
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn("Client associated with "
+                            + socketChannel.socket().getRemoteSocketAddress()
+                            + " did not successfully buffer output for request");
+
+            completeClientRequest();
         }
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        completeClientRequest();
     }
 
     @Override
@@ -141,7 +163,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             logger.trace("Finished read for " + socketChannel.socket().getRemoteSocketAddress());
 
         selectionKey.interestOps(0);
-        clientRequest.complete();
+        completeClientRequest();
     }
 
     @Override
@@ -178,10 +200,23 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         selectionKey.interestOps(SelectionKey.OP_READ);
     }
 
-    @Override
-    public void close() {
-        super.close();
+    private synchronized void completeClientRequest() {
+        if(clientRequest == null) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn("No client associated with "
+                            + socketChannel.socket().getRemoteSocketAddress());
+
+            return;
+        }
+
         clientRequest.complete();
+
+        // Don't forget to null out our client request...
+        clientRequest = null;
+
+        if(logger.isTraceEnabled())
+            logger.trace("Marked client associated with "
+                         + socketChannel.socket().getRemoteSocketAddress() + " as complete");
     }
 
 }
