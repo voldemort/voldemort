@@ -14,21 +14,31 @@
  * the License.
  */
 
-package voldemort.store.routed.action;
+package voldemort.store.routed;
 
-import voldemort.store.routed.PipelineData;
-import voldemort.utils.ByteArray;
+import voldemort.cluster.Node;
+import voldemort.versioning.Versioned;
 
-public abstract class AbstractKeyBasedAction<T extends PipelineData> extends AbstractAction<T> {
+public class PutPipelineData extends ListStateData {
 
-    protected ByteArray key;
+    private Node master;
 
-    public ByteArray getKey() {
-        return key;
+    private Versioned<byte[]> versionedCopy;
+
+    public Node getMaster() {
+        return master;
     }
 
-    public void setKey(ByteArray key) {
-        this.key = key;
+    public void setMaster(Node master) {
+        this.master = master;
+    }
+
+    public Versioned<byte[]> getVersionedCopy() {
+        return versionedCopy;
+    }
+
+    public void setVersionedCopy(Versioned<byte[]> versionedCopy) {
+        this.versionedCopy = versionedCopy;
     }
 
 }

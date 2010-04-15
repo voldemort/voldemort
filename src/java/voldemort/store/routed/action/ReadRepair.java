@@ -26,10 +26,10 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.ListStateData;
 import voldemort.store.routed.NodeValue;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.ReadRepairer;
 import voldemort.store.routed.RequestCompletedCallback;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachineEventNonblockingStoreCallback;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -49,12 +49,12 @@ public class ReadRepair extends AbstractAction<ListStateData> {
     }
 
     @SuppressWarnings("unchecked")
-    public void execute(StateMachine stateMachine, Object eventData) {
-        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(stateData.getInterimResults()
+    public void execute(Pipeline pipeline, Object eventData) {
+        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getInterimResults()
                                                                                                     .size());
         Map<Integer, Node> nodes = new HashMap<Integer, Node>();
 
-        for(RequestCompletedCallback rcc: stateData.getInterimResults()) {
+        for(RequestCompletedCallback rcc: pipelineData.getInterimResults()) {
             List<Versioned<byte[]>> result = (List<Versioned<byte[]>>) rcc.getResult();
 
             if(result.size() == 0) {
@@ -95,9 +95,9 @@ public class ReadRepair extends AbstractAction<ListStateData> {
 
                     Node node = nodes.get(v.getNodeId());
                     NonblockingStore store = nonblockingStores.get(node.getId());
-                    NonblockingStoreCallback callback = new StateMachineEventNonblockingStoreCallback(stateMachine,
-                                                                                                      node,
-                                                                                                      v.getKey());
+                    NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
+                                                                                                  node,
+                                                                                                  v.getKey());
                     store.submitPutRequest(v.getKey(), v.getVersioned(), callback);
                 } catch(VoldemortApplicationException e) {
                     if(logger.isDebugEnabled())
@@ -112,7 +112,7 @@ public class ReadRepair extends AbstractAction<ListStateData> {
             }
         }
 
-        stateMachine.addEvent(completeEvent);
+        pipeline.addEvent(completeEvent);
     }
 
 }

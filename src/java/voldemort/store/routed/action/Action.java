@@ -16,10 +16,10 @@
 
 package voldemort.store.routed.action;
 
-import voldemort.store.routed.StateMachine;
+import voldemort.store.routed.Pipeline;
 
 public interface Action {
 
-    public void execute(StateMachine stateMachine, Object eventData);
+    public void execute(Pipeline pipeline, Object eventData);
 
 }

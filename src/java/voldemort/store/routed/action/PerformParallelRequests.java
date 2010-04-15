@@ -21,7 +21,7 @@ import java.util.List;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.ListStateData;
-import voldemort.store.routed.StateMachine;
+import voldemort.store.routed.Pipeline;
 
 public class PerformParallelRequests extends AbstractAction<ListStateData> {
 
@@ -35,19 +35,19 @@ public class PerformParallelRequests extends AbstractAction<ListStateData> {
         this.storeRequest = storeRequest;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
-        List<Node> nodes = stateData.getNodes();
-        stateData.setAttempts(nodes.size());
+    public void execute(Pipeline pipeline, Object eventData) {
+        List<Node> nodes = pipelineData.getNodes();
+        pipelineData.setAttempts(nodes.size());
 
         if(logger.isTraceEnabled())
-            logger.trace("Attempting " + stateData.getAttempts() + " "
-                         + stateData.getOperation().getSimpleName() + " operations in parallel");
+            logger.trace("Attempting " + pipelineData.getAttempts() + " "
+                         + pipeline.getOperation().getSimpleName() + " operations in parallel");
 
         if(preferred <= 0 && completeEvent != null)
-            stateMachine.addEvent(completeEvent);
+            pipeline.addEvent(completeEvent);
 
         for(Node node: nodes) {
-            stateData.incrementNodeIndex();
+            pipelineData.incrementNodeIndex();
             NonblockingStore store = nonblockingStores.get(node.getId());
             storeRequest.request(node, store);
         }

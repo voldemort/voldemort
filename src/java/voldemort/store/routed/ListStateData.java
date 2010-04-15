@@ -21,10 +21,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
-import voldemort.store.routed.StateMachine.Operation;
-import voldemort.versioning.Versioned;
 
-public class ListStateData extends StateData {
+public class ListStateData extends PipelineData {
 
     private final List<RequestCompletedCallback> interimResults;
 
@@ -32,14 +30,9 @@ public class ListStateData extends StateData {
 
     private final AtomicInteger nodeIndex;
 
-    private Node master;
-
-    private Versioned<byte[]> versionedCopy;
-
     private final AtomicInteger successes;
 
-    public ListStateData(Operation operation) {
-        super(operation);
+    public ListStateData() {
         this.interimResults = new ArrayList<RequestCompletedCallback>();
         this.nodes = new ArrayList<Node>();
         this.nodeIndex = new AtomicInteger(0);
@@ -64,22 +57,6 @@ public class ListStateData extends StateData {
 
     public void incrementNodeIndex() {
         nodeIndex.incrementAndGet();
-    }
-
-    public Node getMaster() {
-        return master;
-    }
-
-    public void setMaster(Node master) {
-        this.master = master;
-    }
-
-    public Versioned<byte[]> getVersionedCopy() {
-        return versionedCopy;
-    }
-
-    public void setVersionedCopy(Versioned<byte[]> versionedCopy) {
-        this.versionedCopy = versionedCopy;
     }
 
     public int getSuccesses() {

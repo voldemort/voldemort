@@ -26,9 +26,9 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
@@ -54,13 +54,13 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<ListStateData>
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
-        List<Node> nodes = stateData.getNodes();
+    public void execute(Pipeline pipeline, Object eventData) {
+        List<Node> nodes = pipelineData.getNodes();
 
         // Now if we had any failures we will be short a few reads. Do serial
         // reads to make up for these.
-        while(stateData.getSuccesses() < preferred && stateData.getNodeIndex() < nodes.size()) {
-            Node node = nodes.get(stateData.getNodeIndex());
+        while(pipelineData.getSuccesses() < preferred && pipelineData.getNodeIndex() < nodes.size()) {
+            Node node = nodes.get(pipelineData.getNodeIndex());
             long start = System.nanoTime();
 
             try {
@@ -72,46 +72,46 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<ListStateData>
                                                                             ((System.nanoTime() - start) / Time.NS_PER_MS),
                                                                             result);
 
-                stateData.incrementSuccesses();
-                stateData.getInterimResults().add(rcc);
+                pipelineData.incrementSuccesses();
+                pipelineData.getInterimResults().add(rcc);
                 failureDetector.recordSuccess(rcc.getNode(), rcc.getRequestTime());
             } catch(UnreachableStoreException e) {
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
                 failureDetector.recordException(node,
                                                 ((System.nanoTime() - start) / Time.NS_PER_MS),
                                                 e);
             } catch(VoldemortApplicationException e) {
-                stateData.setFatalError(e);
-                stateMachine.addEvent(Event.ERROR);
+                pipelineData.setFatalError(e);
+                pipeline.addEvent(Event.ERROR);
                 return;
             } catch(Exception e) {
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
 
                 if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Error in " + stateData.getOperation() + " on node " + node.getId()
+                    logger.warn("Error in " + pipeline.getOperation() + " on node " + node.getId()
                                 + "(" + node.getHost() + ")", e);
             }
 
-            stateData.incrementNodeIndex();
+            pipelineData.incrementNodeIndex();
         }
 
-        if(stateData.getSuccesses() < required) {
+        if(pipelineData.getSuccesses() < required) {
             if(insufficientSuccessesEvent != null) {
-                stateMachine.addEvent(insufficientSuccessesEvent);
+                pipeline.addEvent(insufficientSuccessesEvent);
             } else {
-                stateData.setFatalError(new InsufficientOperationalNodesException(required
+                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
                                                                                           + " "
-                                                                                          + stateData.getOperation()
-                                                                                                     .getSimpleName()
+                                                                                          + pipeline.getOperation()
+                                                                                                    .getSimpleName()
                                                                                           + "s required, but "
-                                                                                          + stateData.getSuccesses()
+                                                                                          + pipelineData.getSuccesses()
                                                                                           + " succeeded",
-                                                                                  stateData.getFailures()));
+                                                                                  pipelineData.getFailures()));
 
-                stateMachine.addEvent(Event.ERROR);
+                pipeline.addEvent(Event.ERROR);
             }
         } else {
-            stateMachine.addEvent(completeEvent);
+            pipeline.addEvent(completeEvent);
         }
     }
 

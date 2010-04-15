@@ -21,11 +21,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import voldemort.store.routed.StateMachine.Operation;
-
-public abstract class StateData {
-
-    private final Operation operation;
+public abstract class PipelineData {
 
     private Object results;
 
@@ -37,15 +33,10 @@ public abstract class StateData {
 
     private RuntimeException fatalError;
 
-    public StateData(Operation operation) {
-        this.operation = operation;
+    public PipelineData() {
         this.failures = Collections.synchronizedList(new LinkedList<Exception>());
         this.attempts = new AtomicInteger(0);
         this.completed = new AtomicInteger(0);
-    }
-
-    public Operation getOperation() {
-        return operation;
     }
 
     @SuppressWarnings("unchecked")

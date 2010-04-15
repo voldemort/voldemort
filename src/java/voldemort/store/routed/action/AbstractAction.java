@@ -23,14 +23,14 @@ import org.apache.log4j.Logger;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.routed.StateData;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
-public abstract class AbstractAction<T extends StateData> implements Action {
+public abstract class AbstractAction<T extends PipelineData> implements Action {
 
-    protected T stateData;
+    protected T pipelineData;
 
     protected FailureDetector failureDetector;
 
@@ -48,12 +48,12 @@ public abstract class AbstractAction<T extends StateData> implements Action {
 
     protected final Logger logger = Logger.getLogger(getClass());
 
-    public T getStateData() {
-        return stateData;
+    public T getPipelineData() {
+        return pipelineData;
     }
 
-    public void setStateData(T stateData) {
-        this.stateData = stateData;
+    public void setPipelineData(T pipelineData) {
+        this.pipelineData = pipelineData;
     }
 
     public FailureDetector getFailureDetector() {

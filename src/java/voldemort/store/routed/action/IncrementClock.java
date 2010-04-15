@@ -16,12 +16,12 @@
 
 package voldemort.store.routed.action;
 
-import voldemort.store.routed.ListStateData;
-import voldemort.store.routed.StateMachine;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.PutPipelineData;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class IncrementClock extends AbstractAction<ListStateData> {
+public class IncrementClock extends AbstractAction<PutPipelineData> {
 
     private Versioned<byte[]> versioned;
 
@@ -33,20 +33,20 @@ public class IncrementClock extends AbstractAction<ListStateData> {
         this.versioned = versioned;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
+    public void execute(Pipeline pipeline, Object eventData) {
         if(logger.isTraceEnabled())
-            logger.trace(stateData.getOperation().getSimpleName() + " versioning data - was: "
+            logger.trace(pipeline.getOperation().getSimpleName() + " versioning data - was: "
                          + versioned.getVersion());
 
         // Okay looks like it worked, increment the version for the caller
         VectorClock versionedClock = (VectorClock) versioned.getVersion();
-        versionedClock.incrementVersion(stateData.getMaster().getId(), time.getMilliseconds());
+        versionedClock.incrementVersion(pipelineData.getMaster().getId(), time.getMilliseconds());
 
         if(logger.isTraceEnabled())
-            logger.trace(stateData.getOperation().getSimpleName() + " versioned data - now: "
+            logger.trace(pipeline.getOperation().getSimpleName() + " versioned data - now: "
                          + versioned.getVersion());
 
-        stateMachine.addEvent(completeEvent);
+        pipeline.addEvent(completeEvent);
     }
 
 }

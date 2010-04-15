@@ -19,21 +19,19 @@ package voldemort.store.routed;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
-public class StateMachineEventNonblockingStoreCallback implements NonblockingStoreCallback {
+public class PipelineEventNonblockingStoreCallback implements NonblockingStoreCallback {
 
-    private final StateMachine stateMachine;
+    private final Pipeline pipeline;
 
     private final Node node;
 
     private final ByteArray key;
 
-    public StateMachineEventNonblockingStoreCallback(StateMachine stateMachine,
-                                                     Node node,
-                                                     ByteArray key) {
-        this.stateMachine = stateMachine;
+    public PipelineEventNonblockingStoreCallback(Pipeline pipeline, Node node, ByteArray key) {
+        this.pipeline = pipeline;
         this.node = node;
         this.key = key;
     }
@@ -44,7 +42,7 @@ public class StateMachineEventNonblockingStoreCallback implements NonblockingSto
                                                                                          requestTime,
                                                                                          result);
 
-        stateMachine.addEvent(Event.RESPONSE_RECEIVED, requestCompletedCallback);
+        pipeline.addEvent(Event.RESPONSE_RECEIVED, requestCompletedCallback);
     }
 
 }

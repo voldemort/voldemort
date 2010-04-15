@@ -27,7 +27,7 @@ import org.apache.log4j.Logger;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.action.Action;
 
-public class StateMachine {
+public class Pipeline {
 
     public enum Event {
 
@@ -71,14 +71,21 @@ public class StateMachine {
 
     }
 
+    private final Operation operation;
+
     private final BlockingQueue<EventData> eventDataQueue;
 
     private Map<Event, Action> eventActions;
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public StateMachine() {
+    public Pipeline(Operation operation) {
+        this.operation = operation;
         this.eventDataQueue = new LinkedBlockingQueue<EventData>();
+    }
+
+    public Operation getOperation() {
+        return operation;
     }
 
     public Map<Event, Action> getEventActions() {
@@ -100,7 +107,7 @@ public class StateMachine {
         eventDataQueue.add(new EventData(event, data));
     }
 
-    public void processEvents(StateData stateData, long timeout, TimeUnit unit) {
+    public void processEvents(long timeout, TimeUnit unit) {
         long start = System.nanoTime();
 
         while(true) {
@@ -109,26 +116,23 @@ public class StateMachine {
             try {
                 eventData = eventDataQueue.poll(timeout, unit);
             } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException(stateData.getOperation()
-                                                                         .getSimpleName()
+                throw new InsufficientOperationalNodesException(operation.getSimpleName()
                                                                 + " operation interrupted!", e);
             }
 
             if((System.nanoTime() - start) > unit.toNanos(timeout))
-                throw new InsufficientOperationalNodesException(stateData.getOperation()
-                                                                         .getSimpleName()
+                throw new InsufficientOperationalNodesException(operation.getSimpleName()
                                                                 + " operation interrupted!");
 
             if(eventData.event.equals(Event.ERROR)) {
                 if(logger.isTraceEnabled())
-                    logger.trace(stateData.getOperation().getSimpleName()
+                    logger.trace(operation.getSimpleName()
                                  + " request, events complete due to error");
 
                 break;
             } else if(eventData.event.equals(Event.STOPPED)) {
                 if(logger.isTraceEnabled())
-                    logger.trace(stateData.getOperation().getSimpleName()
-                                 + " request, events complete");
+                    logger.trace(operation.getSimpleName() + " request, events complete");
 
                 break;
             }
@@ -142,12 +146,11 @@ public class StateMachine {
                 throw new IllegalStateException("action was null for event " + eventData.event);
 
             if(logger.isTraceEnabled())
-                logger.trace(stateData.getOperation().getSimpleName() + " request, action "
+                logger.trace(operation.getSimpleName() + " request, action "
                              + action.getClass().getSimpleName() + " to handle " + eventData.event
                              + " event");
 
             action.execute(this, eventData.data);
-
         }
     }
 

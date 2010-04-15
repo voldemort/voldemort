@@ -20,8 +20,8 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.ListStateData;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 
 public class ConfigureNodes extends AbstractKeyBasedAction<ListStateData> {
 
@@ -35,25 +35,25 @@ public class ConfigureNodes extends AbstractKeyBasedAction<ListStateData> {
         this.routingStrategy = routingStrategy;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
+    public void execute(Pipeline pipeline, Object eventData) {
         for(Node node: routingStrategy.routeRequest(key.get())) {
             if(failureDetector.isAvailable(node))
-                stateData.addNode(node);
+                pipelineData.addNode(node);
         }
 
-        if(stateData.getNodes().size() < required) {
-            stateData.setFatalError(new InsufficientOperationalNodesException("Only "
-                                                                              + stateData.getNodes()
-                                                                                         .size()
-                                                                              + " nodes in preference list, but "
-                                                                              + required
-                                                                              + " required."));
-            stateMachine.addEvent(Event.ERROR);
+        if(pipelineData.getNodes().size() < required) {
+            pipelineData.setFatalError(new InsufficientOperationalNodesException("Only "
+                                                                                 + pipelineData.getNodes()
+                                                                                               .size()
+                                                                                 + " nodes in preference list, but "
+                                                                                 + required
+                                                                                 + " required."));
+            pipeline.addEvent(Event.ERROR);
         } else {
             if(logger.isDebugEnabled())
-                logger.debug(stateData.getNodes().size() + " nodes in preference list");
+                logger.debug(pipelineData.getNodes().size() + " nodes in preference list");
 
-            stateMachine.addEvent(completeEvent);
+            pipeline.addEvent(completeEvent);
         }
     }
 

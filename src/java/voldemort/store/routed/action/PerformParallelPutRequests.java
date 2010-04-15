@@ -21,22 +21,22 @@ import java.util.List;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.routed.ListStateData;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachineEventNonblockingStoreCallback;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
+import voldemort.store.routed.PutPipelineData;
 import voldemort.versioning.Versioned;
 
-public class PerformParallelPutRequests extends AbstractKeyBasedAction<ListStateData> {
+public class PerformParallelPutRequests extends AbstractKeyBasedAction<PutPipelineData> {
 
-    public void execute(StateMachine stateMachine, Object eventData) {
-        Node master = stateData.getMaster();
-        Versioned<byte[]> versionedCopy = stateData.getVersionedCopy();
+    public void execute(Pipeline pipeline, Object eventData) {
+        Node master = pipelineData.getMaster();
+        Versioned<byte[]> versionedCopy = pipelineData.getVersionedCopy();
 
         if(logger.isDebugEnabled())
             logger.debug("Serial put requests determined master node as " + master.getId()
                          + ", submitting remaining requests in parallel");
 
-        List<Node> nodes = stateData.getNodes();
+        List<Node> nodes = pipelineData.getNodes();
         int currentNode = nodes.indexOf(master) + 1;
         int attempts = 0;
 
@@ -45,9 +45,9 @@ public class PerformParallelPutRequests extends AbstractKeyBasedAction<ListState
             Node node = nodes.get(currentNode);
             NonblockingStore store = nonblockingStores.get(node.getId());
 
-            NonblockingStoreCallback callback = new StateMachineEventNonblockingStoreCallback(stateMachine,
-                                                                                              node,
-                                                                                              key);
+            NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
+                                                                                          node,
+                                                                                          key);
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting request to put on node " + node.getId());
@@ -55,13 +55,13 @@ public class PerformParallelPutRequests extends AbstractKeyBasedAction<ListState
             store.submitPutRequest(key, versionedCopy, callback);
         }
 
-        stateData.setAttempts(attempts);
+        pipelineData.setAttempts(attempts);
 
         if(logger.isTraceEnabled())
-            logger.trace("Attempting " + stateData.getAttempts() + " "
-                         + stateData.getOperation().getSimpleName() + " operations in parallel");
+            logger.trace("Attempting " + pipelineData.getAttempts() + " "
+                         + pipeline.getOperation().getSimpleName() + " operations in parallel");
 
-        stateMachine.addEvent(completeEvent);
+        pipeline.addEvent(completeEvent);
     }
 
 }

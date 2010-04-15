@@ -22,14 +22,14 @@ import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.routed.ListStateData;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.PutPipelineData;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateData> {
+public class PerformSerialPutRequests extends AbstractKeyBasedAction<PutPipelineData> {
 
     private Versioned<byte[]> versioned;
 
@@ -51,9 +51,9 @@ public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateDa
         this.masterDeterminedEvent = masterDeterminedEvent;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
+    public void execute(Pipeline pipeline, Object eventData) {
         int currentNode = 0;
-        List<Node> nodes = stateData.getNodes();
+        List<Node> nodes = pipelineData.getNodes();
 
         if(logger.isDebugEnabled())
             logger.debug("Performing serial put requests to determine master");
@@ -71,7 +71,7 @@ public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateDa
 
                 stores.get(node.getId()).put(key, versionedCopy);
 
-                stateData.incrementSuccesses();
+                pipelineData.incrementSuccesses();
 
                 long requestTime = (System.nanoTime() - startNs) / Time.NS_PER_MS;
                 failureDetector.recordSuccess(node, requestTime);
@@ -79,15 +79,15 @@ public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateDa
                 if(logger.isTraceEnabled())
                     logger.trace("Put on node " + node.getId() + " succeeded, using as master");
 
-                stateData.setMaster(node);
-                stateData.setVersionedCopy(versionedCopy);
+                pipelineData.setMaster(node);
+                pipelineData.setVersionedCopy(versionedCopy);
 
                 break;
             } catch(UnreachableStoreException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Put on node " + node.getId() + " failed: " + e);
 
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
                 long requestTime = (System.nanoTime() - startNs) / Time.NS_PER_MS;
                 failureDetector.recordException(node, requestTime, e);
             } catch(VoldemortApplicationException e) {
@@ -96,16 +96,16 @@ public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateDa
                 if(logger.isTraceEnabled())
                     logger.trace("Put on node " + node.getId() + " failed: " + e);
 
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
             }
         }
 
-        if(stateData.getSuccesses() < 1) {
-            List<Exception> failures = stateData.getFailures();
-            stateData.setFatalError(new InsufficientOperationalNodesException("No master node succeeded!",
-                                                                              failures.size() > 0 ? failures.get(0)
-                                                                                                 : null));
-            stateMachine.addEvent(Event.ERROR);
+        if(pipelineData.getSuccesses() < 1) {
+            List<Exception> failures = pipelineData.getFailures();
+            pipelineData.setFatalError(new InsufficientOperationalNodesException("No master node succeeded!",
+                                                                                 failures.size() > 0 ? failures.get(0)
+                                                                                                    : null));
+            pipeline.addEvent(Event.ERROR);
             return;
         }
 
@@ -113,21 +113,21 @@ public class PerformSerialPutRequests extends AbstractKeyBasedAction<ListStateDa
 
         // There aren't any more requests to make...
         if(currentNode == nodes.size()) {
-            if(stateData.getSuccesses() < required) {
-                stateData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                          + " "
-                                                                                          + stateData.getOperation()
-                                                                                                     .getSimpleName()
-                                                                                          + "s required, but "
-                                                                                          + stateData.getSuccesses()
-                                                                                          + " succeeded",
-                                                                                  stateData.getFailures()));
-                stateMachine.addEvent(Event.ERROR);
+            if(pipelineData.getSuccesses() < required) {
+                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                             + " "
+                                                                                             + pipeline.getOperation()
+                                                                                                       .getSimpleName()
+                                                                                             + "s required, but "
+                                                                                             + pipelineData.getSuccesses()
+                                                                                             + " succeeded",
+                                                                                     pipelineData.getFailures()));
+                pipeline.addEvent(Event.ERROR);
             } else {
-                stateMachine.addEvent(completeEvent);
+                pipeline.addEvent(completeEvent);
             }
         } else {
-            stateMachine.addEvent(masterDeterminedEvent);
+            pipeline.addEvent(masterDeterminedEvent);
         }
     }
 

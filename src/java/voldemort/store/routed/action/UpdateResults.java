@@ -21,24 +21,24 @@ import java.util.Collection;
 import java.util.List;
 
 import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
-import voldemort.store.routed.StateMachine;
 
 public class UpdateResults extends AbstractAction<ListStateData> {
 
-    public void execute(StateMachine stateMachine, Object eventData) {
+    public void execute(Pipeline pipeline, Object eventData) {
         List<Object> results = new ArrayList<Object>();
 
-        for(RequestCompletedCallback callback: stateData.getInterimResults()) {
+        for(RequestCompletedCallback callback: pipelineData.getInterimResults()) {
             if(callback.getResult() instanceof Collection<?>)
                 results.addAll((Collection<?>) callback.getResult());
             else
                 results.add(callback.getResult());
         }
 
-        stateData.setResults(results);
+        pipelineData.setResults(results);
 
-        stateMachine.addEvent(completeEvent);
+        pipeline.addEvent(completeEvent);
     }
 
 }

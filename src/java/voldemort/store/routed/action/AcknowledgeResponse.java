@@ -23,9 +23,9 @@ import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
-import voldemort.store.routed.StateMachine;
-import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.Pipeline.Event;
 
 public class AcknowledgeResponse extends AbstractAction<ListStateData> {
 
@@ -41,9 +41,9 @@ public class AcknowledgeResponse extends AbstractAction<ListStateData> {
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
-    public void execute(StateMachine stateMachine, Object eventData) {
+    public void execute(Pipeline pipeline, Object eventData) {
         RequestCompletedCallback rcc = (RequestCompletedCallback) eventData;
-        stateData.incrementCompleted();
+        pipelineData.incrementCompleted();
 
         if(rcc.getResult() instanceof Exception) {
             Node node = rcc.getNode();
@@ -51,54 +51,54 @@ public class AcknowledgeResponse extends AbstractAction<ListStateData> {
             long requestTime = rcc.getRequestTime();
 
             if(e instanceof UnreachableStoreException) {
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
                 failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);
             } else if(e instanceof VoldemortApplicationException) {
-                stateData.setFatalError((VoldemortApplicationException) e);
-                stateMachine.addEvent(Event.ERROR);
+                pipelineData.setFatalError((VoldemortApplicationException) e);
+                pipeline.addEvent(Event.ERROR);
                 return;
             } else {
-                stateData.recordFailure(e);
+                pipelineData.recordFailure(e);
 
                 if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Error in " + stateData.getOperation() + " on node " + node.getId()
+                    logger.warn("Error in " + pipeline.getOperation() + " on node " + node.getId()
                                 + "(" + node.getHost() + ")", e);
             }
         } else {
-            stateData.incrementSuccesses();
-            stateData.getInterimResults().add(rcc);
+            pipelineData.incrementSuccesses();
+            pipelineData.getInterimResults().add(rcc);
             failureDetector.recordSuccess(rcc.getNode(), rcc.getRequestTime());
         }
 
         if(logger.isDebugEnabled())
-            logger.debug("Response received, successes: " + stateData.getSuccesses()
-                         + ", attempts: " + stateData.getAttempts() + ", completed: "
-                         + stateData.getCompleted() + ", preferred: " + preferred + ", required: "
-                         + required);
+            logger.debug("Response received, successes: " + pipelineData.getSuccesses()
+                         + ", attempts: " + pipelineData.getAttempts() + ", completed: "
+                         + pipelineData.getCompleted() + ", preferred: " + preferred
+                         + ", required: " + required);
 
         // If we get to here, that means we couldn't hit the preferred number
         // of writes, throw an exception if you can't even hit the required
         // number
-        if(stateData.getCompleted() == stateData.getAttempts()
-           && stateData.getSuccesses() < required) {
+        if(pipelineData.getCompleted() == pipelineData.getAttempts()
+           && pipelineData.getSuccesses() < required) {
             if(insufficientSuccessesEvent != null) {
-                stateMachine.addEvent(insufficientSuccessesEvent);
+                pipeline.addEvent(insufficientSuccessesEvent);
             } else {
-                stateData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                          + " "
-                                                                                          + stateData.getOperation()
-                                                                                                     .getSimpleName()
-                                                                                          + "s required, but "
-                                                                                          + stateData.getSuccesses()
-                                                                                          + " succeeded",
-                                                                                  stateData.getFailures()));
+                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                             + " "
+                                                                                             + pipeline.getOperation()
+                                                                                                       .getSimpleName()
+                                                                                             + "s required, but "
+                                                                                             + pipelineData.getSuccesses()
+                                                                                             + " succeeded",
+                                                                                     pipelineData.getFailures()));
 
-                stateMachine.addEvent(Event.ERROR);
+                pipeline.addEvent(Event.ERROR);
             }
-        } else if(stateData.getSuccesses() >= preferred && !isComplete) {
+        } else if(pipelineData.getSuccesses() >= preferred && !isComplete) {
             isComplete = true;
 
-            stateMachine.addEvent(completeEvent);
+            pipeline.addEvent(completeEvent);
         }
     }
 
