@@ -22,19 +22,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
 
-public class ListStateData extends PipelineData {
+public class BasicPipelineData extends PipelineData {
 
     private final List<RequestCompletedCallback> interimResults;
 
-    private final List<Node> nodes;
+    private List<Node> nodes;
 
     private final AtomicInteger nodeIndex;
 
     private final AtomicInteger successes;
 
-    public ListStateData() {
+    public BasicPipelineData() {
         this.interimResults = new ArrayList<RequestCompletedCallback>();
-        this.nodes = new ArrayList<Node>();
         this.nodeIndex = new AtomicInteger(0);
         this.successes = new AtomicInteger(0);
     }
@@ -43,12 +42,12 @@ public class ListStateData extends PipelineData {
         return interimResults;
     }
 
-    public void addNode(Node node) {
-        this.nodes.add(node);
-    }
-
     public List<Node> getNodes() {
         return nodes;
+    }
+
+    public void setNodes(List<Node> nodes) {
+        this.nodes = nodes;
     }
 
     public int getNodeIndex() {

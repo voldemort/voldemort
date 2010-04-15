@@ -20,11 +20,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
 
-public class UpdateResults extends AbstractAction<ListStateData> {
+public class UpdateResults extends AbstractAction<BasicPipelineData> {
 
     public void execute(Pipeline pipeline, Object eventData) {
         List<Object> results = new ArrayList<Object>();

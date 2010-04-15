@@ -22,12 +22,12 @@ import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
 import voldemort.store.routed.Pipeline.Event;
 
-public class AcknowledgeResponse extends AbstractAction<ListStateData> {
+public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
 
     private Event insufficientSuccessesEvent;
 

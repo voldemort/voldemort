@@ -24,7 +24,7 @@ import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
@@ -36,7 +36,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-public class ReadRepair extends AbstractAction<ListStateData> {
+public class ReadRepair extends AbstractAction<BasicPipelineData> {
 
     private ReadRepairer<ByteArray, byte[]> readRepairer;
 

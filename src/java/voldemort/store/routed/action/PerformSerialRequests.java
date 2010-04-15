@@ -25,14 +25,14 @@ import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
-public class PerformSerialRequests extends AbstractKeyBasedAction<ListStateData> {
+public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineData> {
 
     private BlockingStoreRequest storeRequest;
 

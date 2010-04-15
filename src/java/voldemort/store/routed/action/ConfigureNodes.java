@@ -16,45 +16,43 @@
 
 package voldemort.store.routed.action;
 
+import java.util.List;
+
+import voldemort.VoldemortException;
 import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategy;
-import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
 
-public class ConfigureNodes extends AbstractKeyBasedAction<ListStateData> {
+public class ConfigureNodes extends AbstractConfigureNodes<BasicPipelineData> {
 
-    private RoutingStrategy routingStrategy;
+    protected ByteArray key;
 
-    public RoutingStrategy getRoutingStrategy() {
-        return routingStrategy;
+    public ByteArray getKey() {
+        return key;
     }
 
-    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
-        this.routingStrategy = routingStrategy;
+    public void setKey(ByteArray key) {
+        this.key = key;
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
-        for(Node node: routingStrategy.routeRequest(key.get())) {
-            if(failureDetector.isAvailable(node))
-                pipelineData.addNode(node);
-        }
+        List<Node> nodes = null;
 
-        if(pipelineData.getNodes().size() < required) {
-            pipelineData.setFatalError(new InsufficientOperationalNodesException("Only "
-                                                                                 + pipelineData.getNodes()
-                                                                                               .size()
-                                                                                 + " nodes in preference list, but "
-                                                                                 + required
-                                                                                 + " required."));
+        try {
+            nodes = getNodes(key);
+        } catch(VoldemortException e) {
+            pipelineData.setFatalError(e);
             pipeline.addEvent(Event.ERROR);
-        } else {
-            if(logger.isDebugEnabled())
-                logger.debug(pipelineData.getNodes().size() + " nodes in preference list");
-
-            pipeline.addEvent(completeEvent);
+            return;
         }
+
+        if(logger.isDebugEnabled())
+            logger.debug("Adding " + nodes.size() + " node(s) to preference list");
+
+        pipelineData.setNodes(nodes);
+        pipeline.addEvent(completeEvent);
     }
 
 }

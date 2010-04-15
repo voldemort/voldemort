@@ -21,6 +21,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import voldemort.VoldemortException;
+
 public abstract class PipelineData {
 
     private Object results;
@@ -31,7 +33,7 @@ public abstract class PipelineData {
 
     private final AtomicInteger completed;
 
-    private RuntimeException fatalError;
+    private VoldemortException fatalError;
 
     public PipelineData() {
         this.failures = Collections.synchronizedList(new LinkedList<Exception>());
@@ -51,11 +53,11 @@ public abstract class PipelineData {
         this.results = results;
     }
 
-    public RuntimeException getFatalError() {
+    public VoldemortException getFatalError() {
         return fatalError;
     }
 
-    public void setFatalError(RuntimeException fatalError) {
+    public void setFatalError(VoldemortException fatalError) {
         this.fatalError = fatalError;
     }
 

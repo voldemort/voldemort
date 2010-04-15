@@ -20,10 +20,10 @@ import java.util.List;
 
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.routed.ListStateData;
+import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 
-public class PerformParallelRequests extends AbstractAction<ListStateData> {
+public class PerformParallelRequests extends AbstractAction<BasicPipelineData> {
 
     private NonblockingStoreRequest storeRequest;
 
