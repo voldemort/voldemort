@@ -32,7 +32,7 @@ import voldemort.store.DelegatingStore;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.routed.RoutableStore;
+import voldemort.store.routed.RoutedStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.RebalanceUtils;
@@ -53,19 +53,19 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     private final MetadataStore metadata;
     private final StoreRepository storeRepository;
     private final VoldemortConfig voldemortConfig;
-    private final RoutableStore routableStore;
+    private final RoutedStore routedStore;
     private final SocketStoreFactory storeFactory;
 
     public RebootstrappingStore(MetadataStore metadata,
                                 StoreRepository storeRepository,
                                 VoldemortConfig voldemortConfig,
-                                RoutableStore routableStore,
+                                RoutedStore routedStore,
                                 SocketStoreFactory storeFactory) {
-        super(routableStore);
+        super(routedStore);
         this.metadata = metadata;
         this.storeRepository = storeRepository;
         this.voldemortConfig = voldemortConfig;
-        this.routableStore = routableStore;
+        this.routedStore = routedStore;
         this.storeFactory = storeFactory;
     }
 
@@ -81,7 +81,7 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
 
             checkAndAddNodeStore();
 
-            routableStore.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
+            routedStore.updateRoutingStrategy(metadata.getRoutingStrategy(getName()));
         } finally {
             adminClient.stop();
         }
@@ -95,13 +95,13 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private void checkAndAddNodeStore() {
         for(Node node: metadata.getCluster().getNodes()) {
-            if(!routableStore.getInnerStores().containsKey(node.getId())) {
+            if(!routedStore.getInnerStores().containsKey(node.getId())) {
                 if(!storeRepository.hasNodeStore(getName(), node.getId())) {
                     storeRepository.addNodeStore(node.getId(), createNodeStore(node));
                 }
-                routableStore.getInnerStores().put(node.getId(),
-                                                   storeRepository.getNodeStore(getName(),
-                                                                                node.getId()));
+                routedStore.getInnerStores().put(node.getId(),
+                                                 storeRepository.getNodeStore(getName(),
+                                                                              node.getId()));
             }
         }
     }

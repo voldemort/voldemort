@@ -68,8 +68,7 @@ import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
-import voldemort.store.routed.NewRoutedStore;
-import voldemort.store.routed.RoutableStore;
+import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -302,20 +301,20 @@ public class StorageService extends AbstractService {
             nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
-        Store<ByteArray, byte[]> store = new NewRoutedStore(def.getName(),
-                                                            nodeStores,
-                                                            nonblockingStores,
-                                                            metadata.getCluster(),
-                                                            def,
-                                                            true,
-                                                            this.clientThreadPool,
-                                                            voldemortConfig.getRoutingTimeoutMs(),
-                                                            failureDetector);
+        Store<ByteArray, byte[]> store = new RoutedStore(def.getName(),
+                                                         nodeStores,
+                                                         nonblockingStores,
+                                                         metadata.getCluster(),
+                                                         def,
+                                                         true,
+                                                         this.clientThreadPool,
+                                                         voldemortConfig.getRoutingTimeoutMs(),
+                                                         failureDetector);
 
         store = new RebootstrappingStore(metadata,
                                          storeRepository,
                                          voldemortConfig,
-                                         (RoutableStore) store,
+                                         (RoutedStore) store,
                                          storeFactory);
 
         store = new InconsistencyResolvingStore<ByteArray, byte[]>(store,

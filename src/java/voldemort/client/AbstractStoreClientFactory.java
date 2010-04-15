@@ -45,7 +45,7 @@ import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
-import voldemort.store.routed.NewRoutedStore;
+import voldemort.store.routed.RoutedStore;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
@@ -162,7 +162,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
 
         boolean repairReads = !storeDef.isView();
-        Store<ByteArray, byte[]> store = new NewRoutedStore(storeName,
+        Store<ByteArray, byte[]> store = new RoutedStore(storeName,
                                                             clientMapping,
                                                             nonblockingStores,
                                                             cluster,

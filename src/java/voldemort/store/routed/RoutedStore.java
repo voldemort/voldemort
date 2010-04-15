@@ -19,19 +19,15 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
@@ -50,17 +46,30 @@ import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.routed.StateMachine.Event;
+import voldemort.store.routed.StateMachine.Operation;
+import voldemort.store.routed.action.AbstractAction;
+import voldemort.store.routed.action.AcknowledgeResponse;
+import voldemort.store.routed.action.Action;
+import voldemort.store.routed.action.ConfigureNodes;
+import voldemort.store.routed.action.IncrementClock;
+import voldemort.store.routed.action.PerformParallelPutRequests;
+import voldemort.store.routed.action.PerformParallelRequests;
+import voldemort.store.routed.action.PerformSerialPutRequests;
+import voldemort.store.routed.action.PerformSerialRequests;
+import voldemort.store.routed.action.ReadRepair;
+import voldemort.store.routed.action.UpdateResults;
+import voldemort.store.routed.action.PerformParallelRequests.NonblockingStoreRequest;
+import voldemort.store.routed.action.PerformSerialRequests.BlockingStoreRequest;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.Utils;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -69,26 +78,13 @@ import com.google.common.collect.Maps;
  * 
  * 
  */
-public class RoutedStore implements RoutableStore {
+public class RoutedStore implements Store<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(RoutedStore.class.getName());
 
-    private final static StoreOp<Versioned<byte[]>> VERSIONED_OP = new StoreOp<Versioned<byte[]>>() {
-
-        public List<Versioned<byte[]>> execute(Store<ByteArray, byte[]> store, ByteArray key) {
-            return store.get(key);
-        }
-    };
-
-    private final static StoreOp<Version> VERSION_OP = new StoreOp<Version>() {
-
-        public List<Version> execute(Store<ByteArray, byte[]> store, ByteArray key) {
-            return store.getVersions(key);
-        }
-    };
-
     private final String name;
     private final Map<Integer, Store<ByteArray, byte[]>> innerStores;
+    private final Map<Integer, NonblockingStore> nonblockingStores;
     private final ExecutorService executor;
     private final boolean repairReads;
     private final ReadRepairer<ByteArray, byte[]> readRepairer;
@@ -109,48 +105,17 @@ public class RoutedStore implements RoutableStore {
      *        before the operation will return
      * @param requiredWrites The minimum number of writes that must complete
      *        before the operation will return
-     * @param numberOfThreads The number of threads in the threadpool
-     */
-    public RoutedStore(String name,
-                       Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                       Cluster cluster,
-                       StoreDefinition storeDef,
-                       int numberOfThreads,
-                       boolean repairReads,
-                       long timeoutMs,
-                       FailureDetector failureDetector) {
-        this(name,
-             innerStores,
-             cluster,
-             storeDef,
-             repairReads,
-             Executors.newFixedThreadPool(numberOfThreads),
-             timeoutMs,
-             failureDetector,
-             SystemTime.INSTANCE);
-    }
-
-    /**
-     * Create a RoutedStoreClient
-     * 
-     * @param name The name of the store
-     * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
      * @param threadPool The threadpool to use
      */
     public RoutedStore(String name,
-                       Map<Integer, Store<ByteArray, byte[]>> innerStores,
-                       Cluster cluster,
-                       StoreDefinition storeDef,
-                       boolean repairReads,
-                       ExecutorService threadPool,
-                       long timeoutMs,
-                       FailureDetector failureDetector,
-                       Time time) {
+                          Map<Integer, Store<ByteArray, byte[]>> innerStores,
+                          Map<Integer, NonblockingStore> nonblockingStores,
+                          Cluster cluster,
+                          StoreDefinition storeDef,
+                          boolean repairReads,
+                          ExecutorService threadPool,
+                          long timeoutMs,
+                          FailureDetector failureDetector) {
         if(storeDef.getRequiredReads() < 1)
             throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
         if(storeDef.getRequiredWrites() < 1)
@@ -166,11 +131,12 @@ public class RoutedStore implements RoutableStore {
 
         this.name = name;
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(innerStores);
+        this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.repairReads = repairReads;
         this.executor = threadPool;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
         this.timeoutMs = timeoutMs;
-        this.time = Utils.notNull(time);
+        this.time = SystemTime.INSTANCE;
         this.storeDef = storeDef;
         this.failureDetector = failureDetector;
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
@@ -182,89 +148,61 @@ public class RoutedStore implements RoutableStore {
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
-        StoreUtils.assertValidKey(key);
-        final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
+        ListStateData stateData = new ListStateData(Operation.DELETE);
+        final StateMachine stateMachine = new StateMachine();
 
-        // quickly fail if there aren't enough live nodes to meet the
-        // requirements
-        final int numNodes = nodes.size();
-        if(numNodes < this.storeDef.getRequiredWrites())
-            throw new InsufficientOperationalNodesException("Only " + numNodes
-                                                            + " nodes in preference list, but "
-                                                            + this.storeDef.getRequiredWrites()
-                                                            + " writes required.");
+        NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
 
-        // A count of the number of successful operations
-        final AtomicInteger successes = new AtomicInteger(0);
-        final AtomicBoolean deletedSomething = new AtomicBoolean(false);
-        // A list of thrown exceptions, indicating the number of failures
-        final List<Exception> failures = Collections.synchronizedList(new LinkedList<Exception>());
-
-        // A semaphore indicating the number of completed operations
-        // Once inititialized all permits are acquired, after that
-        // permits are released when an operation is completed.
-        // semaphore.acquire(n) waits for n operations to complete
-        final Semaphore semaphore = new Semaphore(0, false);
-        // Add the operations to the pool
-        for(final Node node: nodes) {
-            this.executor.execute(new Runnable() {
-
-                public void run() {
-                    long startNs = System.nanoTime();
-                    try {
-                        boolean deleted = innerStores.get(node.getId()).delete(key, version);
-                        successes.incrementAndGet();
-                        deletedSomething.compareAndSet(false, deleted);
-                        recordSuccess(node, startNs);
-                    } catch(UnreachableStoreException e) {
-                        failures.add(e);
-                        recordException(node, startNs, e);
-                    } catch(VoldemortApplicationException e) {
-                        throw e;
-                    } catch(Exception e) {
-                        failures.add(e);
-                        logger.warn("Error in DELETE on node " + node.getId() + "("
-                                    + node.getHost() + ")", e);
-                    } finally {
-                        // signal that the operation is complete
-                        semaphore.release();
-                    }
-                }
-            });
-        }
-
-        int attempts = Math.min(storeDef.getPreferredWrites(), numNodes);
-        if(this.storeDef.getPreferredWrites() <= 0) {
-            return true;
-        } else {
-            for(int i = 0; i < numNodes; i++) {
-                try {
-                    boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
-                    if(!acquired)
-                        logger.warn("Delete operation timed out waiting for operation " + i
-                                    + " to complete after waiting " + timeoutMs + " ms.");
-                    // okay, at least the required number of operations have
-                    // completed, were they successful?
-                    if(successes.get() >= attempts)
-                        return deletedSomething.get();
-                } catch(InterruptedException e) {
-                    throw new InsufficientOperationalNodesException("Delete operation interrupted!",
-                                                                    e);
-                }
+            public void request(Node node, NonblockingStore store) {
+                final NonblockingStoreCallback callback = new StateMachineEventNonblockingStoreCallback(stateMachine,
+                                                                                                        node,
+                                                                                                        key);
+                store.submitDeleteRequest(key, version, callback);
             }
+
+        };
+
+        BlockingStoreRequest blockingDelete = new BlockingStoreRequest() {
+
+            public Object request(Node node, Store<ByteArray, byte[]> store) {
+                return store.delete(key, version);
+            }
+
+        };
+
+        Action configureNodes = createConfigureNodes(stateData, key, false);
+        Action performRequests = createPerformParallelRequests(stateData, false, nonblockingDelete);
+        Action acknowledgeResponse = createAcknowledgeResponse(stateData,
+                                                               false,
+                                                               Event.COMPLETED,
+                                                               Event.INSUFFICIENT_SUCCESSES);
+        Action performSerialRequests = createPerformSerialRequests(stateData,
+                                                                   key,
+                                                                   false,
+                                                                   blockingDelete,
+                                                                   Event.COMPLETED,
+                                                                   null);
+        Action updateResults = createUpdateResults(stateData);
+
+        Map<Event, Action> eventActions = new HashMap<Event, Action>();
+        eventActions.put(Event.STARTED, configureNodes);
+        eventActions.put(Event.CONFIGURED, performRequests);
+        eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
+        eventActions.put(Event.INSUFFICIENT_SUCCESSES, performSerialRequests);
+        eventActions.put(Event.COMPLETED, updateResults);
+
+        stateMachine.setEventActions(eventActions);
+        stateMachine.addEvent(Event.STARTED);
+        stateMachine.processEvents(stateData, timeoutMs, TimeUnit.MILLISECONDS);
+
+        List<Boolean> results = stateData.get();
+
+        for(Boolean b: results) {
+            if(b.booleanValue())
+                return true;
         }
 
-        // If we get to here, that means we couldn't hit the preferred number
-        // of writes, throw an exception if you can't even hit the required
-        // number
-        if(successes.get() < storeDef.getRequiredWrites())
-            throw new InsufficientOperationalNodesException(this.storeDef.getRequiredWrites()
-                                                                    + " deletes required, but "
-                                                                    + successes.get()
-                                                                    + " succeeded.",
-                                                            failures);
-        else
-            return deletedSomething.get();
+        return false;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
@@ -437,131 +375,67 @@ public class RoutedStore implements RoutableStore {
         return result;
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) {
-        Function<List<GetResult<Versioned<byte[]>>>, Void> readRepairFunction = new Function<List<GetResult<Versioned<byte[]>>>, Void>() {
+    public List<Versioned<byte[]>> get(final ByteArray key) {
+        ListStateData stateData = new ListStateData(Operation.GET);
+        final StateMachine stateMachine = new StateMachine();
 
-            public Void apply(List<GetResult<Versioned<byte[]>>> nodeResults) {
-                List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(nodeResults.size());
-                for(GetResult<Versioned<byte[]>> getResult: nodeResults)
-                    fillRepairReadsValues(nodeValues,
-                                          getResult.key,
-                                          getResult.node,
-                                          getResult.retrieved);
-                repairReads(nodeValues);
-                return null;
+        NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
+
+            public void request(Node node, NonblockingStore store) {
+                final NonblockingStoreCallback callback = new StateMachineEventNonblockingStoreCallback(stateMachine,
+                                                                                                        node,
+                                                                                                        key);
+                store.submitGetRequest(key, callback);
             }
+
         };
-        return get(key, VERSIONED_OP, readRepairFunction);
-    }
 
-    /*
-     * 1. Attempt preferredReads, and then wait for these to complete 2. If we
-     * got all the reads we wanted, then we are done. 3. If not then continue
-     * serially attempting to read from each node until we get preferredReads or
-     * run out of nodes. 4. If we have multiple results do a read repair 5. If
-     * we have at least requiredReads return. Otherwise throw an exception.
-     */
-    private <R> List<R> get(final ByteArray key,
-                            StoreOp<R> fetcher,
-                            Function<List<GetResult<R>>, Void> preReturnProcedure)
-            throws VoldemortException {
-        StoreUtils.assertValidKey(key);
-        final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
+        BlockingStoreRequest blockingStoreRequest = new BlockingStoreRequest() {
 
-        // quickly fail if there aren't enough nodes to meet the requirement
-        checkRequiredReads(nodes);
-
-        final List<GetResult<R>> retrieved = Lists.newArrayList();
-
-        // A count of the number of successful operations
-        int successes = 0;
-        // A list of thrown exceptions, indicating the number of failures
-        final List<Throwable> failures = Lists.newArrayListWithCapacity(3);
-
-        // Do the preferred number of reads in parallel
-        int attempts = Math.min(this.storeDef.getPreferredReads(), nodes.size());
-        int nodeIndex = 0;
-        List<Callable<GetResult<R>>> callables = Lists.newArrayListWithCapacity(attempts);
-        for(; nodeIndex < attempts; nodeIndex++) {
-            final Node node = nodes.get(nodeIndex);
-            callables.add(new GetCallable<R>(node, key, fetcher));
-        }
-
-        List<Future<GetResult<R>>> futures;
-        try {
-            futures = executor.invokeAll(callables, timeoutMs, TimeUnit.MILLISECONDS);
-        } catch(InterruptedException e) {
-            throw new InsufficientOperationalNodesException("Get operation interrupted!", e);
-        }
-
-        for(Future<GetResult<R>> f: futures) {
-            if(f.isCancelled()) {
-                logger.warn("Get operation timed out after " + timeoutMs + " ms.");
-                continue;
+            public Object request(Node node, Store<ByteArray, byte[]> store) {
+                return store.get(key);
             }
-            try {
-                GetResult<R> getResult = f.get();
-                if(getResult.exception != null) {
-                    if(getResult.exception instanceof VoldemortApplicationException) {
-                        throw (VoldemortException) getResult.exception;
-                    }
-                    failures.add(getResult.exception);
-                    continue;
-                }
-                ++successes;
-                retrieved.add(getResult);
-            } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException("Get operation interrupted!", e);
-            } catch(ExecutionException e) {
-                // We catch all Throwable subclasses apart from Error in the
-                // callable, so the else
-                // part should never happen.
-                if(e.getCause() instanceof Error)
-                    throw (Error) e.getCause();
-                else
-                    logger.error(e.getMessage(), e);
-            }
+
+        };
+
+        Action configureNodes = createConfigureNodes(stateData, key, true);
+        Action performRequests = createPerformParallelRequests(stateData,
+                                                               true,
+                                                               nonblockingStoreRequest);
+        Action acknowledgeResponse = createAcknowledgeResponse(stateData,
+                                                               true,
+                                                               repairReads ? Event.RESPONSES_RECEIVED
+                                                                          : Event.COMPLETED,
+                                                               Event.INSUFFICIENT_SUCCESSES);
+        Action performSerialRequests = createPerformSerialRequests(stateData,
+                                                                   key,
+                                                                   true,
+                                                                   blockingStoreRequest,
+                                                                   repairReads ? Event.RESPONSES_RECEIVED
+                                                                              : Event.COMPLETED,
+                                                                   null);
+        Action updateResults = createUpdateResults(stateData);
+
+        Map<Event, Action> eventActions = new HashMap<Event, Action>();
+        eventActions.put(Event.STARTED, configureNodes);
+        eventActions.put(Event.CONFIGURED, performRequests);
+        eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
+
+        if(repairReads) {
+            Action readRepair = createReadRepair(stateData, Event.COMPLETED);
+            eventActions.put(Event.RESPONSES_RECEIVED, readRepair);
         }
 
-        // Now if we had any failures we will be short a few reads. Do serial
-        // reads to make up for these.
-        while(successes < this.storeDef.getPreferredReads() && nodeIndex < nodes.size()) {
-            Node node = nodes.get(nodeIndex);
-            long startNs = System.nanoTime();
-            try {
-                retrieved.add(new GetResult<R>(node,
-                                               key,
-                                               fetcher.execute(innerStores.get(node.getId()), key),
-                                               null));
-                ++successes;
-                recordSuccess(node, startNs);
-            } catch(UnreachableStoreException e) {
-                failures.add(e);
-                recordException(node, startNs, e);
-            } catch(VoldemortApplicationException e) {
-                throw e;
-            } catch(Exception e) {
-                logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
-                failures.add(e);
-            }
-            nodeIndex++;
-        }
+        eventActions.put(Event.INSUFFICIENT_SUCCESSES, performSerialRequests);
+        eventActions.put(Event.COMPLETED, updateResults);
 
-        if(logger.isTraceEnabled())
-            logger.trace("GET retrieved the following node values: " + formatNodeValues(retrieved));
+        stateMachine.setEventActions(eventActions);
+        stateMachine.addEvent(Event.STARTED);
+        stateMachine.processEvents(stateData, timeoutMs, TimeUnit.MILLISECONDS);
 
-        if(preReturnProcedure != null)
-            preReturnProcedure.apply(retrieved);
+        List<Versioned<byte[]>> results = stateData.get();
 
-        if(successes >= this.storeDef.getRequiredReads()) {
-            List<R> result = Lists.newArrayListWithExpectedSize(retrieved.size());
-            for(GetResult<R> getResult: retrieved)
-                result.addAll(getResult.retrieved);
-            return result;
-        } else
-            throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
-                                                            + " reads required, but " + successes
-                                                            + " succeeded.", failures);
+        return results;
     }
 
     private void fillRepairReadsValues(final List<NodeValue<ByteArray, byte[]>> nodeValues,
@@ -635,188 +509,42 @@ public class RoutedStore implements RoutableStore {
                                                             + " reads required.");
     }
 
-    private <R> String formatNodeValues(List<GetResult<R>> results) {
-        // log all retrieved values
-        StringBuilder builder = new StringBuilder();
-        builder.append("{");
-        for(GetResult<?> r: results) {
-            builder.append("GetResult(nodeId=" + r.node.getId() + ", key=" + r.key
-                           + ", retrieved= " + r.retrieved + ")");
-            builder.append(", ");
-        }
-        builder.append("}");
-
-        return builder.toString();
-    }
-
     public String getName() {
         return this.name;
     }
 
-    public void put(final ByteArray key, final Versioned<byte[]> versioned)
-            throws VoldemortException {
-        long startNs = System.nanoTime();
-        StoreUtils.assertValidKey(key);
-        final List<Node> nodes = availableNodes(routingStrategy.routeRequest(key.get()));
+    public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
+        ListStateData stateData = new ListStateData(Operation.PUT);
+        StateMachine stateMachine = new StateMachine();
 
-        // quickly fail if there aren't enough nodes to meet the requirement
-        final int numNodes = nodes.size();
-        if(numNodes < this.storeDef.getRequiredWrites())
-            throw new InsufficientOperationalNodesException("Only " + numNodes
-                                                            + " nodes in preference list, but "
-                                                            + this.storeDef.getRequiredWrites()
-                                                            + " writes required.");
+        Action configureNodes = createConfigureNodes(stateData, key, false);
+        Action performSerialPutRequests = createPerformSerialPutRequests(stateData,
+                                                                         key,
+                                                                         versioned,
+                                                                         Event.COMPLETED,
+                                                                         Event.MASTER_DETERMINED);
+        Action performParallelPutRequests = createPerformParallelPutRequests(stateData,
+                                                                             key,
+                                                                             Event.NOP);
+        Action acknowledgeResponse = createAcknowledgeResponse(stateData,
+                                                               false,
+                                                               Event.COMPLETED,
+                                                               null);
+        Action incrementClock = createIncrementClock(stateData, versioned);
 
-        // A count of the number of successful operations
-        final AtomicInteger successes = new AtomicInteger(0);
+        Map<Event, Action> eventActions = new HashMap<Event, Action>();
+        eventActions.put(Event.STARTED, configureNodes);
+        eventActions.put(Event.CONFIGURED, performSerialPutRequests);
+        eventActions.put(Event.MASTER_DETERMINED, performParallelPutRequests);
+        eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
+        eventActions.put(Event.COMPLETED, incrementClock);
 
-        // A list of thrown exceptions, indicating the number of failures
-        final List<Exception> failures = Collections.synchronizedList(new ArrayList<Exception>(1));
+        stateMachine.setEventActions(eventActions);
 
-        // If requiredWrites > 0 then do a single blocking write to the first
-        // live node in the preference list if this node throws an
-        // ObsoleteVersionException allow it to propagate
-        Node master = null;
-        int currentNode = 0;
-        Versioned<byte[]> versionedCopy = null;
-        for(; currentNode < numNodes; currentNode++) {
-            Node current = nodes.get(currentNode);
-            long startNsLocal = System.nanoTime();
-            try {
-                versionedCopy = incremented(versioned, current.getId());
-                innerStores.get(current.getId()).put(key, versionedCopy);
-                successes.getAndIncrement();
-                recordSuccess(current, startNsLocal);
-                master = current;
-                break;
-            } catch(UnreachableStoreException e) {
-                recordException(current, startNsLocal, e);
-                failures.add(e);
-            } catch(VoldemortApplicationException e) {
-                throw e;
-            } catch(Exception e) {
-                failures.add(e);
-            }
-        }
+        stateMachine.addEvent(Event.STARTED);
+        stateMachine.processEvents(stateData, timeoutMs, TimeUnit.MILLISECONDS);
 
-        if(successes.get() < 1)
-            throw new InsufficientOperationalNodesException("No master node succeeded!",
-                                                            failures.size() > 0 ? failures.get(0)
-                                                                               : null);
-        else
-            currentNode++;
-
-        // A semaphore indicating the number of completed operations
-        // Once inititialized all permits are acquired, after that
-        // permits are released when an operation is completed.
-        // semaphore.acquire(n) waits for n operations to complete
-        final Versioned<byte[]> finalVersionedCopy = versionedCopy;
-        final Semaphore semaphore = new Semaphore(0, false);
-        // Add the operations to the pool
-        int attempts = 0;
-        for(; currentNode < numNodes; currentNode++) {
-            attempts++;
-            final Node node = nodes.get(currentNode);
-            this.executor.execute(new Runnable() {
-
-                public void run() {
-                    long startNsLocal = System.nanoTime();
-                    try {
-                        innerStores.get(node.getId()).put(key, finalVersionedCopy);
-                        successes.incrementAndGet();
-                        recordSuccess(node, startNsLocal);
-                    } catch(UnreachableStoreException e) {
-                        recordException(node, startNsLocal, e);
-                        failures.add(e);
-                    } catch(ObsoleteVersionException e) {
-                        // ignore this completely here
-                        // this means that a higher version was able
-                        // to write on this node and should be termed as clean
-                        // success.
-                    } catch(VoldemortApplicationException e) {
-                        throw e;
-                    } catch(Exception e) {
-                        logger.warn("Error in PUT on node " + node.getId() + "(" + node.getHost()
-                                    + ")", e);
-                        failures.add(e);
-                    } finally {
-                        // signal that the operation is complete
-                        semaphore.release();
-                    }
-                }
-            });
-        }
-
-        // Block until we get enough completions
-        int blockCount = Math.min(storeDef.getPreferredWrites() - 1, attempts);
-        boolean noTimeout = blockOnPut(startNs,
-                                       semaphore,
-                                       0,
-                                       blockCount,
-                                       successes,
-                                       storeDef.getPreferredWrites());
-
-        if(successes.get() < storeDef.getRequiredWrites()) {
-            /*
-             * We don't have enough required writes, but we haven't timed out
-             * yet, so block a little more if there are healthy nodes that can
-             * help us achieve our target.
-             */
-            if(noTimeout) {
-                int startingIndex = blockCount - 1;
-                blockCount = Math.max(storeDef.getPreferredWrites() - 1, attempts);
-                blockOnPut(startNs,
-                           semaphore,
-                           startingIndex,
-                           blockCount,
-                           successes,
-                           storeDef.getRequiredWrites());
-            }
-            if(successes.get() < storeDef.getRequiredWrites())
-                throw new InsufficientOperationalNodesException(successes.get()
-                                                                + " writes succeeded, but "
-                                                                + this.storeDef.getRequiredWrites()
-                                                                + " are required.", failures);
-        }
-
-        // Okay looks like it worked, increment the version for the caller
-        VectorClock versionedClock = (VectorClock) versioned.getVersion();
-        versionedClock.incrementVersion(master.getId(), time.getMilliseconds());
-    }
-
-    /**
-     * @return false if the operation timed out, true otherwise.
-     */
-    private boolean blockOnPut(long startNs,
-                               Semaphore semaphore,
-                               int startingIndex,
-                               int blockCount,
-                               AtomicInteger successes,
-                               int successesRequired) {
-        for(int i = startingIndex; i < blockCount; i++) {
-            try {
-                long ellapsedNs = System.nanoTime() - startNs;
-                long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
-                boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
-                                                              TimeUnit.NANOSECONDS);
-                if(!acquiredPermit) {
-                    logger.warn("Timed out waiting for put # " + (i + 1) + " of " + blockCount
-                                + " to succeed.");
-                    return false;
-                }
-                if(successes.get() >= successesRequired)
-                    break;
-            } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException("Put operation interrupted", e);
-            }
-        }
-        return true;
-    }
-
-    private Versioned<byte[]> incremented(Versioned<byte[]> versioned, int nodeId) {
-        return new Versioned<byte[]>(versioned.getValue(),
-                                     ((VectorClock) versioned.getVersion()).incremented(nodeId,
-                                                                                        time.getMilliseconds()));
+        stateData.get();
     }
 
     private List<Node> availableNodes(List<Node> list) {
@@ -865,8 +593,42 @@ public class RoutedStore implements RoutableStore {
         }
     }
 
-    public List<Version> getVersions(ByteArray key) {
-        return get(key, VERSION_OP, null);
+    public List<Version> getVersions(final ByteArray key) {
+        ListStateData stateData = new ListStateData(Operation.GET_VERSIONS);
+        final StateMachine stateMachine = new StateMachine();
+
+        NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
+
+            public void request(Node node, NonblockingStore store) {
+                final NonblockingStoreCallback callback = new StateMachineEventNonblockingStoreCallback(stateMachine,
+                                                                                                        node,
+                                                                                                        key);
+                store.submitGetVersionsRequest(key, callback);
+            }
+
+        };
+
+        Action configureNodes = createConfigureNodes(stateData, key, true);
+        Action performRequests = createPerformParallelRequests(stateData, true, storeRequest);
+        Action acknowledgeResponse = createAcknowledgeResponse(stateData,
+                                                               true,
+                                                               Event.COMPLETED,
+                                                               null);
+        Action updateResults = createUpdateResults(stateData);
+
+        Map<Event, Action> eventActions = new HashMap<Event, Action>();
+        eventActions.put(Event.STARTED, configureNodes);
+        eventActions.put(Event.CONFIGURED, performRequests);
+        eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
+        eventActions.put(Event.COMPLETED, updateResults);
+
+        stateMachine.setEventActions(eventActions);
+        stateMachine.addEvent(Event.STARTED);
+        stateMachine.processEvents(stateData, timeoutMs, TimeUnit.MILLISECONDS);
+
+        List<Version> results = stateData.get();
+
+        return results;
     }
 
     private void recordException(Node node, long startNs, UnreachableStoreException e) {
@@ -877,55 +639,121 @@ public class RoutedStore implements RoutableStore {
         failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
     }
 
-    private final class GetCallable<R> implements Callable<GetResult<R>> {
-
-        private final Node node;
-        private final ByteArray key;
-        private final StoreOp<R> fetcher;
-
-        public GetCallable(Node node, ByteArray key, StoreOp<R> fetcher) {
-            this.node = node;
-            this.key = key;
-            this.fetcher = fetcher;
-        }
-
-        public GetResult<R> call() throws Exception {
-            List<R> fetched = Collections.emptyList();
-            Throwable exception = null;
-            long startNs = System.nanoTime();
-            try {
-                if(logger.isTraceEnabled())
-                    logger.trace("Attempting get operation on node " + node.getId() + " for key '"
-                                 + ByteUtils.toHexString(key.get()) + "'.");
-                fetched = fetcher.execute(innerStores.get(node.getId()), key);
-                recordSuccess(node, startNs);
-            } catch(UnreachableStoreException e) {
-                exception = e;
-                recordException(node, startNs, e);
-            } catch(Throwable e) {
-                if(e instanceof Error)
-                    throw (Error) e;
-                logger.warn("Error in GET on node " + node.getId() + "(" + node.getHost() + ")", e);
-                exception = e;
-            }
-            return new GetResult<R>(node, key, fetched, exception);
-        }
+    private Action createAcknowledgeResponse(ListStateData stateData,
+                                             boolean read,
+                                             Event completeEvent,
+                                             Event insufficientSuccessesEvent) {
+        AcknowledgeResponse action = createAction(new AcknowledgeResponse(),
+                                                  stateData,
+                                                  read,
+                                                  completeEvent);
+        action.setInsufficientSuccessesEvent(insufficientSuccessesEvent);
+        return action;
     }
 
-    private final static class GetResult<R> {
+    private Action createPerformSerialRequests(ListStateData stateData,
+                                               ByteArray key,
+                                               boolean read,
+                                               BlockingStoreRequest storeRequest,
+                                               Event completeEvent,
+                                               Event insufficientSuccessesEvent) {
+        PerformSerialRequests action = createAction(new PerformSerialRequests(),
+                                                    stateData,
+                                                    read,
+                                                    completeEvent);
+        action.setKey(key);
+        action.setInsufficientSuccessesEvent(insufficientSuccessesEvent);
+        action.setStoreRequest(storeRequest);
+        return action;
+    }
 
-        final Node node;
-        final ByteArray key;
-        final List<R> retrieved;
-        final Throwable exception;
+    private Action createConfigureNodes(ListStateData stateData, ByteArray key, boolean read) {
+        ConfigureNodes action = createAction(new ConfigureNodes(),
+                                             stateData,
+                                             read,
+                                             Event.CONFIGURED);
+        action.setKey(key);
+        action.setRoutingStrategy(routingStrategy);
+        return action;
+    }
 
-        public GetResult(Node node, ByteArray key, List<R> retrieved, Throwable exception) {
-            this.node = node;
-            this.key = key;
-            this.retrieved = retrieved;
-            this.exception = exception;
-        }
+    private Action createIncrementClock(ListStateData stateData, Versioned<byte[]> versioned) {
+        IncrementClock action = createWriteAction(new IncrementClock(), stateData, Event.STOPPED);
+        action.setVersioned(versioned);
+        return action;
+    }
 
+    private Action createPerformSerialPutRequests(ListStateData stateData,
+                                                  ByteArray key,
+                                                  Versioned<byte[]> versioned,
+                                                  Event completeEvent,
+                                                  Event masterDeterminedEvent) {
+        PerformSerialPutRequests action = createWriteAction(new PerformSerialPutRequests(),
+                                                            stateData,
+                                                            completeEvent);
+        action.setKey(key);
+        action.setMasterDeterminedEvent(masterDeterminedEvent);
+        action.setVersioned(versioned);
+        return action;
+    }
+
+    private Action createPerformParallelPutRequests(ListStateData stateData,
+                                                    ByteArray key,
+                                                    Event completeEvent) {
+        PerformParallelPutRequests action = createWriteAction(new PerformParallelPutRequests(),
+                                                              stateData,
+                                                              completeEvent);
+        action.setKey(key);
+        return action;
+    }
+
+    private Action createPerformParallelRequests(ListStateData stateData,
+                                                 boolean read,
+                                                 NonblockingStoreRequest storeRequest) {
+        PerformParallelRequests action = createAction(new PerformParallelRequests(),
+                                                      stateData,
+                                                      read,
+                                                      Event.NOP);
+        action.setStoreRequest(storeRequest);
+        return action;
+    }
+
+    private Action createReadRepair(ListStateData stateData, Event completeEvent) {
+        ReadRepair action = createReadAction(new ReadRepair(), stateData, completeEvent);
+        action.setReadRepairer(readRepairer);
+        return action;
+    }
+
+    private Action createUpdateResults(ListStateData stateData) {
+        UpdateResults action = createAction(new UpdateResults(), stateData, true, Event.STOPPED);
+        return action;
+    }
+
+    private <S extends StateData, A extends AbstractAction<S>> A createAction(A action,
+                                                                              S stateData,
+                                                                              boolean read,
+                                                                              Event completeEvent) {
+        action.setStateData(stateData);
+        action.setCompleteEvent(completeEvent);
+        action.setFailureDetector(failureDetector);
+        action.setNonblockingStores(nonblockingStores);
+        action.setPreferred(read ? storeDef.getPreferredReads() : storeDef.getPreferredWrites());
+        action.setRequired(read ? storeDef.getRequiredReads() : storeDef.getRequiredWrites());
+        action.setStores(innerStores);
+        action.setTime(time);
+        return action;
+    }
+
+    private <S extends StateData, A extends AbstractAction<S>> A createWriteAction(A action,
+                                                                                   S stateData,
+                                                                                   Event completeEvent) {
+        return createAction(action, stateData, false, completeEvent);
+    }
+
+    private <S extends StateData, A extends AbstractAction<S>> A createReadAction(A action,
+                                                                                  S stateData,
+                                                                                  Event completeEvent) {
+        return createAction(action, stateData, true, completeEvent);
     }
 
     private final class GetAllCallable implements Callable<GetAllResult> {
@@ -989,8 +817,4 @@ public class RoutedStore implements RoutableStore {
         }
     }
 
-    private interface StoreOp<R> {
-
-        List<R> execute(Store<ByteArray, byte[]> store, ByteArray key);
-    }
 }

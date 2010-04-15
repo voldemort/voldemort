@@ -58,7 +58,7 @@ public class RebalancingJob implements Runnable {
         long start = System.currentTimeMillis();
         for(StorageEngine<ByteArray, byte[]> engine: storeRepository.getAllStorageEngines()) {
             logger.info("Rebalancing " + engine.getName());
-            Store<ByteArray, byte[]> remote = storeRepository.getRoutableStore(engine.getName());
+            Store<ByteArray, byte[]> remote = storeRepository.getRoutedStore(engine.getName());
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
             int rebalanced = 0;
             long currStart = System.currentTimeMillis();
