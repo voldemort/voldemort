@@ -20,6 +20,8 @@ import java.util.List;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.routing.RoutingStrategy;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
@@ -27,13 +29,15 @@ import voldemort.utils.ByteArray;
 
 public class ConfigureNodes extends AbstractConfigureNodes<BasicPipelineData> {
 
-    protected ByteArray key;
+    protected final ByteArray key;
 
-    public ByteArray getKey() {
-        return key;
-    }
-
-    public void setKey(ByteArray key) {
+    public ConfigureNodes(BasicPipelineData pipelineData,
+                          Event completeEvent,
+                          FailureDetector failureDetector,
+                          int required,
+                          RoutingStrategy routingStrategy,
+                          ByteArray key) {
+        super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.key = key;
     }
 

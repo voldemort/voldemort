@@ -21,6 +21,8 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.routing.RoutingStrategy;
 import voldemort.store.routed.GetAllPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
@@ -31,13 +33,19 @@ import com.google.common.collect.Maps;
 
 public class GetAllConfigureNodes extends AbstractConfigureNodes<GetAllPipelineData> {
 
-    private Iterable<ByteArray> keys;
+    protected final int preferred;
 
-    public Iterable<ByteArray> getKeys() {
-        return keys;
-    }
+    protected final Iterable<ByteArray> keys;
 
-    public void setKeys(Iterable<ByteArray> keys) {
+    public GetAllConfigureNodes(GetAllPipelineData pipelineData,
+                                Event completeEvent,
+                                FailureDetector failureDetector,
+                                int preferred,
+                                int required,
+                                RoutingStrategy routingStrategy,
+                                Iterable<ByteArray> keys) {
+        super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
+        this.preferred = preferred;
         this.keys = keys;
     }
 

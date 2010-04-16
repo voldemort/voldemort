@@ -49,7 +49,6 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
-import voldemort.store.routed.action.AbstractAction;
 import voldemort.store.routed.action.AcknowledgeResponse;
 import voldemort.store.routed.action.Action;
 import voldemort.store.routed.action.ConfigureNodes;
@@ -172,21 +171,37 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         };
 
-        Action configureNodes = createConfigureNodes(pipelineData, key, false);
-        Action performRequests = createPerformParallelRequests(pipelineData,
-                                                               false,
-                                                               nonblockingDelete);
-        Action acknowledgeResponse = createAcknowledgeResponse(pipelineData,
-                                                               false,
-                                                               Event.COMPLETED,
-                                                               Event.INSUFFICIENT_SUCCESSES);
-        Action performSerialRequests = createPerformSerialRequests(pipelineData,
-                                                                   key,
-                                                                   false,
-                                                                   blockingDelete,
-                                                                   Event.COMPLETED,
-                                                                   null);
-        Action updateResults = createUpdateResults(pipelineData);
+        Action configureNodes = new ConfigureNodes(pipelineData,
+                                                   Event.CONFIGURED,
+                                                   failureDetector,
+                                                   storeDef.getRequiredWrites(),
+                                                   routingStrategy,
+                                                   key);
+
+        Action performRequests = new PerformParallelRequests(pipelineData,
+                                                             Event.NOP,
+                                                             storeDef.getPreferredWrites(),
+                                                             nonblockingStores,
+                                                             nonblockingDelete);
+
+        Action acknowledgeResponse = new AcknowledgeResponse(pipelineData,
+                                                             Event.COMPLETED,
+                                                             failureDetector,
+                                                             storeDef.getPreferredWrites(),
+                                                             storeDef.getRequiredWrites(),
+                                                             Event.INSUFFICIENT_SUCCESSES);
+
+        Action performSerialRequests = new PerformSerialRequests(pipelineData,
+                                                                 Event.COMPLETED,
+                                                                 key,
+                                                                 failureDetector,
+                                                                 innerStores,
+                                                                 storeDef.getPreferredWrites(),
+                                                                 storeDef.getRequiredWrites(),
+                                                                 blockingDelete,
+                                                                 null);
+
+        Action updateResults = new UpdateResults(pipelineData);
 
         Map<Event, Action> eventActions = new HashMap<Event, Action>();
         eventActions.put(Event.STARTED, configureNodes);
@@ -218,7 +233,14 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
 
-        Action configureNodes = createGetAllConfigureNodes(pipelineData, keys);
+        Action configureNodes = new GetAllConfigureNodes(pipelineData,
+                                                         null,
+                                                         failureDetector,
+                                                         storeDef.getPreferredReads(),
+                                                         storeDef.getRequiredReads(),
+                                                         routingStrategy,
+                                                         keys);
+
         configureNodes.execute(pipeline, null);
 
         List<Callable<GetAllResult>> callables = Lists.newArrayList();
@@ -369,23 +391,35 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         };
 
-        Action configureNodes = createConfigureNodes(pipelineData, key, true);
-        Action performRequests = createPerformParallelRequests(pipelineData,
-                                                               true,
-                                                               nonblockingStoreRequest);
-        Action acknowledgeResponse = createAcknowledgeResponse(pipelineData,
-                                                               true,
-                                                               repairReads ? Event.RESPONSES_RECEIVED
-                                                                          : Event.COMPLETED,
-                                                               Event.INSUFFICIENT_SUCCESSES);
-        Action performSerialRequests = createPerformSerialRequests(pipelineData,
-                                                                   key,
-                                                                   true,
-                                                                   blockingStoreRequest,
-                                                                   repairReads ? Event.RESPONSES_RECEIVED
-                                                                              : Event.COMPLETED,
-                                                                   null);
-        Action updateResults = createUpdateResults(pipelineData);
+        Action configureNodes = new ConfigureNodes(pipelineData,
+                                                   Event.CONFIGURED,
+                                                   failureDetector,
+                                                   storeDef.getRequiredReads(),
+                                                   routingStrategy,
+                                                   key);
+        Action performRequests = new PerformParallelRequests(pipelineData,
+                                                             Event.COMPLETED,
+                                                             storeDef.getPreferredReads(),
+                                                             nonblockingStores,
+                                                             nonblockingStoreRequest);
+        Action acknowledgeResponse = new AcknowledgeResponse(pipelineData,
+                                                             repairReads ? Event.RESPONSES_RECEIVED
+                                                                        : Event.COMPLETED,
+                                                             failureDetector,
+                                                             storeDef.getPreferredReads(),
+                                                             storeDef.getRequiredReads(),
+                                                             Event.INSUFFICIENT_SUCCESSES);
+        Action performSerialRequests = new PerformSerialRequests(pipelineData,
+                                                                 repairReads ? Event.RESPONSES_RECEIVED
+                                                                            : Event.COMPLETED,
+                                                                 key,
+                                                                 failureDetector,
+                                                                 innerStores,
+                                                                 storeDef.getPreferredReads(),
+                                                                 storeDef.getRequiredReads(),
+                                                                 blockingStoreRequest,
+                                                                 null);
+        Action updateResults = new UpdateResults(pipelineData);
 
         Map<Event, Action> eventActions = new HashMap<Event, Action>();
         eventActions.put(Event.STARTED, configureNodes);
@@ -393,7 +427,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
 
         if(repairReads) {
-            Action readRepair = createReadRepair(pipelineData, Event.COMPLETED);
+            Action readRepair = new ReadRepair(pipelineData,
+                                               Event.COMPLETED,
+                                               storeDef.getPreferredReads(),
+                                               nonblockingStores,
+                                               readRepairer);
             eventActions.put(Event.RESPONSES_RECEIVED, readRepair);
         }
 
@@ -481,20 +519,32 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         PutPipelineData pipelineData = new PutPipelineData();
         Pipeline pipeline = new Pipeline(Operation.PUT);
 
-        Action configureNodes = createConfigureNodes(pipelineData, key, false);
-        Action performSerialPutRequests = createPerformSerialPutRequests(pipelineData,
-                                                                         key,
-                                                                         versioned,
-                                                                         Event.COMPLETED,
-                                                                         Event.MASTER_DETERMINED);
-        Action performParallelPutRequests = createPerformParallelPutRequests(pipelineData,
-                                                                             key,
-                                                                             Event.NOP);
-        Action acknowledgeResponse = createAcknowledgeResponse(pipelineData,
-                                                               false,
-                                                               Event.COMPLETED,
-                                                               null);
-        Action incrementClock = createIncrementClock(pipelineData, versioned);
+        Action configureNodes = new ConfigureNodes(pipelineData,
+                                                   Event.CONFIGURED,
+                                                   failureDetector,
+                                                   storeDef.getRequiredWrites(),
+                                                   routingStrategy,
+                                                   key);
+        Action performSerialPutRequests = new PerformSerialPutRequests(pipelineData,
+                                                                       Event.COMPLETED,
+                                                                       key,
+                                                                       failureDetector,
+                                                                       innerStores,
+                                                                       storeDef.getRequiredWrites(),
+                                                                       versioned,
+                                                                       time,
+                                                                       Event.MASTER_DETERMINED);
+        Action performParallelPutRequests = new PerformParallelPutRequests(pipelineData,
+                                                                           Event.NOP,
+                                                                           key,
+                                                                           nonblockingStores);
+        Action acknowledgeResponse = new AcknowledgeResponse(pipelineData,
+                                                             Event.COMPLETED,
+                                                             failureDetector,
+                                                             storeDef.getPreferredWrites(),
+                                                             storeDef.getRequiredWrites(),
+                                                             null);
+        Action incrementClock = new IncrementClock(pipelineData, Event.STOPPED, versioned, time);
 
         Map<Event, Action> eventActions = new HashMap<Event, Action>();
         eventActions.put(Event.STARTED, configureNodes);
@@ -566,13 +616,24 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         };
 
-        Action configureNodes = createConfigureNodes(pipelineData, key, true);
-        Action performRequests = createPerformParallelRequests(pipelineData, true, storeRequest);
-        Action acknowledgeResponse = createAcknowledgeResponse(pipelineData,
-                                                               true,
-                                                               Event.COMPLETED,
-                                                               null);
-        Action updateResults = createUpdateResults(pipelineData);
+        Action configureNodes = new ConfigureNodes(pipelineData,
+                                                   Event.CONFIGURED,
+                                                   failureDetector,
+                                                   storeDef.getRequiredReads(),
+                                                   routingStrategy,
+                                                   key);
+        Action performRequests = new PerformParallelRequests(pipelineData,
+                                                             Event.NOP,
+                                                             storeDef.getPreferredReads(),
+                                                             nonblockingStores,
+                                                             storeRequest);
+        Action acknowledgeResponse = new AcknowledgeResponse(pipelineData,
+                                                             Event.COMPLETED,
+                                                             failureDetector,
+                                                             storeDef.getPreferredReads(),
+                                                             storeDef.getRequiredReads(),
+                                                             null);
+        Action updateResults = new UpdateResults(pipelineData);
 
         Map<Event, Action> eventActions = new HashMap<Event, Action>();
         eventActions.put(Event.STARTED, configureNodes);
@@ -595,137 +656,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
     private void recordSuccess(Node node, long startNs) {
         failureDetector.recordSuccess(node, (System.nanoTime() - startNs) / Time.NS_PER_MS);
-    }
-
-    private AcknowledgeResponse createAcknowledgeResponse(BasicPipelineData pipelineData,
-                                                          boolean read,
-                                                          Event completeEvent,
-                                                          Event insufficientSuccessesEvent) {
-        AcknowledgeResponse action = createAction(new AcknowledgeResponse(),
-                                                  pipelineData,
-                                                  read,
-                                                  completeEvent);
-        action.setInsufficientSuccessesEvent(insufficientSuccessesEvent);
-        return action;
-    }
-
-    private PerformSerialRequests createPerformSerialRequests(BasicPipelineData pipelineData,
-                                                              ByteArray key,
-                                                              boolean read,
-                                                              BlockingStoreRequest storeRequest,
-                                                              Event completeEvent,
-                                                              Event insufficientSuccessesEvent) {
-        PerformSerialRequests action = createAction(new PerformSerialRequests(),
-                                                    pipelineData,
-                                                    read,
-                                                    completeEvent);
-        action.setKey(key);
-        action.setInsufficientSuccessesEvent(insufficientSuccessesEvent);
-        action.setStoreRequest(storeRequest);
-        return action;
-    }
-
-    private ConfigureNodes createConfigureNodes(BasicPipelineData pipelineData,
-                                                ByteArray key,
-                                                boolean read) {
-        ConfigureNodes action = createAction(new ConfigureNodes(),
-                                             pipelineData,
-                                             read,
-                                             Event.CONFIGURED);
-        action.setKey(key);
-        action.setRoutingStrategy(routingStrategy);
-        return action;
-    }
-
-    private GetAllConfigureNodes createGetAllConfigureNodes(GetAllPipelineData pipelineData,
-                                                            Iterable<ByteArray> keys) {
-        GetAllConfigureNodes action = createAction(new GetAllConfigureNodes(),
-                                                   pipelineData,
-                                                   true,
-                                                   Event.CONFIGURED);
-        action.setKeys(keys);
-        action.setRoutingStrategy(routingStrategy);
-        return action;
-    }
-
-    private IncrementClock createIncrementClock(PutPipelineData pipelineData,
-                                                Versioned<byte[]> versioned) {
-        IncrementClock action = createWriteAction(new IncrementClock(), pipelineData, Event.STOPPED);
-        action.setVersioned(versioned);
-        return action;
-    }
-
-    private PerformSerialPutRequests createPerformSerialPutRequests(PutPipelineData pipelineData,
-                                                                    ByteArray key,
-                                                                    Versioned<byte[]> versioned,
-                                                                    Event completeEvent,
-                                                                    Event masterDeterminedEvent) {
-        PerformSerialPutRequests action = createWriteAction(new PerformSerialPutRequests(),
-                                                            pipelineData,
-                                                            completeEvent);
-        action.setKey(key);
-        action.setMasterDeterminedEvent(masterDeterminedEvent);
-        action.setVersioned(versioned);
-        return action;
-    }
-
-    private PerformParallelPutRequests createPerformParallelPutRequests(PutPipelineData pipelineData,
-                                                                        ByteArray key,
-                                                                        Event completeEvent) {
-        PerformParallelPutRequests action = createWriteAction(new PerformParallelPutRequests(),
-                                                              pipelineData,
-                                                              completeEvent);
-        action.setKey(key);
-        return action;
-    }
-
-    private PerformParallelRequests createPerformParallelRequests(BasicPipelineData pipelineData,
-                                                                  boolean read,
-                                                                  NonblockingStoreRequest storeRequest) {
-        PerformParallelRequests action = createAction(new PerformParallelRequests(),
-                                                      pipelineData,
-                                                      read,
-                                                      Event.NOP);
-        action.setStoreRequest(storeRequest);
-        return action;
-    }
-
-    private ReadRepair createReadRepair(BasicPipelineData pipelineData, Event completeEvent) {
-        ReadRepair action = createReadAction(new ReadRepair(), pipelineData, completeEvent);
-        action.setReadRepairer(readRepairer);
-        return action;
-    }
-
-    private UpdateResults createUpdateResults(BasicPipelineData pipelineData) {
-        UpdateResults action = createAction(new UpdateResults(), pipelineData, true, Event.STOPPED);
-        return action;
-    }
-
-    private <S extends PipelineData, A extends AbstractAction<S>> A createAction(A action,
-                                                                                 S pipelineData,
-                                                                                 boolean read,
-                                                                                 Event completeEvent) {
-        action.setPipelineData(pipelineData);
-        action.setCompleteEvent(completeEvent);
-        action.setFailureDetector(failureDetector);
-        action.setNonblockingStores(nonblockingStores);
-        action.setPreferred(read ? storeDef.getPreferredReads() : storeDef.getPreferredWrites());
-        action.setRequired(read ? storeDef.getRequiredReads() : storeDef.getRequiredWrites());
-        action.setStores(innerStores);
-        action.setTime(time);
-        return action;
-    }
-
-    private <S extends PipelineData, A extends AbstractAction<S>> A createWriteAction(A action,
-                                                                                      S pipelineData,
-                                                                                      Event completeEvent) {
-        return createAction(action, pipelineData, false, completeEvent);
-    }
-
-    private <S extends PipelineData, A extends AbstractAction<S>> A createReadAction(A action,
-                                                                                     S pipelineData,
-                                                                                     Event completeEvent) {
-        return createAction(action, pipelineData, true, completeEvent);
     }
 
     private final class GetAllCallable implements Callable<GetAllResult> {

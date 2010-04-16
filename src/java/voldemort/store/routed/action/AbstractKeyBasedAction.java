@@ -17,18 +17,15 @@
 package voldemort.store.routed.action;
 
 import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
 public abstract class AbstractKeyBasedAction<T extends PipelineData> extends AbstractAction<T> {
 
-    protected ByteArray key;
+    protected final ByteArray key;
 
-    public ByteArray getKey() {
-        return key;
-    }
-
-    public void setKey(ByteArray key) {
+    protected AbstractKeyBasedAction(T pipelineData, Event completeEvent, ByteArray key) {
+        super(pipelineData, completeEvent);
         this.key = key;
     }
-
 }

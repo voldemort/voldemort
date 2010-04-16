@@ -17,21 +17,30 @@
 package voldemort.store.routed.action;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 
 public class PerformParallelRequests extends AbstractAction<BasicPipelineData> {
 
-    private NonblockingStoreRequest storeRequest;
+    protected final int preferred;
 
-    public NonblockingStoreRequest getStoreRequest() {
-        return storeRequest;
-    }
+    protected final Map<Integer, NonblockingStore> nonblockingStores;
 
-    public void setStoreRequest(NonblockingStoreRequest storeRequest) {
+    protected final NonblockingStoreRequest storeRequest;
+
+    public PerformParallelRequests(BasicPipelineData pipelineData,
+                                   Event completeEvent,
+                                   int preferred,
+                                   Map<Integer, NonblockingStore> nonblockingStores,
+                                   NonblockingStoreRequest storeRequest) {
+        super(pipelineData, completeEvent);
+        this.preferred = preferred;
+        this.nonblockingStores = nonblockingStores;
         this.storeRequest = storeRequest;
     }
 

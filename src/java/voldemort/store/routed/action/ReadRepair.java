@@ -30,6 +30,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.ReadRepairer;
 import voldemort.store.routed.RequestCompletedCallback;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -38,20 +39,27 @@ import com.google.common.collect.Lists;
 
 public class ReadRepair extends AbstractAction<BasicPipelineData> {
 
-    private ReadRepairer<ByteArray, byte[]> readRepairer;
+    protected final int preferred;
 
-    public ReadRepairer<ByteArray, byte[]> getReadRepairer() {
-        return readRepairer;
-    }
+    protected final Map<Integer, NonblockingStore> nonblockingStores;
 
-    public void setReadRepairer(ReadRepairer<ByteArray, byte[]> readRepairer) {
+    protected final ReadRepairer<ByteArray, byte[]> readRepairer;
+
+    public ReadRepair(BasicPipelineData pipelineData,
+                      Event completeEvent,
+                      int preferred,
+                      Map<Integer, NonblockingStore> nonblockingStores,
+                      ReadRepairer<ByteArray, byte[]> readRepairer) {
+        super(pipelineData, completeEvent);
+        this.preferred = preferred;
+        this.nonblockingStores = nonblockingStores;
         this.readRepairer = readRepairer;
     }
 
     @SuppressWarnings("unchecked")
     public void execute(Pipeline pipeline, Object eventData) {
         List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getInterimResults()
-                                                                                                    .size());
+                                                                                                       .size());
         Map<Integer, Node> nodes = new HashMap<Integer, Node>();
 
         for(RequestCompletedCallback rcc: pipelineData.getInterimResults()) {

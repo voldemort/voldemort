@@ -20,6 +20,7 @@ import org.apache.log4j.Level;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
@@ -29,15 +30,26 @@ import voldemort.store.routed.Pipeline.Event;
 
 public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
 
-    private Event insufficientSuccessesEvent;
+    protected final FailureDetector failureDetector;
 
-    private boolean isComplete;
+    protected final int preferred;
 
-    public Event getInsufficientSuccessesEvent() {
-        return insufficientSuccessesEvent;
-    }
+    protected final int required;
 
-    public void setInsufficientSuccessesEvent(Event insufficientSuccessesEvent) {
+    protected final Event insufficientSuccessesEvent;
+
+    protected boolean isComplete;
+
+    public AcknowledgeResponse(BasicPipelineData pipelineData,
+                               Event completeEvent,
+                               FailureDetector failureDetector,
+                               int preferred,
+                               int required,
+                               Event insufficientSuccessesEvent) {
+        super(pipelineData, completeEvent);
+        this.failureDetector = failureDetector;
+        this.preferred = preferred;
+        this.required = required;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 

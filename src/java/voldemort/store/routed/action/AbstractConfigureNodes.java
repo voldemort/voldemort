@@ -20,20 +20,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
 public abstract class AbstractConfigureNodes<T extends PipelineData> extends AbstractAction<T> {
 
-    private RoutingStrategy routingStrategy;
+    protected final FailureDetector failureDetector;
 
-    public RoutingStrategy getRoutingStrategy() {
-        return routingStrategy;
-    }
+    protected final int required;
 
-    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
+    protected final RoutingStrategy routingStrategy;
+
+    protected AbstractConfigureNodes(T pipelineData,
+                                     Event completeEvent,
+                                     FailureDetector failureDetector,
+                                     int required,
+                                     RoutingStrategy routingStrategy) {
+        super(pipelineData, completeEvent);
+        this.failureDetector = failureDetector;
+        this.required = required;
         this.routingStrategy = routingStrategy;
     }
 

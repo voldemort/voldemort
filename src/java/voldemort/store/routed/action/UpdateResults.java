@@ -23,8 +23,17 @@ import java.util.List;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.RequestCompletedCallback;
+import voldemort.store.routed.Pipeline.Event;
 
 public class UpdateResults extends AbstractAction<BasicPipelineData> {
+
+    public UpdateResults(BasicPipelineData pipelineData) {
+        this(pipelineData, Event.STOPPED);
+    }
+
+    public UpdateResults(BasicPipelineData pipelineData, Event completeEvent) {
+        super(pipelineData, completeEvent);
+    }
 
     public void execute(Pipeline pipeline, Object eventData) {
         List<Object> results = new ArrayList<Object>();

@@ -17,6 +17,7 @@
 package voldemort.store.routed.action;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -24,9 +25,21 @@ import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.PutPipelineData;
+import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 public class PerformParallelPutRequests extends AbstractKeyBasedAction<PutPipelineData> {
+
+    protected final Map<Integer, NonblockingStore> nonblockingStores;
+
+    public PerformParallelPutRequests(PutPipelineData pipelineData,
+                                      Event completeEvent,
+                                      ByteArray key,
+                                      Map<Integer, NonblockingStore> nonblockingStores) {
+        super(pipelineData, completeEvent, key);
+        this.nonblockingStores = nonblockingStores;
+    }
 
     public void execute(Pipeline pipeline, Object eventData) {
         Node master = pipelineData.getMaster();

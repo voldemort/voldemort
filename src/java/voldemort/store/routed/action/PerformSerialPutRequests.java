@@ -17,37 +17,51 @@
 package voldemort.store.routed.action;
 
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class PerformSerialPutRequests extends AbstractKeyBasedAction<PutPipelineData> {
 
-    private Versioned<byte[]> versioned;
+    protected final FailureDetector failureDetector;
 
-    private Event masterDeterminedEvent;
+    protected final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public Versioned<byte[]> getVersioned() {
-        return versioned;
-    }
+    protected final int required;
 
-    public void setVersioned(Versioned<byte[]> versioned) {
+    protected final Versioned<byte[]> versioned;
+
+    protected final Time time;
+
+    protected final Event masterDeterminedEvent;
+
+    public PerformSerialPutRequests(PutPipelineData pipelineData,
+                                    Event completeEvent,
+                                    ByteArray key,
+                                    FailureDetector failureDetector,
+                                    Map<Integer, Store<ByteArray, byte[]>> stores,
+                                    int required,
+                                    Versioned<byte[]> versioned,
+                                    Time time,
+                                    Event masterDeterminedEvent) {
+        super(pipelineData, completeEvent, key);
+        this.failureDetector = failureDetector;
+        this.stores = stores;
+        this.required = required;
         this.versioned = versioned;
-    }
-
-    public Event getMasterDeterminedEvent() {
-        return masterDeterminedEvent;
-    }
-
-    public void setMasterDeterminedEvent(Event masterDeterminedEvent) {
+        this.time = time;
         this.masterDeterminedEvent = masterDeterminedEvent;
     }
 

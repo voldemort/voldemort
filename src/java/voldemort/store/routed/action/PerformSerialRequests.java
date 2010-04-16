@@ -17,11 +17,13 @@
 package voldemort.store.routed.action;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Level;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -34,23 +36,33 @@ import voldemort.utils.Time;
 
 public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineData> {
 
-    private BlockingStoreRequest storeRequest;
+    protected final FailureDetector failureDetector;
 
-    private Event insufficientSuccessesEvent;
+    protected final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    public BlockingStoreRequest getStoreRequest() {
-        return storeRequest;
-    }
+    protected final int preferred;
 
-    public void setStoreRequest(BlockingStoreRequest storeRequest) {
+    protected final int required;
+
+    protected final BlockingStoreRequest storeRequest;
+
+    protected final Event insufficientSuccessesEvent;
+
+    public PerformSerialRequests(BasicPipelineData pipelineData,
+                                 Event completeEvent,
+                                 ByteArray key,
+                                 FailureDetector failureDetector,
+                                 Map<Integer, Store<ByteArray, byte[]>> stores,
+                                 int preferred,
+                                 int required,
+                                 BlockingStoreRequest storeRequest,
+                                 Event insufficientSuccessesEvent) {
+        super(pipelineData, completeEvent, key);
+        this.failureDetector = failureDetector;
+        this.stores = stores;
+        this.preferred = preferred;
+        this.required = required;
         this.storeRequest = storeRequest;
-    }
-
-    public Event getInsufficientSuccessesEvent() {
-        return insufficientSuccessesEvent;
-    }
-
-    public void setInsufficientSuccessesEvent(Event insufficientSuccessesEvent) {
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
@@ -100,13 +112,13 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineD
                 pipeline.addEvent(insufficientSuccessesEvent);
             } else {
                 pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                          + " "
-                                                                                          + pipeline.getOperation()
-                                                                                                    .getSimpleName()
-                                                                                          + "s required, but "
-                                                                                          + pipelineData.getSuccesses()
-                                                                                          + " succeeded",
-                                                                                  pipelineData.getFailures()));
+                                                                                             + " "
+                                                                                             + pipeline.getOperation()
+                                                                                                       .getSimpleName()
+                                                                                             + "s required, but "
+                                                                                             + pipelineData.getSuccesses()
+                                                                                             + " succeeded",
+                                                                                     pipelineData.getFailures()));
 
                 pipeline.addEvent(Event.ERROR);
             }

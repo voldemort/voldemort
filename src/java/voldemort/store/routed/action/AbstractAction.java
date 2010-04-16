@@ -16,100 +16,22 @@
 
 package voldemort.store.routed.action;
 
-import java.util.Map;
-
 import org.apache.log4j.Logger;
 
-import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.store.Store;
-import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
-import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 
 public abstract class AbstractAction<T extends PipelineData> implements Action {
 
-    protected T pipelineData;
+    protected final T pipelineData;
 
-    protected FailureDetector failureDetector;
-
-    protected int preferred;
-
-    protected int required;
-
-    protected Map<Integer, NonblockingStore> nonblockingStores;
-
-    protected Map<Integer, Store<ByteArray, byte[]>> stores;
-
-    protected Event completeEvent;
-
-    protected Time time;
+    protected final Event completeEvent;
 
     protected final Logger logger = Logger.getLogger(getClass());
 
-    public T getPipelineData() {
-        return pipelineData;
-    }
-
-    public void setPipelineData(T pipelineData) {
+    protected AbstractAction(T pipelineData, Event completeEvent) {
         this.pipelineData = pipelineData;
-    }
-
-    public FailureDetector getFailureDetector() {
-        return failureDetector;
-    }
-
-    public void setFailureDetector(FailureDetector failureDetector) {
-        this.failureDetector = failureDetector;
-    }
-
-    public int getPreferred() {
-        return preferred;
-    }
-
-    public void setPreferred(int preferred) {
-        this.preferred = preferred;
-    }
-
-    public int getRequired() {
-        return required;
-    }
-
-    public void setRequired(int required) {
-        this.required = required;
-    }
-
-    public Map<Integer, NonblockingStore> getNonblockingStores() {
-        return nonblockingStores;
-    }
-
-    public void setNonblockingStores(Map<Integer, NonblockingStore> nonblockingStores) {
-        this.nonblockingStores = nonblockingStores;
-    }
-
-    public Map<Integer, Store<ByteArray, byte[]>> getStores() {
-        return stores;
-    }
-
-    public void setStores(Map<Integer, Store<ByteArray, byte[]>> stores) {
-        this.stores = stores;
-    }
-
-    public Event getCompleteEvent() {
-        return completeEvent;
-    }
-
-    public void setCompleteEvent(Event completeEvent) {
         this.completeEvent = completeEvent;
-    }
-
-    public Time getTime() {
-        return time;
-    }
-
-    public void setTime(Time time) {
-        this.time = time;
     }
 
 }
