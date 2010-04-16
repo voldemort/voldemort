@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +50,15 @@ public class GetAllReadRepair
                 List<Versioned<byte[]>> value = entry.getValue();
                 insertNodeValue(response.getNode(), key, value);
             }
+
+            for(ByteArray key: response.getKey()) {
+                if(!responseValue.containsKey(key)) {
+                    insertNodeValue(response.getNode(),
+                                    key,
+                                    Collections.<Versioned<byte[]>> emptyList());
+                }
+            }
         }
     }
+
 }
