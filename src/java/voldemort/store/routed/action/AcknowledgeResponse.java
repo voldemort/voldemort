@@ -27,8 +27,10 @@ import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
 
-public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends AbstractAction<V, PD> {
+public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
+        AbstractAction<ByteArray, V, PD> {
 
     protected final FailureDetector failureDetector;
 
@@ -55,7 +57,7 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends Abs
 
     @SuppressWarnings("unchecked")
     public void execute(Pipeline pipeline, Object eventData) {
-        Response<V> response = (Response<V>) eventData;
+        Response<ByteArray, V> response = (Response<ByteArray, V>) eventData;
         pipelineData.incrementCompleted();
 
         if(response.getValue() instanceof Exception) {

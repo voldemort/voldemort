@@ -33,7 +33,8 @@ import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class PerformSerialPutRequests extends AbstractKeyBasedAction<Void, PutPipelineData> {
+public class PerformSerialPutRequests extends
+        AbstractKeyBasedAction<ByteArray, Void, PutPipelineData> {
 
     protected final FailureDetector failureDetector;
 

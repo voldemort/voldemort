@@ -150,9 +150,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
 
             public void request(Node node, NonblockingStore store) {
-                final NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
-                                                                                                    node,
-                                                                                                    key);
+                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                         node,
+                                                                                         key);
                 store.submitGetRequest(key, callback);
             }
 
@@ -220,7 +220,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>();
 
-        for(Response<List<Versioned<byte[]>>> response: pipelineData.getResponses())
+        for(Response<ByteArray, List<Versioned<byte[]>>> response: pipelineData.getResponses())
             results.addAll(response.getValue());
 
         return results;
@@ -377,9 +377,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
 
             public void request(Node node, NonblockingStore store) {
-                final NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
-                                                                                                    node,
-                                                                                                    key);
+                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                         node,
+                                                                                         key);
                 store.submitGetVersionsRequest(key, callback);
             }
 
@@ -417,7 +417,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         List<Version> results = new ArrayList<Version>();
 
-        for(Response<List<Version>> response: pipelineData.getResponses())
+        for(Response<ByteArray, List<Version>> response: pipelineData.getResponses())
             results.addAll(response.getValue());
 
         return results;
@@ -432,9 +432,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
 
             public void request(Node node, NonblockingStore store) {
-                final NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
-                                                                                                    node,
-                                                                                                    key);
+                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                         node,
+                                                                                         key);
                 store.submitDeleteRequest(key, version, callback);
             }
 
@@ -488,7 +488,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
 
-        for(Response<Boolean> response: pipelineData.getResponses()) {
+        for(Response<ByteArray, Boolean> response: pipelineData.getResponses()) {
             if(response.getValue().booleanValue())
                 return true;
         }

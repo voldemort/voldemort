@@ -25,9 +25,9 @@ import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
+import voldemort.store.routed.BasicResponseCallback;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.ReadRepairer;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
@@ -38,7 +38,7 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 
 public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> extends
-        AbstractAction<List<Versioned<byte[]>>, PD> {
+        AbstractAction<ByteArray, List<Versioned<byte[]>>, PD> {
 
     protected final int preferred;
 
@@ -62,7 +62,7 @@ public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> e
                                                                                                        .size());
         Map<Integer, Node> nodes = new HashMap<Integer, Node>();
 
-        for(Response<List<Versioned<byte[]>>> response: pipelineData.getResponses()) {
+        for(Response<ByteArray, List<Versioned<byte[]>>> response: pipelineData.getResponses()) {
             List<Versioned<byte[]>> result = response.getValue();
 
             if(result.size() == 0) {
@@ -103,9 +103,9 @@ public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> e
 
                     Node node = nodes.get(v.getNodeId());
                     NonblockingStore store = nonblockingStores.get(node.getId());
-                    NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
-                                                                                                  node,
-                                                                                                  v.getKey());
+                    NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                             node,
+                                                                                             v.getKey());
                     store.submitPutRequest(v.getKey(), v.getVersioned(), callback);
                 } catch(VoldemortApplicationException e) {
                     if(logger.isDebugEnabled())

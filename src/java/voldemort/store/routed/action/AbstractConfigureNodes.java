@@ -27,8 +27,8 @@ import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
-public abstract class AbstractConfigureNodes<V, PD extends PipelineData<V>> extends
-        AbstractAction<V, PD> {
+public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>> extends
+        AbstractAction<K, V, PD> {
 
     protected final FailureDetector failureDetector;
 

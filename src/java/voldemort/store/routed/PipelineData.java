@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.VoldemortException;
 
-public abstract class PipelineData<V> {
+public abstract class PipelineData<K, V> {
 
-    private final List<Response<V>> responses;
+    private final List<Response<K, V>> responses;
 
     protected final List<Exception> failures;
 
@@ -37,13 +37,13 @@ public abstract class PipelineData<V> {
     protected VoldemortException fatalError;
 
     public PipelineData() {
-        this.responses = new ArrayList<Response<V>>();
+        this.responses = new ArrayList<Response<K, V>>();
         this.failures = Collections.synchronizedList(new LinkedList<Exception>());
         this.attempts = new AtomicInteger(0);
         this.completed = new AtomicInteger(0);
     }
 
-    public List<Response<V>> getResponses() {
+    public List<Response<K, V>> getResponses() {
         return responses;
     }
 

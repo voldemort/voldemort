@@ -22,14 +22,15 @@ import java.util.Map;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.routed.BasicResponseCallback;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class PerformParallelPutRequests extends AbstractKeyBasedAction<Void, PutPipelineData> {
+public class PerformParallelPutRequests extends
+        AbstractKeyBasedAction<ByteArray, Void, PutPipelineData> {
 
     protected final Map<Integer, NonblockingStore> nonblockingStores;
 
@@ -58,9 +59,9 @@ public class PerformParallelPutRequests extends AbstractKeyBasedAction<Void, Put
             Node node = nodes.get(currentNode);
             NonblockingStore store = nonblockingStores.get(node.getId());
 
-            NonblockingStoreCallback callback = new PipelineEventNonblockingStoreCallback(pipeline,
-                                                                                          node,
-                                                                                          key);
+            NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                     node,
+                                                                                     key);
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting request to put on node " + node.getId());

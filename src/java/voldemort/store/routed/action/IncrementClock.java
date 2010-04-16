@@ -19,11 +19,12 @@ package voldemort.store.routed.action;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class IncrementClock extends AbstractAction<Void, PutPipelineData> {
+public class IncrementClock extends AbstractAction<ByteArray, Void, PutPipelineData> {
 
     protected final Versioned<byte[]> versioned;
 

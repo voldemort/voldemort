@@ -35,7 +35,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
 public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
-        AbstractKeyBasedAction<V, PD> {
+        AbstractKeyBasedAction<ByteArray, V, PD> {
 
     protected final FailureDetector failureDetector;
 
@@ -80,10 +80,10 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                 Store<ByteArray, byte[]> store = stores.get(node.getId());
                 V result = storeRequest.request(node, store);
 
-                Response<V> response = new Response<V>(node,
-                                                       key,
-                                                       result,
-                                                       ((System.nanoTime() - start) / Time.NS_PER_MS));
+                Response<ByteArray, V> response = new Response<ByteArray, V>(node,
+                                                                             key,
+                                                                             result,
+                                                                             ((System.nanoTime() - start) / Time.NS_PER_MS));
 
                 pipelineData.incrementSuccesses();
                 pipelineData.getResponses().add(response);

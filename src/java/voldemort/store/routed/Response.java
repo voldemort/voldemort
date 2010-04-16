@@ -17,19 +17,18 @@
 package voldemort.store.routed;
 
 import voldemort.cluster.Node;
-import voldemort.utils.ByteArray;
 
-public class Response<V> {
+public class Response<K, V> {
 
     private final Node node;
 
-    private final ByteArray key;
+    private final K key;
 
     private final V value;
 
     private final long requestTime;
 
-    public Response(Node node, ByteArray key, V value, long requestTime) {
+    public Response(Node node, K key, V value, long requestTime) {
         this.node = node;
         this.key = key;
         this.value = value;
@@ -40,7 +39,7 @@ public class Response<V> {
         return node;
     }
 
-    public ByteArray getKey() {
+    public K getKey() {
         return key;
     }
 

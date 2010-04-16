@@ -20,8 +20,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
+import voldemort.utils.ByteArray;
 
-public class BasicPipelineData<V> extends PipelineData<V> {
+public class BasicPipelineData<V> extends PipelineData<ByteArray, V> {
 
     private List<Node> nodes;
 

@@ -32,8 +32,9 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class GetAllConfigureNodes extends
-        AbstractConfigureNodes<Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
+public class GetAllConfigureNodes
+        extends
+        AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
     protected final int preferred;
 

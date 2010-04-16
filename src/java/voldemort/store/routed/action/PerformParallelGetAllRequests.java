@@ -16,18 +16,23 @@
 
 package voldemort.store.routed.action;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.routed.BasicPipelineData;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.routed.BasicResponseCallback;
+import voldemort.store.routed.GetAllPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
-public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
-        AbstractAction<ByteArray, V, PD> {
+public class PerformParallelGetAllRequests
+        extends
+        AbstractAction<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
     protected final int preferred;
 
@@ -35,11 +40,11 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
     protected final NonblockingStoreRequest storeRequest;
 
-    public PerformParallelRequests(PD pipelineData,
-                                   Event completeEvent,
-                                   int preferred,
-                                   Map<Integer, NonblockingStore> nonblockingStores,
-                                   NonblockingStoreRequest storeRequest) {
+    public PerformParallelGetAllRequests(GetAllPipelineData pipelineData,
+                                         Event completeEvent,
+                                         int preferred,
+                                         Map<Integer, NonblockingStore> nonblockingStores,
+                                         NonblockingStoreRequest storeRequest) {
         super(pipelineData, completeEvent);
         this.preferred = preferred;
         this.nonblockingStores = nonblockingStores;
@@ -47,8 +52,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
-        List<Node> nodes = pipelineData.getNodes();
-        pipelineData.setAttempts(nodes.size());
+        pipelineData.setAttempts(pipelineData.getNodeToKeysMap().size());
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + pipelineData.getAttempts() + " "
@@ -57,10 +61,19 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         if(preferred <= 0 && completeEvent != null)
             pipeline.addEvent(completeEvent);
 
-        for(Node node: nodes) {
-            pipelineData.incrementNodeIndex();
+        for(Map.Entry<Node, List<ByteArray>> entry: pipelineData.getNodeToKeysMap().entrySet()) {
+            Node node = entry.getKey();
+            Collection<ByteArray> keys = entry.getValue();
             NonblockingStore store = nonblockingStores.get(node.getId());
-            storeRequest.request(node, store);
+
+            NonblockingStoreCallback callback = new BasicResponseCallback<Iterable<ByteArray>>(pipeline,
+                                                                                               node,
+                                                                                               keys);
+
+            if(logger.isTraceEnabled())
+                logger.trace("Submitting request to getAll on node " + node.getId());
+
+            store.submitGetAllRequest(keys, callback);
         }
     }
 

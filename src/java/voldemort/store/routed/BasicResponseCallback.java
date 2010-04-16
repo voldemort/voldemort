@@ -20,29 +20,24 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline.Event;
-import voldemort.utils.ByteArray;
 
-public class PipelineEventNonblockingStoreCallback implements NonblockingStoreCallback {
+public class BasicResponseCallback<K> implements NonblockingStoreCallback {
 
     private final Pipeline pipeline;
 
     private final Node node;
 
-    private final ByteArray key;
+    private final K key;
 
-    public PipelineEventNonblockingStoreCallback(Pipeline pipeline, Node node, ByteArray key) {
+    public BasicResponseCallback(Pipeline pipeline, Node node, K key) {
         this.pipeline = pipeline;
         this.node = node;
         this.key = key;
     }
 
     public void requestComplete(Object result, long requestTime) throws VoldemortException {
-        Response<Object> requestCompletedCallback = new Response<Object>(node,
-                                                                                                         key,
-                                                                                                         result,
-                                                                                                         requestTime);
-
-        pipeline.addEvent(Event.RESPONSE_RECEIVED, requestCompletedCallback);
+        Response<K, Object> response = new Response<K, Object>(node, key, result, requestTime);
+        pipeline.addEvent(Event.RESPONSE_RECEIVED, response);
     }
 
 }
