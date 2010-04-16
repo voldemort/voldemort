@@ -25,10 +25,10 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.RequestCompletedCallback;
+import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 
-public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
+public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends AbstractAction<PD> {
 
     protected final FailureDetector failureDetector;
 
@@ -40,7 +40,7 @@ public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
 
     protected boolean isComplete;
 
-    public AcknowledgeResponse(BasicPipelineData pipelineData,
+    public AcknowledgeResponse(PD pipelineData,
                                Event completeEvent,
                                FailureDetector failureDetector,
                                int preferred,
@@ -53,14 +53,15 @@ public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
+    @SuppressWarnings("unchecked")
     public void execute(Pipeline pipeline, Object eventData) {
-        RequestCompletedCallback rcc = (RequestCompletedCallback) eventData;
+        Response<V> response = (Response<V>) eventData;
         pipelineData.incrementCompleted();
 
-        if(rcc.getResult() instanceof Exception) {
-            Node node = rcc.getNode();
-            Exception e = (Exception) rcc.getResult();
-            long requestTime = rcc.getRequestTime();
+        if(response.getValue() instanceof Exception) {
+            Node node = response.getNode();
+            Exception e = (Exception) response.getValue();
+            long requestTime = response.getRequestTime();
 
             if(e instanceof UnreachableStoreException) {
                 pipelineData.recordFailure(e);
@@ -78,8 +79,8 @@ public class AcknowledgeResponse extends AbstractAction<BasicPipelineData> {
             }
         } else {
             pipelineData.incrementSuccesses();
-            pipelineData.getInterimResults().add(rcc);
-            failureDetector.recordSuccess(rcc.getNode(), rcc.getRequestTime());
+            pipelineData.getResponses().add(response);
+            failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
         }
 
         if(logger.isDebugEnabled())

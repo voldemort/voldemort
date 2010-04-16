@@ -39,7 +39,6 @@ public class Pipeline {
         RESPONSES_RECEIVED,
         NOP,
         ERROR,
-        STOPPED,
         MASTER_DETERMINED;
 
     }
@@ -130,7 +129,7 @@ public class Pipeline {
                                  + " request, events complete due to error");
 
                 break;
-            } else if(eventData.event.equals(Event.STOPPED)) {
+            } else if(eventData.event.equals(Event.COMPLETED)) {
                 if(logger.isTraceEnabled())
                     logger.trace(operation.getSimpleName() + " request, events complete");
 

@@ -29,12 +29,13 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.RequestCompletedCallback;
+import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
-public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineData> {
+public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
+        AbstractKeyBasedAction<PD> {
 
     protected final FailureDetector failureDetector;
 
@@ -44,18 +45,18 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineD
 
     protected final int required;
 
-    protected final BlockingStoreRequest storeRequest;
+    protected final BlockingStoreRequest<V> storeRequest;
 
     protected final Event insufficientSuccessesEvent;
 
-    public PerformSerialRequests(BasicPipelineData pipelineData,
+    public PerformSerialRequests(PD pipelineData,
                                  Event completeEvent,
                                  ByteArray key,
                                  FailureDetector failureDetector,
                                  Map<Integer, Store<ByteArray, byte[]>> stores,
                                  int preferred,
                                  int required,
-                                 BlockingStoreRequest storeRequest,
+                                 BlockingStoreRequest<V> storeRequest,
                                  Event insufficientSuccessesEvent) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
@@ -77,16 +78,16 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineD
 
             try {
                 Store<ByteArray, byte[]> store = stores.get(node.getId());
-                Object result = storeRequest.request(node, store);
+                V result = storeRequest.request(node, store);
 
-                RequestCompletedCallback rcc = new RequestCompletedCallback(node,
-                                                                            key,
-                                                                            ((System.nanoTime() - start) / Time.NS_PER_MS),
-                                                                            result);
+                Response<V> response = new Response<V>(node,
+                                                       key,
+                                                       result,
+                                                       ((System.nanoTime() - start) / Time.NS_PER_MS));
 
                 pipelineData.incrementSuccesses();
-                pipelineData.getInterimResults().add(rcc);
-                failureDetector.recordSuccess(rcc.getNode(), rcc.getRequestTime());
+                pipelineData.getResponses().add(response);
+                failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
             } catch(UnreachableStoreException e) {
                 pipelineData.recordFailure(e);
                 failureDetector.recordException(node,
@@ -127,9 +128,9 @@ public class PerformSerialRequests extends AbstractKeyBasedAction<BasicPipelineD
         }
     }
 
-    public interface BlockingStoreRequest {
+    public interface BlockingStoreRequest<V> {
 
-        public Object request(Node node, Store<ByteArray, byte[]> store);
+        public V request(Node node, Store<ByteArray, byte[]> store);
 
     }
 

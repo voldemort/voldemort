@@ -37,10 +37,10 @@ public class PipelineEventNonblockingStoreCallback implements NonblockingStoreCa
     }
 
     public void requestComplete(Object result, long requestTime) throws VoldemortException {
-        RequestCompletedCallback requestCompletedCallback = new RequestCompletedCallback(node,
-                                                                                         key,
-                                                                                         requestTime,
-                                                                                         result);
+        Response<Object> requestCompletedCallback = new Response<Object>(node,
+                                                                                                         key,
+                                                                                                         result,
+                                                                                                         requestTime);
 
         pipeline.addEvent(Event.RESPONSE_RECEIVED, requestCompletedCallback);
     }

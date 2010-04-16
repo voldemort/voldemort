@@ -19,21 +19,21 @@ package voldemort.store.routed;
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
 
-public class RequestCompletedCallback {
+public class Response<V> {
 
     private final Node node;
 
     private final ByteArray key;
 
+    private final V value;
+
     private final long requestTime;
 
-    private final Object result;
-
-    public RequestCompletedCallback(Node node, ByteArray key, long requestTime, Object result) {
+    public Response(Node node, ByteArray key, V value, long requestTime) {
         this.node = node;
         this.key = key;
+        this.value = value;
         this.requestTime = requestTime;
-        this.result = result;
     }
 
     public Node getNode() {
@@ -44,12 +44,12 @@ public class RequestCompletedCallback {
         return key;
     }
 
-    public long getRequestTime() {
-        return requestTime;
+    public V getValue() {
+        return value;
     }
 
-    public Object getResult() {
-        return result;
+    public long getRequestTime() {
+        return requestTime;
     }
 
 }

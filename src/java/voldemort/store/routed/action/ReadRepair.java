@@ -29,7 +29,7 @@ import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PipelineEventNonblockingStoreCallback;
 import voldemort.store.routed.ReadRepairer;
-import voldemort.store.routed.RequestCompletedCallback;
+import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
@@ -37,7 +37,8 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-public class ReadRepair extends AbstractAction<BasicPipelineData> {
+public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> extends
+        AbstractAction<PD> {
 
     protected final int preferred;
 
@@ -45,7 +46,7 @@ public class ReadRepair extends AbstractAction<BasicPipelineData> {
 
     protected final ReadRepairer<ByteArray, byte[]> readRepairer;
 
-    public ReadRepair(BasicPipelineData pipelineData,
+    public ReadRepair(PD pipelineData,
                       Event completeEvent,
                       int preferred,
                       Map<Integer, NonblockingStore> nonblockingStores,
@@ -56,27 +57,26 @@ public class ReadRepair extends AbstractAction<BasicPipelineData> {
         this.readRepairer = readRepairer;
     }
 
-    @SuppressWarnings("unchecked")
     public void execute(Pipeline pipeline, Object eventData) {
-        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getInterimResults()
+        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getResponses()
                                                                                                        .size());
         Map<Integer, Node> nodes = new HashMap<Integer, Node>();
 
-        for(RequestCompletedCallback rcc: pipelineData.getInterimResults()) {
-            List<Versioned<byte[]>> result = (List<Versioned<byte[]>>) rcc.getResult();
+        for(Response<List<Versioned<byte[]>>> response: pipelineData.getResponses()) {
+            List<Versioned<byte[]>> result = response.getValue();
 
             if(result.size() == 0) {
-                nodeValues.add(new NodeValue<ByteArray, byte[]>(rcc.getNode().getId(),
-                                                                rcc.getKey(),
+                nodeValues.add(new NodeValue<ByteArray, byte[]>(response.getNode().getId(),
+                                                                response.getKey(),
                                                                 new Versioned<byte[]>(null)));
             } else {
                 for(Versioned<byte[]> versioned: result)
-                    nodeValues.add(new NodeValue<ByteArray, byte[]>(rcc.getNode().getId(),
-                                                                    rcc.getKey(),
+                    nodeValues.add(new NodeValue<ByteArray, byte[]>(response.getNode().getId(),
+                                                                    response.getKey(),
                                                                     versioned));
             }
 
-            nodes.put(rcc.getNode().getId(), rcc.getNode());
+            nodes.put(response.getNode().getId(), response.getNode());
         }
 
         if(nodeValues.size() > 1 && preferred > 1) {

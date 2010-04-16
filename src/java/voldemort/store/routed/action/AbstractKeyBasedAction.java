@@ -20,11 +20,11 @@ import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
-public abstract class AbstractKeyBasedAction<T extends PipelineData> extends AbstractAction<T> {
+public abstract class AbstractKeyBasedAction<PD extends PipelineData> extends AbstractAction<PD> {
 
     protected final ByteArray key;
 
-    protected AbstractKeyBasedAction(T pipelineData, Event completeEvent, ByteArray key) {
+    protected AbstractKeyBasedAction(PD pipelineData, Event completeEvent, ByteArray key) {
         super(pipelineData, completeEvent);
         this.key = key;
     }

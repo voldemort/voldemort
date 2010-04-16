@@ -21,15 +21,15 @@ import org.apache.log4j.Logger;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
 
-public abstract class AbstractAction<T extends PipelineData> implements Action {
+public abstract class AbstractAction<PD extends PipelineData> implements Action {
 
-    protected final T pipelineData;
+    protected final PD pipelineData;
 
     protected final Event completeEvent;
 
     protected final Logger logger = Logger.getLogger(getClass());
 
-    protected AbstractAction(T pipelineData, Event completeEvent) {
+    protected AbstractAction(PD pipelineData, Event completeEvent) {
         this.pipelineData = pipelineData;
         this.completeEvent = completeEvent;
     }

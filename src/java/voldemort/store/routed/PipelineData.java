@@ -25,32 +25,18 @@ import voldemort.VoldemortException;
 
 public abstract class PipelineData {
 
-    private Object results;
+    protected final List<Exception> failures;
 
-    private final List<Exception> failures;
+    protected final AtomicInteger attempts;
 
-    private final AtomicInteger attempts;
+    protected final AtomicInteger completed;
 
-    private final AtomicInteger completed;
-
-    private VoldemortException fatalError;
+    protected VoldemortException fatalError;
 
     public PipelineData() {
         this.failures = Collections.synchronizedList(new LinkedList<Exception>());
         this.attempts = new AtomicInteger(0);
         this.completed = new AtomicInteger(0);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> T get() {
-        if(fatalError != null)
-            throw fatalError;
-
-        return (T) results;
-    }
-
-    public <T> void setResults(T results) {
-        this.results = results;
     }
 
     public VoldemortException getFatalError() {

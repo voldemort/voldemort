@@ -25,7 +25,7 @@ import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 
-public class PerformParallelRequests extends AbstractAction<BasicPipelineData> {
+public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends AbstractAction<PD> {
 
     protected final int preferred;
 
@@ -33,7 +33,7 @@ public class PerformParallelRequests extends AbstractAction<BasicPipelineData> {
 
     protected final NonblockingStoreRequest storeRequest;
 
-    public PerformParallelRequests(BasicPipelineData pipelineData,
+    public PerformParallelRequests(PD pipelineData,
                                    Event completeEvent,
                                    int preferred,
                                    Map<Integer, NonblockingStore> nonblockingStores,

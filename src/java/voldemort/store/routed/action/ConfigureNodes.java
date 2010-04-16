@@ -27,11 +27,11 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
-public class ConfigureNodes extends AbstractConfigureNodes<BasicPipelineData> {
+public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends AbstractConfigureNodes<PD> {
 
     protected final ByteArray key;
 
-    public ConfigureNodes(BasicPipelineData pipelineData,
+    public ConfigureNodes(PD pipelineData,
                           Event completeEvent,
                           FailureDetector failureDetector,
                           int required,
