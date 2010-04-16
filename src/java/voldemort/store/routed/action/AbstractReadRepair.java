@@ -1,0 +1,127 @@
+/*
+ * Copyright 2010 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package voldemort.store.routed.action;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import voldemort.VoldemortApplicationException;
+import voldemort.cluster.Node;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.routed.BasicResponseCallback;
+import voldemort.store.routed.NodeValue;
+import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.PipelineData;
+import voldemort.store.routed.ReadRepairer;
+import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.ByteArray;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
+
+public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> extends
+        AbstractAction<K, V, PD> {
+
+    private final int preferred;
+
+    private final Map<Integer, NonblockingStore> nonblockingStores;
+
+    private final ReadRepairer<ByteArray, byte[]> readRepairer;
+
+    private final List<NodeValue<ByteArray, byte[]>> nodeValues;
+
+    private final Map<Integer, Node> nodes;
+
+    public AbstractReadRepair(PD pipelineData,
+                              Event completeEvent,
+                              int preferred,
+                              Map<Integer, NonblockingStore> nonblockingStores,
+                              ReadRepairer<ByteArray, byte[]> readRepairer) {
+        super(pipelineData, completeEvent);
+        this.preferred = preferred;
+        this.nonblockingStores = nonblockingStores;
+        this.readRepairer = readRepairer;
+        this.nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getResponses().size());
+        this.nodes = new HashMap<Integer, Node>();
+    }
+
+    protected abstract void init();
+
+    protected void insertNodeValue(Node node, ByteArray key, List<Versioned<byte[]>> value) {
+        if(value.size() == 0) {
+            Versioned<byte[]> versioned = new Versioned<byte[]>(null);
+            nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, versioned));
+        } else {
+            for(Versioned<byte[]> versioned: value)
+                nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, versioned));
+        }
+
+        nodes.put(node.getId(), node);
+    }
+
+    public void execute(Pipeline pipeline, Object eventData) {
+        init();
+
+        if(nodeValues.size() > 1 && preferred > 1) {
+            List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
+
+            /*
+             * We clone after computing read repairs in the assumption that the
+             * output will be smaller than the input. Note that we clone the
+             * version, but not the key or value as the latter two are not
+             * mutated.
+             */
+            for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
+                Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
+                                                              ((VectorClock) v.getVersion()).clone());
+                toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(),
+                                                                  v.getKey(),
+                                                                  versioned));
+            }
+
+            for(NodeValue<ByteArray, byte[]> v: toReadRepair) {
+                try {
+                    if(logger.isDebugEnabled())
+                        logger.debug("Doing read repair on node " + v.getNodeId() + " for key '"
+                                     + v.getKey() + "' with version " + v.getVersion() + ".");
+
+                    Node node = nodes.get(v.getNodeId());
+                    NonblockingStore store = nonblockingStores.get(node.getId());
+                    NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
+                                                                                             node,
+                                                                                             v.getKey());
+                    store.submitPutRequest(v.getKey(), v.getVersioned(), callback);
+                } catch(VoldemortApplicationException e) {
+                    if(logger.isDebugEnabled())
+                        logger.debug("Read repair cancelled due to application level exception on node "
+                                     + v.getNodeId()
+                                     + " for key '"
+                                     + v.getKey()
+                                     + "' with version " + v.getVersion() + ": " + e.getMessage());
+                } catch(Exception e) {
+                    logger.debug("Read repair failed: ", e);
+                }
+            }
+        }
+
+        pipeline.addEvent(completeEvent);
+    }
+
+}
