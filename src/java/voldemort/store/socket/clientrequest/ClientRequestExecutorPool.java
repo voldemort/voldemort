@@ -171,7 +171,7 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
 
             while((clientRequestExecutor = registrationQueue.poll()) != null) {
                 if(isClosed.get()) {
-                    if(logger.isInfoEnabled())
+                    if(logger.isDebugEnabled())
                         logger.debug("Closed, exiting");
 
                     break;
