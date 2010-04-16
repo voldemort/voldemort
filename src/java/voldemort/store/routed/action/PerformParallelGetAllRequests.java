@@ -38,17 +38,13 @@ public class PerformParallelGetAllRequests
 
     protected final Map<Integer, NonblockingStore> nonblockingStores;
 
-    protected final NonblockingStoreRequest storeRequest;
-
     public PerformParallelGetAllRequests(GetAllPipelineData pipelineData,
                                          Event completeEvent,
                                          int preferred,
-                                         Map<Integer, NonblockingStore> nonblockingStores,
-                                         NonblockingStoreRequest storeRequest) {
+                                         Map<Integer, NonblockingStore> nonblockingStores) {
         super(pipelineData, completeEvent);
         this.preferred = preferred;
         this.nonblockingStores = nonblockingStores;
-        this.storeRequest = storeRequest;
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
@@ -64,8 +60,6 @@ public class PerformParallelGetAllRequests
         for(Map.Entry<Node, List<ByteArray>> entry: pipelineData.getNodeToKeysMap().entrySet()) {
             Node node = entry.getKey();
             Collection<ByteArray> keys = entry.getValue();
-            NonblockingStore store = nonblockingStores.get(node.getId());
-
             NonblockingStoreCallback callback = new BasicResponseCallback<Iterable<ByteArray>>(pipeline,
                                                                                                node,
                                                                                                keys);
@@ -73,6 +67,7 @@ public class PerformParallelGetAllRequests
             if(logger.isTraceEnabled())
                 logger.trace("Submitting request to getAll on node " + node.getId());
 
+            NonblockingStore store = nonblockingStores.get(node.getId());
             store.submitGetAllRequest(keys, callback);
         }
     }

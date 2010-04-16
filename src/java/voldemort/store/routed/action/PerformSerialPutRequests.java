@@ -106,7 +106,9 @@ public class PerformSerialPutRequests extends
                 long requestTime = (System.nanoTime() - startNs) / Time.NS_PER_MS;
                 failureDetector.recordException(node, requestTime, e);
             } catch(VoldemortApplicationException e) {
-                throw e;
+                pipelineData.setFatalError(e);
+                pipeline.addEvent(Event.ERROR);
+                return;
             } catch(Exception e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Put on node " + node.getId() + " failed: " + e);

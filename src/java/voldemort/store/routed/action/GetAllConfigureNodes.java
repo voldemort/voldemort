@@ -100,6 +100,8 @@ public class GetAllConfigureNodes
 
         pipelineData.setKeyToExtraNodesMap(keyToExtraNodesMap);
         pipelineData.setNodeToKeysMap(nodeToKeysMap);
+
+        pipeline.addEvent(completeEvent);
     }
 
 }

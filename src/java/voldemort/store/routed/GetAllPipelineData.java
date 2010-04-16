@@ -16,8 +16,11 @@
 
 package voldemort.store.routed;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
@@ -34,6 +37,12 @@ public class GetAllPipelineData extends
     // failures during getAll
     private Map<ByteArray, List<Node>> keyToExtraNodesMap;
 
+    private final Map<ByteArray, MutableInt> keyToSuccessCount;
+
+    public GetAllPipelineData() {
+        keyToSuccessCount = new HashMap<ByteArray, MutableInt>();
+    }
+
     public Map<Node, List<ByteArray>> getNodeToKeysMap() {
         return nodeToKeysMap;
     }
@@ -48,6 +57,17 @@ public class GetAllPipelineData extends
 
     public void setKeyToExtraNodesMap(Map<ByteArray, List<Node>> keyToExtraNodesMap) {
         this.keyToExtraNodesMap = keyToExtraNodesMap;
+    }
+
+    public MutableInt getSuccessCount(ByteArray key) {
+        MutableInt value = keyToSuccessCount.get(key);
+
+        if(value == null) {
+            value = new MutableInt(0);
+            keyToSuccessCount.put(key, value);
+        }
+
+        return value;
     }
 
 }

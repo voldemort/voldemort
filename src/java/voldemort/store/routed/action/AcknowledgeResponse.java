@@ -16,13 +16,8 @@
 
 package voldemort.store.routed.action;
 
-import org.apache.log4j.Level;
-
-import voldemort.VoldemortApplicationException;
-import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
@@ -30,9 +25,7 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 
 public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
-        AbstractAction<ByteArray, V, PD> {
-
-    protected final FailureDetector failureDetector;
+        AbstractAcknowledgeResponse<ByteArray, V, PD> {
 
     protected final int preferred;
 
@@ -48,38 +41,15 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
                                int preferred,
                                int required,
                                Event insufficientSuccessesEvent) {
-        super(pipelineData, completeEvent);
-        this.failureDetector = failureDetector;
+        super(pipelineData, completeEvent, failureDetector);
         this.preferred = preferred;
         this.required = required;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
-    @SuppressWarnings("unchecked")
-    public void execute(Pipeline pipeline, Object eventData) {
-        Response<ByteArray, V> response = (Response<ByteArray, V>) eventData;
-        pipelineData.incrementCompleted();
-
-        if(response.getValue() instanceof Exception) {
-            Node node = response.getNode();
-            Exception e = (Exception) response.getValue();
-            long requestTime = response.getRequestTime();
-
-            if(e instanceof UnreachableStoreException) {
-                pipelineData.recordFailure(e);
-                failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);
-            } else if(e instanceof VoldemortApplicationException) {
-                pipelineData.setFatalError((VoldemortApplicationException) e);
-                pipeline.addEvent(Event.ERROR);
-                return;
-            } else {
-                pipelineData.recordFailure(e);
-
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Error in " + pipeline.getOperation() + " on node " + node.getId()
-                                + "(" + node.getHost() + ")", e);
-            }
-        } else {
+    @Override
+    protected void executeInternal(Pipeline pipeline, Response<ByteArray, V> response) {
+        if(!checkError(pipeline, response)) {
             pipelineData.incrementSuccesses();
             pipelineData.getResponses().add(response);
             failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
@@ -87,9 +57,7 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
 
         if(logger.isDebugEnabled())
             logger.debug("Response received, successes: " + pipelineData.getSuccesses()
-                         + ", attempts: " + pipelineData.getAttempts() + ", completed: "
-                         + pipelineData.getCompleted() + ", preferred: " + preferred
-                         + ", required: " + required);
+                         + ", preferred: " + preferred + ", required: " + required);
 
         // If we get to here, that means we couldn't hit the preferred number
         // of writes, throw an exception if you can't even hit the required
