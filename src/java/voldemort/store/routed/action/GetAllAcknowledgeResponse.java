@@ -29,6 +29,8 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
+
 public class GetAllAcknowledgeResponse
         extends
         AbstractAcknowledgeResponse<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
@@ -43,9 +45,29 @@ public class GetAllAcknowledgeResponse
     protected void executeInternal(Pipeline pipeline,
                                    Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response) {
         if(!checkError(pipeline, response)) {
+            Map<ByteArray, List<Versioned<byte[]>>> responseValue = response.getValue();
+
             for(ByteArray key: response.getKey()) {
+                if(logger.isTraceEnabled())
+                    logger.trace("Response received from " + response.getNode().getId() + " for "
+                                 + pipeline.getOperation().getSimpleName());
+
                 MutableInt successCount = pipelineData.getSuccessCount(key);
                 successCount.increment();
+
+                List<Versioned<byte[]>> retrieved = responseValue.get(key);
+                /*
+                 * retrieved can be null if there are no values for the key
+                 * provided
+                 */
+                if(retrieved != null) {
+                    List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
+
+                    if(existing == null)
+                        pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
+                    else
+                        existing.addAll(retrieved);
+                }
             }
 
             pipelineData.getResponses().add(response);
@@ -55,5 +77,4 @@ public class GetAllAcknowledgeResponse
         if(pipelineData.getCompleted() == pipelineData.getAttempts())
             pipeline.addEvent(completeEvent);
     }
-
 }

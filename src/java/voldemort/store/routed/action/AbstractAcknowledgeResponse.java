@@ -44,9 +44,11 @@ public abstract class AbstractAcknowledgeResponse<K, V, PD extends PipelineData<
         Response<K, V> response = (Response<K, V>) eventData;
         pipelineData.incrementCompleted();
 
-        if(logger.isDebugEnabled())
-            logger.debug("Response received, attempts: " + pipelineData.getAttempts()
-                         + ", completed: " + pipelineData.getCompleted());
+        if(logger.isTraceEnabled())
+            logger.trace("Response received from " + response.getNode().getId() + " for "
+                         + pipeline.getOperation().getSimpleName() + " - attempts: "
+                         + pipelineData.getAttempts() + ", completed: "
+                         + pipelineData.getCompleted());
 
         executeInternal(pipeline, response);
     }
@@ -61,6 +63,10 @@ public abstract class AbstractAcknowledgeResponse<K, V, PD extends PipelineData<
         Exception e = (Exception) response.getValue();
         long requestTime = response.getRequestTime();
 
+        if(logger.isEnabledFor(Level.WARN))
+            logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                        + node.getId() + "(" + node.getHost() + ")", e);
+
         if(e instanceof UnreachableStoreException) {
             pipelineData.recordFailure(e);
             failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);
@@ -69,10 +75,6 @@ public abstract class AbstractAcknowledgeResponse<K, V, PD extends PipelineData<
             pipeline.addEvent(Event.ERROR);
         } else {
             pipelineData.recordFailure(e);
-
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Error in " + pipeline.getOperation() + " on node " + node.getId()
-                            + "(" + node.getHost() + ")", e);
         }
 
         return true;

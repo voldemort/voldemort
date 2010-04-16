@@ -55,8 +55,8 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
             failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
         }
 
-        if(logger.isDebugEnabled())
-            logger.debug("Response received, successes: " + pipelineData.getSuccesses()
+        if(logger.isTraceEnabled())
+            logger.trace("Response received, successes: " + pipelineData.getSuccesses()
                          + ", preferred: " + preferred + ", required: " + required);
 
         // If we get to here, that means we couldn't hit the preferred number

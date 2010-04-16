@@ -26,6 +26,7 @@ import org.apache.commons.lang.mutable.MutableInt;
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.GetAllPipelineData;
@@ -35,6 +36,8 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 public class PerformSerialGetAllRequests
         extends
@@ -66,6 +69,8 @@ public class PerformSerialGetAllRequests
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
+        Map<ByteArray, List<Versioned<byte[]>>> result = pipelineData.getResult();
+
         for(ByteArray key: keys) {
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
@@ -82,10 +87,15 @@ public class PerformSerialGetAllRequests
 
                 try {
                     Store<ByteArray, byte[]> store = stores.get(node.getId());
-                    List<Versioned<byte[]>> result = store.get(key);
+                    List<Versioned<byte[]>> values = store.get(key);
+
+                    if(result.get(key) == null)
+                        result.put(key, Lists.newArrayList(values));
+                    else
+                        result.get(key).addAll(values);
 
                     Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
-                    map.put(key, result);
+                    map.put(key, values);
 
                     Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response = new Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>>(node,
                                                                                                                                                                                  Arrays.asList(key),
@@ -117,5 +127,25 @@ public class PerformSerialGetAllRequests
                 }
             }
         }
+
+        for(ByteArray key: keys) {
+            MutableInt successCount = pipelineData.getSuccessCount(key);
+
+            if(successCount.intValue() < required) {
+                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                             + " "
+                                                                                             + pipeline.getOperation()
+                                                                                                       .getSimpleName()
+                                                                                             + "s required, but "
+                                                                                             + successCount.intValue()
+                                                                                             + " succeeded",
+                                                                                     pipelineData.getFailures()));
+                pipeline.addEvent(Event.ERROR);
+                return;
+            }
+        }
+
+        pipeline.addEvent(completeEvent);
     }
+
 }

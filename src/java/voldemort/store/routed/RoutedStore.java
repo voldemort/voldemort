@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -33,7 +32,6 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -238,8 +236,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                                            storeDef.getPreferredReads(),
                                                                            nonblockingStores);
         Action acknowledgeResponse = new GetAllAcknowledgeResponse(pipelineData,
-                                                                   repairReads ? Event.RESPONSES_RECEIVED
-                                                                              : Event.COMPLETED,
+                                                                   Event.INSUFFICIENT_SUCCESSES,
                                                                    failureDetector);
         Action performSerialRequests = new PerformSerialGetAllRequests(pipelineData,
                                                                        repairReads ? Event.RESPONSES_RECEIVED
@@ -273,26 +270,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
 
-        for(ByteArray key: keys) {
-            MutableInt successCount = pipelineData.getSuccessCount(key);
-
-            if(successCount.intValue() < storeDef.getRequiredReads())
-                throw new InsufficientOperationalNodesException(this.storeDef.getRequiredReads()
-                                                                        + " reads required, but "
-                                                                        + successCount
-                                                                        + " succeeded.",
-                                                                pipelineData.getFailures());
-        }
-
-        Map<ByteArray, List<Versioned<byte[]>>> results = new HashMap<ByteArray, List<Versioned<byte[]>>>();
-
-        for(Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response: pipelineData.getResponses()) {
-            for(ByteArray key: response.getKey()) {
-                System.out.println(response.getValue().get(key));
-            }
-        }
-
-        return results;
+        return pipelineData.getResult();
     }
 
     public List<Version> getVersions(final ByteArray key) {

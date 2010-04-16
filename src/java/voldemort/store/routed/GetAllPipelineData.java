@@ -29,6 +29,8 @@ import voldemort.versioning.Versioned;
 public class GetAllPipelineData extends
         PipelineData<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> {
 
+    private final Map<ByteArray, List<Versioned<byte[]>>> result;
+
     // Keys for each node needed to satisfy storeDef.getPreferredReads() if
     // no failures.
     private Map<Node, List<ByteArray>> nodeToKeysMap;
@@ -40,7 +42,12 @@ public class GetAllPipelineData extends
     private final Map<ByteArray, MutableInt> keyToSuccessCount;
 
     public GetAllPipelineData() {
-        keyToSuccessCount = new HashMap<ByteArray, MutableInt>();
+        this.result = new HashMap<ByteArray, List<Versioned<byte[]>>>();
+        this.keyToSuccessCount = new HashMap<ByteArray, MutableInt>();
+    }
+
+    public Map<ByteArray, List<Versioned<byte[]>>> getResult() {
+        return result;
     }
 
     public Map<Node, List<ByteArray>> getNodeToKeysMap() {
