@@ -49,8 +49,8 @@ public class GetAllAcknowledgeResponse
 
             for(ByteArray key: response.getKey()) {
                 if(logger.isTraceEnabled())
-                    logger.trace("Response received from " + response.getNode().getId() + " for "
-                                 + pipeline.getOperation().getSimpleName());
+                    logger.trace("Response received from node " + response.getNode().getId()
+                                 + " for " + pipeline.getOperation().getSimpleName());
 
                 MutableInt successCount = pipelineData.getSuccessCount(key);
                 successCount.increment();
