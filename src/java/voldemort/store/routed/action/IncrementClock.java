@@ -23,7 +23,7 @@ import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class IncrementClock extends AbstractAction<PutPipelineData> {
+public class IncrementClock extends AbstractAction<Void, PutPipelineData> {
 
     protected final Versioned<byte[]> versioned;
 

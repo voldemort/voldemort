@@ -16,15 +16,12 @@
 
 package voldemort.store.routed;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
 
-public class BasicPipelineData<V> extends PipelineData {
-
-    private final List<Response<V>> responses;
+public class BasicPipelineData<V> extends PipelineData<V> {
 
     private List<Node> nodes;
 
@@ -33,13 +30,8 @@ public class BasicPipelineData<V> extends PipelineData {
     private final AtomicInteger successes;
 
     public BasicPipelineData() {
-        this.responses = new ArrayList<Response<V>>();
         this.nodeIndex = new AtomicInteger(0);
         this.successes = new AtomicInteger(0);
-    }
-
-    public List<Response<V>> getResponses() {
-        return responses;
     }
 
     public List<Node> getNodes() {

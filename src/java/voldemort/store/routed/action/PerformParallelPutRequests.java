@@ -29,7 +29,7 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class PerformParallelPutRequests extends AbstractKeyBasedAction<PutPipelineData> {
+public class PerformParallelPutRequests extends AbstractKeyBasedAction<Void, PutPipelineData> {
 
     protected final Map<Integer, NonblockingStore> nonblockingStores;
 

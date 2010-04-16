@@ -21,7 +21,7 @@ import org.apache.log4j.Logger;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
 
-public abstract class AbstractAction<PD extends PipelineData> implements Action {
+public abstract class AbstractAction<V, PD extends PipelineData<V>> implements Action {
 
     protected final PD pipelineData;
 

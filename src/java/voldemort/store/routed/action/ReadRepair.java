@@ -38,7 +38,7 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 
 public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> extends
-        AbstractAction<PD> {
+        AbstractAction<List<Versioned<byte[]>>, PD> {
 
     protected final int preferred;
 

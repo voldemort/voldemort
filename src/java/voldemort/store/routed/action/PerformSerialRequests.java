@@ -35,7 +35,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
 public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
-        AbstractKeyBasedAction<PD> {
+        AbstractKeyBasedAction<V, PD> {
 
     protected final FailureDetector failureDetector;
 

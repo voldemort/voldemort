@@ -28,7 +28,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 
-public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends AbstractAction<PD> {
+public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends AbstractAction<V, PD> {
 
     protected final FailureDetector failureDetector;
 

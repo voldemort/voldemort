@@ -16,6 +16,7 @@
 
 package voldemort.store.routed;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,7 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.VoldemortException;
 
-public abstract class PipelineData {
+public abstract class PipelineData<V> {
+
+    private final List<Response<V>> responses;
 
     protected final List<Exception> failures;
 
@@ -34,9 +37,14 @@ public abstract class PipelineData {
     protected VoldemortException fatalError;
 
     public PipelineData() {
+        this.responses = new ArrayList<Response<V>>();
         this.failures = Collections.synchronizedList(new LinkedList<Exception>());
         this.attempts = new AtomicInteger(0);
         this.completed = new AtomicInteger(0);
+    }
+
+    public List<Response<V>> getResponses() {
+        return responses;
     }
 
     public VoldemortException getFatalError() {

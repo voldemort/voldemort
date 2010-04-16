@@ -27,11 +27,13 @@ import voldemort.store.routed.GetAllPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class GetAllConfigureNodes extends AbstractConfigureNodes<GetAllPipelineData> {
+public class GetAllConfigureNodes extends
+        AbstractConfigureNodes<Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
     protected final int preferred;
 

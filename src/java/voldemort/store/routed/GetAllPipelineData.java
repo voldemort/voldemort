@@ -21,8 +21,9 @@ import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
-public class GetAllPipelineData extends PipelineData {
+public class GetAllPipelineData extends PipelineData<Map<ByteArray, List<Versioned<byte[]>>>> {
 
     // Keys for each node needed to satisfy storeDef.getPreferredReads() if
     // no failures.
