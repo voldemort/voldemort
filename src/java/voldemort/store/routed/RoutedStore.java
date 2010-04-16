@@ -48,6 +48,7 @@ import voldemort.store.routed.action.Action;
 import voldemort.store.routed.action.ConfigureNodes;
 import voldemort.store.routed.action.GetAllAcknowledgeResponse;
 import voldemort.store.routed.action.GetAllConfigureNodes;
+import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
@@ -255,7 +256,11 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         eventActions.put(Event.RESPONSE_RECEIVED, acknowledgeResponse);
 
         if(repairReads) {
-            Action readRepair = null;
+            Action readRepair = new GetAllReadRepair(pipelineData,
+                                                     Event.COMPLETED,
+                                                     storeDef.getPreferredReads(),
+                                                     nonblockingStores,
+                                                     readRepairer);
             eventActions.put(Event.RESPONSES_RECEIVED, readRepair);
         }
 
@@ -280,6 +285,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
         }
 
         Map<ByteArray, List<Versioned<byte[]>>> results = new HashMap<ByteArray, List<Versioned<byte[]>>>();
+
+        for(Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response: pipelineData.getResponses()) {
+            for(ByteArray key: response.getKey()) {
+                System.out.println(response.getValue().get(key));
+            }
+        }
 
         return results;
     }
