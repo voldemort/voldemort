@@ -169,6 +169,9 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         } else {
             logger.info("Executing fetch of " + fetchUrl);
             fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+            if(fetchDir == null) {
+                fetchDir = new File(fetchUrl);
+            }
             logger.info("Fetch complete.");
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());

@@ -37,6 +37,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Props;
@@ -103,45 +104,74 @@ public class HdfsFetcher implements FileFetcher {
             storeDir.mkdir();
 
             File destination = new File(storeDir.getAbsoluteFile(), path.getName());
-            fetch(fs, path, destination, throttler, stats);
-            return destination;
+            boolean result = fetch(fs, path, destination, throttler, stats);
+            if(result) {
+                return destination;
+            } else {
+                logger.error("Check sum failed for " + fileUrl);
+                return null;
+            }
         } finally {
             JmxUtils.unregisterMbean(jmxName);
         }
     }
 
-    private void fetch(FileSystem fs,
-                       Path source,
-                       File dest,
-                       EventThrottler throttler,
-                       CopyStats stats) throws IOException {
-        if(fs.isFile(source)) {
-            copyFile(fs, source, dest, throttler, stats);
-        } else {
+    private boolean fetch(FileSystem fs,
+                          Path source,
+                          File dest,
+                          EventThrottler throttler,
+                          CopyStats stats) throws IOException {
+        if(!fs.isFile(source)) {
             dest.mkdirs();
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
                 // sort the files so that index files come last. Maybe
                 // this will help keep them cached until the swap
                 Arrays.sort(statuses, new IndexFileLastComparator());
+                byte[] origMD5 = new byte[16];
+                boolean containsCheckSumFile = false;
+
+                StringBuffer checkSumBuffer = new StringBuffer();
                 for(FileStatus status: statuses) {
-                    if(!status.getPath().getName().startsWith(".")) {
-                        fetch(fs,
-                              status.getPath(),
-                              new File(dest, status.getPath().getName()),
-                              throttler,
-                              stats);
+
+                    if(status.getPath().getName().contains("checkSum.txt")) {
+                        containsCheckSumFile = true;
+                        FSDataInputStream input = fs.open(status.getPath());
+                        input.read(origMD5);
+                        input.close();
+                        continue;
                     }
+                    if(!status.getPath().getName().startsWith(".")) {
+                        File copyLocation = new File(dest, status.getPath().getName());
+                        copyFile(fs,
+                                 status.getPath(),
+                                 copyLocation,
+                                 throttler,
+                                 stats,
+                                 checkSumBuffer);
+                    }
+
+                }
+
+                // Check MD5
+                if(containsCheckSumFile) {
+                    byte[] newMD5 = ByteUtils.md5(checkSumBuffer.toString().getBytes());
+                    return (ByteUtils.compare(newMD5, origMD5) == 0);
+                } else {
+                    return true;
                 }
             }
         }
+        return false;
+
     }
 
     private void copyFile(FileSystem fs,
                           Path source,
                           File dest,
                           EventThrottler throttler,
-                          CopyStats stats) throws IOException {
+                          CopyStats stats,
+                          StringBuffer checkSumBuffer) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
@@ -154,6 +184,7 @@ public class HdfsFetcher implements FileFetcher {
                 if(read < 0)
                     break;
                 output.write(buffer, 0, read);
+                checkSumBuffer.append(new String(buffer, 0, read));
                 if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
@@ -223,7 +254,7 @@ public class HdfsFetcher implements FileFetcher {
      * retaining the index file in page cache until the swap occurs
      * 
      */
-    static class IndexFileLastComparator implements Comparator<FileStatus> {
+    public static class IndexFileLastComparator implements Comparator<FileStatus> {
 
         public int compare(FileStatus fs1, FileStatus fs2) {
             // directories before files

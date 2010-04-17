@@ -16,15 +16,13 @@
 
 package voldemort.store.readonly.fetcher;
 
+import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 import junit.framework.TestCase;
-
-import org.apache.commons.io.IOUtils;
-
+import voldemort.TestUtils;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -35,15 +33,42 @@ import voldemort.utils.ByteUtils;
 public class HdfsFetcherTest extends TestCase {
 
     public void testFetch() throws IOException {
-        File testFile = File.createTempFile("test", ".dat");
-        HdfsFetcher fetcher = new HdfsFetcher();
-        File fetchedFile = fetcher.fetch(testFile.getAbsolutePath(), "storeName");
-        InputStream orig = new FileInputStream(testFile);
-        byte[] origBytes = IOUtils.toByteArray(orig);
-        InputStream fetched = new FileInputStream(fetchedFile);
-        byte[] fetchedBytes = IOUtils.toByteArray(fetched);
-        assertTrue("Fetched bytes not equal to original bytes.",
-                   0 == ByteUtils.compare(origBytes, fetchedBytes));
-    }
+        File testDirectory = TestUtils.createTempDir();
+        // Delete folder if exists
+        if(testDirectory.list().length > 0) {
+            File[] files = testDirectory.listFiles();
+            for(File file: files) {
+                file.delete();
+            }
+        } else {
+            testDirectory.mkdirs();
+        }
 
+        File testFile = File.createTempFile("test", ".dat", testDirectory);
+        testFile.createNewFile();
+
+        // No checksum file - return correctly
+        // Required for backward compatibility with existing hadoop stores
+        HdfsFetcher fetcher = new HdfsFetcher();
+        File fetchedFile = fetcher.fetch(testDirectory.getAbsolutePath(), "storeName");
+        assertNotNull(fetchedFile);
+
+        // Add checksum file with incorrect checksum
+        File checkSumFile = new File(testDirectory, "checkSum.txt");
+        checkSumFile.createNewFile();
+        fetchedFile = fetcher.fetch(testDirectory.getAbsolutePath(), "storeName");
+        assertNull(fetchedFile);
+
+        // Add correct checksum file
+        byte[] fileBytes = TestUtils.readBytes(testDirectory.listFiles());
+
+        checkSumFile = new File(testDirectory, "checkSum.txt");
+        DataOutputStream os = new DataOutputStream(new FileOutputStream(checkSumFile));
+        os.write(ByteUtils.md5(fileBytes));
+        os.close();
+
+        fetchedFile = fetcher.fetch(testDirectory.getAbsolutePath(), "storeName");
+        assertNotNull(fetchedFile);
+
+    }
 }

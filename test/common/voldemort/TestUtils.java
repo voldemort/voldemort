@@ -18,13 +18,18 @@ package voldemort;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -402,5 +407,56 @@ public class TestUtils {
                 }
             }
         }
+    }
+
+    /**
+     * 
+     * @param files The files whose bytes to read
+     * @return bytes
+     */
+    public static byte[] readBytes(File[] files) {
+        StringBuffer checkSumBuffer = new StringBuffer();
+        byte[] buffer = new byte[64 * 1024];
+
+        Arrays.sort(files, new Comparator<File>() {
+
+            public int compare(File fs1, File fs2) {
+                // directories before files
+                if(fs1.isDirectory())
+                    return fs2.isDirectory() ? 0 : -1;
+                // index files after all other files
+                else if(fs1.getName().endsWith(".index"))
+                    return fs2.getName().endsWith(".index") ? 0 : 1;
+                // everything else is equivalent
+                else
+                    return 0;
+            }
+        });
+
+        for(File file: files) {
+            if(file.isFile() && !file.getName().startsWith(".")) {
+                DataInputStream is;
+                try {
+                    is = new DataInputStream(new FileInputStream(file));
+                } catch(FileNotFoundException e) {
+                    continue;
+                }
+
+                try {
+                    while(true) {
+                        int read = is.read(buffer);
+                        if(read < 0)
+                            break;
+                        checkSumBuffer.append(new String(buffer, 0, read));
+                    }
+                    is.close();
+                } catch(IOException e) {
+                    break;
+                }
+
+            }
+        }
+        return checkSumBuffer.toString().getBytes();
+
     }
 }
