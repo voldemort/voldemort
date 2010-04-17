@@ -243,6 +243,32 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
+    public void testMultipleDonors() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                       { 0, 2 }, { 1, 3, 5 }, { 4, 6 }, {} });
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                       { 0  }, { 1, 3 }, { 4, 6 }, { 2, 5 } });
+
+        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+        Cluster updatedCluster = startServers(currentCluster, storeDefFile, serverList, null);
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setMaxParallelRebalancing(2);
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(updatedCluster, Arrays.asList(0,1,2));
+            rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(3));
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+
+    }
+
+    @Test
     public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3 }, {} });

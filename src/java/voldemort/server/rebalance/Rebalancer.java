@@ -295,7 +295,7 @@ public class Rebalancer implements Runnable {
 
     private void checkCurrentState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
         if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
-           && !Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
+           && Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
             throw new VoldemortException("Server " + metadataStore.getNodeId()
                                          + " is already rebalancing from:"
                                          + Joiner.on(",").join(metadataStore.getRebalancingStealInfo())
