@@ -32,17 +32,8 @@ import voldemort.utils.ByteUtils;
  */
 public class HdfsFetcherTest extends TestCase {
 
-    public void testFetch() throws IOException {
+    public void testFetch() throws Exception {
         File testDirectory = TestUtils.createTempDir();
-        // Delete folder if exists
-        if(testDirectory.list().length > 0) {
-            File[] files = testDirectory.listFiles();
-            for(File file: files) {
-                file.delete();
-            }
-        } else {
-            testDirectory.mkdirs();
-        }
 
         File testFile = File.createTempFile("test", ".dat", testDirectory);
         testFile.createNewFile();
@@ -71,4 +62,5 @@ public class HdfsFetcherTest extends TestCase {
         assertNotNull(fetchedFile);
 
     }
+
 }

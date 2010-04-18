@@ -26,6 +26,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,6 +52,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -402,7 +404,7 @@ public class TestUtils {
                         throw ie;
                     }
                 }
-                else {
+		else {
                     throw e;
                 }
             }
@@ -414,9 +416,10 @@ public class TestUtils {
      * @param files The files whose bytes to read
      * @return bytes
      */
-    public static byte[] readBytes(File[] files) {
-        StringBuffer checkSumBuffer = new StringBuffer();
-        byte[] buffer = new byte[64 * 1024];
+    public static byte[] readBytes(File[] files) throws Exception {
+        MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
+        int bufferSize = 64 * 1024;
+        byte[] buffer = new byte[bufferSize];
 
         Arrays.sort(files, new Comparator<File>() {
 
@@ -447,7 +450,10 @@ public class TestUtils {
                         int read = is.read(buffer);
                         if(read < 0)
                             break;
-                        checkSumBuffer.append(new String(buffer, 0, read));
+                        else if(read < bufferSize) {
+                            buffer = ByteUtils.copy(buffer, 0, read);
+                        }
+                        checkSumGenerator.update(buffer);
                     }
                     is.close();
                 } catch(IOException e) {
@@ -456,7 +462,7 @@ public class TestUtils {
 
             }
         }
-        return checkSumBuffer.toString().getBytes();
+        return checkSumGenerator.digest();
 
     }
 }

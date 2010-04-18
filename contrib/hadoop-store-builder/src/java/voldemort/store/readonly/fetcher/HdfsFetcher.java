@@ -24,6 +24,8 @@ import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.management.ObjectName;
 
@@ -131,7 +133,12 @@ public class HdfsFetcher implements FileFetcher {
                 byte[] origMD5 = new byte[16];
                 boolean containsCheckSumFile = false;
 
-                StringBuffer checkSumBuffer = new StringBuffer();
+		MessageDigest checkSumGenerator = null;
+                try {
+	 	    checkSumGenerator = MessageDigest.getInstance("md5");
+		} catch ( NoSuchAlgorithmException e) {
+		    return false;	
+		}
                 for(FileStatus status: statuses) {
 
                     if(status.getPath().getName().contains("checkSum.txt")) {
@@ -148,14 +155,14 @@ public class HdfsFetcher implements FileFetcher {
                                  copyLocation,
                                  throttler,
                                  stats,
-                                 checkSumBuffer);
+                                 checkSumGenerator);
                     }
 
                 }
 
                 // Check MD5
                 if(containsCheckSumFile) {
-                    byte[] newMD5 = ByteUtils.md5(checkSumBuffer.toString().getBytes());
+                    byte[] newMD5 = checkSumGenerator.digest(); 
                     return (ByteUtils.compare(newMD5, origMD5) == 0);
                 } else {
                     return true;
@@ -171,7 +178,7 @@ public class HdfsFetcher implements FileFetcher {
                           File dest,
                           EventThrottler throttler,
                           CopyStats stats,
-                          StringBuffer checkSumBuffer) throws IOException {
+                          MessageDigest checkSumGenerator) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
@@ -181,11 +188,14 @@ public class HdfsFetcher implements FileFetcher {
             byte[] buffer = new byte[bufferSize];
             while(true) {
                 int read = input.read(buffer);
-                if(read < 0)
+                if(read < 0) {
                     break;
-                output.write(buffer, 0, read);
-                checkSumBuffer.append(new String(buffer, 0, read));
-                if(throttler != null)
+		} else if ( read < bufferSize ) {
+		    buffer = ByteUtils.copy(buffer, 0, read);
+		}
+                output.write(buffer);
+                checkSumGenerator.update(buffer);
+		if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
                 if(stats.getBytesSinceLastReport() > REPORTING_INTERVAL_BYTES) {

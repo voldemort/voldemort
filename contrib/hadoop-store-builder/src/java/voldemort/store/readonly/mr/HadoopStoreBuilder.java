@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -171,7 +173,7 @@ public class HadoopStoreBuilder {
                         Arrays.sort(storeFiles, new IndexFileLastComparator());
 
                         byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-                        StringBuffer checkSumBuffer = new StringBuffer();
+			MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
 
                         for(FileStatus status: storeFiles) {
                             if(!status.getPath().getName().startsWith(".")) {
@@ -183,12 +185,15 @@ public class HadoopStoreBuilder {
                                     int read = input.read(buffer);
                                     if(read < 0)
                                         break;
-                                    checkSumBuffer.append(new String(buffer, 0, read));
+				    else if ( read < DEFAULT_BUFFER_SIZE) {
+					buffer = ByteUtils.copy(buffer, 0, read);
+				    }
+                                    checkSumGenerator.update(buffer);
                                 }
 
                             }
                         }
-                        byte[] md5 = ByteUtils.md5(checkSumBuffer.toString().getBytes());
+                        byte[] md5 = checkSumGenerator.digest(); 
                         FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
                                                                                      "checkSum.txt"));
                         checkSumStream.write(md5);
@@ -199,7 +204,7 @@ public class HadoopStoreBuilder {
 
                 }
             }
-        } catch(IOException e) {
+        } catch(Exception e) {
             throw new VoldemortException(e);
         }
 
