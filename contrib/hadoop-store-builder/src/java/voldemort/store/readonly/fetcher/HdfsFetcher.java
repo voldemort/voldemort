@@ -20,12 +20,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 import javax.management.ObjectName;
 
@@ -102,7 +102,7 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
                                                     stats);
         try {
-            File storeDir = new File(this.tempDir, storeName);
+            File storeDir = new File(this.tempDir, storeName + "_" + System.currentTimeMillis());
             storeDir.mkdir();
 
             File destination = new File(storeDir.getAbsoluteFile(), path.getName());
@@ -133,12 +133,12 @@ public class HdfsFetcher implements FileFetcher {
                 byte[] origMD5 = new byte[16];
                 boolean containsCheckSumFile = false;
 
-		MessageDigest checkSumGenerator = null;
+                MessageDigest checkSumGenerator = null;
                 try {
-	 	    checkSumGenerator = MessageDigest.getInstance("md5");
-		} catch ( NoSuchAlgorithmException e) {
-		    return false;	
-		}
+                    checkSumGenerator = MessageDigest.getInstance("md5");
+                } catch(NoSuchAlgorithmException e) {
+                    return false;
+                }
                 for(FileStatus status: statuses) {
 
                     if(status.getPath().getName().contains("checkSum.txt")) {
@@ -162,7 +162,7 @@ public class HdfsFetcher implements FileFetcher {
 
                 // Check MD5
                 if(containsCheckSumFile) {
-                    byte[] newMD5 = checkSumGenerator.digest(); 
+                    byte[] newMD5 = checkSumGenerator.digest();
                     return (ByteUtils.compare(newMD5, origMD5) == 0);
                 } else {
                     return true;
@@ -190,12 +190,12 @@ public class HdfsFetcher implements FileFetcher {
                 int read = input.read(buffer);
                 if(read < 0) {
                     break;
-		} else if ( read < bufferSize ) {
-		    buffer = ByteUtils.copy(buffer, 0, read);
-		}
+                } else if(read < bufferSize) {
+                    buffer = ByteUtils.copy(buffer, 0, read);
+                }
                 output.write(buffer);
                 checkSumGenerator.update(buffer);
-		if(throttler != null)
+                if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
                 if(stats.getBytesSinceLastReport() > REPORTING_INTERVAL_BYTES) {

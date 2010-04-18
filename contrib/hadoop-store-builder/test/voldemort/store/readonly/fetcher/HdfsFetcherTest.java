@@ -19,7 +19,6 @@ package voldemort.store.readonly.fetcher;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
