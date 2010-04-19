@@ -17,11 +17,10 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -69,6 +68,34 @@ public class HadoopStoreBuilder {
     private final Path inputPath;
     private final Path outputDir;
     private final Path tempDir;
+    private boolean doCheckSum = false;
+
+    @SuppressWarnings("unchecked")
+    public HadoopStoreBuilder(Configuration conf,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends InputFormat> inputFormatClass,
+                              Cluster cluster,
+                              StoreDefinition storeDef,
+                              int replicationFactor,
+                              long chunkSizeBytes,
+                              Path tempDir,
+                              Path outputDir,
+                              Path inputPath) {
+        super();
+        this.config = conf;
+        this.mapperClass = Utils.notNull(mapperClass);
+        this.inputFormatClass = Utils.notNull(inputFormatClass);
+        this.inputPath = inputPath;
+        this.cluster = Utils.notNull(cluster);
+        this.storeDef = Utils.notNull(storeDef);
+        this.replicationFactor = replicationFactor;
+        this.chunkSizeBytes = chunkSizeBytes;
+        this.tempDir = tempDir;
+        this.outputDir = Utils.notNull(outputDir);
+        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
+            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
+                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
+    }
 
     /**
      * Create the store builder
@@ -96,21 +123,20 @@ public class HadoopStoreBuilder {
                               long chunkSizeBytes,
                               Path tempDir,
                               Path outputDir,
-                              Path inputPath) {
-        super();
-        this.config = conf;
-        this.mapperClass = Utils.notNull(mapperClass);
-        this.inputFormatClass = Utils.notNull(inputFormatClass);
-        this.inputPath = inputPath;
-        this.cluster = Utils.notNull(cluster);
-        this.storeDef = Utils.notNull(storeDef);
-        this.replicationFactor = replicationFactor;
-        this.chunkSizeBytes = chunkSizeBytes;
-        this.tempDir = tempDir;
-        this.outputDir = Utils.notNull(outputDir);
-        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
-            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
-                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
+                              Path inputPath,
+                              boolean doCheckSum) {
+        this(conf,
+             mapperClass,
+             inputFormatClass,
+             cluster,
+             storeDef,
+             replicationFactor,
+             chunkSizeBytes,
+             tempDir,
+             outputDir,
+             inputPath);
+        this.doCheckSum = doCheckSum;
+
     }
 
     /**
@@ -163,45 +189,50 @@ public class HadoopStoreBuilder {
             logger.info("Building store...");
             JobClient.runJob(conf);
 
-            // Generate checksum for every node
-            FileStatus[] nodes = outputFs.listStatus(outputDir);
+            if(doCheckSum) {
+                // Generate checksum for every node
+                FileStatus[] nodes = outputFs.listStatus(outputDir);
 
-            for(FileStatus node: nodes) {
-                if(node.isDir()) {
-                    FileStatus[] storeFiles = outputFs.listStatus(node.getPath());
-                    if(storeFiles != null) {
-                        Arrays.sort(storeFiles, new IndexFileLastComparator());
+                for(FileStatus node: nodes) {
+                    if(node.isDir()) {
+                        FileStatus[] storeFiles = outputFs.listStatus(node.getPath());
+                        if(storeFiles != null) {
+                            Arrays.sort(storeFiles, new IndexFileLastComparator());
 
-                        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-			MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
+                            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+                            // Do a MD5ofMD5s - Similar to HDFS
+                            MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
+                            MessageDigest fileCheckSumGenerator = MessageDigest.getInstance("md5");
 
-                        for(FileStatus status: storeFiles) {
-                            if(!status.getPath().getName().startsWith(".")) {
-                                System.out.println("NODE = " + node.getPath() + " - "
-                                                   + status.getPath());
-                                FSDataInputStream input = outputFs.open(status.getPath());
+                            for(FileStatus status: storeFiles) {
+                                if(!status.getPath().getName().startsWith(".")) {
+                                    System.out.println("NODE3 = " + node.getPath() + " - "
+                                                       + status.getPath());
+                                    FSDataInputStream input = outputFs.open(status.getPath());
 
-                                while(true) {
-                                    int read = input.read(buffer);
-                                    if(read < 0)
-                                        break;
-				    else if ( read < DEFAULT_BUFFER_SIZE) {
-					buffer = ByteUtils.copy(buffer, 0, read);
-				    }
-                                    checkSumGenerator.update(buffer);
+                                    while(true) {
+                                        int read = input.read(buffer);
+                                        if(read < 0)
+                                            break;
+                                        else if(read < DEFAULT_BUFFER_SIZE) {
+                                            buffer = ByteUtils.copy(buffer, 0, read);
+                                        }
+                                        fileCheckSumGenerator.update(buffer);
+                                    }
+                                    checkSumGenerator.update(fileCheckSumGenerator.digest());
                                 }
-
                             }
+
+                            byte[] md5 = checkSumGenerator.digest();
+                            FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
+                                                                                         "checkSum.txt"));
+                            checkSumStream.write(md5);
+                            checkSumStream.flush();
+                            checkSumStream.close();
+
                         }
-                        byte[] md5 = checkSumGenerator.digest(); 
-                        FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
-                                                                                     "checkSum.txt"));
-                        checkSumStream.write(md5);
-                        checkSumStream.flush();
-                        checkSumStream.close();
 
                     }
-
                 }
             }
         } catch(Exception e) {

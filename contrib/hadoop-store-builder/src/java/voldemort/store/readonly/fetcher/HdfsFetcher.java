@@ -133,9 +133,10 @@ public class HdfsFetcher implements FileFetcher {
                 byte[] origMD5 = new byte[16];
                 boolean containsCheckSumFile = false;
 
-                MessageDigest checkSumGenerator = null;
+                MessageDigest checkSumGenerator = null, fileCheckSumGenerator = null;
                 try {
                     checkSumGenerator = MessageDigest.getInstance("md5");
+                    fileCheckSumGenerator = MessageDigest.getInstance("md5");
                 } catch(NoSuchAlgorithmException e) {
                     return false;
                 }
@@ -150,12 +151,13 @@ public class HdfsFetcher implements FileFetcher {
                     }
                     if(!status.getPath().getName().startsWith(".")) {
                         File copyLocation = new File(dest, status.getPath().getName());
-                        copyFile(fs,
-                                 status.getPath(),
-                                 copyLocation,
-                                 throttler,
-                                 stats,
-                                 checkSumGenerator);
+                        copyFileWithCheckSum(fs,
+                                             status.getPath(),
+                                             copyLocation,
+                                             throttler,
+                                             stats,
+                                             fileCheckSumGenerator);
+                        checkSumGenerator.update(fileCheckSumGenerator.digest());
                     }
 
                 }
@@ -165,6 +167,7 @@ public class HdfsFetcher implements FileFetcher {
                     byte[] newMD5 = checkSumGenerator.digest();
                     return (ByteUtils.compare(newMD5, origMD5) == 0);
                 } else {
+                    // If checkSum file does not exist
                     return true;
                 }
             }
@@ -173,12 +176,12 @@ public class HdfsFetcher implements FileFetcher {
 
     }
 
-    private void copyFile(FileSystem fs,
-                          Path source,
-                          File dest,
-                          EventThrottler throttler,
-                          CopyStats stats,
-                          MessageDigest checkSumGenerator) throws IOException {
+    private void copyFileWithCheckSum(FileSystem fs,
+                                      Path source,
+                                      File dest,
+                                      EventThrottler throttler,
+                                      CopyStats stats,
+                                      MessageDigest fileCheckSumGenerator) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
@@ -194,7 +197,7 @@ public class HdfsFetcher implements FileFetcher {
                     buffer = ByteUtils.copy(buffer, 0, read);
                 }
                 output.write(buffer);
-                checkSumGenerator.update(buffer);
+                fileCheckSumGenerator.update(buffer);
                 if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);

@@ -22,7 +22,6 @@ import java.io.FileOutputStream;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
-import voldemort.utils.ByteUtils;
 
 /**
  * Tests for the HDFS-based fetcher
@@ -50,11 +49,10 @@ public class HdfsFetcherTest extends TestCase {
         assertNull(fetchedFile);
 
         // Add correct checksum file
-        byte[] fileBytes = TestUtils.readBytes(testDirectory.listFiles());
+        byte[] checkSumBytes = TestUtils.calculateCheckSum(testDirectory.listFiles());
 
-        checkSumFile = new File(testDirectory, "checkSum.txt");
         DataOutputStream os = new DataOutputStream(new FileOutputStream(checkSumFile));
-        os.write(ByteUtils.md5(fileBytes));
+        os.write(checkSumBytes);
         os.close();
 
         fetchedFile = fetcher.fetch(testDirectory.getAbsolutePath(), "storeName");

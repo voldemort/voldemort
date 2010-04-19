@@ -133,8 +133,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         in.close();
         checkSumFile.delete();
 
-        byte[] fileBytes = TestUtils.readBytes(nodeFile.listFiles());
-        assertEquals(0, ByteUtils.compare(ByteUtils.md5(fileBytes), md5));
+        byte[] checkSumBytes = TestUtils.calculateCheckSum(nodeFile.listFiles());
+        assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
         // rename files
         File versionDir = new File(storeDir, "version-0");

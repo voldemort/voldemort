@@ -412,12 +412,14 @@ public class TestUtils {
     }
 
     /**
+     * Calculates the MD5 of MD5s of individual files.
      * 
      * @param files The files whose bytes to read
      * @return bytes
      */
-    public static byte[] readBytes(File[] files) throws Exception {
+    public static byte[] calculateCheckSum(File[] files) throws Exception {
         MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
+        MessageDigest fileCheckSumGenerator = MessageDigest.getInstance("md5");
         int bufferSize = 64 * 1024;
         byte[] buffer = new byte[bufferSize];
 
@@ -437,7 +439,8 @@ public class TestUtils {
         });
 
         for(File file: files) {
-            if(file.isFile() && !file.getName().startsWith(".")) {
+            if(file.isFile() && !file.getName().startsWith(".")
+               && !file.getName().contains("checkSum.txt")) {
                 DataInputStream is;
                 try {
                     is = new DataInputStream(new FileInputStream(file));
@@ -453,13 +456,13 @@ public class TestUtils {
                         else if(read < bufferSize) {
                             buffer = ByteUtils.copy(buffer, 0, read);
                         }
-                        checkSumGenerator.update(buffer);
+                        fileCheckSumGenerator.update(buffer);
                     }
                     is.close();
                 } catch(IOException e) {
                     break;
                 }
-
+                checkSumGenerator.update(fileCheckSumGenerator.digest());
             }
         }
         return checkSumGenerator.digest();
