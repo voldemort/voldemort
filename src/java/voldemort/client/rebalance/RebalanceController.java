@@ -4,7 +4,6 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import org.apache.log4j.Logger;
 
@@ -55,15 +54,8 @@ public class RebalanceController {
     }
 
     /**
-     * Voldemort dynamic cluster membership rebalancing mechanism. <br>
-     * Migrate partitions across nodes to managed changes in cluster
-     * memberships. <br>
-     * Takes targetCluster as parameters, fetches the current cluster
-     * configuration from the cluster compares and makes a list of partitions
-     * need to be transferred.<br>
-     * The cluster is kept consistent during rebalancing using a proxy mechanism
-     * via {@link RedirectingStore}<br>
-     * 
+     * Grabs the latest cluster definition and calls
+     * {@link #rebalance(voldemort.cluster.Cluster, voldemort.cluster.Cluster)}
      * 
      * @param targetCluster: target Cluster configuration
      */
@@ -86,16 +78,16 @@ public class RebalanceController {
 
     /**
      * Voldemort dynamic cluster membership rebalancing mechanism. <br>
-     * Migrate partitions across nodes to managed changes in cluster
-     * memberships. <br>
-     * Takes targetCluster as parameters, fetches the current cluster
-     * configuration from the cluster compares and makes a list of partitions
-     * need to be transferred.<br>
+     * Migrate partitions across nodes to manage changes in cluster
+     * membership. <br>
+     * Takes target cluster as parameter, fetches the current cluster
+     * configuration from the cluster, compares and makes a list of partitions
+     * that eed to be transferred.<br>
      * The cluster is kept consistent during rebalancing using a proxy mechanism
-     * via {@link RedirectingStore}<br>
+     * via {@link RedirectingStore}
      * 
-     * 
-     * @param targetCluster: target Cluster configuration
+     * @param currentCluster: current cluster configuration
+     * @param targetCluster: target cluster configuration
      */
     public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
         logger.debug("Current Cluster configuration:" + currentCluster);
@@ -256,17 +248,16 @@ public class RebalanceController {
 
     /**
      * Does an atomic commit or revert for the intended partitions ownership
-     * changes and modify adminClient with the updatedCluster.<br>
-     * creates a new cluster metadata by moving partitions list passed in
-     * parameter rebalanceStealInfo and propagates it to all nodes.<br>
-     * Revert all changes if failed to copy on required copies (stealerNode and
-     * donorNode).<br>
-     * holds a lock untill the commit/revert finishes.
+     * changes and modifies adminClient with the updatedCluster.<br>
+     * Creates new cluster metadata by moving partitions list passed in
+     * as parameter rebalanceStealInfo and propagates it to all nodes.<br>
+     * Revert all changes if failed to copy on required nodes (stealer and
+     * donor).<br>
+     * Holds a lock untill the commit/revert finishes.
      * 
-     * @param stealPartitionsMap
-     * @param stealerNodeId
-     * @param rebalanceStealInfo
-     * @throws Exception
+     * @param stealerNode Node copy data from
+     * @param rebalanceStealInfo Current rebalance sub task
+     * @throws Exception If we are unable to propagate the cluster definition to donor and stealer
      */
     void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
             throws Exception {
@@ -287,7 +278,7 @@ public class RebalanceController {
             // increment clock version on stealerNodeId
             latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
             try {
-                // propogates changes to all nodes.
+                // propagates changes to all nodes.
                 RebalanceUtils.propagateCluster(adminClient,
                                                 updatedCluster,
                                                 latestClock,
