@@ -318,16 +318,17 @@ public class RebalanceController {
     void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo, List<Integer> concurrentDonors)
             throws Exception {
         synchronized(adminClient) {
-            Cluster currentCluster = adminClient.getAdminClientCluster();
-            Node donorNode = currentCluster.getNodeById(rebalanceStealInfo.getDonorId());
-
             List<Integer> checkNodeIds = Lists.newArrayList();
             checkNodeIds.addAll(concurrentDonors);
             checkNodeIds.add(rebalanceStealInfo.getStealerId());
 
-            VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(checkNodeIds,
-                                                                                    adminClient)
-                                                                  .getVersion();
+            Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(checkNodeIds,
+                                                                               adminClient);
+           // Cluster currentCluster = adminClient.getAdminClientCluster();
+            Cluster currentCluster = latestCluster.getValue();
+            Node donorNode = currentCluster.getNodeById(rebalanceStealInfo.getDonorId());
+
+            VectorClock latestClock = (VectorClock) latestCluster.getVersion();
 
             // apply changes and create new updated cluster.
             Cluster updatedCluster = RebalanceUtils.createUpdatedCluster(currentCluster,

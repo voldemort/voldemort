@@ -61,6 +61,11 @@ public class RebalanceUtils {
         List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
         List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
 
+        for (int p: cluster.getNodeById(stealerNode.getId()).getPartitionIds()) {
+            if (!stealerPartitionList.contains(p))
+                stealerPartitionList.add(p);
+        }
+
         for(int p: partitionList) {
             removePartition(donorPartitionList, p);
             if(!stealerPartitionList.contains(p))
@@ -71,6 +76,11 @@ public class RebalanceUtils {
         Collections.sort(stealerPartitionList);
         Collections.sort(donorPartitionList);
 
+        logger.debug("stealerNode: " + stealerNode);
+        logger.debug("donorNode: " + donorNode);
+        logger.debug("stealerPartitionList: " + stealerPartitionList);
+        logger.debug("donorPartitionList: " + donorPartitionList);
+        
         // update both nodes
         stealerNode = updateNode(stealerNode, stealerPartitionList);
         donorNode = updateNode(donorNode, donorPartitionList);
