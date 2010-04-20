@@ -213,8 +213,6 @@ public class HadoopStoreBuilder {
 
                             for(FileStatus status: storeFiles) {
                                 if(!status.getPath().getName().startsWith(".")) {
-                                    System.out.println("NODE3 = " + node.getPath() + " - "
-                                                       + status.getPath());
                                     FSDataInputStream input = outputFs.open(status.getPath());
 
                                     while(true) {

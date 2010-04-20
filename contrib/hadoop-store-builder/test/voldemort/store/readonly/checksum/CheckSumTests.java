@@ -24,10 +24,39 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 
+import junit.framework.TestCase;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
 
-public class CheckSumTests {
+public class CheckSumTests extends TestCase {
+
+    public void testCheckSum() {
+        CheckSum instance = CheckSum.getInstance("blah");
+        assertNull(instance);
+
+        CheckSum instance2 = CheckSum.getInstance("md5");
+        assertNotNull(instance2);
+
+        CheckSum instance3 = CheckSum.getInstance("crc32");
+        assertNotNull(instance3);
+
+        CheckSum instance4 = CheckSum.getInstance("adler32");
+        assertNotNull(instance4);
+
+        byte[] emptyBytes = new byte[0];
+        instance2.update(emptyBytes);
+        assertNotNull(instance2.getCheckSum());
+        assertEquals(instance2.getCheckSum().length, CheckSum.checkSumLength(CheckSumType.MD5));
+
+        instance3.update(emptyBytes);
+        assertNotNull(instance3.getCheckSum());
+        assertEquals(instance3.getCheckSum().length, CheckSum.checkSumLength(CheckSumType.CRC32));
+
+        instance4.update(emptyBytes);
+        assertNotNull(instance4.getCheckSum());
+        assertEquals(instance4.getCheckSum().length, CheckSum.checkSumLength(CheckSumType.ADLER32));
+
+    }
 
     /**
      * Calculates the checksum of checksums of individual files.
