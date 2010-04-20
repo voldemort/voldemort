@@ -17,7 +17,6 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
-import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,6 +39,8 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
@@ -53,7 +54,7 @@ public class HadoopStoreBuilder {
 
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
-    public static final int DEFAULT_BUFFER_SIZE = (int) 64 * 1024;
+    public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
@@ -68,7 +69,7 @@ public class HadoopStoreBuilder {
     private final Path inputPath;
     private final Path outputDir;
     private final Path tempDir;
-    private boolean doCheckSum = false;
+    private CheckSumType checkSumType = CheckSumType.NONE;
 
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
@@ -124,7 +125,7 @@ public class HadoopStoreBuilder {
                               Path tempDir,
                               Path outputDir,
                               Path inputPath,
-                              boolean doCheckSum) {
+                              CheckSumType checkSumType) {
         this(conf,
              mapperClass,
              inputFormatClass,
@@ -135,7 +136,7 @@ public class HadoopStoreBuilder {
              tempDir,
              outputDir,
              inputPath);
-        this.doCheckSum = doCheckSum;
+        this.checkSumType = checkSumType;
 
     }
 
@@ -189,9 +190,18 @@ public class HadoopStoreBuilder {
             logger.info("Building store...");
             JobClient.runJob(conf);
 
-            if(doCheckSum) {
+            if(checkSumType != CheckSumType.NONE) {
+
                 // Generate checksum for every node
                 FileStatus[] nodes = outputFs.listStatus(outputDir);
+
+                // Do a CheckSumOfCheckSum - Similar to HDFS
+                CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
+                CheckSum fileCheckSumGenerator = CheckSum.getInstance(this.checkSumType);
+
+                if(checkSumGenerator == null || fileCheckSumGenerator == null) {
+                    throw new VoldemortException("Could not generate checksum digests");
+                }
 
                 for(FileStatus node: nodes) {
                     if(node.isDir()) {
@@ -200,9 +210,6 @@ public class HadoopStoreBuilder {
                             Arrays.sort(storeFiles, new IndexFileLastComparator());
 
                             byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-                            // Do a MD5ofMD5s - Similar to HDFS
-                            MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
-                            MessageDigest fileCheckSumGenerator = MessageDigest.getInstance("md5");
 
                             for(FileStatus status: storeFiles) {
                                 if(!status.getPath().getName().startsWith(".")) {
@@ -219,14 +226,15 @@ public class HadoopStoreBuilder {
                                         }
                                         fileCheckSumGenerator.update(buffer);
                                     }
-                                    checkSumGenerator.update(fileCheckSumGenerator.digest());
+                                    checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
                                 }
                             }
 
-                            byte[] md5 = checkSumGenerator.digest();
+                            byte[] checkSumBytes = checkSumGenerator.getCheckSum();
                             FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
-                                                                                         "checkSum.txt"));
-                            checkSumStream.write(md5);
+                                                                                         CheckSum.toString(checkSumType)
+                                                                                                 + "checkSum.txt"));
+                            checkSumStream.write(checkSumBytes);
                             checkSumStream.flush();
                             checkSumStream.close();
 
@@ -252,6 +260,10 @@ public class HadoopStoreBuilder {
             // directories before files
             if(fs1.isDir())
                 return fs2.isDir() ? 0 : -1;
+            else if(fs1.getPath().getName().endsWith("checkSum.txt"))
+                return -1;
+            else if(fs2.getPath().getName().endsWith("checkSum.txt"))
+                return 1;
             // index files after all other files
             else if(fs1.getPath().getName().endsWith(".index"))
                 return fs2.getPath().getName().endsWith(".index") ? 0 : 1;

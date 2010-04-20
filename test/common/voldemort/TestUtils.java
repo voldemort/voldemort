@@ -18,19 +18,13 @@ package voldemort;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -52,7 +46,6 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -386,86 +379,29 @@ public class TestUtils {
         assertWithBackoff(30, timeout, attempt);
     }
 
-    public static void assertWithBackoff(long initialDelay, long timeout, Attempt attempt) throws Exception {
+    public static void assertWithBackoff(long initialDelay, long timeout, Attempt attempt)
+            throws Exception {
         long delay = initialDelay;
         long finishBy = System.currentTimeMillis() + timeout;
 
-        while (true) {
+        while(true) {
             try {
                 attempt.checkCondition();
                 return;
-            } catch (AssertionError e) {
-                if (System.currentTimeMillis() < finishBy) {
+            } catch(AssertionError e) {
+                if(System.currentTimeMillis() < finishBy) {
                     try {
                         Thread.sleep(delay);
                         delay <<= 1;
-                    } catch (InterruptedException ie) {
+                    } catch(InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw ie;
                     }
-                }
-		else {
+                } else {
                     throw e;
                 }
             }
         }
     }
 
-    /**
-     * Calculates the MD5 of MD5s of individual files.
-     * 
-     * @param files The files whose bytes to read
-     * @return bytes
-     */
-    public static byte[] calculateCheckSum(File[] files) throws Exception {
-        MessageDigest checkSumGenerator = MessageDigest.getInstance("md5");
-        MessageDigest fileCheckSumGenerator = MessageDigest.getInstance("md5");
-        int bufferSize = 64 * 1024;
-        byte[] buffer = new byte[bufferSize];
-
-        Arrays.sort(files, new Comparator<File>() {
-
-            public int compare(File fs1, File fs2) {
-                // directories before files
-                if(fs1.isDirectory())
-                    return fs2.isDirectory() ? 0 : -1;
-                // index files after all other files
-                else if(fs1.getName().endsWith(".index"))
-                    return fs2.getName().endsWith(".index") ? 0 : 1;
-                // everything else is equivalent
-                else
-                    return 0;
-            }
-        });
-
-        for(File file: files) {
-            if(file.isFile() && !file.getName().startsWith(".")
-               && !file.getName().contains("checkSum.txt")) {
-                DataInputStream is;
-                try {
-                    is = new DataInputStream(new FileInputStream(file));
-                } catch(FileNotFoundException e) {
-                    continue;
-                }
-
-                try {
-                    while(true) {
-                        int read = is.read(buffer);
-                        if(read < 0)
-                            break;
-                        else if(read < bufferSize) {
-                            buffer = ByteUtils.copy(buffer, 0, read);
-                        }
-                        fileCheckSumGenerator.update(buffer);
-                    }
-                    is.close();
-                } catch(IOException e) {
-                    break;
-                }
-                checkSumGenerator.update(fileCheckSumGenerator.digest());
-            }
-        }
-        return checkSumGenerator.digest();
-
-    }
 }

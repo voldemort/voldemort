@@ -20,8 +20,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -39,6 +37,8 @@ import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
@@ -130,22 +130,22 @@ public class HdfsFetcher implements FileFetcher {
                 // sort the files so that index files come last. Maybe
                 // this will help keep them cached until the swap
                 Arrays.sort(statuses, new IndexFileLastComparator());
-                byte[] origMD5 = new byte[16];
-                boolean containsCheckSumFile = false;
+                byte[] origCheckSum = null;
+                CheckSumType checkSumType = CheckSumType.NONE;
 
-                MessageDigest checkSumGenerator = null, fileCheckSumGenerator = null;
-                try {
-                    checkSumGenerator = MessageDigest.getInstance("md5");
-                    fileCheckSumGenerator = MessageDigest.getInstance("md5");
-                } catch(NoSuchAlgorithmException e) {
-                    return false;
-                }
+                // Do a MD5ofMD5s - Similar to HDFS
+                CheckSum checkSumGenerator = null;
+                CheckSum fileCheckSumGenerator = null;
+
                 for(FileStatus status: statuses) {
 
                     if(status.getPath().getName().contains("checkSum.txt")) {
-                        containsCheckSumFile = true;
+                        checkSumType = CheckSum.fromString(status.getPath().getName());
+                        checkSumGenerator = CheckSum.getInstance(checkSumType);
+                        fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
                         FSDataInputStream input = fs.open(status.getPath());
-                        input.read(origMD5);
+                        origCheckSum = new byte[CheckSum.checkSumLength(checkSumType)];
+                        input.read(origCheckSum);
                         input.close();
                         continue;
                     }
@@ -157,15 +157,18 @@ public class HdfsFetcher implements FileFetcher {
                                              throttler,
                                              stats,
                                              fileCheckSumGenerator);
-                        checkSumGenerator.update(fileCheckSumGenerator.digest());
+
+                        if(fileCheckSumGenerator != null && checkSumGenerator != null) {
+                            checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
+                        }
                     }
 
                 }
 
                 // Check MD5
-                if(containsCheckSumFile) {
-                    byte[] newMD5 = checkSumGenerator.digest();
-                    return (ByteUtils.compare(newMD5, origMD5) == 0);
+                if(checkSumType != CheckSumType.NONE) {
+                    byte[] newCheckSum = checkSumGenerator.getCheckSum();
+                    return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
                 } else {
                     // If checkSum file does not exist
                     return true;
@@ -181,7 +184,7 @@ public class HdfsFetcher implements FileFetcher {
                                       File dest,
                                       EventThrottler throttler,
                                       CopyStats stats,
-                                      MessageDigest fileCheckSumGenerator) throws IOException {
+                                      CheckSum fileCheckSumGenerator) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
@@ -197,7 +200,8 @@ public class HdfsFetcher implements FileFetcher {
                     buffer = ByteUtils.copy(buffer, 0, read);
                 }
                 output.write(buffer);
-                fileCheckSumGenerator.update(buffer);
+                if(fileCheckSumGenerator != null)
+                    fileCheckSumGenerator.update(buffer);
                 if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
@@ -273,6 +277,10 @@ public class HdfsFetcher implements FileFetcher {
             // directories before files
             if(fs1.isDir())
                 return fs2.isDir() ? 0 : -1;
+            else if(fs1.getPath().getName().endsWith("checkSum.txt"))
+                return -1;
+            else if(fs2.getPath().getName().endsWith("checkSum.txt"))
+                return 1;
             // index files after all other files
             else if(fs1.getPath().getName().endsWith(".index"))
                 return fs2.getPath().getName().endsWith(".index") ? 0 : 1;

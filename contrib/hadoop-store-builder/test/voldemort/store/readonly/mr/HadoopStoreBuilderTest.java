@@ -46,6 +46,8 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.checksum.CheckSumTests;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
@@ -118,12 +120,13 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             64 * 1024,
                                                             new Path(tempDir.getAbsolutePath()),
                                                             new Path(outputDir.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5);
         builder.build();
 
         // Check if checkSum is generated in outputDir
         File nodeFile = new File(outputDir, "node-0");
-        File checkSumFile = new File(nodeFile, "checkSum.txt");
+        File checkSumFile = new File(nodeFile, "md5checkSum.txt");
         assertTrue(checkSumFile.exists());
 
         // Check contents of checkSum file
@@ -133,7 +136,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         in.close();
         checkSumFile.delete();
 
-        byte[] checkSumBytes = TestUtils.calculateCheckSum(nodeFile.listFiles());
+        byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
+                                                               CheckSumType.MD5);
         assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
         // rename files

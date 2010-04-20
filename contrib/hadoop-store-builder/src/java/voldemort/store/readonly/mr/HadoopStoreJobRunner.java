@@ -28,6 +28,7 @@ import org.jdom.JDOMException;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.xml.ClusterMapper;
@@ -71,7 +72,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("chunksize", "maximum size of a chunk in bytes.").withRequiredArg();
         parser.accepts("inputformat", "JavaClassName (default=text).").withRequiredArg();
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
-        parser.accepts("enable-checksum", "enable checksum calculation (default=false)");
+        parser.accepts("checksum", "enable checksum using md5, adler32, crc32").withRequiredArg();
         parser.accepts("force-overwrite", "deletes final output directory if present.");
         parser.accepts("help", "print usage information");
         return parser;
@@ -157,10 +158,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
             fs.delete(outputDir, true);
         }
 
-        boolean doCheckSum = false;
-        if(options.has("enable-checksum")) {
-            doCheckSum = true;
-        }
+        CheckSumType checkSumType = CheckSumType.toType(CmdUtils.valueOf(options, "checksum", ""));
 
         Class[] deps = new Class[] { ImmutableCollection.class, JDOMException.class,
                 VoldemortConfig.class, HadoopStoreJobRunner.class, mapperClass };
@@ -177,7 +175,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             tempDir,
                                                             outputDir,
                                                             inputPath,
-                                                            doCheckSum);
+                                                            checkSumType);
 
         builder.build();
         return 0;
