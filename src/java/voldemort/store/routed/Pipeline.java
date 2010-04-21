@@ -21,11 +21,26 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.routed.action.AcknowledgeResponse;
 import voldemort.store.routed.action.Action;
+
+/**
+ * A Pipeline is the main conduit through which an {@link Action} is run. An
+ * {@link Action} is executed in response to the Pipeline receiving an event.
+ * The majority of the events are self-initiated from within the Pipeline
+ * itself. The only case thus-far where external entities create events are in
+ * response to asynchronous responses from servers ({@link AcknowledgeResponse},
+ * for example). A {@link Response} instance is created on completion of an
+ * asynchronous request and is fed back into the Pipeline where an appropriate
+ * 'response handler' action is executed.
+ * 
+ * A Pipeline instance is created per-request inside {@link RoutedStore}. This
+ * is due to the fact that it includes internal state, specific to each
+ * operation request (get, getAll, getVersions, put, and delete) invocation.
+ */
 
 public class Pipeline {
 
@@ -52,7 +67,7 @@ public class Pipeline {
         DELETE;
 
         public String getSimpleName() {
-            return StringUtils.capitalize(toString().toLowerCase().replace("_", " "));
+            return toString().toLowerCase().replace("_", " ");
         }
 
     }
@@ -78,13 +93,34 @@ public class Pipeline {
         return eventActions;
     }
 
+    /**
+     * Assigns the mapping of events to actions. When a given event is received,
+     * it is expected that there is an action to handle it.
+     * 
+     * @param eventActions Mapping of events to action handlers
+     */
+
     public void setEventActions(Map<Event, Action> eventActions) {
         this.eventActions = eventActions;
     }
 
+    /**
+     * Add an event to the queue. It will be processed in the order received.
+     * 
+     * @param event Event
+     */
+
     public void addEvent(Event event) {
         addEvent(event, null);
     }
+
+    /**
+     * Add an event to the queue with event-specific data. It will be processed
+     * in the order received.
+     * 
+     * @param event Event
+     * @param data Event-specific data
+     */
 
     public void addEvent(Event event, Object data) {
         if(logger.isTraceEnabled())
@@ -92,6 +128,19 @@ public class Pipeline {
 
         eventDataQueue.add(new EventData(event, data));
     }
+
+    /**
+     * Process events in the order as they were received.
+     * 
+     * <p/>
+     * 
+     * The overall time to process the events must be within the bounds of the
+     * timeout or an {@link InsufficientOperationalNodesException} will be
+     * thrown.
+     * 
+     * @param timeout Timeout
+     * @param unit Unit of timeout
+     */
 
     public void processEvents(long timeout, TimeUnit unit) {
         long start = System.nanoTime();
