@@ -41,7 +41,7 @@ public class GetAllReadRepair
     }
 
     @Override
-    protected void init() {
+    protected void insertNodeValues() {
         for(Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response: pipelineData.getResponses()) {
             Map<ByteArray, List<Versioned<byte[]>>> responseValue = response.getValue();
 

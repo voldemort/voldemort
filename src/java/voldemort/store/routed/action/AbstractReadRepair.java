@@ -56,7 +56,7 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
         this.nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getResponses().size());
     }
 
-    protected abstract void init();
+    protected abstract void insertNodeValues();
 
     protected void insertNodeValue(Node node, ByteArray key, List<Versioned<byte[]>> value) {
         if(value.size() == 0) {
@@ -69,7 +69,7 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
-        init();
+        insertNodeValues();
 
         if(nodeValues.size() > 1 && preferred > 1) {
             List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();

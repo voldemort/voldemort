@@ -39,7 +39,7 @@ public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> e
     }
 
     @Override
-    protected void init() {
+    protected void insertNodeValues() {
         for(Response<ByteArray, List<Versioned<byte[]>>> response: pipelineData.getResponses())
             insertNodeValue(response.getNode(), response.getKey(), response.getValue());
     }
