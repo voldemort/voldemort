@@ -26,6 +26,11 @@ import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+/**
+ * This is used only by the "get all" operation as it includes data specific
+ * only to that operation.
+ */
+
 public class GetAllPipelineData extends
         PipelineData<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> {
 
