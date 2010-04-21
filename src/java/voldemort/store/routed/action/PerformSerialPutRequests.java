@@ -78,7 +78,10 @@ public class PerformSerialPutRequests extends
             long startNs = System.nanoTime();
 
             try {
-                Versioned<byte[]> versionedCopy = incremented(versioned, node.getId());
+                VectorClock versionedClock = (VectorClock) versioned.getVersion();
+                Versioned<byte[]> versionedCopy = new Versioned<byte[]>(versioned.getValue(),
+                                                                        versionedClock.incremented(node.getId(),
+                                                                                                   time.getMilliseconds()));
 
                 if(logger.isTraceEnabled())
                     logger.trace("Attempt # " + (currentNode + 1) + " to perform put (node "
@@ -147,11 +150,4 @@ public class PerformSerialPutRequests extends
             pipeline.addEvent(masterDeterminedEvent);
         }
     }
-
-    private Versioned<byte[]> incremented(Versioned<byte[]> versioned, int nodeId) {
-        return new Versioned<byte[]>(versioned.getValue(),
-                                     ((VectorClock) versioned.getVersion()).incremented(nodeId,
-                                                                                        time.getMilliseconds()));
-    }
-
 }

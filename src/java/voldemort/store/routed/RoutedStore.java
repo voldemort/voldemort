@@ -211,8 +211,12 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>();
 
-        for(Response<ByteArray, List<Versioned<byte[]>>> response: pipelineData.getResponses())
-            results.addAll(response.getValue());
+        for(Response<ByteArray, List<Versioned<byte[]>>> response: pipelineData.getResponses()) {
+            List<Versioned<byte[]>> value = response.getValue();
+
+            if(value != null)
+                results.addAll(value);
+        }
 
         return results;
     }

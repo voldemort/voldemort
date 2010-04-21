@@ -137,48 +137,53 @@ public class ReadRepairerTest extends TestCase {
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
         Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>();
         ExecutorService threadPool = Executors.newFixedThreadPool(1);
-        for(int a = 0; a < 3; a++) {
-            int id = Iterables.get(cluster.getNodes(), a).getId();
-            InMemoryStorageEngine<ByteArray, byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
-            subStores.put(id, subStore);
-            nonblockingStores.put(id, new ThreadPoolBasedNonblockingStoreImpl(threadPool, subStore));
+        try {
+            for(int a = 0; a < 3; a++) {
+                int id = Iterables.get(cluster.getNodes(), a).getId();
+                InMemoryStorageEngine<ByteArray, byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+                subStores.put(id, subStore);
+                nonblockingStores.put(id, new ThreadPoolBasedNonblockingStoreImpl(threadPool,
+                                                                                  subStore));
+            }
+
+            FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
+                                                                                     .setBannagePeriod(1000)
+                                                                                     .setNodes(cluster.getNodes())
+                                                                                     .setStoreVerifier(create(subStores))
+                                                                                     .setTime(time);
+
+            failureDetector = create(failureDetectorConfig, false);
+
+            RoutedStore store = new RoutedStore("test",
+                                                subStores,
+                                                nonblockingStores,
+                                                cluster,
+                                                storeDef,
+                                                true,
+                                                threadPool,
+                                                1000L,
+                                                failureDetector);
+
+            recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
+            store.put(key, new Versioned<byte[]>(value));
+            recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
+            time.sleep(2000);
+
+            assertEquals(2, store.get(key).size());
+            // Last get should have repaired the missing key from node 0 so all
+            // stores should now return a value
+            assertEquals(3, store.get(key).size());
+
+            ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
+            // Try again, now use getAll to read repair
+            recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
+            store.put(anotherKey, new Versioned<byte[]>(value));
+            recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
+            assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
+            assertEquals(3, store.get(anotherKey).size());
+        } finally {
+            threadPool.shutdown();
         }
-
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
-                                                                                 .setBannagePeriod(1000)
-                                                                                 .setNodes(cluster.getNodes())
-                                                                                 .setStoreVerifier(create(subStores))
-                                                                                 .setTime(time);
-
-        failureDetector = create(failureDetectorConfig, false);
-
-        RoutedStore store = new RoutedStore("test",
-                                            subStores,
-                                            nonblockingStores,
-                                            cluster,
-                                            storeDef,
-                                            true,
-                                            threadPool,
-                                            1000L,
-                                            failureDetector);
-
-        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        store.put(key, new Versioned<byte[]>(value));
-        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        time.sleep(2000);
-
-        assertEquals(2, store.get(key).size());
-        // Last get should have repaired the missing key from node 0 so all
-        // stores should now return a value
-        assertEquals(3, store.get(key).size());
-
-        ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
-        // Try again, now use getAll to read repair
-        recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        store.put(anotherKey, new Versioned<byte[]>(value));
-        recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
-        assertEquals(3, store.get(anotherKey).size());
     }
 
     /**

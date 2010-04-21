@@ -47,9 +47,9 @@ import voldemort.utils.ByteArray;
  * <p/>
  * 
  * This class uses generics for the value to support the return types used by
- * the different operations. Oftentimes the key type is simply {@link ByteArray}
- * , but in the case of the "get all" operation, the key is actually an
- * {@link Iterable}.
+ * the different operations. Oftentimes the key type is simply a
+ * {@link ByteArray} instance, but in the case of the "get all" operation, the
+ * key is actually an {@link Iterable}.
  * 
  * @param <K> Type for the key used in the request
  * @param <V> Type for the value returned by the call
