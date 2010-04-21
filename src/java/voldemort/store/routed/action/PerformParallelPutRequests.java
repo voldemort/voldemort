@@ -51,12 +51,11 @@ public class PerformParallelPutRequests extends
                          + ", submitting remaining requests in parallel");
 
         List<Node> nodes = pipelineData.getNodes();
-        int currentNode = nodes.indexOf(master) + 1;
         int attempts = 0;
 
-        for(; currentNode < nodes.size(); currentNode++) {
+        for(int i = nodes.indexOf(master) + 1; i < nodes.size(); i++) {
             attempts++;
-            Node node = nodes.get(currentNode);
+            Node node = nodes.get(i);
             NonblockingStore store = nonblockingStores.get(node.getId());
 
             NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
