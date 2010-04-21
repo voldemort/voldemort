@@ -57,19 +57,6 @@ public class Pipeline {
 
     }
 
-    private static class EventData {
-
-        private final Event event;
-
-        private final Object data;
-
-        private EventData(Event event, Object data) {
-            this.event = event;
-            this.data = data;
-        }
-
-    }
-
     private final Operation operation;
 
     private final BlockingQueue<EventData> eventDataQueue;
@@ -151,6 +138,19 @@ public class Pipeline {
 
             action.execute(this, eventData.data);
         }
+    }
+
+    private static class EventData {
+
+        private final Event event;
+
+        private final Object data;
+
+        private EventData(Event event, Object data) {
+            this.event = event;
+            this.data = data;
+        }
+
     }
 
 }
