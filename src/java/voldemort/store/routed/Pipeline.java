@@ -37,9 +37,28 @@ import voldemort.store.routed.action.Action;
  * asynchronous request and is fed back into the Pipeline where an appropriate
  * 'response handler' action is executed.
  * 
+ * <p/>
+ * 
  * A Pipeline instance is created per-request inside {@link RoutedStore}. This
  * is due to the fact that it includes internal state, specific to each
  * operation request (get, getAll, getVersions, put, and delete) invocation.
+ * 
+ * <p/>
+ * 
+ * Here is some example code for using a Pipeline:
+ * 
+ * <pre>
+ * pipeline.setEventActions(eventActions);
+ * pipeline.addEvent(Event.STARTED);
+ * pipeline.processEvents(timeoutMs, TimeUnit.MILLISECONDS);
+ * 
+ * if(pipelineData.getFatalError() != null)
+ *     throw pipelineData.getFatalError();
+ * 
+ * for(Response&lt;?, ?&gt; response: pipelineData.getResponses()) {
+ *     // Do something with results...
+ * }
+ * </pre>
  */
 
 public class Pipeline {
