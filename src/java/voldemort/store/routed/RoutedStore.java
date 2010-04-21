@@ -36,9 +36,11 @@ import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreRequest;
 import voldemort.store.StoreUtils;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.routed.action.AcknowledgeResponse;
@@ -55,8 +57,6 @@ import voldemort.store.routed.action.PerformSerialGetAllRequests;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
-import voldemort.store.routed.action.PerformParallelRequests.NonblockingStoreRequest;
-import voldemort.store.routed.action.PerformSerialRequests.BlockingStoreRequest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -149,9 +149,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         };
 
-        BlockingStoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new BlockingStoreRequest<List<Versioned<byte[]>>>() {
+        StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
-            public List<Versioned<byte[]>> request(Node node, Store<ByteArray, byte[]> store) {
+            public List<Versioned<byte[]>> request(Store<ByteArray, byte[]> store) {
                 return store.get(key);
             }
 
@@ -349,9 +349,9 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         };
 
-        BlockingStoreRequest<Boolean> blockingDelete = new BlockingStoreRequest<Boolean>() {
+        StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
-            public Boolean request(Node node, Store<ByteArray, byte[]> store) {
+            public Boolean request(Store<ByteArray, byte[]> store) {
                 return store.delete(key, version);
             }
 

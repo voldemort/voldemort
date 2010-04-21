@@ -72,10 +72,4 @@ public class PerformParallelGetAllRequests
         }
     }
 
-    public interface NonblockingStoreRequest {
-
-        public void request(Node node, NonblockingStore store);
-
-    }
-
 }

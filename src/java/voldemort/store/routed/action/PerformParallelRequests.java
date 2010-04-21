@@ -21,6 +21,7 @@ import java.util.Map;
 
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
@@ -62,12 +63,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             NonblockingStore store = nonblockingStores.get(node.getId());
             storeRequest.request(node, store);
         }
-    }
-
-    public interface NonblockingStoreRequest {
-
-        public void request(Node node, NonblockingStore store);
-
     }
 
 }

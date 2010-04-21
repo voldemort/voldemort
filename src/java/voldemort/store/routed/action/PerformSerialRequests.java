@@ -26,6 +26,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
+import voldemort.store.StoreRequest;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
@@ -45,7 +46,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
 
     protected final int required;
 
-    protected final BlockingStoreRequest<V> storeRequest;
+    protected final StoreRequest<V> storeRequest;
 
     protected final Event insufficientSuccessesEvent;
 
@@ -56,7 +57,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                  Map<Integer, Store<ByteArray, byte[]>> stores,
                                  int preferred,
                                  int required,
-                                 BlockingStoreRequest<V> storeRequest,
+                                 StoreRequest<V> storeRequest,
                                  Event insufficientSuccessesEvent) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
@@ -78,7 +79,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
 
             try {
                 Store<ByteArray, byte[]> store = stores.get(node.getId());
-                V result = storeRequest.request(node, store);
+                V result = storeRequest.request(store);
 
                 Response<ByteArray, V> response = new Response<ByteArray, V>(node,
                                                                              key,
@@ -126,12 +127,6 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
         } else {
             pipeline.addEvent(completeEvent);
         }
-    }
-
-    public interface BlockingStoreRequest<V> {
-
-        public V request(Node node, Store<ByteArray, byte[]> store);
-
     }
 
 }
