@@ -18,6 +18,7 @@ package voldemort.store.routed;
 
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -93,34 +94,45 @@ public class Pipeline {
 
     private final Operation operation;
 
+    private final long timeout;
+
+    private final TimeUnit unit;
+
     private final BlockingQueue<EventData> eventDataQueue;
 
-    private Map<Event, Action> eventActions;
+    private final Map<Event, Action> eventActions;
 
     private final Logger logger = Logger.getLogger(getClass());
 
-    public Pipeline(Operation operation) {
+    /**
+     * 
+     * @param operation
+     * @param timeout Timeout
+     * @param unit Unit of timeout
+     */
+
+    public Pipeline(Operation operation, long timeout, TimeUnit unit) {
         this.operation = operation;
+        this.timeout = timeout;
+        this.unit = unit;
         this.eventDataQueue = new LinkedBlockingQueue<EventData>();
+        this.eventActions = new ConcurrentHashMap<Event, Action>();
     }
 
     public Operation getOperation() {
         return operation;
     }
 
-    public Map<Event, Action> getEventActions() {
-        return eventActions;
-    }
-
     /**
-     * Assigns the mapping of events to actions. When a given event is received,
-     * it is expected that there is an action to handle it.
+     * Assigns the event to be handled by the given action. When a given event
+     * is received, it is expected that there is an action to handle it.
      * 
-     * @param eventActions Mapping of events to action handlers
+     * @param event Event
+     * @param action Action to invoke upon receipt of that event
      */
 
-    public void setEventActions(Map<Event, Action> eventActions) {
-        this.eventActions = eventActions;
+    public void addEventAction(Event event, Action action) {
+        eventActions.put(event, action);
     }
 
     /**
@@ -156,12 +168,11 @@ public class Pipeline {
      * The overall time to process the events must be within the bounds of the
      * timeout or an {@link InsufficientOperationalNodesException} will be
      * thrown.
-     * 
-     * @param timeout Timeout
-     * @param unit Unit of timeout
      */
 
-    public void processEvents(long timeout, TimeUnit unit) {
+    public void execute() {
+        addEvent(Event.STARTED);
+
         long start = System.nanoTime();
 
         while(true) {
