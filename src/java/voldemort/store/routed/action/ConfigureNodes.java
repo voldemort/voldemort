@@ -30,7 +30,7 @@ import voldemort.utils.ByteArray;
 public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         AbstractConfigureNodes<ByteArray, V, PD> {
 
-    protected final ByteArray key;
+    private final ByteArray key;
 
     public ConfigureNodes(PD pipelineData,
                           Event completeEvent,

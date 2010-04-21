@@ -36,9 +36,9 @@ public class GetAllConfigureNodes
         extends
         AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final Iterable<ByteArray> keys;
+    private final Iterable<ByteArray> keys;
 
     public GetAllConfigureNodes(GetAllPipelineData pipelineData,
                                 Event completeEvent,

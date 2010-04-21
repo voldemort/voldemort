@@ -30,11 +30,11 @@ import voldemort.utils.ByteArray;
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         AbstractAction<ByteArray, V, PD> {
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final Map<Integer, NonblockingStore> nonblockingStores;
+    private final Map<Integer, NonblockingStore> nonblockingStores;
 
-    protected final NonblockingStoreRequest storeRequest;
+    private final NonblockingStoreRequest storeRequest;
 
     public PerformParallelRequests(PD pipelineData,
                                    Event completeEvent,

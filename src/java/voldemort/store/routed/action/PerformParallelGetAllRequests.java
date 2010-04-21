@@ -34,9 +34,9 @@ public class PerformParallelGetAllRequests
         extends
         AbstractAction<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final Map<Integer, NonblockingStore> nonblockingStores;
+    private final Map<Integer, NonblockingStore> nonblockingStores;
 
     public PerformParallelGetAllRequests(GetAllPipelineData pipelineData,
                                          Event completeEvent,

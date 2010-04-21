@@ -27,13 +27,13 @@ import voldemort.utils.ByteArray;
 public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
         AbstractAcknowledgeResponse<ByteArray, V, PD> {
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final int required;
+    private final int required;
 
-    protected final Event insufficientSuccessesEvent;
+    private final Event insufficientSuccessesEvent;
 
-    protected boolean isComplete;
+    private boolean isComplete;
 
     public AcknowledgeResponse(PD pipelineData,
                                Event completeEvent,

@@ -38,17 +38,17 @@ import voldemort.utils.Time;
 public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
         AbstractKeyBasedAction<ByteArray, V, PD> {
 
-    protected final FailureDetector failureDetector;
+    private final FailureDetector failureDetector;
 
-    protected final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final int required;
+    private final int required;
 
-    protected final StoreRequest<V> storeRequest;
+    private final StoreRequest<V> storeRequest;
 
-    protected final Event insufficientSuccessesEvent;
+    private final Event insufficientSuccessesEvent;
 
     public PerformSerialRequests(PD pipelineData,
                                  Event completeEvent,

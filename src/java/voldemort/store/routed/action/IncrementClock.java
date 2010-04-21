@@ -26,9 +26,9 @@ import voldemort.versioning.Versioned;
 
 public class IncrementClock extends AbstractAction<ByteArray, Void, PutPipelineData> {
 
-    protected final Versioned<byte[]> versioned;
+    private final Versioned<byte[]> versioned;
 
-    protected final Time time;
+    private final Time time;
 
     public IncrementClock(PutPipelineData pipelineData,
                           Event completeEvent,

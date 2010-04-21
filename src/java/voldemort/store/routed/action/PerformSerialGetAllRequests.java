@@ -43,15 +43,15 @@ public class PerformSerialGetAllRequests
         extends
         AbstractAction<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
-    protected final Iterable<ByteArray> keys;
+    private final Iterable<ByteArray> keys;
 
-    protected final FailureDetector failureDetector;
+    private final FailureDetector failureDetector;
 
-    protected final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[]>> stores;
 
-    protected final int preferred;
+    private final int preferred;
 
-    protected final int required;
+    private final int required;
 
     public PerformSerialGetAllRequests(GetAllPipelineData pipelineData,
                                        Event completeEvent,

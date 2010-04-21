@@ -32,7 +32,7 @@ import voldemort.versioning.Versioned;
 public class PerformParallelPutRequests extends
         AbstractKeyBasedAction<ByteArray, Void, PutPipelineData> {
 
-    protected final Map<Integer, NonblockingStore> nonblockingStores;
+    private final Map<Integer, NonblockingStore> nonblockingStores;
 
     public PerformParallelPutRequests(PutPipelineData pipelineData,
                                       Event completeEvent,
