@@ -18,6 +18,7 @@ package voldemort.store.routed.action;
 
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Pipeline.Operation;
 
 /**
  * An Action is executed in response to the {@link Pipeline} receiving an
@@ -40,7 +41,9 @@ public interface Action {
     /**
      * Executes some portion of the overall logic in the routing pipeline.
      * 
-     * @param pipeline {@link Pipeline} instance of which this action is a part
+     * @param pipeline {@link Pipeline} instance of which this action is a part,
+     *        used for adding events to the event queue or getting the
+     *        {@link Operation} that resulted in the action being called
      * @param eventData Data included as part of the event, or null if not
      *        applicable
      */
