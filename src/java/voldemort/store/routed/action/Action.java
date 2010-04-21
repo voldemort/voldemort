@@ -23,7 +23,7 @@ import voldemort.store.routed.Pipeline.Operation;
 /**
  * An Action is executed in response to the {@link Pipeline} receiving an
  * {@link Event}. An Action is a discrete portion of logic that forms part of
- * the overall process that executes a given operation. There’s no clear
+ * the overall process that executes a given operation. There's no clear
  * standard about how much or how little logic is performed in a given Action,
  * but there are intuitive separations in the logic that form natural
  * boundaries.

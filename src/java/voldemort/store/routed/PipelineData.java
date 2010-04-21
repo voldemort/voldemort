@@ -29,7 +29,7 @@ import voldemort.VoldemortException;
  * variable. Action implementations usually include the {@link PipelineData} as
  * an instance variable upon creation.
  * 
- * It’s basically a POJO that includes some relevant state for the pipeline
+ * It's basically a POJO that includes some relevant state for the pipeline
  * execution:
  * 
  * There are some subclasses of {@link PipelineData} that are used to handle the
@@ -41,7 +41,7 @@ import voldemort.VoldemortException;
  * values
  * <li>{@link GetAllPipelineData} - used by the "get all" operation
  * specifically, due to the fact that it includes Map data structures which
- * don’t fit in well in the generic structure
+ * don't fit in well in the generic structure
  * <li>{@link PutPipelineData} - used only by the "put" operation as it includes
  * data specific to that operation
  * </ol>
