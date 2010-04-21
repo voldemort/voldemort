@@ -176,7 +176,6 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
                                                                                                                              storeDef.getPreferredReads(),
                                                                                                                              storeDef.getRequiredReads(),
                                                                                                                              Event.INSUFFICIENT_SUCCESSES));
-
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                repairReads ? Event.RESPONSES_RECEIVED
