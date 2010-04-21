@@ -273,9 +273,12 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
             try {
                 clientRequest.complete();
                 Object result = clientRequest.getResult();
-                callback.requestComplete(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+
+                if(callback != null)
+                    callback.requestComplete(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } catch(Exception e) {
-                callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+                if(callback != null)
+                    callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } finally {
                 pool.checkin(destination, clientRequestExecutor);
             }

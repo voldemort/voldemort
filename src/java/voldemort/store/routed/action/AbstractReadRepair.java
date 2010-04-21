@@ -16,15 +16,12 @@
 
 package voldemort.store.routed.action;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.routed.BasicResponseCallback;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PipelineData;
@@ -47,8 +44,6 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
 
     private final List<NodeValue<ByteArray, byte[]>> nodeValues;
 
-    private final Map<Integer, Node> nodes;
-
     public AbstractReadRepair(PD pipelineData,
                               Event completeEvent,
                               int preferred,
@@ -59,7 +54,6 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
         this.nonblockingStores = nonblockingStores;
         this.readRepairer = readRepairer;
         this.nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getResponses().size());
-        this.nodes = new HashMap<Integer, Node>();
     }
 
     protected abstract void init();
@@ -72,8 +66,6 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
             for(Versioned<byte[]> versioned: value)
                 nodeValues.add(new NodeValue<ByteArray, byte[]>(node.getId(), key, versioned));
         }
-
-        nodes.put(node.getId(), node);
     }
 
     public void execute(Pipeline pipeline, Object eventData) {
@@ -102,12 +94,8 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                         logger.debug("Doing read repair on node " + v.getNodeId() + " for key '"
                                      + v.getKey() + "' with version " + v.getVersion() + ".");
 
-                    Node node = nodes.get(v.getNodeId());
-                    NonblockingStore store = nonblockingStores.get(node.getId());
-                    NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
-                                                                                             node,
-                                                                                             v.getKey());
-                    store.submitPutRequest(v.getKey(), v.getVersioned(), callback);
+                    NonblockingStore store = nonblockingStores.get(v.getNodeId());
+                    store.submitPutRequest(v.getKey(), v.getVersioned(), null);
                 } catch(VoldemortApplicationException e) {
                     if(logger.isDebugEnabled())
                         logger.debug("Read repair cancelled due to application level exception on node "

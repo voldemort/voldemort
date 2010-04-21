@@ -48,9 +48,13 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = innerStore.getAll(keys);
-                    callback.requestComplete(result, (System.nanoTime() - start) / Time.NS_PER_MS);
+
+                    if(callback != null)
+                        callback.requestComplete(result, (System.nanoTime() - start)
+                                                         / Time.NS_PER_MS);
                 } catch(Exception e) {
-                    callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
+                    if(callback != null)
+                        callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
                 }
             }
 
@@ -66,9 +70,13 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = innerStore.get(key);
-                    callback.requestComplete(result, (System.nanoTime() - start) / Time.NS_PER_MS);
+
+                    if(callback != null)
+                        callback.requestComplete(result, (System.nanoTime() - start)
+                                                         / Time.NS_PER_MS);
                 } catch(Exception e) {
-                    callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
+                    if(callback != null)
+                        callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
                 }
             }
 
@@ -84,9 +92,13 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = innerStore.getVersions(key);
-                    callback.requestComplete(result, (System.nanoTime() - start) / Time.NS_PER_MS);
+
+                    if(callback != null)
+                        callback.requestComplete(result, (System.nanoTime() - start)
+                                                         / Time.NS_PER_MS);
                 } catch(Exception e) {
-                    callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
+                    if(callback != null)
+                        callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
                 }
             }
 
@@ -103,9 +115,12 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     innerStore.put(key, value);
-                    callback.requestComplete(null, (System.nanoTime() - start) / Time.NS_PER_MS);
+
+                    if(callback != null)
+                        callback.requestComplete(null, (System.nanoTime() - start) / Time.NS_PER_MS);
                 } catch(Exception e) {
-                    callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
+                    if(callback != null)
+                        callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
                 }
             }
 
@@ -123,9 +138,13 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
                 try {
                     Object result = innerStore.delete(key, version);
-                    callback.requestComplete(result, (System.nanoTime() - start) / Time.NS_PER_MS);
+
+                    if(callback != null)
+                        callback.requestComplete(result, (System.nanoTime() - start)
+                                                         / Time.NS_PER_MS);
                 } catch(Exception e) {
-                    callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
+                    if(callback != null)
+                        callback.requestComplete(e, (System.nanoTime() - start) / Time.NS_PER_MS);
                 }
             }
 
