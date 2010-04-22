@@ -56,8 +56,10 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
         }
 
         if(logger.isTraceEnabled())
-            logger.trace("Response received, successes: " + pipelineData.getSuccesses()
-                         + ", preferred: " + preferred + ", required: " + required);
+            logger.trace("Response received (" + response.getRequestTime() + " ms.) from node "
+                         + response.getNode().getId() + ", successes: "
+                         + pipelineData.getSuccesses() + ", preferred: " + preferred
+                         + ", required: " + required);
 
         // If we get to here, that means we couldn't hit the preferred number
         // of writes, throw an exception if you can't even hit the required
