@@ -73,11 +73,11 @@ public class Rebalancer implements Runnable {
         logger.debug("rebalancer run() called.");
         if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadataStore.getServerState())) {
 
-            // free permit here for rebalanceLocalNode to acquire.
-
-
+            // TODO: parallelize this. Right now, when we recover from a crash we still do one 
+            // {@link RebalancePartitionsInfo} a time.
             List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfo();
             for (RebalancePartitionsInfo stealInfo: stealInfoList) {
+                // free permit here for rebalanceLocalNode to acquire.
                 if (acquireRebalancingPermit(stealInfo.getDonorId())) {
                     releaseRebalancingPermit(stealInfo.getDonorId());
                     try {
