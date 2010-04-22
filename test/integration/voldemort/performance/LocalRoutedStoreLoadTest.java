@@ -40,10 +40,10 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
@@ -63,15 +63,12 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                          + File.separator
                                                                          + "/cluster.xml"));
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
-        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
         ExecutorService threadPool = Executors.newFixedThreadPool(10);
         VoldemortConfig voldemortConfig = new VoldemortConfig(propsA);
         StorageConfiguration conf = new BdbStorageConfiguration(voldemortConfig);
         for(Node node: cluster.getNodes()) {
             StorageEngine<ByteArray, byte[]> store = conf.getStore("test" + node.getId());
             clientMapping.put(node.getId(), store);
-            nonblockingStores.put(node.getId(), new ThreadPoolBasedNonblockingStoreImpl(threadPool,
-                                                                                        store));
         }
 
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
@@ -81,21 +78,22 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                                                                                                             new ByteArray("key".getBytes())));
         FailureDetector failureDetector = create(failureDetectorConfig, false);
 
-        RoutedStore store = new RoutedStore("test",
-                                            clientMapping,
-                                            nonblockingStores,
-                                            cluster,
-                                            ServerTestUtils.getStoreDef("test",
-                                                                        1,
-                                                                        1,
-                                                                        1,
-                                                                        1,
-                                                                        1,
-                                                                        RoutingStrategyType.CONSISTENT_STRATEGY),
-                                            true,
-                                            threadPool,
-                                            10000L,
-                                            failureDetector);
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
+                                                                       threadPool,
+                                                                       voldemortConfig.getRoutingTimeoutMs());
+
+        RoutedStore store = routedStoreFactory.create(cluster,
+                                                      storeDef,
+                                                      clientMapping,
+                                                      true,
+                                                      failureDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory

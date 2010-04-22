@@ -43,9 +43,7 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
-import voldemort.store.routed.RoutedStore;
+import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
@@ -80,7 +78,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
     private final URI[] bootstrapUrls;
-    private final int routingTimeoutMs;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
@@ -90,6 +87,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final int maxBootstrapRetries;
     private final StoreStats stats;
     private final ClientConfig config;
+    private final RoutedStoreFactory routedStoreFactory;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -98,12 +96,15 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                config.getMaxQueuedRequests());
         this.serializerFactory = config.getSerializerFactory();
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
-        this.routingTimeoutMs = config.getRoutingTimeout(TimeUnit.MILLISECONDS);
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
         this.jmxId = jmxIdCounter.getAndIncrement();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
+        this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
+                                                         threadPool,
+                                                         config.getRoutingTimeout(TimeUnit.MILLISECONDS));
+
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
@@ -140,37 +141,25 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(storeDef == null)
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
 
+        boolean repairReads = !storeDef.isView();
+
         // construct mapping
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
-        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
                                                       getPort(node),
                                                       this.requestFormatType);
-            NonblockingStore nonblockingStore = null;
-
-            if(store instanceof NonblockingStore)
-                nonblockingStore = (NonblockingStore) store;
-            else
-                nonblockingStore = new ThreadPoolBasedNonblockingStoreImpl(threadPool, store);
-
             store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
-            nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
-        boolean repairReads = !storeDef.isView();
-        Store<ByteArray, byte[]> store = new RoutedStore(storeName,
-                                                            clientMapping,
-                                                            nonblockingStores,
-                                                            cluster,
-                                                            storeDef,
-                                                            repairReads,
-                                                            threadPool,
-                                                            routingTimeoutMs,
-                                                            getFailureDetector());
+        Store<ByteArray, byte[]> store = routedStoreFactory.create(cluster,
+                                                                   storeDef,
+                                                                   clientMapping,
+                                                                   repairReads,
+                                                                   getFailureDetector());
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
@@ -311,19 +300,21 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     protected abstract void validateUrl(URI url);
 
-    protected ExecutorService getThreadPool() {
-        return this.threadPool;
-    }
-
-    public long getRoutingTimeoutMs() {
-        return routingTimeoutMs;
-    }
-
     public SerializerFactory getSerializerFactory() {
         return serializerFactory;
     }
 
     public void close() {
+        this.threadPool.shutdown();
+
+        try {
+            if(!this.threadPool.awaitTermination(10, TimeUnit.SECONDS))
+                this.threadPool.shutdownNow();
+        } catch(InterruptedException e) {
+            // okay, fine, playing nice didn't work
+            this.threadPool.shutdownNow();
+        }
+
         if(failureDetector != null)
             failureDetector.destroy();
     }

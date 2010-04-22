@@ -63,7 +63,7 @@ import voldemort.store.UnreachableStoreException;
  * recordException and recordSuccess should (not must) provide some input to the
  * internal algorithm.
  * 
- * @see RoutableStore
+ * @see RoutedStore
  */
 
 public interface FailureDetector {

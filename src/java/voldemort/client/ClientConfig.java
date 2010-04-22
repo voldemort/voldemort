@@ -52,6 +52,8 @@ public class ClientConfig {
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
 
+    private volatile boolean enablePipelineRoutedStore = false;
+
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
     private volatile int failureDetectorThreshold = FailureDetectorConfig.DEFAULT_THRESHOLD;
@@ -82,6 +84,7 @@ public class ClientConfig {
     public static final String BOOTSTRAP_URLS_PROPERTY = "bootstrap_urls";
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
+    public static final String ENABLE_PIPELINE_ROUTED_STORE_PROPERTY = "enable_pipeline_routed_store";
     public static final String FAILUREDETECTOR_IMPLEMENTATION_PROPERTY = "failuredetector_implementation";
     public static final String FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY = "failuredetector_bannage_period";
     public static final String FAILUREDETECTOR_THRESHOLD_PROPERTY = "failuredetector_threshold";
@@ -147,6 +150,9 @@ public class ClientConfig {
 
         if(props.containsKey(ENABLE_JMX_PROPERTY))
             this.setEnableJmx(props.getBoolean(ENABLE_JMX_PROPERTY));
+
+        if(props.containsKey(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY))
+            this.setEnablePipelineRoutedStore(props.getBoolean(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY));
 
         if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
             this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
@@ -445,6 +451,15 @@ public class ClientConfig {
      */
     public ClientConfig setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
+        return this;
+    }
+
+    public boolean isPipelineRoutedStoreEnabled() {
+        return enablePipelineRoutedStore;
+    }
+
+    public ClientConfig setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
+        this.enablePipelineRoutedStore = enablePipelineRoutedStore;
         return this;
     }
 

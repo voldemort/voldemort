@@ -112,6 +112,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableSocketServer;
     private boolean enableAdminServer;
     private boolean enableJmx;
+    private boolean enablePipelineRoutedStore;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
     private boolean enableServerRouting;
@@ -248,6 +249,7 @@ public class VoldemortConfig implements Serializable {
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
+        this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", false);
         this.enableSlop = props.getBoolean("slop.enable", true);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
@@ -640,6 +642,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
+    }
+
+    public boolean isPipelineRoutedStoreEnabled() {
+        return enablePipelineRoutedStore;
+    }
+
+    public void setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
+        this.enablePipelineRoutedStore = enablePipelineRoutedStore;
     }
 
     public long getPusherPollMs() {

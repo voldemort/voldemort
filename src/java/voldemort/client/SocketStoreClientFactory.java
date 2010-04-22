@@ -135,7 +135,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         this.storeFactory.close();
         if(failureDetector != null)
             this.failureDetector.removeFailureDetectorListener(failureDetectorListener);
-        this.getThreadPool().shutdown();
 
         super.close();
     }
