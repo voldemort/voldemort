@@ -138,7 +138,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
 
-            public void request(Node node, NonblockingStore store) {
+            public void submit(Node node, NonblockingStore store) {
                 NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
                                                                                          node,
                                                                                          key);
@@ -273,7 +273,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
 
-            public void request(Node node, NonblockingStore store) {
+            public void submit(Node node, NonblockingStore store) {
                 NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
                                                                                          node,
                                                                                          key);
@@ -324,7 +324,7 @@ public class RoutedStore implements Store<ByteArray, byte[]> {
 
         NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
 
-            public void request(Node node, NonblockingStore store) {
+            public void submit(Node node, NonblockingStore store) {
                 NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
                                                                                          node,
                                                                                          key);

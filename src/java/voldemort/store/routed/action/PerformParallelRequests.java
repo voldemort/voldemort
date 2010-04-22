@@ -61,7 +61,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         for(Node node: nodes) {
             pipelineData.incrementNodeIndex();
             NonblockingStore store = nonblockingStores.get(node.getId());
-            storeRequest.request(node, store);
+            storeRequest.submit(node, store);
         }
     }
 

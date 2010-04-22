@@ -17,9 +17,33 @@
 package voldemort.store;
 
 import voldemort.VoldemortException;
+import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.utils.ByteArray;
 
+/**
+ * A StoreRequest is a wrapper around one of the five existing requests to the
+ * {@link Store} API. It is useful to provide a sort of <i>function object</i>
+ * for various utility methods.
+ * 
+ * @param <T> Type returned by {@link Store} request
+ * 
+ * @see NonblockingStoreRequest
+ */
+
 public interface StoreRequest<T> {
+
+    /**
+     * Perform the request to the given {@link Store}. It is assumed that the
+     * parameters for the call are part of the implementing object internally.
+     * They are not provided here.
+     * 
+     * @param store {@link Store} on which to invoke the request
+     * 
+     * @return Value from underlying {@link Store}
+     * 
+     * @throws VoldemortException Thrown on errors invoking the operation on the
+     *         given {@link Store}
+     */
 
     public T request(Store<ByteArray, byte[]> store) throws VoldemortException;
 

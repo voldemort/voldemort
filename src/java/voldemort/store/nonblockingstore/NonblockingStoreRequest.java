@@ -17,9 +17,27 @@
 package voldemort.store.nonblockingstore;
 
 import voldemort.cluster.Node;
+import voldemort.store.StoreRequest;
+
+/**
+ * A NonblockingStoreRequest is a wrapper around one of the five existing
+ * requests to the {@link NonblockingStore} API. It is useful to provide a sort
+ * of <i>function object</i> for various utility methods.
+ * 
+ * @see NonblockingStore
+ * @see StoreRequest
+ */
 
 public interface NonblockingStoreRequest {
 
-    public void request(Node node, NonblockingStore store);
+    /**
+     * Submits the request to the given {@link NonblockingStore}. It is assumed
+     * that the parameters for the call are part of the implementing object
+     * internally. They are not provided here.
+     * 
+     * @param store {@link NonblockingStore} on which to submit the request
+     */
+
+    public void submit(Node node, NonblockingStore store);
 
 }

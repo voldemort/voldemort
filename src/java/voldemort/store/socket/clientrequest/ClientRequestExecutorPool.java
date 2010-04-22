@@ -44,12 +44,16 @@ import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;
 
 /**
- * A pool of sockets keyed off the socket destination. This wrapper just
- * translates exceptions and delegates to apache commons pool as well as
- * providing some JMX access.
+ * A pool of {@link ClientRequestExecutor} keyed off the
+ * {@link SocketDestination}. This is a wrapper around {@link KeyedResourcePool}
+ * that translates exceptions as well as providing some JMX access.
  * 
+ * <p/>
  * 
+ * Upon successful construction of this object, a new Thread is started. It is
+ * terminated upon calling {@link #close()}.
  */
+
 @JmxManaged(description = "Voldemort socket pool.")
 public class ClientRequestExecutorPool extends SelectorManager implements SocketStoreFactory {
 
@@ -77,7 +81,6 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
                                                         soTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive);
-
         this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
@@ -163,6 +166,12 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
         destination.setLastClosedTimestamp();
         pool.close(destination);
     }
+
+    /**
+     * Process the {@link ClientRequestExecutor} registrations which are made
+     * inside {@link ClientRequestExecutorFactory} on creation of a new
+     * {@link ClientRequestExecutor}.
+     */
 
     @Override
     protected void processEvents() {

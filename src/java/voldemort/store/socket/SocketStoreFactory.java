@@ -20,7 +20,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.RequestRoutingType;
 
 /**
- * SocketStoreFactory manages the creation of socket-based Store instances.
+ * SocketStoreFactory manages the creation of {@link SocketStore} instances.
  * Under the covers there are often shared resources (socket pools, etc.) that
  * are initialized (and destroyed) in a single section of code rather than
  * distributed over multiple methods/classes/packages.
@@ -31,6 +31,14 @@ public interface SocketStoreFactory {
     /**
      * Creates a new SocketStore using the specified store name, remote server,
      * format type and routing type.
+     * 
+     * @param storeName Name of store
+     * @param hostName Host name of remote Voldemort node
+     * @param port Port on which hostName is listening
+     * @param requestFormatType {@link RequestFormatType}
+     * @param requestRoutingType {@link RequestRoutingType}
+     * 
+     * @return New {@link SocketStore}
      */
 
     public SocketStore create(String storeName,
@@ -42,8 +50,8 @@ public interface SocketStoreFactory {
     /**
      * Closes the entire factory, which means that any shared resources used by
      * socket store implementations will be closed as well. It is therefore best
-     * to close all SocketStore instances <b>first</b>, then close the socket
-     * store factory.
+     * to close all {@link SocketStore} instances <b>first</b>, then close the
+     * socket store factory.
      */
 
     public void close();
@@ -52,8 +60,8 @@ public interface SocketStoreFactory {
      * This closes the resources for a specific host, usually in response to an
      * error in communicating with that host.
      * 
-     * @param destination SocketDestination representing the host name, port,
-     *        etc. for a remote host
+     * @param destination {@link SocketDestination} representing the host name,
+     *        port, etc. for a remote host
      */
 
     public void close(SocketDestination destination);

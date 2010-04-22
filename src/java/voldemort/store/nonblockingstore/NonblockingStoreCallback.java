@@ -16,10 +16,28 @@
 
 package voldemort.store.nonblockingstore;
 
-import voldemort.VoldemortException;
+/**
+ * A NonblockingStoreCallback is provided as an argument to the submit methods
+ * of the {@link NonblockingStore} API. When the response from the request is
+ * received, the {@link #requestComplete} method is invoked with the result of
+ * the request and the time (in milliseconds) it took between issuing the
+ * request and receiving the response.
+ * 
+ * @see NonblockingStore
+ */
 
 public interface NonblockingStoreCallback {
 
-    public void requestComplete(Object result, long requestTime) throws VoldemortException;
+    /**
+     * Signals that the request is complete and provides the response -- or
+     * Exception (if the request failed) -- and the time (in milliseconds) it
+     * took between issuing the request and receiving the response.
+     * 
+     * @param result Type-specific result from the request or Exception if the
+     *        request failed
+     * @param requestTime Time (in milliseconds) for the duration of the request
+     */
+
+    public void requestComplete(Object result, long requestTime);
 
 }

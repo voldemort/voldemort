@@ -75,7 +75,9 @@ public class ClientRequestExecutorFactory implements
     }
 
     /**
-     * Create a ClientRequestExecutor for the given host/port
+     * Create a ClientRequestExecutor for the given {@link SocketDestination}.
+     * 
+     * @param dest {@link SocketDestination}
      */
 
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
@@ -119,10 +121,12 @@ public class ClientRequestExecutorFactory implements
         registrationQueue.add(clientRequestExecutor);
         selector.wakeup();
 
+        // Block while we wait for the protocol negotiation to complete.
+        clientRequest.await();
+
         // This will throw an error if the result of the protocol negotiation
         // failed, otherwise it returns an uninteresting token we can safely
         // ignore.
-        clientRequest.await();
         clientRequest.getResult();
 
         return clientRequestExecutor;

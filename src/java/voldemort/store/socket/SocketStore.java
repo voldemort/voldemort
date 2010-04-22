@@ -53,8 +53,15 @@ import voldemort.versioning.Versioned;
  * The client implementation of a socket store--translates each request into a
  * network operation to be handled by the socket server on the other side.
  * 
+ * <p/>
  * 
+ * SocketStore handles both <i>blocking</i> and <i>non-blocking</i> styles of
+ * requesting. For non-blocking requests, SocketStore checks out a
+ * {@link ClientRequestExecutor} instance from the
+ * {@link ClientRequestExecutorPool pool} and adds an appropriate
+ * {@link ClientRequest request} to be processed by the NIO thread.
  */
+
 public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
@@ -88,8 +95,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         requestAsync(clientRequest, callback);
     }
 
-    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback)
-            throws VoldemortException {
+    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback) {
         StoreUtils.assertValidKey(key);
         GetClientRequest clientRequest = new GetClientRequest(storeName,
                                                               requestFormat,
@@ -98,8 +104,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         requestAsync(clientRequest, callback);
     }
 
-    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback)
-            throws VoldemortException {
+    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback) {
         StoreUtils.assertValidKeys(keys);
         GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
                                                                     requestFormat,
@@ -119,7 +124,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
-                                 NonblockingStoreCallback callback) throws VoldemortException {
+                                 NonblockingStoreCallback callback) {
         StoreUtils.assertValidKey(key);
         PutClientRequest clientRequest = new PutClientRequest(storeName,
                                                               requestFormat,
@@ -260,6 +265,8 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
         private final long startNs;
 
+        private volatile boolean isComplete;
+
         public NonblockingStoreCallbackClientRequest(ClientRequest<T> clientRequest,
                                                      ClientRequestExecutor clientRequestExecutor,
                                                      NonblockingStoreCallback callback) {
@@ -281,7 +288,12 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                     callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } finally {
                 pool.checkin(destination, clientRequestExecutor);
+                isComplete = true;
             }
+        }
+
+        public boolean isComplete() {
+            return isComplete;
         }
 
         public boolean formatRequest(DataOutputStream outputStream) {

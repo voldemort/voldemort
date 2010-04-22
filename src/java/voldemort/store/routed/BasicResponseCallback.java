@@ -16,7 +16,6 @@
 
 package voldemort.store.routed;
 
-import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
@@ -48,7 +47,7 @@ public class BasicResponseCallback<K> implements NonblockingStoreCallback {
         this.key = key;
     }
 
-    public void requestComplete(Object result, long requestTime) throws VoldemortException {
+    public void requestComplete(Object result, long requestTime) {
         Response<K, Object> response = new Response<K, Object>(node, key, result, requestTime);
         pipeline.addEvent(Event.RESPONSE_RECEIVED, response);
     }

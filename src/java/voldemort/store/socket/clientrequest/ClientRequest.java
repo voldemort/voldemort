@@ -28,7 +28,9 @@ import voldemort.client.protocol.RequestFormat;
  * ClientRequest represents a <b>single</b> request/response combination to a
  * remote Voldemort instance -- a new instance is created for each request to
  * the server.
+ * 
  * <p/>
+ * 
  * This class is used to support both blocking and non-blocking communication
  * with a remote server.
  * 
@@ -57,9 +59,7 @@ public interface ClientRequest<T> {
      * This is used internally by the {@link ClientRequest} logic and should not
      * be invoked by users of the sub-system.
      * 
-     * @param outputStream
-     * 
-     * @throws IOException
+     * @param outputStream Write the request to this output stream
      */
 
     public boolean formatRequest(DataOutputStream outputStream);
@@ -93,7 +93,7 @@ public interface ClientRequest<T> {
      * This is used internally by the {@link ClientRequest} logic and should not
      * be invoked by users of the sub-system.
      * 
-     * @param inputStream
+     * @param inputStream InputStream from which to read the response
      */
 
     public void parseResponse(DataInputStream inputStream);
@@ -111,5 +111,13 @@ public interface ClientRequest<T> {
      */
 
     public void complete();
+
+    /**
+     * Returns <code>true</code> if {@link #complete()} was called.
+     * 
+     * @return <code>true</code> if completed, <code>false</code> otherwise
+     */
+
+    public boolean isComplete();
 
 }

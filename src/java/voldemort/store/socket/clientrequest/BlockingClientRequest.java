@@ -49,6 +49,10 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         latch.countDown();
     }
 
+    public boolean isComplete() {
+        return delegate.isComplete() && latch.getCount() == 0;
+    }
+
     public void await() throws InterruptedException {
         latch.await();
     }
