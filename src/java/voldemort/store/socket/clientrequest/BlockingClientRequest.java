@@ -27,7 +27,7 @@ import voldemort.VoldemortException;
 /**
  * BlockingClientRequest is used to implement blocking IO using the non-blocking
  * IO-based {@link ClientRequest} logic. Essentially it wraps a vanilla
- * ClientRequest and ands an {@link #await()} method on which the caller will
+ * ClientRequest and adds an {@link #await() method} on which the caller will
  * wait for completion (either success or failure).
  * 
  * @param <T> Type of data that is returned by the request
