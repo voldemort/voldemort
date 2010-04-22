@@ -17,9 +17,13 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -35,6 +39,9 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.checksum.CheckSum;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -47,6 +54,7 @@ public class HadoopStoreBuilder {
 
     public static final long MIN_CHUNK_SIZE = 1L;
     public static final long MAX_CHUNK_SIZE = (long) (1.9 * 1024 * 1024 * 1024);
+    public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
@@ -61,23 +69,8 @@ public class HadoopStoreBuilder {
     private final Path inputPath;
     private final Path outputDir;
     private final Path tempDir;
+    private CheckSumType checkSumType = CheckSumType.NONE;
 
-    /**
-     * Create the store builder
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param replicationFactor The replication factor to use for storing the
-     *        built store.
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
                               Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
@@ -106,11 +99,53 @@ public class HadoopStoreBuilder {
     }
 
     /**
+     * Create the store builder
+     * 
+     * @param conf A base configuration to start with
+     * @param mapperClass The class to use as the mapper
+     * @param inputFormatClass The input format to use for reading values
+     * @param cluster The voldemort cluster for which the stores are being built
+     * @param storeDef The store definition of the store
+     * @param replicationFactor The replication factor to use for storing the
+     *        built store.
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
+     */
+    @SuppressWarnings("unchecked")
+    public HadoopStoreBuilder(Configuration conf,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends InputFormat> inputFormatClass,
+                              Cluster cluster,
+                              StoreDefinition storeDef,
+                              int replicationFactor,
+                              long chunkSizeBytes,
+                              Path tempDir,
+                              Path outputDir,
+                              Path inputPath,
+                              CheckSumType checkSumType) {
+        this(conf,
+             mapperClass,
+             inputFormatClass,
+             cluster,
+             storeDef,
+             replicationFactor,
+             chunkSizeBytes,
+             tempDir,
+             outputDir,
+             inputPath);
+        this.checkSumType = checkSumType;
+
+    }
+
+    /**
      * Run the job
      */
     public void build() {
         JobConf conf = new JobConf(config);
-        conf.setInt("io.file.buffer.size", 64 * 1024);
+        conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
         conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
@@ -131,16 +166,16 @@ public class HadoopStoreBuilder {
 
         try {
 
-            FileSystem fs = outputDir.getFileSystem(conf);
-            if(fs.exists(outputDir)) {
+            FileSystem outputFs = outputDir.getFileSystem(conf);
+            if(outputFs.exists(outputDir)) {
                 throw new IOException("Final output directory already exists.");
             }
 
             // delete output dir if it already exists
-            fs = tempDir.getFileSystem(conf);
-            fs.delete(tempDir, true);
+            FileSystem tempFs = tempDir.getFileSystem(conf);
+            tempFs.delete(tempDir, true);
 
-            long size = sizeOfPath(fs, inputPath);
+            long size = sizeOfPath(tempFs, inputPath);
             int numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfNodes() / chunkSizeBytes), 1);
             logger.info("Data size = " + size + ", replication factor = "
@@ -154,8 +189,85 @@ public class HadoopStoreBuilder {
 
             logger.info("Building store...");
             JobClient.runJob(conf);
-        } catch(IOException e) {
+
+            if(checkSumType != CheckSumType.NONE) {
+
+                // Generate checksum for every node
+                FileStatus[] nodes = outputFs.listStatus(outputDir);
+
+                // Do a CheckSumOfCheckSum - Similar to HDFS
+                CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
+                CheckSum fileCheckSumGenerator = CheckSum.getInstance(this.checkSumType);
+
+                if(checkSumGenerator == null || fileCheckSumGenerator == null) {
+                    throw new VoldemortException("Could not generate checksum digests");
+                }
+
+                for(FileStatus node: nodes) {
+                    if(node.isDir()) {
+                        FileStatus[] storeFiles = outputFs.listStatus(node.getPath());
+                        if(storeFiles != null) {
+                            Arrays.sort(storeFiles, new IndexFileLastComparator());
+
+                            byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+
+                            for(FileStatus status: storeFiles) {
+                                if(!status.getPath().getName().startsWith(".")) {
+                                    FSDataInputStream input = outputFs.open(status.getPath());
+
+                                    while(true) {
+                                        int read = input.read(buffer);
+                                        if(read < 0)
+                                            break;
+                                        else if(read < DEFAULT_BUFFER_SIZE) {
+                                            buffer = ByteUtils.copy(buffer, 0, read);
+                                        }
+                                        fileCheckSumGenerator.update(buffer);
+                                    }
+                                    checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
+                                }
+                            }
+
+                            byte[] checkSumBytes = checkSumGenerator.getCheckSum();
+                            FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
+                                                                                         CheckSum.toString(checkSumType)
+                                                                                                 + "checkSum.txt"));
+                            checkSumStream.write(checkSumBytes);
+                            checkSumStream.flush();
+                            checkSumStream.close();
+
+                        }
+
+                    }
+                }
+            }
+        } catch(Exception e) {
             throw new VoldemortException(e);
+        }
+
+    }
+
+    /**
+     * A comparator that sorts index files last. This is required to maintain
+     * the order while calculating checksum
+     * 
+     */
+    static class IndexFileLastComparator implements Comparator<FileStatus> {
+
+        public int compare(FileStatus fs1, FileStatus fs2) {
+            // directories before files
+            if(fs1.isDir())
+                return fs2.isDir() ? 0 : -1;
+            else if(fs1.getPath().getName().endsWith("checkSum.txt"))
+                return -1;
+            else if(fs2.getPath().getName().endsWith("checkSum.txt"))
+                return 1;
+            // index files after all other files
+            else if(fs1.getPath().getName().endsWith(".index"))
+                return fs2.getPath().getName().endsWith(".index") ? 0 : 1;
+            // everything else is equivalent
+            else
+                return 0;
         }
     }
 

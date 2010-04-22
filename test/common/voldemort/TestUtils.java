@@ -379,28 +379,29 @@ public class TestUtils {
         assertWithBackoff(30, timeout, attempt);
     }
 
-    public static void assertWithBackoff(long initialDelay, long timeout, Attempt attempt) throws Exception {
+    public static void assertWithBackoff(long initialDelay, long timeout, Attempt attempt)
+            throws Exception {
         long delay = initialDelay;
         long finishBy = System.currentTimeMillis() + timeout;
 
-        while (true) {
+        while(true) {
             try {
                 attempt.checkCondition();
                 return;
-            } catch (AssertionError e) {
-                if (System.currentTimeMillis() < finishBy) {
+            } catch(AssertionError e) {
+                if(System.currentTimeMillis() < finishBy) {
                     try {
                         Thread.sleep(delay);
                         delay <<= 1;
-                    } catch (InterruptedException ie) {
+                    } catch(InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw ie;
                     }
-                }
-                else {
+                } else {
                     throw e;
                 }
             }
         }
     }
+
 }

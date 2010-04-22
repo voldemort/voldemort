@@ -61,11 +61,11 @@ public class StoreSwapper {
     }
 
     public void swapStoreData(String storeName, String basePath) {
-        List<String> fetched = invokeFetch(basePath);
+        List<String> fetched = invokeFetch(storeName, basePath);
         invokeSwap(storeName, fetched);
     }
 
-    private List<String> invokeFetch(final String basePath) {
+    private List<String> invokeFetch(final String storeName, final String basePath) {
         // do fetch
         Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
@@ -77,6 +77,7 @@ public class StoreSwapper {
                     post.addParameter("operation", "fetch");
                     String storeDir = basePath + "/node-" + node.getId();
                     post.addParameter("dir", storeDir);
+                    post.addParameter("store", storeName);
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
                     int responseCode = httpClient.executeMethod(post);
                     String response = post.getResponseBodyAsString(30000);

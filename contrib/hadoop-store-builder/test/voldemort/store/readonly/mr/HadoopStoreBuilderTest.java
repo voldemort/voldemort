@@ -16,7 +16,9 @@
 
 package voldemort.store.readonly.mr;
 
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +46,10 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.checksum.CheckSumTests;
+import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
 
 /**
@@ -115,13 +120,30 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             64 * 1024,
                                                             new Path(tempDir.getAbsolutePath()),
                                                             new Path(outputDir.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5);
         builder.build();
+
+        // Check if checkSum is generated in outputDir
+        File nodeFile = new File(outputDir, "node-0");
+        File checkSumFile = new File(nodeFile, "md5checkSum.txt");
+        assertTrue(checkSumFile.exists());
+
+        // Check contents of checkSum file
+        byte[] md5 = new byte[16];
+        DataInputStream in = new DataInputStream(new FileInputStream(checkSumFile));
+        in.read(md5);
+        in.close();
+        checkSumFile.delete();
+
+        byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
+                                                               CheckSumType.MD5);
+        assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
         // rename files
         File versionDir = new File(storeDir, "version-0");
         versionDir.mkdirs();
-        assertTrue("Rename failed.", new File(outputDir, "node-0").renameTo(versionDir));
+        assertTrue("Rename failed.", nodeFile.renameTo(versionDir));
 
         // open store
         @SuppressWarnings("unchecked")
