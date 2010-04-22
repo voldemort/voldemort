@@ -28,23 +28,20 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
-import voldemort.server.niosocket.AsyncRequestHandler;
 import voldemort.utils.SelectorManagerWorker;
 
 /**
  * ClientRequestExecutor represents a persistent link between a client and
- * server and is used by the {@link ClientSelectorManager} to execute
+ * server and is used by the {@link ClientRequestExecutorPool} to execute
  * {@link ClientRequest requests} for the client.
  * 
  * Instances are maintained in a pool by {@link ClientRequestExecutorPool} using
  * a checkout/checkin pattern. When an instance is checked out, the calling code
  * has exclusive access to that instance. Then the
- * {@link #setClientRequest(ClientRequest) request can be set} and the instance
- * can be {@link ClientSelectorManager#submitRequest(ClientRequestExecutor)
- * submitted} to be executed.
+ * {@link #addClientRequest(ClientRequest) request can be executed}.
  * 
- * @see AsyncRequestHandler
- * @see ClientSelectorManager
+ * @see SelectorManagerWorker
+ * @see ClientRequestExecutorPool
  */
 
 public class ClientRequestExecutor extends SelectorManagerWorker {
