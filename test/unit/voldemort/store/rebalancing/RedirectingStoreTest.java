@@ -18,12 +18,7 @@ package voldemort.store.rebalancing;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -137,6 +132,11 @@ public class RedirectingStoreTest extends TestCase {
     }
 
     @Test
+    public void testProxyGetAll() {
+        // TODO: implement this
+    }
+    
+    @Test
     public void testProxyGet() {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
@@ -207,6 +207,13 @@ public class RedirectingStoreTest extends TestCase {
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(1));
     }
 
+    private void checkGetAllEntries(Map<ByteArray, byte[]> entryMap,
+                                    VoldemortServer server,
+                                    Store<ByteArray, byte[]> store,
+                                    List<Integer> availablePartition) {
+        // TODO: implement this
+    }
+    
     private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
                                  VoldemortServer server,
                                  Store<ByteArray, byte[]> store,

@@ -17,10 +17,13 @@
 package voldemort.store.rebalancing;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -214,6 +217,46 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
             throws VoldemortException {
+        Multimap<Integer, ByteArray> scatterMap = HashMultimap.create();
+        int numKeys=0;
+        for (ByteArray key: keys) {
+            numKeys++;
+            for (RebalancePartitionsInfo stealInfo: metadata.getRebalancingStealInfo()) {
+                if (stealInfo.getUnbalancedStoreList().contains(getName())) {
+                    byte[] keyBytes = key.get();
+                    for (int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
+                        if (stealInfo.getPartitionList().contains(p)) {
+                            scatterMap.put(stealInfo.getDonorId(), key);
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<ByteArray, List<Versioned<byte[]>>> gatherMap = new HashMap<ByteArray, List<Versioned<byte[]>>>(numKeys);
+
+        for (int donorNodeId: scatterMap.keySet()) {
+            Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
+            checkNodeAvailable(donorNode);
+            long startNs = System.nanoTime();
+
+            try {
+                Map<ByteArray, List<Versioned<byte[]>>> resultsForNode = getRedirectingSocketStore(getName(),
+                                                                                                   donorNodeId).getAll(scatterMap.get(donorNodeId));
+                recordSuccess(donorNode, startNs);
+
+                for (Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: resultsForNode.entrySet()) {
+                    gatherMap.put(entry.getKey(), entry.getValue());
+                }
+            } catch (UnreachableStoreException e) {
+                recordException(donorNode, startNs, e);
+                throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
+            }
+        }
+
+        return gatherMap;
+        
+        /*
         Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo().get(0)
                                                                    .getDonorId());
         checkNodeAvailable(donorNode);
@@ -229,6 +272,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
             recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
+        */
     }
 
     /**
