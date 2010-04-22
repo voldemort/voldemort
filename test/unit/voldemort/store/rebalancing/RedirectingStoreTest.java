@@ -133,7 +133,32 @@ public class RedirectingStoreTest extends TestCase {
 
     @Test
     public void testProxyGetAll() {
-        // TODO: implement this
+        Map<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
+
+        Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                       .getStorageEngine(testStoreName);
+        for (Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            store.put(entry.getKey(),
+                      Versioned.value(entry.getValue(),
+                                      new VectorClock().incremented(0, System.currentTimeMillis())));
+        }
+
+        server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+        server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_STEAL_INFO,
+                               Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                         1,
+                                                                         Arrays.asList(1),
+                                                                         new ArrayList<Integer>(0),
+                                                                         Arrays.asList(testStoreName),
+                                                                         0)));
+        checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
+                                                                  testStoreName), Arrays.asList(1));
     }
     
     @Test
@@ -211,7 +236,20 @@ public class RedirectingStoreTest extends TestCase {
                                     VoldemortServer server,
                                     Store<ByteArray, byte[]> store,
                                     List<Integer> availablePartition) {
-        // TODO: implement this
+        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(store.getName());
+        List<ByteArray> keysInPartitions = new ArrayList<ByteArray>();
+        for (ByteArray key: entryMap.keySet()) {
+            List<Integer> partitions = routing.getPartitionList(key.get());
+            if (availablePartition.containsAll(partitions)) {
+                keysInPartitions.add(key);
+            }
+        }
+        Map<ByteArray, List<Versioned<byte[]>>> results = store.getAll(keysInPartitions);
+        for (Entry<ByteArray, List<Versioned<byte[]>>> entry: results.entrySet()) {
+            assertEquals("Values should match",
+                         new String(entry.getValue().get(0).getValue()),
+                         new String(entryMap.get(entry.getKey())));
+        }
     }
     
     private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
