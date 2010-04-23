@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -60,13 +59,11 @@ public class RoutedStoreParallelismTest {
         int numKeys = Integer.parseInt(args[argsIndex++]);
         boolean usePipeline = args[argsIndex++].equals("pipeline");
 
-        Random random = new Random();
         final List<ByteArray> keys = new ArrayList<ByteArray>();
 
         for(int i = 0; i < numKeys; i++) {
-            byte[] bytes = new byte[16];
-            random.nextBytes(bytes);
-            keys.add(new ByteArray(bytes));
+            ByteArray key = new ByteArray(("test-key-" + i).getBytes());
+            keys.add(key);
         }
 
         ClientConfig clientConfig = new ClientConfig();
