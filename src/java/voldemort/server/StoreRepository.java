@@ -142,7 +142,7 @@ public class StoreRepository {
                                          + "' has already been initialized.");
     }
 
-    public List<Store<ByteArray, byte[]>> getAllRoutableStores() {
+    public List<Store<ByteArray, byte[]>> getAllRoutedStores() {
         return new ArrayList<Store<ByteArray, byte[]>>(this.routedStores.values());
     }
 

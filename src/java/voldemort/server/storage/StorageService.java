@@ -391,7 +391,7 @@ public class StorageService extends AbstractService {
         Exception lastException = null;
         logger.info("Closing all stores.");
         /* This will also close the node stores including local stores */
-        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllRoutableStores()) {
+        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllRoutedStores()) {
             logger.info("Closing routed store for " + store.getName());
             try {
                 store.close();
