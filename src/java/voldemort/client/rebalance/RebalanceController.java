@@ -28,7 +28,6 @@ public class RebalanceController {
     private static Logger logger = Logger.getLogger(RebalanceController.class);
 
     private final AdminClient adminClient;
-    private final Random random = new Random(SEED);
     RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
@@ -132,7 +131,6 @@ public class RebalanceController {
                             final int stealerNodeId = rebalanceTask.getStealerNode();
                             final SetMultimap<Integer, RebalancePartitionsInfo> rebalanceSubTaskMap = divideRebalanceNodePlan(rebalanceTask);
                             final Set<Integer> parallelDonors = rebalanceSubTaskMap.keySet();
-                            final CountDownLatch latch = new CountDownLatch(parallelDonors.size());
                             ExecutorService parallelDonorExecutor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 
                             for (final int donorNodeId: parallelDonors) {
@@ -176,8 +174,6 @@ public class RebalanceController {
                                                 }
                                             } catch(Exception e) {
                                                 logger.error("Rebalancing task failed with exception", e);
-                                            } finally {
-                                                latch.countDown();
                                             }
                                         }
                                     }
@@ -185,11 +181,9 @@ public class RebalanceController {
                             }
 
                             try {
-                                latch.await(rebalanceConfig.getRebalancingClientTimeoutSeconds() * parallelDonors.size(),
-                                            TimeUnit.SECONDS);
-                            } catch (InterruptedException e) {
+                                executorShutDown(parallelDonorExecutor);
+                            } catch (Exception e) {
                                 logger.error("Interrupted", e);
-                                Thread.currentThread().interrupt();
                             }
                         }
                     }

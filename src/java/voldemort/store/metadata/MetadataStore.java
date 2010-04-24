@@ -108,6 +108,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final RoutingStrategyFactory routingFactory = new RoutingStrategyFactory();
 
+    private static final Object lock = new Object();
+    
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
@@ -206,6 +208,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return innerStore.getCapability(capability);
     }
 
+    public Object getLock() {
+        return lock;
+    }
+
     /**
      * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
      * @return List of values (only 1 for Metadata) versioned byte[] eg. UTF
@@ -251,6 +257,36 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
 
         init(getNodeId());
+    }
+
+    public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
+        synchronized (lock) {
+            List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
+
+
+            // TODO: just implement equals/hashCode for RebalancePartitionsInfo
+            int index = -1;
+            for (int i=0; i < stealInfoList.size(); i++) {
+                if (stealInfoList.get(i).getDonorId() == stealInfo.getDonorId()) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index != -1) {
+                stealInfoList.remove(index);
+            } else {
+                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in stealInfoList " +
+                                                   RebalancePartitionsInfo.listToJsonString(stealInfoList));
+            }
+
+            if (stealInfoList.isEmpty()) {
+                logger.debug("stealInfoList empty, cleaning all rebalancing state");
+                cleanAllRebalancingState();
+            } else {
+                put(REBALANCING_STEAL_INFO, stealInfoList);
+                initCache(REBALANCING_STEAL_INFO);
+            }
+        }
     }
 
     public List<Version> getVersions(ByteArray key) {

@@ -53,7 +53,9 @@ public class Rebalancer implements Runnable {
             if (!rebalancePermitMap.containsKey(donorNodeId)) {
                 rebalancePermitMap.put(donorNodeId, new AtomicBoolean(false));
             }
-            if(rebalancePermitMap.get(donorNodeId).compareAndSet(false, true)) {
+            AtomicBoolean rebalancePermit = rebalancePermitMap.get(donorNodeId);
+            if(rebalancePermit.compareAndSet(false, true)) {
+                rebalancePermitMap.put(donorNodeId, rebalancePermit);
                 return true;
             }
         }
@@ -89,7 +91,7 @@ public class Rebalancer implements Runnable {
                         } else {
                             logger.warn("Rebalancing for rebalancing task " + stealInfo
                                         + " failed multiple times, Aborting more trials.");
-                            metadataStore.cleanAllRebalancingState();
+                            metadataStore.cleanRebalancingState(stealInfo);
                         }
                     } catch(Exception e) {
                         logger.error("RebalanceService rebalancing attempt " + stealInfo
@@ -207,7 +209,8 @@ public class Rebalancer implements Runnable {
                                                                 + " completed successfully.");
                                                     // clean state only if
                                                     // successfull.
-                                                    metadataStore.cleanAllRebalancingState();
+                                                    // operation, not all operations.
+                                                    metadataStore.cleanRebalancingState(stealInfo);
                                                 } else {
                                                     throw new VoldemortRebalancingException("Failed to rebalance task "
                                                                                                     + stealInfo,
@@ -286,20 +289,38 @@ public class Rebalancer implements Runnable {
         return requestId;
     }
 
-    private synchronized void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
-        metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
-        List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfo();
-        stealInfoList.add(stealInfo);
-        metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfoList);
+    private void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
+        synchronized (metadataStore.getLock()) {
+            metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
+            List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfo();
+
+            int index = -1;
+            for (int i=0; i < stealInfoList.size(); i++) {
+                if (stealInfoList.get(i).getDonorId() == stealInfo.getDonorId()) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index != -1) {
+                stealInfoList.remove(index);
+                stealInfoList.add(index, stealInfo);
+            } else {
+                stealInfoList.add(stealInfo);
+            }
+
+            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfoList);
+        }
     }
 
     private void checkCurrentState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
-        if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
-           && Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
-            throw new VoldemortException("Server " + metadataStore.getNodeId()
-                                         + " is already rebalancing from:"
-                                         + Joiner.on(",").join(metadataStore.getRebalancingStealInfo())
-                                         + " rejecting rebalance request:" + stealInfo);
+        synchronized (metadataStore.getLock()) {
+            if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
+               && Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
+                throw new VoldemortException("Server " + metadataStore.getNodeId()
+                                             + " is already rebalancing from:"
+                                             + Joiner.on(",").join(metadataStore.getRebalancingStealInfo())
+                                             + " rejecting rebalance request:" + stealInfo);
+        }
     }
 
     private ExecutorService createExecutors(int numThreads) {

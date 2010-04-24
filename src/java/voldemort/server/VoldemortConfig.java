@@ -260,7 +260,7 @@ public class VoldemortConfig implements Serializable {
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
 
-        this.schedulerThreads = props.getInt("scheduler.threads", 3);
+        this.schedulerThreads = props.getInt("scheduler.threads", 6);
 
         this.numCleanupPermits = props.getInt("num.cleanup.permits", 1);
 
