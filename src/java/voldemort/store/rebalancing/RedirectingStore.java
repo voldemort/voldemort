@@ -255,24 +255,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         }
 
         return gatherMap;
-        
-        /*
-        Node donorNode = metadata.getCluster().getNodeById(metadata.getRebalancingStealInfo().get(0)
-                                                                   .getDonorId());
-        checkNodeAvailable(donorNode);
-        long startNs = System.nanoTime();
-        try {
-            Map<ByteArray, List<Versioned<byte[]>>> map = getRedirectingSocketStore(getName(),
-                                                                                    metadata.getRebalancingStealInfo()
-                                                                                            .get(0)
-                                                                                            .getDonorId()).getAll(keys);
-            recordSuccess(donorNode, startNs);
-            return map;
-        } catch(UnreachableStoreException e) {
-            recordException(donorNode, startNs, e);
-            throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
-        }
-        */
     }
 
     /**

@@ -7,9 +7,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -28,7 +25,6 @@ public class Rebalancer implements Runnable {
 
     private final static Logger logger = Logger.getLogger(Rebalancer.class);
 
-    private final AtomicBoolean rebalancePermit = new AtomicBoolean(false);
     private final MetadataStore metadataStore;
     private final AsyncOperationService asyncService;
     private final VoldemortConfig voldemortConfig;
@@ -42,9 +38,7 @@ public class Rebalancer implements Runnable {
         this.voldemortConfig = voldemortConfig;
     }
 
-    public void start() {
-    // add startup time stuff here.
-    }
+    public void start() {}
 
     public void stop() {}
 
@@ -55,7 +49,6 @@ public class Rebalancer implements Runnable {
             }
             AtomicBoolean rebalancePermit = rebalancePermitMap.get(donorNodeId);
             if(rebalancePermit.compareAndSet(false, true)) {
-                rebalancePermitMap.put(donorNodeId, rebalancePermit);
                 return true;
             }
         }
@@ -74,9 +67,6 @@ public class Rebalancer implements Runnable {
     public void run() {
         logger.debug("rebalancer run() called.");
         if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadataStore.getServerState())) {
-
-            // TODO: parallelize this. Right now, when we recover from a crash we still do one 
-            // {@link RebalancePartitionsInfo} a time.
             List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfo();
             for (RebalancePartitionsInfo stealInfo: stealInfoList) {
                 // free permit here for rebalanceLocalNode to acquire.
@@ -132,16 +122,13 @@ public class Rebalancer implements Runnable {
      * @return taskId for asynchronous task.
      */
     public int rebalanceLocalNode(final RebalancePartitionsInfo stealInfo) {
-
         if(!acquireRebalancingPermit(stealInfo.getDonorId())) {
-            for (RebalancePartitionsInfo info: metadataStore.getRebalancingStealInfo()) {
-                if (info.getDonorId() == stealInfo.getDonorId()) {
-                    throw new AlreadyRebalancingException("Node "
-                                                          + metadataStore.getCluster()
-                                                                          .getNodeById(info.getStealerId())
-                                                          + " is already rebalancing from "
-                                                          + info.getDonorId() + " rebalanceInfo:" + info);
-                }
+            RebalancePartitionsInfo info = metadataStore.findStealInfo(stealInfo.getDonorId());
+            if (info != null) {
+                throw new AlreadyRebalancingException("Node "
+                                                      + metadataStore.getCluster().getNodeById(info.getStealerId())
+                                                      + " is already rebalancing from "
+                                                      + info.getDonorId() + " rebalanceInfo:" + info);
             }
         }
 
@@ -290,17 +277,11 @@ public class Rebalancer implements Runnable {
     }
 
     private void setRebalancingState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
-        synchronized (metadataStore.getLock()) {
+        synchronized (MetadataStore.lock) {
             metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
             List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfo();
 
-            int index = -1;
-            for (int i=0; i < stealInfoList.size(); i++) {
-                if (stealInfoList.get(i).getDonorId() == stealInfo.getDonorId()) {
-                    index = i;
-                    break;
-                }
-            }
+            int index = metadataStore.findDonorIdIndex(stealInfo.getDonorId());
             if (index != -1) {
                 stealInfoList.remove(index);
                 stealInfoList.add(index, stealInfo);
@@ -313,13 +294,16 @@ public class Rebalancer implements Runnable {
     }
 
     private void checkCurrentState(MetadataStore metadataStore, RebalancePartitionsInfo stealInfo) {
-        synchronized (metadataStore.getLock()) {
-            if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)
-               && Iterables.any(metadataStore.getRebalancingStealInfo(), new DonorIdPredicate(stealInfo.getDonorId())))
-                throw new VoldemortException("Server " + metadataStore.getNodeId()
-                                             + " is already rebalancing from:"
-                                             + Joiner.on(",").join(metadataStore.getRebalancingStealInfo())
-                                             + " rejecting rebalance request:" + stealInfo);
+        if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
+            synchronized (MetadataStore.lock) {
+                RebalancePartitionsInfo info = metadataStore.findStealInfo(stealInfo.getDonorId());
+                if (info != null) {
+                    throw new VoldemortException("Server " + metadataStore.getNodeId()
+                                                 + " is already rebalancing from: "
+                                                 + info
+                                                 + " rejecting rebalance request:" + stealInfo);
+                }
+            }
         }
     }
 
@@ -333,17 +317,5 @@ public class Rebalancer implements Runnable {
                 return thread;
             }
         });
-    }
-
-    private final static class DonorIdPredicate implements Predicate<RebalancePartitionsInfo> {
-        private final int donorId;
-
-        public DonorIdPredicate(int donorId) {
-            this.donorId = donorId;
-        }
-
-        public boolean apply(RebalancePartitionsInfo rebalancePartitionsInfo) {
-            return donorId == rebalancePartitionsInfo.getDonorId();
-        }
     }
 }

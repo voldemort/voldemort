@@ -59,10 +59,7 @@ import com.google.common.collect.Lists;
 /**
  * MetadataStore maintains metadata for Voldemort Server. <br>
  * Metadata is persisted as strings in inner store for ease of readability.<br>
- * Metadata Store keeps a in memory write-through-cache for performance.
- * 
- * 
- * 
+ * Metadata Store keeps an in memory write-through-cache for performance.
  */
 public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
@@ -108,7 +105,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final RoutingStrategyFactory routingFactory = new RoutingStrategyFactory();
 
-    private static final Object lock = new Object();
+    // Guards mutations made to non-scalar objects (e.g., lists) stored in innerStore
+    public static final Object lock = new Object();
     
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
@@ -183,9 +181,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     /**
      * A write through put to inner-store.
      * 
-     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
-     * @param value: versioned byte[] eg. UTF bytes for cluster xml definitions
-     * @return void
+     * @param keyBytes: keyName strings serialized as bytes eg. 'cluster.xml'
+     * @param valueBytes: versioned byte[] eg. UTF bytes for cluster xml definitions
      * @throws VoldemortException
      */
     public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes)
@@ -208,12 +205,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return innerStore.getCapability(capability);
     }
 
-    public Object getLock() {
-        return lock;
-    }
-
     /**
-     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
+     * @param keyBytes: keyName strings serialized as bytes eg. 'cluster.xml'
      * @return List of values (only 1 for Metadata) versioned byte[] eg. UTF
      *         bytes for cluster xml definitions
      * @throws VoldemortException
@@ -262,16 +255,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
         synchronized (lock) {
             List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
-
-
-            // TODO: just implement equals/hashCode for RebalancePartitionsInfo
-            int index = -1;
-            for (int i=0; i < stealInfoList.size(); i++) {
-                if (stealInfoList.get(i).getDonorId() == stealInfo.getDonorId()) {
-                    index = i;
-                    break;
-                }
-            }
+            int index = findDonorIdIndex(stealInfo.getDonorId());
             if (index != -1) {
                 stealInfoList.remove(index);
             } else {
@@ -333,6 +317,43 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     @SuppressWarnings("unchecked")
     public List<RebalancePartitionsInfo> getRebalancingStealInfo() {
         return (List<RebalancePartitionsInfo>) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+    }
+
+    /**
+     * Find the index of a {@link voldemort.client.rebalance.RebalancePartitionsInfo}
+     * for a specific donor node id.
+     *
+     * @param donorId Donor node id
+     * @return Index of the donor node id, -1 if not found
+     */
+    public int findDonorIdIndex(int donorId) {
+        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
+        for (int i=0; i < stealInfoList.size(); i++) {
+            if (stealInfoList.get(i).getDonorId() == donorId) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Find a {@link voldemort.client.rebalance.RebalancePartitionsInfo} for a specific
+     * donor node id.
+     *
+     * @param donorId Donor node id
+     * @return Appropriate <code>RebalancePartitionsInfo</code> object or <code>null</code> if not found.
+     */
+    public RebalancePartitionsInfo findStealInfo(int donorId) {
+        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
+
+        for (RebalancePartitionsInfo info: stealInfoList) {
+            if (info.getDonorId() == donorId) {
+                return info;
+            }
+        }
+
+        return null;
     }
 
     @SuppressWarnings("unchecked")
