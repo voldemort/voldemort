@@ -173,6 +173,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                nonblockingStores,
                                                                                                readRepairer));
 
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -232,6 +233,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          nonblockingStores,
                                                          readRepairer));
 
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -280,6 +282,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                          storeDef.getRequiredReads(),
                                                                                                          null));
 
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -349,6 +352,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                blockingDelete,
                                                                                                null));
 
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -402,6 +406,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                              versioned,
                                                                              time));
 
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)

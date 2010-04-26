@@ -171,8 +171,6 @@ public class Pipeline {
      */
 
     public void execute() {
-        addEvent(Event.STARTED);
-
         long start = System.nanoTime();
 
         while(true) {

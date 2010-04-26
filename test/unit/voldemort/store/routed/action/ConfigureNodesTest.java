@@ -17,20 +17,12 @@
 package voldemort.store.routed.action;
 
 import static org.junit.Assert.assertEquals;
-import static voldemort.VoldemortTestConstants.getNineNodeCluster;
+import static org.junit.Assert.fail;
 
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
-import voldemort.TestUtils;
-import voldemort.VoldemortTestConstants;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
@@ -38,37 +30,12 @@ import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
-import voldemort.utils.ByteArray;
 
-public class ConfigureNodesTest {
-
-    private Cluster cluster;
-    private final ByteArray aKey = TestUtils.toByteArray("jay");
-    private final byte[] aValue = "kreps".getBytes();
-    private FailureDetector failureDetector;
-    private ExecutorService routedStoreThreadPool;
-
-    @Before
-    public void setUp() throws Exception {
-        cluster = getNineNodeCluster();
-        failureDetector = new NoopFailureDetector();
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        if(failureDetector != null)
-            failureDetector.destroy();
-
-        if(routedStoreThreadPool != null)
-            routedStoreThreadPool.shutdown();
-    }
+public class ConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodes() throws Exception {
-        cluster = VoldemortTestConstants.getThreeNodeCluster();
         RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
-
-        failureDetector = new NoopFailureDetector();
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,
@@ -78,17 +45,18 @@ public class ConfigureNodesTest {
                                                                                                                          aKey);
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
+
+        if(pipelineData.getFatalError() != null)
+            throw pipelineData.getFatalError();
 
         assertEquals(cluster.getNodes().size(), pipelineData.getNodes().size());
     }
 
     @Test(expected = InsufficientOperationalNodesException.class)
     public void testConfigureNodesNotEnoughNodes() throws Exception {
-        cluster = VoldemortTestConstants.getThreeNodeCluster();
         RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
-
-        failureDetector = new NoopFailureDetector();
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodes<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
                                                                                                                          Event.COMPLETED,
@@ -99,9 +67,13 @@ public class ConfigureNodesTest {
                                                                                                                          aKey);
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);
+        pipeline.addEvent(Event.STARTED);
         pipeline.execute();
 
-        throw pipelineData.getFatalError();
+        if(pipelineData.getFatalError() != null)
+            throw pipelineData.getFatalError();
+        else
+            fail();
     }
 
 }
