@@ -147,6 +147,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
     // assertEquals("Returned non-null value.", null, found.get(0).getValue());
     }
 
+    @Test
     public void testGetAndDeleteNonExistentKey() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
@@ -175,6 +176,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         }
     }
 
+    @Test
     public void testFetchedEqualsPut() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
@@ -188,6 +190,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertTrue("Values not equal!", valuesEqual(versioned.getValue(), found.get(0).getValue()));
     }
 
+    @Test
     public void testVersionedPut() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
@@ -236,6 +239,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertContains(store.get(key), newest);
     }
 
+    @Test
     public void testDelete() throws Exception {
         K key = getKey();
         Store<K, V> store = getStore();
@@ -265,6 +269,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertEquals(0, store.get(key).size());
     }
 
+    @Test
     public void testGetVersions() throws Exception {
         List<K> keys = getKeys(2);
         K key = keys.get(0);
@@ -281,6 +286,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         assertEquals(0, store.getVersions(keys.get(1)).size());
     }
 
+    @Test
     public void testGetAll() throws Exception {
         Store<K, V> store = getStore();
         int putCount = 10;
@@ -303,12 +309,14 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         }
     }
 
+    @Test
     public void testGetAllWithAbsentKeys() throws Exception {
         Store<K, V> store = getStore();
         Map<K, List<Versioned<V>>> result = store.getAll(getKeys(3));
         assertEquals(0, result.size());
     }
 
+    @Test
     public void testCloseIsIdempotent() throws Exception {
         Store<K, V> store = getStore();
         store.close();
