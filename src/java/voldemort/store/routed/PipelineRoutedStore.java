@@ -141,7 +141,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                         key));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                                 Event.COMPLETED,
+                                                                                                                                 Event.NOP,
                                                                                                                                  storeDef.getPreferredReads(),
                                                                                                                                  nonblockingStores,
                                                                                                                                  nonblockingStoreRequest));
@@ -207,7 +207,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          keys));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
-                                                                  null,
+                                                                  Event.NOP,
                                                                   storeDef.getPreferredReads(),
                                                                   nonblockingStores));
         pipeline.addEventAction(Event.RESPONSE_RECEIVED,

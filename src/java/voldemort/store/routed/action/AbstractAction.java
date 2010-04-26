@@ -20,6 +20,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.utils.Utils;
 
 public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implements Action {
 
@@ -30,8 +31,8 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
     protected final Logger logger = Logger.getLogger(getClass());
 
     protected AbstractAction(PD pipelineData, Event completeEvent) {
-        this.pipelineData = pipelineData;
-        this.completeEvent = completeEvent;
+        this.pipelineData = Utils.notNull(pipelineData);
+        this.completeEvent = Utils.notNull(completeEvent);
     }
 
 }
