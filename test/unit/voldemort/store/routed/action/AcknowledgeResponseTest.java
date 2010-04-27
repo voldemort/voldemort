@@ -20,10 +20,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
+import voldemort.TestUtils;
 import voldemort.cluster.Node;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.BasicPipelineData;
@@ -65,7 +67,7 @@ public class AcknowledgeResponseTest extends AbstractActionTest {
     }
 
     @Test(expected = InsufficientOperationalNodesException.class)
-    public void testBasicError() throws Exception {
+    public void testNotEnoughSuccessesError() throws Exception {
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         pipelineData.setAttempts(1);
 
@@ -90,6 +92,39 @@ public class AcknowledgeResponseTest extends AbstractActionTest {
             throw pipelineData.getFatalError();
         else
             fail();
+    }
+
+    @Test
+    public void testInsufficientSuccessesEvent() throws Exception {
+        BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
+        pipelineData.setAttempts(1);
+
+        Event expectedEvent = Event.NOP;
+
+        AcknowledgeResponse<byte[], BasicPipelineData<byte[]>> action = new AcknowledgeResponse<byte[], BasicPipelineData<byte[]>>(pipelineData,
+                                                                                                                                   Event.COMPLETED,
+                                                                                                                                   failureDetector,
+                                                                                                                                   1,
+                                                                                                                                   1,
+                                                                                                                                   expectedEvent);
+
+        Node node = cluster.getNodeById(0);
+        Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                               aKey,
+                                                                               new Exception("testing failures in "
+                                                                                             + getClass().getSimpleName()),
+                                                                               777);
+
+        Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
+        action.execute(pipeline, response);
+
+        if(pipelineData.getFatalError() != null)
+            throw pipelineData.getFatalError();
+
+        BlockingQueue<?> queue = TestUtils.getPrivateValue(pipeline, "eventDataQueue");
+        Event actualEvent = TestUtils.getPrivateValue(queue.peek(), "event");
+
+        assertEquals(expectedEvent, actualEvent);
     }
 
 }
