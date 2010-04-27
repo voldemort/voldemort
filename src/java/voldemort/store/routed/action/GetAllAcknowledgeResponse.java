@@ -48,17 +48,11 @@ public class GetAllAcknowledgeResponse
             if(!handleError(pipeline, response))
                 return;
         } else {
-            Map<ByteArray, List<Versioned<byte[]>>> responseValue = response.getValue();
-
             for(ByteArray key: response.getKey()) {
-                if(logger.isTraceEnabled())
-                    logger.trace("Response received from node " + response.getNode().getId()
-                                 + " for " + pipeline.getOperation().getSimpleName());
-
                 MutableInt successCount = pipelineData.getSuccessCount(key);
                 successCount.increment();
 
-                List<Versioned<byte[]>> retrieved = responseValue.get(key);
+                List<Versioned<byte[]>> retrieved = response.getValue().get(key);
                 /*
                  * retrieved can be null if there are no values for the key
                  * provided
