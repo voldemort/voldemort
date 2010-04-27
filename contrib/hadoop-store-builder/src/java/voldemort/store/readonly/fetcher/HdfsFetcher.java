@@ -110,7 +110,6 @@ public class HdfsFetcher implements FileFetcher {
             if(result) {
                 return destination;
             } else {
-                logger.error("Check sum failed for " + fileUrl);
                 return null;
             }
         } finally {
@@ -133,7 +132,7 @@ public class HdfsFetcher implements FileFetcher {
                 byte[] origCheckSum = null;
                 CheckSumType checkSumType = CheckSumType.NONE;
 
-                // Do a MD5ofMD5s - Similar to HDFS
+                // Do a checksum of checksum - Similar to HDFS
                 CheckSum checkSumGenerator = null;
                 CheckSum fileCheckSumGenerator = null;
 
@@ -165,7 +164,7 @@ public class HdfsFetcher implements FileFetcher {
 
                 }
 
-                // Check MD5
+                // Check checksum
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
                     return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);

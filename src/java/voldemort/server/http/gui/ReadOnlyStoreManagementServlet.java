@@ -170,9 +170,11 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             logger.info("Executing fetch of " + fetchUrl);
             fetchDir = fileFetcher.fetch(fetchUrl, storeName);
             if(fetchDir == null) {
-                fetchDir = new File(fetchUrl);
+                throw new ServletException("Checksum failed for " + fetchUrl + " and store name = "
+                                           + storeName);
+            } else {
+                logger.info("Fetch complete.");
             }
-            logger.info("Fetch complete.");
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());
     }
