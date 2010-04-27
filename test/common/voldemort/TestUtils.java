@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -402,6 +403,17 @@ public class TestUtils {
                 }
             }
         }
+    }
+
+    /**
+     * Because java.beans.ReflectionUtils isn't public...
+     */
+
+    @SuppressWarnings("unchecked")
+    public static <T> T getPrivateValue(Object instance, String fieldName) throws Exception {
+        Field eventDataQueueField = instance.getClass().getDeclaredField(fieldName);
+        eventDataQueueField.setAccessible(true);
+        return (T) eventDataQueueField.get(instance);
     }
 
 }
