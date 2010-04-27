@@ -1,3 +1,13 @@
+Release 0.80.2 on 4/27/2010
+
+Changes made since 0.80.1:
+
+* Batched NIO writes
+* VoldemortAdminTool : Added support to specify stores,  support to fetch all keys to a binary file, support to save keys in ASCII (JSON) format [experimental], capability to add stores
+* Minor bugs in Rebalancing
+* Issue 240: Voldemort fetcher should use different temp directory for different stores
+* Checksum capability during construction of Voldemort read-only store.
+
 Release 0.80.1 on 3/23/2010
 
 Changes made since 0.80:
