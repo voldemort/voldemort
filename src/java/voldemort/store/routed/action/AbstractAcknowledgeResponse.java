@@ -55,10 +55,7 @@ public abstract class AbstractAcknowledgeResponse<K, V, PD extends PipelineData<
 
     protected abstract void executeInternal(Pipeline pipeline, Response<K, V> response);
 
-    protected boolean checkError(Pipeline pipeline, Response<K, V> response) {
-        if(!(response.getValue() instanceof Exception))
-            return false;
-
+    protected boolean handleError(Pipeline pipeline, Response<K, V> response) {
         Node node = response.getNode();
         Exception e = (Exception) response.getValue();
         long requestTime = response.getRequestTime();
@@ -73,6 +70,7 @@ public abstract class AbstractAcknowledgeResponse<K, V, PD extends PipelineData<
         } else if(e instanceof VoldemortApplicationException) {
             pipelineData.setFatalError((VoldemortApplicationException) e);
             pipeline.addEvent(Event.ERROR);
+            return false;
         } else {
             pipelineData.recordFailure(e);
         }

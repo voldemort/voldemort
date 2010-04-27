@@ -44,7 +44,10 @@ public class GetAllAcknowledgeResponse
     @Override
     protected void executeInternal(Pipeline pipeline,
                                    Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> response) {
-        if(!checkError(pipeline, response)) {
+        if(response.getValue() instanceof Exception) {
+            if(!handleError(pipeline, response))
+                return;
+        } else {
             Map<ByteArray, List<Versioned<byte[]>>> responseValue = response.getValue();
 
             for(ByteArray key: response.getKey()) {

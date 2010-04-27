@@ -49,7 +49,10 @@ public class AcknowledgeResponse<V, PD extends BasicPipelineData<V>> extends
 
     @Override
     protected void executeInternal(Pipeline pipeline, Response<ByteArray, V> response) {
-        if(!checkError(pipeline, response)) {
+        if(response.getValue() instanceof Exception) {
+            if(!handleError(pipeline, response))
+                return;
+        } else {
             pipelineData.incrementSuccesses();
             pipelineData.getResponses().add(response);
             failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
