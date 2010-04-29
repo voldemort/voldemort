@@ -55,8 +55,6 @@ import voldemort.versioning.Versioned;
  * then before serving any client request do a remote get() call, put it locally
  * ignoring any {@link ObsoleteVersionException} and then serve the client
  * requests.
- * 
- * 
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
@@ -93,9 +91,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     private boolean redirectingKey(ByteArray key) {
         if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())) {
             List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
-            if (getRebalancePartitionsInfo(partitionIds) != null) {
+            if (getRebalancePartitionsInfo(partitionIds) != null)
                 return true;
-            }
         }
 
         return false;
@@ -166,7 +163,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      */
     private RebalancePartitionsInfo getRebalancePartitionsInfo(List<Integer> partitionIds) {
         for(int partitionId: partitionIds) {
-            for (RebalancePartitionsInfo candidate: metadata.getRebalancingStealInfo()) {
+            for (RebalancePartitionsInfo candidate: metadata.getRebalancingStealInfoList()) {
                 if (candidate.getUnbalancedStoreList().contains(getName()) &&
                     candidate.getPartitionList().contains(partitionId)) {
                     return candidate;
@@ -226,13 +223,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         int numKeys=0;
         for (ByteArray key: keys) {
             numKeys++;
-            for (RebalancePartitionsInfo stealInfo: metadata.getRebalancingStealInfo()) {
+            for (RebalancePartitionsInfo stealInfo: metadata.getRebalancingStealInfoList()) {
                 if (stealInfo.getUnbalancedStoreList().contains(getName())) {
                     byte[] keyBytes = key.get();
                     for (int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
-                        if (stealInfo.getPartitionList().contains(p)) {
+                        if (stealInfo.getPartitionList().contains(p))
                             scatterMap.put(stealInfo.getDonorId(), key);
-                        }
                     }
                 }
             }

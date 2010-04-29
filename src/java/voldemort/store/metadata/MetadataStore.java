@@ -254,14 +254,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
         synchronized (lock) {
-            List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
-            int index = findDonorIdIndex(stealInfo.getDonorId());
-            if (index != -1) {
+            List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfoList();
+            int index = getRebalancingStealInfoIndex(stealInfo.getDonorId());
+            if (index != -1)
                 stealInfoList.remove(index);
-            } else {
+            else
                 throw new IllegalArgumentException("Couldn't find " + stealInfo + " in stealInfoList " +
                                                    RebalancePartitionsInfo.listToJsonString(stealInfoList));
-            }
+
 
             if (stealInfoList.isEmpty()) {
                 logger.debug("stealInfoList empty, cleaning all rebalancing state");
@@ -298,9 +298,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public StoreDefinition getStoreDef(String storeName) {
         List<StoreDefinition> storeDefs = getStoreDefList();
         for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().equals(storeName)) {
+            if(storeDef.getName().equals(storeName))
                 return storeDef;
-            }
         }
 
         throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
@@ -315,7 +314,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     @SuppressWarnings("unchecked")
-    public List<RebalancePartitionsInfo> getRebalancingStealInfo() {
+    public List<RebalancePartitionsInfo> getRebalancingStealInfoList() {
         return (List<RebalancePartitionsInfo>) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
@@ -326,12 +325,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @param donorId Donor node id
      * @return Index of the donor node id, -1 if not found
      */
-    public int findDonorIdIndex(int donorId) {
-        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
+    public int getRebalancingStealInfoIndex(int donorId) {
+        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfoList();
         for (int i=0; i < stealInfoList.size(); i++) {
-            if (stealInfoList.get(i).getDonorId() == donorId) {
+            if (stealInfoList.get(i).getDonorId() == donorId)
                 return i;
-            }
         }
 
         return -1;
@@ -344,13 +342,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @param donorId Donor node id
      * @return Appropriate <code>RebalancePartitionsInfo</code> object or <code>null</code> if not found.
      */
-    public RebalancePartitionsInfo findStealInfo(int donorId) {
-        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfo();
+    public RebalancePartitionsInfo getRebalancingStealInfo(int donorId) {
+        List<RebalancePartitionsInfo> stealInfoList = getRebalancingStealInfoList();
 
         for (RebalancePartitionsInfo info: stealInfoList) {
-            if (info.getDonorId() == donorId) {
+            if (info.getDonorId() == donorId)
                 return info;
-            }
         }
 
         return null;
@@ -526,9 +523,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(values.size() > 1)
             throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "
                                          + values.size() + " for key:" + key);
-        if(values.size() > 0) {
+        if(values.size() > 0)
             return values.get(0);
-        }
 
         throw new VoldemortException("No metadata found for required key:" + key);
     }
