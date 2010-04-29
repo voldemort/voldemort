@@ -91,12 +91,10 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     private boolean redirectingKey(ByteArray key) {
-        String storeName = getName();
         if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())) {
-            for (RebalancePartitionsInfo rebalancePartitionsInfo: metadata.getRebalancingStealInfo()) {
-                if (rebalancePartitionsInfo.getUnbalancedStoreList().contains(storeName)) {
-                    return checkKeyBelongsToStolenPartitions(key, rebalancePartitionsInfo);
-                }
+            List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
+            if (getRebalancePartitionsInfo(partitionIds) != null) {
+                return true;
             }
         }
 
@@ -158,31 +156,37 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         return getInnerStore().delete(key, version);
     }
 
-    protected boolean checkKeyBelongsToStolenPartitions(ByteArray key, RebalancePartitionsInfo rebalancePartitionsInfo) {
-        for (int partitionId: metadata.getRoutingStrategy(getName()).getPartitionList(key.get())) {
-            if (rebalancePartitionsInfo.getPartitionList().contains(partitionId))
-                return true;
+    /**
+     * Finds the first {@link voldemort.client.rebalance.RebalancePartitionsInfo} containing
+     * any of supplied partitions ids for the store being redirected. Determines which
+     * rebalance operation (if any) happening to the present store impacts a partition in this list.
+     *
+     * @param partitionIds List of partitions
+     * @return <code>null</code> if none found
+     */
+    private RebalancePartitionsInfo getRebalancePartitionsInfo(List<Integer> partitionIds) {
+        for(int partitionId: partitionIds) {
+            for (RebalancePartitionsInfo candidate: metadata.getRebalancingStealInfo()) {
+                if (candidate.getUnbalancedStoreList().contains(getName()) &&
+                    candidate.getPartitionList().contains(partitionId)) {
+                    return candidate;
+                }
+            }
         }
 
-        return false;
+        return null;
     }
 
     /**
      * Performs a back-door proxy get to 
      * {@link voldemort.client.rebalance.RebalancePartitionsInfo#getDonorId() getDonorId}
      *
+     * @param key Key
      * @throws ProxyUnreachableException if donor node can't be reached
      */
     private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        RebalancePartitionsInfo rebalancePartitionsInfo=null;
         List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
-        for(int partitionId: partitionIds) {
-            for (RebalancePartitionsInfo candidate: metadata.getRebalancingStealInfo()) {
-                if (candidate.getPartitionList().contains(partitionId)) {
-                    rebalancePartitionsInfo = candidate;
-                }
-            }
-        }
+        RebalancePartitionsInfo rebalancePartitionsInfo = getRebalancePartitionsInfo(partitionIds);
 
         if (rebalancePartitionsInfo == null) {
             throw new IllegalStateException("No steal operation in progress for key " + key +
@@ -213,6 +217,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * Performs a back-door proxy get to
      * {@link voldemort.client.rebalance.RebalancePartitionsInfo#getDonorId() getDonorId}
      *
+     * @param keys Iterable list of keys
      * @throws ProxyUnreachableException if donor node can't be reached
      */
     private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
@@ -258,17 +263,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
-     * In RebalancingStealer state put should be committed on stealer node. <br>
-     * to follow voldemort version guarantees stealer <br>
+     * In <code>REBALANCING_MASTER_SERVER</code> state
+     * put should be committed on stealer node. To follow Voldemort version guarantees, stealer
      * node should query donor node and put that value (proxyValue) before
      * committing the value from client.
      * <p>
-     * stealer node should ignore {@link ObsoleteVersionException} while
-     * commiting proxyValue
-     * 
-     * 
-     * @param key
-     * @throws VoldemortException
+     * Stealer node should ignore {@link ObsoleteVersionException} while commiting proxyValue
+     * to local storage.
+     *
+     * @param key Key
+     * @throws VoldemortException if {@link #proxyGet(voldemort.utils.ByteArray)} fails
      */
     private void proxyGetAndLocalPut(ByteArray key) throws VoldemortException {
         List<Versioned<byte[]>> proxyValues = proxyGet(key);
@@ -283,6 +287,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
         }
     }
 
+    /**
+     * Similar to {@link #proxyGetAllAndLocalPut(Iterable)} but meant for {@link #getAll(Iterable)}
+     *
+     * @param keys Iterable collection of keys of keys
+     * @throws VoldemortException if {@link #proxyGetAll(Iterable)} fails
+     */
     private void proxyGetAllAndLocalPut(Iterable<ByteArray> keys) throws VoldemortException {
         Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys);
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
@@ -298,11 +308,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
-     * Create if needed redirectingSocketStore for the donorNode
+     * Get the {@link voldemort.store.socket.SocketStore} to redirect to for the donor, creating one if needed.
      * 
-     * @param storeName
-     * @param donorNode
-     * @return
+     * @param storeName Name of the store
+     * @param donorNodeId Donor node id
+     * @return <code>SocketStore</code> object for <code>storeName</code> and <code>donorNodeId</code>
      */
     private Store<ByteArray, byte[]> getRedirectingSocketStore(String storeName, int donorNodeId) {
         if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
