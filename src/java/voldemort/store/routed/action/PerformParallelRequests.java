@@ -79,7 +79,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
     @SuppressWarnings("unchecked")
     public void execute(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
-        int attempts = Math.min(preferred, required);
+        int attempts = Math.min(preferred, nodes.size());
         final List<Response<ByteArray, Object>> responses = new ArrayList<Response<ByteArray, Object>>();
         final CountDownLatch latch = new CountDownLatch(attempts);
         final AtomicBoolean isComplete = new AtomicBoolean(false);
