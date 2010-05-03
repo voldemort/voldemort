@@ -42,8 +42,6 @@ import voldemort.versioning.Versioned;
 public class PerformParallelPutRequests extends
         AbstractKeyBasedAction<ByteArray, Void, PutPipelineData> {
 
-    private final int preferred;
-
     private final int required;
 
     private final long timeoutMs;
@@ -56,13 +54,11 @@ public class PerformParallelPutRequests extends
                                       Event completeEvent,
                                       ByteArray key,
                                       FailureDetector failureDetector,
-                                      int preferred,
                                       int required,
                                       long timeoutMs,
                                       Map<Integer, NonblockingStore> nonblockingStores) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
-        this.preferred = preferred;
         this.required = required;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
