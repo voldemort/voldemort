@@ -69,9 +69,7 @@ public class Pipeline {
         CONFIGURED,
         COMPLETED,
         INSUFFICIENT_SUCCESSES,
-        RESPONSE_RECEIVED,
         RESPONSES_RECEIVED,
-        NOP,
         ERROR,
         MASTER_DETERMINED;
 
@@ -183,9 +181,6 @@ public class Pipeline {
 
                 break;
             }
-
-            if(event.equals(Event.NOP))
-                continue;
 
             Action action = eventActions.get(event);
 
