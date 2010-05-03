@@ -62,17 +62,11 @@ public abstract class PipelineData<K, V> {
 
     protected final List<Exception> failures;
 
-    protected int attempts;
-
-    protected int completed;
-
     protected VoldemortException fatalError;
 
     public PipelineData() {
         this.responses = new ArrayList<Response<K, V>>();
         this.failures = new ArrayList<Exception>();
-        this.attempts = 0;
-        this.completed = 0;
     }
 
     /**
@@ -128,54 +122,6 @@ public abstract class PipelineData<K, V> {
 
     public void recordFailure(Exception e) {
         this.failures.add(e);
-    }
-
-    /**
-     * Returns the number of (asynchronous) requests that were issued.
-     * 
-     * @return Number of attempts
-     */
-
-    public int getAttempts() {
-        return attempts;
-    }
-
-    /**
-     * Assigns the number of (asynchronous) requests that were issued. This must
-     * be a positive value.
-     * 
-     * @param attempts Number of attempts
-     */
-
-    public void setAttempts(int attempts) {
-        if(attempts <= 0)
-            throw new IllegalArgumentException("attmpts should be a positive value");
-
-        this.attempts = attempts;
-    }
-
-    /**
-     * Returns the count of responses from (asynchronous) requests.
-     * 
-     * <p/>
-     * 
-     * <b>Note</b>: this is <b>not</b> always the same as the number of
-     * responses as some operations (that is, "put") do not populate the list of
-     * responses on serial puts since there is no returned value.
-     * 
-     * @return Number of completed requests
-     */
-
-    public int getCompleted() {
-        return completed;
-    }
-
-    /**
-     * Increments the number of completed (asynchronous) requests.
-     */
-
-    public void incrementCompleted() {
-        completed++;
     }
 
 }

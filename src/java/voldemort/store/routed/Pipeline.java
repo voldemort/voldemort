@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.routed.action.AcknowledgeResponse;
 import voldemort.store.routed.action.Action;
 
 /**
@@ -98,7 +97,7 @@ public class Pipeline {
 
     private final TimeUnit unit;
 
-    private final BlockingQueue<EventData> eventDataQueue;
+    private final BlockingQueue<Event> eventQueue;
 
     private final Map<Event, Action> eventActions;
 
@@ -115,7 +114,7 @@ public class Pipeline {
         this.operation = operation;
         this.timeout = timeout;
         this.unit = unit;
-        this.eventDataQueue = new LinkedBlockingQueue<EventData>();
+        this.eventQueue = new LinkedBlockingQueue<Event>();
         this.eventActions = new ConcurrentHashMap<Event, Action>();
     }
 
@@ -142,22 +141,13 @@ public class Pipeline {
      */
 
     public void addEvent(Event event) {
-        addEvent(event, null);
-    }
+        if(event == null)
+            throw new IllegalStateException("event must be non-null");
 
-    /**
-     * Add an event to the queue with event-specific data. It will be processed
-     * in the order received.
-     * 
-     * @param event Event
-     * @param data Event-specific data
-     */
-
-    public void addEvent(Event event, Object data) {
         if(logger.isTraceEnabled())
             logger.trace("Adding event " + event);
 
-        eventDataQueue.add(new EventData(event, data));
+        eventQueue.add(event);
     }
 
     /**
@@ -171,63 +161,43 @@ public class Pipeline {
      */
 
     public void execute() {
-        long start = System.nanoTime();
-
         while(true) {
-            EventData eventData = null;
+            Event event = null;
 
             try {
-                eventData = eventDataQueue.poll(timeout, unit);
+                event = eventQueue.poll(timeout, unit);
             } catch(InterruptedException e) {
                 throw new InsufficientOperationalNodesException(operation.getSimpleName()
                                                                 + " operation interrupted!", e);
             }
 
-            if((System.nanoTime() - start) > unit.toNanos(timeout))
-                throw new InsufficientOperationalNodesException(operation.getSimpleName()
-                                                                + " operation interrupted!");
-
-            if(eventData.event.equals(Event.ERROR)) {
+            if(event.equals(Event.ERROR)) {
                 if(logger.isTraceEnabled())
                     logger.trace(operation.getSimpleName()
                                  + " request, events complete due to error");
 
                 break;
-            } else if(eventData.event.equals(Event.COMPLETED)) {
+            } else if(event.equals(Event.COMPLETED)) {
                 if(logger.isTraceEnabled())
                     logger.trace(operation.getSimpleName() + " request, events complete");
 
                 break;
             }
 
-            if(eventData.event.equals(Event.NOP))
+            if(event.equals(Event.NOP))
                 continue;
 
-            Action action = eventActions.get(eventData.event);
+            Action action = eventActions.get(event);
 
             if(action == null)
-                throw new IllegalStateException("action was null for event " + eventData.event);
+                throw new IllegalStateException("action was null for event " + event);
 
             if(logger.isTraceEnabled())
                 logger.trace(operation.getSimpleName() + " request, action "
-                             + action.getClass().getSimpleName() + " to handle " + eventData.event
-                             + " event");
+                             + action.getClass().getSimpleName() + " to handle " + event + " event");
 
-            action.execute(this, eventData.data);
+            action.execute(this);
         }
-    }
-
-    private static class EventData {
-
-        private final Event event;
-
-        private final Object data;
-
-        private EventData(Event event, Object data) {
-            this.event = event;
-            this.data = data;
-        }
-
     }
 
 }

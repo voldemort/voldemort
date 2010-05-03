@@ -44,10 +44,8 @@ public interface Action {
      * @param pipeline {@link Pipeline} instance of which this action is a part,
      *        used for adding events to the event queue or getting the
      *        {@link Operation} that resulted in the action being called
-     * @param eventData Data included as part of the event, or null if not
-     *        applicable
      */
 
-    public void execute(Pipeline pipeline, Object eventData);
+    public void execute(Pipeline pipeline);
 
 }

@@ -52,7 +52,7 @@ public class GetAllConfigureNodes
         this.keys = keys;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         Map<Node, List<ByteArray>> nodeToKeysMap = Maps.newHashMap();
         Map<ByteArray, List<Node>> keyToExtraNodesMap = Maps.newHashMap();
 

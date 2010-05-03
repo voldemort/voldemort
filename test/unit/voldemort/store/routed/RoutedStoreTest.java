@@ -768,6 +768,60 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                      statTrackingStore.getStats().getCount(Tracked.PUT));
     }
 
+    @Test
+    public void testTardyResponsesNotIncludedInResult() throws Exception {
+        cluster = VoldemortTestConstants.getThreeNodeCluster();
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               3,
+                                                               3,
+                                                               2,
+                                                               3,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        int sleepTimeMs = 500;
+        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+
+        for(Node node: cluster.getNodes()) {
+            Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+
+            if(subStores.isEmpty()) {
+                store = new SleepyStore<ByteArray, byte[]>(sleepTimeMs, store);
+            }
+
+            subStores.put(node.getId(), store);
+        }
+
+        setFailureDetector(subStores);
+
+        routedStoreThreadPool = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
+                                                                       routedStoreThreadPool,
+                                                                       10000L);
+
+        RoutedStore routedStore = routedStoreFactory.create(cluster,
+                                                            storeDef,
+                                                            subStores,
+                                                            true,
+                                                            failureDetector);
+
+        routedStore.put(aKey, Versioned.value(aValue));
+
+        routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
+                                                    routedStoreThreadPool,
+                                                    sleepTimeMs - 1);
+
+        routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
+
+        List<Versioned<byte[]>> versioneds = routedStore.get(aKey);
+        assertEquals(2, versioneds.size());
+
+        // Let's make sure that if the response *does* come in late, that it
+        // doesn't alter the return value.
+        Thread.sleep(sleepTimeMs * 2);
+        assertEquals(2, versioneds.size());
+    }
+
     private void assertOperationalNodes(int expected) {
         int found = 0;
         for(Node n: cluster.getNodes())

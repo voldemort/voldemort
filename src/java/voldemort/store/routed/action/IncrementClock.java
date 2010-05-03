@@ -39,7 +39,7 @@ public class IncrementClock extends AbstractAction<ByteArray, Void, PutPipelineD
         this.time = time;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         if(logger.isTraceEnabled())
             logger.trace(pipeline.getOperation().getSimpleName() + " versioning data - was: "
                          + versioned.getVersion());

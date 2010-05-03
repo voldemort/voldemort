@@ -38,6 +38,6 @@ public interface NonblockingStoreRequest {
      * @param store {@link NonblockingStore} on which to submit the request
      */
 
-    public void submit(Node node, NonblockingStore store);
+    public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback);
 
 }

@@ -68,7 +68,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
 
         // Now if we had any failures we will be short a few reads. Do serial

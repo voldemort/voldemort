@@ -35,9 +35,7 @@ import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
-import voldemort.store.routed.action.AcknowledgeResponse;
 import voldemort.store.routed.action.ConfigureNodes;
-import voldemort.store.routed.action.GetAllAcknowledgeResponse;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
@@ -115,10 +113,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
 
-            public void submit(Node node, NonblockingStore store) {
-                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
-                                                                                         node,
-                                                                                         key);
+            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
                 store.submitGetRequest(key, callback);
             }
 
@@ -141,18 +136,16 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                         key));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                                 Event.NOP,
+                                                                                                                                 repairReads ? Event.RESPONSES_RECEIVED
+                                                                                                                                            : Event.COMPLETED,
+                                                                                                                                 key,
+                                                                                                                                 failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
+                                                                                                                                 storeDef.getRequiredReads(),
+                                                                                                                                 timeoutMs,
                                                                                                                                  nonblockingStores,
-                                                                                                                                 nonblockingStoreRequest));
-        pipeline.addEventAction(Event.RESPONSE_RECEIVED,
-                                new AcknowledgeResponse<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                             repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                        : Event.COMPLETED,
-                                                                                                                             failureDetector,
-                                                                                                                             storeDef.getPreferredReads(),
-                                                                                                                             storeDef.getRequiredReads(),
-                                                                                                                             Event.INSUFFICIENT_SUCCESSES));
+                                                                                                                                 nonblockingStoreRequest,
+                                                                                                                                 Event.INSUFFICIENT_SUCCESSES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                repairReads ? Event.RESPONSES_RECEIVED
@@ -208,13 +201,12 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          keys));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
-                                                                  Event.NOP,
+                                                                  Event.INSUFFICIENT_SUCCESSES,
+                                                                  failureDetector,
                                                                   storeDef.getPreferredReads(),
+                                                                  storeDef.getRequiredReads(),
+                                                                  timeoutMs,
                                                                   nonblockingStores));
-        pipeline.addEventAction(Event.RESPONSE_RECEIVED,
-                                new GetAllAcknowledgeResponse(pipelineData,
-                                                              Event.INSUFFICIENT_SUCCESSES,
-                                                              failureDetector));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialGetAllRequests(pipelineData,
                                                                 repairReads ? Event.RESPONSES_RECEIVED
@@ -252,10 +244,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
 
-            public void submit(Node node, NonblockingStore store) {
-                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
-                                                                                         node,
-                                                                                         key);
+            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
                 store.submitGetVersionsRequest(key, callback);
             }
 
@@ -270,17 +259,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                     key));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
-                                                                                                             Event.NOP,
+                                                                                                             Event.COMPLETED,
+                                                                                                             key,
+                                                                                                             failureDetector,
                                                                                                              storeDef.getPreferredReads(),
+                                                                                                             storeDef.getRequiredReads(),
+                                                                                                             timeoutMs,
                                                                                                              nonblockingStores,
-                                                                                                             storeRequest));
-        pipeline.addEventAction(Event.RESPONSE_RECEIVED,
-                                new AcknowledgeResponse<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
-                                                                                                         Event.COMPLETED,
-                                                                                                         failureDetector,
-                                                                                                         storeDef.getPreferredReads(),
-                                                                                                         storeDef.getRequiredReads(),
-                                                                                                         null));
+                                                                                                             storeRequest,
+                                                                                                             null));
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();
@@ -304,10 +291,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
 
-            public void submit(Node node, NonblockingStore store) {
-                NonblockingStoreCallback callback = new BasicResponseCallback<ByteArray>(pipeline,
-                                                                                         node,
-                                                                                         key);
+            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
                 store.submitDeleteRequest(key, version, callback);
             }
 
@@ -330,17 +314,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         key));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                 Event.NOP,
+                                                                                                 Event.COMPLETED,
+                                                                                                 key,
+                                                                                                 failureDetector,
                                                                                                  storeDef.getPreferredWrites(),
+                                                                                                 storeDef.getRequiredWrites(),
+                                                                                                 timeoutMs,
                                                                                                  nonblockingStores,
-                                                                                                 nonblockingDelete));
-        pipeline.addEventAction(Event.RESPONSE_RECEIVED,
-                                new AcknowledgeResponse<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                             Event.COMPLETED,
-                                                                                             failureDetector,
-                                                                                             storeDef.getPreferredWrites(),
-                                                                                             storeDef.getRequiredWrites(),
-                                                                                             Event.INSUFFICIENT_SUCCESSES));
+                                                                                                 nonblockingDelete,
+                                                                                                 Event.INSUFFICIENT_SUCCESSES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
                                                                                                Event.COMPLETED,
@@ -391,16 +373,13 @@ public class PipelineRoutedStore extends RoutedStore {
                                                              Event.MASTER_DETERMINED));
         pipeline.addEventAction(Event.MASTER_DETERMINED,
                                 new PerformParallelPutRequests(pipelineData,
-                                                               Event.NOP,
+                                                               Event.RESPONSES_RECEIVED,
                                                                key,
+                                                               failureDetector,
+                                                               storeDef.getPreferredReads(),
+                                                               storeDef.getRequiredWrites(),
+                                                               timeoutMs,
                                                                nonblockingStores));
-        pipeline.addEventAction(Event.RESPONSE_RECEIVED,
-                                new AcknowledgeResponse<Void, PutPipelineData>(pipelineData,
-                                                                               Event.RESPONSES_RECEIVED,
-                                                                               failureDetector,
-                                                                               storeDef.getPreferredWrites(),
-                                                                               storeDef.getRequiredWrites(),
-                                                                               null));
         pipeline.addEventAction(Event.RESPONSES_RECEIVED, new IncrementClock(pipelineData,
                                                                              Event.COMPLETED,
                                                                              versioned,

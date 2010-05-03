@@ -42,7 +42,7 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         this.key = key;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         List<Node> nodes = null;
 
         try {

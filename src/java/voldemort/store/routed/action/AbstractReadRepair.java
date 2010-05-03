@@ -68,7 +68,7 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
         }
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         insertNodeValues();
 
         if(nodeValues.size() > 1 && preferred > 1) {

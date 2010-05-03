@@ -68,7 +68,7 @@ public class PerformSerialGetAllRequests
         this.required = required;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         Map<ByteArray, List<Versioned<byte[]>>> result = pipelineData.getResult();
 
         for(ByteArray key: keys) {

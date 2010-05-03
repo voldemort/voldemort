@@ -66,7 +66,7 @@ public class PerformSerialPutRequests extends
         this.masterDeterminedEvent = masterDeterminedEvent;
     }
 
-    public void execute(Pipeline pipeline, Object eventData) {
+    public void execute(Pipeline pipeline) {
         int currentNode = 0;
         List<Node> nodes = pipelineData.getNodes();
 
