@@ -833,7 +833,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                1,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        int sleepTimeMs = 1000;
+        int sleepTimeMs = 500;
         Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {
@@ -863,7 +863,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
-                                                    sleepTimeMs);
+                                                    sleepTimeMs / 2);
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 

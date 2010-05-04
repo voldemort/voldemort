@@ -18,13 +18,18 @@ package voldemort.store.routed.action;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.log4j.Level;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Pipeline.Event;
@@ -38,9 +43,11 @@ public class PerformSerialPutRequests extends
 
     private final FailureDetector failureDetector;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, NonblockingStore> nonblockingStores;
 
     private final int required;
+
+    private final long timeoutMs;
 
     private final Versioned<byte[]> versioned;
 
@@ -52,15 +59,17 @@ public class PerformSerialPutRequests extends
                                     Event completeEvent,
                                     ByteArray key,
                                     FailureDetector failureDetector,
-                                    Map<Integer, Store<ByteArray, byte[]>> stores,
+                                    Map<Integer, NonblockingStore> nonblockingStores,
                                     int required,
+                                    long timeoutMs,
                                     Versioned<byte[]> versioned,
                                     Time time,
                                     Event masterDeterminedEvent) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
-        this.stores = stores;
+        this.nonblockingStores = nonblockingStores;
         this.required = required;
+        this.timeoutMs = timeoutMs;
         this.versioned = versioned;
         this.time = time;
         this.masterDeterminedEvent = masterDeterminedEvent;
@@ -87,7 +96,31 @@ public class PerformSerialPutRequests extends
                     logger.trace("Attempt # " + (currentNode + 1) + " to perform put (node "
                                  + node.getId() + ")");
 
-                stores.get(node.getId()).put(key, versionedCopy);
+                final CountDownLatch latch = new CountDownLatch(1);
+                PutCallback callback = new PutCallback(latch);
+                NonblockingStore store = nonblockingStores.get(node.getId());
+                store.submitPutRequest(key, versionedCopy, callback);
+
+                boolean successful = false;
+
+                try {
+                    successful = latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+                } catch(InterruptedException e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
+
+                if(!successful) {
+                    List<Exception> failures = pipelineData.getFailures();
+                    pipelineData.setFatalError(new InsufficientOperationalNodesException("No master node succeeded!",
+                                                                                         failures.size() > 0 ? failures.get(0)
+                                                                                                            : null));
+                    pipeline.addEvent(Event.ERROR);
+                    return;
+                }
+
+                if(callback.result instanceof Exception)
+                    throw (Exception) callback.result;
 
                 pipelineData.incrementSuccesses();
 
@@ -150,4 +183,22 @@ public class PerformSerialPutRequests extends
             pipeline.addEvent(masterDeterminedEvent);
         }
     }
+
+    private static class PutCallback implements NonblockingStoreCallback {
+
+        private final CountDownLatch latch;
+
+        private Object result;
+
+        private PutCallback(CountDownLatch latch) {
+            this.latch = latch;
+        }
+
+        public void requestComplete(Object result, long requestTime) {
+            this.result = result;
+            latch.countDown();
+        }
+
+    }
+
 }

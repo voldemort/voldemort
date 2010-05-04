@@ -366,8 +366,9 @@ public class PipelineRoutedStore extends RoutedStore {
                                                              Event.COMPLETED,
                                                              key,
                                                              failureDetector,
-                                                             innerStores,
+                                                             nonblockingStores,
                                                              storeDef.getRequiredWrites(),
+                                                             timeoutMs,
                                                              versioned,
                                                              time,
                                                              Event.MASTER_DETERMINED));
