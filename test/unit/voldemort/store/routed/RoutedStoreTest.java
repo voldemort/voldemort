@@ -809,7 +809,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
-                                                    sleepTimeMs - 1);
+                                                    sleepTimeMs / 2);
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 
