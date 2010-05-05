@@ -203,8 +203,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,
                                                                   failureDetector,
-                                                                  storeDef.getPreferredReads(),
-                                                                  storeDef.getRequiredReads(),
                                                                   timeoutMs,
                                                                   nonblockingStores));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,

@@ -16,12 +16,11 @@
 
 package voldemort.store.routed.action;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -76,10 +75,8 @@ public class PerformParallelPutRequests extends
         int firstParallelNodeIndex = nodes.indexOf(master) + 1;
         int attempts = nodes.size() - firstParallelNodeIndex;
 
-        final List<Response<ByteArray, Object>> responses = new ArrayList<Response<ByteArray, Object>>();
+        final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         final CountDownLatch latch = new CountDownLatch(attempts);
-        final AtomicBoolean isComplete = new AtomicBoolean(false);
-        final Object lock = new Object();
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -92,21 +89,16 @@ public class PerformParallelPutRequests extends
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
-                    synchronized(lock) {
-                        if(isComplete.get())
-                            return;
+                    if(logger.isTraceEnabled())
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
 
-                        if(logger.isTraceEnabled())
-                            logger.trace(pipeline.getOperation().getSimpleName()
-                                         + " response received (" + requestTime
-                                         + " ms.) from node " + node.getId());
-
-                        responses.add(new Response<ByteArray, Object>(node,
-                                                                      key,
-                                                                      result,
-                                                                      requestTime));
-                        latch.countDown();
-                    }
+                    responses.put(node.getId(), new Response<ByteArray, Object>(node,
+                                                                                key,
+                                                                                result,
+                                                                                requestTime));
+                    latch.countDown();
                 }
 
             };
@@ -126,11 +118,7 @@ public class PerformParallelPutRequests extends
                 logger.warn(e, e);
         }
 
-        synchronized(lock) {
-            isComplete.set(true);
-        }
-
-        for(Response<ByteArray, Object> response: responses) {
+        for(Response<ByteArray, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
                 Node node = response.getNode();
                 Exception e = (Exception) response.getValue();

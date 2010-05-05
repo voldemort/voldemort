@@ -16,13 +16,12 @@
 
 package voldemort.store.routed.action;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
@@ -46,10 +45,6 @@ public class PerformParallelGetAllRequests
         extends
         AbstractAction<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
 
-    private final int preferred;
-
-    private final int required;
-
     private final long timeoutMs;
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
@@ -59,14 +54,10 @@ public class PerformParallelGetAllRequests
     public PerformParallelGetAllRequests(GetAllPipelineData pipelineData,
                                          Event completeEvent,
                                          FailureDetector failureDetector,
-                                         int preferred,
-                                         int required,
                                          long timeoutMs,
                                          Map<Integer, NonblockingStore> nonblockingStores) {
         super(pipelineData, completeEvent);
         this.failureDetector = failureDetector;
-        this.preferred = preferred;
-        this.required = required;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
     }
@@ -74,10 +65,8 @@ public class PerformParallelGetAllRequests
     @SuppressWarnings("unchecked")
     public void execute(final Pipeline pipeline) {
         int attempts = pipelineData.getNodeToKeysMap().size();
-        final List<Response<Iterable<ByteArray>, Object>> responses = new ArrayList<Response<Iterable<ByteArray>, Object>>();
+        final Map<Integer, Response<Iterable<ByteArray>, Object>> responses = new ConcurrentHashMap<Integer, Response<Iterable<ByteArray>, Object>>();
         final CountDownLatch latch = new CountDownLatch(attempts);
-        final AtomicBoolean isComplete = new AtomicBoolean(false);
-        final Object lock = new Object();
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -90,21 +79,17 @@ public class PerformParallelGetAllRequests
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
-                    synchronized(lock) {
-                        if(isComplete.get())
-                            return;
+                    if(logger.isTraceEnabled())
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
 
-                        if(logger.isTraceEnabled())
-                            logger.trace(pipeline.getOperation().getSimpleName()
-                                         + " response received (" + requestTime
-                                         + " ms.) from node " + node.getId());
-
-                        responses.add(new Response<Iterable<ByteArray>, Object>(node,
-                                                                                keys,
-                                                                                result,
-                                                                                requestTime));
-                        latch.countDown();
-                    }
+                    responses.put(node.getId(),
+                                  new Response<Iterable<ByteArray>, Object>(node,
+                                                                            keys,
+                                                                            result,
+                                                                            requestTime));
+                    latch.countDown();
                 }
 
             };
@@ -124,11 +109,7 @@ public class PerformParallelGetAllRequests
                 logger.warn(e, e);
         }
 
-        synchronized(lock) {
-            isComplete.set(true);
-        }
-
-        for(Response<Iterable<ByteArray>, Object> response: responses) {
+        for(Response<Iterable<ByteArray>, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
                 Node node = response.getNode();
                 Exception e = (Exception) response.getValue();
