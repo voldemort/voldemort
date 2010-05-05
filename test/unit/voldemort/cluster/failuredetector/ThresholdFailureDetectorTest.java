@@ -41,7 +41,8 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
     @Override
     public FailureDetector createFailureDetector() throws Exception {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
-                                                                                 .setBannagePeriod(BANNAGE_MILLIS)
+                                                                                 .setThresholdInterval(1000)
+                                                                                 .setAsyncRecoveryInterval(250)
                                                                                  .setNodes(cluster.getNodes())
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
