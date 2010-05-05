@@ -64,6 +64,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -288,16 +289,21 @@ public class StorageService extends AbstractService {
      */
     public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
         Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
+        Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>(cluster.getNumberOfNodes());
 
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
             this.storeRepository.addNodeStore(node.getId(), store);
             nodeStores.put(node.getId(), store);
+
+            NonblockingStore nonblockingStore = routedStoreFactory.toNonblockingStore(store);
+            nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
         Store<ByteArray, byte[]> store = routedStoreFactory.create(cluster,
                                                                    def,
                                                                    nodeStores,
+                                                                   nonblockingStores,
                                                                    true,
                                                                    failureDetector);
 

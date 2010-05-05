@@ -43,6 +43,7 @@ import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.stats.StatTrackingStore;
@@ -145,19 +146,24 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         // construct mapping
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
                                                       getPort(node),
                                                       this.requestFormatType);
-            store = new LoggingStore(store);
-            clientMapping.put(node.getId(), store);
+            Store<ByteArray, byte[]> loggingStore = new LoggingStore(store);
+            clientMapping.put(node.getId(), loggingStore);
+
+            NonblockingStore nonblockingStore = routedStoreFactory.toNonblockingStore(store);
+            nonblockingStores.put(node.getId(), nonblockingStore);
         }
 
         Store<ByteArray, byte[]> store = routedStoreFactory.create(cluster,
                                                                    storeDef,
                                                                    clientMapping,
+                                                                   nonblockingStores,
                                                                    repairReads,
                                                                    getFailureDetector());
 

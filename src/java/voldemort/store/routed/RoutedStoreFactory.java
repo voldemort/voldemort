@@ -30,26 +30,20 @@ public class RoutedStoreFactory {
         this.routingTimeoutMs = routingTimeoutMs;
     }
 
+    public NonblockingStore toNonblockingStore(Store<ByteArray, byte[]> store) {
+        if(store instanceof NonblockingStore)
+            return (NonblockingStore) store;
+        else
+            return new ThreadPoolBasedNonblockingStoreImpl(threadPool, store);
+    }
+
     public RoutedStore create(Cluster cluster,
                               StoreDefinition storeDefinition,
                               Map<Integer, Store<ByteArray, byte[]>> nodeStores,
+                              Map<Integer, NonblockingStore> nonblockingStores,
                               boolean repairReads,
                               FailureDetector failureDetector) {
         if(isPipelineRoutedStoreEnabled) {
-            Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
-
-            for(Map.Entry<Integer, Store<ByteArray, byte[]>> entry: nodeStores.entrySet()) {
-                NonblockingStore nonblockingStore = null;
-
-                if(entry.getValue() instanceof NonblockingStore)
-                    nonblockingStore = (NonblockingStore) entry.getValue();
-                else
-                    nonblockingStore = new ThreadPoolBasedNonblockingStoreImpl(threadPool,
-                                                                               entry.getValue());
-
-                nonblockingStores.put(entry.getKey(), nonblockingStore);
-            }
-
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
                                            nonblockingStores,
@@ -69,6 +63,24 @@ public class RoutedStoreFactory {
                                              failureDetector,
                                              SystemTime.INSTANCE);
         }
+    }
+
+    public RoutedStore create(Cluster cluster,
+                              StoreDefinition storeDefinition,
+                              Map<Integer, Store<ByteArray, byte[]>> nodeStores,
+                              boolean repairReads,
+                              FailureDetector failureDetector) {
+        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
+
+        for(Map.Entry<Integer, Store<ByteArray, byte[]>> entry: nodeStores.entrySet())
+            nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
+
+        return create(cluster,
+                      storeDefinition,
+                      nodeStores,
+                      nonblockingStores,
+                      repairReads,
+                      failureDetector);
     }
 
 }
