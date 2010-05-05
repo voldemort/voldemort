@@ -68,9 +68,9 @@ public abstract class SelectorManagerWorker implements Runnable {
         this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
         this.createTimestamp = System.nanoTime();
 
-        if(logger.isInfoEnabled())
-            logger.info("Accepting remote connection from "
-                        + socketChannel.socket().getRemoteSocketAddress());
+        if(logger.isDebugEnabled())
+            logger.debug("Accepting remote connection from "
+                         + socketChannel.socket().getRemoteSocketAddress());
     }
 
     protected abstract void read(SelectionKey selectionKey) throws IOException;

@@ -96,10 +96,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                 // code in a different thread than the SelectorManager.
                 selector.wakeup();
             } else {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Client associated with "
-                                + socketChannel.socket().getRemoteSocketAddress()
-                                + " was not registered with Selector, assuming initial protocol negotiation");
+                if(logger.isDebugEnabled())
+                    logger.debug("Client associated with "
+                                 + socketChannel.socket().getRemoteSocketAddress()
+                                 + " was not registered with Selector, assuming initial protocol negotiation");
             }
         } else {
             if(logger.isEnabledFor(Level.WARN))
