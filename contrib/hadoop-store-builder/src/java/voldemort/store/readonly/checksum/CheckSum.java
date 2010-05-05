@@ -23,11 +23,32 @@ import voldemort.utils.ByteUtils;
 public abstract class CheckSum {
 
     /**
+     * Update the checksum buffer to include input with startIndex and length
+     * 
+     * @param input
+     * @param startIndex
+     * @param length
+     */
+    public abstract void update(byte[] input, int startIndex, int length);
+
+    /**
+     * 
+     * @param number number to be stored in checksum buffer
+     */
+    public void update(int number) {
+        byte[] numberInBytes = new byte[ByteUtils.SIZE_OF_INT];
+        ByteUtils.writeInt(numberInBytes, number, 0);
+        update(numberInBytes);
+    }
+
+    /**
      * Update the checksum buffer to include input
      * 
      * @param input bytes added to the buffer
      */
-    public abstract void update(byte[] input);
+    public void update(byte[] input) {
+        update(input, 0, input.length);
+    }
 
     /**
      * Get the checkSum of the buffer till now, after which buffer is reset
