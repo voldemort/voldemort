@@ -129,7 +129,8 @@ public class StorageService extends AbstractService {
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
                                                      config.getClientMaxQueuedRequests());
-        this.storeFactory = new ClientRequestExecutorPool(config.getClientMaxConnectionsPerNode(),
+        this.storeFactory = new ClientRequestExecutorPool(config.getClientSelectors(),
+                                                          config.getClientMaxConnectionsPerNode(),
                                                           config.getClientConnectionTimeoutMs(),
                                                           config.getSocketTimeoutMs(),
                                                           config.getSocketBufferSize(),
@@ -144,7 +145,7 @@ public class StorageService extends AbstractService {
         this.storeStats = new StoreStats();
         this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                          this.clientThreadPool,
-                                                         voldemortConfig.getRoutingTimeoutMs());
+                                                         voldemortConfig.getClientRoutingTimeoutMs());
     }
 
     private void initStorageConfig(String configClassName) {

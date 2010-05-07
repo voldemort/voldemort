@@ -186,6 +186,8 @@ public class KeyedResourcePoolTest extends TestCase {
             this.isCreatedValid = isValid;
         }
 
+        public void close() {}
+
     }
 
 }

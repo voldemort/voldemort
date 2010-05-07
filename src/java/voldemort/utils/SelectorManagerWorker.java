@@ -69,8 +69,7 @@ public abstract class SelectorManagerWorker implements Runnable {
         this.createTimestamp = System.nanoTime();
 
         if(logger.isDebugEnabled())
-            logger.debug("Accepting remote connection from "
-                         + socketChannel.socket().getRemoteSocketAddress());
+            logger.debug("Accepting remote connection from " + socketChannel.socket());
     }
 
     protected abstract void read(SelectionKey selectionKey) throws IOException;
@@ -97,10 +96,10 @@ public abstract class SelectorManagerWorker implements Runnable {
                 write(selectionKey);
             else if(!selectionKey.isValid())
                 throw new IllegalStateException("Selection key not valid for "
-                                                + socketChannel.socket().getRemoteSocketAddress());
+                                                + socketChannel.socket());
             else
                 throw new IllegalStateException("Unknown state, not readable, writable, or valid for "
-                                                + socketChannel.socket().getRemoteSocketAddress());
+                                                + socketChannel.socket());
         } catch(ClosedByInterruptException e) {
             close();
         } catch(CancelledKeyException e) {
@@ -117,8 +116,7 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     public void close() {
         if(logger.isInfoEnabled())
-            logger.info("Closing remote connection from "
-                        + socketChannel.socket().getRemoteSocketAddress());
+            logger.info("Closing remote connection from " + socketChannel.socket());
 
         try {
             socketChannel.socket().close();
@@ -195,8 +193,7 @@ public abstract class SelectorManagerWorker implements Runnable {
         logger.trace(preamble + " - position: " + inputStream.getBuffer().position() + ", limit: "
                      + inputStream.getBuffer().limit() + ", remaining: "
                      + inputStream.getBuffer().remaining() + ", capacity: "
-                     + inputStream.getBuffer().capacity() + " - for "
-                     + socketChannel.socket().getRemoteSocketAddress());
+                     + inputStream.getBuffer().capacity() + " - for " + socketChannel.socket());
     }
 
 }

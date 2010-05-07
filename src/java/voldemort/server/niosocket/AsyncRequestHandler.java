@@ -72,7 +72,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         int count = 0;
 
         if((count = socketChannel.read(inputStream.getBuffer())) == -1)
-            throw new EOFException("EOF for " + socketChannel.socket().getRemoteSocketAddress());
+            throw new EOFException("EOF for " + socketChannel.socket());
 
         if(logger.isTraceEnabled())
             traceInputBufferState("Read " + count + " bytes");
@@ -115,8 +115,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         inputStream.getBuffer().rewind();
 
         if(logger.isTraceEnabled())
-            logger.trace("Starting execution for "
-                         + socketChannel.socket().getRemoteSocketAddress());
+            logger.trace("Starting execution for " + socketChannel.socket());
 
         streamRequestHandler = requestHandler.handleRequest(new DataInputStream(inputStream),
                                                             new DataOutputStream(outputStream));
@@ -131,8 +130,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         // At this point we've completed a full stand-alone request. So clear
         // our input buffer and prepare for outputting back to the client.
         if(logger.isTraceEnabled())
-            logger.trace("Finished execution for "
-                         + socketChannel.socket().getRemoteSocketAddress());
+            logger.trace("Finished execution for " + socketChannel.socket());
 
         prepForWrite(selectionKey);
     }
@@ -146,11 +144,10 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 logger.trace("Wrote " + count + " bytes, remaining: "
                              + outputStream.getBuffer().remaining() + " for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+                             + socketChannel.socket());
         } else {
             if(logger.isTraceEnabled())
-                logger.trace("Wrote no bytes for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+                logger.trace("Wrote no bytes for " + socketChannel.socket());
         }
 
         // If there's more to write but we didn't write it, we'll take that to
@@ -173,8 +170,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             // way because there won't be any other notification for us to do
             // work as we won't be notified via reads.
             if(logger.isTraceEnabled())
-                logger.trace("Request is streaming for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+                logger.trace("Request is streaming for " + socketChannel.socket());
 
             handleStreamRequest(selectionKey);
         } else {
@@ -315,8 +311,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 
             if(logger.isInfoEnabled())
-                logger.info("Protocol negotiated for "
-                            + socketChannel.socket().getRemoteSocketAddress() + ": "
+                logger.info("Protocol negotiated for " + socketChannel.socket() + ": "
                             + requestFormatType.getDisplayName());
 
             // The protocol negotiation is the first request, so respond by
@@ -333,9 +328,8 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             requestHandler = requestHandlerFactory.getRequestHandler(requestFormatType);
 
             if(logger.isInfoEnabled())
-                logger.info("No protocol proposal given for "
-                            + socketChannel.socket().getRemoteSocketAddress() + ", assuming "
-                            + requestFormatType.getDisplayName());
+                logger.info("No protocol proposal given for " + socketChannel.socket()
+                            + ", assuming " + requestFormatType.getDisplayName());
 
             return true;
         }

@@ -87,7 +87,7 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                                        threadPool,
-                                                                       voldemortConfig.getRoutingTimeoutMs());
+                                                                       voldemortConfig.getClientRoutingTimeoutMs());
 
         RoutedStore store = routedStoreFactory.create(cluster,
                                                       storeDef,

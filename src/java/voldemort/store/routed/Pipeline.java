@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.action.Action;
 
@@ -42,23 +43,6 @@ import voldemort.store.routed.action.Action;
  * A Pipeline instance is created per-request inside {@link RoutedStore}. This
  * is due to the fact that it includes internal state, specific to each
  * operation request (get, getAll, getVersions, put, and delete) invocation.
- * 
- * <p/>
- * 
- * Here is some example code for using a Pipeline:
- * 
- * <pre>
- * pipeline.setEventActions(eventActions);
- * pipeline.addEvent(Event.STARTED);
- * pipeline.processEvents(timeoutMs, TimeUnit.MILLISECONDS);
- * 
- * if(pipelineData.getFatalError() != null)
- *     throw pipelineData.getFatalError();
- * 
- * for(Response&lt;?, ?&gt; response: pipelineData.getResponses()) {
- *     // Do something with results...
- * }
- * </pre>
  */
 
 public class Pipeline {
@@ -168,6 +152,9 @@ public class Pipeline {
                 throw new InsufficientOperationalNodesException(operation.getSimpleName()
                                                                 + " operation interrupted!", e);
             }
+
+            if(event == null)
+                throw new VoldemortException(operation.getSimpleName() + " returned a null event");
 
             if(event.equals(Event.ERROR)) {
                 if(logger.isTraceEnabled())

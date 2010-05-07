@@ -80,6 +80,9 @@ public class ResourcePoolPerfTest {
         public boolean validate(Integer key, String value) {
             return true;
         }
+
+        public void close() {}
+
     }
 
     private static class StringPoolableObjectFactory implements KeyedPoolableObjectFactory {

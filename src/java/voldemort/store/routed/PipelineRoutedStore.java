@@ -89,19 +89,6 @@ public class PipelineRoutedStore extends RoutedStore {
               failureDetector,
               SystemTime.INSTANCE);
 
-        if(storeDef.getRequiredReads() < 1)
-            throw new IllegalArgumentException("Cannot have a storeDef.getRequiredReads() number less than 1.");
-        if(storeDef.getRequiredWrites() < 1)
-            throw new IllegalArgumentException("Cannot have a storeDef.getRequiredWrites() number less than 1.");
-        if(storeDef.getPreferredReads() < storeDef.getRequiredReads())
-            throw new IllegalArgumentException("storeDef.getPreferredReads() must be greater or equal to storeDef.getRequiredReads().");
-        if(storeDef.getPreferredWrites() < storeDef.getRequiredWrites())
-            throw new IllegalArgumentException("storeDef.getPreferredWrites() must be greater or equal to storeDef.getRequiredWrites().");
-        if(storeDef.getPreferredReads() > innerStores.size())
-            throw new IllegalArgumentException("storeDef.getPreferredReads() is larger than the total number of nodes!");
-        if(storeDef.getPreferredWrites() > innerStores.size())
-            throw new IllegalArgumentException("storeDef.getPreferredWrites() is larger than the total number of nodes!");
-
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
     }
 
@@ -364,9 +351,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                              Event.COMPLETED,
                                                              key,
                                                              failureDetector,
-                                                             nonblockingStores,
+                                                             innerStores,
                                                              storeDef.getRequiredWrites(),
-                                                             timeoutMs,
                                                              versioned,
                                                              time,
                                                              Event.MASTER_DETERMINED));

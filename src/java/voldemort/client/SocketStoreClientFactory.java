@@ -58,7 +58,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         this.requestRoutingType = RequestRoutingType.getRequestRoutingType(RoutingTier.SERVER.equals(config.getRoutingTier()),
                                                                            false);
 
-        this.storeFactory = new ClientRequestExecutorPool(config.getMaxConnectionsPerNode(),
+        this.storeFactory = new ClientRequestExecutorPool(config.getSelectors(),
+                                                          config.getMaxConnectionsPerNode(),
                                                           config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketBufferSize(),

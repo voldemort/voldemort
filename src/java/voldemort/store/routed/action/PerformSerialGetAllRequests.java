@@ -23,12 +23,10 @@ import java.util.Map;
 
 import org.apache.commons.lang.mutable.MutableInt;
 
-import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.GetAllPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
@@ -108,22 +106,11 @@ public class PerformSerialGetAllRequests
 
                     if(successCount.intValue() >= preferred)
                         break;
-                } catch(UnreachableStoreException e) {
-                    if(logger.isTraceEnabled())
-                        logger.trace("GetAll on node " + node.getId() + " failed: " + e);
-
-                    pipelineData.recordFailure(e);
-                    long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
-                    failureDetector.recordException(node, requestTime, e);
-                } catch(VoldemortApplicationException e) {
-                    pipelineData.setFatalError(e);
-                    pipeline.addEvent(Event.ERROR);
-                    return;
                 } catch(Exception e) {
-                    if(logger.isTraceEnabled())
-                        logger.trace("GetAll on node " + node.getId() + " failed: " + e);
+                    long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
 
-                    pipelineData.recordFailure(e);
+                    if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
+                        return;
                 }
             }
         }

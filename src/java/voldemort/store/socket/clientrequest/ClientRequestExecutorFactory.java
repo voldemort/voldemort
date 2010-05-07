@@ -17,16 +17,24 @@
 package voldemort.store.socket.clientrequest;
 
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedSelectorException;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Date;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.store.socket.SocketDestination;
+import voldemort.utils.DaemonThreadFactory;
+import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;
 
@@ -37,27 +45,35 @@ import voldemort.utils.pool.ResourceFactory;
 public class ClientRequestExecutorFactory implements
         ResourceFactory<SocketDestination, ClientRequestExecutor> {
 
-    private final Selector selector;
-    private final Queue<ClientRequestExecutor> registrationQueue;
+    private static final int SHUTDOWN_TIMEOUT_MS = 15000;
     private final int soTimeoutMs;
     private final int socketBufferSize;
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
     private final boolean socketKeepAlive;
+    private final ClientRequestSelectorManager[] selectorManagers;
+    private final ExecutorService selectorManagerThreadPool;
+    private final AtomicInteger counter = new AtomicInteger();
     private final Logger logger = Logger.getLogger(getClass());
 
-    public ClientRequestExecutorFactory(Selector selector,
-                                        Queue<ClientRequestExecutor> registrationQueue,
+    public ClientRequestExecutorFactory(int selectors,
                                         int soTimeoutMs,
                                         int socketBufferSize,
                                         boolean socketKeepAlive) {
-        this.selector = selector;
-        this.registrationQueue = registrationQueue;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
         this.socketKeepAlive = socketKeepAlive;
+
+        this.selectorManagers = new ClientRequestSelectorManager[selectors];
+        this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
+                                                                      new DaemonThreadFactory("voldemort-niosocket-client-"));
+
+        for(int i = 0; i < selectorManagers.length; i++) {
+            selectorManagers[i] = new ClientRequestSelectorManager();
+            selectorManagerThreadPool.execute(selectorManagers[i]);
+        }
     }
 
     /**
@@ -112,13 +128,17 @@ public class ClientRequestExecutorFactory implements
                          + " bytes but actual size is "
                          + socketChannel.socket().getSendBufferSize() + " bytes.");
 
+        ClientRequestSelectorManager selectorManager = selectorManagers[counter.getAndIncrement()
+                                                                        % selectorManagers.length];
+
+        Selector selector = selectorManager.getSelector();
         ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(selector,
                                                                                 socketChannel,
                                                                                 socketBufferSize);
         BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()));
         clientRequestExecutor.addClientRequest(clientRequest);
 
-        registrationQueue.add(clientRequestExecutor);
+        selectorManager.registrationQueue.add(clientRequestExecutor);
         selector.wakeup();
 
         // Block while we wait for the protocol negotiation to complete.
@@ -175,6 +195,103 @@ public class ClientRequestExecutorFactory implements
 
     public int getNumberDestroyed() {
         return this.destroyed.get();
+    }
+
+    public void close() {
+        try {
+            // We close instead of interrupting the thread pool. Why? Because as
+            // of 0.70, the SelectorManager services RequestHandler in the same
+            // thread as itself. So, if we interrupt the SelectorManager in the
+            // thread pool, we interrupt the request. In some RequestHandler
+            // implementations interruptions are not handled gracefully and/or
+            // indicate other errors which cause odd side effects. So we
+            // implement a non-interrupt-based shutdown via close.
+            for(int i = 0; i < selectorManagers.length; i++) {
+                try {
+                    selectorManagers[i].close();
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e.getMessage(), e);
+                }
+            }
+
+            // As per the above comment - we use shutdown and *not* shutdownNow
+            // to avoid using interrupts to signal shutdown.
+            selectorManagerThreadPool.shutdown();
+
+            if(logger.isTraceEnabled())
+                logger.trace("Shut down SelectorManager thread pool acceptor, waiting "
+                             + SHUTDOWN_TIMEOUT_MS + " ms for termination");
+
+            boolean terminated = selectorManagerThreadPool.awaitTermination(SHUTDOWN_TIMEOUT_MS,
+                                                                            TimeUnit.MILLISECONDS);
+
+            if(!terminated) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn("SelectorManager thread pool did not stop cleanly after "
+                                + SHUTDOWN_TIMEOUT_MS + " ms");
+            }
+        } catch(Exception e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e.getMessage(), e);
+        }
+    }
+
+    private class ClientRequestSelectorManager extends SelectorManager {
+
+        private final Queue<ClientRequestExecutor> registrationQueue = new ConcurrentLinkedQueue<ClientRequestExecutor>();
+
+        public Selector getSelector() {
+            return selector;
+        }
+
+        /**
+         * Process the {@link ClientRequestExecutor} registrations which are
+         * made inside {@link ClientRequestExecutorFactory} on creation of a new
+         * {@link ClientRequestExecutor}.
+         */
+
+        @Override
+        protected void processEvents() {
+            try {
+                ClientRequestExecutor clientRequestExecutor = null;
+
+                while((clientRequestExecutor = registrationQueue.poll()) != null) {
+                    if(isClosed.get()) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Closed, exiting");
+
+                        break;
+                    }
+
+                    SocketChannel socketChannel = clientRequestExecutor.getSocketChannel();
+
+                    try {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Registering connection from " + socketChannel.socket());
+
+                        socketChannel.register(selector,
+                                               SelectionKey.OP_WRITE,
+                                               clientRequestExecutor);
+
+                    } catch(ClosedSelectorException e) {
+                        if(logger.isDebugEnabled())
+                            logger.debug("Selector is closed, exiting");
+
+                        close();
+
+                        break;
+                    } catch(Exception e) {
+                        if(logger.isEnabledFor(Level.ERROR))
+                            logger.error(e.getMessage(), e);
+                    }
+                }
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(e.getMessage(), e);
+            }
+        }
+
     }
 
 }

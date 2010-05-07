@@ -16,16 +16,9 @@
 
 package voldemort.store.socket.clientrequest;
 
-import java.nio.channels.ClosedSelectorException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
@@ -37,7 +30,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
-import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
@@ -55,17 +47,17 @@ import voldemort.utils.pool.ResourcePoolConfig;
  */
 
 @JmxManaged(description = "Voldemort socket pool.")
-public class ClientRequestExecutorPool extends SelectorManager implements SocketStoreFactory {
+public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
     private final AtomicInteger checkouts;
     private final AtomicLong waitNs;
     private final AtomicLong avgWaitNs;
-    private final Queue<ClientRequestExecutor> registrationQueue;
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
 
-    public ClientRequestExecutorPool(int maxConnectionsPerNode,
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
                                      int connectionTimeoutMs,
                                      int soTimeoutMs,
                                      int socketBufferSize,
@@ -75,9 +67,7 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
-        this.registrationQueue = new ConcurrentLinkedQueue<ClientRequestExecutor>();
-        this.factory = new ClientRequestExecutorFactory(selector,
-                                                        registrationQueue,
+        this.factory = new ClientRequestExecutorFactory(selectors,
                                                         soTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive);
@@ -85,8 +75,6 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
         this.avgWaitNs = new AtomicLong(0);
-
-        new Thread(this, "ClientRequestExecutorPool").start();
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -94,7 +82,7 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
                                      int soTimeoutMs,
                                      int socketBufferSize) {
         // maintain backward compatibility of API
-        this(maxConnectionsPerNode, connectionTimeoutMs, soTimeoutMs, socketBufferSize, false);
+        this(2, maxConnectionsPerNode, connectionTimeoutMs, soTimeoutMs, socketBufferSize, false);
     }
 
     public ClientRequestExecutorFactory getFactory() {
@@ -168,56 +156,10 @@ public class ClientRequestExecutorPool extends SelectorManager implements Socket
     }
 
     /**
-     * Process the {@link ClientRequestExecutor} registrations which are made
-     * inside {@link ClientRequestExecutorFactory} on creation of a new
-     * {@link ClientRequestExecutor}.
-     */
-
-    @Override
-    protected void processEvents() {
-        try {
-            ClientRequestExecutor clientRequestExecutor = null;
-
-            while((clientRequestExecutor = registrationQueue.poll()) != null) {
-                if(isClosed.get()) {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Closed, exiting");
-
-                    break;
-                }
-
-                SocketChannel socketChannel = clientRequestExecutor.getSocketChannel();
-
-                try {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Registering connection from "
-                                     + socketChannel.socket().getPort());
-
-                    socketChannel.register(selector, SelectionKey.OP_WRITE, clientRequestExecutor);
-                } catch(ClosedSelectorException e) {
-                    if(logger.isDebugEnabled())
-                        logger.debug("Selector is closed, exiting");
-
-                    close();
-
-                    break;
-                } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.ERROR))
-                        logger.error(e.getMessage(), e);
-                }
-            }
-        } catch(Exception e) {
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(e.getMessage(), e);
-        }
-    }
-
-    /**
      * Close the socket pool
      */
-    @Override
     public void close() {
-        super.close();
+        factory.close();
         pool.close();
     }
 

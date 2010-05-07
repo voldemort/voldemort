@@ -169,4 +169,6 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         return this.destroyed.get();
     }
 
+    public void close() {}
+
 }

@@ -37,4 +37,6 @@ public interface ResourceFactory<K, V> {
      */
     boolean validate(K key, V value);
 
+    void close();
+
 }

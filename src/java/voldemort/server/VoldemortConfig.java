@@ -93,6 +93,7 @@ public class VoldemortConfig implements Serializable {
     private int nioConnectorSelectors;
     private int nioAdminConnectorSelectors;
 
+    private int clientSelectors;
     private int clientRoutingTimeoutMs;
     private int clientMaxConnectionsPerNode;
     private int clientConnectionTimeoutMs;
@@ -238,6 +239,7 @@ public class VoldemortConfig implements Serializable {
                                                        Math.max(8, Runtime.getRuntime()
                                                                           .availableProcessors()));
 
+        this.clientSelectors = props.getInt("client.selectors", 4);
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
@@ -336,6 +338,8 @@ public class VoldemortConfig implements Serializable {
             throw new ConfigurationException("pusher.poll.ms cannot be less than 1.");
         if(socketTimeoutMs < 0)
             throw new ConfigurationException("socket.timeout.ms must be 0 or more ms.");
+        if(clientSelectors < 1)
+            throw new ConfigurationException("client.selectors must be 1 or more.");
         if(clientRoutingTimeoutMs < 0)
             throw new ConfigurationException("routing.timeout.ms must be 0 or more ms.");
         if(schedulerThreads < 1)
@@ -720,7 +724,15 @@ public class VoldemortConfig implements Serializable {
         this.socketTimeoutMs = socketTimeoutMs;
     }
 
-    public int getRoutingTimeoutMs() {
+    public int getClientSelectors() {
+        return clientSelectors;
+    }
+
+    public void setClientSelectors(int clientSelectors) {
+        this.clientSelectors = clientSelectors;
+    }
+
+    public int getClientRoutingTimeoutMs() {
         return this.clientRoutingTimeoutMs;
     }
 

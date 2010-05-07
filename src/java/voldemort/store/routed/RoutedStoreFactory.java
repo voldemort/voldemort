@@ -3,6 +3,9 @@ package voldemort.store.routed;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
@@ -22,6 +25,8 @@ public class RoutedStoreFactory {
 
     private final long routingTimeoutMs;
 
+    private final Logger logger = Logger.getLogger(getClass());
+
     public RoutedStoreFactory(boolean isPipelineRoutedStoreEnabled,
                               ExecutorService threadPool,
                               long routingTimeoutMs) {
@@ -33,8 +38,11 @@ public class RoutedStoreFactory {
     public NonblockingStore toNonblockingStore(Store<ByteArray, byte[]> store) {
         if(store instanceof NonblockingStore)
             return (NonblockingStore) store;
-        else
-            return new ThreadPoolBasedNonblockingStoreImpl(threadPool, store);
+
+        if(logger.isEnabledFor(Level.WARN))
+            logger.warn("Using pseudo NonblockingStore implementation for " + store.getClass());
+
+        return new ThreadPoolBasedNonblockingStoreImpl(threadPool, store);
     }
 
     public RoutedStore create(Cluster cluster,

@@ -24,11 +24,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Level;
 
-import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
@@ -120,26 +118,8 @@ public class PerformParallelPutRequests extends
 
         for(Response<ByteArray, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
-                Node node = response.getNode();
-                Exception e = (Exception) response.getValue();
-                long requestTime = response.getRequestTime();
-
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                                + node.getId() + "(" + node.getHost() + ")", e);
-
-                if(e instanceof UnreachableStoreException) {
-                    pipelineData.recordFailure(e);
-                    failureDetector.recordException(node,
-                                                    requestTime,
-                                                    (UnreachableStoreException) e);
-                } else if(e instanceof VoldemortApplicationException) {
-                    pipelineData.setFatalError((VoldemortApplicationException) e);
-                    pipeline.addEvent(Event.ERROR);
+                if(handleResponseError(response, pipeline, failureDetector))
                     return;
-                } else {
-                    pipelineData.recordFailure(e);
-                }
             } else {
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());

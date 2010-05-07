@@ -19,6 +19,9 @@ public class ResourcePoolTestUtils {
             public boolean validate(String key, String value) {
                 return true;
             }
+
+            public void close() {}
+
         };
     }
 

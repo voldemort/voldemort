@@ -152,7 +152,8 @@ public class RoutedStoreParallelismTest {
         StoreDefinition storeDefinition = new StoreDefinitionsMapper().readStoreList(new File(storeDefinitionFile))
                                                                       .get(0);
 
-        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(clientConfig.getMaxConnectionsPerNode(),
+        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                                              clientConfig.getMaxConnectionsPerNode(),
                                                                               clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                                               clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                                               clientConfig.getSocketBufferSize(),

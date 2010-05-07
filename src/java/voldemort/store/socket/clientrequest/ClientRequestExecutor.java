@@ -65,8 +65,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     public synchronized void addClientRequest(ClientRequest<?> clientRequest) {
         if(logger.isTraceEnabled())
-            logger.trace("Associating client with "
-                         + socketChannel.socket().getRemoteSocketAddress());
+            logger.trace("Associating client with " + socketChannel.socket());
 
         this.clientRequest = clientRequest;
         outputStream.getBuffer().clear();
@@ -97,14 +96,13 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
                 selector.wakeup();
             } else {
                 if(logger.isDebugEnabled())
-                    logger.debug("Client associated with "
-                                 + socketChannel.socket().getRemoteSocketAddress()
-                                 + " was not registered with Selector, assuming initial protocol negotiation");
+                    logger.debug("Client associated with " + socketChannel.socket()
+                                 + " was not registered with Selector " + selector
+                                 + ", assuming initial protocol negotiation");
             }
         } else {
             if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Client associated with "
-                            + socketChannel.socket().getRemoteSocketAddress()
+                logger.warn("Client associated with " + socketChannel.socket()
                             + " did not successfully buffer output for request");
 
             completeClientRequest();
@@ -122,7 +120,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         int count = 0;
 
         if((count = socketChannel.read(inputStream.getBuffer())) == -1)
-            throw new EOFException("EOF for " + socketChannel.socket().getRemoteSocketAddress());
+            throw new EOFException("EOF for " + socketChannel.socket());
 
         if(logger.isTraceEnabled())
             traceInputBufferState("Read " + count + " bytes");
@@ -150,14 +148,14 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         inputStream.getBuffer().rewind();
 
         if(logger.isTraceEnabled())
-            logger.trace("Starting read for " + socketChannel.socket().getRemoteSocketAddress());
+            logger.trace("Starting read for " + socketChannel.socket());
 
         clientRequest.parseResponse(new DataInputStream(inputStream));
 
         // At this point we've completed a full stand-alone request. So clear
         // our input buffer and prepare for outputting back to the client.
         if(logger.isTraceEnabled())
-            logger.trace("Finished read for " + socketChannel.socket().getRemoteSocketAddress());
+            logger.trace("Finished read for " + socketChannel.socket());
 
         selectionKey.interestOps(0);
         completeClientRequest();
@@ -172,11 +170,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 logger.trace("Wrote " + count + " bytes, remaining: "
                              + outputStream.getBuffer().remaining() + " for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+                             + socketChannel.socket());
         } else {
             if(logger.isTraceEnabled())
-                logger.trace("Wrote no bytes for "
-                             + socketChannel.socket().getRemoteSocketAddress());
+                logger.trace("Wrote no bytes for " + socketChannel.socket());
         }
 
         // If there's more to write but we didn't write it, we'll take that to
@@ -200,8 +197,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     private synchronized void completeClientRequest() {
         if(clientRequest == null) {
             if(logger.isEnabledFor(Level.WARN))
-                logger.warn("No client associated with "
-                            + socketChannel.socket().getRemoteSocketAddress());
+                logger.warn("No client associated with " + socketChannel.socket());
 
             return;
         }
@@ -212,8 +208,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         clientRequest = null;
 
         if(logger.isTraceEnabled())
-            logger.trace("Marked client associated with "
-                         + socketChannel.socket().getRemoteSocketAddress() + " as complete");
+            logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");
     }
 
 }

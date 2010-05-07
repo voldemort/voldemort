@@ -44,6 +44,7 @@ public class ClientConfig {
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile boolean socketKeepAlive = false;
+    private volatile int selectors = 4;
     private volatile long routingTimeoutMs = 15000;
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -77,6 +78,7 @@ public class ClientConfig {
     public static final String CONNECTION_TIMEOUT_MS_PROPERTY = "connection_timeout_ms";
     public static final String SOCKET_TIMEOUT_MS_PROPERTY = "socket_timeout_ms";
     public static final String SOCKET_KEEPALIVE_PROPERTY = "socket_keepalive";
+    public static final String SELECTORS_PROPERTY = "selectors";
     public static final String ROUTING_TIMEOUT_MS_PROPERTY = "routing_timeout_ms";
     public static final String NODE_BANNAGE_MS_PROPERTY = "node_bannage_ms";
     public static final String SOCKET_BUFFER_SIZE_PROPERTY = "socket_buffer_size";
@@ -128,6 +130,9 @@ public class ClientConfig {
 
         if(props.containsKey(SOCKET_KEEPALIVE_PROPERTY))
             this.setSocketKeepAlive(props.getBoolean(SOCKET_KEEPALIVE_PROPERTY));
+
+        if(props.containsKey(SELECTORS_PROPERTY))
+            this.setSelectors(props.getInt(SELECTORS_PROPERTY));
 
         if(props.containsKey(ROUTING_TIMEOUT_MS_PROPERTY))
             this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
@@ -247,6 +252,15 @@ public class ClientConfig {
 
     public ClientConfig setSocketKeepAlive(boolean socketKeepAlive) {
         this.socketKeepAlive = socketKeepAlive;
+        return this;
+    }
+
+    public int getSelectors() {
+        return selectors;
+    }
+
+    public ClientConfig setSelectors(int selectors) {
+        this.selectors = selectors;
         return this;
     }
 

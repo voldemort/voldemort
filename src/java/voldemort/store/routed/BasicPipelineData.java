@@ -17,7 +17,6 @@
 package voldemort.store.routed;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
@@ -26,14 +25,9 @@ public class BasicPipelineData<V> extends PipelineData<ByteArray, V> {
 
     private List<Node> nodes;
 
-    private final AtomicInteger nodeIndex;
+    private int nodeIndex;
 
-    private final AtomicInteger successes;
-
-    public BasicPipelineData() {
-        this.nodeIndex = new AtomicInteger(0);
-        this.successes = new AtomicInteger(0);
-    }
+    private int successes;
 
     public List<Node> getNodes() {
         return nodes;
@@ -44,19 +38,19 @@ public class BasicPipelineData<V> extends PipelineData<ByteArray, V> {
     }
 
     public int getNodeIndex() {
-        return nodeIndex.get();
+        return nodeIndex;
     }
 
     public void incrementNodeIndex() {
-        nodeIndex.incrementAndGet();
+        nodeIndex++;
     }
 
     public int getSuccesses() {
-        return successes.get();
+        return successes;
     }
 
     public void incrementSuccesses() {
-        successes.incrementAndGet();
+        successes++;
     }
 
 }

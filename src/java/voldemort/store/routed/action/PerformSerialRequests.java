@@ -19,15 +19,11 @@ package voldemort.store.routed.action;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Level;
-
-import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreRequest;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
@@ -89,21 +85,11 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                 pipelineData.incrementSuccesses();
                 pipelineData.getResponses().add(response);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
-            } catch(UnreachableStoreException e) {
-                pipelineData.recordFailure(e);
-                failureDetector.recordException(node,
-                                                ((System.nanoTime() - start) / Time.NS_PER_MS),
-                                                e);
-            } catch(VoldemortApplicationException e) {
-                pipelineData.setFatalError(e);
-                pipeline.addEvent(Event.ERROR);
-                return;
             } catch(Exception e) {
-                pipelineData.recordFailure(e);
+                long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
 
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn("Error in " + pipeline.getOperation() + " on node " + node.getId()
-                                + "(" + node.getHost() + ")", e);
+                if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
+                    return;
             }
 
             pipelineData.incrementNodeIndex();
