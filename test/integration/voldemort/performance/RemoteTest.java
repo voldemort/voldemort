@@ -211,7 +211,7 @@ public class RemoteTest {
         parser.accepts("v", "verbose");
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("node", "go to this node id").withRequiredArg().ofType(Integer.class);
-        parser.accepts("interval", "print requests on this interval")
+        parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("handshake", "perform a handshake");
@@ -239,7 +239,7 @@ public class RemoteTest {
 
         List<String> nonOptions = options.nonOptionArguments();
 
-        if (options.has("help")) {
+        if(options.has("help")) {
             printUsage(System.out, parser);
         }
 
@@ -355,7 +355,7 @@ public class RemoteTest {
                                 e.printStackTrace();
                             } finally {
                                 latch0.countDown();
-                                if(j % interval == 0) {
+                                if(interval != -1 && j % interval == 0) {
                                     printStatistics("deletes", successes.get(), start);
                                 }
                             }
@@ -403,7 +403,7 @@ public class RemoteTest {
                                 }
                             } finally {
                                 latch1.countDown();
-                                if(j % interval == 0) {
+                                if(interval != -1 && j % interval == 0) {
                                     printStatistics("writes", numWrites.get(), start);
                                 }
                             }
@@ -459,7 +459,7 @@ public class RemoteTest {
                                 }
                             } finally {
                                 latch.countDown();
-                                if(j % interval == 0) {
+                                if(interval != -1 && j % interval == 0) {
                                     printStatistics("reads", numReads.get(), start);
                                     printNulls(numNulls.get(), start);
                                 }
@@ -514,7 +514,7 @@ public class RemoteTest {
                                 e.printStackTrace();
                             }
                         } finally {
-                            if(j % interval == 0) {
+                            if(interval != -1 && j % interval == 0) {
                                 printStatistics("reads", numReads.get(), start);
                                 printStatistics("writes", numWrites.get(), start);
                                 printNulls(numNulls.get(), start);
@@ -557,8 +557,8 @@ public class RemoteTest {
 
     private static void printStatistics(String noun, int successes, long start) {
         long queryTime = System.nanoTime() - start;
-        System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND) + " " + noun
-                           + "/sec.");
+        System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND)
+                           + " " + noun + "/sec.");
         System.out.println(successes + " successful " + noun + ".");
     }
 
