@@ -1,0 +1,19 @@
+package voldemort;
+
+option java_package = "voldemort.serialization";
+option java_outer_classname = "VSlopProto";
+option optimize_for = SPEED;
+
+message Slop {
+  optional string store = 1;
+  optional string operation = 2;
+  optional bytes key = 3;
+  optional bytes value = 4;
+  optional int32 node_id = 5;
+  optional int64 arrived = 6;
+}
+
+  
+  
+
+  
