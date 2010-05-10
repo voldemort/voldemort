@@ -52,6 +52,8 @@ public class RemoteTest {
 
     public static final int MAX_WORKERS = 8;
 
+    public static final int SELECTORS = new ClientConfig().getSelectors();
+
     public interface KeyProvider<T> {
 
         public T next();
@@ -215,6 +217,9 @@ public class RemoteTest {
         parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
               .ofType(Integer.class);
+        parser.accepts("selectors", "Number of client selectors to use. Default = " + SELECTORS)
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("handshake", "perform a handshake");
         parser.accepts("verify", "verify values read");
         parser.accepts("request-file", "execute specific requests in order").withRequiredArg();
@@ -264,8 +269,10 @@ public class RemoteTest {
             printUsage(System.err, parser);
         }
 
-        Integer nodeId = CmdUtils.valueOf(options, "node", 0);
+        // TODO: are we still using this?
+        // Integer nodeId = CmdUtils.valueOf(options, "node", 0);
         final Integer interval = CmdUtils.valueOf(options, "interval", 100000);
+        int selectors = CmdUtils.valueOf(options, "selectors", SELECTORS);
         final boolean verifyValues = options.has("verify");
         final boolean verbose = options.has("v");
 
@@ -304,7 +311,8 @@ public class RemoteTest {
                                                       .setConnectionTimeout(60, TimeUnit.SECONDS)
                                                       .setSocketTimeout(60, TimeUnit.SECONDS)
                                                       .setSocketBufferSize(4 * 1024)
-                                                      .setEnablePipelineRoutedStore(options.has("pipeline-routed-store"));
+                                                      .setEnablePipelineRoutedStore(options.has("pipeline-routed-store"))
+                                                      .setSelectors(selectors);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
         final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
         StoreDefinition storeDef = getStoreDefinition(factory, storeName);
@@ -391,6 +399,7 @@ public class RemoteTest {
                                 final Object key = keyProvider1.next();
                                 store.applyUpdate(new UpdateAction<Object, Object>() {
 
+                                    @Override
                                     public void update(StoreClient<Object, Object> storeClient) {
                                         long startNs = System.nanoTime();
                                         storeClient.put(key, value);
@@ -500,6 +509,7 @@ public class RemoteTest {
 
                             store.applyUpdate(new UpdateAction<Object, Object>() {
 
+                                @Override
                                 public void update(StoreClient<Object, Object> storeClient) {
                                     Versioned<Object> v = store.get(key);
                                     numReads.incrementAndGet();
