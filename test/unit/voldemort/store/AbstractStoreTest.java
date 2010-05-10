@@ -138,6 +138,7 @@ public abstract class AbstractStoreTest<K, V> extends TestCase {
         }
     }
 
+    @Test
     public void testPutNullValue() {
     // Store<K,V> store = getStore();
     // K key = getKey();

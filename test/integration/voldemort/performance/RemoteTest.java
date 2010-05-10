@@ -212,7 +212,7 @@ public class RemoteTest {
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("pipeline-routed-store", "Use the Pipeline RoutedStore");
         parser.accepts("node", "go to this node id").withRequiredArg().ofType(Integer.class);
-        parser.accepts("interval", "print requests on this interval, -1 disables")
+        parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("handshake", "perform a handshake");
