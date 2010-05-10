@@ -107,12 +107,15 @@ public class Rebalancer implements Runnable {
                                                                        metadataStore.getCluster(),
                                                                        4,
                                                                        2);
-        int rebalanceAsyncId = rebalanceLocalNode(stealInfo);
-
-        adminClient.waitForCompletion(stealInfo.getStealerId(),
-                                      rebalanceAsyncId,
-                                      voldemortConfig.getAdminSocketTimeout(),
-                                      TimeUnit.SECONDS);
+        try {
+            int rebalanceAsyncId = rebalanceLocalNode(stealInfo);
+            adminClient.waitForCompletion(stealInfo.getStealerId(),
+                                          rebalanceAsyncId,
+                                          voldemortConfig.getAdminSocketTimeout(),
+                                          TimeUnit.SECONDS);
+        } finally {
+            adminClient.stop();
+        }
     }
 
     /**
