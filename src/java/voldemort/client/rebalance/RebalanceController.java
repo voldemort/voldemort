@@ -146,7 +146,7 @@ public class RebalanceController {
                             final int stealerNodeId = rebalanceTask.getStealerNode();
                             final SetMultimap<Integer, RebalancePartitionsInfo> rebalanceSubTaskMap = divideRebalanceNodePlan(rebalanceTask);
                             final Set<Integer> parallelDonors = rebalanceSubTaskMap.keySet();
-                            ExecutorService parallelDonorExecutor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+                            ExecutorService parallelDonorExecutor = createExecutors(rebalanceConfig.getMaxParallelDonors());
 
                             for (final int donorNodeId: parallelDonors) {
                                 parallelDonorExecutor.execute(new Runnable() {

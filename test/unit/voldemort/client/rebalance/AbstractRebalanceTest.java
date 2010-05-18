@@ -247,6 +247,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
+        config.setMaxParallelDonors(2);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
@@ -272,6 +273,8 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
+        config.setMaxParallelDonors(2);
+
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
@@ -298,6 +301,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
+        config.setMaxParallelDonors(2);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
@@ -388,9 +392,13 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
+                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+                    rebalanceClientConfig.setMaxParallelDonors(2);
+                    rebalanceClientConfig.setMaxParallelRebalancing(2);
+
                     RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                                   0),
-                                                                                  new RebalanceClientConfig());
+                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
@@ -508,9 +516,13 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
+                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+                    rebalanceClientConfig.setMaxParallelDonors(2);
+                    rebalanceClientConfig.setMaxParallelRebalancing(2);
+
                     RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                                   0),
-                                                                                  new RebalanceClientConfig());
+                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
@@ -624,9 +636,13 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
+                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+                    rebalanceClientConfig.setMaxParallelDonors(2);
+                    rebalanceClientConfig.setMaxParallelRebalancing(2);
+
                     RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                                   0),
-                                                                                  new RebalanceClientConfig());
+                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       targetCluster,
                                       rebalanceClient,
