@@ -40,6 +40,7 @@ import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketPool;
@@ -148,12 +149,12 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                         1,
-                                                                         Arrays.asList(1),
-                                                                         new ArrayList<Integer>(0),
-                                                                         Arrays.asList(testStoreName),
-                                                                         0)));
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
         checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
                                                                   testStoreName), Arrays.asList(1));
     }
@@ -182,12 +183,12 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                         1,
-                                                                         Arrays.asList(1),
-                                                                         new ArrayList<Integer>(0),
-                                                                         Arrays.asList(testStoreName),
-                                                                         0)));
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyGet()
         checkGetEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
@@ -218,12 +219,12 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                         1,
-                                                                         Arrays.asList(1),
-                                                                         new ArrayList<Integer>(0),
-                                                                         Arrays.asList(testStoreName),
-                                                                         0)));
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyPut()
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(1));

@@ -381,4 +381,9 @@ public class Utils {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public static <T1,T2> T1 uncheckedCast(T2 t2) {
+        return (T1) t2;
+    }
+
 }

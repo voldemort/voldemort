@@ -23,6 +23,7 @@ import java.util.List;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -73,12 +74,12 @@ public class MetadataStoreTest extends TestCase {
                 partition.add((int) Math.random() * 10);
             }
 
-            return ByteUtils.getBytes(RebalancePartitionsInfo.listToJsonString(Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                                (int) Math.random() * 5,
-                                                                                partition,
-                                                                                new ArrayList<Integer>(0),
-                                                                                Arrays.asList("testStoreName"),
-                                                                                (int) Math.random() * 3))),
+            return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                                    (int) Math.random() * 5,
+                                                                                                    partition,
+                                                                                                    new ArrayList<Integer>(0),
+                                                                                                    Arrays.asList("testStoreName"),
+                                                                                                    (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
 

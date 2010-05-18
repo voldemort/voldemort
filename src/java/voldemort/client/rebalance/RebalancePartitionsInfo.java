@@ -2,7 +2,6 @@ package voldemort.client.rebalance;
 
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +10,7 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 
 import com.google.common.collect.ImmutableMap;
+import voldemort.utils.Utils;
 
 public class RebalancePartitionsInfo {
 
@@ -97,42 +97,26 @@ public class RebalancePartitionsInfo {
         this.stealMasterPartitions = stealMasterPartitions;
     }
 
-    @SuppressWarnings("unchecked")
-    public static RebalancePartitionsInfo fromString(String line) {
+
+    public static RebalancePartitionsInfo create(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
-            Map<String, Object> map = (Map<String, Object>) reader.read();
-            return fromMap(map);
+            Map<String, ?> map = reader.readObject();
+            return create(map);
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
                                          e);
         }
     }
 
-    public static List<RebalancePartitionsInfo> listFromString(String line) {
-        try {
-            List<RebalancePartitionsInfo> rebalancePartitionsInfoList = new ArrayList<RebalancePartitionsInfo>();
-            JsonReader reader = new JsonReader(new StringReader(line));
-            for (Object o: reader.readArray()) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = (Map<String, Object>) o;
-                rebalancePartitionsInfoList.add(fromMap(map));
-            }
-            return rebalancePartitionsInfoList;
-        } catch (Exception e) {
-            throw new VoldemortException("Failed to create a RebalanceStealInfo List from String: " + line,
-                                         e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    protected static RebalancePartitionsInfo fromMap(Map<String, Object> map) {
+    public static RebalancePartitionsInfo create(Map<?, ?> map) {
         int stealerId = (Integer) map.get("stealerId");
         int donorId = (Integer) map.get("donorId");
-        List<Integer> partitionList = (List<Integer>) map.get("partitionList");
+        List<Integer> partitionList = Utils.uncheckedCast(map.get("partitionList"));
         int attempt = (Integer) map.get("attempt");
-        List<Integer> deletePartitionsList = (List<Integer>) map.get("deletePartitionsList");
-        List<String> unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+        List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
+        List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
+
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
                                            partitionList,
@@ -187,9 +171,8 @@ public class RebalancePartitionsInfo {
                + getPartitionList() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
-    @SuppressWarnings("unchecked")
     public String toJsonString() {
-        Map map = toMap();
+        Map<String, Object> map = asMap();
 
         StringWriter writer = new StringWriter();
         new JsonWriter(writer).write(map);
@@ -197,27 +180,47 @@ public class RebalancePartitionsInfo {
         return writer.toString();
     }
 
-    public ImmutableMap<Object, Object> toMap() {
-        return ImmutableMap.builder()
-                           .put("stealerId", stealerId)
-                           .put("donorId", donorId)
-                           .put("partitionList", partitionList)
-                           .put("unbalancedStoreList", unbalancedStoreList)
-                           .put("deletePartitionsList", deletePartitionsList)
-                           .put("attempt", attempt)
-                           .build();
+    public ImmutableMap<String, Object> asMap() {
+        ImmutableMap.Builder <String, Object> builder = new ImmutableMap.Builder<String, Object>();
+
+        return builder.put("stealerId", stealerId)
+                      .put("donorId", donorId)
+                      .put("partitionList", partitionList)
+                      .put("unbalancedStoreList", unbalancedStoreList)
+                      .put("deletePartitionsList", deletePartitionsList)
+                      .put("attempt", attempt)
+                      .build();
     }
 
-    @SuppressWarnings("unchecked")
-    public static String listToJsonString(List<RebalancePartitionsInfo> rebalancePartitionsInfoList) {
-        List maps = new ArrayList();
-        for (RebalancePartitionsInfo rebalancePartitionsInfo: rebalancePartitionsInfoList) {
-            maps.add(rebalancePartitionsInfo.toMap());
-        }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
 
-        StringWriter writer = new StringWriter();
-        new JsonWriter(writer).write(maps);
-        writer.flush();
-        return writer.toString();
+        RebalancePartitionsInfo that = (RebalancePartitionsInfo) o;
+
+        if (attempt != that.attempt) return false;
+        if (donorId != that.donorId) return false;
+        if (stealerId != that.stealerId) return false;
+        if (!deletePartitionsList.equals(that.deletePartitionsList)) return false;
+        if (!partitionList.equals(that.partitionList)) return false;
+        if (stealMasterPartitions != null ? !stealMasterPartitions.equals(that.stealMasterPartitions) : that.stealMasterPartitions != null)
+            return false;
+        if (unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList) : that.unbalancedStoreList != null)
+            return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = stealerId;
+        result = 31 * result + donorId;
+        result = 31 * result + partitionList.hashCode();
+        result = 31 * result + deletePartitionsList.hashCode();
+        result = 31 * result + (unbalancedStoreList != null ? unbalancedStoreList.hashCode() : 0);
+        result = 31 * result + attempt;
+        result = 31 * result + (stealMasterPartitions != null ? stealMasterPartitions.hashCode() : 0);
+        return result;
     }
 }

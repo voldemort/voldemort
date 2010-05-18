@@ -16,9 +16,10 @@
 
 package voldemort.server.rebalance;
 
-import java.util.*;
+
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -38,7 +39,7 @@ public class Rebalancer implements Runnable {
     private final MetadataStore metadataStore;
     private final AsyncOperationService asyncService;
     private final VoldemortConfig voldemortConfig;
-    private final Map<Integer, AtomicBoolean> rebalancePermitMap = new HashMap<Integer, AtomicBoolean>();
+    private final Set<Integer> rebalancePermits = new HashSet<Integer>();
 
     public Rebalancer(MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
@@ -53,33 +54,33 @@ public class Rebalancer implements Runnable {
     public void stop() {}
 
     private boolean acquireRebalancingPermit(int donorNodeId) {
-        synchronized(rebalancePermitMap) {
-            if (!rebalancePermitMap.containsKey(donorNodeId))
-                rebalancePermitMap.put(donorNodeId, new AtomicBoolean(false));
-
-            AtomicBoolean rebalancePermit = rebalancePermitMap.get(donorNodeId);
-            if(rebalancePermit.compareAndSet(false, true))
+        synchronized (rebalancePermits) {
+            if (!rebalancePermits.contains(donorNodeId)) {
+                rebalancePermits.add(donorNodeId);
+                
                 return true;
+            }
         }
 
         return false;
     }
 
     protected void releaseRebalancingPermit(int donorNodeId) {
-        synchronized(rebalancePermitMap) {
-            if(!rebalancePermitMap.get(donorNodeId).compareAndSet(true, false))
-                throw new VoldemortException("Invalid state rebalancePermit must be true here.");
+        synchronized (rebalancePermits) {
+            if (!rebalancePermits.remove(donorNodeId))
+                throw new VoldemortException("Invalid state, must have have a permit to release");
         }
     }
 
     public void run() {
         logger.debug("rebalancer run() called.");
         if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadataStore.getServerState())) {
-            List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfoList();
-            for (RebalancePartitionsInfo stealInfo: stealInfoList) {
+            RebalancerState rebalancerState = metadataStore.getRebalancerState();
+            for (RebalancePartitionsInfo stealInfo: rebalancerState.getAll()) {
                 // free permit here for rebalanceLocalNode to acquire.
                 if (acquireRebalancingPermit(stealInfo.getDonorId())) {
                     releaseRebalancingPermit(stealInfo.getDonorId());
+
                     try {
                         logger.warn("Rebalance server found incomplete rebalancing attempt, restarting rebalancing task "
                                     + stealInfo);
@@ -134,7 +135,8 @@ public class Rebalancer implements Runnable {
      */
     public int rebalanceLocalNode(final RebalancePartitionsInfo stealInfo) {
         if(!acquireRebalancingPermit(stealInfo.getDonorId())) {
-            RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo(stealInfo.getDonorId());
+            RebalancerState rebalancerState = metadataStore.getRebalancerState();
+            RebalancePartitionsInfo info = rebalancerState.find(stealInfo.getDonorId());
             if (info != null) {
                 throw new AlreadyRebalancingException("Node "
                                                       + metadataStore.getCluster().getNodeById(info.getStealerId())
@@ -167,24 +169,18 @@ public class Rebalancer implements Runnable {
     protected void setRebalancingState(RebalancePartitionsInfo stealInfo) {
         synchronized (MetadataStore.lock) {
             metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
-            List<RebalancePartitionsInfo> stealInfoList = metadataStore.getRebalancingStealInfoList();
-
-            int index = metadataStore.getRebalancingStealInfoIndex(stealInfo.getDonorId());
-            if (index != -1) {
-                stealInfoList.remove(index);
-                stealInfoList.add(index, stealInfo);
-            } else {
-                stealInfoList.add(stealInfo);
-            }
-
-            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, stealInfoList);
+            RebalancerState rebalancerState = metadataStore.getRebalancerState();
+            rebalancerState.add(stealInfo);
+            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
         }
     }
 
     private void checkCurrentState(RebalancePartitionsInfo stealInfo) {
         if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
             synchronized (MetadataStore.lock) {
-                RebalancePartitionsInfo info = metadataStore.getRebalancingStealInfo(stealInfo.getDonorId());
+                RebalancerState rebalancerState = metadataStore.getRebalancerState();
+                RebalancePartitionsInfo info = rebalancerState.find(stealInfo.getDonorId());
+
                 if (info != null) {
                     throw new VoldemortException("Server " + metadataStore.getNodeId()
                                                  + " is already rebalancing from: "

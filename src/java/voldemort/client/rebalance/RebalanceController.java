@@ -40,11 +40,10 @@ import voldemort.versioning.Versioned;
 public class RebalanceController {
 
     private static final int MAX_TRIES = 2;
-    private static final long SEED = 5276239082346L;
     private static Logger logger = Logger.getLogger(RebalanceController.class);
 
     private final AdminClient adminClient;
-    RebalanceClientConfig rebalanceConfig;
+    private final RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
         this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
