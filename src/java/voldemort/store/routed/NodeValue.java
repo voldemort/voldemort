@@ -31,6 +31,7 @@ import com.google.common.base.Preconditions;
  * 
  * @param <K> The type of the key
  * @param <V> The type of the value
+ * @param <T> The type of transforms to be applied on <V>
  * 
  */
 final class NodeValue<K, V> implements Serializable, Cloneable {

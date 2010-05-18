@@ -17,6 +17,7 @@ public class StoreDefinitionBuilder {
     private String type = null;
     private SerializerDefinition keySerializer = null;
     private SerializerDefinition valueSerializer = null;
+    private SerializerDefinition transformsSerializer = null;
     private RoutingTier routingPolicy = null;
     private int replicationFactor = -1;
     private Integer preferredWrites = null;
@@ -27,7 +28,7 @@ public class StoreDefinitionBuilder {
     private Integer retentionScanThrottleRate = null;
     private String routingStrategyType = null;
     private String viewOf = null;
-    private View<?, ?, ?> view = null;
+    private View<?, ?, ?, ?> view = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -62,6 +63,15 @@ public class StoreDefinitionBuilder {
 
     public StoreDefinitionBuilder setValueSerializer(SerializerDefinition valueSerializer) {
         this.valueSerializer = Utils.notNull(valueSerializer);
+        return this;
+    }
+
+    public SerializerDefinition getTransformsSerializer() {
+        return Utils.notNull(this.transformsSerializer);
+    }
+
+    public StoreDefinitionBuilder setTransformsSerializer(SerializerDefinition transformsSerializer) {
+        this.transformsSerializer = transformsSerializer;
         return this;
     }
 
@@ -171,11 +181,11 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public View<?, ?, ?> getView() {
+    public View<?, ?, ?, ?> getView() {
         return view;
     }
 
-    public StoreDefinitionBuilder setView(View<?, ?, ?> valueTransformation) {
+    public StoreDefinitionBuilder setView(View<?, ?, ?, ?> valueTransformation) {
         this.view = valueTransformation;
         return this;
     }
@@ -185,6 +195,7 @@ public class StoreDefinitionBuilder {
                                    this.getType(),
                                    this.getKeySerializer(),
                                    this.getValueSerializer(),
+                                   this.getTransformsSerializer(),
                                    this.getRoutingPolicy(),
                                    this.getRoutingStrategyType(),
                                    this.getReplicationFactor(),
@@ -197,5 +208,4 @@ public class StoreDefinitionBuilder {
                                    this.getRetentionPeriodDays(),
                                    this.getRetentionScanThrottleRate());
     }
-
 }
