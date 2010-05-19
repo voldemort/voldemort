@@ -32,11 +32,11 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class DelegatingStore<K, V> implements Store<K, V> {
+public class DelegatingStore<K, V, T> implements Store<K, V, T> {
 
-    private final Store<K, V> innerStore;
+    private final Store<K, V, T> innerStore;
 
-    public DelegatingStore(Store<K, V> innerStore) {
+    public DelegatingStore(Store<K, V, T> innerStore) {
         this.innerStore = Utils.notNull(innerStore);
     }
 
@@ -49,26 +49,27 @@ public class DelegatingStore<K, V> implements Store<K, V> {
         return innerStore.delete(key, version);
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        return innerStore.getAll(keys);
+        return innerStore.getAll(keys, transforms);
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        return innerStore.get(key);
+        return innerStore.get(key, transform);
     }
 
     public String getName() {
         return innerStore.getName();
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        innerStore.put(key, value);
+        innerStore.put(key, value, transform);
     }
 
-    public Store<K, V> getInnerStore() {
+    public Store<K, V, T> getInnerStore() {
         return innerStore;
     }
 

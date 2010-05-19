@@ -30,26 +30,26 @@ import voldemort.store.UnreachableStoreException;
  * 
  */
 
-public class BasicStoreVerifier<K, V> implements StoreVerifier {
+public class BasicStoreVerifier<K, V, T> implements StoreVerifier {
 
-    private final Map<Integer, Store<K, V>> stores;
+    private final Map<Integer, Store<K, V, T>> stores;
 
     private final K key;
 
-    public BasicStoreVerifier(Map<Integer, Store<K, V>> stores, K key) {
+    public BasicStoreVerifier(Map<Integer, Store<K, V, T>> stores, K key) {
         this.stores = stores;
         this.key = key;
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
-        Store<K, V> store = stores.get(node.getId());
+        Store<K, V, T> store = stores.get(node.getId());
 
         if(store == null)
             throw new VoldemortException("Node " + node.getId()
                                          + " store is null; cannot determine node availability");
 
         // This is our test.
-        store.get(key);
+        store.get(key, null);
     }
 
 }

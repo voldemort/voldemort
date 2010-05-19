@@ -148,16 +148,17 @@ public class HadoopStoreBuilderTest extends TestCase {
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Store<Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
-                                                                                      new BinarySearchStrategy(),
-                                                                                      storeDir,
-                                                                                      1),
-                                                            serializer,
-                                                            serializer);
+        Store<Object, Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
+                                                                                              new BinarySearchStrategy(),
+                                                                                              storeDir,
+                                                                                              1),
+                                                                    serializer,
+                                                                    serializer,
+                                                                    serializer);
 
         // check values
         for(Map.Entry<String, String> entry: values.entrySet()) {
-            List<Versioned<Object>> found = store.get(entry.getKey());
+            List<Versioned<Object>> found = store.get(entry.getKey(), null);
             assertEquals("Incorrect number of results", 1, found.size());
             assertEquals(entry.getValue(), found.get(0).getValue());
         }

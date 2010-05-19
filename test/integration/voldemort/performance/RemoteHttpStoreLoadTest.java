@@ -26,7 +26,7 @@ import voldemort.utils.Props;
 public class RemoteHttpStoreLoadTest extends AbstractLoadTestHarness {
 
     @Override
-    public StoreClient<String, String> getStore(Props propsA, Props propsB)
+    public StoreClient<String, String, String> getStore(Props propsA, Props propsB)
             throws java.lang.Exception {
         System.out.println("Initializing master server.");
         VoldemortServer serverA = new VoldemortServer(new VoldemortConfig(propsA));
@@ -37,8 +37,8 @@ public class RemoteHttpStoreLoadTest extends AbstractLoadTestHarness {
         serverB.start();
 
         HttpStoreClientFactory factory = new HttpStoreClientFactory(new ClientConfig().setBootstrapUrls(serverA.getIdentityNode()
-                                                                                                              .getHttpUrl()
-                                                                                                              .toString()));
+                                                                                                               .getHttpUrl()
+                                                                                                               .toString()));
         return factory.getStoreClient("users");
     }
 

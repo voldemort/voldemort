@@ -33,16 +33,16 @@ import com.google.common.collect.ImmutableMap;
 public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTest {
 
     @Override
-    public Store<ByteArray, byte[]> getStore() {
+    public Store<ByteArray, byte[], byte[]> getStore() {
         return getStorageEngine();
     }
 
-    public abstract StorageEngine<ByteArray, byte[]> getStorageEngine();
+    public abstract StorageEngine<ByteArray, byte[], byte[]> getStorageEngine();
 
     public void testGetNoEntries() {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
         try {
-            StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+            StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
             it = engine.entries();
             while(it.hasNext())
                 fail("There shouldn't be any entries in this store.");
@@ -55,7 +55,7 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     public void testGetNoKeys() {
         ClosableIterator<ByteArray> it = null;
         try {
-            StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+            StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
             it = engine.keys();
             while(it.hasNext())
                 fail("There shouldn't be any entries in this store.");
@@ -66,13 +66,14 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     }
 
     public void testKeyIterationWithSerialization() {
-        StorageEngine<ByteArray, byte[]> store = getStorageEngine();
-        StorageEngine<String, String> stringStore = new SerializingStorageEngine<String, String>(store,
-                                                                                                 new StringSerializer(),
-                                                                                                 new StringSerializer());
+        StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        StorageEngine<String, String, String> stringStore = new SerializingStorageEngine<String, String, String>(store,
+                                                                                                                 new StringSerializer(),
+                                                                                                                 new StringSerializer(),
+                                                                                                                 new StringSerializer());
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet())
-            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));
+            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()), null);
         ClosableIterator<String> iter = stringStore.keys();
         int count = 0;
         while(iter.hasNext()) {
@@ -85,13 +86,14 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     }
 
     public void testIterationWithSerialization() {
-        StorageEngine<ByteArray, byte[]> store = getStorageEngine();
-        StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,
-                                                                                  new StringSerializer(),
-                                                                                  new StringSerializer());
+        StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
+                                                                                          new StringSerializer(),
+                                                                                          new StringSerializer(),
+                                                                                          new StringSerializer());
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet())
-            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()));
+            stringStore.put(entry.getKey(), new Versioned<String>(entry.getValue()), null);
         ClosableIterator<Pair<String, Versioned<String>>> iter = stringStore.entries();
         int count = 0;
         while(iter.hasNext()) {
@@ -105,21 +107,20 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     }
 
     public void testPruneOnWrite() {
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 }, TestUtils.getClock(1));
         Versioned<byte[]> v2 = new Versioned<byte[]>(new byte[] { 2 }, TestUtils.getClock(2));
         Versioned<byte[]> v3 = new Versioned<byte[]>(new byte[] { 3 }, TestUtils.getClock(1, 2));
         ByteArray key = new ByteArray((byte) 3);
-        engine.put(key, v1);
-        engine.put(key, v2);
-        assertEquals(2, engine.get(key).size());
-        engine.put(key, v3);
-        assertEquals(1, engine.get(key).size());
+        engine.put(key, v1, null);
+        engine.put(key, v2, null);
+        assertEquals(2, engine.get(key, null).size());
+        engine.put(key, v3, null);
+        assertEquals(1, engine.get(key, null).size());
     }
 
-
     public void testTruncate() throws Exception {
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         Versioned<byte[]> v1 = new Versioned<byte[]>(new byte[] { 1 });
         Versioned<byte[]> v2 = new Versioned<byte[]>(new byte[] { 2 });
         Versioned<byte[]> v3 = new Versioned<byte[]>(new byte[] { 3 });
@@ -127,20 +128,19 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
         ByteArray key2 = new ByteArray((byte) 4);
         ByteArray key3 = new ByteArray((byte) 5);
 
-        engine.put(key1, v1);
-        engine.put(key2, v2);
-        engine.put(key3, v3);
+        engine.put(key1, v1, null);
+        engine.put(key2, v2, null);
+        engine.put(key3, v3, null);
         engine.truncate();
 
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
         try {
             it = engine.entries();
-            while (it.hasNext()) {
+            while(it.hasNext()) {
                 fail("There shouldn't be any entries in this store.");
             }
-        }
-        finally {
-            if (it != null) {
+        } finally {
+            if(it != null) {
                 it.close();
             }
         }

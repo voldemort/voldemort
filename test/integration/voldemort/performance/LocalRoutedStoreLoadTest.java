@@ -53,11 +53,12 @@ import com.google.common.collect.Maps;
 public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
     @Override
-    public StoreClient<String, String> getStore(Props propsA, Props propsB) throws Exception {
+    public StoreClient<String, String, String> getStore(Props propsA, Props propsB)
+            throws Exception {
         Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory")
                                                                          + File.separator
                                                                          + "/cluster.xml"));
-        Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> clientMapping = Maps.newHashMap();
         VoldemortConfig voldemortConfig = new VoldemortConfig(propsA);
         StorageConfiguration conf = new BdbStorageConfiguration(voldemortConfig);
         for(Node node: cluster.getNodes())
@@ -66,36 +67,37 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         InconsistencyResolver<Versioned<String>> resolver = new VectorClockInconsistencyResolver<String>();
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(cluster.getNodes())
-                                                                                                .setStoreVerifier(new BasicStoreVerifier<ByteArray, byte[]>(clientMapping,
-                                                                                                                                                            new ByteArray("key".getBytes())));
+                                                                                                .setStoreVerifier(new BasicStoreVerifier<ByteArray, byte[], byte[]>(clientMapping,
+                                                                                                                                                                    new ByteArray("key".getBytes())));
         FailureDetector failureDetector = create(failureDetectorConfig, false);
 
-        Store<ByteArray, byte[]> store = new RoutedStore("test",
-                                                         clientMapping,
-                                                         cluster,
-                                                         ServerTestUtils.getStoreDef("test",
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     1,
-                                                                                     RoutingStrategyType.CONSISTENT_STRATEGY),
-                                                         10,
-                                                         true,
-                                                         10000L,
-                                                         failureDetector);
+        Store<ByteArray, byte[], byte[]> store = new RoutedStore("test",
+                                                                 clientMapping,
+                                                                 cluster,
+                                                                 ServerTestUtils.getStoreDef("test",
+                                                                                             1,
+                                                                                             1,
+                                                                                             1,
+                                                                                             1,
+                                                                                             1,
+                                                                                             RoutingStrategyType.CONSISTENT_STRATEGY),
+                                                                 10,
+                                                                 true,
+                                                                 10000L,
+                                                                 failureDetector);
         /*
          * public DefaultStoreClient(String storeName,
          * InconsistencyResolver<Versioned<V>> resolver, StoreClientFactory
          * storeFactory, int maxMetadataRefreshAttempts) {
          */
-        Store<String, String> serializingStore = SerializingStore.wrap(store,
-                                                                       new StringSerializer(),
-                                                                       new StringSerializer());
-        Store<String, String> resolvingStore = new InconsistencyResolvingStore<String, String>(serializingStore,
-                                                                                               resolver);
+        Store<String, String, String> serializingStore = SerializingStore.wrap(store,
+                                                                               new StringSerializer(),
+                                                                               new StringSerializer(),
+                                                                               new StringSerializer());
+        Store<String, String, String> resolvingStore = new InconsistencyResolvingStore<String, String, String>(serializingStore,
+                                                                                                               resolver);
         StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);
-        return new DefaultStoreClient<String, String>(store.getName(), resolver, factory, 1);
+        return new DefaultStoreClient<String, String, String>(store.getName(), resolver, factory, 1);
     }
 
     public static void main(String[] args) throws Exception {

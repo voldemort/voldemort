@@ -56,13 +56,13 @@ public class RemoteStoreComparisonTest {
         boolean useNio = args.length > 2 ? args[2].equals("true") : false;
 
         /** * In memory test ** */
-        final Store<byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[]>("test");
+        final Store<byte[], byte[], byte[]> memStore = new InMemoryStorageEngine<byte[], byte[], byte[]>("test");
         PerformanceTest memWriteTest = new PerformanceTest() {
 
             @Override
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
-                memStore.put(key, new Versioned<byte[]>(key));
+                memStore.put(key, new Versioned<byte[]>(key), null);
             }
         };
         System.out.println("###########################################");
@@ -76,7 +76,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 try {
-                    memStore.get(String.valueOf(i).getBytes());
+                    memStore.get(String.valueOf(i).getBytes(), null);
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();
@@ -92,7 +92,7 @@ public class RemoteStoreComparisonTest {
         /** * Do Socket tests ** */
         String storeName = "test";
         StoreRepository repository = new StoreRepository();
-        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
+        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeName));
         SocketPool socketPool = new SocketPool(10, 1000, 1000, 32 * 1024);
         final SocketStore socketStore = new SocketStore(storeName,
                                                         new SocketDestination("localhost",
@@ -115,7 +115,7 @@ public class RemoteStoreComparisonTest {
             public void doOperation(int i) {
                 byte[] bytes = String.valueOf(i).getBytes();
                 ByteArray key = new ByteArray(bytes);
-                socketStore.put(key, new Versioned<byte[]>(bytes));
+                socketStore.put(key, new Versioned<byte[]>(bytes), null);
             }
         };
         System.out.println("###########################################");
@@ -129,7 +129,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 try {
-                    socketStore.get(TestUtils.toByteArray(String.valueOf(i)));
+                    socketStore.get(TestUtils.toByteArray(String.valueOf(i)), null);
                 } catch(Exception e) {
                     System.out.println("Failure on i = " + i);
                     e.printStackTrace();
@@ -147,7 +147,7 @@ public class RemoteStoreComparisonTest {
         socketService.stop();
 
         /** * Do HTTP tests ** */
-        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[]>(storeName));
+        repository.addLocalStore(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeName));
         HttpService httpService = new HttpService(null,
                                                   null,
                                                   repository,
@@ -183,7 +183,7 @@ public class RemoteStoreComparisonTest {
             @Override
             public void doOperation(int i) {
                 byte[] key = String.valueOf(i).getBytes();
-                httpStore.put(new ByteArray(key), new Versioned<byte[]>(key));
+                httpStore.put(new ByteArray(key), new Versioned<byte[]>(key), null);
             }
         };
         System.out.println("###########################################");
@@ -196,7 +196,7 @@ public class RemoteStoreComparisonTest {
 
             @Override
             public void doOperation(int i) {
-                httpStore.get(new ByteArray(String.valueOf(i).getBytes()));
+                httpStore.get(new ByteArray(String.valueOf(i).getBytes()), null);
             }
         };
         System.out.println("Performing HTTP read test.");

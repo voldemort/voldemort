@@ -266,10 +266,10 @@ public abstract class AbstractRebalanceTest {
                                                                                                 .setSocketTimeout(120,
                                                                                                                   TimeUnit.SECONDS));
 
-        final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
-                                                                                               null,
-                                                                                               factory,
-                                                                                               3);
+        final StoreClient<String, String, String> storeClient = new DefaultStoreClient<String, String, String>(testStoreName,
+                                                                                                               null,
+                                                                                                               factory,
+                                                                                                               3);
         final boolean[] masterNodeResponded = { false, false };
 
         // start get operation.
@@ -383,10 +383,10 @@ public abstract class AbstractRebalanceTest {
         populateData(updatedCluster, Arrays.asList(0));
 
         Node node = updatedCluster.getNodeById(0);
-        final Store<ByteArray, byte[]> serverSideRoutingStore = getSocketStore(testStoreName,
-                                                                               node.getHost(),
-                                                                               node.getSocketPort(),
-                                                                               true);
+        final Store<ByteArray, byte[], byte[]> serverSideRoutingStore = getSocketStore(testStoreName,
+                                                                                       node.getHost(),
+                                                                                       node.getSocketPort(),
+                                                                                       true);
 
         // start get operation.
         executors.execute(new Runnable() {
@@ -404,7 +404,8 @@ public abstract class AbstractRebalanceTest {
                         try {
                             nRequests++;
                             List<Versioned<byte[]>> values = serverSideRoutingStore.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
-                                                                                                                         "UTF-8")));
+                                                                                                                         "UTF-8")),
+                                                                                        null);
 
                             assertEquals("serverSideRoutingStore should return value.",
                                          1,
@@ -476,7 +477,7 @@ public abstract class AbstractRebalanceTest {
     protected void populateData(Cluster cluster, List<Integer> nodeList) {
 
         // Create SocketStores for each Node first
-        Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
         for(int nodeId: nodeList) {
             Node node = cluster.getNodeById(nodeId);
             storeMap.put(nodeId,
@@ -494,7 +495,8 @@ public abstract class AbstractRebalanceTest {
                     ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
                     storeMap.get(masterNode)
                             .put(keyBytes,
-                                 new Versioned<byte[]>(ByteUtils.getBytes(entry.getValue(), "UTF-8")));
+                                 new Versioned<byte[]>(ByteUtils.getBytes(entry.getValue(), "UTF-8")),
+                                 null);
                 } catch(ObsoleteVersionException e) {
                     System.out.println("Why are we seeing this at all here ?? ");
                     e.printStackTrace();
@@ -503,7 +505,7 @@ public abstract class AbstractRebalanceTest {
         }
 
         // close all socket stores
-        for(Store<ByteArray, byte[]> store: storeMap.values()) {
+        for(Store<ByteArray, byte[], byte[]> store: storeMap.values()) {
             store.close();
         }
     }
@@ -560,7 +562,7 @@ public abstract class AbstractRebalanceTest {
 
             if(null != unavailablePartitions && unavailablePartitions.containsAll(partitions)) {
                 try {
-                    List<Versioned<byte[]>> value = store.get(keyBytes);
+                    List<Versioned<byte[]>> value = store.get(keyBytes, null);
                     assertEquals("unavailable partitons should return zero size list.",
                                  0,
                                  value.size());
@@ -568,7 +570,7 @@ public abstract class AbstractRebalanceTest {
                     // ignore.
                 }
             } else if(null != availablePartitions && availablePartitions.containsAll(partitions)) {
-                List<Versioned<byte[]>> values = store.get(keyBytes);
+                List<Versioned<byte[]>> values = store.get(keyBytes, null);
 
                 // expecting exactly one version
                 assertEquals("Expecting exactly one version", 1, values.size());

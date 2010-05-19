@@ -40,6 +40,7 @@ public interface RequestFormat {
     public void writeGetRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
+                                byte[] transforms,
                                 RequestRoutingType routingType) throws IOException;
 
     public void writeGetVersionRequest(DataOutputStream output,
@@ -54,6 +55,7 @@ public interface RequestFormat {
     public void writeGetAllRequest(DataOutputStream output,
                                    String storeName,
                                    Iterable<ByteArray> key,
+                                   Map<ByteArray, byte[]> transforms,
                                    RequestRoutingType routingType) throws IOException;
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
@@ -63,6 +65,7 @@ public interface RequestFormat {
                                 String storeName,
                                 ByteArray key,
                                 byte[] value,
+                                byte[] transforms,
                                 VectorClock version,
                                 RequestRoutingType routingType) throws IOException;
 

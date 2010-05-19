@@ -56,16 +56,16 @@ public class RebalancingJob implements Runnable {
         logger.info("Rebalancing all keys...");
         int totalRebalanced = 0;
         long start = System.currentTimeMillis();
-        for(StorageEngine<ByteArray, byte[]> engine: storeRepository.getAllStorageEngines()) {
+        for(StorageEngine<ByteArray, byte[], byte[]> engine: storeRepository.getAllStorageEngines()) {
             logger.info("Rebalancing " + engine.getName());
-            Store<ByteArray, byte[]> remote = storeRepository.getRoutedStore(engine.getName());
+            Store<ByteArray, byte[], byte[]> remote = storeRepository.getRoutedStore(engine.getName());
             ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
             int rebalanced = 0;
             long currStart = System.currentTimeMillis();
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
                 if(needsRebalancing(keyAndVal.getFirst())) {
-                    remote.put(keyAndVal.getFirst(), keyAndVal.getSecond());
+                    remote.put(keyAndVal.getFirst(), keyAndVal.getSecond(), null);
                     engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                     rebalanced++;
                 }

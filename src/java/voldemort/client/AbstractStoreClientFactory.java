@@ -114,19 +114,19 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
     }
 
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
 
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
+                                                         InconsistencyResolver<Versioned<V>> resolver) {
 
-        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);     
+        return new DefaultStoreClient<K, V, T>(storeName, resolver, this, 3);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> Store<K, V> getRawStore(String storeName,
-                                          InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
@@ -140,26 +140,26 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
 
         // construct mapping
-        Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> clientMapping = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
-                                                      node.getHost(),
-                                                      getPort(node),
-                                                      this.requestFormatType);
+            Store<ByteArray, byte[], byte[]> store = getStore(storeDef.getName(),
+                                                              node.getHost(),
+                                                              getPort(node),
+                                                              this.requestFormatType);
             store = new LoggingStore(store);
             clientMapping.put(node.getId(), store);
         }
 
         boolean repairReads = !storeDef.isView();
-        Store<ByteArray, byte[]> store = new RoutedStore(storeName,
-                                                         clientMapping,
-                                                         cluster,
-                                                         storeDef,
-                                                         repairReads,
-                                                         threadPool,
-                                                         routingTimeoutMs,
-                                                         getFailureDetector(),
-                                                         SystemTime.INSTANCE);
+        Store<ByteArray, byte[], byte[]> store = new RoutedStore(storeName,
+                                                                 clientMapping,
+                                                                 cluster,
+                                                                 storeDef,
+                                                                 repairReads,
+                                                                 threadPool,
+                                                                 routingTimeoutMs,
+                                                                 getFailureDetector(),
+                                                                 SystemTime.INSTANCE);
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
@@ -178,31 +178,37 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Store<K, V> serializedStore = SerializingStore.wrap(store, keySerializer, valueSerializer);
+        Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
+
+        Store<K, V, T> serializedStore = SerializingStore.wrap(store,
+                                                               keySerializer,
+                                                               valueSerializer,
+                                                               transformsSerializer);
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
         InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
                                                                                 : resolver;
-        serializedStore = new InconsistencyResolvingStore<K, V>(serializedStore,
-                                                                new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                  secondaryResolver));
+        serializedStore = new InconsistencyResolvingStore<K, V, T>(serializedStore,
+                                                                   new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
+                                                                                                     secondaryResolver));
         return serializedStore;
     }
 
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
                                                            final Collection<Node> nodes);
-    
+
     public FailureDetector getFailureDetector() {
         // first check: avoids locking as the field is volatile
         FailureDetector result = failureDetector;
-        if (result == null) {
-            String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        if(result == null) {
+            String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
+                                                             bootstrapUrls);
             Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
-                if (result == null)
+                if(result == null)
                     failureDetector = result = initFailureDetector(config, cluster.getNodes());
             }
         }
@@ -243,14 +249,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private String bootstrapMetadata(String key, URI[] urls) {
         for(URI url: urls) {
             try {
-                Store<ByteArray, byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
-                                                                url.getHost(),
-                                                                url.getPort(),
-                                                                this.requestFormatType);
-                Store<String, String> store = SerializingStore.wrap(remoteStore,
-                                                                    new StringSerializer("UTF-8"),
-                                                                    new StringSerializer("UTF-8"));
-                List<Versioned<String>> found = store.get(key);
+                Store<ByteArray, byte[], byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
+                                                                        url.getHost(),
+                                                                        url.getPort(),
+                                                                        this.requestFormatType);
+                Store<String, String, String> store = SerializingStore.wrap(remoteStore,
+                                                                            new StringSerializer("UTF-8"),
+                                                                            new StringSerializer("UTF-8"),
+                                                                            new StringSerializer("UTF-8"));
+                // TODO: Not sure if transforms are null here?
+                List<Versioned<String>> found = store.get(key, null);
                 if(found.size() == 1)
                     return found.get(0).getValue();
             } catch(Exception e) {
@@ -290,10 +298,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return uris;
     }
 
-    protected abstract Store<ByteArray, byte[]> getStore(String storeName,
-                                                         String host,
-                                                         int port,
-                                                         RequestFormatType type);
+    protected abstract Store<ByteArray, byte[], byte[]> getStore(String storeName,
+                                                                 String host,
+                                                                 int port,
+                                                                 RequestFormatType type);
 
     protected abstract int getPort(Node node);
 

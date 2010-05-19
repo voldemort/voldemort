@@ -66,10 +66,10 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getStore(String storeName,
-                                                String host,
-                                                int port,
-                                                RequestFormatType type) {
+    protected Store<ByteArray, byte[], byte[]> getStore(String storeName,
+                                                        String host,
+                                                        int port,
+                                                        RequestFormatType type) {
         return new SocketStore(Utils.notNull(storeName),
                                new SocketDestination(Utils.notNull(host), port, type),
                                socketPool,
@@ -101,7 +101,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         ClientStoreVerifier storeVerifier = new ClientStoreVerifier() {
 
             @Override
-            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+            protected Store<ByteArray, byte[], byte[]> getStoreInternal(Node node) {
                 return SocketStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
                                                               node.getHost(),
                                                               node.getSocketPort(),

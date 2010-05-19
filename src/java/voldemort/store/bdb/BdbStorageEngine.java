@@ -64,7 +64,7 @@ import com.sleepycat.je.Transaction;
  * 
  * 
  */
-public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(BdbStorageEngine.class);
     private static final Hex hexCodec = new Hex();
@@ -200,15 +200,18 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return get(key, LockMode.READ_UNCOMMITTED, versionSerializer);
+        return get(key, null, LockMode.READ_UNCOMMITTED, versionSerializer);
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
-        return get(key, LockMode.READ_UNCOMMITTED, versionedSerializer);
-    }
-
-    private <T> List<T> get(ByteArray key, LockMode lockMode, Serializer<T> serializer)
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
+        return get(key, transforms, LockMode.READ_UNCOMMITTED, versionedSerializer);
+    }
+
+    private <T> List<T> get(ByteArray key,
+                            @SuppressWarnings("unused") byte[] transforms,
+                            LockMode lockMode,
+                            Serializer<T> serializer) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
 
         Cursor cursor = null;
@@ -241,7 +244,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return bdbDatabase;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
@@ -283,7 +287,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return results;
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws PersistenceFailureException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
 
         DatabaseEntry keyEntry = new DatabaseEntry(key.get());
@@ -382,7 +387,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public boolean equals(Object o) {
         if(o == null || !Store.class.isAssignableFrom(o.getClass()))
             return false;
-        Store<?, ?> s = (Store<?, ?>) o;
+        Store<?, ?, ?> s = (Store<?, ?, ?>) o;
         return s.getName().equals(s.getName());
     }
 

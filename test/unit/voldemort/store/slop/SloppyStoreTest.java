@@ -37,22 +37,22 @@ public class SloppyStoreTest extends AbstractByteArrayStoreTest {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Store<ByteArray, byte[]> getStore() {
-        Collection<InMemoryStorageEngine<ByteArray, Slop>> backups = Arrays.asList(new InMemoryStorageEngine<ByteArray, Slop>("test"));
+    public Store<ByteArray, byte[], byte[]> getStore() {
+        Collection<InMemoryStorageEngine<ByteArray, Slop, byte[]>> backups = Arrays.asList(new InMemoryStorageEngine<ByteArray, Slop, byte[]>("test"));
         return new SloppyStore(NODE_ID,
-                               new InMemoryStorageEngine<ByteArray, byte[]>("test"),
+                               new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
                                backups);
     }
 
     @SuppressWarnings("unchecked")
-    public SloppyStore getSloppyStore(Store<ByteArray, byte[]> store) {
-        Collection<InMemoryStorageEngine<ByteArray, Slop>> backups = Arrays.asList(new InMemoryStorageEngine<ByteArray, Slop>("test"));
+    public SloppyStore getSloppyStore(Store<ByteArray, byte[], byte[]> store) {
+        Collection<InMemoryStorageEngine<ByteArray, Slop, byte[]>> backups = Arrays.asList(new InMemoryStorageEngine<ByteArray, Slop, byte[]>("test"));
         return new SloppyStore(NODE_ID, store, backups);
     }
 
-    private void assertBackupHasOperation(Slop slop, List<Store<ByteArray, Slop>> backups) {
-        for(Store<ByteArray, Slop> backup: backups) {
-            List<Versioned<Slop>> slops = backup.get(slop.makeKey());
+    private void assertBackupHasOperation(Slop slop, List<Store<ByteArray, Slop, byte[]>> backups) {
+        for(Store<ByteArray, Slop, byte[]> backup: backups) {
+            List<Versioned<Slop>> slops = backup.get(slop.makeKey(), slop.getTransforms());
             for(Versioned<Slop> found: slops) {
                 Slop foundSlop = found.getValue();
                 if(foundSlop.getKey().equals(slop.getKey())
@@ -65,10 +65,10 @@ public class SloppyStoreTest extends AbstractByteArrayStoreTest {
     }
 
     public void testFailingStore() {
-        SloppyStore store = getSloppyStore(new FailingStore<ByteArray, byte[]>("test",
-                                                                               new UnreachableStoreException("Unreachable store.")));
+        SloppyStore store = getSloppyStore(new FailingStore<ByteArray, byte[], byte[]>("test",
+                                                                                       new UnreachableStoreException("Unreachable store.")));
         try {
-            store.put(new ByteArray(testVal), new Versioned<byte[]>(testVal));
+            store.put(new ByteArray(testVal), new Versioned<byte[]>(testVal), null);
             fail("Failing store doesn't fail.");
         } catch(UnreachableStoreException e) {
             Slop slop = new Slop("test", Slop.Operation.PUT, testVal, testVal, NODE_ID, new Date());

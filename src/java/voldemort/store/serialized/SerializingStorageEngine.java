@@ -26,28 +26,31 @@ import voldemort.versioning.Versioned;
 
 /**
  * A StorageEngine that handles serialization to bytes, transforming each
- * request to a request to StorageEngine<byte[],byte[]>
+ * request to a request to StorageEngine<byte[],byte[], byte[]>
  * 
  * 
  * @param <K> The key type
  * @param <V> The value type
+ * @param <T> the transforms type
  */
-public class SerializingStorageEngine<K, V> extends SerializingStore<K, V> implements
-        StorageEngine<K, V> {
+public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T> implements
+        StorageEngine<K, V, T> {
 
-    private final StorageEngine<ByteArray, byte[]> storageEngine;
+    private final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
-    public SerializingStorageEngine(StorageEngine<ByteArray, byte[]> innerStorageEngine,
+    public SerializingStorageEngine(StorageEngine<ByteArray, byte[], byte[]> innerStorageEngine,
                                     Serializer<K> keySerializer,
-                                    Serializer<V> valueSerializer) {
-        super(innerStorageEngine, keySerializer, valueSerializer);
+                                    Serializer<V> valueSerializer,
+                                    Serializer<T> transformsSerializer) {
+        super(innerStorageEngine, keySerializer, valueSerializer, transformsSerializer);
         this.storageEngine = Utils.notNull(innerStorageEngine);
     }
 
-    public static <K1, V1> SerializingStorageEngine<K1, V1> wrap(StorageEngine<ByteArray, byte[]> s,
-                                                                 Serializer<K1> k,
-                                                                 Serializer<V1> v) {
-        return new SerializingStorageEngine<K1, V1>(s, k, v);
+    public static <K1, V1, T1> SerializingStorageEngine<K1, V1, T1> wrap(StorageEngine<ByteArray, byte[], byte[]> s,
+                                                                         Serializer<K1> k,
+                                                                         Serializer<V1> v,
+                                                                         Serializer<T1> t) {
+        return new SerializingStorageEngine<K1, V1, T1>(s, k, v, t);
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {

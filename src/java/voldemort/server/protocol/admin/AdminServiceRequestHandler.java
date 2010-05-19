@@ -286,8 +286,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                    4,
                                                                                    2);
                     try {
-                        StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                                          storeName);
+                        StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                                                  storeName);
                         Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                 storeName,
                                                                                                                 partitions,
@@ -300,7 +300,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             ByteArray key = entry.getFirst();
                             Versioned<byte[]> value = entry.getSecond();
                             try {
-                                storageEngine.put(key, value);
+                                storageEngine.put(key, value, null);
                             } catch(ObsoleteVersionException e) {
                                 // log and ignore
                                 logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
@@ -352,8 +352,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             String storeName = request.getStore();
             List<Integer> partitions = request.getPartitionsList();
-            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                              storeName);
+            StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                                      storeName);
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter(),
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
@@ -395,11 +395,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
-
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
                 metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
-                                  versionedValue);
+                                  versionedValue,
+                                  null);
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -416,7 +416,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
-                List<Versioned<byte[]>> versionedList = metadataStore.get(key);
+                List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
                 int size = (versionedList.size() > 0) ? 1 : 0;
 
                 if(size > 0) {
@@ -439,8 +439,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.TruncateEntriesResponse.Builder response = VAdminProto.TruncateEntriesResponse.newBuilder();
         try {
             String storeName = request.getStore();
-            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                              storeName);
+            StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                                      storeName);
 
             storageEngine.truncate();
         } catch(VoldemortException e) {
@@ -482,7 +482,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     // update stores list in metadata store (this also has the
                     // effect of updating the stores.xml file)
                     List<StoreDefinition> currentStoreDefs;
-                    List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY);
+                    List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY, null);
 
                     if(((v.size() > 0) ? 1 : 0) > 0) {
                         Versioned<byte[]> currentValue = v.get(0);
@@ -584,9 +584,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return value.getValue().length + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
     }
 
-    static StorageEngine<ByteArray, byte[]> getStorageEngine(StoreRepository storeRepository,
-                                                             String storeName) {
-        StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
+    static StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(StoreRepository storeRepository,
+                                                                     String storeName) {
+        StorageEngine<ByteArray, byte[], byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
 
         if(storageEngine == null) {
             throw new VoldemortException("No store named '" + storeName + "'.");

@@ -41,87 +41,98 @@ public class StoreRepository {
      * make the getLocal return a storage engine.
      */
 
-    /* The store used for storing slop for future handoff */
-    private volatile StorageEngine<ByteArray, Slop> slopStore;
+    /*
+     * The store used for storing slop for future handoff. Transforms are
+     * meaningless for slop stores. Hence the transforms byte array will be null
+     */
+    private volatile StorageEngine<ByteArray, Slop, byte[]> slopStore;
 
     /*
      * Unrouted stores, local to this node
      */
-    private final ConcurrentMap<String, Store<ByteArray, byte[]>> localStores;
+    private final ConcurrentMap<String, Store<ByteArray, byte[], byte[]>> localStores;
 
     /*
      * Local storage engine for this node. This is lowest level persistence
      * abstraction, these StorageEngines provide an iterator over their values.
      */
-    private final ConcurrentMap<String, StorageEngine<ByteArray, byte[]>> storageEngines;
+    private final ConcurrentMap<String, StorageEngine<ByteArray, byte[], byte[]>> storageEngines;
 
+    // /*
+    // * Local storage engine for views.
+    // */
+    // private final ConcurrentMap<String, ViewStorageEngine<ByteArray, byte[],
+    // byte[]>> viewStorageEngines;
     /*
      * Routed stores that write and read from multiple nodes
      */
-    private final ConcurrentMap<String, Store<ByteArray, byte[]>> routedStores;
+    private final ConcurrentMap<String, Store<ByteArray, byte[], byte[]>> routedStores;
 
     /*
      * Stores that connect to a single node only and represent a direct
      * connection to the storage on that node
      */
-    private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[]>> nodeStores;
+    private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>> nodeStores;
 
     /*
      * Stores that add redirectingSocketStores
      */
-    private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[]>> redirectingSocketStores;
+    private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>> redirectingSocketStores;
 
     public StoreRepository() {
         super();
-        this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
-        this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[]>>();
-        this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[]>>();
-        this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
-        this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[]>>();
+        this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
+        this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[], byte[]>>();
+        // this.viewStorageEngines = new ConcurrentHashMap<String,
+        // ViewStorageEngine<ByteArray, byte[], byte[]>>();
+        this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
+        this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();
+        this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();
     }
 
     public boolean hasLocalStore(String name) {
         return this.localStores.containsKey(name);
     }
 
-    public Store<ByteArray, byte[]> getLocalStore(String storeName) {
+    public Store<ByteArray, byte[], byte[]> getLocalStore(String storeName) {
         return localStores.get(storeName);
     }
 
-    public void addLocalStore(Store<ByteArray, byte[]> store) {
-        Store<ByteArray, byte[]> found = this.localStores.putIfAbsent(store.getName(), store);
+    public void addLocalStore(Store<ByteArray, byte[], byte[]> store) {
+        Store<ByteArray, byte[], byte[]> found = this.localStores.putIfAbsent(store.getName(),
+                                                                              store);
         if(found != null)
             throw new VoldemortException("Store '" + store.getName()
                                          + "' has already been initialized.");
     }
 
-    public List<Store<ByteArray, byte[]>> getAllLocalStores() {
-        return new ArrayList<Store<ByteArray, byte[]>>(this.localStores.values());
+    public List<Store<ByteArray, byte[], byte[]>> getAllLocalStores() {
+        return new ArrayList<Store<ByteArray, byte[], byte[]>>(this.localStores.values());
     }
 
     public boolean hasStorageEngine(String name) {
         return this.storageEngines.containsKey(name);
     }
 
-    public StorageEngine<ByteArray, byte[]> getStorageEngine(String storeName) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(String storeName) {
         return this.storageEngines.get(storeName);
     }
 
-    public void addStorageEngine(StorageEngine<ByteArray, byte[]> engine) {
-        StorageEngine<ByteArray, byte[]> found = this.storageEngines.putIfAbsent(engine.getName(),
-                                                                                 engine);
+    public void addStorageEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+        StorageEngine<ByteArray, byte[], byte[]> found = this.storageEngines.putIfAbsent(engine.getName(),
+                                                                                         engine);
         if(found != null)
             throw new VoldemortException("Storage Engine '" + engine.getName()
                                          + "' has already been initialized.");
     }
 
-    public List<StorageEngine<ByteArray, byte[]>> getAllStorageEngines() {
-        return new ArrayList<StorageEngine<ByteArray, byte[]>>(this.storageEngines.values());
+    public List<StorageEngine<ByteArray, byte[], byte[]>> getAllStorageEngines() {
+        return new ArrayList<StorageEngine<ByteArray, byte[], byte[]>>(this.storageEngines.values());
     }
 
-    public List<StorageEngine<ByteArray, byte[]>> getStorageEnginesByClass(Class<? extends StorageEngine<?, ?>> c) {
-        List<StorageEngine<ByteArray, byte[]>> l = new ArrayList<StorageEngine<ByteArray, byte[]>>();
-        for(StorageEngine<ByteArray, byte[]> engine: this.storageEngines.values())
+    public List<StorageEngine<ByteArray, byte[], byte[]>> getStorageEnginesByClass(Class<? extends StorageEngine<?, ?, ?>> c) {
+        List<StorageEngine<ByteArray, byte[], byte[]>> l = new ArrayList<StorageEngine<ByteArray, byte[], byte[]>>();
+        for(StorageEngine<ByteArray, byte[], byte[]> engine: this.storageEngines.values())
             if(engine.getClass().equals(c))
                 l.add(engine);
         return l;
@@ -131,40 +142,41 @@ public class StoreRepository {
         return this.routedStores.containsKey(name);
     }
 
-    public Store<ByteArray, byte[]> getRoutedStore(String storeName) {
+    public Store<ByteArray, byte[], byte[]> getRoutedStore(String storeName) {
         return routedStores.get(storeName);
     }
 
-    public void addRoutedStore(Store<ByteArray, byte[]> store) {
-        Store<ByteArray, byte[]> found = this.routedStores.putIfAbsent(store.getName(), store);
+    public void addRoutedStore(Store<ByteArray, byte[], byte[]> store) {
+        Store<ByteArray, byte[], byte[]> found = this.routedStores.putIfAbsent(store.getName(),
+                                                                               store);
         if(found != null)
             throw new VoldemortException("Store '" + store.getName()
                                          + "' has already been initialized.");
     }
 
-    public List<Store<ByteArray, byte[]>> getAllRoutedStores() {
-        return new ArrayList<Store<ByteArray, byte[]>>(this.routedStores.values());
+    public List<Store<ByteArray, byte[], byte[]>> getAllRoutedStores() {
+        return new ArrayList<Store<ByteArray, byte[], byte[]>>(this.routedStores.values());
     }
 
     public boolean hasNodeStore(String name, int nodeId) {
         return this.nodeStores.containsKey(Pair.create(name, nodeId));
     }
 
-    public Store<ByteArray, byte[]> getNodeStore(String storeName, Integer id) {
+    public Store<ByteArray, byte[], byte[]> getNodeStore(String storeName, Integer id) {
         return nodeStores.get(Pair.create(storeName, id));
     }
 
-    public void addNodeStore(int nodeId, Store<ByteArray, byte[]> store) {
+    public void addNodeStore(int nodeId, Store<ByteArray, byte[], byte[]> store) {
         Pair<String, Integer> key = Pair.create(store.getName(), nodeId);
-        Store<ByteArray, byte[]> found = this.nodeStores.putIfAbsent(key, store);
+        Store<ByteArray, byte[], byte[]> found = this.nodeStores.putIfAbsent(key, store);
         if(found != null)
             throw new VoldemortException("Store '" + store.getName() + "' for node " + nodeId
                                          + " has already been initialized.");
     }
 
-    public List<Pair<Integer, Store<ByteArray, byte[]>>> getAllNodeStores() {
-        List<Pair<Integer, Store<ByteArray, byte[]>>> vals = new ArrayList<Pair<Integer, Store<ByteArray, byte[]>>>();
-        for(Map.Entry<Pair<String, Integer>, Store<ByteArray, byte[]>> entry: this.nodeStores.entrySet())
+    public List<Pair<Integer, Store<ByteArray, byte[], byte[]>>> getAllNodeStores() {
+        List<Pair<Integer, Store<ByteArray, byte[], byte[]>>> vals = new ArrayList<Pair<Integer, Store<ByteArray, byte[], byte[]>>>();
+        for(Map.Entry<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>> entry: this.nodeStores.entrySet())
             vals.add(Pair.create(entry.getKey().getSecond(), entry.getValue()));
         return vals;
     }
@@ -173,25 +185,26 @@ public class StoreRepository {
         return this.redirectingSocketStores.containsKey(Pair.create(name, nodeId));
     }
 
-    public Store<ByteArray, byte[]> getRedirectingSocketStore(String storeName, Integer id) {
+    public Store<ByteArray, byte[], byte[]> getRedirectingSocketStore(String storeName, Integer id) {
         return redirectingSocketStores.get(Pair.create(storeName, id));
     }
 
-    public void addRedirectingSocketStore(int nodeId, Store<ByteArray, byte[]> store) {
+    public void addRedirectingSocketStore(int nodeId, Store<ByteArray, byte[], byte[]> store) {
         Pair<String, Integer> key = Pair.create(store.getName(), nodeId);
-        Store<ByteArray, byte[]> found = this.redirectingSocketStores.putIfAbsent(key, store);
+        Store<ByteArray, byte[], byte[]> found = this.redirectingSocketStores.putIfAbsent(key,
+                                                                                          store);
         if(found != null)
             throw new VoldemortException("Store '" + store.getName() + "' for node " + nodeId
                                          + " has already been initialized.");
     }
 
-    public StorageEngine<ByteArray, Slop> getSlopStore() {
+    public StorageEngine<ByteArray, Slop, byte[]> getSlopStore() {
         if(this.slopStore == null)
             throw new IllegalStateException("Slop store has not been set!");
         return this.slopStore;
     }
 
-    public void setSlopStore(StorageEngine<ByteArray, Slop> slopStore) {
+    public void setSlopStore(StorageEngine<ByteArray, Slop, byte[]> slopStore) {
         this.slopStore = slopStore;
     }
 

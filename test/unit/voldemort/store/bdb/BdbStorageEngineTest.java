@@ -78,18 +78,20 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     @Override
-    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
         return store;
     }
 
     public void testPersistence() throws Exception {
-        this.store.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
+        this.store.put(new ByteArray("abc".getBytes()),
+                       new Versioned<byte[]>("cdef".getBytes()),
+                       null);
         this.store.close();
         this.environment.close();
         this.environment = new Environment(this.tempDir, envConfig);
         this.database = environment.openDatabase(null, "test", databaseConfig);
         this.store = new BdbStorageEngine("test", this.environment, this.database);
-        List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()));
+        List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()), null);
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
     }
@@ -131,7 +133,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
             public void run() {
                 while(!Thread.interrupted()) {
                     byte[] bytes = Integer.toString(count.getAndIncrement()).getBytes();
-                    store.put(new ByteArray(bytes), Versioned.value(bytes));
+                    store.put(new ByteArray(bytes), Versioned.value(bytes), null);
                     count.incrementAndGet();
                 }
             }

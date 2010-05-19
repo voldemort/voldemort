@@ -31,11 +31,11 @@ import voldemort.versioning.VectorClockInconsistencyResolver;
 public class InMemoryMultiThreadedTest {
 
     public static void main(String[] args) throws Exception {
-        Store<byte[], byte[]> store = new VersionIncrementingStore<byte[], byte[]>(new InMemoryStorageEngine<byte[], byte[]>("test"),
-                                                                                   0,
-                                                                                   new SystemTime());
-        store = new InconsistencyResolvingStore<byte[], byte[]>(store,
-                                                                new VectorClockInconsistencyResolver<byte[]>());
+        Store<byte[], byte[], byte[]> store = new VersionIncrementingStore<byte[], byte[], byte[]>(new InMemoryStorageEngine<byte[], byte[], byte[]>("test"),
+                                                                                                   0,
+                                                                                                   new SystemTime());
+        store = new InconsistencyResolvingStore<byte[], byte[], byte[]>(store,
+                                                                        new VectorClockInconsistencyResolver<byte[]>());
         new MultithreadedStressTest(store, 5, 1000000, 10).testGetAndPut();
     }
 

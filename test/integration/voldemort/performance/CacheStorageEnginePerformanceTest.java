@@ -38,7 +38,7 @@ public class CacheStorageEnginePerformanceTest {
         final int mod = 100;
         final int readMax = (int) readPercent * mod;
 
-        final Store<ByteArray, byte[]> store = new CacheStorageConfiguration(null).getStore("test");
+        final Store<ByteArray, byte[], byte[]> store = new CacheStorageConfiguration(null).getStore("test");
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
         PerformanceTest readWriteTest = new PerformanceTest() {
@@ -49,9 +49,9 @@ public class CacheStorageEnginePerformanceTest {
                     byte[] bytes = Integer.toString(index % valueRange).getBytes();
                     ByteArray key = new ByteArray(bytes);
                     if(index % mod < readMax)
-                        store.get(key);
+                        store.get(key, null);
                     else
-                        store.put(key, new Versioned<byte[]>(bytes));
+                        store.put(key, new Versioned<byte[]>(bytes), null);
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();
                 }

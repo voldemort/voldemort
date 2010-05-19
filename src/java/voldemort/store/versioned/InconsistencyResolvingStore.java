@@ -35,24 +35,25 @@ import voldemort.versioning.Versioned;
  * Note that unlike get and getAll, getVersions is not overridden so the
  * versions are not passed through the inconsistency resolver.
  */
-public class InconsistencyResolvingStore<K, V> extends DelegatingStore<K, V> {
+public class InconsistencyResolvingStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     private final InconsistencyResolver<Versioned<V>> resolver;
 
-    public InconsistencyResolvingStore(Store<K, V> innerStore,
+    public InconsistencyResolvingStore(Store<K, V, T> innerStore,
                                        InconsistencyResolver<Versioned<V>> resolver) {
         super(innerStore);
         this.resolver = resolver;
     }
 
     @Override
-    public List<Versioned<V>> get(K key) throws VoldemortException {
-        return resolver.resolveConflicts(super.get(key));
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
+        return resolver.resolveConflicts(super.get(key, transforms));
     }
 
     @Override
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
-        Map<K, List<Versioned<V>>> m = super.getAll(keys);
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
+        Map<K, List<Versioned<V>>> m = super.getAll(keys, transforms);
         for(Map.Entry<K, List<Versioned<V>>> entry: m.entrySet())
             m.put(entry.getKey(), resolver.resolveConflicts(entry.getValue()));
         return m;

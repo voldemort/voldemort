@@ -53,7 +53,7 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
@@ -171,7 +171,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             File destDir = new File(storeDir, "version-0");
             if(!newDataDir.renameTo(destDir))
                 throw new VoldemortException("Renaming " + newDataDir.getAbsolutePath() + " to "
-                             + destDir.getAbsolutePath() + " failed!");
+                                             + destDir.getAbsolutePath() + " failed!");
 
             // open the new store
             open();
@@ -310,7 +310,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                                 + getClass().getName());
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         byte[] keyMd5 = ByteUtils.md5(key.get());
         int chunk = fileSet.getChunkForKey(keyMd5);
@@ -325,7 +325,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, List<Versioned<byte[]>>> results = StoreUtils.newEmptyHashMap(keys);
@@ -377,7 +378,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     /**
      * Not supported, throws UnsupportedOperationException if called
      */
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
     }
 
@@ -428,6 +430,6 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 }

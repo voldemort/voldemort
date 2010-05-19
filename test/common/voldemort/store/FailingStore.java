@@ -29,7 +29,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class FailingStore<K, V> implements Store<K, V> {
+public class FailingStore<K, V, T> implements Store<K, V, T> {
 
     private final String name;
     private final VoldemortException exception;
@@ -47,7 +47,7 @@ public class FailingStore<K, V> implements Store<K, V> {
         throw exception;
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         throw exception;
     }
 
@@ -59,11 +59,12 @@ public class FailingStore<K, V> implements Store<K, V> {
         throw exception;
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         throw exception;
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         throw exception;
     }
 

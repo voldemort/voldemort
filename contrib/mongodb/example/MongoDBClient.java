@@ -38,7 +38,7 @@ public class MongoDBClient {
 
     public long multiWriteLarge(int count, String keyRoot) {
 
-        StoreClient<String, Doc> client = factory.getStoreClient("test");
+        StoreClient<String, Doc, String> client = factory.getStoreClient("test");
 
         long start = System.currentTimeMillis();
 
@@ -58,7 +58,7 @@ public class MongoDBClient {
 
     public long multiWrite(int count, String keyRoot) {
 
-        StoreClient<String, Doc> client = factory.getStoreClient("test");
+        StoreClient<String, Doc, String> client = factory.getStoreClient("test");
 
         long start = System.currentTimeMillis();
 
@@ -78,7 +78,7 @@ public class MongoDBClient {
 
     public long multiRead(int count, String keyRoot) {
 
-        StoreClient<String, Doc> client = factory.getStoreClient("test");
+        StoreClient<String, Doc, String> client = factory.getStoreClient("test");
 
         long start = System.currentTimeMillis();
 
@@ -116,7 +116,7 @@ public class MongoDBClient {
 
     public void simple() {
 
-        StoreClient<String, Doc> client = factory.getStoreClient("test");
+        StoreClient<String, Doc, String> client = factory.getStoreClient("test");
 
         Versioned<Doc> v = client.get("key");
 

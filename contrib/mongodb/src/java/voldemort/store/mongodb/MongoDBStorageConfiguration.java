@@ -35,7 +35,7 @@ public class MongoDBStorageConfiguration implements StorageConfiguration {
     @SuppressWarnings("unused")
     public MongoDBStorageConfiguration(VoldemortConfig config) {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
         try {
             return new MongoDBStorageEngine(name);
         } catch(MongoDBException e) {

@@ -239,7 +239,7 @@ public class RemoteTest {
 
         List<String> nonOptions = options.nonOptionArguments();
 
-        if (options.has("help")) {
+        if(options.has("help")) {
             printUsage(System.out, parser);
         }
 
@@ -304,7 +304,7 @@ public class RemoteTest {
                                                       .setSocketTimeout(60, TimeUnit.SECONDS)
                                                       .setSocketBufferSize(4 * 1024);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
-        final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
+        final StoreClient<Object, Object, Object> store = factory.getStoreClient(storeName);
         StoreDefinition storeDef = getStoreDefinition(factory, storeName);
 
         Class<?> keyType = findKeyType(storeDef);
@@ -387,16 +387,17 @@ public class RemoteTest {
                         public void run() {
                             try {
                                 final Object key = keyProvider1.next();
-                                store.applyUpdate(new UpdateAction<Object, Object>() {
+                                store.applyUpdate(new UpdateAction<Object, Object, Object>() {
 
-                                    public void update(StoreClient<Object, Object> storeClient) {
+                                    public void update(StoreClient<Object, Object, Object> storeClient) {
                                         long startNs = System.nanoTime();
                                         storeClient.put(key, value);
                                         requestTimes[j] = (System.nanoTime() - startNs)
                                                           / Time.NS_PER_MS;
                                         numWrites.incrementAndGet();
                                     }
-                                }, 64);
+                                },
+                                                  64);
                             } catch(Exception e) {
                                 if(verbose) {
                                     e.printStackTrace();
@@ -496,9 +497,9 @@ public class RemoteTest {
                         try {
                             final Object key = keyProvider.next();
 
-                            store.applyUpdate(new UpdateAction<Object, Object>() {
+                            store.applyUpdate(new UpdateAction<Object, Object, Object>() {
 
-                                public void update(StoreClient<Object, Object> storeClient) {
+                                public void update(StoreClient<Object, Object, Object> storeClient) {
                                     Versioned<Object> v = store.get(key);
                                     numReads.incrementAndGet();
                                     if(v != null) {
@@ -508,7 +509,8 @@ public class RemoteTest {
                                     }
                                     numWrites.incrementAndGet();
                                 }
-                            }, 64);
+                            },
+                                              64);
                         } catch(Exception e) {
                             if(verbose) {
                                 e.printStackTrace();
@@ -557,8 +559,8 @@ public class RemoteTest {
 
     private static void printStatistics(String noun, int successes, long start) {
         long queryTime = System.nanoTime() - start;
-        System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND) + " " + noun
-                           + "/sec.");
+        System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND)
+                           + " " + noun + "/sec.");
         System.out.println(successes + " successful " + noun + ".");
     }
 

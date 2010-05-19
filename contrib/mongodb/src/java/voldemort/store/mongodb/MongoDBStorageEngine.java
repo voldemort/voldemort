@@ -86,7 +86,7 @@ import voldemort.versioning.Versioned;
  * </p>
  * 
  */
-public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(MongoDBStorageEngine.class.getName());
 
@@ -133,7 +133,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         DirectBufferTLS tls = getTLS();
         List<Versioned<byte[]>> list = new ArrayList<Versioned<byte[]>>();
@@ -170,13 +170,18 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return list;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
 
         Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         for(ByteArray b: keys) {
-            List<Versioned<byte[]>> list = get(b);
+            List<Versioned<byte[]>> list;
+            if(transforms != null)
+                list = get(b, transforms.get(b));
+            else
+                list = get(b, null);
             if(list.size() > 0) {
                 map.put(b, list);
             }
@@ -185,7 +190,8 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return map;
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         getTLS();
 
@@ -384,6 +390,6 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 }

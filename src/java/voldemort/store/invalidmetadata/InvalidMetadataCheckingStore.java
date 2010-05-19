@@ -35,7 +35,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byte[]> {
+public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private final int nodeId;
     private final MetadataStore metadata;
@@ -51,7 +51,7 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
      *        configuration.
      */
     public InvalidMetadataCheckingStore(int nodeId,
-                                        Store<ByteArray, byte[]> innerStore,
+                                        Store<ByteArray, byte[], byte[]> innerStore,
                                         MetadataStore metadata) {
         super(innerStore);
         this.metadata = metadata;
@@ -69,22 +69,23 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
     }
 
     @Override
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         StoreUtils.assertValidMetadata(key,
                                        metadata.getRoutingStrategy(getName()),
                                        metadata.getCluster().getNodeById(nodeId));
 
-        getInnerStore().put(key, value);
+        getInnerStore().put(key, value, transforms);
     }
 
     @Override
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         StoreUtils.assertValidMetadata(key,
                                        metadata.getRoutingStrategy(getName()),
                                        metadata.getCluster().getNodeById(nodeId));
 
-        return getInnerStore().get(key);
+        return getInnerStore().get(key, transforms);
     }
 }

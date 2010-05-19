@@ -91,8 +91,10 @@ public class VoldemortServer extends AbstractService {
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());
+        // transforms are not required here
         metadataInnerEngine.put(MetadataStore.CLUSTER_KEY,
-                                new Versioned<String>(new ClusterMapper().writeCluster(cluster)));
+                                new Versioned<String>(new ClusterMapper().writeCluster(cluster)),
+                                null);
         this.metadata = new MetadataStore(metadataInnerEngine, voldemortConfig.getNodeId());
 
         this.services = createServices();

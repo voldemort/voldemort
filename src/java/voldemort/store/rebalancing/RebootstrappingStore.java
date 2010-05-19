@@ -47,7 +47,7 @@ import voldemort.versioning.Versioned;
  * same in {@link DefaultStoreClient} for server side routing<br>
  * 
  */
-public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
+public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private final int maxMetadataRefreshAttempts = 3;
 
@@ -72,7 +72,9 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
 
     private void reinit() {
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadata.getCluster(), 4, 2);
+                                                                       metadata.getCluster(),
+                                                                       4,
+                                                                       2);
         try {
             Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                adminClient);
@@ -105,7 +107,7 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
         }
     }
 
-    private Store<ByteArray, byte[]> createNodeStore(Node node) {
+    private Store<ByteArray, byte[], byte[]> createNodeStore(Node node) {
         return new SocketStore(getName(),
                                new SocketDestination(node.getHost(),
                                                      node.getSocketPort(),
@@ -141,10 +143,10 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     @Override
-    public List<Versioned<byte[]>> get(ByteArray key) {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
-                return super.get(key);
+                return super.get(key, transforms);
             } catch(InvalidMetadataException e) {
                 reinit();
             }
@@ -154,10 +156,11 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     @Override
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys) {
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms) {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
-                return super.getAll(keys);
+                return super.getAll(keys, transforms);
             } catch(InvalidMetadataException e) {
                 reinit();
             }
@@ -167,11 +170,11 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     @Override
-    public void put(final ByteArray key, final Versioned<byte[]> versioned)
+    public void put(final ByteArray key, final Versioned<byte[]> versioned, final byte[] transforms)
             throws ObsoleteVersionException {
         for(int attempts = 0; attempts < this.maxMetadataRefreshAttempts; attempts++) {
             try {
-                super.put(key, versioned);
+                super.put(key, versioned, transforms);
                 return;
             } catch(InvalidMetadataException e) {
                 reinit();

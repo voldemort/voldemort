@@ -49,7 +49,7 @@ public class NoopStorageConfiguration implements StorageConfiguration {
         reflect = config.getAllProps().getBoolean(REFLECT_PROPERTY, false);
     }
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
         return new NoopStorageEngine(name, reflect);
     }
 

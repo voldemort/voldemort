@@ -25,6 +25,8 @@ public enum RequestFormatType {
     VOLDEMORT_V0("vp0", "voldemort-native-v0"),
     VOLDEMORT_V1("vp1", "voldemort-native-v1"),
     VOLDEMORT_V2("vp2", "voldemort-native-v2"),
+    VOLDEMORT_V3("vp3", "voldemort-native-v3"), // has the transforms
+                                                // information
     PROTOCOL_BUFFERS("pb0", "protocol-buffers-v0"),
     ADMIN_PROTOCOL_BUFFERS("ad1", "admin-v1");
 

@@ -64,7 +64,7 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
+public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
 
@@ -101,7 +101,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         NORMAL_CLUSTER
     }
 
-    private final Store<String, String> innerStore;
+    private final Store<String, String, String> innerStore;
     private final HashMap<String, Versioned<Object>> metadataCache;
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
@@ -110,7 +110,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
-    public MetadataStore(Store<String, String> innerStore, int nodeId) {
+    public MetadataStore(Store<String, String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
 
@@ -124,8 +124,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(dir.listFiles() == null)
             throw new IllegalArgumentException("No configuration found in " + dir.getAbsolutePath()
                                                + ".");
-        Store<String, String> innerStore = new ConfigurationStorageEngine(MetadataStore.METADATA_STORE_NAME,
-                                                                          dir.getAbsolutePath());
+        Store<String, String, String> innerStore = new ConfigurationStorageEngine(MetadataStore.METADATA_STORE_NAME,
+                                                                                  dir.getAbsolutePath());
         return new MetadataStore(innerStore, nodeId);
     }
 
@@ -170,7 +170,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      */
     public void put(String key, Object value) {
         if(METADATA_KEYS.contains(key)) {
-            VectorClock version = (VectorClock) get(key).get(0).getVersion();
+            VectorClock version = (VectorClock) get(key, (String) null).get(0).getVersion();
             put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
                                                                       System.currentTimeMillis())));
         } else {
@@ -186,7 +186,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * @return void
      * @throws VoldemortException
      */
-    public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes)
+    public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
             throws VoldemortException {
         String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
         Versioned<String> value = new Versioned<String>(ByteUtils.getString(valueBytes.getValue(),
@@ -212,7 +212,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      *         bytes for cluster xml definitions
      * @throws VoldemortException
      */
-    public List<Versioned<byte[]>> get(ByteArray keyBytes) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
+            throws VoldemortException {
         try {
             String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
 
@@ -238,8 +239,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     }
 
-    public List<Versioned<byte[]>> get(String key) throws VoldemortException {
-        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")));
+    public List<Versioned<byte[]>> get(String key, String transforms) throws VoldemortException {
+        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")), ByteUtils.getBytes(transforms,
+                                                                                       "UTF-8"));
     }
 
     @JmxOperation(description = "Clean all rebalancing server/cluster states from this node.", impact = MBeanOperationInfo.ACTION)
@@ -254,7 +256,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        List<Versioned<byte[]>> values = get(key);
+        List<Versioned<byte[]>> values = get(key, null);
         List<Version> versions = new ArrayList<Version>(values.size());
         for(Versioned<?> value: values) {
             versions.add(value.getVersion());
@@ -332,10 +334,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new VoldemortException("You cannot delete your metadata fool !!");
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        return StoreUtils.getAll(this, keys);
+        return StoreUtils.getAll(this, keys, transforms);
     }
 
     /**
@@ -459,11 +462,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     private void putInner(String key, Versioned<String> value) {
-        innerStore.put(key, value);
+        innerStore.put(key, value, null);
     }
 
     private Versioned<String> getInnerValue(String key) throws VoldemortException {
-        List<Versioned<String>> values = innerStore.get(key);
+        List<Versioned<String>> values = innerStore.get(key, null);
 
         if(values.size() > 1)
             throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "

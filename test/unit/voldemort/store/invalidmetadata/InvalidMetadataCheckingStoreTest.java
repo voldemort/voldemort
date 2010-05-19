@@ -29,7 +29,6 @@ import voldemort.store.DoNothingStore;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -51,7 +50,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                                                                      Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
-                                                                              new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
+                                                                              new DoNothingStore<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                               metadata);
 
         try {
@@ -75,7 +74,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                                                                      Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
-                                                                              new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
+                                                                              new DoNothingStore<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                               metadata);
         try {
             // add partitions to node 0 on client side.
@@ -101,7 +100,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                                                                      Arrays.asList(storeDef));
 
         InvalidMetadataCheckingStore store = new InvalidMetadataCheckingStore(0,
-                                                                              new DoNothingStore<ByteArray, byte[]>(storeDef.getName()),
+                                                                              new DoNothingStore<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                               metadata);
         try {
             // remove partitions to node 0 on client side.
@@ -127,7 +126,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
     }
 
     private void doOperations(int nodeId,
-                              Store<ByteArray, byte[]> store,
+                              Store<ByteArray, byte[], byte[]> store,
                               MetadataStore metadata,
                               StoreDefinition storeDef) {
         for(int i = 0; i < LOOP_COUNT;) {
@@ -141,13 +140,13 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                 i++; // increment count
                 switch(i % 3) {
                     case 0:
-                        store.get(key);
+                        store.get(key, null);
                         break;
                     case 1:
                         store.delete(key, null);
                         break;
                     case 2:
-                        store.put(key, new Versioned<byte[]>(value));
+                        store.put(key, new Versioned<byte[]>(value), null);
                         break;
 
                 }

@@ -24,15 +24,15 @@ import voldemort.versioning.Versioned;
  * @param <K> The type of the key
  * @param <V> The type of the value
  */
-public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
+public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
     private static final Logger logger = Logger.getLogger(PausableStorageEngine.class);
 
-    private final InMemoryStorageEngine<K, V> inner;
+    private final InMemoryStorageEngine<K, V, T> inner;
     private final Object condition = new Object();
     private volatile boolean paused;
 
-    public PausableStorageEngine(InMemoryStorageEngine<K, V> inner) {
+    public PausableStorageEngine(InMemoryStorageEngine<K, V, T> inner) {
         super();
         this.inner = inner;
     }
@@ -58,19 +58,19 @@ public class PausableStorageEngine<K, V> implements StorageEngine<K, V> {
         }
     }
 
-    public List<Versioned<V>> get(K key) {
+    public List<Versioned<V>> get(K key, T transforms) {
         blockIfNecessary();
-        return inner.get(key);
+        return inner.get(key, transforms);
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms) {
         blockIfNecessary();
-        return inner.getAll(keys);
+        return inner.getAll(keys, transforms);
     }
 
-    public void put(K key, Versioned<V> value) {
+    public void put(K key, Versioned<V> value, T transforms) {
         blockIfNecessary();
-        inner.put(key, value);
+        inner.put(key, value, transforms);
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {

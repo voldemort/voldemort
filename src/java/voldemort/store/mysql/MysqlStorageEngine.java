@@ -49,7 +49,7 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(MysqlStorageEngine.class);
     private static int MYSQL_ERR_DUP_KEY = 1022;
@@ -126,8 +126,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
             stmt.executeUpdate();
         } catch(SQLException e) {
             throw new PersistenceFailureException("Fix me!", e);
-        }
-        finally {
+        } finally {
             tryClose(stmt);
             tryClose(conn);
         }
@@ -202,7 +201,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Connection conn = null;
@@ -235,16 +235,18 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+            throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
-        return StoreUtils.get(this, key);
+        return StoreUtils.get(this, key, transforms);
     }
 
     public String getName() {
         return name;
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws PersistenceFailureException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         boolean doCommit = false;
         Connection conn = null;
@@ -388,6 +390,6 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 }

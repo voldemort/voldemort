@@ -5,13 +5,13 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
-public class RandomlyFailingDelegatingStore<K, V> extends DelegatingStore<K, V> implements
-        StorageEngine<K, V> {
+public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, V, T> implements
+        StorageEngine<K, V, T> {
 
     private static double FAIL_PROBABILITY = 0.60;
-    private final StorageEngine<K, V> innerStorageEngine;
+    private final StorageEngine<K, V, T> innerStorageEngine;
 
-    public RandomlyFailingDelegatingStore(StorageEngine<K, V> innerStorageEngine) {
+    public RandomlyFailingDelegatingStore(StorageEngine<K, V, T> innerStorageEngine) {
         super(innerStorageEngine);
         this.innerStorageEngine = innerStorageEngine;
     }
@@ -65,7 +65,7 @@ public class RandomlyFailingDelegatingStore<K, V> extends DelegatingStore<K, V> 
     }
 
     public void truncate() {
-        if (Math.random() > FAIL_PROBABILITY) {
+        if(Math.random() > FAIL_PROBABILITY) {
             innerStorageEngine.truncate();
         }
 

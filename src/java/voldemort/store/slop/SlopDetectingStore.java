@@ -40,15 +40,15 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class SlopDetectingStore extends DelegatingStore<ByteArray, byte[]> {
+public class SlopDetectingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private final int replicationFactor;
     private final Node localNode;
     private final RoutingStrategy routingStrategy;
-    private final Store<ByteArray, Slop> slopStore;
+    private final Store<ByteArray, Slop, byte[]> slopStore;
 
-    public SlopDetectingStore(Store<ByteArray, byte[]> innerStore,
-                              Store<ByteArray, Slop> slopStore,
+    public SlopDetectingStore(Store<ByteArray, byte[], byte[]> innerStore,
+                              Store<ByteArray, Slop, byte[]> slopStore,
                               int replicationFactor,
                               Node localNode,
                               RoutingStrategy routingStrategy) {
@@ -74,25 +74,29 @@ public class SlopDetectingStore extends DelegatingStore<ByteArray, byte[]> {
                                  Slop.Operation.DELETE,
                                  key,
                                  null,
+                                 null,
                                  localNode.getId(),
                                  new Date());
-            slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version));
+            slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version), null);
             return false;
         }
     }
 
     @Override
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         if(isLocal(key)) {
-            getInnerStore().put(key, value);
+            getInnerStore().put(key, value, transforms);
         } else {
             Slop slop = new Slop(getName(),
                                  Slop.Operation.PUT,
                                  key,
                                  value.getValue(),
+                                 transforms,
                                  localNode.getId(),
                                  new Date());
-            slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()));
+            // transforms should be null while writing to any slop store
+            slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()), null);
         }
     }
 

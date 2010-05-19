@@ -1,9 +1,22 @@
 package voldemort.server;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
@@ -14,15 +27,9 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.versioning.Versioned;
 
-import static org.junit.runners.Parameterized.Parameters;
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.util.*;
-
 /**
  * Provides an unmocked end to end unit test of a Voldemort cluster.
- *
+ * 
  */
 @RunWith(Parameterized.class)
 public class EndToEndTest {
@@ -34,7 +41,7 @@ public class EndToEndTest {
 
     private List<VoldemortServer> servers;
     private Cluster cluster;
-    private StoreClient<String,String> storeClient;
+    private StoreClient<String, String, String> storeClient;
 
     public EndToEndTest(boolean useNio) {
         this.useNio = useNio;
@@ -52,7 +59,7 @@ public class EndToEndTest {
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
                                                                                             0,
                                                                                             TestUtils.createTempDir()
-                                                                                                    .getAbsolutePath(),
+                                                                                                     .getAbsolutePath(),
                                                                                             null,
                                                                                             STORES_XML,
                                                                                             new Properties()),
@@ -60,7 +67,7 @@ public class EndToEndTest {
         servers.add(ServerTestUtils.startVoldemortServer(ServerTestUtils.createServerConfig(useNio,
                                                                                             1,
                                                                                             TestUtils.createTempDir()
-                                                                                                    .getAbsolutePath(),
+                                                                                                     .getAbsolutePath(),
                                                                                             null,
                                                                                             STORES_XML,
                                                                                             new Properties()),
@@ -86,9 +93,12 @@ public class EndToEndTest {
 
         storeClient.put("Kazakhstan", "Astana");
         Versioned<String> v2 = storeClient.get("Kazakhstan");
-        assertEquals("clobbering a value works as expected, we have read-your-writes consistency", "Astana", v2.getValue());
+        assertEquals("clobbering a value works as expected, we have read-your-writes consistency",
+                     "Astana",
+                     v2.getValue());
 
-        Map<String, Versioned<String>> capitals = storeClient.getAll(Arrays.asList("Russia", "Ukraine"));
+        Map<String, Versioned<String>> capitals = storeClient.getAll(Arrays.asList("Russia",
+                                                                                   "Ukraine"));
 
         assertEquals("getAll works as expected", "Moscow", capitals.get("Russia").getValue());
         assertEquals("getAll works as expected", "Kiev", capitals.get("Ukraine").getValue());

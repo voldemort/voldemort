@@ -39,17 +39,19 @@ import com.google.common.collect.Maps;
  * provided. A {@link NoopCompressionStrategy} can be used if no compression is
  * desired for either keys or values.
  * 
+ * Transforms are not compressed
+ * 
  * @see CompressionStrategy
  * @see NoopCompressionStrategy
  * @see GzipCompressionStrategy
  */
-public class CompressingStore implements Store<ByteArray, byte[]> {
+public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
 
-    private final Store<ByteArray, byte[]> innerStore;
+    private final Store<ByteArray, byte[], byte[]> innerStore;
     private final CompressionStrategy keysCompressionStrategy;
     private final CompressionStrategy valuesCompressionStrategy;
 
-    public CompressingStore(Store<ByteArray, byte[]> innerStore,
+    public CompressingStore(Store<ByteArray, byte[], byte[]> innerStore,
                             CompressionStrategy keysCompressionStrategy,
                             CompressionStrategy valuesCompressionStrategy) {
         this.keysCompressionStrategy = Utils.notNull(keysCompressionStrategy);
@@ -57,7 +59,8 @@ public class CompressingStore implements Store<ByteArray, byte[]> {
         this.innerStore = Utils.notNull(innerStore);
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Iterable<ByteArray> processedKeys = keys;
@@ -65,7 +68,12 @@ public class CompressingStore implements Store<ByteArray, byte[]> {
         for(ByteArray key: keys)
             deflatedKeys.add(deflateKey(key));
         processedKeys = deflatedKeys;
-        Map<ByteArray, List<Versioned<byte[]>>> deflatedResult = innerStore.getAll(processedKeys);
+        Map<ByteArray, byte[]> newTransforms = Maps.newHashMap();
+        for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
+            newTransforms.put(deflateKey(transform.getKey()), transform.getValue());
+        }
+        Map<ByteArray, List<Versioned<byte[]>>> deflatedResult = innerStore.getAll(processedKeys,
+                                                                                   newTransforms);
         Map<ByteArray, List<Versioned<byte[]>>> result = Maps.newHashMapWithExpectedSize(deflatedResult.size());
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: deflatedResult.entrySet())
             result.put(inflateKey(mapEntry.getKey()), inflateValues(mapEntry.getValue()));
@@ -116,9 +124,9 @@ public class CompressingStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        return inflateValues(innerStore.get(deflateKey(key)));
+        return inflateValues(innerStore.get(deflateKey(key), transforms));
     }
 
     public List<Version> getVersions(ByteArray key) {
@@ -133,9 +141,10 @@ public class CompressingStore implements Store<ByteArray, byte[]> {
         return inflated;
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        innerStore.put(deflateKey(key), deflateValue(value));
+        innerStore.put(deflateKey(key), deflateValue(value), transforms);
     }
 
     public void close() throws VoldemortException {

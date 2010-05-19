@@ -1,8 +1,8 @@
 package voldemort.store;
 
-public class ForceFailStore<K, V> extends DelegatingStore<K, V> {
+public class ForceFailStore<K, V, T> extends DelegatingStore<K, V, T> {
 
-    public ForceFailStore(Store<K, V> innerStore) {
+    public ForceFailStore(Store<K, V, T> innerStore) {
         super(innerStore);
     }
 

@@ -150,8 +150,8 @@ public class TestUtils {
         return bytes;
     }
 
-    public static <K, V> void assertContains(Store<K, V> store, K key, V... values) {
-        List<Versioned<V>> found = store.get(key);
+    public static <K, V, T> void assertContains(Store<K, V, T> store, K key, V... values) {
+        List<Versioned<V>> found = store.get(key, null);
         if(found.size() != values.length)
             throw new AssertionFailedError("Expected to find " + values.length
                                            + " values in store, but found only " + found.size()

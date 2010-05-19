@@ -44,35 +44,40 @@ public class MockStoreClientFactory implements StoreClientFactory {
     private final int nodeId;
     private final Serializer<?> keySerializer;
     private final Serializer<?> valueSerializer;
+    private final Serializer<?> transformsSerializer;
     private final Time time;
     private final FailureDetector failureDetector;
 
-    public MockStoreClientFactory(Serializer<?> keySerializer, Serializer<?> valueSerializer) {
-        this(keySerializer, valueSerializer, 0, SystemTime.INSTANCE);
+    public MockStoreClientFactory(Serializer<?> keySerializer,
+                                  Serializer<?> valueSerializer,
+                                  Serializer<?> transformsSerializer) {
+        this(keySerializer, valueSerializer, transformsSerializer, 0, SystemTime.INSTANCE);
     }
 
     public MockStoreClientFactory(Serializer<?> keySerializer,
                                   Serializer<?> valueSerializer,
+                                  Serializer<?> transformsSerializer,
                                   int nodeId,
                                   Time time) {
         this.nodeId = nodeId;
         this.keySerializer = keySerializer;
         this.valueSerializer = valueSerializer;
+        this.transformsSerializer = transformsSerializer;
         this.time = time;
         failureDetector = new NoopFailureDetector();
     }
 
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
         return getStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
     }
 
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
+                                                         InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
     }
 
-    public <K1, V1> Store<K1, V1> getRawStore(String storeName,
-                                              InconsistencyResolver<Versioned<V1>> resolver) {
+    public <K1, V1, T1> Store<K1, V1, T1> getRawStore(String storeName,
+                                                      InconsistencyResolver<Versioned<V1>> resolver) {
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
         InconsistencyResolver<Versioned<V1>> secondaryResolver = new TimeBasedInconsistencyResolver();
@@ -83,10 +88,14 @@ public class MockStoreClientFactory implements StoreClientFactory {
                                                    nodeId,
                                                    time);
         if(isSerialized())
-            store = new SerializingStore(store, keySerializer, valueSerializer);
-        Store<K1, V1> consistentStore = new InconsistencyResolvingStore<K1, V1>(store,
-                                                                                new ChainedResolver<Versioned<V1>>(new VectorClockInconsistencyResolver(),
-                                                                                                                   secondaryResolver));
+            store = new SerializingStore(store,
+                                         keySerializer,
+                                         valueSerializer,
+                                         transformsSerializer);
+
+        Store<K1, V1, T1> consistentStore = new InconsistencyResolvingStore<K1, V1, T1>(store,
+                                                                                        new ChainedResolver<Versioned<V1>>(new VectorClockInconsistencyResolver(),
+                                                                                                                           secondaryResolver));
         return consistentStore;
     }
 

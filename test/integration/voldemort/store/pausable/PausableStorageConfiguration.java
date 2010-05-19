@@ -19,8 +19,8 @@ public class PausableStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        return new PausableStorageEngine<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>(name));
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
+        return new PausableStorageEngine<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(name));
     }
 
     public String getType() {

@@ -29,11 +29,11 @@ public abstract class AbstractRequestFormatTest extends TestCase {
     private final String storeName;
     private final RequestFormat clientWireFormat;
     private final RequestHandler serverWireFormat;
-    private final InMemoryStorageEngine<ByteArray, byte[]> store;
+    private final InMemoryStorageEngine<ByteArray, byte[], byte[]> store;
 
     public AbstractRequestFormatTest(RequestFormatType type) {
         this.storeName = "test";
-        this.store = new InMemoryStorageEngine<ByteArray, byte[]>(storeName);
+        this.store = new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeName);
         StoreRepository repository = new StoreRepository();
         repository.addLocalStore(store);
         repository.addRoutedStore(store);
@@ -44,19 +44,19 @@ public abstract class AbstractRequestFormatTest extends TestCase {
 
     public void testNullKeys() throws Exception {
         try {
-            testGetRequest(null, null, null, false);
+            testGetRequest(null, null, null, null, false);
             fail("Null key allowed.");
         } catch(IllegalArgumentException e) {
             // this is good
         }
         try {
-            testGetAllRequest(new ByteArray[] { null }, null, null, new boolean[] { false });
+            testGetAllRequest(new ByteArray[] { null }, null, null, null, new boolean[] { false });
             fail("Null key allowed.");
         } catch(IllegalArgumentException e) {
             // this is good
         }
         try {
-            testPutRequest(null, null, null, null);
+            testPutRequest(null, null, null, null, null);
             fail("Null key allowed.");
         } catch(IllegalArgumentException e) {
             // this is good
@@ -70,28 +70,34 @@ public abstract class AbstractRequestFormatTest extends TestCase {
     }
 
     public void testGetRequests() throws Exception {
-        testGetRequest(TestUtils.toByteArray("hello"), null, null, false);
-        testGetRequest(TestUtils.toByteArray("hello"), "".getBytes(), new VectorClock(), true);
+        testGetRequest(TestUtils.toByteArray("hello"), null, null, null, false);
+        testGetRequest(TestUtils.toByteArray("hello"), "".getBytes(), null, new VectorClock(), true);
         testGetRequest(TestUtils.toByteArray("hello"),
                        "abc".getBytes(),
+                       null,
                        TestUtils.getClock(1, 2, 2, 3),
                        true);
         testGetRequest(TestUtils.toByteArray("hello"),
                        "abcasdf".getBytes(),
+                       null,
                        TestUtils.getClock(1, 3, 4, 5),
                        true);
 
     }
 
-    public void testGetRequest(ByteArray key, byte[] value, VectorClock version, boolean isPresent)
-            throws Exception {
+    public void testGetRequest(ByteArray key,
+                               byte[] value,
+                               byte[] transforms,
+                               VectorClock version,
+                               boolean isPresent) throws Exception {
         try {
             if(isPresent)
-                store.put(key, Versioned.value(value, version));
+                store.put(key, Versioned.value(value, version), null);
             ByteArrayOutputStream getRequest = new ByteArrayOutputStream();
             this.clientWireFormat.writeGetRequest(new DataOutputStream(getRequest),
                                                   storeName,
                                                   key,
+                                                  transforms,
                                                   RequestRoutingType.NORMAL);
             ByteArrayOutputStream getResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(getRequest),
@@ -113,38 +119,43 @@ public abstract class AbstractRequestFormatTest extends TestCase {
     public void testGetAllRequests() throws Exception {
         testGetAllRequest(new ByteArray[] {},
                           new byte[][] {},
+                          null,
                           new VectorClock[] {},
                           new boolean[] {});
 
         testGetAllRequest(new ByteArray[] { new ByteArray() },
                           new byte[][] { new byte[] {} },
+                          null,
                           new VectorClock[] { new VectorClock() },
                           new boolean[] { true });
 
         testGetAllRequest(new ByteArray[] { TestUtils.toByteArray("hello") },
                           new byte[][] { "world".getBytes() },
+                          null,
                           new VectorClock[] { new VectorClock() },
                           new boolean[] { true });
 
         testGetAllRequest(new ByteArray[] { TestUtils.toByteArray("hello"),
                 TestUtils.toByteArray("holly") }, new byte[][] { "world".getBytes(),
-                "cow".getBytes() }, new VectorClock[] { TestUtils.getClock(1, 1),
+                "cow".getBytes() }, null, new VectorClock[] { TestUtils.getClock(1, 1),
                 TestUtils.getClock(1, 2) }, new boolean[] { true, false });
     }
 
     public void testGetAllRequest(ByteArray[] keys,
                                   byte[][] values,
+                                  Map<ByteArray, byte[]> transforms,
                                   VectorClock[] versions,
                                   boolean[] isFound) throws Exception {
         try {
             for(int i = 0; i < keys.length; i++) {
                 if(isFound[i])
-                    store.put(keys[i], Versioned.value(values[i], versions[i]));
+                    store.put(keys[i], Versioned.value(values[i], versions[i]), null);
             }
             ByteArrayOutputStream getAllRequest = new ByteArrayOutputStream();
             this.clientWireFormat.writeGetAllRequest(new DataOutputStream(getAllRequest),
                                                      storeName,
                                                      Arrays.asList(keys),
+                                                     transforms,
                                                      RequestRoutingType.NORMAL);
             ByteArrayOutputStream getAllResponse = new ByteArrayOutputStream();
             this.serverWireFormat.handleRequest(inputStream(getAllRequest),
@@ -168,20 +179,27 @@ public abstract class AbstractRequestFormatTest extends TestCase {
     }
 
     public void testPutRequests() throws Exception {
-        testPutRequest(new ByteArray(), new byte[0], new VectorClock(), null);
-        testPutRequest(TestUtils.toByteArray("hello"), "world".getBytes(), new VectorClock(), null);
-
-        // test obsolete exception
-        this.store.put(TestUtils.toByteArray("hello"), new Versioned<byte[]>("world".getBytes(),
-                                                                             new VectorClock()));
+        testPutRequest(new ByteArray(), new byte[0], null, new VectorClock(), null);
         testPutRequest(TestUtils.toByteArray("hello"),
                        "world".getBytes(),
+                       null,
+                       new VectorClock(),
+                       null);
+
+        // test obsolete exception
+        this.store.put(TestUtils.toByteArray("hello"),
+                       new Versioned<byte[]>("world".getBytes(), new VectorClock()),
+                       null);
+        testPutRequest(TestUtils.toByteArray("hello"),
+                       "world".getBytes(),
+                       null,
                        new VectorClock(),
                        ObsoleteVersionException.class);
     }
 
     public void testPutRequest(ByteArray key,
                                byte[] value,
+                               byte[] transforms,
                                VectorClock version,
                                Class<? extends VoldemortException> exception) throws Exception {
         try {
@@ -190,6 +208,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                                   storeName,
                                                   key,
                                                   value,
+                                                  transforms,
                                                   version,
                                                   RequestRoutingType.NORMAL);
             ByteArrayOutputStream putResponse = new ByteArrayOutputStream();
@@ -227,7 +246,7 @@ public abstract class AbstractRequestFormatTest extends TestCase {
                                   boolean isDeleted) throws Exception {
         try {
             if(existingValue != null)
-                this.store.put(key, existingValue);
+                this.store.put(key, existingValue, null);
             ByteArrayOutputStream delRequest = new ByteArrayOutputStream();
             this.clientWireFormat.writeDeleteRequest(new DataOutputStream(delRequest),
                                                      storeName,

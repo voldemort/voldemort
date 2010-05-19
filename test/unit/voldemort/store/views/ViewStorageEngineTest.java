@@ -22,33 +22,39 @@ import com.google.common.collect.ImmutableList;
 public class ViewStorageEngineTest extends TestCase {
 
     private AddStrViewTrans transform = new AddStrViewTrans("42");
-    private InMemoryStorageEngine<ByteArray, byte[]> targetRaw = new InMemoryStorageEngine<ByteArray, byte[]>("target");
-    private Store<String, String> target = SerializingStore.wrap(targetRaw,
-                                                                 new StringSerializer(),
-                                                                 new StringSerializer());
-    private Store<String, String> valView = getEngine(transform);
+    private InMemoryStorageEngine<ByteArray, byte[], byte[]> targetRaw = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("target");
+    private Store<String, String, String> target = SerializingStore.wrap(targetRaw,
+                                                                         new StringSerializer(),
+                                                                         new StringSerializer(),
+                                                                         null);
+    private Store<String, String, String> valView = getEngine(transform);
 
     @Override
     public void setUp() {
-        target.put("hello", Versioned.value("world"));
+        target.put("hello", Versioned.value("world"), null);
     }
 
-    public Store<String, String> getEngine(View<?, ?, ?, ?> valTrans) {
+    public Store<String, String, String> getEngine(View<?, ?, ?, ?> valTrans) {
         Serializer<String> s = new StringSerializer();
-        return SerializingStore.wrap(new ViewStorageEngine("test", targetRaw, s, s, s, valTrans),
+        return SerializingStore.wrap(new ViewStorageEngine("test", targetRaw, s, s, s, s, valTrans),
+                                     s,
                                      s,
                                      s);
     }
 
     public void testGetWithValueTransform() {
-        assertEquals("View should add 42", "world42", valView.get("hello").get(0).getValue());
-        assertEquals("Null value should return empty list", 0, valView.get("laksjdf").size());
+        assertEquals("View should add 42", "world42", valView.get("hello", "concat")
+                                                             .get(0)
+                                                             .getValue());
+        assertEquals("Null value should return empty list", 0, valView.get("laksjdf", "concat")
+                                                                      .size());
     }
 
     public void testGetAll() {
-        target.put("a", Versioned.value("a"));
-        target.put("b", Versioned.value("b"));
-        Map<String, List<Versioned<String>>> found = valView.getAll(ImmutableList.of("a", "b"));
+        target.put("a", Versioned.value("a"), null);
+        target.put("b", Versioned.value("b"), null);
+        Map<String, List<Versioned<String>>> found = valView.getAll(ImmutableList.of("a", "b"),
+                                                                    null);
         assertTrue(found.containsKey("a"));
         assertTrue(found.containsKey("b"));
         assertEquals("a42", found.get("a").get(0).getValue());
@@ -56,8 +62,8 @@ public class ViewStorageEngineTest extends TestCase {
     }
 
     public void testPut() {
-        valView.put("abc", Versioned.value("cde"));
-        assertEquals("c", target.get("abc").get(0).getValue());
+        valView.put("abc", Versioned.value("cde"), null);
+        assertEquals("c", target.get("abc", null).get(0).getValue());
     }
 
     /* A view that just adds or subtracts the given string */
@@ -69,14 +75,15 @@ public class ViewStorageEngineTest extends TestCase {
             this.str = str;
         }
 
-        public String storeToView(Store<String, String> store, String k, String s, String t) {
+        public String storeToView(Store<String, String, String> store, String k, String s, String t) {
             if(s == null)
                 return str;
-            else
+            else if(t.equalsIgnoreCase("concat"))
                 return s + str;
+            return str;
         }
 
-        public String viewToStore(Store<String, String> store, String k, String v, String t) {
+        public String viewToStore(Store<String, String, String> store, String k, String v, String t) {
             if(v == null)
                 return null;
             else

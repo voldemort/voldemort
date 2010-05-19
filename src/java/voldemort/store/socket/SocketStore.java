@@ -44,7 +44,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class SocketStore implements Store<ByteArray, byte[]> {
+public class SocketStore implements Store<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(SocketStore.class);
 
@@ -99,12 +99,17 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetAllRequest(sands.getOutputStream(), name, keys, requestType);
+            requestFormat.writeGetAllRequest(sands.getOutputStream(),
+                                             name,
+                                             keys,
+                                             transforms,
+                                             requestType);
             sands.getOutputStream().flush();
             return requestFormat.readGetAllResponse(sands.getInputStream());
         } catch(IOException e) {
@@ -116,11 +121,15 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
-            requestFormat.writeGetRequest(sands.getOutputStream(), name, key, requestType);
+            requestFormat.writeGetRequest(sands.getOutputStream(),
+                                          name,
+                                          key,
+                                          transforms,
+                                          requestType);
 
             sands.getOutputStream().flush();
             return requestFormat.readGetResponse(sands.getInputStream());
@@ -133,7 +142,8 @@ public class SocketStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         SocketAndStreams sands = pool.checkout(destination);
         try {
@@ -141,6 +151,7 @@ public class SocketStore implements Store<ByteArray, byte[]> {
                                           name,
                                           key,
                                           versioned.getValue(),
+                                          transforms,
                                           (VectorClock) versioned.getVersion(),
                                           requestType);
             sands.getOutputStream().flush();

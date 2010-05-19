@@ -52,7 +52,7 @@ public class AdminServiceFailureTest extends TestCase {
     private AdminClient adminClient;
     private Cluster cluster;
     private AbstractSocketService adminServer;
-    StorageEngine<ByteArray, byte[]> failingStorageEngine;
+    StorageEngine<ByteArray, byte[], byte[]> failingStorageEngine;
 
     private enum StreamOperations {
         FETCH_ENTRIES,
@@ -79,8 +79,8 @@ public class AdminServiceFailureTest extends TestCase {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         List<StoreDefinition> storeDefs = ServerTestUtils.getStoreDefs(1);
 
-        failingStorageEngine = new RandomlyFailingDelegatingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>(storeDefs.get(0)
-                                                                                                                                           .getName()));
+        failingStorageEngine = new RandomlyFailingDelegatingStore<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDefs.get(0)
+                                                                                                                                                           .getName()));
         adminServer = getAdminServer(cluster.getNodeById(0),
                                      cluster,
                                      storeDefs,
@@ -92,7 +92,7 @@ public class AdminServiceFailureTest extends TestCase {
     private AbstractSocketService getAdminServer(Node node,
                                                  Cluster cluster,
                                                  List<StoreDefinition> storeDefs,
-                                                 StorageEngine<ByteArray, byte[]> storageEngine)
+                                                 StorageEngine<ByteArray, byte[], byte[]> storageEngine)
             throws IOException {
         StoreRepository storeRepository = new StoreRepository();
         storeRepository.addStorageEngine(storageEngine);
@@ -207,7 +207,9 @@ public class AdminServiceFailureTest extends TestCase {
         for(Entry<ByteArray, byte[]> entry: ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)
                                                            .entrySet()) {
             try {
-                failingStorageEngine.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+                failingStorageEngine.put(entry.getKey(),
+                                         new Versioned<byte[]>(entry.getValue()),
+                                         null);
             } catch(Exception e) {
                 // ignore
             }

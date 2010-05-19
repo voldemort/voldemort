@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +53,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         String storeName = inputStream.readUTF();
         RequestRoutingType routingType = getRoutingType(inputStream);
 
-        Store<ByteArray, byte[]> store = getStore(storeName, routingType);
+        Store<ByteArray, byte[], byte[]> store = getStore(storeName, routingType);
         if(store == null) {
             writeException(outputStream, new VoldemortException("No store named '" + storeName
                                                                 + "'."));
@@ -99,7 +100,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private void handleGetVersion(DataInputStream inputStream,
                                   DataOutputStream outputStream,
-                                  Store<ByteArray, byte[]> store) throws IOException {
+                                  Store<ByteArray, byte[], byte[]> store) throws IOException {
         ByteArray key = readKey(inputStream);
         List<Version> results = null;
         try {
@@ -208,6 +209,13 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         return new ByteArray(key);
     }
 
+    private byte[] readTransforms(DataInputStream inputStream) throws IOException {
+        int size = inputStream.readInt();
+        byte[] transforms = new byte[size];
+        inputStream.readFully(transforms);
+        return transforms;
+    }
+
     private void writeResults(DataOutputStream outputStream, List<Versioned<byte[]>> values)
             throws IOException {
         outputStream.writeInt(values.size());
@@ -222,11 +230,17 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private void handleGet(DataInputStream inputStream,
                            DataOutputStream outputStream,
-                           Store<ByteArray, byte[]> store) throws IOException {
+                           Store<ByteArray, byte[], byte[]> store) throws IOException {
         ByteArray key = readKey(inputStream);
+
+        byte[] transforms = null;
+        if(protocolVersion > 2) {
+            if(inputStream.readBoolean())
+                transforms = readTransforms(inputStream);
+        }
         List<Versioned<byte[]>> results = null;
         try {
-            results = store.get(key);
+            results = store.get(key, transforms);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
             e.printStackTrace();
@@ -238,17 +252,28 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private void handleGetAll(DataInputStream inputStream,
                               DataOutputStream outputStream,
-                              Store<ByteArray, byte[]> store) throws IOException {
+                              Store<ByteArray, byte[], byte[]> store) throws IOException {
         // read keys
         int numKeys = inputStream.readInt();
         List<ByteArray> keys = new ArrayList<ByteArray>(numKeys);
         for(int i = 0; i < numKeys; i++)
             keys.add(readKey(inputStream));
 
+        Map<ByteArray, byte[]> transforms = null;
+        if(protocolVersion > 2) {
+            if(inputStream.readBoolean()) {
+                int size = inputStream.readInt();
+                transforms = new HashMap<ByteArray, byte[]>(size);
+                for(int i = 0; i < size; i++) {
+                    transforms.put(readKey(inputStream), readTransforms(inputStream));
+                }
+            }
+        }
+
         // execute the operation
         Map<ByteArray, List<Versioned<byte[]>>> results = null;
         try {
-            results = store.getAll(keys);
+            results = store.getAll(keys, transforms);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
             writeException(outputStream, e);
@@ -268,15 +293,22 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private void handlePut(DataInputStream inputStream,
                            DataOutputStream outputStream,
-                           Store<ByteArray, byte[]> store) throws IOException {
+                           Store<ByteArray, byte[], byte[]> store) throws IOException {
         ByteArray key = readKey(inputStream);
         int valueSize = inputStream.readInt();
         byte[] bytes = new byte[valueSize];
         ByteUtils.read(inputStream, bytes);
         VectorClock clock = new VectorClock(bytes);
         byte[] value = ByteUtils.copy(bytes, clock.sizeInBytes(), bytes.length);
+
+        byte[] transforms = null;
+        if(protocolVersion > 2) {
+            if(inputStream.readBoolean()) {
+                transforms = readTransforms(inputStream);
+            }
+        }
         try {
-            store.put(key, new Versioned<byte[]>(value, clock));
+            store.put(key, new Versioned<byte[]>(value, clock), transforms);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
             writeException(outputStream, e);
@@ -285,7 +317,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private void handleDelete(DataInputStream inputStream,
                               DataOutputStream outputStream,
-                              Store<ByteArray, byte[]> store) throws IOException {
+                              Store<ByteArray, byte[], byte[]> store) throws IOException {
         ByteArray key = readKey(inputStream);
         int versionSize = inputStream.readShort();
         byte[] versionBytes = new byte[versionSize];

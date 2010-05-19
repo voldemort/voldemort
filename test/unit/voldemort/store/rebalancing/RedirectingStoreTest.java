@@ -142,12 +142,13 @@ public class RedirectingStoreTest extends TestCase {
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
 
         // populate all entries in server1
-        Store<ByteArray, byte[]> store = server1.getStoreRepository()
-                                                .getStorageEngine(testStoreName);
+        Store<ByteArray, byte[], byte[]> store = server1.getStoreRepository()
+                                                        .getStorageEngine(testStoreName);
         for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
             store.put(entry.getKey(),
                       Versioned.value(entry.getValue(),
-                                      new VectorClock().incremented(0, System.currentTimeMillis())));
+                                      new VectorClock().incremented(0, System.currentTimeMillis())),
+                      null);
         }
 
         // set cluster.xml for invalidMetadata sake
@@ -178,12 +179,13 @@ public class RedirectingStoreTest extends TestCase {
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
 
         // populate all entries in server1
-        Store<ByteArray, byte[]> store = server1.getStoreRepository()
-                                                .getStorageEngine(testStoreName);
+        Store<ByteArray, byte[], byte[]> store = server1.getStoreRepository()
+                                                        .getStorageEngine(testStoreName);
         for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
             store.put(entry.getKey(),
                       Versioned.value(entry.getValue(),
-                                      new VectorClock().incremented(0, System.currentTimeMillis())));
+                                      new VectorClock().incremented(0, System.currentTimeMillis())),
+                      null);
         }
 
         // set cluster.xml for invalidMetadata sake
@@ -209,7 +211,7 @@ public class RedirectingStoreTest extends TestCase {
 
     private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
                                  VoldemortServer server,
-                                 Store<ByteArray, byte[]> store,
+                                 Store<ByteArray, byte[], byte[]> store,
                                  List<Integer> availablePartitions) {
         RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(store.getName());
 
@@ -218,10 +220,10 @@ public class RedirectingStoreTest extends TestCase {
             if(availablePartitions.containsAll(partitions)) {
                 assertEquals("Keys for partition:" + partitions + " should be present.",
                              1,
-                             store.get(entry.getKey()).size());
+                             store.get(entry.getKey(), null).size());
                 assertEquals("Values should match.",
                              new String(entry.getValue()),
-                             new String(store.get(entry.getKey()).get(0).getValue()));
+                             new String(store.get(entry.getKey(), null).get(0).getValue()));
             }
         }
     }
@@ -242,7 +244,8 @@ public class RedirectingStoreTest extends TestCase {
                     redirectingStore.put(entry.getKey(),
                                          Versioned.value(entry.getValue(),
                                                          new VectorClock().incremented(0,
-                                                                                       System.currentTimeMillis())));
+                                                                                       System.currentTimeMillis())),
+                                         null);
                     fail("Should see obsoleteVersionException here.");
                 } catch(ObsoleteVersionException e) {
                     // ignore

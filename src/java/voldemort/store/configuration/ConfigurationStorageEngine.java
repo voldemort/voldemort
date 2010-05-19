@@ -45,7 +45,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class ConfigurationStorageEngine implements StorageEngine<String, String> {
+public class ConfigurationStorageEngine implements StorageEngine<String, String, String> {
 
     private final static Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
     private final String name;
@@ -84,13 +84,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         return false;
     }
 
-    public synchronized List<Versioned<String>> get(String key) throws VoldemortException {
+    public synchronized List<Versioned<String>> get(String key, String transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return get(key, getDirectory(key).listFiles());
     }
 
     public List<Version> getVersions(String key) {
-        List<Versioned<String>> values = get(key);
+        List<Versioned<String>> values = get(key, (String) null);
         List<Version> versions = new ArrayList<Version>(values.size());
         for(Versioned<?> value: values) {
             versions.add(value.getVersion());
@@ -98,7 +99,8 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         return versions;
     }
 
-    public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys)
+    public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys,
+                                                                    Map<String, String> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<String, List<Versioned<String>>> result = StoreUtils.newEmptyHashMap(keys);
@@ -114,7 +116,8 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String>
         return name;
     }
 
-    public synchronized void put(String key, Versioned<String> value) throws VoldemortException {
+    public synchronized void put(String key, Versioned<String> value, String transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
         if(null == value.getValue()) {

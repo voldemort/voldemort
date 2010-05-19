@@ -45,10 +45,10 @@ public class CacheStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
         ConcurrentMap<ByteArray, List<Versioned<byte[]>>> backingMap = new MapMaker().softValues()
                                                                                      .makeMap();
-        return new InMemoryStorageEngine<ByteArray, byte[]>(name, backingMap);
+        return new InMemoryStorageEngine<ByteArray, byte[], byte[]>(name, backingMap);
     }
 
     public String getType() {

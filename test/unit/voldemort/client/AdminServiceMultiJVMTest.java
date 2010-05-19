@@ -106,7 +106,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getStore(int nodeId, String storeName) {
+    protected Store<ByteArray, byte[], byte[]> getStore(int nodeId, String storeName) {
         Node node = cluster.getNodeById(nodeId);
 
         return ServerTestUtils.getSocketStore(storeName, node.getSocketPort());

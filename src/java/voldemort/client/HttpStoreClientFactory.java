@@ -86,10 +86,10 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getStore(String name,
-                                                String host,
-                                                int port,
-                                                RequestFormatType type) {
+    protected Store<ByteArray, byte[], byte[]> getStore(String name,
+                                                        String host,
+                                                        int port,
+                                                        RequestFormatType type) {
         return new HttpStore(name,
                              host,
                              port,
@@ -104,7 +104,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
         ClientStoreVerifier storeVerifier = new ClientStoreVerifier() {
 
             @Override
-            protected Store<ByteArray, byte[]> getStoreInternal(Node node) {
+            protected Store<ByteArray, byte[], byte[]> getStoreInternal(Node node) {
                 return HttpStoreClientFactory.this.getStore(MetadataStore.METADATA_STORE_NAME,
                                                             node.getHost(),
                                                             node.getHttpPort(),

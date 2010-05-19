@@ -43,7 +43,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
+public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
     private final ConcurrentMap<K, List<Versioned<V>>> map;
     private final String name;
@@ -100,10 +100,10 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
     }
 
     public List<Version> getVersions(K key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         List<Versioned<V>> results = map.get(key);
         if(results == null) {
@@ -114,12 +114,13 @@ public class InMemoryStorageEngine<K, V> implements StorageEngine<K, V> {
         }
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        return StoreUtils.getAll(this, keys);
+        return StoreUtils.getAll(this, keys, transforms);
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
         Version version = value.getVersion();

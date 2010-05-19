@@ -34,12 +34,12 @@ import voldemort.versioning.Versioned;
 public class MultithreadedStressTest {
 
     private final ExecutorService service;
-    private final Store<byte[], byte[]> store;
+    private final Store<byte[], byte[], byte[]> store;
     private final AtomicInteger value;
     private final int numberOfValues;
     private final int numberOfRequests;
 
-    public MultithreadedStressTest(Store<byte[], byte[]> store,
+    public MultithreadedStressTest(Store<byte[], byte[], byte[]> store,
                                    int numberOfValues,
                                    int numberOfRequests,
                                    int numberOfThreads) {
@@ -50,7 +50,8 @@ public class MultithreadedStressTest {
         this.value = new AtomicInteger(0);
         for(int i = 0; i < numberOfValues; i++)
             this.store.put(Integer.toString(i).getBytes(),
-                           new Versioned<byte[]>(Integer.toString(i).getBytes()));
+                           new Versioned<byte[]>(Integer.toString(i).getBytes()),
+                           null);
     }
 
     public void testGetAndPut() throws Exception {
@@ -65,7 +66,7 @@ public class MultithreadedStressTest {
                     while(!done) {
                         try {
                             byte[] key = Integer.toString(index).getBytes();
-                            List<Versioned<byte[]>> found = store.get(key);
+                            List<Versioned<byte[]>> found = store.get(key, null);
                             if(found.size() > 1) {
                                 throw new RuntimeException("Found multiple versions: " + found);
                             } else if(found.size() == 1) {
@@ -73,7 +74,7 @@ public class MultithreadedStressTest {
                                 byte[] valueBytes = Integer.toString(MultithreadedStressTest.this.value.getAndIncrement())
                                                            .getBytes();
                                 versioned.setObject(valueBytes);
-                                store.put(key, versioned);
+                                store.put(key, versioned, null);
                                 done = true;
                             } else if(found.size() == 0) {
                                 throw new RuntimeException("No values found!");

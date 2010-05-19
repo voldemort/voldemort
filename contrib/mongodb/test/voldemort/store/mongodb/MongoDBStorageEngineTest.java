@@ -41,7 +41,7 @@ import com.google.common.collect.ImmutableMap;
  * and getKeys()
  * 
  */
-public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[]> {
+public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[], byte[]> {
 
     MongoDBDocSerializer mds = new MongoDBDocSerializer();
 
@@ -80,7 +80,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     }
 
     @Override
-    public StorageEngine<ByteArray, byte[]> getStore() {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore() {
         try {
             MongoDBStorageEngine e = new MongoDBStorageEngine("engine_tests");
             e.clearStore();
@@ -94,7 +94,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;
 
         try {
-            StorageEngine<ByteArray, byte[]> engine = getStore();
+            StorageEngine<ByteArray, byte[], byte[]> engine = getStore();
             it = engine.entries();
             while(it.hasNext())
                 fail("There shouldn't be any entries in this store.");
@@ -105,11 +105,12 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     }
 
     public void testIterationWithSerialization() {
-        StorageEngine<ByteArray, byte[]> store = getStore();
+        StorageEngine<ByteArray, byte[], byte[]> store = getStore();
         Map<String, String> vals = ImmutableMap.of("a", "a", "b", "b", "c", "c", "d", "d", "e", "e");
         for(Map.Entry<String, String> entry: vals.entrySet()) {
             store.put(new ByteArray(entry.getKey().getBytes()),
-                      new Versioned<byte[]>(mds.toBytes(new Doc(entry.getKey(), entry.getValue()))));
+                      new Versioned<byte[]>(mds.toBytes(new Doc(entry.getKey(), entry.getValue()))),
+                      null);
         }
 
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iter = store.entries();
@@ -129,7 +130,7 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
     }
 
     public void testPruneOnWrite() {
-        StorageEngine<ByteArray, byte[]> engine = getStore();
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStore();
         Doc d = new Doc("x", 1);
         Versioned<byte[]> v1 = new Versioned<byte[]>(mds.toBytes(d.add("x", 1)),
                                                      TestUtils.getClock(1));
@@ -140,10 +141,10 @@ public class MongoDBStorageEngineTest extends AbstractStoreTest<ByteArray, byte[
 
         ByteArray key = new ByteArray("foo".getBytes());
 
-        engine.put(key, v1);
-        engine.put(key, v2);
-        assertEquals(2, engine.get(key).size());
-        engine.put(key, v3);
-        assertEquals(1, engine.get(key).size());
+        engine.put(key, v1, null);
+        engine.put(key, v2, null);
+        assertEquals(2, engine.get(key, null).size());
+        engine.put(key, v3, null);
+        assertEquals(1, engine.get(key, null).size());
     }
 }

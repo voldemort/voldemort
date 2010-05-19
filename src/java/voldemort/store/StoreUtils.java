@@ -64,8 +64,10 @@ public class StoreUtils {
     /**
      * Implements get by delegating to getAll.
      */
-    public static <K, V> List<Versioned<V>> get(Store<K, V> storageEngine, K key) {
-        Map<K, List<Versioned<V>>> result = storageEngine.getAll(Collections.singleton(key));
+    public static <K, V, T> List<Versioned<V>> get(Store<K, V, T> storageEngine, K key, T transform) {
+        Map<K, List<Versioned<V>>> result = storageEngine.getAll(Collections.singleton(key),
+                                                                 Collections.singletonMap(key,
+                                                                                          transform));
         if(result.size() > 0)
             return result.get(key);
         else
@@ -75,11 +77,12 @@ public class StoreUtils {
     /**
      * Implements getAll by delegating to get.
      */
-    public static <K, V> Map<K, List<Versioned<V>>> getAll(Store<K, V> storageEngine,
-                                                           Iterable<K> keys) {
+    public static <K, V, T> Map<K, List<Versioned<V>>> getAll(Store<K, V, T> storageEngine,
+                                                              Iterable<K> keys,
+                                                              Map<K, T> transforms) {
         Map<K, List<Versioned<V>>> result = newEmptyHashMap(keys);
         for(K key: keys) {
-            List<Versioned<V>> value = storageEngine.get(key);
+            List<Versioned<V>> value = storageEngine.get(key, transforms.get(key));
             if(!value.isEmpty())
                 result.put(key, value);
         }

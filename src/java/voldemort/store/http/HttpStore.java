@@ -47,7 +47,7 @@ import voldemort.versioning.Versioned;
  * the VoldemortHttpServer.
  * 
  */
-public class HttpStore implements Store<ByteArray, byte[]> {
+public class HttpStore implements Store<ByteArray, byte[], byte[]> {
 
     private final String storeName;
     private final HttpClient httpClient;
@@ -90,7 +90,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         PostMethod method = null;
         try {
@@ -99,6 +99,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
             requestFormat.writeGetRequest(new DataOutputStream(outputBytes),
                                           storeName,
                                           key,
+                                          transforms,
                                           reroute);
             DataInputStream input = executeRequest(method, outputBytes);
             return requestFormat.readGetResponse(input);
@@ -111,7 +112,8 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         PostMethod method = null;
@@ -121,6 +123,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
             requestFormat.writeGetAllRequest(new DataOutputStream(outputBytes),
                                              storeName,
                                              keys,
+                                             transforms,
                                              reroute);
             DataInputStream input = executeRequest(method, outputBytes);
             return requestFormat.readGetAllResponse(input);
@@ -133,7 +136,8 @@ public class HttpStore implements Store<ByteArray, byte[]> {
         }
     }
 
-    public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         PostMethod method = null;
         try {
@@ -143,6 +147,7 @@ public class HttpStore implements Store<ByteArray, byte[]> {
                                           storeName,
                                           key,
                                           versioned.getValue(),
+                                          transforms,
                                           (VectorClock) versioned.getVersion(),
                                           reroute);
             DataInputStream input = executeRequest(method, outputBytes);
