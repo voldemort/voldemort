@@ -160,7 +160,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
         String fetchUrl = getRequired(req, "dir");
-        String storeName = getRequired(req, "store");
+        String storeName = getOptional(req, "store");
 
         // fetch the files if necessary
         File fetchDir;
@@ -177,6 +177,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             }
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());
+    }
+
+    private String getOptional(HttpServletRequest req, String name) {
+        String val = req.getParameter(name);
+        if(val == null)
+            return "";
+        return val;
     }
 
     private void doRollback(HttpServletRequest req) throws ServletException {
