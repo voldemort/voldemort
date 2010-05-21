@@ -79,11 +79,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
-        if(redirectingKey(key)) {
-            // if I am rebalancing for this key, try to do remote get() , put it
-            // locally first to get the correct version ignoring any
-            // ObsoleteVersionExceptions.
-            proxyGetAndLocalPut(key);
+        metadata.readLock.lock();
+        try {
+            if(redirectingKey(key)) {
+                // if I am rebalancing for this key, try to do remote get() , put it
+                // locally first to get the correct version ignoring any
+                // ObsoleteVersionExceptions.
+                proxyGetAndLocalPut(key);
+            }
+        } finally {
+            metadata.readLock.unlock();
         }
 
         getInnerStore().put(key, value);
@@ -101,11 +106,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
-        if(redirectingKey(key)) {
-            // if I am rebalancing for this key, try to do remote get() , put it
-            // locally first to get the correct version ignoring any
-            // ObsoleteVersionExceptions.
-            proxyGetAndLocalPut(key);
+        metadata.readLock.lock();
+        try {
+            if(redirectingKey(key)) {
+                // if I am rebalancing for this key, try to do remote get() , put it
+                // locally first to get the correct version ignoring any
+                // ObsoleteVersionExceptions.
+                proxyGetAndLocalPut(key);
+            }
+        } finally {
+            metadata.readLock.unlock();
         }
 
         return getInnerStore().get(key);
@@ -113,11 +123,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
 
     @Override
     public List<Version> getVersions(ByteArray key) {
-        if(redirectingKey(key)) {
-            // if I am rebalancing for this key, try to do remote get() , put it
-            // locally first to get the correct version ignoring any
-            // ObsoleteVersionExceptions.
-            proxyGetAndLocalPut(key);
+        metadata.readLock.lock();
+        try {
+            if(redirectingKey(key)) {
+                // if I am rebalancing for this key, try to do remote get() , put it
+                // locally first to get the correct version ignoring any
+                // ObsoleteVersionExceptions.
+                proxyGetAndLocalPut(key);
+            }
+        } finally {
+            metadata.readLock.unlock();
         }
 
         return getInnerStore().getVersions(key);
@@ -126,13 +141,19 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
-        List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
-        for(ByteArray key: keys) {
-            if(redirectingKey(key))
-                redirectingKeys.add(key);
+        metadata.readLock.lock();
+        try {
+            List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
+            for(ByteArray key: keys) {
+                if(redirectingKey(key))
+                    redirectingKeys.add(key);
+            }
+
+            if(!redirectingKeys.isEmpty())
+                proxyGetAllAndLocalPut(redirectingKeys);
+        } finally {
+            metadata.readLock.unlock();
         }
-        if(!redirectingKeys.isEmpty())
-            proxyGetAllAndLocalPut(redirectingKeys);
 
         return getInnerStore().getAll(keys);
     }
