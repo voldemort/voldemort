@@ -21,7 +21,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
@@ -80,43 +79,51 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     @Override
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         metadata.readLock.lock();
+        RebalancePartitionsInfo stealInfo = null;
         try {
-            if(redirectingKey(key)) {
-                // if I am rebalancing for this key, try to do remote get() , put it
-                // locally first to get the correct version ignoring any
-                // ObsoleteVersionExceptions.
-                proxyGetAndLocalPut(key);
-            }
+            stealInfo = redirectingKey(key);
         } finally {
             metadata.readLock.unlock();
         }
 
+        /**
+         * If I am rebalancing for this key, try to do remote get() , put it
+         * locally first to get the correct version ignoring any
+         * {@link ObsoleteVersionException}
+         */
+        if (stealInfo != null)
+            proxyGetAndLocalPut(key, stealInfo.getDonorId());
+
         getInnerStore().put(key, value);
     }
 
-    private boolean redirectingKey(ByteArray key) {
+    private RebalancePartitionsInfo redirectingKey(ByteArray key) {
         if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())) {
             List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
-            if (getRebalancePartitionsInfo(partitionIds) != null)
-                return true;
+
+            return getRebalancePartitionsInfo(partitionIds);
         }
 
-        return false;
+        return null;
     }
 
     @Override
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         metadata.readLock.lock();
+        RebalancePartitionsInfo stealInfo = null;
         try {
-            if(redirectingKey(key)) {
-                // if I am rebalancing for this key, try to do remote get() , put it
-                // locally first to get the correct version ignoring any
-                // ObsoleteVersionExceptions.
-                proxyGetAndLocalPut(key);
-            }
+            stealInfo = redirectingKey(key);
         } finally {
             metadata.readLock.unlock();
         }
+
+        /**
+         * If I am rebalancing for this key, try to do remote get(), put it
+         * locally first to get the correct version ignoring any
+         * {@link ObsoleteVersionException}
+         */
+        if(stealInfo != null)
+            proxyGetAndLocalPut(key, stealInfo.getDonorId());
 
         return getInnerStore().get(key);
     }
@@ -124,16 +131,20 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     @Override
     public List<Version> getVersions(ByteArray key) {
         metadata.readLock.lock();
+        RebalancePartitionsInfo stealInfo = null;
         try {
-            if(redirectingKey(key)) {
-                // if I am rebalancing for this key, try to do remote get() , put it
-                // locally first to get the correct version ignoring any
-                // ObsoleteVersionExceptions.
-                proxyGetAndLocalPut(key);
-            }
+            stealInfo = redirectingKey(key);
         } finally {
             metadata.readLock.unlock();
         }
+
+        /**
+         * If I am rebalancing for this key, try to do remote get(), put it
+         * locally first to get the correct version ignoring any
+         * {@link ObsoleteVersionException}.
+         */
+        if(stealInfo != null)
+            proxyGetAndLocalPut(key, stealInfo.getDonorId());
 
         return getInnerStore().getVersions(key);
     }
@@ -142,32 +153,47 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         metadata.readLock.lock();
+        List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
+        List<RebalancePartitionsInfo> rebalancePartitionsInfos = new ArrayList<RebalancePartitionsInfo>();
         try {
-            List<ByteArray> redirectingKeys = new ArrayList<ByteArray>();
             for(ByteArray key: keys) {
-                if(redirectingKey(key))
+                RebalancePartitionsInfo info;
+                info = redirectingKey(key);
+                if(info != null) {
                     redirectingKeys.add(key);
+                    rebalancePartitionsInfos.add(info);
+                }
             }
-
-            if(!redirectingKeys.isEmpty())
-                proxyGetAllAndLocalPut(redirectingKeys);
         } finally {
             metadata.readLock.unlock();
         }
+
+        if(!redirectingKeys.isEmpty())
+            proxyGetAllAndLocalPut(redirectingKeys, rebalancePartitionsInfos);
 
         return getInnerStore().getAll(keys);
     }
 
     /**
-     * TODO : handle delete correctly <br>
-     * option1: delete locally and on remote node as well, the issue is cursor
+     * TODO : Handle delete correctly.
+     * <p>
+     * The options are:
+     * <ol>
+     * <li>
+     * Delete locally and on remote node as well. The issue iscursor
      * is open in READ_UNCOMMITED mode while rebalancing and can push the value
-     * back.<br>
-     * option2: keep it in separate slop store and apply deletes at the end of
-     * rebalancing.<br>
-     * option3: donot worry about deletes for now, voldemort in general have
-     * this issue if node went down while delete will still keep the old
+     * back.
+     * </li>
+     * <li>
+     * Keep the operation in separate slop store and apply all deletes after
+     * rebalancing.
+     * </li>
+     * <li>
+     * Do not worry about deletes for now, Voldemort in general has an
+     * issue that if node goes down during a delete, we will still keep the old
      * version.
+     * </li>
+     * </ol>
      */
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
@@ -193,26 +219,19 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * {@link voldemort.client.rebalance.RebalancePartitionsInfo#getDonorId() getDonorId}
      *
      * @param key Key
+     * @param donorNodeId donor node id
      * @throws ProxyUnreachableException if donor node can't be reached
      */
-    private List<Versioned<byte[]>> proxyGet(ByteArray key) throws VoldemortException {
-        List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
-        RebalancePartitionsInfo rebalancePartitionsInfo = getRebalancePartitionsInfo(partitionIds);
-
-        if (rebalancePartitionsInfo == null) {
-            throw new IllegalStateException("No steal operation in progress for key " + key +
-                                            " partitions(" + Joiner.on(", ").join(partitionIds) + ")");
-        }
-
-        Node donorNode = metadata.getCluster().getNodeById(rebalancePartitionsInfo.getDonorId());
+    private List<Versioned<byte[]>> proxyGet(ByteArray key, int donorNodeId) {
+        Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
         checkNodeAvailable(donorNode);
         long startNs = System.nanoTime();
         try {
-            List<Versioned<byte[]>> values = getRedirectingSocketStore(getName(),
-                                                                       rebalancePartitionsInfo.getDonorId()).get(key);
+            Store<ByteArray, byte[]> redirectingStore = getRedirectingSocketStore(getName(), donorNodeId);
+            List<Versioned<byte[]>> values = redirectingStore.get(key);
             recordSuccess(donorNode, startNs);
             return values;
-        } catch(UnreachableStoreException e) {
+        } catch (UnreachableStoreException e) {
             recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
         }
@@ -231,14 +250,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * @param keys Iterable list of keys
      * @throws ProxyUnreachableException if donor node can't be reached
      */
-    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys)
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Iterable<ByteArray> keys,
+                                                                List<RebalancePartitionsInfo> stealInfoList)
             throws VoldemortException {
         Multimap<Integer, ByteArray> scatterMap = HashMultimap.create();
         int numKeys=0;
         for (ByteArray key: keys) {
             numKeys++;
-            RebalancerState rebalancerState = metadata.getRebalancerState();
-            for (RebalancePartitionsInfo stealInfo: rebalancerState.find(getName())) {
+            for (RebalancePartitionsInfo stealInfo: stealInfoList) {
                 byte[] keyBytes = key.get();
                 
                 for (int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
@@ -282,15 +301,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
      * to local storage.
      *
      * @param key Key
-     * @throws VoldemortException if {@link #proxyGet(voldemort.utils.ByteArray)} fails
+     * @param donorId donorId
+     * @throws VoldemortException if {@link #proxyGet(ByteArray, int)} fails
      */
-    private void proxyGetAndLocalPut(ByteArray key) throws VoldemortException {
-        List<Versioned<byte[]>> proxyValues = proxyGet(key);
+    private void proxyGetAndLocalPut(ByteArray key, int donorId) throws VoldemortException {
+        List<Versioned<byte[]>> proxyValues = proxyGet(key, donorId);
         for(Versioned<byte[]> proxyValue: proxyValues) {
             try {
-
                 getInnerStore().put(key, proxyValue);
-
             } catch(ObsoleteVersionException e) {
                 // ignore these
             }
@@ -298,13 +316,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     /**
-     * Similar to {@link #proxyGetAllAndLocalPut(Iterable)} but meant for {@link #getAll(Iterable)}
+     * Similar to {@link #proxyGetAndLocalPut(ByteArray, int)} but meant for {@link #getAll(Iterable)}
      *
      * @param keys Iterable collection of keys of keys
-     * @throws VoldemortException if {@link #proxyGetAll(Iterable)} fails
+     * @param stealInfoList List of rebalance operations
+     * @throws VoldemortException if {@link #proxyGetAll(Iterable, List<RebalancePartitionsInfo)} fails
      */
-    private void proxyGetAllAndLocalPut(Iterable<ByteArray> keys) throws VoldemortException {
-        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys);
+    private void proxyGetAllAndLocalPut(Iterable<ByteArray> keys, List<RebalancePartitionsInfo> stealInfoList) throws VoldemortException {
+        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys, stealInfoList);
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
             for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
                 try {
