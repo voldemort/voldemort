@@ -33,11 +33,14 @@ public class RequestFormatFactory {
         switch(type) {
             case VOLDEMORT_V1:
                 return new VoldemortNativeClientRequestFormat(1);
+            case VOLDEMORT_V2:
+                return new VoldemortNativeClientRequestFormat(2);
+            case VOLDEMORT_V3:
+                return new VoldemortNativeClientRequestFormat(3);
             case PROTOCOL_BUFFERS:
                 return new ProtoBuffClientRequestFormat();
             default:
                 throw new IllegalArgumentException("Unknown request format type: " + type);
         }
     }
-
 }

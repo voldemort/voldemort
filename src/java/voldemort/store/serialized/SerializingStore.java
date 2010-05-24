@@ -80,10 +80,16 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
     }
 
     private byte[] transformToBytes(T transform) {
+        if(transform == null)
+            return null;
+        if(transformsSerializer == null)
+            return null;
         return transformsSerializer.toBytes(transform);
     }
 
     private Map<ByteArray, byte[]> transformsToBytes(Map<K, T> transforms) {
+        if(transforms == null)
+            return null;
         Map<ByteArray, byte[]> result = Maps.newHashMap();
         for(Map.Entry<K, T> transform: transforms.entrySet()) {
             result.put(keyToBytes(transform.getKey()), transformToBytes(transform.getValue()));
@@ -93,7 +99,8 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
 
     public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         List<Versioned<byte[]>> found = store.get(keyToBytes(key),
-                                                  transformsSerializer.toBytes(transforms));
+                                                  transformsSerializer != null ? transformsSerializer.toBytes(transforms)
+                                                                              : null);
         List<Versioned<V>> results = new ArrayList<Versioned<V>>(found.size());
         for(Versioned<byte[]> versioned: found)
             results.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),

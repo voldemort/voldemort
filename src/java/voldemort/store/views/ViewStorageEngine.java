@@ -120,14 +120,16 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return this.targetValSerializer.toBytes(this.view.viewToStore(this.serializingStore,
                                                                       this.targetKeySerializer.toObject(key.get()),
                                                                       this.valSerializer.toObject(value),
-                                                                      this.transformSerializer.toObject(transforms)));
+                                                                      transformSerializer != null ? this.transformSerializer.toObject(transforms)
+                                                                                                 : null));
     }
 
     private byte[] valueToViewSchema(ByteArray key, byte[] value, byte[] transforms) {
         return this.valSerializer.toBytes(this.view.storeToView(this.serializingStore,
                                                                 this.targetKeySerializer.toObject(key.get()),
                                                                 this.targetValSerializer.toObject(value),
-                                                                this.transformSerializer.toObject(transforms)));
+                                                                transformSerializer != null ? this.transformSerializer.toObject(transforms)
+                                                                                           : null));
     }
 
     private class ViewIterator extends AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>

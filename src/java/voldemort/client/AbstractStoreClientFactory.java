@@ -32,6 +32,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -253,14 +254,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                         url.getHost(),
                                                                         url.getPort(),
                                                                         this.requestFormatType);
-                Store<String, String, String> store = SerializingStore.wrap(remoteStore,
-                                                                            new StringSerializer("UTF-8"),
-                                                                            new StringSerializer("UTF-8"),
-                                                                            new StringSerializer("UTF-8"));
-                // TODO: Not sure if transforms are null here?
+                SerializingStore<String, String, byte[]> store = SerializingStore.wrap(remoteStore,
+                                                                                       new StringSerializer("UTF-8"),
+                                                                                       new StringSerializer("UTF-8"),
+                                                                                       new IdentitySerializer());
                 List<Versioned<String>> found = store.get(key, null);
-                if(found.size() == 1)
+                if(found.size() == 1) {
                     return found.get(0).getValue();
+                }
             } catch(Exception e) {
                 logger.warn("Failed to bootstrap from " + url, e);
             }

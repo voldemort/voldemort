@@ -211,11 +211,6 @@ public class StorageService extends AbstractService {
     }
 
     public void openStore(StoreDefinition storeDef) {
-        // if(storeDef.isView()) {
-        // openViewStore(storeDef);
-        // return;
-        // }
-
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
         StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine(storeDef.getName(),
                                                                            storeDef.getType());
@@ -227,28 +222,6 @@ public class StorageService extends AbstractService {
         if(storeDef.hasRetentionPeriod())
             scheduleCleanupJob(storeDef, engine);
     }
-
-    // public void openViewStore(StoreDefinition storeDef) {
-    // if(!storeDef.isView())
-    // throw new VoldemortException("Tried to open a view store '" +
-    // storeDef.getName()
-    // + "' (" + storeDef.getType()
-    // + ") from a non-view store definition");
-    // logger.info("Opening store '" + storeDef.getName() + "' (" +
-    // storeDef.getType() + ").");
-    //
-    // ViewStorageEngine<ByteArray, byte[], byte[]> engine =
-    // getViewStorageEngine(storeDef.getName(),
-    // storeDef.getType());
-    // registerViewEngine(engine);
-    //
-    // if(voldemortConfig.isServerRoutingEnabled())
-    // registerNodeStores(storeDef, metadata.getCluster(),
-    // voldemortConfig.getNodeId());
-    //
-    // if(storeDef.hasRetentionPeriod())
-    // scheduleViewCleanupJob(storeDef, engine);
-    // }
 
     /**
      * Register the given engine with the storage repository

@@ -77,7 +77,7 @@ public class StoreDefinition implements Serializable {
         this.routingPolicy = Utils.notNull(routingPolicy);
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
-        this.transformsSerializer = Utils.notNull(transformsSerializer);
+        this.transformsSerializer = transformsSerializer;
         this.retentionPeriodDays = retentionDays;
         this.retentionScanThrottleRate = retentionThrottleRate;
         this.routingStrategyType = routingStrategyType;
@@ -132,6 +132,10 @@ public class StoreDefinition implements Serializable {
 
     public SerializerDefinition getTransformsSerializer() {
         return transformsSerializer;
+    }
+
+    public boolean hasTransformsSerializer() {
+        return transformsSerializer != null;
     }
 
     public RoutingTier getRoutingPolicy() {

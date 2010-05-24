@@ -82,7 +82,9 @@ public class StoreUtils {
                                                               Map<K, T> transforms) {
         Map<K, List<Versioned<V>>> result = newEmptyHashMap(keys);
         for(K key: keys) {
-            List<Versioned<V>> value = storageEngine.get(key, transforms.get(key));
+            List<Versioned<V>> value = storageEngine.get(key,
+                                                         transforms != null ? transforms.get(key)
+                                                                           : null);
             if(!value.isEmpty())
                 result.put(key, value);
         }

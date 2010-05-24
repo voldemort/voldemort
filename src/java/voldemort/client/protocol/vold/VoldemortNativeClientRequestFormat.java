@@ -89,12 +89,15 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
         outputStream.writeInt(key.length());
         outputStream.write(key.get());
-        if(transforms != null) {
-            outputStream.writeBoolean(true);
-            outputStream.writeInt(transforms.length);
-            outputStream.write(transforms);
-        } else
-            outputStream.writeBoolean(false);
+        if(protocolVersion > 2) {
+            if(transforms != null) {
+                outputStream.writeBoolean(true);
+                outputStream.writeInt(transforms.length);
+                outputStream.write(transforms);
+            } else {
+                outputStream.writeBoolean(false);
+            }
+        }
     }
 
     public List<Versioned<byte[]>> readGetResponse(DataInputStream inputStream) throws IOException {
@@ -138,17 +141,22 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
             output.writeInt(key.length());
             output.write(key.get());
         }
-        if(transforms != null) {
-            output.writeBoolean(true);
-            output.writeInt(transforms.size());
-            for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
-                output.writeInt(transform.getKey().length());
-                output.write(transform.getKey().get());
-                output.writeInt(transform.getValue().length);
-                output.write(transform.getValue());
-            }
-        } else
-            output.writeBoolean(false);
+        if(protocolVersion > 2) {
+            if(transforms != null) {
+                output.writeBoolean(true);
+                output.writeInt(transforms.size());
+                for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
+                    output.writeInt(transform.getKey().length());
+                    output.write(transform.getKey().get());
+                    if(transform.getValue() != null) {
+                        output.writeInt(transform.getValue().length);
+                        output.write(transform.getValue());
+                    } else
+                        output.writeInt(0);
+                }
+            } else
+                output.writeBoolean(false);
+        }
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
@@ -184,12 +192,14 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         outputStream.writeInt(value.length + version.sizeInBytes());
         outputStream.write(version.toBytes());
         outputStream.write(value);
-        if(transforms != null) {
-            outputStream.writeBoolean(true);
-            outputStream.writeInt(transforms.length);
-            outputStream.write(transforms);
-        } else
-            outputStream.writeBoolean(false);
+        if(protocolVersion > 2) {
+            if(transforms != null) {
+                outputStream.writeBoolean(true);
+                outputStream.writeInt(transforms.length);
+                outputStream.write(transforms);
+            } else
+                outputStream.writeBoolean(false);
+        }
     }
 
     public void readPutResponse(DataInputStream inputStream) throws IOException {

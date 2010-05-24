@@ -104,11 +104,10 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
                                          Store<ByteArray, byte[], byte[]> store) {
         VProto.GetResponse.Builder response = VProto.GetResponse.newBuilder();
         try {
-            byte[] transforms = null;
-            if(request.hasTransforms())
-                transforms = ProtoUtils.decodeBytes(request.getTransforms()).get();
             List<Versioned<byte[]>> values = store.get(ProtoUtils.decodeBytes(request.getKey()),
-                                                       transforms);
+                                                       request.hasTransforms() ? ProtoUtils.decodeBytes(request.getTransforms())
+                                                                                           .get()
+                                                                              : null);
             for(Versioned<byte[]> versioned: values)
                 response.addVersioned(ProtoUtils.encodeVersioned(versioned));
         } catch(VoldemortException e) {
@@ -155,13 +154,12 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
 
-            byte[] transforms = null;
-            if(request.hasTransforms())
-                transforms = ProtoUtils.decodeBytes(request.getTransforms()).get();
-
             Versioned<byte[]> value = ProtoUtils.decodeVersioned(request.getVersioned());
 
-            store.put(key, value, transforms);
+            store.put(key,
+                      value,
+                      request.hasTransforms() ? ProtoUtils.decodeBytes(request.getTransforms())
+                                                          .get() : null);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }

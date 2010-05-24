@@ -402,7 +402,8 @@ public class RoutedStore implements Store<ByteArray, byte[], byte[]> {
                         try {
                             List<Versioned<byte[]>> values = innerStores.get(node.getId())
                                                                         .get(key,
-                                                                             transforms.get(key));
+                                                                             transforms == null ? null
+                                                                                               : transforms.get(key));
                             fillRepairReadsValues(nodeValues, key, node, values);
                             List<Versioned<byte[]>> versioneds = result.get(key);
                             if(versioneds == null)

@@ -177,11 +177,7 @@ public class MongoDBStorageEngine implements StorageEngine<ByteArray, byte[], by
 
         Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         for(ByteArray b: keys) {
-            List<Versioned<byte[]>> list;
-            if(transforms != null)
-                list = get(b, transforms.get(b));
-            else
-                list = get(b, null);
+            List<Versioned<byte[]>> list = get(b, transforms == null ? null : transforms.get(b));
             if(list.size() > 0) {
                 map.put(b, list);
             }

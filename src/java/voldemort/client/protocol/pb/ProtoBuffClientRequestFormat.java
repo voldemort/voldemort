@@ -122,11 +122,13 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
         for(ByteArray key: keys)
             req.addKeys(ByteString.copyFrom(key.get()));
 
-        for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
-            req.addTransforms(VProto.GetAllRequest.GetAllTransform.newBuilder()
-                                                                  .setKey(ByteString.copyFrom(transform.getKey()
-                                                                                                       .get()))
-                                                                  .setTransform(ByteString.copyFrom(transform.getValue())));
+        if(transforms != null) {
+            for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
+                req.addTransforms(VProto.GetAllRequest.GetAllTransform.newBuilder()
+                                                                      .setKey(ByteString.copyFrom(transform.getKey()
+                                                                                                           .get()))
+                                                                      .setTransform(ByteString.copyFrom(transform.getValue())));
+            }
         }
         ProtoUtils.writeMessage(output,
                                 VProto.VoldemortRequest.newBuilder()

@@ -170,7 +170,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      */
     public void put(String key, Object value) {
         if(METADATA_KEYS.contains(key)) {
-            VectorClock version = (VectorClock) get(key, (String) null).get(0).getVersion();
+            VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
             put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
                                                                       System.currentTimeMillis())));
         } else {
@@ -240,8 +240,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     public List<Versioned<byte[]>> get(String key, String transforms) throws VoldemortException {
-        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")), ByteUtils.getBytes(transforms,
-                                                                                       "UTF-8"));
+        return get(new ByteArray(ByteUtils.getBytes(key, "UTF-8")),
+                   transforms == null ? null : ByteUtils.getBytes(transforms, "UTF-8"));
     }
 
     @JmxOperation(description = "Clean all rebalancing server/cluster states from this node.", impact = MBeanOperationInfo.ACTION)

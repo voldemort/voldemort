@@ -42,7 +42,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                                          StoreRepository repository,
                                          int protocolVersion) {
         super(errorMapper, repository);
-        if(protocolVersion < 0 || protocolVersion > 2)
+        if(protocolVersion < 0 || protocolVersion > 3)
             throw new IllegalArgumentException("Unknown protocol version: " + protocolVersion);
         this.protocolVersion = protocolVersion;
     }
@@ -211,6 +211,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
     private byte[] readTransforms(DataInputStream inputStream) throws IOException {
         int size = inputStream.readInt();
+        if(size == 0)
+            return null;
         byte[] transforms = new byte[size];
         inputStream.readFully(transforms);
         return transforms;

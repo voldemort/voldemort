@@ -100,7 +100,7 @@ public class DefaultStoreClient<K, V, T> implements StoreClient<K, V, T> {
     }
 
     public V getValue(K key, V defaultValue) {
-        Versioned<V> versioned = get(key);
+        Versioned<V> versioned = getWithDefaultValue(key, null, null);
         if(versioned == null)
             return defaultValue;
         else
@@ -108,7 +108,7 @@ public class DefaultStoreClient<K, V, T> implements StoreClient<K, V, T> {
     }
 
     public V getValue(K key) {
-        Versioned<V> returned = get(key, (T) null);
+        Versioned<V> returned = getWithDefaultValue(key, null, null);
         if(returned == null)
             return null;
         else
@@ -119,6 +119,19 @@ public class DefaultStoreClient<K, V, T> implements StoreClient<K, V, T> {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 List<Versioned<V>> items = store.get(key, null);
+                return getItemOrThrow(key, defaultValue, items);
+            } catch(InvalidMetadataException e) {
+                bootStrap();
+            }
+        }
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
+    }
+
+    private Versioned<V> getWithDefaultValue(K key, Versioned<V> defaultValue, T transforms) {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                List<Versioned<V>> items = store.get(key, transforms);
                 return getItemOrThrow(key, defaultValue, items);
             } catch(InvalidMetadataException e) {
                 bootStrap();
@@ -151,11 +164,11 @@ public class DefaultStoreClient<K, V, T> implements StoreClient<K, V, T> {
     }
 
     public Versioned<V> get(K key, T transforms) {
-        return get(key, transforms);
+        return getWithDefaultValue(key, null, transforms);
     }
 
     public Versioned<V> get(K key) {
-        return get(key, (T) null);
+        return getWithDefaultValue(key, null, null);
     }
 
     public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, T> transforms) {
@@ -210,7 +223,7 @@ public class DefaultStoreClient<K, V, T> implements StoreClient<K, V, T> {
         else if(versions.size() == 1)
             versioned = Versioned.value(value, versions.get(0));
         else {
-            versioned = get(key, (T) null);
+            versioned = get(key, (Versioned<V>) null);
             if(versioned == null)
                 versioned = Versioned.value(value, new VectorClock());
             else

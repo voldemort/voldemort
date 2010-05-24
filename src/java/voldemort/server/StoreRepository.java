@@ -58,11 +58,6 @@ public class StoreRepository {
      */
     private final ConcurrentMap<String, StorageEngine<ByteArray, byte[], byte[]>> storageEngines;
 
-    // /*
-    // * Local storage engine for views.
-    // */
-    // private final ConcurrentMap<String, ViewStorageEngine<ByteArray, byte[],
-    // byte[]>> viewStorageEngines;
     /*
      * Routed stores that write and read from multiple nodes
      */
@@ -83,8 +78,6 @@ public class StoreRepository {
         super();
         this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
         this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[], byte[]>>();
-        // this.viewStorageEngines = new ConcurrentHashMap<String,
-        // ViewStorageEngine<ByteArray, byte[], byte[]>>();
         this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
         this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();
         this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();

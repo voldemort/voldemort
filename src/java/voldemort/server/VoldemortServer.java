@@ -121,13 +121,14 @@ public class VoldemortServer extends AbstractService {
         services.add(scheduler);
         services.add(asyncService);
 
-        if(voldemortConfig.isHttpServerEnabled())
+        if(voldemortConfig.isHttpServerEnabled()) {
             services.add(new HttpService(this,
                                          storageService,
                                          storeRepository,
                                          RequestFormatType.VOLDEMORT_V1,
                                          voldemortConfig.getMaxThreads(),
                                          identityNode.getHttpPort()));
+        }
         if(voldemortConfig.isSocketServerEnabled()) {
             RequestHandlerFactory socketRequestHandlerFactory = new SocketRequestHandlerFactory(storageService,
                                                                                                 this.storeRepository,
@@ -198,9 +199,9 @@ public class VoldemortServer extends AbstractService {
             services.add(new GossipService(this.metadata, scheduler, voldemortConfig));
         }
 
-        if(voldemortConfig.isJmxEnabled())
+        if(voldemortConfig.isJmxEnabled()) {
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
-
+        }
         return ImmutableList.copyOf(services);
     }
 
