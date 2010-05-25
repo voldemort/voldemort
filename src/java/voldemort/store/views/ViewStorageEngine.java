@@ -1,5 +1,6 @@
 package voldemort.store.views;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -66,9 +67,15 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
 
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         List<Versioned<byte[]>> values = target.get(key, null);
-        for(Versioned<byte[]> v: values)
-            v.setObject(valueToViewSchema(key, v.getValue(), transforms));
-        return values;
+
+        List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>();
+
+        for(Versioned<byte[]> v: values) {
+            // v.setObject(valueToViewSchema(key, v.getValue(), transforms));
+            results.add(new Versioned<byte[]>(valueToViewSchema(key, v.getValue(), transforms),
+                                              v.getVersion()));
+        }
+        return results;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
