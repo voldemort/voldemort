@@ -98,7 +98,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[]> {
     }
 
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
-        if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())) {
+        if (VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState()) &&
+            !getName().equals(MetadataStore.METADATA_STORE_NAME)) {
             List<Integer> partitionIds = metadata.getRoutingStrategy(getName()).getPartitionList(key.get());
 
             return getRebalancePartitionsInfo(partitionIds);
