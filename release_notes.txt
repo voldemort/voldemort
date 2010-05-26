@@ -1,3 +1,11 @@
+Release 0.81 on 5/26/2010
+
+Changed made since 0.80.2:
+
+* Multiple donors for Voldemort Rebalancing
+* Features for EC2 Test
+* RO Stores - Backwards compatibility with 0.70
+
 Release 0.80.2 on 4/27/2010
 
 Changes made since 0.80.1:
