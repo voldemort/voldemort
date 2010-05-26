@@ -43,7 +43,7 @@ public class Ec2RemoteTestUtils {
         return ec2.createInstances(ec2Config.getAmi(),
                                    ec2Config.getKeyPairId(),
                                    Ec2Connection.Ec2InstanceType.DEFAULT,
-                                   instanceCount);
+                                   instanceCount, null);
 
     }
 

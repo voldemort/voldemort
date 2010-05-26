@@ -16,6 +16,7 @@
 
 package voldemort.utils.app;
 
+import java.util.Arrays;
 import java.util.List;
 
 import joptsimple.OptionSet;
@@ -47,6 +48,8 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         parser.accepts("secretkey", "Secret key (used instead of secretkeyfile)").withRequiredArg();
         parser.accepts("secretkeyfile", "Secret key file (used instead of secretkey)")
               .withRequiredArg();
+        parser.accepts("securitygroups", "Security groups to allow on instances (optional)")
+              .withRequiredArg();
         parser.accepts("ami", "AMI").withRequiredArg();
         parser.accepts("keypairid", "KeyPairID").withRequiredArg();
         parser.accepts("instances", "Number of instances (default 1)")
@@ -65,6 +68,10 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         String ami = getRequiredString(options, "ami");
         String keypairId = getRequiredString(options, "keypairid");
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
+        String securityGroups = CmdUtils.valueOf(options, "securitygroups", null);
+        List<String> securityGroupsList = (securityGroups != null) 
+                ? Arrays.asList(securityGroups.split(","))
+                : null;
         Ec2Connection.Ec2InstanceType instanceType = null;
 
         try {
@@ -79,7 +86,8 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         List<HostNamePair> hostNamePairs = ec2Connection.createInstances(ami,
                                                                          keypairId,
                                                                          instanceType,
-                                                                         instanceCount);
+                                                                         instanceCount,
+                                                                         securityGroupsList);
 
         StringBuilder s = new StringBuilder();
 
