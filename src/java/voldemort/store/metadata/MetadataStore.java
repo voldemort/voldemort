@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.management.MBeanOperationInfo;
 
@@ -106,9 +109,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final RoutingStrategyFactory routingFactory = new RoutingStrategyFactory();
 
-    // Guards mutations made to non-scalar objects (e.g., lists) stored in innerStore
-    public static final Object lock = new Object();
-    
+    // Guards mutations made to non-scalar objects e.g., lists stored in innerStore
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    public final Lock readLock = lock.readLock();
+    public final Lock writeLock = lock.writeLock();
+
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
@@ -254,7 +259,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
-        synchronized (lock) {
+        writeLock.lock();
+        try {
             RebalancerState rebalancerState = getRebalancerState();
 
             if (!rebalancerState.remove(stealInfo))
@@ -267,6 +273,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                 put(REBALANCING_STEAL_INFO, rebalancerState);
                 initCache(REBALANCING_STEAL_INFO);
             }
+        } finally {
+            writeLock.unlock();
         }
     }
 
