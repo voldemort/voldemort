@@ -34,7 +34,7 @@ do
 done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-if [ -z $VOLD_OPTS ]; then
+if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
 fi
 
