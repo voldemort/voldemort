@@ -98,7 +98,7 @@ public class Benchmark {
     public static final String VERIFY = "verify";
     private static final String DUMMY_DB = "benchmark_db";
 
-    private StoreClient<Object, Object> storeClient;
+    private StoreClient<Object, Object, Object> storeClient;
     private StoreClientFactory factory;
 
     private int numThreads;
@@ -351,7 +351,7 @@ public class Benchmark {
             String storageEngineType = benchmarkProps.getString(STORAGE_ENGINE_TYPE);
             this.keyType = benchmarkProps.getString(KEY_TYPE, STRING_KEY_TYPE);
             Serializer serializer = findKeyType(this.keyType);
-            Store<Object, Object> store = null;
+            Store<Object, Object, Object> store = null;
             StorageConfiguration conf = null;
 
             if(storageEngineType.compareTo(BdbStorageConfiguration.TYPE_NAME) == 0) {
@@ -363,7 +363,8 @@ public class Benchmark {
             }
             store = SerializingStore.wrap(conf.getStore(DUMMY_DB),
                                           serializer,
-                                          new StringSerializer());
+                                          new StringSerializer(),
+                                          new IdentitySerializer());
 
             this.factory = new StaticStoreClientFactory(store);
             this.storeClient = factory.getStoreClient(store.getName());

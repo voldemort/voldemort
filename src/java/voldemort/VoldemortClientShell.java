@@ -102,6 +102,11 @@ public class VoldemortClientShell {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
                     client.put(tightenNumericTypes(jsonReader.read()),
                                tightenNumericTypes(jsonReader.read()));
+                } else if(line.toLowerCase().startsWith("putT")) {
+                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("putT".length())));
+                    client.put(tightenNumericTypes(jsonReader.read()),
+                               tightenNumericTypes(jsonReader.read()),
+                               tightenNumericTypes(jsonReader.read()));
                 } else if(line.toLowerCase().startsWith("getall")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("getall".length())));
                     List<Object> keys = new ArrayList<Object>();
@@ -124,6 +129,10 @@ public class VoldemortClientShell {
                 } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
                     printVersioned(client.get(tightenNumericTypes(jsonReader.read())));
+                } else if(line.toLowerCase().startsWith("getT")) {
+                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("getT".length())));
+                    printVersioned(client.get(tightenNumericTypes(jsonReader.read()),
+                                              tightenNumericTypes(jsonReader.read())));
                 } else if(line.toLowerCase().startsWith("delete")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
                     client.delete(tightenNumericTypes(jsonReader.read()));

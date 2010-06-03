@@ -108,7 +108,6 @@ public class StorageService extends AbstractService {
     private final Semaphore cleanupPermits;
     private final SocketPool socketPool;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
-    private final ConcurrentMap<String, ViewStorageConfiguration> viewStorageConfigs;
     private final ClientThreadPool clientThreadPool;
     private final FailureDetector failureDetector;
     private final StoreStats storeStats;
@@ -124,7 +123,6 @@ public class StorageService extends AbstractService {
         this.metadata = metadata;
         this.cleanupPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
-        this.viewStorageConfigs = new ConcurrentHashMap<String, ViewStorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
                                                      config.getClientMaxQueuedRequests());
@@ -172,10 +170,10 @@ public class StorageService extends AbstractService {
             initStorageConfig(configClassName);
 
         /* Initialize view storage configuration */
-        viewStorageConfigs.put(ViewStorageConfiguration.TYPE_NAME,
-                               new ViewStorageConfiguration(voldemortConfig,
-                                                            metadata.getStoreDefList(),
-                                                            storeRepository));
+        storageConfigs.put(ViewStorageConfiguration.TYPE_NAME,
+                           new ViewStorageConfiguration(voldemortConfig,
+                                                        metadata.getStoreDefList(),
+                                                        storeRepository));
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
