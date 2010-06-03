@@ -2,7 +2,7 @@
 <stores>
   <store>
     <name>test</name>
-    <persistence>bdb</persistence>
+    <persistence>memory</persistence>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <preferred-reads>1</preferred-reads>
@@ -25,5 +25,39 @@
     <value-serializer>
       <type>string</type>
     </value-serializer>
+    <transforms-serializer>
+      <type>string</type>
+    </transforms-serializer>
+  </view>
+  <store>
+    <name>numeric</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">"int32"</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>json</type>
+      <schema-info>["int32"]</schema-info>
+    </value-serializer>
+  </store>
+  <view>
+    <name>range-view</name>
+    <view-of>numeric</view-of>
+    <view-class>voldemort.store.views.RangeFilterView</view-class>
+    <value-serializer>
+      <type>json</type>
+      <schema-info version="0">["int32"]</schema-info>
+    </value-serializer>
+    <transforms-serializer>
+      <type>json</type>
+      <schema-info version="0">["int32"]</schema-info>
+    </transforms-serializer>
   </view>
 </stores>

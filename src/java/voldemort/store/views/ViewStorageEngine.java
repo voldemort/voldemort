@@ -127,8 +127,9 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return this.targetValSerializer.toBytes(this.view.viewToStore(this.serializingStore,
                                                                       this.targetKeySerializer.toObject(key.get()),
                                                                       this.valSerializer.toObject(value),
-                                                                      transformSerializer != null ? this.transformSerializer.toObject(transforms)
-                                                                                                 : null));
+                                                                      transformSerializer != null
+                                                                              && transforms != null ? this.transformSerializer.toObject(transforms)
+                                                                                                   : null));
     }
 
     private byte[] valueToViewSchema(ByteArray key, byte[] value, byte[] transforms) {
