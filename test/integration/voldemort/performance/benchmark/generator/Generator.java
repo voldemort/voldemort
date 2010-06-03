@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright (c) 2010 Yahoo! Inc. All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -11,26 +11,14 @@
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
  * License for the specific language governing permissions and limitations under
- * the License.
+ * the License. See accompanying LICENSE file.
  */
 
-package voldemort.serialization;
+package voldemort.performance.benchmark.generator;
 
+public abstract class Generator {
 
-/**
- * A Serializer implementation that does nothing at all, just maps byte arrays to
- * identical byte arrays
- * 
- * 
- */
-public class IdentitySerializer implements Serializer<byte[]> {
+    public abstract String nextString();
 
-    public byte[] toBytes(byte[] bytes) {
-        return bytes;
-    }
-
-    public byte[] toObject(byte[] bytes) {
-        return bytes;
-    }
-
+    public abstract String lastString();
 }

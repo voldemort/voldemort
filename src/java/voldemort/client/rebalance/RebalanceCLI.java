@@ -24,6 +24,11 @@ public class RebalanceCLI {
                        .withRequiredArg()
                        .ofType(Integer.class)
                        .describedAs("parallelism");
+        parser.accepts("parallel-donors", "number of parallel donors to run in parallel. Default = parallelism.")
+                       .withRequiredArg()
+                       .ofType(Integer.class)
+                       .describedAs("parallel-donors");
+
         parser.accepts("no-delete", "Do not delete after rebalancing");
         OptionSet options = parser.parse(args);
 
@@ -45,12 +50,14 @@ public class RebalanceCLI {
         String targetClusterXML = (String) options.valueOf("cluster");
         boolean deleteAfterRebalancing = !options.has("no-delete");
         int maxParallelRebalancing = CmdUtils.valueOf(options, "parallelism", 1);
+        int maxParallelDonors = CmdUtils.valueOf(options, "parallel-donors", maxParallelRebalancing);
 
         Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(maxParallelRebalancing);
         config.setDeleteAfterRebalancingEnabled(deleteAfterRebalancing);
+        config.setMaxParallelDonors(maxParallelDonors);
 
         RebalanceController rebalanceController = new RebalanceController(bootstrapURL, config);
         rebalanceController.rebalance(targetCluster);

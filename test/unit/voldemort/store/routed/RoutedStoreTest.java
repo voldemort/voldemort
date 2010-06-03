@@ -411,6 +411,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertOperationalNodes(0);
     }
 
+    @Test
     public void testGetVersions2() throws Exception {
         List<ByteArray> keys = getKeys(2);
         ByteArray key = keys.get(0);

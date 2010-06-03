@@ -37,8 +37,8 @@ public class Adler32CheckSum extends CheckSum {
     }
 
     @Override
-    public void update(byte[] input) {
-        checkSumGenerator.update(input);
-    }
+    public void update(byte[] input, int startIndex, int length) {
+        checkSumGenerator.update(input, startIndex, length);
 
+    }
 }

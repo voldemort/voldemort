@@ -160,7 +160,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
         String fetchUrl = getRequired(req, "dir");
-        String storeName = getRequired(req, "store");
+        String storeName = getOptional(req, "store");
 
         // fetch the files if necessary
         File fetchDir;
@@ -170,11 +170,20 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             logger.info("Executing fetch of " + fetchUrl);
             fetchDir = fileFetcher.fetch(fetchUrl, storeName);
             if(fetchDir == null) {
-                fetchDir = new File(fetchUrl);
+                throw new ServletException("Checksum failed for " + fetchUrl + " and store name = "
+                                           + storeName);
+            } else {
+                logger.info("Fetch complete.");
             }
-            logger.info("Fetch complete.");
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());
+    }
+
+    private String getOptional(HttpServletRequest req, String name) {
+        String val = req.getParameter(name);
+        if(val == null)
+            return "";
+        return val;
     }
 
     private void doRollback(HttpServletRequest req) throws ServletException {

@@ -16,27 +16,6 @@
 #  limitations under the License.
 #
 
-if [ $# -lt 1 ]; then
-	echo $0 java-class-name [options]
-	exit 1
-fi
+bin_dir=$(dirname $0)
 
-base_dir=$(dirname $0)/..
-
-for file in $base_dir/lib/*.jar;
-do
-	CLASSPATH=$CLASSPATH:$file
-done
-
-for file in $base_dir/dist/*.jar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
-CLASSPATH=$CLASSPATH:$base_dir/dist/resources
-
-if [ -z "$VOLD_OPTS" ]; then
-  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
-fi
-
-export CLASSPATH
-java -Dlog4j.configuration=src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+${bin_dir}/run-class.sh voldemort.performance.benchmark.Benchmark $@
