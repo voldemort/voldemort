@@ -25,6 +25,7 @@ public class DefaultStoreClientTest extends TestCase {
         Serializer<String> serializer = new StringSerializer();
         MockStoreClientFactory factory = new MockStoreClientFactory(serializer,
                                                                     serializer,
+                                                                    null,
                                                                     serializer,
                                                                     nodeId,
                                                                     time);

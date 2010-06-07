@@ -37,7 +37,6 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.Maps;
 
 public abstract class AbstractStoreTest<K, V, T> extends TestCase {
 
@@ -302,11 +301,7 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
         int countForGet = putCount / 2;
         List<K> keysForGet = keys.subList(0, countForGet);
         List<V> valuesForGet = values.subList(0, countForGet);
-        Map<K, T> transforms = Maps.newHashMap();
-        for(K key: keysForGet) {
-            transforms.put(key, null);
-        }
-        Map<K, List<Versioned<V>>> result = store.getAll(keysForGet, transforms);
+        Map<K, List<Versioned<V>>> result = store.getAll(keysForGet, null);
         assertEquals(countForGet, result.size());
         for(int i = 0; i < keysForGet.size(); ++i) {
             K key = keysForGet.get(i);

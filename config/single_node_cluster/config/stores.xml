@@ -22,5 +22,8 @@
     <value-serializer>
       <type>string</type>
     </value-serializer>
+    <transforms-serializer>
+      <type>string</type>
+    </transforms-serializer>
   </view>
 </stores>

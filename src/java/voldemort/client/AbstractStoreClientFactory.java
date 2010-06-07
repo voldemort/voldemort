@@ -179,7 +179,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
+        Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
+                                                                                                                                       : new SerializerDefinition("identity"));
 
         Store<K, V, T> serializedStore = SerializingStore.wrap(store,
                                                                keySerializer,

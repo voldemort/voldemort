@@ -51,8 +51,6 @@ public class DefaultSerializerFactory implements SerializerFactory {
     private static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
 
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
-        if(serializerDef == null)
-            return new IdentitySerializer();
         String name = serializerDef.getName();
         if(name.equals(JAVA_SERIALIZER_TYPE_NAME)) {
             return new ObjectSerializer<Object>();

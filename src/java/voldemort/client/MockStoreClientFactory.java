@@ -53,6 +53,7 @@ public class MockStoreClientFactory implements StoreClientFactory {
     private final int nodeId;
     private final Serializer<?> keySerializer;
     private final Serializer<?> valueSerializer;
+    private final Serializer<?> viewValueSerializer;
     private final Serializer<?> transformsSerializer;
     private final Time time;
     private final FailureDetector failureDetector;
@@ -62,25 +63,33 @@ public class MockStoreClientFactory implements StoreClientFactory {
     public MockStoreClientFactory(Serializer<?> keySerializer,
                                   Serializer<?> valueSerializer,
                                   Serializer<?> transformsSerializer) {
-        this(keySerializer, valueSerializer, transformsSerializer, 0, SystemTime.INSTANCE);
+        this(keySerializer, valueSerializer, null, transformsSerializer, 0, SystemTime.INSTANCE);
     }
 
     public MockStoreClientFactory(Serializer<?> keySerializer,
                                   Serializer<?> valueSerializer,
+                                  Serializer<?> viewValueSerializer,
                                   Serializer<?> transformsSerializer,
                                   String storesXml) {
-        this(keySerializer, valueSerializer, transformsSerializer, 0, SystemTime.INSTANCE);
+        this(keySerializer,
+             valueSerializer,
+             viewValueSerializer,
+             transformsSerializer,
+             0,
+             SystemTime.INSTANCE);
         this.storesXml = storesXml;
     }
 
     public MockStoreClientFactory(Serializer<?> keySerializer,
                                   Serializer<?> valueSerializer,
+                                  Serializer<?> viewValueSerializer,
                                   Serializer<?> transformsSerializer,
                                   int nodeId,
                                   Time time) {
         this.nodeId = nodeId;
         this.keySerializer = keySerializer;
         this.valueSerializer = valueSerializer;
+        this.viewValueSerializer = viewValueSerializer;
         this.transformsSerializer = transformsSerializer;
         this.time = time;
         failureDetector = new NoopFailureDetector();
@@ -129,7 +138,9 @@ public class MockStoreClientFactory implements StoreClientFactory {
                 storeDef = d;
         if(storeDef == null)
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
+
         DefaultSerializerFactory serializerFactory = new DefaultSerializerFactory();
+
         Serializer<K1> keySerializer = (Serializer<K1>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V1> valueSerializer = (Serializer<V1>) serializerFactory.getSerializer(storeDef.getValueSerializer());
         Serializer<T1> transformsSerializer = (Serializer<T1>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
@@ -146,20 +157,26 @@ public class MockStoreClientFactory implements StoreClientFactory {
 
             engine = new ViewStorageEngine(storeName,
                                            engine,
-                                           serializerFactory.getSerializer(storeDef.getValueSerializer()),
-                                           serializerFactory.getSerializer(storeDef.getTransformsSerializer()),
-                                           serializerFactory.getSerializer(targetDef.getKeySerializer()),
-                                           serializerFactory.getSerializer(targetDef.getValueSerializer()),
+                                           this.viewValueSerializer != null ? this.viewValueSerializer
+                                                                           : serializerFactory.getSerializer(storeDef.getValueSerializer()),
+                                           this.transformsSerializer != null ? this.transformsSerializer
+                                                                            : serializerFactory.getSerializer(storeDef.getTransformsSerializer()),
+                                           this.keySerializer != null ? this.keySerializer
+                                                                     : serializerFactory.getSerializer(targetDef.getKeySerializer()),
+                                           this.valueSerializer != null ? this.valueSerializer
+                                                                       : serializerFactory.getSerializer(targetDef.getValueSerializer()),
                                            storeDef.getValueTransformation());
         }
 
         Store store = new VersionIncrementingStore(engine, nodeId, time);
 
-        if(isSerialized())
-            store = new SerializingStore(store,
-                                         keySerializer,
-                                         valueSerializer,
-                                         transformsSerializer);
+        store = new SerializingStore(store,
+                                     this.keySerializer != null ? this.keySerializer
+                                                               : keySerializer,
+                                     this.valueSerializer != null ? this.valueSerializer
+                                                                 : valueSerializer,
+                                     this.transformsSerializer != null ? this.transformsSerializer
+                                                                      : transformsSerializer);
 
         Store<K1, V1, T1> consistentStore = new InconsistencyResolvingStore<K1, V1, T1>(store,
                                                                                         new ChainedResolver<Versioned<V1>>(new VectorClockInconsistencyResolver(),

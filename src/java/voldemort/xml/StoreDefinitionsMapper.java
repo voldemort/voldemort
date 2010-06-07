@@ -332,6 +332,12 @@ public class StoreDefinitionsMapper {
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());
         store.addContent(valueSerializer);
 
+        Element transformsSerializer = new Element(STORE_TRANSFORM_SERIALIZER_ELMT);
+        if(storeDefinition.getTransformsSerializer() != null) {
+            addSerializer(transformsSerializer, storeDefinition.getTransformsSerializer());
+            store.addContent(transformsSerializer);
+        }
+
         if(storeDefinition.hasRetentionPeriod())
             store.addContent(new Element(STORE_RETENTION_POLICY_ELMT).setText(Integer.toString(storeDefinition.getRetentionDays())));
 
