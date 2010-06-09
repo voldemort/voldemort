@@ -245,6 +245,7 @@ public class Workload {
     }
 
     private DiscreteGenerator operationChooser;
+    private DiscreteGenerator transformsChooser;
     private KeyProvider<?> warmUpKeyProvider;
     private KeyProvider<?> insertKeyProvider;
     private KeyProvider<?> keyProvider;
@@ -267,6 +268,7 @@ public class Workload {
         String keyType = props.getString(Benchmark.KEY_TYPE, Benchmark.STRING_KEY_TYPE);
         String recordSelection = props.getString(Benchmark.RECORD_SELECTION,
                                                  Benchmark.UNIFORM_RECORD_SELECTION);
+        boolean hasTransforms = props.getString(Benchmark.HAS_TRANSFORMS).compareTo("true") == 0;
 
         double readProportion = (double) readPercent / (double) 100;
         double writeProportion = (double) writePercent / (double) 100;
@@ -300,6 +302,14 @@ public class Workload {
 
         IntegerGenerator warmUpKeySequence = new CounterGenerator(insertStart);
         this.warmUpKeyProvider = getKeyProvider(keyTypeClass, warmUpKeySequence, 0);
+
+        transformsChooser = new DiscreteGenerator();
+        if(hasTransforms) {
+            List<String> transforms = BenchmarkViews.getTransforms();
+            for(String transform: transforms) {
+                transformsChooser.addValue(1.0, transform);
+            }
+        }
 
         operationChooser = new DiscreteGenerator();
         if(readProportion > 0) {
@@ -359,11 +369,11 @@ public class Workload {
 
         String op = operationChooser.nextString();
         if(op.compareTo(Benchmark.READS) == 0) {
-            doTransactionRead(db);
+            doTransactionRead(db, null);
         } else if(op.compareTo(Benchmark.MIXED) == 0) {
-            doTransactionMixed(db);
+            doTransactionMixed(db, null);
         } else if(op.compareTo(Benchmark.WRITES) == 0) {
-            doTransactionWrites(db);
+            doTransactionWrites(db, null);
         } else if(op.compareTo(Benchmark.DELETES) == 0) {
             doTransactionDelete(db);
         }
@@ -371,9 +381,42 @@ public class Workload {
 
     }
 
-    public void doTransactionRead(VoldemortWrapper db) {
+    public boolean doWriteWithTransforms(VoldemortWrapper db) {
+        Object key = warmUpKeyProvider.next();
+        String transform = null;
+        if(transformsChooser != null) {
+            transform = transformsChooser.nextString();
+        }
+        db.write(key, this.value, transform);
+        return true;
+    }
+
+    public boolean doTransactionWithTransforms(VoldemortWrapper db) {
+
+        String op = operationChooser.nextString();
+        String transform = null;
+        if(transformsChooser != null) {
+            transform = transformsChooser.nextString();
+        }
+        if(op.compareTo(Benchmark.READS) == 0) {
+            doTransactionRead(db, transform);
+        } else if(op.compareTo(Benchmark.MIXED) == 0) {
+            doTransactionMixed(db, transform);
+        } else if(op.compareTo(Benchmark.WRITES) == 0) {
+            doTransactionWrites(db, transform);
+        } else if(op.compareTo(Benchmark.DELETES) == 0) {
+            doTransactionDelete(db);
+        }
+        return true;
+
+    }
+
+    public void doTransactionRead(VoldemortWrapper db, Object transform) {
         Object key = keyProvider.next(insertKeyProvider.lastInt());
-        db.read(key, this.value);
+        if(transform != null)
+            db.read(key, this.value, transform);
+        else
+            db.read(key, this.value);
     }
 
     public void doTransactionDelete(VoldemortWrapper db) {
@@ -381,13 +424,19 @@ public class Workload {
         db.delete(key);
     }
 
-    public void doTransactionMixed(VoldemortWrapper db) {
+    public void doTransactionMixed(VoldemortWrapper db, Object transform) {
         Object key = keyProvider.next(insertKeyProvider.lastInt());
-        db.mixed(key, this.value);
+        if(transform != null)
+            db.read(key, this.value, transform);
+        else
+            db.mixed(key, this.value);
     }
 
-    public void doTransactionWrites(VoldemortWrapper db) {
+    public void doTransactionWrites(VoldemortWrapper db, Object transform) {
         Object key = insertKeyProvider.next();
-        db.write(key, this.value);
+        if(transform != null)
+            db.write(key, this.value, transform);
+        else
+            db.write(key, this.value);
     }
 }
