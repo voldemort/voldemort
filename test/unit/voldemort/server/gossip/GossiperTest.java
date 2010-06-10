@@ -52,7 +52,7 @@ public class GossiperTest extends TestCase {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { false } });
     }
 
     @Override
