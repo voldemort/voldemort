@@ -9,6 +9,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
+import voldemort.client.protocol.admin.filter.MasterOnlyVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.routing.RoutingStrategy;
@@ -62,10 +63,17 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
         throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         partitionList = request.getPartitionsList();
-        filter = (request.hasFilter()) ? AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
-                                                                                         voldemortConfig,
-                                                                                         networkClassLoader)
-                                      : new DefaultVoldemortFilter();
+        if(request.hasFilter()) {
+            filter = AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
+                                                                     voldemortConfig,
+                                                                     networkClassLoader);
+        } else {
+            if(request.hasFetchMasterEntries() && request.getFetchMasterEntries()) {
+                filter = new MasterOnlyVoldemortFilter(routingStrategy, request.getPartitionsList());
+            } else {
+                filter = new DefaultVoldemortFilter();
+            }
+        }
         keyIterator = storageEngine.keys();
         startTime = System.currentTimeMillis();
     }

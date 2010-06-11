@@ -47,7 +47,8 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
                                                                                                    testStoreName,
                                                                                                    Arrays.asList(new Integer[] { 0 }),
-                                                                                                   filter);
+                                                                                                   filter,
+                                                                                                   false);
 
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {

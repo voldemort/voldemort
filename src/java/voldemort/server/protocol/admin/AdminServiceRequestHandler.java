@@ -291,7 +291,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                     Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                                             storeName,
                                                                                                                                             partitions,
-                                                                                                                                            filter);
+                                                                                                                                            filter,
+																	    false);
                                                     updateStatus("Initated fetchPartitionEntries");
                                                     EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
                                                     for(long i = 0; running.get()

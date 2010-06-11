@@ -131,7 +131,8 @@ public class AdminTest {
                     Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
                                                                                                    storeName,
                                                                                                    new ArrayList<Integer>(nodePartitions.get(node)),
-                                                                                                   null);
+                                                                                                   null,
+                                                                                                   false);
                     while(result.hasNext()) {
                         i++;
                         result.next();
