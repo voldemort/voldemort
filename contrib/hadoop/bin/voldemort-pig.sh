@@ -35,6 +35,18 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
+if [ "x$PIG_HOME" = "x" ]; then
+    echo 'Please set PIG_HOME'
+    exit 1
+fi
+
+JAR=$PIG_HOME/pig.jar
+if [ ! -e $JAR ]; then
+    echo 'Could not find Pig jar' 
+    exit 1
+fi
+CLASSPATH=$CLASSPATH:$JAR
+
 export CLASSPATH 
 
-java -Xmx4G $PIG_JAVA_OPTS -Dudf.import.list=voldemort.hadoop.pig -cp $CLASSPATH org.apache.pig.Main $*
+java $PIG_JAVA_OPTS -Dudf.import.list=voldemort.hadoop.pig -cp $CLASSPATH org.apache.pig.Main $*
