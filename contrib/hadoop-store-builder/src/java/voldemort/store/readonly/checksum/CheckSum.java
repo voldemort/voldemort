@@ -100,8 +100,10 @@ public abstract class CheckSum {
             return "crc32";
         } else if(type == CheckSumType.MD5) {
             return "md5";
+        } else if(type == CheckSumType.NONE) {
+            return "none";
         }
-        return null;
+        return "none";
     }
 
     public static CheckSumType fromString(String input) {
