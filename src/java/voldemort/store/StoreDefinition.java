@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
@@ -50,6 +51,7 @@ public class StoreDefinition implements Serializable {
     private final String routingStrategyType;
     private final String viewOf;
     private final View<?, ?, ?, ?> valueTransformation;
+    private final SerializerFactory serializerFactory;
 
     public StoreDefinition(String name,
                            String type,
@@ -66,7 +68,8 @@ public class StoreDefinition implements Serializable {
                            String viewOfStore,
                            View<?, ?, ?, ?> valTrans,
                            Integer retentionDays,
-                           Integer retentionThrottleRate) {
+                           Integer retentionThrottleRate,
+                           SerializerFactory factory) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
@@ -83,6 +86,7 @@ public class StoreDefinition implements Serializable {
         this.routingStrategyType = routingStrategyType;
         this.viewOf = viewOfStore;
         this.valueTransformation = valTrans;
+        this.serializerFactory = factory;
         checkParameterLegality();
     }
 
@@ -206,6 +210,10 @@ public class StoreDefinition implements Serializable {
         return valueTransformation;
     }
 
+    public SerializerFactory getSerializerFactory() {
+        return this.serializerFactory;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -225,6 +233,10 @@ public class StoreDefinition implements Serializable {
                && Objects.equal(getPreferredWrites(), def.getPreferredWrites())
                && getKeySerializer().equals(def.getKeySerializer())
                && getValueSerializer().equals(def.getValueSerializer())
+               && Objects.equal(getTransformsSerializer() != null ? getTransformsSerializer()
+                                                                 : null,
+                                def.getTransformsSerializer() != null ? def.getTransformsSerializer()
+                                                                     : null)
                && getRoutingPolicy() == def.getRoutingPolicy()
                && Objects.equal(getViewTargetStoreName(), def.getViewTargetStoreName())
                && Objects.equal(getValueTransformation() != null ? getValueTransformation().getClass()
@@ -232,7 +244,11 @@ public class StoreDefinition implements Serializable {
                                 def.getValueTransformation() != null ? def.getValueTransformation()
                                                                           .getClass() : null)
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
-               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
+               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate())
+               && Objects.equal(getSerializerFactory() != null ? getSerializerFactory().getClass()
+                                                              : null,
+                                def.getSerializerFactory() != null ? def.getSerializerFactory()
+                                                                        .getClass() : null);
     }
 
     @Override
@@ -241,6 +257,7 @@ public class StoreDefinition implements Serializable {
                                 getType(),
                                 getKeySerializer(),
                                 getValueSerializer(),
+                                getTransformsSerializer(),
                                 getRoutingPolicy(),
                                 getReplicationFactor(),
                                 getRequiredReads(),
@@ -251,7 +268,8 @@ public class StoreDefinition implements Serializable {
                                 getValueTransformation() == null ? null
                                                                 : getValueTransformation().getClass(),
                                 getRetentionDays(),
-                                getRetentionScanThrottleRate());
+                                getRetentionScanThrottleRate(),
+                                getSerializerFactory());
     }
 
     @Override
@@ -264,6 +282,7 @@ public class StoreDefinition implements Serializable {
                + getRequiredWrites() + ", preferred-writes = " + getPreferredWrites()
                + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
                + getValueTransformation() + ", retention-days = " + getRetentionDays()
-               + ", throttle-rate = " + getRetentionScanThrottleRate() + ")";
+               + ", throttle-rate = " + getRetentionScanThrottleRate() + ", serializer factory = "
+               + getSerializerFactory() + ")";
     }
 }

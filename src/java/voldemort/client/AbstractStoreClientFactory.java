@@ -33,6 +33,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.IdentitySerializer;
+import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -179,9 +180,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
+
+        if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
+            throw new SerializationException("Transforms serializer must be specified with a view ");
+
         Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
                                                                                                                                        : new SerializerDefinition("identity"));
-
         Store<K, V, T> serializedStore = SerializingStore.wrap(store,
                                                                keySerializer,
                                                                valueSerializer,

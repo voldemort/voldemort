@@ -44,7 +44,9 @@ import org.xml.sax.SAXException;
 import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
@@ -83,6 +85,7 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_ELMT = "view";
     public final static String VIEW_TARGET_ELMT = "view-of";
     public final static String VIEW_TRANS_ELMT = "view-class";
+    public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
 
     private final Schema schema;
@@ -217,6 +220,12 @@ public class StoreDefinitionsMapper {
                                                   STORE_PREFERRED_WRITES_ELMT,
                                                   target.getRequiredReads());
 
+        SerializerFactory viewSerializerFactory = new DefaultSerializerFactory();
+        if(store.getChildText(VIEW_SERIALIZER_FACTORY_ELMT) != null) {
+            String serializerFactoryName = store.getChild(VIEW_SERIALIZER_FACTORY_ELMT).getText();
+            viewSerializerFactory = loadSerializerFactory(serializerFactoryName);
+        }
+
         SerializerDefinition keySerializer = target.getKeySerializer();
         SerializerDefinition valueSerializer = target.getValueSerializer();
         if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
@@ -247,6 +256,7 @@ public class StoreDefinitionsMapper {
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
                                            .setView(valTrans)
+                                           .setSerializerFactory(viewSerializerFactory)
                                            .build();
     }
 
@@ -255,6 +265,13 @@ public class StoreDefinitionsMapper {
             return null;
         Class<?> transClass = ReflectUtils.loadClass(className.trim());
         return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
+    }
+
+    private SerializerFactory loadSerializerFactory(String className) {
+        if(className == null)
+            return null;
+        Class<?> transClass = ReflectUtils.loadClass(className.trim());
+        return (SerializerFactory) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -370,6 +387,11 @@ public class StoreDefinitionsMapper {
             store.addContent(transformsSerializer);
         }
 
+        Element serializerFactory = new Element(VIEW_SERIALIZER_FACTORY_ELMT);
+        if(storeDefinition.getSerializerFactory() != null) {
+            serializerFactory.setText(storeDefinition.getSerializerFactory().getClass().getName());
+            store.addContent(serializerFactory);
+        }
         return store;
     }
 

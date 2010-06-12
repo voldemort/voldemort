@@ -3,7 +3,6 @@ package voldemort.store.views;
 import java.util.List;
 
 import voldemort.VoldemortException;
-import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -11,6 +10,8 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
@@ -39,13 +40,20 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         if(target == null)
             throw new VoldemortException("View \"" + name + "\" has a target store \"" + targetName
                                          + "\" which does not exist.");
-        SerializerFactory factory = new DefaultSerializerFactory();
+        SerializerFactory factory = def.getSerializerFactory();
+        /* Check if the values in the target store are compressed */
+        CompressionStrategy valueCompressionStrategy = null;
+        if(targetDef.getValueSerializer().hasCompression()) {
+            valueCompressionStrategy = new CompressionStrategyFactory().get(targetDef.getValueSerializer()
+                                                                                     .getCompression());
+        }
         return new ViewStorageEngine(name,
                                      target,
                                      factory.getSerializer(def.getValueSerializer()),
                                      factory.getSerializer(def.getTransformsSerializer()),
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
+                                     valueCompressionStrategy,
                                      def.getValueTransformation());
     }
 

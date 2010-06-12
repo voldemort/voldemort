@@ -378,6 +378,7 @@ public class Benchmark {
                                                new StringSerializer(),
                                                new StringSerializer(),
                                                new StringSerializer(),
+                                               null,
                                                BenchmarkViews.loadTransformation(benchmarkProps.getString(VIEW_CLASS)
                                                                                                .trim()));
             }

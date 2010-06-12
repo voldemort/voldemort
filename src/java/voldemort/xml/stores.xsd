@@ -53,6 +53,7 @@
 			<xs:element name="value-serializer" type="serializer" minOccurs="0" maxOccurs="1" />
 			<xs:element name="transforms-serializer" type="serializer" minOccurs="0" maxOccurs="1" />
 			<xs:element name="view-class" type="xs:token" minOccurs="1" maxOccurs="1" />
+			<xs:element name="view-serializer-factory" type="xs:token" minOccurs="0" maxOccurs="1" />
 		</xs:all>
 	</xs:complexType>
 

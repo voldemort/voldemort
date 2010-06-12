@@ -144,7 +144,6 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         List<Versioned<byte[]>> inflated = new ArrayList<Versioned<byte[]>>(result.size());
         for(Versioned<byte[]> item: result)
             inflated.add(inflateValue(item));
-
         return inflated;
     }
 
