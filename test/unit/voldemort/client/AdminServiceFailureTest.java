@@ -176,11 +176,16 @@ public class AdminServiceFailureTest extends TestCase {
                 consumeIterator(getAdminClient().fetchEntries(nodeId,
                                                               storeName,
                                                               partitionList,
-                                                              null));
+                                                              null,
+                                                              false));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchKeys(nodeId, storeName, partitionList, null));
+                consumeIterator(getAdminClient().fetchKeys(nodeId,
+                                                           storeName,
+                                                           partitionList,
+                                                           null,
+                                                           false));
                 return;
             case UPDATE_ENTRIES:
                 getAdminClient().updateEntries(nodeId,

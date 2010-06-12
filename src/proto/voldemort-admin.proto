@@ -49,6 +49,7 @@ message FetchPartitionEntriesRequest {
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
+  optional bool fetch_master_entries = 5;
 }
 
 message FetchPartitionEntriesResponse {
