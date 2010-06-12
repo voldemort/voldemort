@@ -82,8 +82,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         // create test data
         Map<String, String> values = new HashMap<String, String>();
         File testDir = TestUtils.createTempDir();
-        File tempDir = new File(testDir, "temp");
-        File outputDir = new File(testDir, "output");
+        File tempDir = new File(testDir, "temp"), tempDir2 = new File(testDir, "temp2");
+        File outputDir = new File(testDir, "output"), outputDir2 = new File(testDir, "output2");
         File storeDir = TestUtils.createTempDir(testDir);
         for(int i = 0; i < 200; i++)
             values.put(Integer.toString(i), Integer.toBinaryString(i));
@@ -99,6 +99,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         String storeName = "test";
         SerializerDefinition serDef = new SerializerDefinition("string");
         Cluster cluster = ServerTestUtils.getLocalCluster(1);
+
+        // Test backwards compatibility
         StoreDefinition def = new StoreDefinitionBuilder().setName(storeName)
                                                           .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                           .setKeySerializer(serDef)
@@ -118,10 +120,22 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             def,
                                                             2,
                                                             64 * 1024,
-                                                            new Path(tempDir.getAbsolutePath()),
-                                                            new Path(outputDir.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()),
-                                                            CheckSumType.MD5);
+                                                            new Path(tempDir2.getAbsolutePath()),
+                                                            new Path(outputDir2.getAbsolutePath()),
+                                                            new Path(inputFile.getAbsolutePath()));
+        builder.build();
+
+        builder = new HadoopStoreBuilder(new Configuration(),
+                                         TextStoreMapper.class,
+                                         TextInputFormat.class,
+                                         cluster,
+                                         def,
+                                         2,
+                                         64 * 1024,
+                                         new Path(tempDir.getAbsolutePath()),
+                                         new Path(outputDir.getAbsolutePath()),
+                                         new Path(inputFile.getAbsolutePath()),
+                                         CheckSumType.MD5);
         builder.build();
 
         // Check if checkSum is generated in outputDir

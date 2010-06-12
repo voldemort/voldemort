@@ -35,9 +35,10 @@ import java.util.Map;
  *
  */
 public class RebalancerState {
-    private final Map<Integer,RebalancePartitionsInfo> stealInfoMap = Maps.newHashMap();
+    private final Map<Integer,RebalancePartitionsInfo> stealInfoMap;
 
     public RebalancerState(List<RebalancePartitionsInfo> stealInfoList) {
+        stealInfoMap = Maps.newHashMapWithExpectedSize(stealInfoList.size());
         for (RebalancePartitionsInfo rebalancePartitionsInfo: stealInfoList)
             stealInfoMap.put(rebalancePartitionsInfo.getDonorId(),
                              rebalancePartitionsInfo);
@@ -88,7 +89,6 @@ public class RebalancerState {
     }
 
     public void add(RebalancePartitionsInfo rebalancePartitionsInfo) {
-        assert rebalancePartitionsInfo != null;
         stealInfoMap.put(rebalancePartitionsInfo.getDonorId(), rebalancePartitionsInfo);
     }
 
@@ -112,7 +112,7 @@ public class RebalancerState {
     }
 
     public List<RebalancePartitionsInfo> find(String store) {
-        List<RebalancePartitionsInfo> stealInfoList = Lists.newLinkedList();
+        List<RebalancePartitionsInfo> stealInfoList = Lists.newArrayListWithExpectedSize(stealInfoMap.size());
 
         for (RebalancePartitionsInfo info: getAll())
             if (info.getUnbalancedStoreList().contains(store))

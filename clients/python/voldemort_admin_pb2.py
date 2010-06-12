@@ -331,6 +331,13 @@ _FETCHPARTITIONENTRIESREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='fetch_master_entries', full_name='voldemort.FetchPartitionEntriesRequest.fetch_master_entries', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],

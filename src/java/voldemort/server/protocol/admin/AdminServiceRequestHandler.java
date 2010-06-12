@@ -269,53 +269,56 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setStatus("started");
 
         try {
-            asyncService.submitOperation(requestId, new AsyncOperation(requestId,
-                                                                       "Fetch and Update") {
+            asyncService.submitOperation(requestId,
+                                        new AsyncOperation(requestId, "Fetch and Update") {
 
-                private final AtomicBoolean running = new AtomicBoolean(true);
+                                            private final AtomicBoolean running = new AtomicBoolean(true);
 
-                @Override
-                public void stop() {
-                    running.set(false);
-                }
+                                            @Override
+                                            public void stop() {
+                                                running.set(false);
+                                            }
 
-                @Override
-                public void operate() {
-                    AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                                   metadataStore.getCluster(),
-                                                                                   4,
-                                                                                   2);
-                    try {
-                        StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                                                  storeName);
-                        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                                storeName,
-                                                                                                                partitions,
-                                                                                                                filter);
-                        updateStatus("Initated fetchPartitionEntries");
-                        EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                        for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
-                            Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+                                            @Override
+                                            public void operate() {
+                                                AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                                                               metadataStore.getCluster(),
+                                                                                                               4,
+                                                                                                               2);
+                                                try {
+                                                    StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                                                                      storeName);
+                                                    Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                                            storeName,
+                                                                                                                                            partitions,
+                                                                                                                                            filter,
+																	    false);
+                                                    updateStatus("Initated fetchPartitionEntries");
+                                                    EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
+                                                    for(long i = 0; running.get()
+                                                                    && entriesIterator.hasNext(); i++) {
+                                                        Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
-                            ByteArray key = entry.getFirst();
-                            Versioned<byte[]> value = entry.getSecond();
-                            try {
-                                storageEngine.put(key, value, null);
-                            } catch(ObsoleteVersionException e) {
-                                // log and ignore
-                                logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
-                            }
+                                                        ByteArray key = entry.getFirst();
+                                                        Versioned<byte[]> value = entry.getSecond();
+                                                        try {
+                                                            storageEngine.put(key,
+                                                                              value);
+                                                        } catch(ObsoleteVersionException e) {
+                                                            // log and ignore
+                                                            logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
+                                                        }
 
-                            throttler.maybeThrottle(key.length() + valueSize(value));
-                            if((i % 1000) == 0) {
-                                updateStatus(i + " entries processed");
-                            }
-                        }
-                    } finally {
-                        adminClient.stop();
-                    }
-                }
-            });
+                                                        throttler.maybeThrottle(key.length() + valueSize(value));
+                                                        if((i % 1000) == 0) {
+                                                            updateStatus(i + " entries processed");
+                                                        }
+                                                    }
+                                                } finally {
+                                                    adminClient.stop();
+                                                }
+                                            }
+                                        });
 
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -352,8 +355,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             String storeName = request.getStore();
             List<Integer> partitions = request.getPartitionsList();
-            StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                                      storeName);
+            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                              storeName);
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter(),
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
@@ -370,7 +373,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(checkKeyBelongsToDeletePartition(key.get(), partitions, routingStrategy)
+                if(checkKeyBelongsToDeletePartition(key.get(),
+                                                    partitions,
+                                                    routingStrategy)
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;
@@ -395,11 +400,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
+
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
                 metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
-                                  versionedValue,
-                                  null);
+                                  versionedValue);
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -416,7 +421,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
-                List<Versioned<byte[]>> versionedList = metadataStore.get(key, null);
+                List<Versioned<byte[]>> versionedList = metadataStore.get(key);
                 int size = (versionedList.size() > 0) ? 1 : 0;
 
                 if(size > 0) {
@@ -439,8 +444,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.TruncateEntriesResponse.Builder response = VAdminProto.TruncateEntriesResponse.newBuilder();
         try {
             String storeName = request.getStore();
-            StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
-                                                                                      storeName);
+            StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
+                                                                              storeName);
 
             storageEngine.truncate();
         } catch(VoldemortException e) {
@@ -470,10 +475,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
             StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
 
             synchronized(lock) {
-                // only allow a single store to be created at a time. We'll see
-                // concurrent errors when writing the
-                // stores.xml file out otherwise. (see
-                // ConfigurationStorageEngine.put for details)
+                // only allow a single store to be created at a time. We'll see concurrent errors when writing the
+                // stores.xml file out otherwise. (see ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
                     // open the store
@@ -482,7 +485,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     // update stores list in metadata store (this also has the
                     // effect of updating the stores.xml file)
                     List<StoreDefinition> currentStoreDefs;
-                    List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY, null);
+                    List<Versioned<byte[]>> v = metadataStore.get(MetadataStore.STORES_KEY);
 
                     if(((v.size() > 0) ? 1 : 0) > 0) {
                         Versioned<byte[]> currentValue = v.get(0);
@@ -584,9 +587,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return value.getValue().length + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
     }
 
-    static StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(StoreRepository storeRepository,
-                                                                     String storeName) {
-        StorageEngine<ByteArray, byte[], byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
+    static StorageEngine<ByteArray, byte[]> getStorageEngine(StoreRepository storeRepository,
+                                                             String storeName) {
+        StorageEngine<ByteArray, byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
 
         if(storageEngine == null) {
             throw new VoldemortException("No store named '" + storeName + "'.");
