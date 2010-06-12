@@ -19,10 +19,15 @@ package voldemort.performance;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.List;
@@ -33,6 +38,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -86,10 +93,17 @@ public class ReadOnlyStorePerformanceTest {
               .withRequiredArg()
               .describedAs("chunks")
               .ofType(Integer.class);
+        parser.accepts("internal-sort-size", "The number of items to sort in memory at a time")
+              .withRequiredArg()
+              .describedAs("size")
+              .ofType(Integer.class);
         parser.accepts("value-size", "The size of the values in the store")
               .withRequiredArg()
               .describedAs("size")
               .ofType(Integer.class);
+        parser.accepts("working-dir", "The directory in which to store temporary data")
+              .withRequiredArg()
+              .describedAs("dir");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
         OptionSet options = parser.parse(args);
 
@@ -102,12 +116,16 @@ public class ReadOnlyStorePerformanceTest {
 
         final int numThreads = CmdUtils.valueOf(options, "threads", 10);
         final int numRequests = (Integer) options.valueOf("requests");
+        final int internalSortSize = CmdUtils.valueOf(options, "internal-sort-size", 500000);
         int numValues = numRequests;
         final String inputFile = (String) options.valueOf("request-file");
         final String searcherClass = CmdUtils.valueOf(options,
                                                       "search-strategy",
                                                       BinarySearchStrategy.class.getName()).trim();
         final SearchStrategy searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(searcherClass));
+        final File workingDir = new File(CmdUtils.valueOf(options,
+                                                          "working-dir",
+                                                          System.getProperty("java.io.tmpdir")));
         String storeDir = (String) options.valueOf("store-dir");
 
         if(options.has("build")) {
@@ -119,14 +137,14 @@ public class ReadOnlyStorePerformanceTest {
             int valueSize = (Integer) options.valueOf("value-size");
 
             // generate test data
-            File temp = File.createTempFile("json-data", ".txt");
+            File temp = File.createTempFile("json-data", ".txt.gz", workingDir);
             temp.deleteOnExit();
             System.out.println("Generating test data in " + temp);
-            Writer writer = new BufferedWriter(new FileWriter(temp), 10 * 1024 * 1024);
+            OutputStream outputStream = new GZIPOutputStream(new FileOutputStream(temp));
+            Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream),
+                                               10 * 1024 * 1024);
             String value = TestUtils.randomLetters(valueSize);
             for(int i = 0; i < numValues; i++) {
-                if(i % 1000000 == 0)
-                    System.out.println(i);
                 writer.write("\"");
                 writer.write(Integer.toString(i));
                 writer.write("\" \"");
@@ -138,9 +156,10 @@ public class ReadOnlyStorePerformanceTest {
             writer = null;
 
             System.out.println("Building store.");
-            Reader r = new BufferedReader(new FileReader(temp), 10 * 1024 * 1024);
-            File output = TestUtils.createTempDir();
-            File tempDir = TestUtils.createTempDir();
+            InputStream inputStream = new GZIPInputStream(new FileInputStream(temp));
+            Reader r = new BufferedReader(new InputStreamReader(inputStream), 1 * 1024 * 1024);
+            File output = TestUtils.createTempDir(workingDir);
+            File tempDir = TestUtils.createTempDir(workingDir);
             SerializerDefinition sdef = new SerializerDefinition("json", "'string'");
             Cluster cluster = ServerTestUtils.getLocalCluster(1);
             StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
@@ -159,16 +178,17 @@ public class ReadOnlyStorePerformanceTest {
                                                                                           1),
                                                             output,
                                                             tempDir,
-                                                            500000,
+                                                            internalSortSize,
                                                             2,
                                                             numChunks,
-                                                            1 * 1024 * 1024);
+                                                            64 * 1024);
             builder.build();
 
             // copy to store dir
             File dir = new File(storeDir);
             Utils.rm(dir);
             dir.mkdirs();
+            System.out.println("Moving store data from " + output + " to " + dir);
             boolean copyWorked = new File(output, "node-0").renameTo(new File(dir, "version-0"));
             if(!copyWorked)
                 Utils.croak("Copy of data from " + output + " to " + dir + " failed.");
@@ -188,6 +208,7 @@ public class ReadOnlyStorePerformanceTest {
 
         // if they have given us a file make a request generator that reads from
         // it, otherwise just generate random values
+        final int numVals = numValues;
         Runnable requestGenerator;
         if(inputFile == null) {
             requestGenerator = new Runnable() {
@@ -197,7 +218,7 @@ public class ReadOnlyStorePerformanceTest {
                     Random random = new Random();
                     try {
                         while(true)
-                            requestIds.put(Integer.toString(random.nextInt(numRequests)));
+                            requestIds.put(Integer.toString(random.nextInt(numRequests) % numVals));
                     } catch(InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -228,6 +249,7 @@ public class ReadOnlyStorePerformanceTest {
         final Serializer<Object> keySerializer = new JsonTypeSerializer(JsonTypeDefinition.fromJson("'string'"),
                                                                         true);
         final AtomicInteger current = new AtomicInteger();
+        final int progressIncrement = numRequests / 5;
         PerformanceTest readWriteTest = new PerformanceTest() {
 
             @Override
@@ -236,7 +258,7 @@ public class ReadOnlyStorePerformanceTest {
                     totalResults.incrementAndGet();
                     int curr = current.getAndIncrement();
                     List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(requestIds.take())));
-                    if(curr % 100000 == 0)
+                    if(curr % progressIncrement == 0)
                         System.out.println(curr);
 
                     if(results.size() == 0)
@@ -247,6 +269,7 @@ public class ReadOnlyStorePerformanceTest {
                 }
             }
         };
+        System.out.println("Running test...");
         readWriteTest.run(numRequests, numThreads);
         System.out.println("Random Access Read Only store Results:");
         System.out.println("Null reads ratio:" + (nullResults.doubleValue())
