@@ -3,6 +3,7 @@ package voldemort.store.views;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -41,6 +42,8 @@ public class ViewStorageConfiguration implements StorageConfiguration {
             throw new VoldemortException("View \"" + name + "\" has a target store \"" + targetName
                                          + "\" which does not exist.");
         SerializerFactory factory = def.getSerializerFactory();
+        if(factory == null)
+            factory = new DefaultSerializerFactory();
         /* Check if the values in the target store are compressed */
         CompressionStrategy valueCompressionStrategy = null;
         if(targetDef.getValueSerializer().hasCompression()) {
@@ -50,7 +53,8 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         return new ViewStorageEngine(name,
                                      target,
                                      factory.getSerializer(def.getValueSerializer()),
-                                     factory.getSerializer(def.getTransformsSerializer()),
+                                     def.getTransformsSerializer() != null ? factory.getSerializer(def.getTransformsSerializer())
+                                                                          : null,
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
                                      valueCompressionStrategy,

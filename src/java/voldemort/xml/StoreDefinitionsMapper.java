@@ -44,7 +44,6 @@ import org.xml.sax.SAXException;
 import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
-import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
@@ -220,7 +219,7 @@ public class StoreDefinitionsMapper {
                                                   STORE_PREFERRED_WRITES_ELMT,
                                                   target.getRequiredReads());
 
-        SerializerFactory viewSerializerFactory = new DefaultSerializerFactory();
+        SerializerFactory viewSerializerFactory = null;
         if(store.getChildText(VIEW_SERIALIZER_FACTORY_ELMT) != null) {
             String serializerFactoryName = store.getChild(VIEW_SERIALIZER_FACTORY_ELMT).getText();
             viewSerializerFactory = loadSerializerFactory(serializerFactoryName);
