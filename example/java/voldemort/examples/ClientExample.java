@@ -30,7 +30,7 @@ public class ClientExample {
         String bootstrapUrl = "tcp://localhost:6666";
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
 
-        StoreClient<String, String, String> client = factory.getStoreClient("my_store_name");
+        StoreClient<String, String> client = factory.getStoreClient("my_store_name");
 
         // get the value
         Versioned<String> version = client.get("some_key");

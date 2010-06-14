@@ -25,14 +25,14 @@ package voldemort.client;
  * 
  * 
  */
-public abstract class UpdateAction<K, V> {
+public abstract class ViewUpdateAction<K, V, T> {
 
     /**
-     * Apply the update operation to the given store client.
+     * Apply the update operation to the given view store client.
      * 
-     * @param storeClient The store client to use
+     * @param storeClient The view store client to use
      */
-    public abstract void update(StoreClient<K, V> storeClient);
+    public abstract void update(ViewStoreClient<K, V, T> storeClient);
 
     /**
      * A hook for the user to override with any rollback actions they want

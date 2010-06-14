@@ -95,13 +95,22 @@ public class MockStoreClientFactory implements StoreClientFactory {
         failureDetector = new NoopFailureDetector();
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
+    }
+
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName) {
+        return getViewStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
+    }
+
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName,
+                                                                 InconsistencyResolver<Versioned<V>> resolver) {
+        return new DefaultViewStoreClient(storeName, resolver, this, 3);
     }
 
     public <K1, V1, T1> Store<K1, V1, T1> getRawStore(String storeName,

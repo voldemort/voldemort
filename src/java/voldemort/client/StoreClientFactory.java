@@ -41,15 +41,13 @@ public interface StoreClientFactory {
      *        {@link voldemort.client.StoreClient}
      * @param <V> The type of the value of the
      *        {@link voldemort.client.StoreClient}
-     * @param <T> The type of the transform of the
-     *        {@link voldemort.client.StoreClient}
      * @param storeName The name of the store
      * @return A fully constructed {@link voldemort.client.StoreClient}
      */
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName);
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName);
 
     /**
-     * Get a {@link voldemort.client.StoreClient} for the given store.
+     * Get a {@link voldemort.client.ViewStoreClient} for the given store.
      * 
      * @param <K> The type of the key of the
      *        {@link voldemort.client.StoreClient}
@@ -58,13 +56,43 @@ public interface StoreClientFactory {
      * @param <T> The type of the transform of the
      *        {@link voldemort.client.StoreClient}
      * @param storeName The name of the store
+     * @return A fully constructed {@link voldemort.client.StoreClient}
+     */
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName);
+
+    /**
+     * Get a {@link voldemort.client.StoreClient} for the given store.
+     * 
+     * @param <K> The type of the key of the
+     *        {@link voldemort.client.StoreClient}
+     * @param <V> The type of the value of the
+     *        {@link voldemort.client.StoreClient}
+     * @param storeName The name of the store
      * @param inconsistencyResolver The
      *        {@link voldemort.versioning.InconsistencyResolver} that should be
      *        used to resolve inconsistencies.
      * @return A fully constructed {@link voldemort.client.StoreClient}
      */
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> inconsistencyResolver);
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> inconsistencyResolver);
+
+    /**
+     * Get a {@link voldemort.client.ViewStoreClient} for the given store.
+     * 
+     * @param <K> The type of the key of the
+     *        {@link voldemort.client.ViewStoreClient}
+     * @param <V> The type of the value of the
+     *        {@link voldemort.client.ViewStoreClient}
+     * @param <T> The type of the transform of the
+     *        {@link voldemort.client.ViewStoreClient}
+     * @param storeName The name of the store
+     * @param inconsistencyResolver The
+     *        {@link voldemort.versioning.InconsistencyResolver} that should be
+     *        used to resolve inconsistencies.
+     * @return A fully constructed {@link voldemort.client.ViewStoreClient}
+     */
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName,
+                                                                 InconsistencyResolver<Versioned<V>> inconsistencyResolver);
 
     /**
      * Get the underlying store, not the public StoreClient interface

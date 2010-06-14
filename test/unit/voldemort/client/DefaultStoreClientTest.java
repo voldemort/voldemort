@@ -16,7 +16,7 @@ public class DefaultStoreClientTest extends TestCase {
 
     private int nodeId;
     private Time time;
-    private StoreClient<String, String, String> client;
+    private StoreClient<String, String> client;
 
     @Override
     public void setUp() {

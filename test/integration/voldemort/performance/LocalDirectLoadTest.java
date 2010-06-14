@@ -35,8 +35,7 @@ import voldemort.versioning.Versioned;
 public class LocalDirectLoadTest extends AbstractLoadTestHarness {
 
     @Override
-    public StoreClient<String, String, String> getStore(Props propsA, Props propsB)
-            throws Exception {
+    public StoreClient<String, String> getStore(Props propsA, Props propsB) throws Exception {
         StorageConfiguration conf = new BdbStorageConfiguration(new VoldemortConfig(propsA));
         Store<String, String, String> store = SerializingStore.wrap(conf.getStore("test" + 0),
                                                                     new StringSerializer(),
@@ -46,7 +45,7 @@ public class LocalDirectLoadTest extends AbstractLoadTestHarness {
         Store<String, String, String> resolvingStore = new InconsistencyResolvingStore<String, String, String>(store,
                                                                                                                resolver);
         StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);
-        return new DefaultStoreClient<String, String, String>(store.getName(), resolver, factory, 1);
+        return new DefaultStoreClient<String, String>(store.getName(), resolver, factory, 1);
     }
 
     public static void main(String[] args) throws Exception {

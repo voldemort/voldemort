@@ -16,7 +16,15 @@
 
 package voldemort.performance;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -205,8 +213,8 @@ public class RemoteTest {
         parser.accepts("v", "verbose");
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("save-nulls", "save keys which had null to a file")
-                .withRequiredArg()
-                .ofType(String.class);
+              .withRequiredArg()
+              .ofType(String.class);
         parser.accepts("node", "go to this node id").withRequiredArg().ofType(Integer.class);
         parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
@@ -270,7 +278,7 @@ public class RemoteTest {
         }
 
         final BufferedWriter nullWriter;
-        if (options.has("save-nulls")) {
+        if(options.has("save-nulls")) {
             nullWriter = new BufferedWriter(new FileWriter((String) options.valueOf("save-nulls")));
         } else {
             nullWriter = null;
@@ -309,7 +317,7 @@ public class RemoteTest {
                                                       .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
                                                       .setSocketBufferSize(4 * 1024);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
-        final StoreClient<Object, Object, Object> store = factory.getStoreClient(storeName);
+        final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
         StoreDefinition storeDef = getStoreDefinition(factory, storeName);
 
         Class<?> keyType = findKeyType(storeDef);
@@ -392,17 +400,17 @@ public class RemoteTest {
                         public void run() {
                             try {
                                 final Object key = keyProvider1.next();
-                                store.applyUpdate(new UpdateAction<Object, Object, Object>() {
+                                store.applyUpdate(new UpdateAction<Object, Object>() {
 
-                                    public void update(StoreClient<Object, Object, Object> storeClient) {
+                                    @Override
+                                    public void update(StoreClient<Object, Object> storeClient) {
                                         long startNs = System.nanoTime();
                                         storeClient.put(key, value);
                                         requestTimes[j] = (System.nanoTime() - startNs)
                                                           / Time.NS_PER_MS;
                                         numWrites.incrementAndGet();
                                     }
-                                },
-                                                  64);
+                                }, 64);
                             } catch(Exception e) {
                                 if(verbose) {
                                     e.printStackTrace();
@@ -453,7 +461,7 @@ public class RemoteTest {
                                     if(!ignoreNulls) {
                                         throw new Exception("value returned is null for key " + key);
                                     }
-                                    if (nullWriter != null) {
+                                    if(nullWriter != null) {
                                         nullWriter.write(key.toString() + "\n");
                                     }
                                 }
@@ -504,27 +512,27 @@ public class RemoteTest {
                         try {
                             final Object key = keyProvider.next();
 
-                            store.applyUpdate(new UpdateAction<Object, Object, Object>() {
+                            store.applyUpdate(new UpdateAction<Object, Object>() {
 
-                                public void update(StoreClient<Object, Object, Object> storeClient) {
+                                @Override
+                                public void update(StoreClient<Object, Object> storeClient) {
                                     Versioned<Object> v = store.get(key);
                                     numReads.incrementAndGet();
                                     if(v != null) {
                                         storeClient.put(key, v);
                                     } else {
                                         numNulls.incrementAndGet();
-                                        if (nullWriter != null) {
+                                        if(nullWriter != null) {
                                             try {
                                                 nullWriter.write(key.toString() + "\n");
-                                            } catch (IOException e) {
+                                            } catch(IOException e) {
                                                 e.printStackTrace();
                                             }
                                         }
                                     }
                                     numWrites.incrementAndGet();
                                 }
-                            },
-                                              64);
+                            }, 64);
                         } catch(Exception e) {
                             if(verbose) {
                                 e.printStackTrace();
@@ -547,10 +555,10 @@ public class RemoteTest {
             printStatistics("writes", numWrites.get(), start);
         }
 
-        if (nullWriter != null) {
+        if(nullWriter != null) {
             nullWriter.close();
         }
-        
+
         System.exit(0);
     }
 
