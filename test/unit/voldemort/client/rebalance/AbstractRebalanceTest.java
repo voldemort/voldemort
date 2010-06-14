@@ -339,10 +339,10 @@ public abstract class AbstractRebalanceTest {
                                                                                                 .setSocketTimeout(120,
                                                                                                                   TimeUnit.SECONDS));
 
-        final StoreClient<String, String, String> storeClient = new DefaultStoreClient<String, String, String>(testStoreName,
-                                                                                                               null,
-                                                                                                               factory,
-                                                                                                               3);
+        final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
+                                                                                               null,
+                                                                                               factory,
+                                                                                               3);
         final boolean[] masterNodeResponded = { false, false };
 
         // start get operation.
@@ -462,10 +462,10 @@ public abstract class AbstractRebalanceTest {
                                                                                                 .setSocketTimeout(120,
                                                                                                                   TimeUnit.SECONDS));
 
-        final StoreClient<String, String, String> storeClient = new DefaultStoreClient<String, String, String>(testStoreName,
-                                                                                                               null,
-                                                                                                               factory,
-                                                                                                               3);
+        final StoreClient<String, String> storeClient = new DefaultStoreClient<String, String>(testStoreName,
+                                                                                               null,
+                                                                                               factory,
+                                                                                               3);
         final Boolean[] masterNodeResponded = { false, false, false, false };
 
         // start get operation.

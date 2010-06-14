@@ -53,8 +53,7 @@ import com.google.common.collect.Maps;
 public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
 
     @Override
-    public StoreClient<String, String, String> getStore(Props propsA, Props propsB)
-            throws Exception {
+    public StoreClient<String, String> getStore(Props propsA, Props propsB) throws Exception {
         Cluster cluster = new ClusterMapper().readCluster(new FileReader(propsA.getString("metadata.directory")
                                                                          + File.separator
                                                                          + "/cluster.xml"));
@@ -97,7 +96,7 @@ public class LocalRoutedStoreLoadTest extends AbstractLoadTestHarness {
         Store<String, String, String> resolvingStore = new InconsistencyResolvingStore<String, String, String>(serializingStore,
                                                                                                                resolver);
         StoreClientFactory factory = new StaticStoreClientFactory(resolvingStore);
-        return new DefaultStoreClient<String, String, String>(store.getName(), resolver, factory, 1);
+        return new DefaultStoreClient<String, String>(store.getName(), resolver, factory, 1);
     }
 
     public static void main(String[] args) throws Exception {

@@ -359,13 +359,13 @@ public class Workload {
 
     }
 
-    public boolean doWrite(VoldemortWrapper db) {
+    public boolean doWrite(DbWrapper db) {
         Object key = warmUpKeyProvider.next();
         db.write(key, this.value);
         return true;
     }
 
-    public boolean doTransaction(VoldemortWrapper db) {
+    public boolean doTransaction(DbWrapper db) {
 
         String op = operationChooser.nextString();
         if(op.compareTo(Benchmark.READS) == 0) {
@@ -381,7 +381,7 @@ public class Workload {
 
     }
 
-    public boolean doWriteWithTransforms(VoldemortWrapper db) {
+    public boolean doWriteWithTransforms(DbWrapper db) {
         Object key = warmUpKeyProvider.next();
         String transform = null;
         if(transformsChooser != null) {
@@ -391,7 +391,7 @@ public class Workload {
         return true;
     }
 
-    public boolean doTransactionWithTransforms(VoldemortWrapper db) {
+    public boolean doTransactionWithTransforms(DbWrapper db) {
 
         String op = operationChooser.nextString();
         String transform = null;
@@ -411,7 +411,7 @@ public class Workload {
 
     }
 
-    public void doTransactionRead(VoldemortWrapper db, Object transform) {
+    public void doTransactionRead(DbWrapper db, Object transform) {
         Object key = keyProvider.next(insertKeyProvider.lastInt());
         if(transform != null)
             db.read(key, this.value, transform);
@@ -419,12 +419,12 @@ public class Workload {
             db.read(key, this.value);
     }
 
-    public void doTransactionDelete(VoldemortWrapper db) {
+    public void doTransactionDelete(DbWrapper db) {
         Object key = keyProvider.next(insertKeyProvider.lastInt());
         db.delete(key);
     }
 
-    public void doTransactionMixed(VoldemortWrapper db, Object transform) {
+    public void doTransactionMixed(DbWrapper db, Object transform) {
         Object key = keyProvider.next(insertKeyProvider.lastInt());
         if(transform != null)
             db.read(key, this.value, transform);
@@ -432,7 +432,7 @@ public class Workload {
             db.mixed(key, this.value);
     }
 
-    public void doTransactionWrites(VoldemortWrapper db, Object transform) {
+    public void doTransactionWrites(DbWrapper db, Object transform) {
         Object key = insertKeyProvider.next();
         if(transform != null)
             db.write(key, this.value, transform);

@@ -38,9 +38,9 @@ public class TestClientShutdown {
         String bootstrapUrl = args[1];
 
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
-        DefaultStoreClient<Object, Object, Object> client = null;
+        DefaultStoreClient<Object, Object> client = null;
         try {
-            client = (DefaultStoreClient<Object, Object, Object>) factory.getStoreClient(storeName);
+            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
         } catch(Exception e) {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }

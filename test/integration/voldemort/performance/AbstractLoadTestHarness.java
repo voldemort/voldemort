@@ -26,7 +26,7 @@ import voldemort.versioning.Versioned;
 
 public abstract class AbstractLoadTestHarness {
 
-    public abstract StoreClient<String, String, String> getStore(Props propsA, Props propsB)
+    public abstract StoreClient<String, String> getStore(Props propsA, Props propsB)
             throws Exception;
 
     public void run(String[] args) throws Exception {
@@ -40,7 +40,7 @@ public abstract class AbstractLoadTestHarness {
         Props propertiesB = new Props(new File(args[3]));
 
         System.out.println("Creating client: ");
-        final StoreClient<String, String, String> client = getStore(propertiesA, propertiesB);
+        final StoreClient<String, String> client = getStore(propertiesA, propertiesB);
 
         PerformanceTest writeTest = new PerformanceTest() {
 

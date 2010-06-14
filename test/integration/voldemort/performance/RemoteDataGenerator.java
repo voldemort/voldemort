@@ -63,7 +63,7 @@ public class RemoteDataGenerator {
     public void generateData(int requests, int keySize, int valueSize, String postfix) {
         StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(url)
                                                                                                .setMaxThreads(workers));
-        StoreClient<String, String, String> client = storeClientFactory.getStoreClient(storeName);
+        StoreClient<String, String> client = storeClientFactory.getStoreClient(storeName);
 
         for(int i = 0; i < requests; i++) {
             StringBuilder keyBuilder = new StringBuilder(makeString(keySize)).append(i);

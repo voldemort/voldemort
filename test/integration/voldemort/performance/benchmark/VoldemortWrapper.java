@@ -21,12 +21,12 @@ import voldemort.client.UpdateAction;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
-public class VoldemortWrapper {
+public class VoldemortWrapper implements DbWrapper {
 
     public final int Ok = 0;
     public final int Error = -1;
 
-    private StoreClient<Object, Object, Object> voldemortStore;
+    private StoreClient<Object, Object> voldemortStore;
     private Metrics measurement;
     private boolean verifyReads;
     private boolean ignoreNulls;
@@ -36,7 +36,7 @@ public class VoldemortWrapper {
     public static final String WRITES_STRING = "writes";
     public static final String MIXED_STRING = "transactions";
 
-    public VoldemortWrapper(StoreClient<Object, Object, Object> storeClient,
+    public VoldemortWrapper(StoreClient<Object, Object> storeClient,
                             boolean verifyReads,
                             boolean ignoreNulls) {
         this.voldemortStore = storeClient;
@@ -64,31 +64,12 @@ public class VoldemortWrapper {
         return res;
     }
 
-    public int read(Object key, Object expectedValue, Object transforms) {
-        long startNs = System.nanoTime();
-        Versioned<Object> returnedValue = voldemortStore.get(key, transforms);
-        long endNs = System.nanoTime();
-        measurement.measure(READS_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
-
-        int res = this.Ok;
-        if(returnedValue == null && !this.ignoreNulls) {
-            res = this.Error;
-        }
-
-        if(verifyReads && !expectedValue.equals(returnedValue.getValue())) {
-            res = this.Error;
-        }
-
-        measurement.reportReturnCode(READS_STRING, res);
-        return res;
-    }
-
     public int mixed(final Object key, final Object newValue) {
 
-        boolean updated = voldemortStore.applyUpdate(new UpdateAction<Object, Object, Object>() {
+        boolean updated = voldemortStore.applyUpdate(new UpdateAction<Object, Object>() {
 
             @Override
-            public void update(StoreClient<Object, Object, Object> storeClient) {
+            public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
                 Versioned<Object> v = storeClient.get(key);
                 if(v != null) {
@@ -108,61 +89,14 @@ public class VoldemortWrapper {
         return res;
     }
 
-    public int mixed(final Object key, final Object newValue, final Object transforms) {
-
-        boolean updated = voldemortStore.applyUpdate(new UpdateAction<Object, Object, Object>() {
-
-            @Override
-            public void update(StoreClient<Object, Object, Object> storeClient) {
-                long startNs = System.nanoTime();
-                Versioned<Object> v = storeClient.get(key);
-                if(v != null) {
-                    voldemortStore.put(key, newValue, transforms);
-                }
-                long endNs = System.nanoTime();
-                measurement.measure(MIXED_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
-            }
-        }, 3);
-
-        int res = this.Error;
-        if(updated) {
-            res = this.Ok;
-        }
-
-        measurement.reportReturnCode(MIXED_STRING, res);
-        return res;
-    }
-
     public int write(final Object key, final Object value) {
 
-        boolean written = voldemortStore.applyUpdate(new UpdateAction<Object, Object, Object>() {
+        boolean written = voldemortStore.applyUpdate(new UpdateAction<Object, Object>() {
 
             @Override
-            public void update(StoreClient<Object, Object, Object> storeClient) {
+            public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
                 storeClient.put(key, value);
-                long endNs = System.nanoTime();
-                measurement.measure(WRITES_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
-            }
-        }, 3);
-
-        int res = this.Error;
-        if(written) {
-            res = this.Ok;
-        }
-
-        measurement.reportReturnCode(WRITES_STRING, this.Ok);
-        return res;
-    }
-
-    public int write(final Object key, final Object value, final Object transforms) {
-
-        boolean written = voldemortStore.applyUpdate(new UpdateAction<Object, Object, Object>() {
-
-            @Override
-            public void update(StoreClient<Object, Object, Object> storeClient) {
-                long startNs = System.nanoTime();
-                storeClient.put(key, value, transforms);
                 long endNs = System.nanoTime();
                 measurement.measure(WRITES_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
             }
@@ -190,5 +124,17 @@ public class VoldemortWrapper {
         measurement.measure(DELETES_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
         measurement.reportReturnCode(DELETES_STRING, res);
         return res;
+    }
+
+    public int mixed(Object key, Object newValue, Object transforms) {
+        return mixed(key, newValue);
+    }
+
+    public int read(Object key, Object expectedValue, Object transforms) {
+        return read(key, expectedValue);
+    }
+
+    public int write(Object key, Object value, Object transforms) {
+        return write(key, value);
     }
 }

@@ -30,6 +30,7 @@ import java.util.Set;
 
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
+import voldemort.client.DefaultViewStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -50,20 +51,31 @@ public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
 
-    private static DefaultStoreClient<Object, Object, Object> client;
+    private static DefaultStoreClient<Object, Object> client;
+    private static DefaultViewStoreClient<Object, Object, Object> viewClient;
+    private static boolean isView = false;
 
     public static void main(String[] args) throws Exception {
         if(args.length < 2 || args.length > 3)
-            Utils.croak("USAGE: java VoldemortClientShell store_name bootstrap_url [command_file]");
+            Utils.croak("USAGE: java VoldemortClientShell store_name bootstrap_url is_view [command_file]");
 
         String storeName = args[0];
         String bootstrapUrl = args[1];
+
+        if(args.length > 2) {
+            String viewString = args[2];
+            if(!(viewString.equalsIgnoreCase("true") || viewString.equalsIgnoreCase("false")))
+                Utils.croak("is_view should be either true or false");
+            if(viewString.equalsIgnoreCase("true"))
+                isView = true;
+        }
+
         String commandsFileName = "";
         BufferedReader fileReader = null;
         BufferedReader inputReader = null;
         try {
-            if(args.length == 3) {
-                commandsFileName = args[2];
+            if(args.length == 4) {
+                commandsFileName = args[3];
                 fileReader = new BufferedReader(new FileReader(commandsFileName));
             }
 
@@ -77,7 +89,10 @@ public class VoldemortClientShell {
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
         try {
-            client = (DefaultStoreClient<Object, Object, Object>) factory.getStoreClient(storeName);
+            if(!isView)
+                client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
+            else
+                viewClient = (DefaultViewStoreClient<Object, Object, Object>) factory.getViewStoreClient(storeName);
         } catch(Exception e) {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }
@@ -104,10 +119,14 @@ public class VoldemortClientShell {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
                     Object value = tightenNumericTypes(jsonReader.read());
-                    if(jsonReader.hasMore())
-                        client.put(key, value, tightenNumericTypes(jsonReader.read()));
-                    else
+                    if(isView) {
+                        if(jsonReader.hasMore())
+                            viewClient.put(key, value, tightenNumericTypes(jsonReader.read()));
+                        else
+                            viewClient.put(key, value);
+                    } else {
                         client.put(key, value);
+                    }
                 } else if(line.toLowerCase().startsWith("getall")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("getall".length())));
                     List<Object> keys = new ArrayList<Object>();
@@ -117,7 +136,11 @@ public class VoldemortClientShell {
                     } catch(EndOfFileException e) {
                         // this is okay, just means we are done reading
                     }
-                    Map<Object, Versioned<Object>> vals = client.getAll(keys);
+                    Map<Object, Versioned<Object>> vals;
+                    if(isView)
+                        vals = viewClient.getAll(keys);
+                    else
+                        vals = client.getAll(keys);
                     if(vals.size() > 0) {
                         for(Map.Entry<Object, Versioned<Object>> entry: vals.entrySet()) {
                             System.out.print(entry.getKey());
@@ -130,17 +153,29 @@ public class VoldemortClientShell {
                 } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
-                    if(jsonReader.hasMore())
-                        printVersioned(client.get(key, tightenNumericTypes(jsonReader.read())));
-                    else
+                    if(isView) {
+                        if(jsonReader.hasMore())
+                            printVersioned(viewClient.get(key,
+                                                          tightenNumericTypes(jsonReader.read())));
+                        else
+                            printVersioned(viewClient.get(key));
+                    } else {
                         printVersioned(client.get(key));
+                    }
                 } else if(line.toLowerCase().startsWith("delete")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
-                    client.delete(tightenNumericTypes(jsonReader.read()));
+                    if(isView)
+                        viewClient.delete(tightenNumericTypes(jsonReader.read()));
+                    else
+                        client.delete(tightenNumericTypes(jsonReader.read()));
                 } else if(line.startsWith("preflist")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
-                    printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+                    if(isView)
+                        printNodeList(viewClient.getResponsibleNodes(key),
+                                      factory.getFailureDetector());
+                    else
+                        printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
                 } else if(line.startsWith("help")) {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");

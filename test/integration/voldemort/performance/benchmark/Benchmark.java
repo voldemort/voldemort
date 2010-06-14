@@ -34,6 +34,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.ViewStoreClient;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -104,7 +105,8 @@ public class Benchmark {
     public static final String VIEW_CLASS = "voldemort.store.views.UpperCaseView";
     public static final String HAS_TRANSFORMS = "true";
 
-    private StoreClient<Object, Object, Object> storeClient;
+    private StoreClient<Object, Object> storeClient;
+    private ViewStoreClient<Object, Object, Object> viewStoreClient;
     private StoreClientFactory factory;
 
     private int numThreads;
@@ -119,6 +121,7 @@ public class Benchmark {
     private boolean verifyRead = false;
     private boolean ignoreNulls = false;
     private String keyType;
+    private boolean isView = false;
 
     class StatusThread extends Thread {
 
@@ -162,7 +165,7 @@ public class Benchmark {
 
     class ClientThread extends Thread {
 
-        private VoldemortWrapper db;
+        private DbWrapper db;
         private boolean runBenchmark;
         private boolean verbose;
         private Workload workLoad;
@@ -170,7 +173,7 @@ public class Benchmark {
         private double targetThroughputPerMs;
         private int opsDone;
 
-        public ClientThread(VoldemortWrapper db,
+        public ClientThread(DbWrapper db,
                             boolean runBenchmark,
                             Workload workLoad,
                             int opsCount,
@@ -325,6 +328,10 @@ public class Benchmark {
 
             String socketUrl = benchmarkProps.getString(URL);
             String storeName = benchmarkProps.getString(STORE_NAME);
+            String storeType = benchmarkProps.getString(STORE_TYPE);
+            boolean isView = false;
+            if(storeType.compareTo("view") == 0)
+                isView = true;
 
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
                                                           .setMaxTotalConnections(numThreads)
@@ -337,7 +344,10 @@ public class Benchmark {
                                                           .setSocketBufferSize(4 * 1024);
 
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
-            this.storeClient = socketFactory.getStoreClient(storeName);
+            if(isView)
+                this.viewStoreClient = socketFactory.getViewStoreClient(storeName);
+            else
+                this.storeClient = socketFactory.getStoreClient(storeName);
             StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
             this.keyType = findKeyType(storeDef);
             benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
@@ -346,9 +356,15 @@ public class Benchmark {
             // Send the store a value and then delete it
             if(benchmarkProps.getBoolean(HANDSHAKE, false)) {
                 final Object key = getTempKey(this.keyType);
-                this.storeClient.delete(key);
-                this.storeClient.put(key, "123");
-                this.storeClient.delete(key);
+                if(isView) {
+                    this.viewStoreClient.delete(key);
+                    this.viewStoreClient.put(key, "123");
+                    this.viewStoreClient.delete(key);
+                } else {
+                    this.storeClient.delete(key);
+                    this.storeClient.put(key, "123");
+                    this.storeClient.delete(key);
+                }
             }
 
         } else {
@@ -381,6 +397,7 @@ public class Benchmark {
                                                null,
                                                BenchmarkViews.loadTransformation(benchmarkProps.getString(VIEW_CLASS)
                                                                                                .trim()));
+                isView = true;
             }
 
             store = SerializingStore.wrap(engine,
@@ -389,7 +406,10 @@ public class Benchmark {
                                           new IdentitySerializer());
 
             this.factory = new StaticStoreClientFactory(store);
-            this.storeClient = factory.getStoreClient(store.getName());
+            if(storeType.compareTo("view") == 0)
+                this.viewStoreClient = factory.getViewStoreClient(store.getName());
+            else
+                this.storeClient = factory.getStoreClient(store.getName());
         }
 
         this.storeInitialized = true;
@@ -430,11 +450,13 @@ public class Benchmark {
             label = new String("warmup");
         }
         Vector<Thread> threads = new Vector<Thread>();
-
+        DbWrapper db;
         for(int index = 0; index < this.numThreads; index++) {
-            VoldemortWrapper db = new VoldemortWrapper(storeClient,
-                                                       this.verifyRead,
-                                                       this.ignoreNulls);
+            if(isView) {
+                db = new VoldemortViewWrapper(viewStoreClient, this.verifyRead, this.ignoreNulls);
+            } else {
+                db = new VoldemortWrapper(storeClient, this.verifyRead, this.ignoreNulls);
+            }
             Thread clientThread = new ClientThread(db,
                                                    runBenchmark,
                                                    this.workLoad,

@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.client.DefaultStoreClient;
+import voldemort.client.DefaultViewStoreClient;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.ViewStoreClient;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.store.Store;
@@ -47,14 +49,25 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return new DefaultStoreClient(storeName, null, this, 3);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName) {
+        return new DefaultViewStoreClient(storeName, null, this, 3);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName,
+                                                                 InconsistencyResolver<Versioned<V>> resolver) {
+        return new DefaultViewStoreClient(storeName, resolver, this, 3);
     }
 
     public void close() {

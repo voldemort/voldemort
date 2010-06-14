@@ -116,14 +116,24 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName) {
+        return getViewStoreClient(storeName, null);
+    }
 
-        return new DefaultStoreClient<K, V, T>(storeName, resolver, this, 3);
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
+
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+    }
+
+    public <K, V, T> ViewStoreClient<K, V, T> getViewStoreClient(String storeName,
+                                                                 InconsistencyResolver<Versioned<V>> resolver) {
+
+        return new DefaultViewStoreClient<K, V, T>(storeName, resolver, this, 3);
     }
 
     @SuppressWarnings("unchecked")

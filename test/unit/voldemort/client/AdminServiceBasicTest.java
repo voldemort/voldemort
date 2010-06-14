@@ -191,7 +191,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                                              .getSocketUrl()
                                                                                                              .toString()));
 
-        StoreClient<Object, Object, Object> client = factory.getStoreClient("updateTest");
+        StoreClient<Object, Object> client = factory.getStoreClient("updateTest");
         client.put("abc", "123");
         String s = (String) client.get("abc").getValue();
         assertEquals(s, "123");

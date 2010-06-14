@@ -87,8 +87,8 @@ public abstract class AbstractStoreClientFactoryTest extends TestCase {
 
     @Test
     public void testCustomSerializerFactory() throws Exception {
-        StoreClient<Object, Object, Object> factory = getFactoryWithSerializer(new CustomSerializerFactory(),
-                                                                               getValidBootstrapUrl()).getStoreClient(getValidStoreName());
+        StoreClient<Object, Object> factory = getFactoryWithSerializer(new CustomSerializerFactory(),
+                                                                       getValidBootstrapUrl()).getStoreClient(getValidStoreName());
         String key = "hello";
         Date value = new Date();
         factory.put(key, value);
