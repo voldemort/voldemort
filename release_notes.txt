@@ -1,3 +1,17 @@
+Release 0.81 on 6/15/2010
+
+Changed made since 0.80.2:
+
+* IMPORTANT: We have upgraded the Hadoop Core jar to v0.20.2. To retain
+  backwards compatibility with Java 5, you will need to replace this
+  jar with the Hadoop 0.18.* core jar. 
+* Multiple donors for Voldemort Rebalancing
+* Features for EC2 Test
+* RO Stores - Backwards compatibility with 0.70, Bug fix in Checksum
+* Hadoop InputFormat, Pig LoadFunc in Contrib
+* Performance tweaks in Rebalancing
+* Voldemort Performance Tool
+
 Release 0.80.2 on 4/27/2010
 
 Changes made since 0.80.1:
