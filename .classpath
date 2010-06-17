@@ -13,6 +13,8 @@
 	<classpathentry kind="src" path="test/integration"/>
 	<classpathentry kind="src" path="test/common"/>
 	<classpathentry kind="src" path="example/java"/>
+	<classpathentry kind="src" path="contrib/db4o/test"/>
+	<classpathentry kind="src" path="contrib/db4o/src/java"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/catalina-ant.jar"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.3.jar"/>
@@ -44,6 +46,7 @@
 	<classpathentry kind="lib" path="lib/libthrift-0.2.0.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
 	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
+	<classpathentry kind="lib" path="/Users/germanviscuso/Projects/voldemort/contrib/db4o/lib/db4o-7.12.132.14217-all-java5.jar"/>
 	<classpathentry kind="lib" path="lib/paranamer-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-core-asl-1.4.0.jar"/>

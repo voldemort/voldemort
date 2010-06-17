@@ -11,3 +11,4 @@ rebalancing.slave.list
 server.state
 .version
 .temp
+.DS_Store

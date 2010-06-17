@@ -16,7 +16,6 @@
 
 package voldemort.store.db4o;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +36,6 @@ import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
@@ -54,13 +52,8 @@ import com.db4o.config.EmbeddedConfiguration;
 import com.db4o.config.QueryEvaluationMode;
 import com.db4o.ext.Db4oException;
 import com.google.common.collect.Lists;
-import com.sleepycat.je.Cursor;
-import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.DatabaseStats;
-import com.sleepycat.je.LockMode;
-import com.sleepycat.je.OperationStatus;
-import com.sleepycat.je.StatsConfig;
 
 /**
  * A store that uses db4o for persistence
@@ -73,22 +66,17 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private static final Hex hexCodec = new Hex();
 
     private final String path;
-    private final EmbeddedConfiguration databaseConfig;
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
-    private final boolean preload;
     private final Serializer<Version> versionSerializer;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
-    private ObjectContainer objectContainer;
+    private final EmbeddedConfiguration databaseConfig_;
+    private Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> keyValueProvider_;
 
     public Db4oStorageEngine(String path, EmbeddedConfiguration databaseConfig) {
-        this(path, databaseConfig, false);
-    }
-
-    public Db4oStorageEngine(String path, EmbeddedConfiguration databaseConfig, boolean preload) {
         this.path = Utils.notNull(path);
-        this.databaseConfig = Utils.notNull(databaseConfig);
+        this.databaseConfig_ = Utils.notNull(databaseConfig);
         this.versionedSerializer = new VersionedSerializer<byte[]>(new IdentitySerializer());
         this.versionSerializer = new Serializer<Version>() {
 
@@ -101,10 +89,25 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
             }
         };
         this.isOpen = new AtomicBoolean(true);
-        this.preload = preload;
-        // use read uncommitted isolation
-        databaseConfig.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
-        openDb4oDatabase();
+
+        // Use read uncommitted isolation
+        databaseConfig_.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
+        // Set activation depth to 0
+        databaseConfig_.common().activationDepth(0);
+        // Set index by Key
+        databaseConfig_.common()
+                       .objectClass(Db4oKeyValuePair.class)
+                       .objectField("key")
+                       .indexed(true);
+        // Cascade on delete
+        databaseConfig_.common().objectClass(Db4oKeyValuePair.class).cascadeOnDelete(true);
+        getKeyValueProvider();
+    }
+
+    private Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> getKeyValueProvider() {
+        if(keyValueProvider_ == null || keyValueProvider_.isClosed())
+            keyValueProvider_ = new Db4oKeyValueProvider<ByteArray, Versioned<byte[]>>(openDb4oDatabase());
+        return keyValueProvider_;
     }
 
     public String getName() {
@@ -113,13 +116,7 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
-            /*
-             * if(cursorPreload) { PreloadConfig preloadConfig = new
-             * PreloadConfig(); preloadConfig.setLoadLNs(true); // preload leaf
-             * nodes in the // cache getBdbDatabase().preload(preloadConfig); }
-             */
-            // Cursor cursor = getBdbDatabase().openCursor(null, null);
-            return new Db4oEntriesIterator(objectContainer);
+            return new Db4oEntriesIterator<ByteArray, Versioned<byte[]>>(getKeyValueProvider());
         } catch(Db4oException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
@@ -128,8 +125,7 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public ClosableIterator<ByteArray> keys() {
         try {
-            // Cursor cursor = getBdbDatabase().openCursor(null, null);
-            return new Db4oKeysIterator(objectContainer);
+            return new Db4oKeysIterator<ByteArray, Versioned<byte[]>>(getKeyValueProvider());
         } catch(Db4oException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
@@ -137,31 +133,18 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public void truncate() {
-
         if(isTruncating.compareAndSet(false, true)) {
             boolean succeeded = false;
-
             try {
-                ObjectSet result = objectContainer.queryByExample(null);
-                ArrayList<Long> ids = new ArrayList<Long>();
-                for(Object obj: result) {
-                    ids.add(objectContainer.ext().getID(obj));
-                }
-                for(long id: ids) {
-                    objectContainer.delete(objectContainer.ext().getByID(id));
-                }
-                objectContainer.commit();
-                objectContainer.ext().purge();
-
+                getKeyValueProvider().truncate();
+                getKeyValueProvider().commit();
                 succeeded = true;
             } catch(DatabaseException e) {
                 logger.error(e);
-                throw new VoldemortException("Failed to truncate Bdb store " + getName(), e);
+                throw new VoldemortException("Failed to truncate db4o store " + getName(), e);
 
             } finally {
-
-                commitOrAbort(succeeded, objectContainer);
-
+                commitOrAbort(succeeded, getKeyValueProvider());
                 // reopen the db4o database for future queries.
                 if(reopenDb4oDatabase()) {
                     isTruncating.compareAndSet(true, false);
@@ -176,12 +159,13 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    private void commitOrAbort(boolean succeeded, ObjectContainer container) {
+    private void commitOrAbort(boolean succeeded,
+                               Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
             if(succeeded) {
-                attemptCommit(container);
+                attemptCommit(provider);
             } else {
-                attemptAbort(container);
+                attemptAbort(provider);
             }
         } catch(Exception e) {
             logger.error(e);
@@ -193,8 +177,7 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
      */
     private boolean reopenDb4oDatabase() {
         try {
-            if(objectContainer.ext().isClosed())
-                this.openDb4oDatabase();
+            getKeyValueProvider();
             return true;
         } catch(Db4oException e) {
             throw new StorageInitializationException("Failed to reinitialize Db4oStorageEngine for store:"
@@ -204,35 +187,35 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return get(key, LockMode.READ_UNCOMMITTED, versionSerializer);
+        List<Versioned<byte[]>> versioned = get(key);
+        List<Version> versions = Lists.newArrayList();
+        for(Versioned<byte[]> v: versioned) {
+            versions.add(v.getVersion());
+        }
+        return versions;
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
-        return get(key, LockMode.READ_UNCOMMITTED, versionedSerializer);
+        return getKeyValueProvider().getValues(key);
     }
 
-    private <T> List<T> get(ByteArray key, LockMode lockMode, Serializer<T> serializer)
-            throws PersistenceFailureException {
-        StoreUtils.assertValidKey(key);
-
-        Cursor cursor = null;
-        try {
-            cursor = getBdbDatabase().openCursor(null, null);
-            return get(cursor, key, lockMode, serializer);
-        } catch(DatabaseException e) {
-            logger.error(e);
-            throw new PersistenceFailureException(e);
-        } finally {
-            attemptClose(cursor);
-        }
-    }
+    /*
+     * private <T> List<T> get(ByteArray key, LockMode lockMode, Serializer<T>
+     * serializer) throws PersistenceFailureException {
+     * StoreUtils.assertValidKey(key);
+     * 
+     * Cursor cursor = null; try { cursor = getBdbDatabase().openCursor(null,
+     * null); return get(cursor, key, lockMode, serializer); }
+     * catch(DatabaseException e) { logger.error(e); throw new
+     * PersistenceFailureException(e); } finally { attemptClose(cursor); } }
+     */
 
     /**
-     * truncate() operation mandates that all opened Database be closed before
+     * truncate() operation mandates that all opened Databases be closed before
      * attempting truncation.
      * <p>
      * This method throws an exception while truncation is happening to any
-     * request attempting in parallel with store truncation.
+     * request attempted in parallel with store truncation.
      * 
      * @return
      */
@@ -241,136 +224,95 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
             throw new VoldemortException("Db4o Store " + getName()
                                          + " is currently truncating cannot serve any request.");
         }
-        if(objectContainer == null) {
-            objectContainer = Db4oEmbedded.openFile(databaseConfig, path);
-        }
-        return objectContainer;
+        return Db4oEmbedded.openFile(databaseConfig_, path);
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, List<Versioned<byte[]>>> result = StoreUtils.newEmptyHashMap(keys);
-        Cursor cursor = null;
         try {
-            cursor = getBdbDatabase().openCursor(null, null);
             for(ByteArray key: keys) {
-                List<Versioned<byte[]>> values = get(cursor,
-                                                     key,
-                                                     LockMode.READ_UNCOMMITTED,
-                                                     versionedSerializer);
+                List<Versioned<byte[]>> values = getKeyValueProvider().getValues(key);
                 if(!values.isEmpty())
                     result.put(key, values);
             }
-        } catch(DatabaseException e) {
+        } catch(Db4oException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
-            attemptClose(cursor);
+            attemptClose(getKeyValueProvider());
         }
         return result;
     }
 
-    private static <T> List<T> get(ObjectContainer container,
-                                   ByteArray key,
-                                   LockMode lockMode,
-                                   Serializer<T> serializer) throws DatabaseException {
+    private static <T> List<T> get(Db4oKeyValueProvider<ByteArray, T> provider, ByteArray key)
+            throws DatabaseException {
         StoreUtils.assertValidKey(key);
-        // TODO Use lock mode somehow?
-        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
-        DatabaseEntry valueEntry = new DatabaseEntry();
-        List<T> results = Lists.newArrayList();
-
-        for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, lockMode); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
-                                                                                                                                                        valueEntry,
-                                                                                                                                                        lockMode)) {
-            results.add(serializer.toObject(valueEntry.getData()));
-        }
-        return results;
+        return provider.getValues(key);
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
-
-        DatabaseEntry keyEntry = new DatabaseEntry(key.get());
+        Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> keyValueProvider = getKeyValueProvider();
         boolean succeeded = false;
-        Transaction transaction = null;
-        Cursor cursor = null;
         try {
-            transaction = this.environment.beginTransaction(null, null);
-
-            // Check existing values
-            // if there is a version obsoleted by this value delete it
-            // if there is a version later than this one, throw an exception
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            cursor = getBdbDatabase().openCursor(transaction, null);
-            for(OperationStatus status = cursor.getSearchKey(keyEntry, valueEntry, LockMode.RMW); status == OperationStatus.SUCCESS; status = cursor.getNextDup(keyEntry,
-                                                                                                                                                                valueEntry,
-                                                                                                                                                                LockMode.RMW)) {
-                VectorClock clock = new VectorClock(valueEntry.getData());
-                Occured occured = value.getVersion().compare(clock);
+            ObjectSet<Db4oKeyValuePair<ByteArray, Versioned<byte[]>>> candidates = keyValueProvider.get(key);
+            for(Db4oKeyValuePair<ByteArray, Versioned<byte[]>> pair: candidates) {
+                Occured occured = value.getVersion().compare(pair.getValue().getVersion());
                 if(occured == Occured.BEFORE)
                     throw new ObsoleteVersionException("Key "
                                                        + new String(hexCodec.encode(key.get()))
                                                        + " "
                                                        + value.getVersion().toString()
                                                        + " is obsolete, it is no greater than the current version of "
-                                                       + clock + ".");
+                                                       + pair.getValue().getVersion() + ".");
                 else if(occured == Occured.AFTER)
                     // best effort delete of obsolete previous value!
-                    cursor.delete();
+                    keyValueProvider.delete(pair);
             }
-
-            // Okay so we cleaned up all the prior stuff, so now we are good to
-            // insert the new thing
-            valueEntry = new DatabaseEntry(versionedSerializer.toBytes(value));
-            OperationStatus status = cursor.put(keyEntry, valueEntry);
-            if(status != OperationStatus.SUCCESS)
-                throw new PersistenceFailureException("Put operation failed with status: " + status);
+            // Okay so we cleaned up all the prior stuff, so we can now insert
+            try {
+                keyValueProvider.set(key, value);
+            } catch(Db4oException de) {
+                throw new PersistenceFailureException("Put operation failed with status: "
+                                                      + de.getMessage());
+            }
             succeeded = true;
-
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
-            attemptClose(cursor);
+            attemptClose(keyValueProvider);
             if(succeeded)
-                attemptCommit(transaction);
+                attemptCommit(keyValueProvider);
             else
-                attemptAbort(transaction);
+                attemptAbort(keyValueProvider);
         }
     }
 
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         boolean deletedSomething = false;
-        Cursor cursor = null;
-        Transaction transaction = null;
+        Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> keyValueProvider = getKeyValueProvider();
         try {
-            transaction = this.environment.beginTransaction(null, null);
-            DatabaseEntry keyEntry = new DatabaseEntry(key.get());
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            cursor = getBdbDatabase().openCursor(transaction, null);
-            OperationStatus status = cursor.getSearchKey(keyEntry,
-                                                         valueEntry,
-                                                         LockMode.READ_UNCOMMITTED);
-            while(status == OperationStatus.SUCCESS) {
+            ObjectSet<Db4oKeyValuePair<ByteArray, Versioned<byte[]>>> candidates = keyValueProvider.get(key);
+            for(Db4oKeyValuePair<ByteArray, Versioned<byte[]>> pair: candidates) {
                 // if version is null no comparison is necessary
-                if(new VectorClock(valueEntry.getData()).compare(version) == Occured.BEFORE) {
-                    cursor.delete();
+                if(pair.getValue().getVersion().compare(version) == Occured.BEFORE) {
+                    keyValueProvider.delete(pair);
                     deletedSomething = true;
                 }
-                status = cursor.getNextDup(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
             }
             return deletedSomething;
-        } catch(DatabaseException e) {
-            logger.error(e);
-            throw new PersistenceFailureException(e);
+        } catch(Db4oException de) {
+            logger.error(de);
+            throw new PersistenceFailureException(de);
         } finally {
             try {
-                attemptClose(cursor);
+                attemptClose(keyValueProvider);
             } finally {
-                attemptCommit(transaction);
+                attemptCommit(keyValueProvider);
             }
         }
     }
@@ -395,36 +337,36 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void close() throws PersistenceFailureException {
         try {
             if(this.isOpen.compareAndSet(true, false))
-                objectContainer.close();
+                getKeyValueProvider().close();
         } catch(Db4oException e) {
             logger.error(e);
             throw new PersistenceFailureException("Shutdown failed.", e);
         }
     }
 
-    private void attemptAbort(ObjectContainer container) {
+    private void attemptAbort(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            if(container != null)
-                container.rollback(); // abort transaction
+            if(provider != null)
+                provider.rollback(); // abort transaction
         } catch(Db4oException e) {
             logger.error("Abort failed!", e);
         }
     }
 
-    private void attemptCommit(ObjectContainer container) {
+    private void attemptCommit(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            container.commit();
+            provider.commit();
         } catch(Db4oException e) {
             logger.error("Transaction commit failed!", e);
-            attemptAbort(container);
+            attemptAbort(provider);
             throw new PersistenceFailureException(e);
         }
     }
 
-    private static void attemptClose(ObjectContainer container) {
+    private static void attemptClose(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            if(container != null)
-                container.close();
+            if(provider != null)
+                provider.close();
         } catch(Db4oException e) {
             logger.error("Error closing cursor.", e);
             throw new PersistenceFailureException(e.getMessage(), e);
@@ -432,140 +374,20 @@ public class Db4oStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public DatabaseStats getStats(boolean setFast) {
-        try {
-            StatsConfig config = new StatsConfig();
-            config.setFast(setFast);
-            return this.getBdbDatabase().getStats(config);
-        } catch(DatabaseException e) {
-            logger.error(e);
-            throw new VoldemortException(e);
-        }
+        /*
+         * try { StatsConfig config = new StatsConfig();
+         * config.setFast(setFast); return
+         * this.getBdbDatabase().getStats(config); } catch(DatabaseException e)
+         * { logger.error(e);
+         */
+        throw new VoldemortException("Db4o stats not implemented yet");
+        /* } */
     }
 
     @JmxOperation(description = "A variety of stats about the db4o for this store.")
-    public String getBdbStats() {
+    public String getDb4oStats() {
         String stats = getStats(false).toString();
         return stats;
     }
 
-    private static abstract class Db4oIterator<T> implements ClosableIterator<T> {
-
-        private final boolean noValues;
-        final Cursor cursor;
-
-        private T current;
-        private volatile boolean isOpen;
-
-        public Db4oIterator(Cursor cursor, boolean noValues) {
-            this.cursor = cursor;
-            isOpen = true;
-            this.noValues = noValues;
-            DatabaseEntry keyEntry = new DatabaseEntry();
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            if(noValues)
-                valueEntry.setPartial(true);
-            try {
-                cursor.getFirst(keyEntry, valueEntry, LockMode.READ_UNCOMMITTED);
-            } catch(DatabaseException e) {
-                logger.error(e);
-                throw new PersistenceFailureException(e);
-            }
-            if(keyEntry.getData() != null)
-                current = get(keyEntry, valueEntry);
-        }
-
-        protected abstract T get(DatabaseEntry key, DatabaseEntry value);
-
-        protected abstract void moveCursor(DatabaseEntry key, DatabaseEntry value)
-                throws DatabaseException;
-
-        public final boolean hasNext() {
-            return current != null;
-        }
-
-        public final T next() {
-            if(!isOpen)
-                throw new PersistenceFailureException("Call to next() on a closed iterator.");
-
-            DatabaseEntry keyEntry = new DatabaseEntry();
-            DatabaseEntry valueEntry = new DatabaseEntry();
-            if(noValues)
-                valueEntry.setPartial(true);
-            try {
-                moveCursor(keyEntry, valueEntry);
-            } catch(DatabaseException e) {
-                logger.error(e);
-                throw new PersistenceFailureException(e);
-            }
-            T previous = current;
-            if(keyEntry.getData() == null)
-                current = null;
-            else
-                current = get(keyEntry, valueEntry);
-
-            return previous;
-        }
-
-        public final void remove() {
-            throw new UnsupportedOperationException("No removal y'all.");
-        }
-
-        public final void close() {
-            try {
-                cursor.close();
-                isOpen = false;
-            } catch(DatabaseException e) {
-                logger.error(e);
-            }
-        }
-
-        @Override
-        protected final void finalize() {
-            if(isOpen) {
-                logger.error("Failure to close cursor, will be forcably closed.");
-                close();
-            }
-
-        }
-    }
-
-    private static class Db4oKeysIterator extends BdbIterator<ByteArray> {
-
-        public Db4oKeysIterator(Cursor cursor) {
-            super(cursor, true);
-        }
-
-        @Override
-        protected ByteArray get(DatabaseEntry key, DatabaseEntry value) {
-            return new ByteArray(key.getData());
-        }
-
-        @Override
-        protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
-            cursor.getNextNoDup(key, value, LockMode.READ_UNCOMMITTED);
-        }
-
-    }
-
-    private static class Db4oEntriesIterator extends
-            BdbIterator<Pair<ByteArray, Versioned<byte[]>>> {
-
-        public BdbEntriesIterator(Cursor cursor) {
-            super(cursor, false);
-        }
-
-        @Override
-        protected Pair<ByteArray, Versioned<byte[]>> get(DatabaseEntry key, DatabaseEntry value) {
-            VectorClock clock = new VectorClock(value.getData());
-            byte[] bytes = ByteUtils.copy(value.getData(),
-                                          clock.sizeInBytes(),
-                                          value.getData().length);
-            return Pair.create(new ByteArray(key.getData()), new Versioned<byte[]>(bytes, clock));
-        }
-
-        @Override
-        protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
-            cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
-        }
-    }
 }
