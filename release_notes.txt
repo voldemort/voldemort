@@ -1,26 +1,43 @@
 Release 0.81 on 6/15/2010
 
-Changed made since 0.80.2:
+Changes made since 0.80.2:
 
-* IMPORTANT: We have upgraded the Hadoop Core jar to v0.20.2. To retain
-  backwards compatibility with Java 5, you will need to replace this
-  jar with the Hadoop 0.18.* core jar. 
-* Multiple donors for Voldemort Rebalancing
-* Features for EC2 Test
-* RO Stores - Backwards compatibility with 0.70, Bug fix in Checksum
-* Hadoop InputFormat, Pig LoadFunc in Contrib
-* Performance tweaks in Rebalancing
-* Voldemort Performance Tool
+* IMPORTANT: we have upgraded the Hadoop Core jar to v0.20.2. Since
+  this version of Hadoop requires Java 6, in order to retain backwards
+  compatibility with Java 5, you will need to replace this jar with
+  the Hadoop 0.18.* core jar.
+* Multiple donors for Voldemort Rebalancing: speeds up rebalancing, by
+  allowing a single stealer node to transfer partitions from multiple
+  nodes
+* Features for EC2 Testing
+* Read-only Stores: backwards compatibility with 0.70, bug fix in
+  Checksum code
+* Hadoop InputFormat, Pig LoadFunc in Contrib: ability to perform
+  Map/Reduce (either directly via Hadoop or using Pig) over data in
+  Voldemort stores. See: 
+  < contrib/hadoop/test/voldemort/hadoop/VoldemortWordCount.java > for
+  an example.
+* Voldemort Performance Tool: performance measurement tool based on
+  YCSB (Yahoo Cloud Serving Benchmark) code. Run
+  < bin/voldemort-performance-tool.sh --help > for more information.
+* Reverted default failure detector implementation back to
+  BannagedPeriodFailureDetector due to potential bugs in the
+  ThresholdFailureDetector
 
 Release 0.80.2 on 4/27/2010
 
 Changes made since 0.80.1:
 
-* Batched NIO writes
-* VoldemortAdminTool : Added support to specify stores,  support to fetch all keys to a binary file, support to save keys in ASCII (JSON) format [experimental], capability to add stores
-* Minor bugs in Rebalancing
-* Issue 240: Voldemort fetcher should use different temp directory for different stores
-* Checksum capability during construction of Voldemort read-only store.
+* Batched NIO writes (improves performance for AdminClient/Streaming 
+  operations when the NIO connector is enabled)
+* VoldemortAdminTool: Added support to specify stores, support to
+  fetch all keys to a binary file, support to save keys in ASCII
+  (JSON) format [experimental], capability to add stores. Run
+  < bin/voldemort-admin-tool.sh --help > for more information.
+* Minor bug fixes for Rebalancing
+* Issue 240: Voldemort fetcher should use different temp directories for
+  different stores
+* Checksum capability during construction of Voldemort read-only stores
 
 Release 0.80.1 on 3/23/2010
 
