@@ -41,7 +41,7 @@ import com.google.common.collect.ImmutableList;
 
 public class FailureDetectorConfig {
 
-    public static final String DEFAULT_IMPLEMENTATION_CLASS_NAME = ThresholdFailureDetector.class.getName();
+    public static final String DEFAULT_IMPLEMENTATION_CLASS_NAME = BannagePeriodFailureDetector.class.getName();
 
     public static final long DEFAULT_BANNAGE_PERIOD = 30000;
 
