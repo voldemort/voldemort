@@ -152,7 +152,10 @@ public class MockStoreClientFactory implements StoreClientFactory {
 
         Serializer<K1> keySerializer = (Serializer<K1>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V1> valueSerializer = (Serializer<V1>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Serializer<T1> transformsSerializer = (Serializer<T1>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
+        Serializer<T1> transformsSerializer = null;
+
+        if(storeDef.isView())
+            transformsSerializer = (Serializer<T1>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
