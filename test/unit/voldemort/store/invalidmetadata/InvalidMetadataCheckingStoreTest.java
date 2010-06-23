@@ -150,7 +150,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                         store.put(key, new Versioned<byte[]>(value), null);
                         break;
                     case 3:
-                        store.getAll(ImmutableList.of(key));
+                        store.getAll(ImmutableList.of(key), null);
                         break;
                 }
             }
