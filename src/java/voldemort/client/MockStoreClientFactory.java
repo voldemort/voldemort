@@ -161,7 +161,13 @@ public class MockStoreClientFactory implements StoreClientFactory {
         // resolver (if they gave us one)
         InconsistencyResolver<Versioned<V1>> secondaryResolver = new TimeBasedInconsistencyResolver();
 
-        StorageEngine engine = new InMemoryStorageEngine(storeDef.getViewTargetStoreName());
+        StorageEngine engine;
+
+        if(storeDef.isView())
+            engine = new InMemoryStorageEngine(storeDef.getViewTargetStoreName());
+        else
+            engine = new InMemoryStorageEngine(storeDef.getName());
+
         if(storeDef.isView()) {
             // instantiate view
             String targetName = storeDef.getViewTargetStoreName();
