@@ -20,28 +20,28 @@ import voldemort.utils.Pair;
 
 public class Db4oKeyValuePair<Key, Value> {
 
-    protected Key key;
-    protected Value value;
+    private Key key_;
+    private Value value_;
 
     public Db4oKeyValuePair(Key key, Value value) {
-        this.key = key;
-        this.value = value;
+        this.key_ = key;
+        this.value_ = value;
     }
 
     public void setKey(Key key) {
-        this.key = key;
+        this.key_ = key;
     }
 
     public Key getKey() {
-        return key;
+        return key_;
     }
 
     public void setValue(Value value) {
-        this.value = value;
+        this.value_ = value;
     }
 
     public Value getValue() {
-        return value;
+        return value_;
     }
 
     public Pair<Key, Value> toVoldemortPair() {

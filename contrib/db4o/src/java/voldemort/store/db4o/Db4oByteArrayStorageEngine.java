@@ -228,7 +228,7 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
             }
             // Okay so we cleaned up all the prior stuff, so we can now insert
             try {
-                keyValueProvider.set(key, value);
+                keyValueProvider.put(key, value);
             } catch(Db4oException de) {
                 throw new PersistenceFailureException("Put operation failed with status: "
                                                       + de.getMessage());

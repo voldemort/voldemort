@@ -134,15 +134,15 @@ public class Db4oKeyValueProvider<Key, Value> {
     /*
      * Stores a Key/Value pair in the database
      */
-    public void set(Key key, Value value) {
+    public void put(Key key, Value value) {
         Db4oKeyValuePair<Key, Value> pair = new Db4oKeyValuePair<Key, Value>(key, value);
-        set(pair);
+        put(pair);
     }
 
     /*
      * Stores a Key/Value pair in the database
      */
-    public void set(Db4oKeyValuePair<Key, Value> pair) {
+    public void put(Db4oKeyValuePair<Key, Value> pair) {
         getContainer().store(pair);
     }
 
