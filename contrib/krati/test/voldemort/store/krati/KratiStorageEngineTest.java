@@ -2,6 +2,7 @@ package voldemort.store.krati;
 
 import java.io.File;
 
+import voldemort.TestUtils;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
@@ -12,10 +13,10 @@ public class KratiStorageEngineTest extends AbstractStorageEngineTest {
 
     protected void setUp() throws Exception {
         super.setUp();
-        File storeDir = new File("/blah");
+        File storeDir = TestUtils.createTempDir();
         storeDir.mkdirs();
         storeDir.deleteOnExit();
-        this.store = new KratiStorageEngine("blah", 256, 0.75, 0, storeDir);
+        this.store = new KratiStorageEngine("storeName", 10, 0.75, 0, storeDir);
     }
 
     @Override

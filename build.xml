@@ -207,7 +207,7 @@
     </jar>
   </target>
 
-  <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests except EC2 tests.">
+  <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests except EC2 and Krati tests.">
     <replace-dir dir="${contribtestreport.dir}" />
     <replace-dir dir="${contribtesthtml.dir}" />
     <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
@@ -219,6 +219,7 @@
           <exclude name="**/*PerformanceTest.class" />
           <exclude name="**/*RemoteTest.class" />
           <exclude name="**/Ec2*Test.class" />
+          <exclude name="**/Krati*Test.class" />
         </fileset>
       </batchtest>
     </junit>
