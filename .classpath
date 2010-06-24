@@ -6,9 +6,6 @@
 	<classpathentry kind="src" path="contrib/ec2-testing/test"/>
 	<classpathentry kind="src" path="contrib/hadoop-store-builder/test"/>
 	<classpathentry kind="src" path="contrib/hadoop-store-builder/src/java"/>
-	<classpathentry kind="src" path="contrib/mongodb/example"/>
-	<classpathentry kind="src" path="contrib/mongodb/src/java"/>
-	<classpathentry kind="src" path="contrib/mongodb/test"/>
 	<classpathentry kind="src" path="test/unit"/>
 	<classpathentry kind="src" path="test/integration"/>
 	<classpathentry kind="src" path="test/common"/>
@@ -23,7 +20,6 @@
 	<classpathentry kind="lib" path="lib/commons-dbcp-1.2.2.jar"/>
 	<classpathentry kind="lib" path="lib/commons-httpclient-3.1.jar"/>
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
-	<classpathentry kind="lib" path="contrib/mongodb/lib/mongo-xjdm.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-cli-2.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-0.20.2-core.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.6.jar"/>
