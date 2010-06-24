@@ -48,9 +48,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
-import voldemort.store.views.View;
 import voldemort.store.views.ViewStorageConfiguration;
-import voldemort.utils.ReflectUtils;
 
 /**
  * Parses a stores.xml file
@@ -236,8 +234,8 @@ public class StoreDefinitionsMapper {
         if(store.getChild(STORE_ROUTING_STRATEGY) != null)
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
 
-        // get transformations
-        View<?, ?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_TRANS_ELMT));
+        // get view class name
+        String viewClass = store.getChildText(VIEW_TRANS_ELMT);
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
@@ -252,16 +250,9 @@ public class StoreDefinitionsMapper {
                                            .setRequiredReads(requiredReads)
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
-                                           .setView(valTrans)
+                                           .setView(viewClass)
                                            .setSerializerFactory(viewSerializerFactoryName)
                                            .build();
-    }
-
-    private View<?, ?, ?, ?> loadTransformation(String className) {
-        if(className == null)
-            return null;
-        Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -355,9 +346,7 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.getValueTransformation() == null)
             throw new MappingException("View " + storeDefinition.getName()
                                        + " has no defined transformation class.");
-        store.addContent(new Element(VIEW_TRANS_ELMT).setText(storeDefinition.getValueTransformation()
-                                                                             .getClass()
-                                                                             .getName()));
+        store.addContent(new Element(VIEW_TRANS_ELMT).setText(storeDefinition.getValueTransformation()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
         if(storeDefinition.hasPreferredReads())
