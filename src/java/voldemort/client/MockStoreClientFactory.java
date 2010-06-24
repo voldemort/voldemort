@@ -31,6 +31,7 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.versioned.VersionIncrementingStore;
+import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -184,7 +185,7 @@ public class MockStoreClientFactory implements StoreClientFactory {
                                            this.valueSerializer != null ? this.valueSerializer
                                                                        : serializerFactory.getSerializer(targetDef.getValueSerializer()),
                                            null,
-                                           storeDef.getValueTransformation());
+                                           ViewStorageConfiguration.loadTransformation(storeDef.getValueTransformation()));
         }
 
         Store store = new VersionIncrementingStore(engine, nodeId, time);
