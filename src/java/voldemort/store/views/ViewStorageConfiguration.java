@@ -55,6 +55,10 @@ public class ViewStorageConfiguration implements StorageConfiguration {
             valueCompressionStrategy = new CompressionStrategyFactory().get(targetDef.getValueSerializer()
                                                                                      .getCompression());
         }
+
+        /* instantiate the view class */
+        View<?, ?, ?, ?> view = loadTransformation(def.getValueTransformation());
+
         return new ViewStorageEngine(name,
                                      target,
                                      factory.getSerializer(def.getValueSerializer()),
@@ -63,18 +67,24 @@ public class ViewStorageConfiguration implements StorageConfiguration {
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
                                      valueCompressionStrategy,
-                                     def.getValueTransformation());
+                                     view);
     }
 
     public String getType() {
         return TYPE_NAME;
     }
 
-    private SerializerFactory loadSerializerFactory(String className) {
+    public static SerializerFactory loadSerializerFactory(String className) {
         if(className == null)
             return null;
-        Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (SerializerFactory) ReflectUtils.callConstructor(transClass, new Object[] {});
+        Class<?> factoryClass = ReflectUtils.loadClass(className.trim());
+        return (SerializerFactory) ReflectUtils.callConstructor(factoryClass, new Object[] {});
     }
 
+    public static View<?, ?, ?, ?> loadTransformation(String className) {
+        if(className == null)
+            return null;
+        Class<?> viewClass = ReflectUtils.loadClass(className.trim());
+        return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(viewClass, new Object[] {});
+    }
 }
