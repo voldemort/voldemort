@@ -14,6 +14,7 @@ import voldemort.store.StoreUtils;
 import voldemort.store.compress.CompressionStrategy;
 import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
 public class ViewStorageConfiguration implements StorageConfiguration {
@@ -41,9 +42,13 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         if(target == null)
             throw new VoldemortException("View \"" + name + "\" has a target store \"" + targetName
                                          + "\" which does not exist.");
-        SerializerFactory factory = def.getSerializerFactory();
-        if(factory == null)
+        String factoryName = def.getSerializerFactory();
+        SerializerFactory factory;
+        if(factoryName == null)
             factory = new DefaultSerializerFactory();
+        else
+            factory = loadSerializerFactory(factoryName);
+
         /* Check if the values in the target store are compressed */
         CompressionStrategy valueCompressionStrategy = null;
         if(targetDef.getValueSerializer().hasCompression()) {
@@ -63,6 +68,13 @@ public class ViewStorageConfiguration implements StorageConfiguration {
 
     public String getType() {
         return TYPE_NAME;
+    }
+
+    private SerializerFactory loadSerializerFactory(String className) {
+        if(className == null)
+            return null;
+        Class<?> transClass = ReflectUtils.loadClass(className.trim());
+        return (SerializerFactory) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
 }
