@@ -2,7 +2,6 @@ package voldemort.store;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
@@ -30,7 +29,7 @@ public class StoreDefinitionBuilder {
     private String routingStrategyType = null;
     private String viewOf = null;
     private View<?, ?, ?, ?> view = null;
-    private SerializerFactory serializerFactory = null;
+    private String serializerFactory = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -192,11 +191,11 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public SerializerFactory getSerializerFactory() {
+    public String getSerializerFactory() {
         return this.serializerFactory;
     }
 
-    public StoreDefinitionBuilder setSerializerFactory(SerializerFactory factory) {
+    public StoreDefinitionBuilder setSerializerFactory(String factory) {
         this.serializerFactory = factory;
         return this;
     }

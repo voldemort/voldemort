@@ -45,7 +45,6 @@ import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
@@ -219,10 +218,9 @@ public class StoreDefinitionsMapper {
                                                   STORE_PREFERRED_WRITES_ELMT,
                                                   target.getRequiredReads());
 
-        SerializerFactory viewSerializerFactory = null;
+        String viewSerializerFactoryName = null;
         if(store.getChildText(VIEW_SERIALIZER_FACTORY_ELMT) != null) {
-            String serializerFactoryName = store.getChild(VIEW_SERIALIZER_FACTORY_ELMT).getText();
-            viewSerializerFactory = loadSerializerFactory(serializerFactoryName);
+            viewSerializerFactoryName = store.getChild(VIEW_SERIALIZER_FACTORY_ELMT).getText();
         }
 
         SerializerDefinition keySerializer = target.getKeySerializer();
@@ -255,7 +253,7 @@ public class StoreDefinitionsMapper {
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
                                            .setView(valTrans)
-                                           .setSerializerFactory(viewSerializerFactory)
+                                           .setSerializerFactory(viewSerializerFactoryName)
                                            .build();
     }
 
@@ -264,13 +262,6 @@ public class StoreDefinitionsMapper {
             return null;
         Class<?> transClass = ReflectUtils.loadClass(className.trim());
         return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
-    }
-
-    private SerializerFactory loadSerializerFactory(String className) {
-        if(className == null)
-            return null;
-        Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (SerializerFactory) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -388,7 +379,7 @@ public class StoreDefinitionsMapper {
 
         Element serializerFactory = new Element(VIEW_SERIALIZER_FACTORY_ELMT);
         if(storeDefinition.getSerializerFactory() != null) {
-            serializerFactory.setText(storeDefinition.getSerializerFactory().getClass().getName());
+            serializerFactory.setText(storeDefinition.getSerializerFactory());
             store.addContent(serializerFactory);
         }
         return store;

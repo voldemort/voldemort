@@ -20,7 +20,6 @@ import java.io.Serializable;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
 import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
@@ -51,7 +50,7 @@ public class StoreDefinition implements Serializable {
     private final String routingStrategyType;
     private final String viewOf;
     private final View<?, ?, ?, ?> valueTransformation;
-    private final SerializerFactory serializerFactory;
+    private final String serializerFactory;
 
     public StoreDefinition(String name,
                            String type,
@@ -69,7 +68,7 @@ public class StoreDefinition implements Serializable {
                            View<?, ?, ?, ?> valTrans,
                            Integer retentionDays,
                            Integer retentionThrottleRate,
-                           SerializerFactory factory) {
+                           String factory) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
@@ -210,7 +209,7 @@ public class StoreDefinition implements Serializable {
         return valueTransformation;
     }
 
-    public SerializerFactory getSerializerFactory() {
+    public String getSerializerFactory() {
         return this.serializerFactory;
     }
 
@@ -245,10 +244,9 @@ public class StoreDefinition implements Serializable {
                                                                           .getClass() : null)
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
                && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate())
-               && Objects.equal(getSerializerFactory() != null ? getSerializerFactory().getClass()
-                                                              : null,
+               && Objects.equal(getSerializerFactory() != null ? getSerializerFactory() : null,
                                 def.getSerializerFactory() != null ? def.getSerializerFactory()
-                                                                        .getClass() : null);
+                                                                  : null);
     }
 
     @Override
