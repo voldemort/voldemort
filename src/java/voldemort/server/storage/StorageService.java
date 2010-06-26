@@ -210,13 +210,48 @@ public class StorageService extends AbstractService {
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
         StorageEngine<ByteArray, byte[]> engine = getStorageEngine(storeDef.getName(),
                                                                    storeDef.getType());
-        registerEngine(engine);
 
-        if(voldemortConfig.isServerRoutingEnabled())
-            registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
+        // openStore() should have atomic semantics
+        try {
+            registerEngine(engine);
+        
+            if(voldemortConfig.isServerRoutingEnabled())
+                registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
 
-        if(storeDef.hasRetentionPeriod())
-            scheduleCleanupJob(storeDef, engine);
+            if(storeDef.hasRetentionPeriod())
+                scheduleCleanupJob(storeDef, engine);
+        } catch (Exception e) {
+            unregisterEngine(engine);
+            throw new VoldemortException(e);
+        }
+    }
+
+    /**
+     * Unregister and remove the engine from the storage repository
+     * 
+     * @param engine Unregister the storage engine
+     */
+    public void unregisterEngine(StorageEngine<ByteArray, byte[]> engine) {
+        String engineName = engine.getName();
+        Store<ByteArray,  byte[]> store = storeRepository.removeLocalStore(engineName);
+
+        if (store != null) {
+            if (voldemortConfig.isStatTrackingEnabled() && voldemortConfig.isJmxEnabled()) {
+
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                            store.getName());
+
+                synchronized(mbeanServer) {
+                    if (mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+                }
+
+            }
+        }
+
+        storeRepository.removeStorageEngine(engineName);
+        engine.close();
     }
 
     /**
@@ -283,31 +318,38 @@ public class StorageService extends AbstractService {
     public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
         Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
 
-        for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
-            this.storeRepository.addNodeStore(node.getId(), store);
-            nodeStores.put(node.getId(), store);
+        try {
+            for(Node node: cluster.getNodes()) {
+                Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
+                this.storeRepository.addNodeStore(node.getId(), store);
+                nodeStores.put(node.getId(), store);
+            }
+
+            Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
+                                                                   nodeStores,
+                                                                   metadata.getCluster(),
+                                                                   def,
+                                                                   true,
+                                                                   this.clientThreadPool,
+                                                                   voldemortConfig.getRoutingTimeoutMs(),
+                                                                   failureDetector,
+                                                                   SystemTime.INSTANCE);
+
+            routedStore = new RebootstrappingStore(metadata,
+                                                   storeRepository,
+                                                   voldemortConfig,
+                                                   socketPool,
+                                                   (RoutedStore) routedStore);
+
+            routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
+                                                                             new VectorClockInconsistencyResolver<byte[]>());
+            this.storeRepository.addRoutedStore(routedStore);
+        } catch (Exception e) {
+            // Roll back
+            for(Node node: cluster.getNodes())
+                this.storeRepository.removeNodeStore(def.getName(), node.getId());
+            throw new VoldemortException(e);
         }
-
-        Store<ByteArray, byte[]> routedStore = new RoutedStore(def.getName(),
-                                                               nodeStores,
-                                                               metadata.getCluster(),
-                                                               def,
-                                                               true,
-                                                               this.clientThreadPool,
-                                                               voldemortConfig.getRoutingTimeoutMs(),
-                                                               failureDetector,
-                                                               SystemTime.INSTANCE);
-
-        routedStore = new RebootstrappingStore(metadata,
-                                               storeRepository,
-                                               voldemortConfig,
-                                               socketPool,
-                                               (RoutedStore) routedStore);
-
-        routedStore = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                         new VectorClockInconsistencyResolver<byte[]>());
-        this.storeRepository.addRoutedStore(routedStore);
     }
 
     private Store<ByteArray, byte[]> getNodeStore(String storeName, Node node, int localNode) {

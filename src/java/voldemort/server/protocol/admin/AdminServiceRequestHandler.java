@@ -495,8 +495,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         currentStoreDefs = Lists.newArrayList();
                     }
                     currentStoreDefs.add(def);
-
-                    metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
+                    try {
+                        metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
+                    } catch (Exception e) {
+                        throw new VoldemortException(e);
+                    }
                 } else {
                     throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
                                                                            def.getName()));
