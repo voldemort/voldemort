@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,12 +18,7 @@ package voldemort.store.rebalancing;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
@@ -45,6 +40,7 @@ import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketStoreFactory;
@@ -56,9 +52,6 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-/**
- * 
- */
 @RunWith(Parameterized.class)
 public class RedirectingStoreTest extends TestCase {
 
@@ -145,6 +138,36 @@ public class RedirectingStoreTest extends TestCase {
     }
 
     @Test
+    public void testProxyGetAll() {
+        Map<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
+
+        Store<ByteArray, byte[]> store = server1.getStoreRepository()
+                       .getStorageEngine(testStoreName);
+        for (Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
+            store.put(entry.getKey(),
+                      Versioned.value(entry.getValue(),
+                                      new VectorClock().incremented(0, System.currentTimeMillis())));
+        }
+
+        server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+        server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+        incrementVersionAndPut(server0.getMetadataStore(),
+                               MetadataStore.REBALANCING_STEAL_INFO,
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
+        checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
+                                                                  testStoreName), Arrays.asList(1));
+    }
+    
+    @Test
     public void testProxyGet() {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
@@ -168,12 +191,12 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               new RebalancePartitionsInfo(0,
-                                                           1,
-                                                           Arrays.asList(1),
-                                                           new ArrayList<Integer>(0),
-                                                           Arrays.asList(testStoreName),
-                                                           0));
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyGet()
         checkGetEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
@@ -204,17 +227,37 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.REBALANCING_STEAL_INFO,
-                               new RebalancePartitionsInfo(0,
-                                                           1,
-                                                           Arrays.asList(1),
-                                                           new ArrayList<Integer>(0),
-                                                           Arrays.asList(testStoreName),
-                                                           0));
+                               new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                                             1,
+                                                                                             Arrays.asList(1),
+                                                                                             new ArrayList<Integer>(0),
+                                                                                             Arrays.asList(testStoreName),
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyPut()
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(1));
     }
 
+    private void checkGetAllEntries(Map<ByteArray, byte[]> entryMap,
+                                    VoldemortServer server,
+                                    Store<ByteArray, byte[]> store,
+                                    List<Integer> availablePartition) {
+        RoutingStrategy routing = server.getMetadataStore().getRoutingStrategy(store.getName());
+        List<ByteArray> keysInPartitions = new ArrayList<ByteArray>();
+        for (ByteArray key: entryMap.keySet()) {
+            List<Integer> partitions = routing.getPartitionList(key.get());
+            if (availablePartition.containsAll(partitions)) {
+                keysInPartitions.add(key);
+            }
+        }
+        Map<ByteArray, List<Versioned<byte[]>>> results = store.getAll(keysInPartitions);
+        for (Entry<ByteArray, List<Versioned<byte[]>>> entry: results.entrySet()) {
+            assertEquals("Values should match",
+                         new String(entry.getValue().get(0).getValue()),
+                         new String(entryMap.get(entry.getKey())));
+        }
+    }
+    
     private void checkGetEntries(HashMap<ByteArray, byte[]> entryMap,
                                  VoldemortServer server,
                                  Store<ByteArray, byte[]> store,

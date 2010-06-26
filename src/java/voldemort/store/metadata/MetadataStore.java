@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.management.MBeanOperationInfo;
 
@@ -36,6 +39,7 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -59,10 +63,7 @@ import com.google.common.collect.Lists;
 /**
  * MetadataStore maintains metadata for Voldemort Server. <br>
  * Metadata is persisted as strings in inner store for ease of readability.<br>
- * Metadata Store keeps a in memory write-through-cache for performance.
- * 
- * 
- * 
+ * Metadata Store keeps an in memory write-through-cache for performance.
  */
 public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
@@ -107,6 +108,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final RoutingStrategyFactory routingFactory = new RoutingStrategyFactory();
+
+    // Guards mutations made to non-scalar objects e.g., lists stored in innerStore
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    public final Lock readLock = lock.readLock();
+    public final Lock writeLock = lock.writeLock();
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
@@ -181,9 +187,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     /**
      * A write through put to inner-store.
      * 
-     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
-     * @param value: versioned byte[] eg. UTF bytes for cluster xml definitions
-     * @return void
+     * @param keyBytes: keyName strings serialized as bytes eg. 'cluster.xml'
+     * @param valueBytes: versioned byte[] eg. UTF bytes for cluster xml definitions
      * @throws VoldemortException
      */
     public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes)
@@ -207,7 +212,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * @param key : keyName strings serialized as bytes eg. 'cluster.xml'
+     * @param keyBytes: keyName strings serialized as bytes eg. 'cluster.xml'
      * @return List of values (only 1 for Metadata) versioned byte[] eg. UTF
      *         bytes for cluster xml definitions
      * @throws VoldemortException
@@ -253,6 +258,26 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         init(getNodeId());
     }
 
+    public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
+        writeLock.lock();
+        try {
+            RebalancerState rebalancerState = getRebalancerState();
+
+            if (!rebalancerState.remove(stealInfo))
+                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in " + rebalancerState);
+
+            if (rebalancerState.isEmpty()) {
+                logger.debug("stealInfoList empty, cleaning all rebalancing state");
+                cleanAllRebalancingState();
+            } else {
+                put(REBALANCING_STEAL_INFO, rebalancerState);
+                initCache(REBALANCING_STEAL_INFO);
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -278,9 +303,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public StoreDefinition getStoreDef(String storeName) {
         List<StoreDefinition> storeDefs = getStoreDefList();
         for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().equals(storeName)) {
+            if(storeDef.getName().equals(storeName))
                 return storeDef;
-            }
         }
 
         throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
@@ -294,8 +318,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
 
-    public RebalancePartitionsInfo getRebalancingStealInfo() {
-        return (RebalancePartitionsInfo) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+    public RebalancerState getRebalancerState() {
+        return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
     @SuppressWarnings("unchecked")
@@ -357,12 +381,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO, new RebalancePartitionsInfo(-1,
-                                                                      -1,
-                                                                      new ArrayList<Integer>(0),
-                                                                      new ArrayList<Integer>(0),
-                                                                      Arrays.asList(""),
-                                                                      0));
+        initCache(REBALANCING_STEAL_INFO, new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 
@@ -415,7 +434,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(STORES_KEY.equals(key)) {
             valueStr = storeMapper.writeStoreList((List<StoreDefinition>) value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueStr = ((RebalancePartitionsInfo) value.getValue()).toJsonString();
+            RebalancerState rebalancerState = (RebalancerState) value.getValue();
+            valueStr = rebalancerState.toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)
                   || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
@@ -449,7 +469,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
-            valueObject = new RebalancePartitionsInfo(value.getValue());
+            String valueString = value.getValue();
+            if (valueString.startsWith("[")) {
+                valueObject = RebalancerState.create(valueString);
+            } else {
+                valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for String to Object serialization.");
@@ -468,9 +493,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(values.size() > 1)
             throw new VoldemortException("Inconsistent metadata found: expected 1 version but found "
                                          + values.size() + " for key:" + key);
-        if(values.size() > 0) {
+        if(values.size() > 0)
             return values.get(0);
-        }
 
         throw new VoldemortException("No metadata found for required key:" + key);
     }

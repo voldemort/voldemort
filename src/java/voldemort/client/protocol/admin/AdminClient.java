@@ -275,10 +275,12 @@ public class AdminClient {
                                       String storeName,
                                       List<Integer> partitionList,
                                       VoldemortFilter filter,
-                                      boolean fetchValues) throws IOException {
+                                      boolean fetchValues,
+                                      boolean fetchMasterEntries) throws IOException {
         VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                                                                                                                 .addAllPartitions(partitionList)
                                                                                                                 .setFetchValues(fetchValues)
+                                                                                                                .setFetchMasterEntries(fetchMasterEntries)
                                                                                                                 .setStore(storeName);
 
         if(filter != null) {
@@ -323,6 +325,7 @@ public class AdminClient {
      * @param partitionList List of the partitions
      * @param filter Custom filter implementation to filter out entries which
      *        should not be fetched.
+     * @param fetch only entries which belong to Master
      * @return An iterator which allows entries to be streamed as they're being
      *         iterated over.
      * @throws VoldemortException
@@ -330,7 +333,8 @@ public class AdminClient {
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
                                                                      String storeName,
                                                                      List<Integer> partitionList,
-                                                                     VoldemortFilter filter) {
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -340,7 +344,12 @@ public class AdminClient {
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            initiateFetchRequest(outputStream, storeName, partitionList, filter, true);
+            initiateFetchRequest(outputStream,
+                                 storeName,
+                                 partitionList,
+                                 filter,
+                                 true,
+                                 fetchMasterEntries);
         } catch(IOException e) {
             close(sands.getSocket());
             pool.checkin(destination, sands);
@@ -394,7 +403,8 @@ public class AdminClient {
     public Iterator<ByteArray> fetchKeys(int nodeId,
                                          String storeName,
                                          List<Integer> partitionList,
-                                         VoldemortFilter filter) {
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -404,7 +414,12 @@ public class AdminClient {
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
-            initiateFetchRequest(outputStream, storeName, partitionList, filter, false);
+            initiateFetchRequest(outputStream,
+                                 storeName,
+                                 partitionList,
+                                 filter,
+                                 false,
+                                 fetchMasterEntries);
         } catch(IOException e) {
             close(sands.getSocket());
             pool.checkin(destination, sands);

@@ -16,13 +16,7 @@
 
 package voldemort.performance;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.StringReader;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -213,6 +207,9 @@ public class RemoteTest {
         parser.accepts("v", "verbose");
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("pipeline-routed-store", "Use the Pipeline RoutedStore");
+        parser.accepts("save-nulls", "save keys which had null to a file")
+                .withRequiredArg()
+                .ofType(String.class);
         parser.accepts("node", "go to this node id").withRequiredArg().ofType(Integer.class);
         parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
@@ -280,6 +277,13 @@ public class RemoteTest {
             keys = loadKeys((String) options.valueOf("request-file"));
         }
 
+        final BufferedWriter nullWriter;
+        if (options.has("save-nulls")) {
+            nullWriter = new BufferedWriter(new FileWriter((String) options.valueOf("save-nulls")));
+        } else {
+            nullWriter = null;
+        }
+
         if(options.has("r")) {
             ops += "r";
         }
@@ -310,6 +314,7 @@ public class RemoteTest {
                                                       .setBootstrapUrls(url)
                                                       .setConnectionTimeout(60, TimeUnit.SECONDS)
                                                       .setSocketTimeout(60, TimeUnit.SECONDS)
+                                                      .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
                                                       .setSocketBufferSize(4 * 1024)
                                                       .setEnablePipelineRoutedStore(options.has("pipeline-routed-store"))
                                                       .setSelectors(selectors);
@@ -458,8 +463,10 @@ public class RemoteTest {
                                     if(!ignoreNulls) {
                                         throw new Exception("value returned is null for key " + key);
                                     }
+                                    if (nullWriter != null) {
+                                        nullWriter.write(key.toString() + "\n");
+                                    }
                                 }
-
                                 if(verifyValues && !value.equals(v.getValue())) {
                                     throw new Exception("value returned isn't same as set value for key "
                                                         + key);
@@ -517,6 +524,13 @@ public class RemoteTest {
                                         storeClient.put(key, v);
                                     } else {
                                         numNulls.incrementAndGet();
+                                        if (nullWriter != null) {
+                                            try {
+                                                nullWriter.write(key.toString() + "\n");
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                            }
+                                        }
                                     }
                                     numWrites.incrementAndGet();
                                 }
@@ -543,6 +557,10 @@ public class RemoteTest {
             printStatistics("writes", numWrites.get(), start);
         }
 
+        if (nullWriter != null) {
+            nullWriter.close();
+        }
+        
         System.exit(0);
     }
 

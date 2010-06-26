@@ -178,7 +178,7 @@ public class RebalanceUtilsTest extends TestCase {
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
-                     (new RebalancePartitionsInfo(info.toJsonString())).toString());
+                     (RebalancePartitionsInfo.create(info.toJsonString())).toString());
     }
-
+   
 }

@@ -10,6 +10,7 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 
 import com.google.common.collect.ImmutableMap;
+import voldemort.utils.Utils;
 
 public class RebalancePartitionsInfo {
 
@@ -96,21 +97,32 @@ public class RebalancePartitionsInfo {
         this.stealMasterPartitions = stealMasterPartitions;
     }
 
-    @SuppressWarnings("unchecked")
-    public RebalancePartitionsInfo(String line) {
+
+    public static RebalancePartitionsInfo create(String line) {
         try {
             JsonReader reader = new JsonReader(new StringReader(line));
-            Map<String, Object> map = (Map<String, Object>) reader.read();
-            this.stealerId = (Integer) map.get("stealerId");
-            this.donorId = (Integer) map.get("donorId");
-            this.partitionList = (List<Integer>) map.get("partitionList");
-            this.attempt = (Integer) map.get("attempt");
-            this.deletePartitionsList = (List<Integer>) map.get("deletePartitionsList");
-            this.unbalancedStoreList = (List<String>) map.get("unbalancedStoreList");
+            Map<String, ?> map = reader.readObject();
+            return create(map);
         } catch(Exception e) {
             throw new VoldemortException("Failed to create RebalanceStealInfo from String:" + line,
                                          e);
         }
+    }
+
+    public static RebalancePartitionsInfo create(Map<?, ?> map) {
+        int stealerId = (Integer) map.get("stealerId");
+        int donorId = (Integer) map.get("donorId");
+        List<Integer> partitionList = Utils.uncheckedCast(map.get("partitionList"));
+        int attempt = (Integer) map.get("attempt");
+        List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
+        List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
+
+        return new RebalancePartitionsInfo(stealerId,
+                                           donorId,
+                                           partitionList,
+                                           deletePartitionsList,
+                                           unbalancedStoreList,
+                                           attempt);
     }
 
     public List<Integer> getDeletePartitionsList() {
@@ -159,20 +171,56 @@ public class RebalancePartitionsInfo {
                + getPartitionList() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
-    @SuppressWarnings("unchecked")
     public String toJsonString() {
-        Map map = ImmutableMap.builder()
-                              .put("stealerId", stealerId)
-                              .put("donorId", donorId)
-                              .put("partitionList", partitionList)
-                              .put("unbalancedStoreList", unbalancedStoreList)
-                              .put("deletePartitionsList", deletePartitionsList)
-                              .put("attempt", attempt)
-                              .build();
+        Map<String, Object> map = asMap();
 
         StringWriter writer = new StringWriter();
         new JsonWriter(writer).write(map);
         writer.flush();
         return writer.toString();
+    }
+
+    public ImmutableMap<String, Object> asMap() {
+        ImmutableMap.Builder <String, Object> builder = new ImmutableMap.Builder<String, Object>();
+
+        return builder.put("stealerId", stealerId)
+                      .put("donorId", donorId)
+                      .put("partitionList", partitionList)
+                      .put("unbalancedStoreList", unbalancedStoreList)
+                      .put("deletePartitionsList", deletePartitionsList)
+                      .put("attempt", attempt)
+                      .build();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        RebalancePartitionsInfo that = (RebalancePartitionsInfo) o;
+
+        if (attempt != that.attempt) return false;
+        if (donorId != that.donorId) return false;
+        if (stealerId != that.stealerId) return false;
+        if (!deletePartitionsList.equals(that.deletePartitionsList)) return false;
+        if (!partitionList.equals(that.partitionList)) return false;
+        if (stealMasterPartitions != null ? !stealMasterPartitions.equals(that.stealMasterPartitions) : that.stealMasterPartitions != null)
+            return false;
+        if (unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList) : that.unbalancedStoreList != null)
+            return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = stealerId;
+        result = 31 * result + donorId;
+        result = 31 * result + partitionList.hashCode();
+        result = 31 * result + deletePartitionsList.hashCode();
+        result = 31 * result + (unbalancedStoreList != null ? unbalancedStoreList.hashCode() : 0);
+        result = 31 * result + attempt;
+        result = 31 * result + (stealMasterPartitions != null ? stealMasterPartitions.hashCode() : 0);
+        return result;
     }
 }

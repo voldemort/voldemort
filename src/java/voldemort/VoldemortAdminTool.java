@@ -208,7 +208,8 @@ public class VoldemortAdminTool {
                 Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                            store,
                                                                                                            partitionIdList,
-                                                                                                           null);
+                                                                                                           null,
+												           false);
                 File outputFile = new File(directory, store + ".entries");
                 if (useAscii) {
                     StoreDefinition storeDefinition = storeDefinitionMap.get(store);
@@ -297,7 +298,7 @@ public class VoldemortAdminTool {
             }
             for (String store: stores) {
                 System.out.println("Fetching keys in partitions " + Joiner.on(", ").join(partitionIdList) + " of " + store);
-                Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId, store, partitionIdList, null);
+                Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId, store, partitionIdList, null, false);
                 File outputFile = new File(directory, store + ".keys");
                 if (useAscii) {
                     StoreDefinition storeDefinition = storeDefinitionMap.get(store);

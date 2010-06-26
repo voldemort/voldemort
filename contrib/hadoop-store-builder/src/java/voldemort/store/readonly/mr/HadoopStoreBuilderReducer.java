@@ -81,17 +81,20 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
         // Write key and position
         this.indexFileStream.write(key.get(), 0, key.getSize());
-        this.checkSumDigestIndex.update(key.get(), 0, key.getSize());
         this.indexFileStream.writeInt(this.position);
-        this.checkSumDigestIndex.update(this.position);
+        if(this.checkSumDigestIndex != null) {
+            this.checkSumDigestIndex.update(key.get(), 0, key.getSize());
+            this.checkSumDigestIndex.update(this.position);
+        }
 
         // Write length and value
         int valueLength = writable.getSize() - 4;
         this.valueFileStream.writeInt(valueLength);
-        this.checkSumDigestValue.update(valueLength);
         this.valueFileStream.write(valueBytes, 4, valueLength);
-        this.checkSumDigestValue.update(valueBytes, 4, valueLength);
-
+        if(this.checkSumDigestValue != null) {
+            this.checkSumDigestValue.update(valueLength);
+            this.checkSumDigestValue.update(valueBytes, 4, valueLength);
+        }
         this.position += 4 + valueLength;
         if(this.position < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId

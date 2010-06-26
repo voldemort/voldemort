@@ -313,7 +313,8 @@ public class AdminServiceBasicTest extends TestCase {
         Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
                                                                  testStoreName,
                                                                  fetchPartitionsList,
-                                                                 null);
+                                                                 null,
+                                                                 false);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -367,7 +368,8 @@ public class AdminServiceBasicTest extends TestCase {
         Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
                                                                                              testStoreName,
                                                                                              fetchPartitionsList,
-                                                                                             null);
+                                                                                             null,
+                                                                                             false);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {

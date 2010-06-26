@@ -71,6 +71,7 @@ public interface Ec2Connection {
      * @param keypairId String representing keypair ID
      * @param instanceType Instance type to launch
      * @param instanceCount Number of instances to launch
+     * @param securityGroups Security groups to apply to instances (null for none)
      * 
      * @return List of HostNamePair instances
      * 
@@ -80,7 +81,8 @@ public interface Ec2Connection {
     public List<HostNamePair> createInstances(String ami,
                                               String keypairId,
                                               Ec2InstanceType instanceType,
-                                              int instanceCount) throws Exception;
+                                              int instanceCount,
+                                              List<String> securityGroups) throws Exception;
 
     /**
      * Deletes the EC2 instances represented by the given external host names.

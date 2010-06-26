@@ -86,12 +86,16 @@ public class TypicaEc2Connection implements Ec2Connection {
     public List<HostNamePair> createInstances(String ami,
                                               String keypairId,
                                               Ec2Connection.Ec2InstanceType instanceType,
-                                              int instanceCount) throws Exception {
+                                              int instanceCount,
+                                              List<String> securityGroups) throws Exception {
         LaunchConfiguration launchConfiguration = new LaunchConfiguration(ami);
         launchConfiguration.setInstanceType(InstanceType.valueOf(instanceType.name()));
         launchConfiguration.setKeyName(keypairId);
         launchConfiguration.setMinCount(instanceCount);
         launchConfiguration.setMaxCount(instanceCount);
+        if (securityGroups != null && securityGroups.size() > 0) {
+            launchConfiguration.setSecurityGroup(securityGroups);
+        }
 
         ReservationDescription reservationDescription = ec2.runInstances(launchConfiguration);
 

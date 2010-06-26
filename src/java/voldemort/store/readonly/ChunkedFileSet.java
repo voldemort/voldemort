@@ -78,6 +78,8 @@ public class ChunkedFileSet {
         if(chunkId == 0)
             throw new VoldemortException("No data chunks found in directory " + baseDir.toString());
         this.numChunks = chunkId;
+        logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
+                     + " chunks.");
     }
 
     public void validateFileSizes(long indexLength, long dataLength) {

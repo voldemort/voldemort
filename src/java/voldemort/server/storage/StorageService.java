@@ -348,7 +348,7 @@ public class StorageService extends AbstractService {
         // Schedule data retention cleanup job starting next day.
         GregorianCalendar cal = new GregorianCalendar();
         cal.add(Calendar.DAY_OF_YEAR, 1);
-        cal.set(Calendar.HOUR, voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
+        cal.set(Calendar.HOUR_OF_DAY, voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
