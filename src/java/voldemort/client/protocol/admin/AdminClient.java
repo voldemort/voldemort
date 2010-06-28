@@ -1120,6 +1120,27 @@ public class AdminClient {
     }
 
     /**
+     * Delete a store from all active nodes in the cluster
+     * 
+     * @param storeName name of the store to delete
+     */
+    public void deleteStore(String storeName) {
+        VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
+                                                                                                  .setStoreName(storeName);
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                     .setType(VAdminProto.AdminRequestType.DELETE_STORE)
+                                                                                     .setDeleteStore(deleteStoreRequest)
+                                                                                     .build();
+        for(Node node: currentCluster.getNodes()) {
+            VAdminProto.DeleteStoreResponse.Builder response = sendAndReceive(node.getId(),
+                                                                              request,
+                                                                              VAdminProto.DeleteStoreResponse.newBuilder());
+            if(response.hasError())
+                throwException(response.getError());
+        }
+    }
+
+    /**
      * Set cluster info for AdminClient to use.
      * 
      * @param cluster

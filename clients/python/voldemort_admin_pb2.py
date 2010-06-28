@@ -59,6 +59,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='ADD_STORE', index=11, number=11,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='DELETE_STORE', index=12, number=12,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -76,6 +80,7 @@ ASYNC_OPERATION_STOP = 8
 ASYNC_OPERATION_LIST = 9
 TRUNCATE_ENTRIES = 10
 ADD_STORE = 11
+DELETE_STORE = 12
 
 
 
@@ -810,6 +815,50 @@ _ADDSTORERESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_DELETESTOREREQUEST = descriptor.Descriptor(
+  name='DeleteStoreRequest',
+  full_name='voldemort.DeleteStoreRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='storeName', full_name='voldemort.DeleteStoreRequest.storeName', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_DELETESTORERESPONSE = descriptor.Descriptor(
+  name='DeleteStoreResponse',
+  full_name='voldemort.DeleteStoreResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.DeleteStoreResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -907,6 +956,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='delete_store', full_name='voldemort.VoldemortAdminRequest.delete_store', index=13,
+      number=14, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -936,6 +992,7 @@ _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_cli
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_DELETESTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -949,6 +1006,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_stop'].message_type = _AS
 _VOLDEMORTADMINREQUEST.fields_by_name['async_operation_list'].message_type = _ASYNCOPERATIONLISTREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['truncate_entries'].message_type = _TRUNCATEENTRIESREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['add_store'].message_type = _ADDSTOREREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['delete_store'].message_type = _DELETESTOREREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1045,6 +1103,14 @@ class AddStoreRequest(message.Message):
 class AddStoreResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ADDSTORERESPONSE
+
+class DeleteStoreRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _DELETESTOREREQUEST
+
+class DeleteStoreResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _DELETESTORERESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

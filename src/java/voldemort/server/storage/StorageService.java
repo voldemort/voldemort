@@ -221,7 +221,7 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod())
                 scheduleCleanupJob(storeDef, engine);
         } catch (Exception e) {
-            unregisterEngine(engine);
+            unregisterEngine(storeDef, engine);
             throw new VoldemortException(e);
         }
     }
@@ -231,7 +231,7 @@ public class StorageService extends AbstractService {
      * 
      * @param engine Unregister the storage engine
      */
-    public void unregisterEngine(StorageEngine<ByteArray, byte[]> engine) {
+    public void unregisterEngine(StoreDefinition storeDef, StorageEngine<ByteArray, byte[]> engine) {
         String engineName = engine.getName();
         Store<ByteArray,  byte[]> store = storeRepository.removeLocalStore(engineName);
 
@@ -251,6 +251,8 @@ public class StorageService extends AbstractService {
         }
 
         storeRepository.removeStorageEngine(engineName);
+        if(!storeDef.isView())
+            engine.truncate();
         engine.close();
     }
 

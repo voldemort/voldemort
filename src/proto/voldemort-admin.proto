@@ -131,6 +131,14 @@ message AddStoreResponse {
   optional Error error = 1;
 }
 
+message DeleteStoreRequest {
+  required string storeName = 1;
+}
+
+message DeleteStoreResponse {
+  optional Error error = 1;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -144,6 +152,7 @@ enum AdminRequestType {
   ASYNC_OPERATION_LIST = 9;
   TRUNCATE_ENTRIES = 10;
   ADD_STORE = 11;
+  DELETE_STORE = 12;
 }
 
 message VoldemortAdminRequest {
@@ -160,6 +169,7 @@ message VoldemortAdminRequest {
   optional AsyncOperationListRequest async_operation_list = 11;
   optional TruncateEntriesRequest truncate_entries = 12;
   optional AddStoreRequest add_store = 13;
+  optional DeleteStoreRequest delete_store = 14;
 }
 
 

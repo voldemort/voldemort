@@ -154,6 +154,10 @@ public class StoreRepository {
         return new ArrayList<Store<ByteArray, byte[]>>(this.routedStores.values());
     }
 
+    public Store<ByteArray, byte[]> removeRoutedStore(String storeName) {
+        return this.routedStores.remove(storeName);
+    }
+
     public boolean hasNodeStore(String name, int nodeId) {
         return this.nodeStores.containsKey(Pair.create(name, nodeId));
     }

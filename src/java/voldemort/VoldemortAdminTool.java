@@ -16,16 +16,31 @@
 
 package voldemort;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
+
 import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -33,16 +48,20 @@ import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
-import voldemort.utils.*;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.CmdUtils;
+import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import java.io.*;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Iterator;
+import com.google.common.base.Joiner;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Provides a command line interface to the {@link voldemort.client.protocol.admin.AdminClient}
@@ -93,6 +112,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("stores.xml")
               .ofType(String.class);
+        parser.accepts("delete-store", "Delete store")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
         parser.accepts("update-entries", "[EXPERIMENTAL] Insert or update entries")
               .withRequiredArg()
               .describedAs("input-directory")
@@ -106,11 +129,11 @@ public class VoldemortAdminTool {
         }
 
         Set<String> missing = CmdUtils.missing(options,
-                                               "url",
+						"url",
                                                "node");
         if (missing.size() > 0) {
             // Not the most elegant way to do this
-            if (!(missing.equals(ImmutableSet.of("node")) && options.has("add-stores"))) {
+            if (!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores") || options.has("delete-store")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -142,8 +165,11 @@ public class VoldemortAdminTool {
         if (options.has("update-entries")) {
             ops += "u";
         }
-        if (ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys) must be specified");
+        if (options.has("delete-store")) {
+            ops += "s";
+        }
+        if(ops.length() < 1) {
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries) must be specified");
         }
 
         List<String> storeNames = null;
@@ -160,10 +186,7 @@ public class VoldemortAdminTool {
                 System.out.println("Starting delete-partitions");
                 @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("delete-partitions");
-                executeDeletePartitions(nodeId,
-                                        adminClient,
-                                        partitionIdList,
-                                        storeNames);
+                executeDeletePartitions(nodeId, adminClient, partitionIdList, storeNames);
                 System.out.println("Finished delete-partitions");
             }
             if (ops.contains("r")) {
@@ -204,24 +227,27 @@ public class VoldemortAdminTool {
             }
             if (ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
-                executeAddStores(adminClient,
-                                 storesXml,
-                                 storeNames);
+                executeAddStores(adminClient, storesXml, storeNames);
             }
             if (ops.contains("u")) {
                 String inputDir = (String) options.valueOf("update-entries");
                 boolean useAscii = options.has("ascii");
-                executeUpdateEntries(nodeId,
-                                     adminClient,
-                                     storeNames,
-                                     inputDir,
-                                     useAscii);
-                
+                executeUpdateEntries(nodeId, adminClient, storeNames, inputDir, useAscii);
+
             }
-        } catch (Exception e) {
+            if(ops.contains("s")) {
+                String storeName = (String) options.valueOf("delete-store");
+                executeDeleteStore(adminClient, storeName);
+            }
+        } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
         }
+    }
+
+    public static void executeDeleteStore(AdminClient adminClient, String storeName) {
+        System.out.println("Deleting " + storeName);
+        adminClient.deleteStore(storeName);
     }
 
     public static void executeAddStores(AdminClient adminClient,
@@ -269,7 +295,7 @@ public class VoldemortAdminTool {
                                                                                                            store,
                                                                                                            partitionIdList,
                                                                                                            null,
-												           false);
+                                                                                                           false);
                 File outputFile = new File(directory, store + ".entries");
                 if (useAscii) {
                     StoreDefinition storeDefinition = storeDefinitionMap.get(store);
@@ -333,11 +359,12 @@ public class VoldemortAdminTool {
                                                                                 StoreDefinition storeDefinition)
                    throws IOException {
         File inputFile = new File(inputDir, storeName + ".entries");
-        if (!inputFile.exists()) {
+        if(!inputFile.exists()) {
             throw new FileNotFoundException("File " + inputFile.getAbsolutePath() + " does not exist!");
         }
 
         return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>> () {
+
             @Override
             protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
                 System.err.println("Updating stores from ASCII/JSON data is not yet supported!");

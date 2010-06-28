@@ -266,6 +266,16 @@ public class ReadOnlyStorageEngineTest {
         engine.swapFiles(newDir.getAbsolutePath());
     }
 
+    @Test
+    public void testTruncate() throws IOException {
+        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        assertVersionsExist(dir, 0);
+
+        engine.truncate();
+        assertEquals(dir.exists(), false);
+    }
+
     private void assertVersionsExist(File dir, int... versions) {
         for(int i = 0; i < versions.length; i++) {
             File versionDir = new File(dir, "version-" + versions[i]);
