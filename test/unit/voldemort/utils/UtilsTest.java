@@ -16,11 +16,13 @@
 
 package voldemort.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
 import junit.framework.TestCase;
+import voldemort.VoldemortException;
 
 public class UtilsTest extends TestCase {
 
@@ -33,6 +35,33 @@ public class UtilsTest extends TestCase {
     public void testReversed() {
         assertEquals(Collections.EMPTY_LIST, Utils.sorted(new ArrayList<Integer>()));
         assertEquals(Arrays.asList(1, 2, 3, 4), Utils.sorted(Arrays.asList(4, 3, 2, 1)));
+    }
+
+    public void testMkDir() {
+        // Set Readable false
+        File tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
+                                                                      + System.currentTimeMillis());
+        tempDir.setReadable(false);
+        try {
+            Utils.mkdirs(tempDir);
+            fail("Mkdir should have thrown an exception");
+        } catch(VoldemortException e) {}
+
+        // Set Writable false
+        tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
+                                                                 + System.currentTimeMillis());
+        tempDir.setWritable(false);
+        try {
+            Utils.mkdirs(tempDir);
+            fail("Mkdir should have thrown an exception");
+        } catch(VoldemortException e) {}
+
+        // Working case
+        tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
+                                                                 + System.currentTimeMillis());
+        Utils.mkdirs(tempDir);
+        assertTrue(tempDir.exists());
+
     }
 
 }

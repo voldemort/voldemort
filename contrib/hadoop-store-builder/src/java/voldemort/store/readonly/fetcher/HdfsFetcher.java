@@ -84,7 +84,7 @@ public class HdfsFetcher implements FileFetcher {
             this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
         this.maxBytesPerSecond = maxBytesPerSecond;
         this.bufferSize = bufferSize;
-        this.tempDir.mkdirs();
+        Utils.mkdirs(this.tempDir);
     }
 
     public File fetch(String fileUrl, String storeName) throws IOException {
@@ -103,7 +103,7 @@ public class HdfsFetcher implements FileFetcher {
                                                     stats);
         try {
             File storeDir = new File(this.tempDir, storeName + "_" + System.currentTimeMillis());
-            storeDir.mkdir();
+            Utils.mkdirs(storeDir);
 
             File destination = new File(storeDir.getAbsoluteFile(), path.getName());
             boolean result = fetch(fs, path, destination, throttler, stats);
@@ -123,7 +123,7 @@ public class HdfsFetcher implements FileFetcher {
                           EventThrottler throttler,
                           CopyStats stats) throws IOException {
         if(!fs.isFile(source)) {
-            dest.mkdirs();
+            Utils.mkdirs(dest);
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
                 // sort the files so that index files come last. Maybe

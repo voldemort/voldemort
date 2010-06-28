@@ -172,12 +172,16 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         String storeName = getOptional(req, "store");
 
         // fetch the files if necessary
-        File fetchDir;
+        File fetchDir = null;
         if(fileFetcher == null) {
             fetchDir = new File(fetchUrl);
         } else {
             logger.info("Executing fetch of " + fetchUrl);
-            fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+            try {
+                fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+            } catch(Exception e) {
+                throw new ServletException("Exception in Fetcher = " + e.getMessage());
+            }
             if(fetchDir == null) {
                 throw new ServletException("Checksum failed for " + fetchUrl + " and store name = "
                                            + storeName);

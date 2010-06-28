@@ -124,6 +124,24 @@ public class Utils {
     }
 
     /**
+     * Make the directory specified in the parameters. If it exists, see if we
+     * can write to it
+     * 
+     * @param newDir The directory we want to make
+     */
+    public static void mkdirs(File newDir) {
+        if(newDir.exists()) {
+            if(!newDir.canWrite() || !newDir.canRead())
+                throw new VoldemortException("Unable to access directory "
+                                             + newDir.getAbsolutePath());
+        } else {
+            if(!newDir.mkdirs())
+                throw new VoldemortException("Unable to create directory "
+                                             + newDir.getAbsolutePath());
+        }
+    }
+
+    /**
      * @return true iff the argument is the name of a readable file
      */
     public static boolean isReadableFile(String fileName) {
