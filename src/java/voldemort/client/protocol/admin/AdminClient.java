@@ -858,10 +858,11 @@ public class AdminClient {
      * @param maxWait Maximum time we'll keep checking a request until we give
      *        up
      * @param timeUnit Unit in which maxWait is expressed.
+     * @return description The description attached with the response
      * @throws VoldemortException if task failed to finish in specified maxWait
      *         time.
      */
-    public void waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+    public String waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
         long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
@@ -876,7 +877,7 @@ public class AdminClient {
                     throw status.getException();
 
                 if(status.isComplete())
-                    return;
+                    return description;
 
                 if(delay < MAX_DELAY)
                     delay <<= 1;
@@ -1156,5 +1157,63 @@ public class AdminClient {
      */
     public Cluster getAdminClientCluster() {
         return currentCluster;
+    }
+
+    /**
+     * Fetch store
+     * 
+     * @param nodeId
+     * @param storeName
+     * @param storeDir
+     * @return
+     */
+    public String fetchStore(int nodeId, String storeName, String storeDir) {
+        VAdminProto.FetchStoreRequest.Builder fetchStoreRequest = VAdminProto.FetchStoreRequest.newBuilder()
+                                                                                               .setStoreName(storeName)
+                                                                                               .setStoreDir(storeDir);
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setFetchStore(fetchStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.FETCH_STORE)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        int asyncId = response.getRequestId();
+
+        return waitForCompletion(nodeId,
+                                 asyncId,
+                                 adminClientConfig.getAdminSocketTimeoutSec(),
+                                 TimeUnit.SECONDS);
+
+    }
+
+    /**
+     * Swap store
+     * 
+     * @param nodeId
+     * @param storeName
+     * @param storeDir
+     */
+    public void swapStore(int nodeId, String storeName, String storeDir) {
+        VAdminProto.SwapStoreRequest.Builder swapStoreRequest = VAdminProto.SwapStoreRequest.newBuilder()
+                                                                                            .setStoreDir(storeDir)
+                                                                                            .setStoreName(storeName);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setSwapStore(swapStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.SWAP_STORE)
+                                                                                          .build();
+        VAdminProto.SwapStoreResponse.Builder response = sendAndReceive(nodeId,
+                                                                        adminRequest,
+                                                                        VAdminProto.SwapStoreResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+        return;
     }
 }

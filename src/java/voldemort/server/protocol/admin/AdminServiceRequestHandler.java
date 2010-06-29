@@ -48,6 +48,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.readonly.FileFetcher;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -55,7 +56,9 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.ReflectUtils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -81,6 +84,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
+    private FileFetcher fileFetcher;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                       StorageService storageService,
@@ -98,6 +102,24 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                .getContextClassLoader());
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
+        setFetcherClass(voldemortConfig);
+    }
+
+    private void setFetcherClass(VoldemortConfig voldemortConfig) {
+        String className = voldemortConfig.getAllProps().getString("file.fetcher.class", null);
+        if(className == null || className.trim().length() == 0) {
+            this.fileFetcher = null;
+        } else {
+            try {
+                logger.info("Loading fetcher " + className);
+                Class<?> cls = Class.forName(className.trim());
+                this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
+                                                                              new Class<?>[] { Props.class },
+                                                                              new Object[] { voldemortConfig.getAllProps() });
+            } catch(Exception e) {
+                throw new VoldemortException("Error loading file fetcher class " + className, e);
+            }
+        }
     }
 
     public StreamRequestHandler handleRequest(final DataInputStream inputStream,
@@ -164,6 +186,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case DELETE_STORE:
                 ProtoUtils.writeMessage(outputStream, handleDeleteStore(request.getDeleteStore()));
+                break;
+            case FETCH_STORE:
+                ProtoUtils.writeMessage(outputStream, handleFetchStore(request.getFetchStore()));
+                break;
+            case SWAP_STORE:
+                ProtoUtils.writeMessage(outputStream, handleSwapStore(request.getSwapStore()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -253,6 +281,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
 
         return response.build();
+    }
+
+    public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
+        return null;
+    }
+
+    public VAdminProto.AsyncOperationStatusResponse handleFetchStore(VAdminProto.FetchStoreRequest request) {
+        // Similar to handleFetchAndUpdate
+        return null;
     }
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
@@ -374,9 +411,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(checkKeyBelongsToDeletePartition(key.get(),
-                                                    partitions,
-                                                    routingStrategy)
+                if(checkKeyBelongsToDeletePartition(key.get(), partitions, routingStrategy)
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;
@@ -538,8 +573,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             StoreDefinition def = mapper.readStore(new StringReader(request.getStoreDefinition()));
 
             synchronized(lock) {
-                // only allow a single store to be created at a time. We'll see concurrent errors when writing the
-                // stores.xml file out otherwise. (see ConfigurationStorageEngine.put for details)
+                // only allow a single store to be created at a time. We'll see
+                // concurrent errors when writing the
+                // stores.xml file out otherwise. (see
+                // ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
                     // open the store
@@ -560,7 +597,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     currentStoreDefs.add(def);
                     try {
                         metadataStore.put(MetadataStore.STORES_KEY, currentStoreDefs);
-                    } catch (Exception e) {
+                    } catch(Exception e) {
                         throw new VoldemortException(e);
                     }
                 } else {
