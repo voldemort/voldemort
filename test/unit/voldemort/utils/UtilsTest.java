@@ -38,23 +38,8 @@ public class UtilsTest extends TestCase {
     }
 
     public void testMkDir() {
-        // Set Readable false
         File tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
                                                                       + System.currentTimeMillis());
-        tempDir.setReadable(false);
-        try {
-            Utils.mkdirs(tempDir);
-            fail("Mkdir should have thrown an exception");
-        } catch(VoldemortException e) {}
-
-        // Set Writable false
-        tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
-                                                                 + System.currentTimeMillis());
-        tempDir.setWritable(false);
-        try {
-            Utils.mkdirs(tempDir);
-            fail("Mkdir should have thrown an exception");
-        } catch(VoldemortException e) {}
 
         // Working case
         tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
@@ -62,6 +47,12 @@ public class UtilsTest extends TestCase {
         Utils.mkdirs(tempDir);
         assertTrue(tempDir.exists());
 
-    }
+        // Exists & writable false
+        tempDir.setWritable(false);
+        try {
+            Utils.mkdirs(tempDir);
+            fail("Mkdir should have thrown an exception");
+        } catch(VoldemortException e) {}
 
+    }
 }
