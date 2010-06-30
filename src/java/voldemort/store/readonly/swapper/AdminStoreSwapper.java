@@ -22,10 +22,12 @@ public class AdminStoreSwapper extends StoreSwapper {
     private static final Logger logger = Logger.getLogger(AdminStoreSwapper.class);
 
     private AdminClient adminClient;
+    private long timeoutMs;
 
-    public AdminStoreSwapper(Cluster cluster, ExecutorService executor) {
+    public AdminStoreSwapper(Cluster cluster, ExecutorService executor, long timeoutMs) {
         super(cluster, executor);
-        adminClient = new AdminClient(cluster, new AdminClientConfig());
+        this.adminClient = new AdminClient(cluster, new AdminClientConfig());
+        this.timeoutMs = timeoutMs;
     }
 
     @Override
@@ -38,7 +40,10 @@ public class AdminStoreSwapper extends StoreSwapper {
                 public String call() throws Exception {
                     String storeDir = basePath + "/node-" + node.getId();
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
-                    String response = adminClient.fetchStore(node.getId(), storeName, storeDir);
+                    String response = adminClient.fetchStore(node.getId(),
+                                                             storeName,
+                                                             storeDir,
+                                                             timeoutMs);
                     if(response == null)
                         throw new VoldemortException("Swap request on node " + node.getId() + " ("
                                                      + node.getHost() + ") failed");

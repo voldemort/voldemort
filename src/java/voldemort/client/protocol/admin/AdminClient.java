@@ -892,8 +892,8 @@ public class AdminClient {
                                              + " at node " + nodeId + " to finish", e);
             }
         }
-        throw new VoldemortException("Failed to finish task requestId:" + requestId + " in maxWait"
-                                     + maxWait + " " + timeUnit.toString());
+        throw new VoldemortException("Failed to finish task requestId: " + requestId
+                                     + " in maxWait " + maxWait + " " + timeUnit.toString());
     }
 
     /**
@@ -1167,7 +1167,7 @@ public class AdminClient {
      * @param storeDir
      * @return
      */
-    public String fetchStore(int nodeId, String storeName, String storeDir) {
+    public String fetchStore(int nodeId, String storeName, String storeDir, long timeoutMs) {
         VAdminProto.FetchStoreRequest.Builder fetchStoreRequest = VAdminProto.FetchStoreRequest.newBuilder()
                                                                                                .setStoreName(storeName)
                                                                                                .setStoreDir(storeDir);
@@ -1186,10 +1186,7 @@ public class AdminClient {
 
         int asyncId = response.getRequestId();
 
-        return waitForCompletion(nodeId,
-                                 asyncId,
-                                 adminClientConfig.getAdminSocketTimeoutSec(),
-                                 TimeUnit.SECONDS);
+        return waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
 
     }
 

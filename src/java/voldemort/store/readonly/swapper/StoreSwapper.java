@@ -101,7 +101,7 @@ public abstract class StoreSwapper {
         ExecutorService executor = Executors.newFixedThreadPool(10);
         StoreSwapper swapper = null;
         if(useAdminServices) {
-            swapper = new AdminStoreSwapper(cluster, executor);
+            swapper = new AdminStoreSwapper(cluster, executor, timeoutMs);
         } else {
             HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
 
