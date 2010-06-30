@@ -35,29 +35,41 @@ import voldemort.utils.Pair;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.db4o.Db4oEmbedded;
-import com.db4o.config.EmbeddedConfiguration;
+import com.db4o.config.QueryEvaluationMode;
+import com.db4o.cs.Db4oClientServer;
+import com.db4o.cs.config.ServerConfiguration;
 
 public class Db4oStorageEngineTest extends AbstractStorageEngineTest {
 
     private File tempDir;
     private Db4oByteArrayStorageEngine store;
-    private EmbeddedConfiguration dbConfig;
+    private ServerConfiguration dbConfig;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        // this.envConfig.setTxnNoSync(true);
-        // this.envConfig.setAllowCreate(true);
-        // this.envConfig.setTransactional(true);
         this.tempDir = TestUtils.createTempDir();
-        // databaseConfig.setAllowCreate(true);
-        // databaseConfig.setTransactional(true);
-        // databaseConfig.setSortedDuplicates(true);
-
-        this.dbConfig = Db4oEmbedded.newConfiguration();
+        this.dbConfig = newDb4oConfig();
         this.store = new Db4oByteArrayStorageEngine(this.tempDir + "/" + "test", dbConfig);
+    }
+
+    private ServerConfiguration newDb4oConfig() {
+        return getDb4oConfig(Db4oKeyValueProvider.KEY_VALUE_PAIR_CLASS,
+                             Db4oKeyValueProvider.KEY_FIELD_NAME);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ServerConfiguration getDb4oConfig(Class keyValuePairClass, String keyFieldName) {
+        ServerConfiguration config = Db4oClientServer.newServerConfiguration();
+        // Use lazy mode
+        config.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
+        // Set activation depth to 3
+        config.common().activationDepth(3);
+        // Set index by Key
+        config.common().objectClass(keyValuePairClass).objectField(keyFieldName).indexed(true);
+        // Cascade on delete
+        config.common().objectClass(keyValuePairClass).cascadeOnDelete(true);
+        return config;
     }
 
     @Override
@@ -78,7 +90,7 @@ public class Db4oStorageEngineTest extends AbstractStorageEngineTest {
     public void testPersistence() throws Exception {
         this.store.put(new ByteArray("abc".getBytes()), new Versioned<byte[]>("cdef".getBytes()));
         this.store.close();
-        this.store = new Db4oByteArrayStorageEngine(this.tempDir + "/" + "test", dbConfig);
+        this.store = new Db4oByteArrayStorageEngine(this.tempDir + "/" + "test", newDb4oConfig());
         List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()));
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
@@ -86,8 +98,8 @@ public class Db4oStorageEngineTest extends AbstractStorageEngineTest {
 
     public void testEquals() {
         String name = "someName";
-        assertEquals(new Db4oByteArrayStorageEngine(this.tempDir + "/" + name, dbConfig),
-                     new Db4oByteArrayStorageEngine(this.tempDir + "/" + name, dbConfig));
+        assertEquals(new Db4oByteArrayStorageEngine(this.tempDir + "/" + name, newDb4oConfig()),
+                     new Db4oByteArrayStorageEngine(this.tempDir + "/" + name, newDb4oConfig()));
     }
 
     public void testNullConstructorParameters() {

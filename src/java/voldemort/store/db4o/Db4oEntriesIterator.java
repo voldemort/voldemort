@@ -6,8 +6,6 @@ import voldemort.store.PersistenceFailureException;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 
-import com.db4o.ext.Db4oException;
-
 public class Db4oEntriesIterator<Key, Value> implements ClosableIterator<Pair<Key, Value>> {
 
     private Iterator<Db4oKeyValuePair<Key, Value>> iterator;
@@ -15,6 +13,7 @@ public class Db4oEntriesIterator<Key, Value> implements ClosableIterator<Pair<Ke
 
     public Db4oEntriesIterator(Db4oKeyValueProvider<Key, Value> provider) {
         this.iterator = provider.getAll().iterator();
+        isOpen = this.iterator != null;
     }
 
     /*
@@ -39,12 +38,7 @@ public class Db4oEntriesIterator<Key, Value> implements ClosableIterator<Pair<Ke
     }
 
     public final void close() {
-        try {
-            // Nothing needs to be closed
-            isOpen = false;
-        } catch(Db4oException e) {
-            // logger.error(e);
-        }
+        isOpen = false;
     }
 
     @Override

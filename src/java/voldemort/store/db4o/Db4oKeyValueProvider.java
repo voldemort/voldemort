@@ -25,11 +25,13 @@ import java.util.Map;
 import com.db4o.ObjectContainer;
 import com.db4o.ObjectSet;
 import com.db4o.ext.Db4oException;
-import com.db4o.query.Query;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class Db4oKeyValueProvider<Key, Value> {
+
+    public static final String KEY_FIELD_NAME = "key";
+    public static final Class KEY_VALUE_PAIR_CLASS = Db4oKeyValuePair.class;
 
     private ObjectContainer container;
 
@@ -88,17 +90,15 @@ public class Db4oKeyValueProvider<Key, Value> {
      * Given a Key returns a Set with Key/Value pairs matching the provided Key
      */
     public ObjectSet<Db4oKeyValuePair<Key, Value>> get(Key key) {
-        Query query = getContainer().query();
-        query.constrain(Db4oKeyValuePair.class);
-        query.descend("key").constrain(key);
-        return query.execute();
+        Db4oKeyValuePair<Key, Value> pair = new Db4oKeyValuePair<Key, Value>(key, null);
+        return getContainer().queryByExample(pair);
     }
 
     /*
      * Deletes all Key/Value pairs matching the provided Key in the database
      */
-    public long delete(Key key) {
-        long deleteCount = 0;
+    public int delete(Key key) {
+        int deleteCount = 0;
         ObjectSet<Db4oKeyValuePair<Key, Value>> candidates = get(key);
         while(candidates.hasNext()) {
             delete(candidates.next());
@@ -112,8 +112,8 @@ public class Db4oKeyValueProvider<Key, Value> {
      * the same key so this differs from delete by key. Incurs in some overhead
      * because it performs a query to look for the pair.
      */
-    public long delete(Key key, Value value) {
-        long deleteCount = 0;
+    public int delete(Key key, Value value) {
+        int deleteCount = 0;
         Db4oKeyValuePair<Key, Value> pair = new Db4oKeyValuePair<Key, Value>(key, value);
         ObjectSet<Db4oKeyValuePair<Key, Value>> candidates = getContainer().queryByExample(pair);
         while(candidates.hasNext()) {
@@ -150,7 +150,14 @@ public class Db4oKeyValueProvider<Key, Value> {
      * Returns all Key/Value pairs in the database
      */
     public ObjectSet<Db4oKeyValuePair<Key, Value>> getAll() {
-        return getContainer().queryByExample(null);
+        return getContainer().queryByExample(new Db4oKeyValuePair<Key, Value>(null, null));
+    }
+
+    /*
+     * Returns the number of Key/Value pairs in the database
+     */
+    public int size() {
+        return getAll().size();
     }
 
     public Map<Key, List<Value>> getAll(Iterable<Key> keys) {
@@ -169,8 +176,8 @@ public class Db4oKeyValueProvider<Key, Value> {
         return Maps.newHashMap();
     }
 
-    public long truncate() {
-        long deleteCount = 0;
+    public int truncate() {
+        int deleteCount = 0;
         ObjectSet<Db4oKeyValuePair<Key, Value>> candidates = getAll();
         while(candidates.hasNext()) {
             delete(candidates.next());

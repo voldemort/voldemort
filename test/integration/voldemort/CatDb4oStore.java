@@ -23,6 +23,7 @@ import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
 import voldemort.store.db4o.Db4oByteArrayStorageEngine;
+import voldemort.store.db4o.Db4oKeyValuePair;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
@@ -30,10 +31,29 @@ import voldemort.utils.Props;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
-import com.db4o.Db4oEmbedded;
-import com.db4o.config.EmbeddedConfiguration;
+import com.db4o.config.QueryEvaluationMode;
+import com.db4o.cs.Db4oClientServer;
+import com.db4o.cs.config.ServerConfiguration;
 
 public class CatDb4oStore {
+
+    private static ServerConfiguration newDb4oConfig() {
+        return getDb4oConfig(Db4oKeyValuePair.class, "key");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ServerConfiguration getDb4oConfig(Class keyValuePairClass, String keyFieldName) {
+        ServerConfiguration config = Db4oClientServer.newServerConfiguration();
+        // Use lazy mode
+        config.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
+        // Set activation depth to 0
+        config.common().activationDepth(0);
+        // Set index by Key
+        config.common().objectClass(keyValuePairClass).objectField(keyFieldName).indexed(true);
+        // Cascade on delete
+        config.common().objectClass(keyValuePairClass).cascadeOnDelete(true);
+        return config;
+    }
 
     public static void main(String[] args) throws Exception {
         if(args.length != 2)
@@ -52,12 +72,12 @@ public class CatDb4oStore {
         // databaseConfig.setTransactional(config.isBdbWriteTransactionsEnabled());
         // databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
 
-        // TODO Read Voldemort config and apply to EmbeddedConfiguraton instance
+        // TODO Read Voldemort config and apply to db4o configuraton instance
 
-        EmbeddedConfiguration databaseConfig = Db4oEmbedded.newConfiguration();
         String databasePath = db4oDir + storeName + ".yap";
 
-        StorageEngine<ByteArray, byte[]> store = new Db4oByteArrayStorageEngine(databasePath, databaseConfig);
+        StorageEngine<ByteArray, byte[]> store = new Db4oByteArrayStorageEngine(databasePath,
+                                                                                newDb4oConfig());
 
         StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,
                                                                                   new StringSerializer(),

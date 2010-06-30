@@ -79,8 +79,8 @@ public class Db4oSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbOneEnvPerStore(false);
 
         db4oStorage = new Db4oStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) db4oStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) db4oStorage.getStore("storeB");
+        Db4oByteArrayStorageEngine storeA = (Db4oByteArrayStorageEngine) db4oStorage.getStore("storeA");
+        Db4oByteArrayStorageEngine storeB = (Db4oByteArrayStorageEngine) db4oStorage.getStore("storeB");
 
         storeA.put(TestUtils.toByteArray("testKey1"), new Versioned<byte[]>("value".getBytes()));
         storeA.put(TestUtils.toByteArray("testKey2"), new Versioned<byte[]>("value".getBytes()));
@@ -93,11 +93,11 @@ public class Db4oSplitStorageEngineTest extends TestCase {
         storeA.close();
         storeB.close();
 
-        assertEquals("common BDB file should exists.", true, (db4oMasterDir.exists()));
+        assertEquals("common db4o file should exist.", true, (db4oMasterDir.exists()));
 
-        assertNotSame("StoreA BDB file should not exists.", true, (new File(db4oMasterDir + "/"
+        assertNotSame("StoreA db4o file should not exist.", true, (new File(db4oMasterDir + "/"
                                                                             + "storeA").exists()));
-        assertNotSame("StoreB BDB file should not exists.", true, (new File(db4oMasterDir + "/"
+        assertNotSame("StoreB db4o file should not exist.", true, (new File(db4oMasterDir + "/"
                                                                             + "storeB").exists()));
     }
 
@@ -112,8 +112,8 @@ public class Db4oSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbDataDirectory(db4oMasterDir.toURI().getPath());
 
         db4oStorage = new Db4oStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) db4oStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) db4oStorage.getStore("storeB");
+        Db4oByteArrayStorageEngine storeA = (Db4oByteArrayStorageEngine) db4oStorage.getStore("storeA");
+        Db4oByteArrayStorageEngine storeB = (Db4oByteArrayStorageEngine) db4oStorage.getStore("storeB");
 
         storeA.put(TestUtils.toByteArray("testKey1"), new Versioned<byte[]>("value".getBytes()));
         storeA.put(TestUtils.toByteArray("testKey2"), new Versioned<byte[]>("value".getBytes()));
@@ -126,9 +126,9 @@ public class Db4oSplitStorageEngineTest extends TestCase {
         storeA.close();
         storeB.close();
 
-        assertEquals("StoreA BDB file should exists.", true, (new File(db4oMasterDir + "/"
+        assertEquals("StoreA db4o file should exist.", true, (new File(db4oMasterDir + "/"
                                                                        + "storeA").exists()));
-        assertEquals("StoreB BDB file should  exists.", true, (new File(db4oMasterDir + "/"
+        assertEquals("StoreB db4o file should  exist.", true, (new File(db4oMasterDir + "/"
                                                                         + "storeB").exists()));
     }
 

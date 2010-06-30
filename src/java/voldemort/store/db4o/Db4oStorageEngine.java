@@ -60,7 +60,7 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
     private EmbeddedConfiguration databaseConfig;
-    private ObjectContainer objectContainer;
+    // private ObjectContainer objectContainer;
     private Db4oKeyValueProvider<K, Versioned<V>> keyValueProvider;
 
     public Db4oStorageEngine(String path, EmbeddedConfiguration databaseConfig) {
@@ -78,6 +78,10 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
 
     public String getName() {
         return path;
+    }
+
+    public boolean isClosed() {
+        return keyValueProvider == null || keyValueProvider.isClosed();
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
@@ -277,8 +281,9 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
                                          + " is currently truncating cannot serve any request.");
         }
         // try {
-        objectContainer = Db4oEmbedded.openFile(databaseConfig, path);
-        return objectContainer;
+        // objectContainer = Db4oEmbedded.openFile(databaseConfig, path);
+        return Db4oEmbedded.openFile(databaseConfig, path);
+        // return objectContainer;
         // } catch(DatabaseFileLockedException dfle) {
         // return objectContainer;
         // }

@@ -16,6 +16,7 @@
 
 package voldemort.store.db4o;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,10 +41,11 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import com.db4o.Db4oEmbedded;
 import com.db4o.ObjectContainer;
+import com.db4o.ObjectServer;
 import com.db4o.ObjectSet;
-import com.db4o.config.EmbeddedConfiguration;
+import com.db4o.cs.Db4oClientServer;
+import com.db4o.cs.config.ServerConfiguration;
 import com.db4o.ext.Db4oException;
 import com.google.common.collect.Lists;
 
@@ -60,25 +62,38 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
     private final AtomicBoolean isOpen;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
-    private EmbeddedConfiguration databaseConfig;
-    private ObjectContainer objectContainer;
+    private ServerConfiguration databaseConfig;
+    private ObjectServer objectServer;
+    private static HashMap<String, ObjectServer> objectServers = new HashMap<String, ObjectServer>();
     private Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> keyValueProvider;
 
-    public Db4oByteArrayStorageEngine(String path, EmbeddedConfiguration databaseConfig) {
+    public Db4oByteArrayStorageEngine(String path, ServerConfiguration databaseConfig) {
         this.path = Utils.notNull(path);
         this.databaseConfig = Utils.notNull(databaseConfig);
         this.isOpen = new AtomicBoolean(true);
-        getKeyValueProvider();
+        objectServer = objectServers.get(path);
+        if(objectServer == null) {
+            objectServer = Db4oClientServer.openServer(this.databaseConfig, this.path, 0);
+            objectServers.put(path, objectServer);
+        }
     }
 
     private Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> getKeyValueProvider() {
-        if(keyValueProvider == null || keyValueProvider.isClosed())
-            keyValueProvider = new Db4oKeyValueProvider<ByteArray, Versioned<byte[]>>(openDb4oDatabase());
+        if(isClosed())
+            keyValueProvider = new Db4oKeyValueProvider<ByteArray, Versioned<byte[]>>(openDatabase());
         return keyValueProvider;
     }
 
     public String getName() {
         return path;
+    }
+
+    public boolean isClosed() {
+        return keyValueProvider == null || keyValueProvider.isClosed();
+    }
+
+    public int size() {
+        return getKeyValueProvider().size();
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -163,6 +178,7 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
     }
 
     public List<Versioned<byte[]>> get(ByteArray key) throws PersistenceFailureException {
+        StoreUtils.assertValidKey(key);
         return getKeyValueProvider().getValues(key);
     }
 
@@ -175,17 +191,12 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
      * 
      * @return
      */
-    private ObjectContainer openDb4oDatabase() {
+    private ObjectContainer openDatabase() {
         if(isTruncating.get()) {
             throw new VoldemortException("Db4o Store " + getName()
                                          + " is currently truncating cannot serve any request.");
         }
-        // try {
-        objectContainer = Db4oEmbedded.openFile(databaseConfig, path);
-        return objectContainer;
-        // } catch(DatabaseFileLockedException dfle) {
-        // return objectContainer;
-        // }
+        return objectServer.openClient();
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
@@ -238,11 +249,11 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
-            attemptClose(keyValueProvider);
             if(succeeded)
                 attemptCommit(keyValueProvider);
             else
                 attemptAbort(keyValueProvider);
+            attemptClose(keyValueProvider);
         }
     }
 
@@ -265,9 +276,9 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
             throw new PersistenceFailureException(de);
         } finally {
             try {
-                attemptClose(keyValueProvider);
-            } finally {
                 attemptCommit(keyValueProvider);
+            } finally {
+                attemptClose(keyValueProvider);
             }
         }
     }
