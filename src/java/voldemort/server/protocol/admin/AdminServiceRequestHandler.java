@@ -18,6 +18,7 @@ package voldemort.server.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
@@ -49,6 +50,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -59,6 +61,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -284,12 +287,84 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
-        return null;
+        final String dir = request.getStoreDir();
+        final String storeName = request.getStoreName();
+        VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
+
+        try {
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeName);
+            if(store == null)
+                throw new VoldemortException("'" + storeName
+                                             + "' is not a registered read-only store.");
+            if(!Utils.isReadableDir(dir))
+                throw new VoldemortException("Store directory '" + dir
+                                             + "' is not a readable directory.");
+
+            store.swapFiles(dir);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleSwapStore failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
     }
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchStore(VAdminProto.FetchStoreRequest request) {
-        // Similar to handleFetchAndUpdate
-        return null;
+        final String fetchUrl = request.getStoreDir();
+        final String storeName = request.getStoreName();
+        int requestId = asyncService.getUniqueRequestId();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
+                                                                                                            .setRequestId(requestId)
+                                                                                                            .setComplete(false)
+                                                                                                            .setDescription("Fetch store")
+                                                                                                            .setStatus("started");
+        try {
+            asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
+
+                private String fetchDirPath = null;
+
+                @Override
+                public void markComplete() {
+                    status.setComplete(true);
+                    status.setStatus(fetchDirPath);
+                }
+
+                @Override
+                public void operate() {
+                    File fetchDir = null;
+
+                    if(fileFetcher == null) {
+                        fetchDir = new File(fetchUrl);
+                    } else {
+                        logger.info("Executing fetch of " + fetchUrl);
+                        updateStatus("Executing fetch of " + fetchUrl);
+                        try {
+                            fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+                            updateStatus("Completed fetch of " + fetchUrl);
+                        } catch(Exception e) {
+                            throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
+                        }
+                        if(fetchDir == null) {
+                            throw new VoldemortException("Checksum failed for " + fetchUrl
+                                                         + " and store name = " + storeName);
+                        } else {
+                            logger.info("Fetch complete.");
+                        }
+                    }
+                    fetchDirPath = new String(fetchDir.getAbsolutePath());
+                }
+
+                @Override
+                public void stop() {
+                    status.setException(new VoldemortException("Fetcher interrupted"));
+                }
+            });
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
     }
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {

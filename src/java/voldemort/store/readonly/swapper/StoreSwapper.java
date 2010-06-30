@@ -94,7 +94,7 @@ public abstract class StoreSwapper {
         int timeoutMs = CmdUtils.valueOf(options,
                                          "timeout",
                                          (int) (3 * Time.SECONDS_PER_HOUR * Time.MS_PER_SECOND));
-        boolean useAdminServices = CmdUtils.valueOf(options, "admin", false);
+        boolean useAdminServices = options.has("admin");
 
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));

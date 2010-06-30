@@ -877,7 +877,7 @@ public class AdminClient {
                     throw status.getException();
 
                 if(status.isComplete())
-                    return description;
+                    return status.getStatus();
 
                 if(delay < MAX_DELAY)
                     delay <<= 1;

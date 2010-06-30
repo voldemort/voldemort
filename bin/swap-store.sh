@@ -30,4 +30,4 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.StoreSwapper $@ 
+java -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@ 
