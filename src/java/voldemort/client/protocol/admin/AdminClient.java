@@ -1160,11 +1160,11 @@ public class AdminClient {
     }
 
     /**
-     * Fetch store
+     * Fetch store data from directory 'storeDir' on node id.=
      * 
-     * @param nodeId
-     * @param storeName
-     * @param storeDir
+     * @param nodeId Id of the node to fetch the data to
+     * @param storeName Name of the store
+     * @param storeDir Directory of the store where content is available
      * @return
      */
     public String fetchStore(int nodeId, String storeName, String storeDir, long timeoutMs) {
@@ -1185,17 +1185,21 @@ public class AdminClient {
         }
 
         int asyncId = response.getRequestId();
-
-        return waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
-
+        try {
+            return waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
+        } catch(VoldemortException e) {
+            // Need to close async fetch operation
+            stopAsyncRequest(nodeId, asyncId);
+            throw e;
+        }
     }
 
     /**
-     * Swap store
+     * Swap store data atomically from temporary directory
      * 
-     * @param nodeId
-     * @param storeName
-     * @param storeDir
+     * @param nodeId The node id where we would want to swap the data
+     * @param storeName Name of the store
+     * @param storeDir The temporary directory where the data is present
      */
     public void swapStore(int nodeId, String storeName, String storeDir) {
         VAdminProto.SwapStoreRequest.Builder swapStoreRequest = VAdminProto.SwapStoreRequest.newBuilder()
