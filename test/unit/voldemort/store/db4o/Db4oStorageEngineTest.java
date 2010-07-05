@@ -54,8 +54,8 @@ public class Db4oStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     private ServerConfiguration newDb4oConfig() {
-        return getDb4oConfig(Db4oKeyValueProvider.KEY_VALUE_PAIR_CLASS,
-                             Db4oKeyValueProvider.KEY_FIELD_NAME);
+        return getDb4oConfig(Db4oStorageConfiguration.KEY_VALUE_PAIR_CLASS,
+                             Db4oStorageConfiguration.KEY_FIELD_NAME);
     }
 
     @SuppressWarnings("unchecked")
@@ -63,8 +63,8 @@ public class Db4oStorageEngineTest extends AbstractStorageEngineTest {
         ServerConfiguration config = Db4oClientServer.newServerConfiguration();
         // Use lazy mode
         config.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
-        // Set activation depth to 3
-        config.common().activationDepth(3);
+        // Set activation depth to 5
+        config.common().activationDepth(5);
         // Set index by Key
         config.common().objectClass(keyValuePairClass).objectField(keyFieldName).indexed(true);
         // Cascade on delete

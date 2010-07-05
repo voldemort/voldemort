@@ -42,6 +42,8 @@ import com.google.common.collect.Maps;
  */
 public class Db4oStorageConfiguration implements StorageConfiguration {
 
+    public static final String KEY_FIELD_NAME = "key";
+    public static final Class KEY_VALUE_PAIR_CLASS = Db4oKeyValuePair.class;
     public static final String TYPE_NAME = "db4o";
 
     private static Logger logger = Logger.getLogger(Db4oStorageConfiguration.class);
@@ -80,8 +82,8 @@ public class Db4oStorageConfiguration implements StorageConfiguration {
     }
 
     private ServerConfiguration newDb4oConfig() {
-        return getDb4oConfig(Db4oKeyValueProvider.KEY_VALUE_PAIR_CLASS,
-                             Db4oKeyValueProvider.KEY_FIELD_NAME);
+        return getDb4oConfig(Db4oStorageConfiguration.KEY_VALUE_PAIR_CLASS,
+                             Db4oStorageConfiguration.KEY_FIELD_NAME);
     }
 
     @SuppressWarnings("unchecked")
@@ -90,8 +92,8 @@ public class Db4oStorageConfiguration implements StorageConfiguration {
         ServerConfiguration config = Db4oClientServer.newServerConfiguration();
         // Use lazy mode
         config.common().queries().evaluationMode(QueryEvaluationMode.LAZY);
-        // Set activation depth to 3
-        config.common().activationDepth(3);
+        // Set activation depth to 5
+        config.common().activationDepth(5);
         // Set index by Key
         config.common().objectClass(keyValuePairClass).objectField(keyFieldName).indexed(true);
         // Cascade on delete

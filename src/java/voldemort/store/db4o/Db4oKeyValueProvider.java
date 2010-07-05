@@ -30,9 +30,6 @@ import com.google.common.collect.Maps;
 
 public class Db4oKeyValueProvider<Key, Value> {
 
-    public static final String KEY_FIELD_NAME = "key";
-    public static final Class KEY_VALUE_PAIR_CLASS = Db4oKeyValuePair.class;
-
     private ObjectContainer container;
 
     public static <Key, Value> Db4oKeyValueProvider<Key, Value> createDb4oKeyValueProvider(ObjectContainer container) {
@@ -92,6 +89,10 @@ public class Db4oKeyValueProvider<Key, Value> {
     public ObjectSet<Db4oKeyValuePair<Key, Value>> get(Key key) {
         Db4oKeyValuePair<Key, Value> pair = new Db4oKeyValuePair<Key, Value>(key, null);
         return getContainer().queryByExample(pair);
+        // Query query = getContainer().query();
+        // query.constrain(Db4oStorageConfiguration.KEY_VALUE_PAIR_CLASS);
+        // query.descend(Db4oStorageConfiguration.KEY_FIELD_NAME).constrain(key);
+        // return query.execute();
     }
 
     /*

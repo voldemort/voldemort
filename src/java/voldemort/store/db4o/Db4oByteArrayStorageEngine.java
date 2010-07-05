@@ -115,12 +115,14 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
     }
 
     public void truncate() {
+        Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider = getKeyValueProvider();
         if(isTruncating.compareAndSet(false, true)) {
             boolean succeeded = false;
             try {
-                getKeyValueProvider().truncate();
-                getKeyValueProvider().commit();
+                provider.truncate();
+                provider.commit();
                 succeeded = true;
+                isTruncating.compareAndSet(true, false);
             } catch(Db4oException e) {
                 logger.error(e);
                 throw new VoldemortException("Failed to truncate db4o store " + getName(), e);
@@ -128,9 +130,9 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
             } finally {
                 commitOrAbort(succeeded, getKeyValueProvider());
                 // reopen the db4o database for future queries.
-                if(reopenDb4oDatabase()) {
-                    isTruncating.compareAndSet(true, false);
-                } else {
+                if(isTruncating.get()) {// reopenDb4oDatabase()) {
+                    // isTruncating.compareAndSet(true, false);
+                    // } else {
                     throw new VoldemortException("Failed to reopen db4o Database after truncation, All request will fail on store "
                                                  + getName());
                 }

@@ -1,0 +1,112 @@
+<class-diagram version="0.9.86" automaticImage="PNG" icons="true" always-add-relationships="true" generalizations="true" 
+  realizations="true" associations="true" dependencies="true" nesting-relationships="true">  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+    project="voldemort" file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false">    
+    <position x="90" y="-92" width="315" height="558"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oKeyValueProvider" project="voldemort" 
+    file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValueProvider.java" binary="false">    
+    <position x="527" y="-135" width="311" height="446"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oStorageConfiguration" project="voldemort" 
+    file="/voldemort/src/java/voldemort/store/db4o/Db4oStorageConfiguration.java" binary="false">    
+    <position x="700" y="538" width="-1" height="-1"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oEntriesIterator" project="voldemort" 
+    file="/voldemort/src/java/voldemort/store/db4o/Db4oEntriesIterator.java" binary="false">    
+    <position x="1206" y="288" width="-1" height="-1"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oKeysIterator" project="voldemort" 
+    file="/voldemort/src/java/voldemort/store/db4o/Db4oKeysIterator.java" binary="false">    
+    <position x="1202" y="536" width="-1" height="-1"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <class corner="BOTTOM_RIGHT" language="java" name="voldemort.store.db4o.Db4oKeyValuePair" project="voldemort" 
+    file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValuePair.java" binary="false">    
+    <position x="474" y="574" width="-1" height="-1"/>    
+    <display autosize="true" package="true" initial-value="false" signature="true" visibility="true">      
+      <attributes public="true" package="true" protected="true" private="true"/>      
+      <operations public="true" package="true" protected="true" private="true"/>    
+    </display>  
+  </class>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oKeysIterator" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeysIterator.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeyValueProvider" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValueProvider.java" binary="false"/>  
+  </dependency>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oKeyValueProvider" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValueProvider.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeyValuePair" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValuePair.java" binary="false"/>  
+  </dependency>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeysIterator" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeysIterator.java" binary="false"/>  
+  </dependency>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oEntriesIterator" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oEntriesIterator.java" binary="false"/>  
+  </dependency>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeyValuePair" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValuePair.java" binary="false"/>  
+  </dependency>  
+  <association>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false" navigable="false">      
+      <attribute name="keyValueProvider"/>      
+      <multiplicity minimum="0" maximum="1"/>    
+    </source>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeyValueProvider" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValueProvider.java" binary="false" navigable="true"/>    
+    <display labels="true" multiplicity="true"/>  
+  </association>  
+  <association>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oStorageConfiguration" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oStorageConfiguration.java" binary="false" navigable="false">      
+      <attribute name="stores"/>      
+      <multiplicity minimum="0" maximum="2147483647"/>    
+    </source>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oByteArrayStorageEngine" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oByteArrayStorageEngine.java" binary="false" navigable="true"/>    
+    <display labels="true" multiplicity="true"/>  
+  </association>  
+  <dependency>    
+    <source project="voldemort" name="voldemort.store.db4o.Db4oEntriesIterator" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oEntriesIterator.java" binary="false"/>    
+    <target project="voldemort" name="voldemort.store.db4o.Db4oKeyValueProvider" 
+      file="/voldemort/src/java/voldemort/store/db4o/Db4oKeyValueProvider.java" binary="false"/>  
+  </dependency>  
+  <classifier-display autosize="true" package="true" initial-value="false" signature="true" visibility="true">    
+    <attributes public="true" package="true" protected="true" private="true"/>    
+    <operations public="true" package="true" protected="true" private="true"/>  
+  </classifier-display>  
+  <association-display labels="true" multiplicity="true"/>
+</class-diagram>

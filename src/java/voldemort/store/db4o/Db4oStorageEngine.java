@@ -16,6 +16,7 @@
 
 package voldemort.store.db4o;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,10 +40,11 @@ import voldemort.versioning.Occured;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import com.db4o.Db4oEmbedded;
 import com.db4o.ObjectContainer;
+import com.db4o.ObjectServer;
 import com.db4o.ObjectSet;
-import com.db4o.config.EmbeddedConfiguration;
+import com.db4o.cs.Db4oClientServer;
+import com.db4o.cs.config.ServerConfiguration;
 import com.db4o.ext.Db4oException;
 import com.google.common.collect.Lists;
 
@@ -59,20 +61,25 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
     private final AtomicBoolean isOpen;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
-    private EmbeddedConfiguration databaseConfig;
-    // private ObjectContainer objectContainer;
+    private ServerConfiguration databaseConfig;
+    private ObjectServer objectServer;
+    private static HashMap<String, ObjectServer> objectServers = new HashMap<String, ObjectServer>();
     private Db4oKeyValueProvider<K, Versioned<V>> keyValueProvider;
 
-    public Db4oStorageEngine(String path, EmbeddedConfiguration databaseConfig) {
+    public Db4oStorageEngine(String path, ServerConfiguration dbConfig) {
         this.path = Utils.notNull(path);
-        this.databaseConfig = Utils.notNull(databaseConfig);
+        this.databaseConfig = Utils.notNull(dbConfig);
         this.isOpen = new AtomicBoolean(true);
-        getKeyValueProvider();
+        objectServer = objectServers.get(path);
+        if(objectServer == null) {
+            objectServer = Db4oClientServer.openServer(this.databaseConfig, this.path, 0);
+            objectServers.put(path, objectServer);
+        }
     }
 
     private Db4oKeyValueProvider<K, Versioned<V>> getKeyValueProvider() {
-        if(keyValueProvider == null || keyValueProvider.isClosed())
-            keyValueProvider = new Db4oKeyValueProvider<K, Versioned<V>>(openDb4oDatabase());
+        if(isClosed())
+            keyValueProvider = new Db4oKeyValueProvider<K, Versioned<V>>(openDatabase());
         return keyValueProvider;
     }
 
@@ -229,11 +236,11 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
-            attemptClose(keyValueProvider);
             if(succeeded)
                 attemptCommit(keyValueProvider);
             else
                 attemptAbort(keyValueProvider);
+            attemptClose(keyValueProvider);
         }
     }
 
@@ -259,9 +266,9 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
             throw new PersistenceFailureException(de);
         } finally {
             try {
-                attemptClose(keyValueProvider);
-            } finally {
                 attemptCommit(keyValueProvider);
+            } finally {
+                attemptClose(keyValueProvider);
             }
         }
     }
@@ -275,18 +282,12 @@ public class Db4oStorageEngine<K, V> implements StorageEngine<K, V> {
      * 
      * @return
      */
-    private ObjectContainer openDb4oDatabase() {
+    private ObjectContainer openDatabase() {
         if(isTruncating.get()) {
             throw new VoldemortException("Db4o Store " + getName()
                                          + " is currently truncating cannot serve any request.");
         }
-        // try {
-        // objectContainer = Db4oEmbedded.openFile(databaseConfig, path);
-        return Db4oEmbedded.openFile(databaseConfig, path);
-        // return objectContainer;
-        // } catch(DatabaseFileLockedException dfle) {
-        // return objectContainer;
-        // }
+        return objectServer.openClient();
     }
 
     public Object getCapability(StoreCapabilityType capability) {
