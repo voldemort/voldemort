@@ -259,8 +259,6 @@ public class Workload {
         int writePercent = props.getInt(Benchmark.WRITES, 0);
         int deletePercent = props.getInt(Benchmark.DELETES, 0);
         int mixedPercent = props.getInt(Benchmark.MIXED, 0);
-        int recordCount = props.getInt(Benchmark.RECORD_COUNT);
-        int opCount = props.getInt(Benchmark.OPS_COUNT);
         int valueSize = props.getInt(Benchmark.VALUE_SIZE, 1024);
         this.value = BenchmarkUtils.ASCIIString(valueSize);
         int cachedPercent = props.getInt(Benchmark.PERCENT_CACHED, 0);
@@ -281,6 +279,7 @@ public class Workload {
         }
 
         List<Integer> keysFromFile = null;
+        int recordCount = 0;
         if(props.containsKey(Benchmark.REQUEST_FILE)) {
             try {
                 String fileRecordSelectionFile = props.getString(Benchmark.REQUEST_FILE);
@@ -293,7 +292,10 @@ public class Workload {
                 // Falling back to default uniform selection
                 recordSelection = new String(Benchmark.UNIFORM_RECORD_SELECTION);
             }
+        } else {
+            recordCount = props.getInt(Benchmark.RECORD_COUNT, -1);
         }
+        int opCount = props.getInt(Benchmark.OPS_COUNT);
 
         Class<?> keyTypeClass = getKeyTypeClass(keyType);
         int insertStart = props.getInt(Benchmark.START_KEY_INDEX, 0);
