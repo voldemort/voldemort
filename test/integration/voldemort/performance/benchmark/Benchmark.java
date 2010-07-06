@@ -186,14 +186,19 @@ public class Benchmark {
         public void run() {
             long startTime = System.currentTimeMillis();
             while(opsDone < this.opsCount) {
-                if(runBenchmark) {
-                    if(!workLoad.doTransaction(this.db)) {
-                        break;
+                try {
+                    if(runBenchmark) {
+                        if(!workLoad.doTransaction(this.db)) {
+                            break;
+                        }
+                    } else {
+                        if(!workLoad.doWrite(this.db)) {
+                            break;
+                        }
                     }
-                } else {
-                    if(!workLoad.doWrite(this.db)) {
-                        break;
-                    }
+                } catch(Exception e) {
+                    if(this.verbose)
+                        e.printStackTrace();
                 }
                 opsDone++;
                 if(targetThroughputPerMs > 0) {
