@@ -240,16 +240,16 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
                     keyValueProvider.delete(pair);
             }
             // Okay so we cleaned up all the prior stuff, so we can now insert
-            try {
-                keyValueProvider.put(key, value);
-            } catch(Db4oException de) {
-                throw new PersistenceFailureException("Put operation failed with status: "
-                                                      + de.getMessage());
-            }
+            keyValueProvider.put(key, value);
             succeeded = true;
         } catch(Db4oException e) {
             logger.error(e);
-            throw new PersistenceFailureException(e);
+            throw new PersistenceFailureException("Put operation failed with status: "
+                                                  + e.getMessage());
+        } catch(PersistenceFailureException e) {
+            logger.error(e);
+            throw new PersistenceFailureException("Put operation failed with status: "
+                                                  + e.getMessage());
         } finally {
             if(succeeded)
                 attemptCommit(keyValueProvider);
@@ -273,9 +273,9 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
                 }
             }
             return deletedSomething;
-        } catch(Db4oException de) {
+        } catch(Exception de) {
             logger.error(de);
-            throw new PersistenceFailureException(de);
+            throw new PersistenceFailureException(de.toString());
         } finally {
             try {
                 attemptCommit(keyValueProvider);
@@ -305,7 +305,8 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
     public void close() throws PersistenceFailureException {
         try {
             if(this.isOpen.compareAndSet(true, false))
-                getKeyValueProvider().close();
+                if(keyValueProvider != null && !keyValueProvider.isClosed())
+                    keyValueProvider.close();
         } catch(Db4oException e) {
             logger.error(e);
             throw new PersistenceFailureException("Shutdown failed.", e);
@@ -314,7 +315,7 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
 
     private void attemptAbort(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            if(provider != null)
+            if(provider != null && !provider.isClosed())
                 provider.rollback(); // abort transaction
         } catch(Db4oException e) {
             logger.error("Abort failed!", e);
@@ -323,7 +324,8 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
 
     private void attemptCommit(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            provider.commit();
+            if(provider != null && !provider.isClosed())
+                provider.commit();
         } catch(Db4oException e) {
             logger.error("Transaction commit failed!", e);
             attemptAbort(provider);
@@ -333,7 +335,7 @@ public class Db4oByteArrayStorageEngine implements StorageEngine<ByteArray, byte
 
     private static void attemptClose(Db4oKeyValueProvider<ByteArray, Versioned<byte[]>> provider) {
         try {
-            if(provider != null)
+            if(provider != null && !provider.isClosed())
                 provider.close();
         } catch(Db4oException e) {
             logger.error("Error closing cursor.", e);

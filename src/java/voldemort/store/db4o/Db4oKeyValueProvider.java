@@ -21,10 +21,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.db4o.ObjectContainer;
 import com.db4o.ObjectSet;
-import com.db4o.ext.Db4oException;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -41,8 +41,12 @@ public class Db4oKeyValueProvider<Key, Value> {
     }
 
     private ObjectContainer getContainer() {
-        if(container == null)
-            throw new Db4oException("Db4oKeyValueProvider has no associated ObjectContainer");
+        // if(container == null)
+        // throw new
+        // Db4oException("Db4oKeyValueProvider has no associated ObjectContainer");
+        // if(container.ext().isClosed())
+        // throw new
+        // Db4oException("Db4oKeyValueProvider's object container is closed");
         return container;
     }
 
@@ -145,6 +149,16 @@ public class Db4oKeyValueProvider<Key, Value> {
      */
     public void put(Db4oKeyValuePair<Key, Value> pair) {
         getContainer().store(pair);
+    }
+
+    /*
+     * Store all entries in passed Map as key/value pairs
+     */
+    public void putAll(Map<Key, Value> map) {
+        Set<Key> keys = map.keySet();
+        for(Key key: keys) {
+            put(key, map.get(key));
+        }
     }
 
     /*
