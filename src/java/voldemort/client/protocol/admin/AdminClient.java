@@ -870,8 +870,8 @@ public class AdminClient {
         while(System.currentTimeMillis() < waitUntil) {
             try {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-                logger.debug("Status for async task " + requestId + " at node " + nodeId + " is "
-                             + status);
+                logger.info("Status for async task " + requestId + " at node " + nodeId + " is "
+                            + status);
                 description = status.getDescription();
                 if(status.hasException())
                     throw status.getException();
@@ -1157,6 +1157,28 @@ public class AdminClient {
      */
     public Cluster getAdminClientCluster() {
         return currentCluster;
+    }
+
+    /**
+     * Rollback RO store to most recent backup of the current store
+     * 
+     * @param nodeId The node id on which to rollback
+     * @param storeName The name of the RO Store to rollback
+     */
+    public void rollbackStore(int nodeId, String storeName) {
+        VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
+                                                                                                        .setStoreName(storeName);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setRollbackStore(rollbackStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)
+                                                                                          .build();
+        VAdminProto.RollbackStoreResponse.Builder response = sendAndReceive(nodeId,
+                                                                            adminRequest,
+                                                                            VAdminProto.RollbackStoreResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+        return;
     }
 
     /**

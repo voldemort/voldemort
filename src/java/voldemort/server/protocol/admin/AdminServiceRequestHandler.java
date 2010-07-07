@@ -196,6 +196,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case SWAP_STORE:
                 ProtoUtils.writeMessage(outputStream, handleSwapStore(request.getSwapStore()));
                 break;
+            case ROLLBACK_STORE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRollbackStore(request.getRollbackStore()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -286,6 +290,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+    public VAdminProto.RollbackStoreResponse handleRollbackStore(VAdminProto.RollbackStoreRequest request) {
+        final String storeName = request.getStoreName();
+        VAdminProto.RollbackStoreResponse.Builder response = VAdminProto.RollbackStoreResponse.newBuilder();
+
+        try {
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeName);
+            if(store == null)
+                throw new VoldemortException("'" + storeName
+                                             + "' is not a registered read-only store.");
+            store.rollback();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
+    }
+
     public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
         final String dir = request.getStoreDir();
         final String storeName = request.getStoreName();
@@ -338,6 +359,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         logger.info("Executing fetch of " + fetchUrl);
                         updateStatus("Executing fetch of " + fetchUrl);
                         try {
+                            fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, storeName);
                             updateStatus("Completed fetch of " + fetchUrl);
                         } catch(Exception e) {

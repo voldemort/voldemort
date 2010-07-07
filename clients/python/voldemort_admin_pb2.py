@@ -71,6 +71,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='SWAP_STORE', index=14, number=14,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='ROLLBACK_STORE', index=15, number=15,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -91,6 +95,7 @@ ADD_STORE = 11
 DELETE_STORE = 12
 FETCH_STORE = 13
 SWAP_STORE = 14
+ROLLBACK_STORE = 15
 
 
 
@@ -949,6 +954,50 @@ _SWAPSTORERESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_ROLLBACKSTOREREQUEST = descriptor.Descriptor(
+  name='RollbackStoreRequest',
+  full_name='voldemort.RollbackStoreRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store_name', full_name='voldemort.RollbackStoreRequest.store_name', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_ROLLBACKSTORERESPONSE = descriptor.Descriptor(
+  name='RollbackStoreResponse',
+  full_name='voldemort.RollbackStoreResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.RollbackStoreResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -1067,6 +1116,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='rollback_store', full_name='voldemort.VoldemortAdminRequest.rollback_store', index=16,
+      number=17, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1098,6 +1154,7 @@ _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _DELETESTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _SWAPSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_ROLLBACKSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -1114,6 +1171,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['add_store'].message_type = _ADDSTOREREQUE
 _VOLDEMORTADMINREQUEST.fields_by_name['delete_store'].message_type = _DELETESTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['fetch_store'].message_type = _FETCHSTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['swap_store'].message_type = _SWAPSTOREREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['rollback_store'].message_type = _ROLLBACKSTOREREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1230,6 +1288,14 @@ class SwapStoreRequest(message.Message):
 class SwapStoreResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _SWAPSTORERESPONSE
+
+class RollbackStoreRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ROLLBACKSTOREREQUEST
+
+class RollbackStoreResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ROLLBACKSTORERESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

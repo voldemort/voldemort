@@ -30,6 +30,21 @@ public class AdminStoreSwapper extends StoreSwapper {
         this.timeoutMs = timeoutMs;
     }
 
+    public void invokeRollback(final String storeName) {
+        for(Node node: cluster.getNodes()) {
+            try {
+                logger.info("Attempting rollback for node " + node.getId() + " storeName = "
+                            + storeName);
+                adminClient.rollbackStore(node.getId(), storeName);
+                logger.info("Rollback succeeded for node " + node.getId());
+            } catch(Exception e) {
+                logger.error("Exception thrown during rollback operation on node " + node.getId()
+                             + ": ", e);
+            }
+        }
+
+    }
+
     @Override
     protected List<String> invokeFetch(final String storeName, final String basePath) {
         // do fetch

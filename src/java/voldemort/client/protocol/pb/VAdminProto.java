@@ -24,6 +24,7 @@ public final class VAdminProto {
     DELETE_STORE(12, 12),
     FETCH_STORE(13, 13),
     SWAP_STORE(14, 14),
+    ROLLBACK_STORE(15, 15),
     ;
     
     
@@ -46,6 +47,7 @@ public final class VAdminProto {
         case 12: return DELETE_STORE;
         case 13: return FETCH_STORE;
         case 14: return SWAP_STORE;
+        case 15: return ROLLBACK_STORE;
         default: return null;
       }
     }
@@ -76,7 +78,7 @@ public final class VAdminProto {
     }
     
     private static final AdminRequestType[] VALUES = {
-      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, 
+      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, 
     };
     public static AdminRequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -9932,6 +9934,571 @@ public final class VAdminProto {
     }
   }
   
+  public static final class RollbackStoreRequest extends
+      com.google.protobuf.GeneratedMessage {
+    // Use RollbackStoreRequest.newBuilder() to construct.
+    private RollbackStoreRequest() {}
+    
+    private static final RollbackStoreRequest defaultInstance = new RollbackStoreRequest();
+    public static RollbackStoreRequest getDefaultInstance() {
+      return defaultInstance;
+    }
+    
+    public RollbackStoreRequest getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+    
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreRequest_descriptor;
+    }
+    
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable;
+    }
+    
+    // required string store_name = 1;
+    public static final int STORE_NAME_FIELD_NUMBER = 1;
+    private boolean hasStoreName;
+    private java.lang.String storeName_ = "";
+    public boolean hasStoreName() { return hasStoreName; }
+    public java.lang.String getStoreName() { return storeName_; }
+    
+    public final boolean isInitialized() {
+      if (!hasStoreName) return false;
+      return true;
+    }
+    
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (hasStoreName()) {
+        output.writeString(1, getStoreName());
+      }
+      getUnknownFields().writeTo(output);
+    }
+    
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+    
+      size = 0;
+      if (hasStoreName()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeStringSize(1, getStoreName());
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+    
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+    
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder> {
+      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest result;
+      
+      // Construct using voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.newBuilder()
+      private Builder() {}
+      
+      private static Builder create() {
+        Builder builder = new Builder();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest();
+        return builder;
+      }
+      
+      protected voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest internalGetResult() {
+        return result;
+      }
+      
+      public Builder clear() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "Cannot call clear() after build().");
+        }
+        result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest();
+        return this;
+      }
+      
+      public Builder clone() {
+        return create().mergeFrom(result);
+      }
+      
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDescriptor();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance();
+      }
+      
+      public boolean isInitialized() {
+        return result.isInitialized();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest build() {
+        if (result != null && !isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return buildPartial();
+      }
+      
+      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest buildParsed()
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        if (!isInitialized()) {
+          throw newUninitializedMessageException(
+            result).asInvalidProtocolBufferException();
+        }
+        return buildPartial();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest buildPartial() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "build() has already been called on this Builder.");
+        }
+        voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest returnMe = result;
+        result = null;
+        return returnMe;
+      }
+      
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+      
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance()) return this;
+        if (other.hasStoreName()) {
+          setStoreName(other.getStoreName());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+      
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder(
+            this.getUnknownFields());
+        while (true) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              this.setUnknownFields(unknownFields.build());
+              return this;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              }
+              break;
+            }
+            case 10: {
+              setStoreName(input.readString());
+              break;
+            }
+          }
+        }
+      }
+      
+      
+      // required string store_name = 1;
+      public boolean hasStoreName() {
+        return result.hasStoreName();
+      }
+      public java.lang.String getStoreName() {
+        return result.getStoreName();
+      }
+      public Builder setStoreName(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasStoreName = true;
+        result.storeName_ = value;
+        return this;
+      }
+      public Builder clearStoreName() {
+        result.hasStoreName = false;
+        result.storeName_ = getDefaultInstance().getStoreName();
+        return this;
+      }
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.getDescriptor();
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
+    }
+  }
+  
+  public static final class RollbackStoreResponse extends
+      com.google.protobuf.GeneratedMessage {
+    // Use RollbackStoreResponse.newBuilder() to construct.
+    private RollbackStoreResponse() {}
+    
+    private static final RollbackStoreResponse defaultInstance = new RollbackStoreResponse();
+    public static RollbackStoreResponse getDefaultInstance() {
+      return defaultInstance;
+    }
+    
+    public RollbackStoreResponse getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+    
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreResponse_descriptor;
+    }
+    
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable;
+    }
+    
+    // optional .voldemort.Error error = 1;
+    public static final int ERROR_FIELD_NUMBER = 1;
+    private boolean hasError;
+    private voldemort.client.protocol.pb.VProto.Error error_ = voldemort.client.protocol.pb.VProto.Error.getDefaultInstance();
+    public boolean hasError() { return hasError; }
+    public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
+    
+    public final boolean isInitialized() {
+      if (hasError()) {
+        if (!getError().isInitialized()) return false;
+      }
+      return true;
+    }
+    
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (hasError()) {
+        output.writeMessage(1, getError());
+      }
+      getUnknownFields().writeTo(output);
+    }
+    
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+    
+      size = 0;
+      if (hasError()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(1, getError());
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+    
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+    
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder> {
+      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse result;
+      
+      // Construct using voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.newBuilder()
+      private Builder() {}
+      
+      private static Builder create() {
+        Builder builder = new Builder();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse();
+        return builder;
+      }
+      
+      protected voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse internalGetResult() {
+        return result;
+      }
+      
+      public Builder clear() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "Cannot call clear() after build().");
+        }
+        result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse();
+        return this;
+      }
+      
+      public Builder clone() {
+        return create().mergeFrom(result);
+      }
+      
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.getDescriptor();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.getDefaultInstance();
+      }
+      
+      public boolean isInitialized() {
+        return result.isInitialized();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse build() {
+        if (result != null && !isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return buildPartial();
+      }
+      
+      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse buildParsed()
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        if (!isInitialized()) {
+          throw newUninitializedMessageException(
+            result).asInvalidProtocolBufferException();
+        }
+        return buildPartial();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse buildPartial() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "build() has already been called on this Builder.");
+        }
+        voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse returnMe = result;
+        result = null;
+        return returnMe;
+      }
+      
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+      
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.getDefaultInstance()) return this;
+        if (other.hasError()) {
+          mergeError(other.getError());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+      
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder(
+            this.getUnknownFields());
+        while (true) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              this.setUnknownFields(unknownFields.build());
+              return this;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              }
+              break;
+            }
+            case 10: {
+              voldemort.client.protocol.pb.VProto.Error.Builder subBuilder = voldemort.client.protocol.pb.VProto.Error.newBuilder();
+              if (hasError()) {
+                subBuilder.mergeFrom(getError());
+              }
+              input.readMessage(subBuilder, extensionRegistry);
+              setError(subBuilder.buildPartial());
+              break;
+            }
+          }
+        }
+      }
+      
+      
+      // optional .voldemort.Error error = 1;
+      public boolean hasError() {
+        return result.hasError();
+      }
+      public voldemort.client.protocol.pb.VProto.Error getError() {
+        return result.getError();
+      }
+      public Builder setError(voldemort.client.protocol.pb.VProto.Error value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.hasError = true;
+        result.error_ = value;
+        return this;
+      }
+      public Builder setError(voldemort.client.protocol.pb.VProto.Error.Builder builderForValue) {
+        result.hasError = true;
+        result.error_ = builderForValue.build();
+        return this;
+      }
+      public Builder mergeError(voldemort.client.protocol.pb.VProto.Error value) {
+        if (result.hasError() &&
+            result.error_ != voldemort.client.protocol.pb.VProto.Error.getDefaultInstance()) {
+          result.error_ =
+            voldemort.client.protocol.pb.VProto.Error.newBuilder(result.error_).mergeFrom(value).buildPartial();
+        } else {
+          result.error_ = value;
+        }
+        result.hasError = true;
+        return this;
+      }
+      public Builder clearError() {
+        result.hasError = false;
+        result.error_ = voldemort.client.protocol.pb.VProto.Error.getDefaultInstance();
+        return this;
+      }
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.getDescriptor();
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
+    }
+  }
+  
   public static final class VoldemortAdminRequest extends
       com.google.protobuf.GeneratedMessage {
     // Use VoldemortAdminRequest.newBuilder() to construct.
@@ -10068,6 +10635,13 @@ public final class VAdminProto {
     public boolean hasSwapStore() { return hasSwapStore; }
     public voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest getSwapStore() { return swapStore_; }
     
+    // optional .voldemort.RollbackStoreRequest rollback_store = 17;
+    public static final int ROLLBACK_STORE_FIELD_NUMBER = 17;
+    private boolean hasRollbackStore;
+    private voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest rollbackStore_ = voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance();
+    public boolean hasRollbackStore() { return hasRollbackStore; }
+    public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest getRollbackStore() { return rollbackStore_; }
+    
     public final boolean isInitialized() {
       if (!hasType) return false;
       if (hasGetMetadata()) {
@@ -10114,6 +10688,9 @@ public final class VAdminProto {
       }
       if (hasSwapStore()) {
         if (!getSwapStore().isInitialized()) return false;
+      }
+      if (hasRollbackStore()) {
+        if (!getRollbackStore().isInitialized()) return false;
       }
       return true;
     }
@@ -10167,6 +10744,9 @@ public final class VAdminProto {
       }
       if (hasSwapStore()) {
         output.writeMessage(16, getSwapStore());
+      }
+      if (hasRollbackStore()) {
+        output.writeMessage(17, getRollbackStore());
       }
       getUnknownFields().writeTo(output);
     }
@@ -10240,6 +10820,10 @@ public final class VAdminProto {
       if (hasSwapStore()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(16, getSwapStore());
+      }
+      if (hasRollbackStore()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(17, getRollbackStore());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -10438,6 +11022,9 @@ public final class VAdminProto {
         if (other.hasSwapStore()) {
           mergeSwapStore(other.getSwapStore());
         }
+        if (other.hasRollbackStore()) {
+          mergeRollbackStore(other.getRollbackStore());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -10606,6 +11193,15 @@ public final class VAdminProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setSwapStore(subBuilder.buildPartial());
+              break;
+            }
+            case 138: {
+              voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.newBuilder();
+              if (hasRollbackStore()) {
+                subBuilder.mergeFrom(getRollbackStore());
+              }
+              input.readMessage(subBuilder, extensionRegistry);
+              setRollbackStore(subBuilder.buildPartial());
               break;
             }
           }
@@ -11188,6 +11784,43 @@ public final class VAdminProto {
         result.swapStore_ = voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.getDefaultInstance();
         return this;
       }
+      
+      // optional .voldemort.RollbackStoreRequest rollback_store = 17;
+      public boolean hasRollbackStore() {
+        return result.hasRollbackStore();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest getRollbackStore() {
+        return result.getRollbackStore();
+      }
+      public Builder setRollbackStore(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.hasRollbackStore = true;
+        result.rollbackStore_ = value;
+        return this;
+      }
+      public Builder setRollbackStore(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.Builder builderForValue) {
+        result.hasRollbackStore = true;
+        result.rollbackStore_ = builderForValue.build();
+        return this;
+      }
+      public Builder mergeRollbackStore(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest value) {
+        if (result.hasRollbackStore() &&
+            result.rollbackStore_ != voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance()) {
+          result.rollbackStore_ =
+            voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.newBuilder(result.rollbackStore_).mergeFrom(value).buildPartial();
+        } else {
+          result.rollbackStore_ = value;
+        }
+        result.hasRollbackStore = true;
+        return this;
+      }
+      public Builder clearRollbackStore() {
+        result.hasRollbackStore = false;
+        result.rollbackStore_ = voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance();
+        return this;
+      }
     }
     
     static {
@@ -11345,6 +11978,16 @@ public final class VAdminProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_SwapStoreResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_RollbackStoreRequest_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_RollbackStoreResponse_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_VoldemortAdminRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -11417,43 +12060,48 @@ public final class VAdminProto {
       "\021\n\tstore_dir\030\002 \002(\t\"9\n\020SwapStoreRequest\022\022" +
       "\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"4\n" +
       "\021SwapStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vold" +
-      "emort.Error\"\200\010\n\025VoldemortAdminRequest\022)\n",
-      "\004type\030\001 \002(\0162\033.voldemort.AdminRequestType" +
-      "\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.GetMe" +
-      "tadataRequest\0229\n\017update_metadata\030\003 \001(\0132 " +
-      ".voldemort.UpdateMetadataRequest\022J\n\030upda" +
-      "te_partition_entries\030\004 \001(\0132(.voldemort.U" +
-      "pdatePartitionEntriesRequest\022H\n\027fetch_pa" +
-      "rtition_entries\030\005 \001(\0132\'.voldemort.FetchP" +
-      "artitionEntriesRequest\022J\n\030delete_partiti" +
-      "on_entries\030\006 \001(\0132(.voldemort.DeleteParti" +
-      "tionEntriesRequest\022K\n\031initiate_fetch_and",
-      "_update\030\007 \001(\0132(.voldemort.InitiateFetchA" +
-      "ndUpdateRequest\022F\n\026async_operation_statu" +
-      "s\030\010 \001(\0132&.voldemort.AsyncOperationStatus" +
-      "Request\022H\n\027initiate_rebalance_node\030\t \001(\013" +
-      "2\'.voldemort.InitiateRebalanceNodeReques" +
-      "t\022B\n\024async_operation_stop\030\n \001(\0132$.voldem" +
-      "ort.AsyncOperationStopRequest\022B\n\024async_o" +
-      "peration_list\030\013 \001(\0132$.voldemort.AsyncOpe" +
-      "rationListRequest\022;\n\020truncate_entries\030\014 " +
-      "\001(\0132!.voldemort.TruncateEntriesRequest\022-",
-      "\n\tadd_store\030\r \001(\0132\032.voldemort.AddStoreRe" +
-      "quest\0223\n\014delete_store\030\016 \001(\0132\035.voldemort." +
-      "DeleteStoreRequest\0221\n\013fetch_store\030\017 \001(\0132" +
-      "\034.voldemort.FetchStoreRequest\022/\n\nswap_st" +
-      "ore\030\020 \001(\0132\033.voldemort.SwapStoreRequest*\366" +
-      "\002\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000\022\023\n" +
-      "\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_E" +
-      "NTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n" +
-      "\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_" +
-      "FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_ST",
-      "ATUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024A" +
-      "SYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION" +
-      "_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STO" +
-      "RE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022" +
-      "\016\n\nSWAP_STORE\020\016B-\n\034voldemort.client.prot" +
-      "ocol.pbB\013VAdminProtoH\001"
+      "emort.Error\"*\n\024RollbackStoreRequest\022\022\n\ns",
+      "tore_name\030\001 \002(\t\"8\n\025RollbackStoreResponse" +
+      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"\271\010\n\025Vo" +
+      "ldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033.vold" +
+      "emort.AdminRequestType\0223\n\014get_metadata\030\002" +
+      " \001(\0132\035.voldemort.GetMetadataRequest\0229\n\017u" +
+      "pdate_metadata\030\003 \001(\0132 .voldemort.UpdateM" +
+      "etadataRequest\022J\n\030update_partition_entri" +
+      "es\030\004 \001(\0132(.voldemort.UpdatePartitionEntr" +
+      "iesRequest\022H\n\027fetch_partition_entries\030\005 " +
+      "\001(\0132\'.voldemort.FetchPartitionEntriesReq",
+      "uest\022J\n\030delete_partition_entries\030\006 \001(\0132(" +
+      ".voldemort.DeletePartitionEntriesRequest" +
+      "\022K\n\031initiate_fetch_and_update\030\007 \001(\0132(.vo" +
+      "ldemort.InitiateFetchAndUpdateRequest\022F\n" +
+      "\026async_operation_status\030\010 \001(\0132&.voldemor" +
+      "t.AsyncOperationStatusRequest\022H\n\027initiat" +
+      "e_rebalance_node\030\t \001(\0132\'.voldemort.Initi" +
+      "ateRebalanceNodeRequest\022B\n\024async_operati" +
+      "on_stop\030\n \001(\0132$.voldemort.AsyncOperation" +
+      "StopRequest\022B\n\024async_operation_list\030\013 \001(",
+      "\0132$.voldemort.AsyncOperationListRequest\022" +
+      ";\n\020truncate_entries\030\014 \001(\0132!.voldemort.Tr" +
+      "uncateEntriesRequest\022-\n\tadd_store\030\r \001(\0132" +
+      "\032.voldemort.AddStoreRequest\0223\n\014delete_st" +
+      "ore\030\016 \001(\0132\035.voldemort.DeleteStoreRequest" +
+      "\0221\n\013fetch_store\030\017 \001(\0132\034.voldemort.FetchS" +
+      "toreRequest\022/\n\nswap_store\030\020 \001(\0132\033.voldem" +
+      "ort.SwapStoreRequest\0227\n\016rollback_store\030\021" +
+      " \001(\0132\037.voldemort.RollbackStoreRequest*\212\003" +
+      "\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000\022\023\n\017",
+      "UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_EN" +
+      "TRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030" +
+      "DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_F" +
+      "ETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_STA" +
+      "TUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024AS" +
+      "YNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION_" +
+      "LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STOR" +
+      "E\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016" +
+      "\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017B-\n\034vo" +
+      "ldemort.client.protocol.pbB\013VAdminProtoH",
+      "\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -11692,12 +12340,28 @@ public final class VAdminProto {
               new java.lang.String[] { "Error", },
               voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.Builder.class);
-          internal_static_voldemort_VoldemortAdminRequest_descriptor =
+          internal_static_voldemort_RollbackStoreRequest_descriptor =
             getDescriptor().getMessageTypes().get(29);
+          internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_RollbackStoreRequest_descriptor,
+              new java.lang.String[] { "StoreName", },
+              voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.class,
+              voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.Builder.class);
+          internal_static_voldemort_RollbackStoreResponse_descriptor =
+            getDescriptor().getMessageTypes().get(30);
+          internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_RollbackStoreResponse_descriptor,
+              new java.lang.String[] { "Error", },
+              voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.class,
+              voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.Builder.class);
+          internal_static_voldemort_VoldemortAdminRequest_descriptor =
+            getDescriptor().getMessageTypes().get(31);
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;
