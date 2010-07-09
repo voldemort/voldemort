@@ -109,19 +109,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     private void setFetcherClass(VoldemortConfig voldemortConfig) {
-        String className = voldemortConfig.getAllProps().getString("file.fetcher.class", null);
-        if(className == null || className.trim().length() == 0) {
-            this.fileFetcher = null;
-        } else {
-            try {
-                logger.info("Loading fetcher " + className);
-                Class<?> cls = Class.forName(className.trim());
-                this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
-                                                                              new Class<?>[] { Props.class },
-                                                                              new Object[] { voldemortConfig.getAllProps() });
-            } catch(Exception e) {
-                throw new VoldemortException("Error loading file fetcher class " + className, e);
+        if(voldemortConfig != null) {
+            String className = voldemortConfig.getAllProps().getString("file.fetcher.class", null);
+            if(className == null || className.trim().length() == 0) {
+                this.fileFetcher = null;
+            } else {
+                try {
+                    logger.info("Loading fetcher " + className);
+                    Class<?> cls = Class.forName(className.trim());
+                    this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
+                                                                                  new Class<?>[] { Props.class },
+                                                                                  new Object[] { voldemortConfig.getAllProps() });
+                } catch(Exception e) {
+                    throw new VoldemortException("Error loading file fetcher class " + className, e);
+                }
             }
+        } else {
+            this.fileFetcher = null;
         }
     }
 
