@@ -72,6 +72,7 @@ public abstract class StoreSwapper {
               .withRequiredArg()
               .describedAs("timeout ms")
               .ofType(Integer.class);
+        parser.accepts("rollback", "Rollback store to older version");
         parser.accepts("admin", "Use admin services. Default = false");
 
         OptionSet options = parser.parse(args);
@@ -95,6 +96,7 @@ public abstract class StoreSwapper {
                                          "timeout",
                                          (int) (3 * Time.SECONDS_PER_HOUR * Time.MS_PER_SECOND));
         boolean useAdminServices = options.has("admin");
+        boolean rollbackStore = options.has("rollback");
 
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
@@ -114,11 +116,24 @@ public abstract class StoreSwapper {
 
             swapper = new HttpStoreSwapper(cluster, executor, client, mgmtPath);
         }
-        long start = System.currentTimeMillis();
-        swapper.swapStoreData(storeName, filePath);
-        long end = System.currentTimeMillis();
-        logger.info("Swap succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
-                    + " seconds.");
+        if(rollbackStore) {
+            if(useAdminServices) {
+                long start = System.currentTimeMillis();
+                ((AdminStoreSwapper) swapper).invokeRollback(storeName);
+                long end = System.currentTimeMillis();
+                logger.info("Rollback succeeded on all nodes in "
+                            + ((end - start) / Time.MS_PER_SECOND) + " seconds.");
+            } else {
+                System.err.println("Rollback supported only using admin services");
+                System.exit(1);
+            }
+        } else {
+            long start = System.currentTimeMillis();
+            swapper.swapStoreData(storeName, filePath);
+            long end = System.currentTimeMillis();
+            logger.info("Swap succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
+                        + " seconds.");
+        }
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.SECONDS);
         System.exit(0);
