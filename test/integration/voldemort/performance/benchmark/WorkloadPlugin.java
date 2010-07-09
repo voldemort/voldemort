@@ -23,14 +23,7 @@ package voldemort.performance.benchmark;
 public abstract class WorkloadPlugin {
     private volatile VoldemortWrapper db;
 
-    public WorkloadPlugin() {
-    }
-
-    protected VoldemortWrapper getDb() {
-        return db;
-    }
-
-    protected void setDb(VoldemortWrapper db) {
+    public void setDb(VoldemortWrapper db) {
         this.db = db;
     }
 
