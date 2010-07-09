@@ -351,15 +351,20 @@ public class Workload {
 
     }
 
-    public boolean doWrite(VoldemortWrapper db) {
+    public boolean doWrite(VoldemortWrapper db, WorkloadPlugin plugin) {
         Object key = warmUpKeyProvider.next();
+        if (plugin != null) {
+            return plugin.doWrite(key, this.value);
+        }
         db.write(key, this.value);
         return true;
     }
 
-    public boolean doTransaction(VoldemortWrapper db) {
-
+    public boolean doTransaction(VoldemortWrapper db, WorkloadPlugin plugin) {
         String op = operationChooser.nextString();
+        if (plugin != null) {
+            return plugin.doTransaction(op);
+        }
         if(op.compareTo(Benchmark.READS) == 0) {
             doTransactionRead(db);
         } else if(op.compareTo(Benchmark.MIXED) == 0) {

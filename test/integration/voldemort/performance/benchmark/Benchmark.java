@@ -90,6 +90,7 @@ public class Benchmark {
     public static final String HELP = "help";
     public static final String STORE_NAME = "store-name";
     public static final String RECORD_COUNT = "record-count";
+    public static final String PLUGIN_CLASS = "plugin-class";
     public static final String OPS_COUNT = "ops-count";
     public static final String METRIC_TYPE = "metric-type";
     public static final String HISTOGRAM_METRIC_TYPE = "histogram";
@@ -107,6 +108,7 @@ public class Benchmark {
     private double perThreadThroughputPerMs;
     private int recordCount, opsCount;
     private Workload workLoad;
+    private String pluginName;
     private int statusIntervalSec;
     private boolean storeInitialized = false;
     private boolean verbose = false;
@@ -163,13 +165,15 @@ public class Benchmark {
         private int opsCount;
         private double targetThroughputPerMs;
         private int opsDone;
+        private final WorkloadPlugin plugin;
 
         public ClientThread(VoldemortWrapper db,
                             boolean runBenchmark,
                             Workload workLoad,
                             int opsCount,
                             double targetThroughputPerMs,
-                            boolean verbose) {
+                            boolean verbose,
+                            WorkloadPlugin plugin) {
             this.db = db;
             this.runBenchmark = runBenchmark;
             this.workLoad = workLoad;
@@ -177,6 +181,7 @@ public class Benchmark {
             this.opsDone = 0;
             this.targetThroughputPerMs = targetThroughputPerMs;
             this.verbose = verbose;
+            this.plugin = plugin;
         }
 
         public int getOpsDone() {
@@ -188,11 +193,11 @@ public class Benchmark {
             while(opsDone < this.opsCount) {
                 try {
                     if(runBenchmark) {
-                        if(!workLoad.doTransaction(this.db)) {
+                        if(!workLoad.doTransaction(this.db, plugin)) {
                             break;
                         }
                     } else {
-                        if(!workLoad.doWrite(this.db)) {
+                        if(!workLoad.doWrite(this.db, plugin)) {
                             break;
                         }
                     }
@@ -292,6 +297,7 @@ public class Benchmark {
             throw new VoldemortException("Missing compulsory parameters - " + OPS_COUNT);
         }
         this.recordCount = workloadProps.getInt(RECORD_COUNT, -1);
+        this.pluginName = workloadProps.getString(PLUGIN_CLASS, null);
 
         // Initialize measurement
         Metrics.setProperties(workloadProps);
@@ -415,12 +421,29 @@ public class Benchmark {
             VoldemortWrapper db = new VoldemortWrapper(storeClient,
                                                        this.verifyRead,
                                                        this.ignoreNulls);
+            WorkloadPlugin plugin = null;
+            if (this.pluginName != null && this.pluginName.length() > 0) {
+                Class<?> cls = Class.forName(this.pluginName);
+                try {
+                    plugin = (WorkloadPlugin) cls.newInstance();
+                } catch (IllegalAccessException e) {
+                    System.err.println("Class not accessible ");
+                    System.exit(1);
+                } catch (InstantiationException e) {
+                    System.err.println("Class not instantiable.");
+                    System.exit(1);
+                }
+                plugin.setDb(db);
+            }
+
+
             Thread clientThread = new ClientThread(db,
                                                    runBenchmark,
                                                    this.workLoad,
                                                    localOpsCounts / this.numThreads,
                                                    this.perThreadThroughputPerMs,
-                                                   this.verbose);
+                                                   this.verbose,
+                                                   plugin);
             threads.add(clientThread);
         }
 
@@ -593,6 +616,7 @@ public class Benchmark {
             mainProps.put(WRITES, CmdUtils.valueOf(options, WRITES, 0));
             mainProps.put(DELETES, CmdUtils.valueOf(options, DELETES, 0));
             mainProps.put(MIXED, CmdUtils.valueOf(options, MIXED, 0));
+            mainProps.put(PLUGIN_CLASS, CmdUtils.valueOf(options, PLUGIN_CLASS, ""));
         }
 
         // Start the benchmark
