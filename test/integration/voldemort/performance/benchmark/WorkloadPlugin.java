@@ -38,6 +38,10 @@ public abstract class WorkloadPlugin {
         return doTransaction(op, db);
     }
 
+    public boolean doWrite(Object key, String value) {
+        return doWrite(key, value, db);
+    }
+
     /**
      * Plugins should override this method with code performing
      * their custom transactions e.g., appending to a list and then retrieving
@@ -56,7 +60,8 @@ public abstract class WorkloadPlugin {
      *
      * @param key Key to write
      * @param value Value to write
+     * @param db Instantiated {@link VoldemortWrapper} instance
      * @return true if write succeeded, false otherwise
      */
-    public abstract boolean doWrite(Object key, String value);
+    public abstract boolean doWrite(Object key, String value, VoldemortWrapper db);
 }
