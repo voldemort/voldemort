@@ -13,9 +13,10 @@ import java.util.List;
 import java.util.Map;
 
 import krati.cds.array.DataArray;
-import krati.cds.impl.segment.MemorySegmentFactory;
+import krati.cds.impl.segment.ChannelSegmentFactory;
 import krati.cds.impl.segment.SegmentFactory;
 import krati.cds.impl.store.DynamicDataStore;
+import krati.util.FnvHashFunction;
 
 import org.apache.log4j.Logger;
 
@@ -47,14 +48,15 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
                               int initLevel,
                               File dataDirectory) {
         this.name = Utils.notNull(name);
-        SegmentFactory segmentFactory = new MemorySegmentFactory();
+        SegmentFactory segmentFactory = new ChannelSegmentFactory();
 
         try {
             datastore = new DynamicDataStore(dataDirectory,
                                              initLevel,
                                              segmentFileSizeMB,
                                              segmentFactory,
-                                             hashLoadFactor);
+                                             hashLoadFactor,
+                                             new FnvHashFunction());
         } catch(Exception e) {
             logger.error("Failed to initialize datastore");
             datastore = null;
