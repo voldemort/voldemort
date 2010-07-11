@@ -34,6 +34,7 @@ import com.sleepycat.je.EnvironmentConfig;
 /**
  * 
  */
+@SuppressWarnings("deprecation")
 public class BdbGrowth {
 
     public static void main(String[] args) throws Exception {

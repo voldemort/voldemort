@@ -43,6 +43,7 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable implements
         Reducer<BytesWritable, BytesWritable, Text, Text> {
 
