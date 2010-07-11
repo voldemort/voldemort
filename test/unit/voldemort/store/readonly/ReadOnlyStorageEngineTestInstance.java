@@ -128,7 +128,8 @@ public class ReadOnlyStorageEngineTestInstance {
                                                              testSize / 5,
                                                              1,
                                                              2,
-                                                             10000);
+                                                             10000,
+                                                             false);
         storeBuilder.build();
 
         File nodeDir = TestUtils.createTempDir(baseDir);

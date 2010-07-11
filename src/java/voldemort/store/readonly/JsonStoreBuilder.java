@@ -76,6 +76,7 @@ public class JsonStoreBuilder {
     private final int numThreads;
     private final int numChunks;
     private final int ioBufferSize;
+    private final boolean gzipIntermediate;
 
     public JsonStoreBuilder(JsonReader reader,
                             Cluster cluster,
@@ -86,7 +87,8 @@ public class JsonStoreBuilder {
                             int internalSortSize,
                             int numThreads,
                             int numChunks,
-                            int ioBufferSize) {
+                            int ioBufferSize,
+                            boolean gzipIntermediate) {
         if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
             throw new IllegalStateException("Number of nodes is " + cluster.getNumberOfNodes()
                                             + " but the replication factor is "
@@ -104,6 +106,7 @@ public class JsonStoreBuilder {
         this.numThreads = numThreads;
         this.numChunks = numChunks;
         this.ioBufferSize = ioBufferSize;
+        this.gzipIntermediate = gzipIntermediate;
     }
 
     /**
@@ -141,6 +144,7 @@ public class JsonStoreBuilder {
         parser.accepts("temp-dir", "temporary directory for sorted file pieces")
               .withRequiredArg()
               .describedAs("temp dir");
+        parser.accepts("gzip", "compress intermediate chunk files");
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -170,6 +174,7 @@ public class JsonStoreBuilder {
         int numThreads = CmdUtils.valueOf(options, "threads", 2);
         int numChunks = CmdUtils.valueOf(options, "chunks", 2);
         int ioBufferSize = CmdUtils.valueOf(options, "io-buffer-size", 1000000);
+        boolean gzipIntermediate = options.has("gzip");
         File tempDir = new File(CmdUtils.valueOf(options,
                                                  "temp-dir",
                                                  System.getProperty("java.io.tmpdir")));
@@ -203,7 +208,8 @@ public class JsonStoreBuilder {
                                  sortBufferSize,
                                  numThreads,
                                  numChunks,
-                                 ioBufferSize).build();
+                                 ioBufferSize,
+                                 gzipIntermediate).build();
         } catch(FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }
@@ -239,7 +245,8 @@ public class JsonStoreBuilder {
                                                                                internalSortSize,
                                                                                tempDir.getAbsolutePath(),
                                                                                ioBufferSize,
-                                                                               numThreads);
+                                                                               numThreads,
+                                                                               gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());

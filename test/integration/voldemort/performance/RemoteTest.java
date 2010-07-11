@@ -16,7 +16,16 @@
 
 package voldemort.performance;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.StringReader;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -205,8 +214,8 @@ public class RemoteTest {
         parser.accepts("v", "verbose");
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("save-nulls", "save keys which had null to a file")
-                .withRequiredArg()
-                .ofType(String.class);
+              .withRequiredArg()
+              .ofType(String.class);
         parser.accepts("node", "go to this node id").withRequiredArg().ofType(Integer.class);
         parser.accepts("interval", "print requests on this interval, -1 to disable")
               .withRequiredArg()
@@ -270,7 +279,7 @@ public class RemoteTest {
         }
 
         final BufferedWriter nullWriter;
-        if (options.has("save-nulls")) {
+        if(options.has("save-nulls")) {
             nullWriter = new BufferedWriter(new FileWriter((String) options.valueOf("save-nulls")));
         } else {
             nullWriter = null;
@@ -361,18 +370,14 @@ public class RemoteTest {
                             } finally {
                                 latch0.countDown();
                                 if(interval != -1 && j % interval == 0) {
-                                    printStatistics("deletes", successes.get(), start);
+                                    printStatistics("deletes", successes.get(), start, requestTimes);
                                 }
                             }
                         }
                     });
                 }
                 latch0.await();
-                printStatistics("deletes", successes.get(), start);
-                System.out.println("95th percentile delete latency: "
-                                   + TestUtils.quantile(requestTimes, .95) + " ms.");
-                System.out.println("99th percentile delete latency: "
-                                   + TestUtils.quantile(requestTimes, .99) + " ms.");
+                printStatistics("deletes", successes.get(), start, requestTimes);
             }
 
             if(ops.contains("w")) {
@@ -409,18 +414,14 @@ public class RemoteTest {
                             } finally {
                                 latch1.countDown();
                                 if(interval != -1 && j % interval == 0) {
-                                    printStatistics("writes", numWrites.get(), start);
+                                    printStatistics("writes", numWrites.get(), start, requestTimes);
                                 }
                             }
                         }
                     });
                 }
                 latch1.await();
-                printStatistics("writes", numWrites.get(), start);
-                System.out.println("95th percentile write latency: "
-                                   + TestUtils.quantile(requestTimes, .95) + " ms.");
-                System.out.println("99th percentile write latency: "
-                                   + TestUtils.quantile(requestTimes, .99) + " ms.");
+                printStatistics("writes", numWrites.get(), start, requestTimes);
             }
 
             if(ops.contains("r")) {
@@ -452,7 +453,7 @@ public class RemoteTest {
                                     if(!ignoreNulls) {
                                         throw new Exception("value returned is null for key " + key);
                                     }
-                                    if (nullWriter != null) {
+                                    if(nullWriter != null) {
                                         nullWriter.write(key.toString() + "\n");
                                     }
                                 }
@@ -467,7 +468,7 @@ public class RemoteTest {
                             } finally {
                                 latch.countDown();
                                 if(interval != -1 && j % interval == 0) {
-                                    printStatistics("reads", numReads.get(), start);
+                                    printStatistics("reads", numReads.get(), start, requestTimes);
                                     printNulls(numNulls.get(), start);
                                 }
                             }
@@ -475,11 +476,7 @@ public class RemoteTest {
                     });
                 }
                 latch.await();
-                printStatistics("reads", numReads.get(), start);
-                System.out.println("95th percentile read latency: "
-                                   + TestUtils.quantile(requestTimes, .95) + " ms.");
-                System.out.println("99th percentile read latency: "
-                                   + TestUtils.quantile(requestTimes, .99) + " ms.");
+                printStatistics("reads", numReads.get(), start, requestTimes);
             }
         }
 
@@ -493,6 +490,7 @@ public class RemoteTest {
                                                               keys,
                                                               percentCached);
             final CountDownLatch latch = new CountDownLatch(numRequests);
+            final long[] requestTimes = new long[numRequests];
             final long start = System.nanoTime();
             keyProvider.next();
             for(int i = 0; i < numRequests; i++) {
@@ -506,20 +504,23 @@ public class RemoteTest {
                             store.applyUpdate(new UpdateAction<Object, Object>() {
 
                                 public void update(StoreClient<Object, Object> storeClient) {
+                                    long startNs = System.nanoTime();
                                     Versioned<Object> v = store.get(key);
                                     numReads.incrementAndGet();
                                     if(v != null) {
                                         storeClient.put(key, v);
                                     } else {
                                         numNulls.incrementAndGet();
-                                        if (nullWriter != null) {
+                                        if(nullWriter != null) {
                                             try {
                                                 nullWriter.write(key.toString() + "\n");
-                                            } catch (IOException e) {
+                                            } catch(IOException e) {
                                                 e.printStackTrace();
                                             }
                                         }
                                     }
+                                    requestTimes[j] = (System.nanoTime() - startNs)
+                                                      / Time.NS_PER_MS;
                                     numWrites.incrementAndGet();
                                 }
                             }, 64);
@@ -529,10 +530,10 @@ public class RemoteTest {
                             }
                         } finally {
                             if(interval != -1 && j % interval == 0) {
-                                printStatistics("reads", numReads.get(), start);
-                                printStatistics("writes", numWrites.get(), start);
+                                printStatistics("reads", numReads.get(), start, requestTimes);
+                                printStatistics("writes", numWrites.get(), start, requestTimes);
                                 printNulls(numNulls.get(), start);
-                                printStatistics("transactions", j, start);
+                                printStatistics("transactions", j, start, requestTimes);
                             }
                             latch.countDown();
 
@@ -541,14 +542,14 @@ public class RemoteTest {
                 });
             }
             latch.await();
-            printStatistics("reads", numReads.get(), start);
-            printStatistics("writes", numWrites.get(), start);
+            printStatistics("reads", numReads.get(), start, requestTimes);
+            printStatistics("writes", numWrites.get(), start, requestTimes);
         }
 
-        if (nullWriter != null) {
+        if(nullWriter != null) {
             nullWriter.close();
         }
-        
+
         System.exit(0);
     }
 
@@ -573,10 +574,18 @@ public class RemoteTest {
         System.out.println(nulls + " null values.");
     }
 
-    private static void printStatistics(String noun, int successes, long start) {
+    private static void printStatistics(String noun, int successes, long start, long[] requestTimes) {
         long queryTime = System.nanoTime() - start;
+        NumberFormat nf = NumberFormat.getInstance();
+        nf.setMaximumFractionDigits(4);
         System.out.println("Throughput: " + (successes / (float) queryTime * Time.NS_PER_SECOND)
                            + " " + noun + "/sec.");
+        System.out.println("Avg. " + noun + " latency: " + nf.format(TestUtils.mean(requestTimes))
+                           + " ms.");
+        System.out.println("95th percentile " + noun + " latency: "
+                           + TestUtils.quantile(requestTimes, .95) + " ms.");
+        System.out.println("99th percentile " + noun + " latency: "
+                           + TestUtils.quantile(requestTimes, .99) + " ms.");
         System.out.println(successes + " successful " + noun + ".");
     }
 

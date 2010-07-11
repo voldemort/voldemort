@@ -104,6 +104,7 @@ public class ReadOnlyStorePerformanceTest {
         parser.accepts("working-dir", "The directory in which to store temporary data")
               .withRequiredArg()
               .describedAs("dir");
+        parser.accepts("gzip", "Compress the intermediate temp files used in building the store");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
         OptionSet options = parser.parse(args);
 
@@ -122,6 +123,7 @@ public class ReadOnlyStorePerformanceTest {
         final String searcherClass = CmdUtils.valueOf(options,
                                                       "search-strategy",
                                                       BinarySearchStrategy.class.getName()).trim();
+        final boolean gzipIntermediate = options.has("gzip");
         final SearchStrategy searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(searcherClass));
         final File workingDir = new File(CmdUtils.valueOf(options,
                                                           "working-dir",
@@ -181,7 +183,8 @@ public class ReadOnlyStorePerformanceTest {
                                                             internalSortSize,
                                                             2,
                                                             numChunks,
-                                                            64 * 1024);
+                                                            64 * 1024,
+                                                            gzipIntermediate);
             builder.build();
 
             // copy to store dir
