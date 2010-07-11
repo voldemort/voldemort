@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 import krati.cds.array.DataArray;
-import krati.cds.impl.segment.ChannelSegmentFactory;
 import krati.cds.impl.segment.SegmentFactory;
 import krati.cds.impl.store.DynamicDataStore;
 import krati.util.FnvHashFunction;
@@ -43,13 +42,12 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private DynamicDataStore datastore = null;
 
     public KratiStorageEngine(String name,
+                              SegmentFactory segmentFactory,
                               int segmentFileSizeMB,
                               double hashLoadFactor,
                               int initLevel,
                               File dataDirectory) {
         this.name = Utils.notNull(name);
-        SegmentFactory segmentFactory = new ChannelSegmentFactory();
-
         try {
             datastore = new DynamicDataStore(dataDirectory,
                                              initLevel,
