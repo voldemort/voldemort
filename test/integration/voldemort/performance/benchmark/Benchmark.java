@@ -44,12 +44,11 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Props;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -64,7 +63,7 @@ public class Benchmark {
     public static final String PROP_FILE = "prop-file";
     public static final String THREADS = "threads";
     public static final String ITERATIONS = "iterations";
-    public static final String STORAGE_ENGINE_TYPE = "storage-engine";
+    public static final String STORAGE_CONFIGURATION_CLASS = "storage-configuration-class";
     public static final String INTERVAL = "interval";
     public static final String KEY_TYPE = "keyType";
     public static final String STRING_KEY_TYPE = "string";
@@ -359,19 +358,13 @@ public class Benchmark {
         } else {
 
             // Local benchmark
-            String storageEngineType = benchmarkProps.getString(STORAGE_ENGINE_TYPE);
+            String storageEngineClass = benchmarkProps.getString(STORAGE_CONFIGURATION_CLASS);
             this.keyType = benchmarkProps.getString(KEY_TYPE, STRING_KEY_TYPE);
             Serializer serializer = findKeyType(this.keyType);
             Store<Object, Object> store = null;
-            StorageConfiguration conf = null;
 
-            if(storageEngineType.compareTo(BdbStorageConfiguration.TYPE_NAME) == 0) {
-                conf = new BdbStorageConfiguration(ServerTestUtils.getVoldemortConfig());
-            } else if(storageEngineType.compareTo(MysqlStorageConfiguration.TYPE_NAME) == 0) {
-                conf = new MysqlStorageConfiguration(ServerTestUtils.getVoldemortConfig());
-            } else if(storageEngineType.compareTo(InMemoryStorageConfiguration.TYPE_NAME) == 0) {
-                conf = new InMemoryStorageConfiguration(ServerTestUtils.getVoldemortConfig());
-            }
+            StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
+                                                                                            new Object[] { ServerTestUtils.getVoldemortConfig() });
             store = SerializingStore.wrap(conf.getStore(DUMMY_DB),
                                           serializer,
                                           new StringSerializer());
@@ -494,75 +487,94 @@ public class Benchmark {
         OptionParser parser = new OptionParser();
         parser.accepts(READS, "percentage of --ops-count to be reads; valid values [0-100]")
               .withRequiredArg()
+              .describedAs("read-percent")
               .ofType(Integer.class);
         parser.accepts(WRITES, "percentage of --ops-count to be writes; valid values [0-100]")
               .withRequiredArg()
+              .describedAs("write-percent")
               .ofType(Integer.class);
         parser.accepts(DELETES, "percentage of --ops-count to be deletes; valid values [0-100]")
               .withRequiredArg()
+              .describedAs("delete-percent")
               .ofType(Integer.class);
         parser.accepts(MIXED, "percentage of --ops-count to be updates; valid values [0-100]")
               .withRequiredArg()
+              .describedAs("update-percent")
               .ofType(Integer.class);
         parser.accepts(VERBOSE, "verbose");
         parser.accepts(THREADS, "max number concurrent worker threads; Default = " + MAX_WORKERS)
               .withRequiredArg()
+              .describedAs("num-threads")
               .ofType(Integer.class);
         parser.accepts(ITERATIONS, "number of times to repeat benchmark phase; Default = 1")
               .withRequiredArg()
+              .describedAs("num-iter")
               .ofType(Integer.class);
         parser.accepts(VERIFY, "verify values read; runs only if warm-up phase is included");
         parser.accepts(PERCENT_CACHED,
                        "percentage of requests to come from previously requested keys; valid values are in range [0..100]; 0 means caching disabled. Default = 0")
               .withRequiredArg()
+              .describedAs("percent")
               .ofType(Integer.class);
         parser.accepts(START_KEY_INDEX, "key index to start warm-up phase from; Default = 0")
               .withRequiredArg()
+              .describedAs("index")
               .ofType(Integer.class);
         parser.accepts(INTERVAL, "print status at interval seconds; Default = 0")
               .withRequiredArg()
+              .describedAs("sec")
               .ofType(Integer.class);
         parser.accepts(IGNORE_NULLS, "ignore null values in results");
         parser.accepts(PROP_FILE,
                        "file containing all the properties in key=value format; will override all other command line options specified")
-              .withRequiredArg();
-        parser.accepts(STORAGE_ENGINE_TYPE,
-                       "storage engine type; [ " + BdbStorageConfiguration.TYPE_NAME + " | "
-                               + MysqlStorageConfiguration.TYPE_NAME + " | "
-                               + InMemoryStorageConfiguration.TYPE_NAME + " <default> ]")
-              .withRequiredArg();
+              .withRequiredArg()
+              .describedAs("prop-file");
+        parser.accepts(STORAGE_CONFIGURATION_CLASS,
+                       "class of the storage engine configuration to use [e.g. voldemort.store.bdb.BdbStorageConfiguration]")
+              .withRequiredArg()
+              .describedAs("class-name");
         parser.accepts(KEY_TYPE,
                        "for local tests; key type to support; [ " + IDENTITY_KEY_TYPE + " | "
                                + JSONINT_KEY_TYPE + " | " + JSONSTRING_KEY_TYPE + "|"
-                               + STRING_KEY_TYPE + " <default> ]").withRequiredArg();
+                               + STRING_KEY_TYPE + " <default> ]")
+              .withRequiredArg()
+              .describedAs("type");
         parser.accepts(REQUEST_FILE,
                        "file with limited list of keys to be used during benchmark phase; Overrides "
                                + RECORD_SELECTION).withRequiredArg();
         parser.accepts(VALUE_SIZE,
                        "size in bytes for random value; used during warm-up phase and write operation of benchmark phase; Default = 1024")
               .withRequiredArg()
+              .describedAs("bytes")
               .ofType(Integer.class);
         parser.accepts(RECORD_SELECTION,
                        "record selection distribution [ " + ZIPFIAN_RECORD_SELECTION + " | "
                                + LATEST_RECORD_SELECTION + " | " + UNIFORM_RECORD_SELECTION
                                + " <default> ]").withRequiredArg();
-        parser.accepts(TARGET_THROUGHPUT, "fix ops/sec").withRequiredArg().ofType(Integer.class);
+        parser.accepts(TARGET_THROUGHPUT, "fix throughput")
+              .withRequiredArg()
+              .describedAs("ops/sec")
+              .ofType(Integer.class);
         parser.accepts(RECORD_COUNT, "number of records inserted during warmup phase")
               .withRequiredArg()
+              .describedAs("count")
               .ofType(Integer.class);
         parser.accepts(OPS_COUNT, "number of operations to do during benchmark phase")
               .withRequiredArg()
+              .describedAs("count")
               .ofType(Integer.class);
         parser.accepts(URL, "for remote tests; url of remote server").withRequiredArg();
         parser.accepts(STORE_NAME, "for remote tests; store name on the remote " + URL)
-              .withRequiredArg();
+              .withRequiredArg()
+              .describedAs("name");
         parser.accepts(HANDSHAKE, "for remote tests; basic handshake operations with " + URL);
         parser.accepts(METRIC_TYPE,
                        "type of result metric [ " + HISTOGRAM_METRIC_TYPE + " | "
                                + SUMMARY_METRIC_TYPE + " <default> ]").withRequiredArg();
         parser.accepts(PLUGIN_CLASS,
                        "classname of implementation of WorkloadPlugin; used to run customized operations ")
-              .withRequiredArg();
+              .withRequiredArg()
+              .describedAs("class-name");
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -618,10 +630,10 @@ public class Benchmark {
                 }
             } else {
                 mainProps.put(KEY_TYPE, CmdUtils.valueOf(options, KEY_TYPE, STRING_KEY_TYPE));
-                mainProps.put(STORAGE_ENGINE_TYPE,
+                mainProps.put(STORAGE_CONFIGURATION_CLASS,
                               CmdUtils.valueOf(options,
-                                               STORAGE_ENGINE_TYPE,
-                                               InMemoryStorageConfiguration.TYPE_NAME));
+                                               STORAGE_CONFIGURATION_CLASS,
+                                               BdbStorageConfiguration.class.getName()));
             }
 
             mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));
