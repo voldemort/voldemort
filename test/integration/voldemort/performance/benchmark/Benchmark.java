@@ -111,6 +111,7 @@ public class Benchmark {
     private String pluginName;
     private int statusIntervalSec;
     private boolean storeInitialized = false;
+    private boolean warmUpCompleted = false;
     private boolean verbose = false;
     private boolean verifyRead = false;
     private boolean ignoreNulls = false;
@@ -391,6 +392,7 @@ public class Benchmark {
     public void warmUpAndRun() throws Exception {
         if(this.recordCount > 0) {
             runTests(false);
+            this.warmUpCompleted = true;
             Metrics.getInstance().reset();
         }
 
@@ -419,7 +421,7 @@ public class Benchmark {
 
         for(int index = 0; index < this.numThreads; index++) {
             VoldemortWrapper db = new VoldemortWrapper(storeClient,
-                                                       this.verifyRead,
+                                                       this.verifyRead && this.warmUpCompleted,
                                                        this.ignoreNulls);
             WorkloadPlugin plugin = null;
             if (this.pluginName != null && this.pluginName.length() > 0) {
@@ -486,60 +488,77 @@ public class Benchmark {
     public static void main(String args[]) throws IOException {
         // Logger.getRootLogger().removeAllAppenders();
         OptionParser parser = new OptionParser();
-        parser.accepts(READS, "execute read operations").withRequiredArg().ofType(Integer.class);
-        parser.accepts(WRITES, "execute write operations").withRequiredArg().ofType(Integer.class);
-        parser.accepts(DELETES, "execute delete operations")
+        parser.accepts(READS, "percentage of --ops-count to be reads; valid values [0-100]")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(MIXED, "generate a mix of read and write requests")
+        parser.accepts(WRITES, "percentage of --ops-count to be writes; valid values [0-100]")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts(DELETES, "percentage of --ops-count to be deletes; valid values [0-100]")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts(MIXED, "percentage of --ops-count to be updates; valid values [0-100]")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(VERBOSE, "verbose");
         parser.accepts(THREADS, "max number concurrent worker threads; Default = " + MAX_WORKERS)
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(ITERATIONS, "number of times to repeat the test; Default = 1")
+        parser.accepts(ITERATIONS, "number of times to repeat benchmark phase; Default = 1")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(VERIFY, "verify values read");
-        parser.accepts(HANDSHAKE, "perform a handshake");
+        parser.accepts(VERIFY, "verify values read; runs only if warm-up phase is included");
         parser.accepts(PERCENT_CACHED,
                        "percentage of requests to come from previously requested keys; valid values are in range [0..100]; 0 means caching disabled. Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(START_KEY_INDEX, "starting point when using int keys; Default = 0")
+        parser.accepts(START_KEY_INDEX, "key index to start warm-up phase from; Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(INTERVAL, "print status at interval seconds; Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(IGNORE_NULLS, "ignore null values");
-
-        parser.accepts(PROP_FILE, "file containing all the properties").withRequiredArg();
-        parser.accepts(STORAGE_ENGINE_TYPE, "file containing all the properties; Default = memory")
+        parser.accepts(IGNORE_NULLS, "ignore null values in results");
+        parser.accepts(PROP_FILE,
+                       "file containing all the properties in key=value format; will override all other command line options specified")
               .withRequiredArg();
-        parser.accepts(KEY_TYPE, "which key type to support; Default = string").withRequiredArg();
+        parser.accepts(STORAGE_ENGINE_TYPE,
+                       "storage engine type; [ " + BdbStorageConfiguration.TYPE_NAME + " | "
+                               + MysqlStorageConfiguration.TYPE_NAME + " | "
+                               + InMemoryStorageConfiguration.TYPE_NAME + " <default> ]")
+              .withRequiredArg();
+        parser.accepts(KEY_TYPE,
+                       "for local tests; key type to support; [ " + IDENTITY_KEY_TYPE + " | "
+                               + JSONINT_KEY_TYPE + " | " + JSONSTRING_KEY_TYPE + "|"
+                               + STRING_KEY_TYPE + " <default> ]").withRequiredArg();
         parser.accepts(REQUEST_FILE,
-                       "execute specific requests in order; Overrides " + RECORD_SELECTION)
-              .withRequiredArg();
-        parser.accepts(VALUE_SIZE, "size in bytes for random value; Default = 1024")
+                       "file with limited list of keys to be used during benchmark phase; Overrides "
+                               + RECORD_SELECTION).withRequiredArg();
+        parser.accepts(VALUE_SIZE,
+                       "size in bytes for random value; used during warm-up phase and write operation of benchmark phase; Default = 1024")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(RECORD_SELECTION,
-                       "how to select record [zipfian | latest | uniform]; Default = uniform")
-              .withRequiredArg();
-        parser.accepts(TARGET_THROUGHPUT, "fix the throughput")
-              .withRequiredArg()
-              .ofType(Integer.class);
+                       "record selection distribution [ " + ZIPFIAN_RECORD_SELECTION + " | "
+                               + LATEST_RECORD_SELECTION + " | " + UNIFORM_RECORD_SELECTION
+                               + " <default> ]").withRequiredArg();
+        parser.accepts(TARGET_THROUGHPUT, "fix ops/sec").withRequiredArg().ofType(Integer.class);
         parser.accepts(RECORD_COUNT, "number of records inserted during warmup phase")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(OPS_COUNT, "number of operations to do")
+        parser.accepts(OPS_COUNT, "number of operations to do during benchmark phase")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(URL, "url on which to run remote tests").withRequiredArg();
-        parser.accepts(STORE_NAME, "store name on the remote URL").withRequiredArg();
-        parser.accepts(METRIC_TYPE, "type of metric [histogram | summary]").withRequiredArg();
+        parser.accepts(URL, "for remote tests; url of remote server").withRequiredArg();
+        parser.accepts(STORE_NAME, "for remote tests; store name on the remote " + URL)
+              .withRequiredArg();
+        parser.accepts(HANDSHAKE, "for remote tests; basic handshake operations with " + URL);
+        parser.accepts(METRIC_TYPE,
+                       "type of result metric [ " + HISTOGRAM_METRIC_TYPE + " | "
+                               + SUMMARY_METRIC_TYPE + " <default> ]").withRequiredArg();
+        parser.accepts(PLUGIN_CLASS,
+                       "classname of implementation of WorkloadPlugin; used to run customized operations ")
+              .withRequiredArg();
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
