@@ -353,7 +353,7 @@ public class Workload {
 
     public boolean doWrite(VoldemortWrapper db, WorkloadPlugin plugin) {
         Object key = warmUpKeyProvider.next();
-        if (plugin != null) {
+        if(plugin != null) {
             return plugin.doWrite(key, this.value);
         }
         db.write(key, this.value);
@@ -362,39 +362,24 @@ public class Workload {
 
     public boolean doTransaction(VoldemortWrapper db, WorkloadPlugin plugin) {
         String op = operationChooser.nextString();
-        if (plugin != null) {
+        if(plugin != null) {
             return plugin.doTransaction(op);
         }
-        if(op.compareTo(Benchmark.READS) == 0) {
-            doTransactionRead(db);
-        } else if(op.compareTo(Benchmark.MIXED) == 0) {
-            doTransactionMixed(db);
-        } else if(op.compareTo(Benchmark.WRITES) == 0) {
-            doTransactionWrites(db);
-        } else if(op.compareTo(Benchmark.DELETES) == 0) {
-            doTransactionDelete(db);
+        if(op.compareTo(Benchmark.WRITES) == 0) {
+            Object key = insertKeyProvider.next();
+            db.write(key, this.value);
+        } else {
+            Object key = keyProvider.next(insertKeyProvider.lastInt());
+            if(op.compareTo(Benchmark.MIXED) == 0) {
+                db.mixed(key, this.value);
+            } else if(op.compareTo(Benchmark.DELETES) == 0) {
+                db.delete(key);
+            } else if(op.compareTo(Benchmark.READS) == 0) {
+                db.read(key, this.value);
+            }
         }
         return true;
 
     }
 
-    public void doTransactionRead(VoldemortWrapper db) {
-        Object key = keyProvider.next(insertKeyProvider.lastInt());
-        db.read(key, this.value);
-    }
-
-    public void doTransactionDelete(VoldemortWrapper db) {
-        Object key = keyProvider.next(insertKeyProvider.lastInt());
-        db.delete(key);
-    }
-
-    public void doTransactionMixed(VoldemortWrapper db) {
-        Object key = keyProvider.next(insertKeyProvider.lastInt());
-        db.mixed(key, this.value);
-    }
-
-    public void doTransactionWrites(VoldemortWrapper db) {
-        Object key = insertKeyProvider.next();
-        db.write(key, this.value);
-    }
 }
