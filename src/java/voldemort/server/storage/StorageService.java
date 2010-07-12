@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
@@ -484,6 +485,15 @@ public class StorageService extends AbstractService {
         }
 
         this.clientThreadPool.shutdown();
+
+        try {
+            if(!this.clientThreadPool.awaitTermination(10, TimeUnit.SECONDS))
+                this.clientThreadPool.shutdownNow();
+        } catch(InterruptedException e) {
+            // okay, fine, playing nice didn't work
+            this.clientThreadPool.shutdownNow();
+        }
+
         logger.info("Closed client threadpool.");
 
         if(this.failureDetector != null) {

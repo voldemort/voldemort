@@ -223,7 +223,7 @@ public class ClientConfig {
      * @param maxTotalConnections The maximum total number of connections
      */
     public ClientConfig setMaxTotalConnections(int maxTotalConnections) {
-        if(maxConnectionsPerNode <= 0)
+        if(maxTotalConnections <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
         this.maxTotalConnections = maxTotalConnections;
         return this;
