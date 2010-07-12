@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableCollection;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreJobRunner extends Configured implements Tool {
 
     private static void printUsage(OptionParser parser, Exception e) throws IOException {

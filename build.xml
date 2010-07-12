@@ -79,7 +79,7 @@
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
-    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
     </javac>
@@ -99,7 +99,7 @@
         <exclude name="**/*.html" />
       </fileset>
     </copy>
-    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
@@ -179,7 +179,7 @@
 
   <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
     <replace-dir dir="${contrib.classes.dir}" />
-    <javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="true" failonerror="true">
+    <javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
       <src path="${contrib.root.dir}" />
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />

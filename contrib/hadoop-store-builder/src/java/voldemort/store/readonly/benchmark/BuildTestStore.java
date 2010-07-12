@@ -41,6 +41,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class BuildTestStore extends Configured implements Tool {
 
     public static void main(String[] args) throws Exception {

@@ -49,6 +49,7 @@ import voldemort.utils.Utils;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class GenerateData extends Configured implements Tool {
 
     public static void main(String[] args) throws Exception {

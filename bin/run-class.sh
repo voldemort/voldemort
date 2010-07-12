@@ -28,6 +28,11 @@ do
 	CLASSPATH=$CLASSPATH:$file
 done
 
+for file in $base_dir/contrib/*/lib/*.jar;
+do
+  CLASSPATH=$CLASSPATH:$file
+done
+
 for file in $base_dir/dist/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
@@ -35,7 +40,7 @@ done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 if [ -z "$VOLD_OPTS" ]; then
-  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote "
 fi
 
 export CLASSPATH

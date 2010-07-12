@@ -32,7 +32,6 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -66,8 +65,6 @@ import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
-
-import com.google.common.base.Joiner;
 
 public class ReadOnlyStorePerformanceTest {
 
@@ -104,6 +101,7 @@ public class ReadOnlyStorePerformanceTest {
         parser.accepts("working-dir", "The directory in which to store temporary data")
               .withRequiredArg()
               .describedAs("dir");
+        parser.accepts("gzip", "Compress the intermediate temp files used in building the store");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
         OptionSet options = parser.parse(args);
 
@@ -112,7 +110,7 @@ public class ReadOnlyStorePerformanceTest {
             System.exit(0);
         }
 
-        failIfMissing(parser, options, "requests", "store-dir");
+        CmdUtils.croakIfMissing(parser, options, "requests", "store-dir");
 
         final int numThreads = CmdUtils.valueOf(options, "threads", 10);
         final int numRequests = (Integer) options.valueOf("requests");
@@ -122,6 +120,7 @@ public class ReadOnlyStorePerformanceTest {
         final String searcherClass = CmdUtils.valueOf(options,
                                                       "search-strategy",
                                                       BinarySearchStrategy.class.getName()).trim();
+        final boolean gzipIntermediate = options.has("gzip");
         final SearchStrategy searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(searcherClass));
         final File workingDir = new File(CmdUtils.valueOf(options,
                                                           "working-dir",
@@ -129,7 +128,7 @@ public class ReadOnlyStorePerformanceTest {
         String storeDir = (String) options.valueOf("store-dir");
 
         if(options.has("build")) {
-            failIfMissing(parser, options, "num-values", "value-size");
+            CmdUtils.croakIfMissing(parser, options, "num-values", "value-size");
             numValues = (Integer) options.valueOf("num-values");
             int numChunks = 1;
             if(options.has("num-chunks"))
@@ -181,7 +180,8 @@ public class ReadOnlyStorePerformanceTest {
                                                             internalSortSize,
                                                             2,
                                                             numChunks,
-                                                            64 * 1024);
+                                                            64 * 1024,
+                                                            gzipIntermediate);
             builder.build();
 
             // copy to store dir
@@ -276,18 +276,5 @@ public class ReadOnlyStorePerformanceTest {
                            / totalResults.doubleValue());
         readWriteTest.printStats();
         System.exit(0);
-    }
-
-    private static void failIfMissing(OptionParser parser, OptionSet options, String... required) {
-        Set<String> missing = CmdUtils.missing(options, required);
-        if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-            try {
-                parser.printHelpOn(System.err);
-            } catch(IOException e) {
-                e.printStackTrace();
-            }
-            System.exit(1);
-        }
     }
 }

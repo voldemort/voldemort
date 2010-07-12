@@ -59,6 +59,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderTest extends TestCase {
 
     public static class TextStoreMapper extends

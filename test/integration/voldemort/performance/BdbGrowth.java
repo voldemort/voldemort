@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import com.sleepycat.je.CheckpointConfig;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
@@ -34,6 +35,7 @@ import com.sleepycat.je.EnvironmentConfig;
 /**
  * 
  */
+@SuppressWarnings("deprecation")
 public class BdbGrowth {
 
     public static void main(String[] args) throws Exception {
@@ -122,17 +124,17 @@ public class BdbGrowth {
             readTimes[i] = (System.currentTimeMillis() - startTime);
             System.out.println("read: " + (readTimes[i] / (double) increment));
 
-            // int cleaned = 0;
-            // do {
-            // cleaned += environment.cleanLog();
-            // } while(cleaned > 0);
-            // if(cleaned > 0)
-            // System.out.println("Cleaned " + cleaned + " files.");
-            // CheckpointConfig cp = new CheckpointConfig();
-            // cp.setForce(true);
-            // environment.checkpoint(null);
-            // environment.compress();
-            // environment.sync();
+            int cleaned = 0;
+            do {
+                cleaned += environment.cleanLog();
+            } while(cleaned > 0);
+            if(cleaned > 0)
+                System.out.println("Cleaned " + cleaned + " files.");
+            CheckpointConfig cp = new CheckpointConfig();
+            cp.setForce(true);
+            environment.checkpoint(null);
+            environment.compress();
+            environment.sync();
             System.out.println("Cleaning, Checkpointing and compression completed.");
         }
 

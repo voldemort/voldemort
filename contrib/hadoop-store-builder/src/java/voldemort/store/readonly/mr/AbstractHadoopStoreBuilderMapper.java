@@ -46,6 +46,7 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         AbstractStoreBuilderConfigurable implements Mapper<K, V, BytesWritable, BytesWritable> {
 

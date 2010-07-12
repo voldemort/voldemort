@@ -48,7 +48,7 @@
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-core-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/avro-modified-jdk5-1.3.0.jar"/>
-	<classpathentry kind="lib" path="contrib/krati/lib/krati-0.3.3.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop/lib/pig-0.7.1-dev-core.jar"/>
+	<classpathentry kind="lib" path="contrib/krati/lib/krati-0.3.4.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

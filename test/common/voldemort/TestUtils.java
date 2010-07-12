@@ -317,7 +317,8 @@ public class TestUtils {
                                                              100,
                                                              1,
                                                              2,
-                                                             10000);
+                                                             10000,
+                                                             false);
         storeBuilder.build();
 
         return dataDir.getAbsolutePath();
