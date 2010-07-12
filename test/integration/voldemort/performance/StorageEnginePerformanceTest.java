@@ -53,7 +53,9 @@ public class StorageEnginePerformanceTest {
                            "[REQUIRED] class of the storage engine configuration to use [e.g. voldemort.store.bdb.BdbStorageConfiguration]")
                   .withRequiredArg()
                   .describedAs("class_name");
-            parser.accepts("props", "Properties file with configuration for the engine");
+            parser.accepts("props", "Properties file with configuration for the engine")
+                  .withRequiredArg()
+                  .describedAs("config.properties");
             parser.accepts("value-size", "The size of the values in the store")
                   .withRequiredArg()
                   .describedAs("size")
