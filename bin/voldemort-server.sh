@@ -34,7 +34,7 @@ do
   CLASSPATH=$CLASSPATH:$file
 done
 
-for file in $base_dir/contrib/hadoop-store-builder/lib/*.jar $base_dir/contrib/krati/lib/*.jar;
+for file in $base_dir/contrib/*/lib/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
 done
