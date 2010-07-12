@@ -222,6 +222,52 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testDeleteStore() throws Exception {
+        AdminClient adminClient = getAdminClient();
+
+        StoreDefinition definition = new StoreDefinitionBuilder().setName("deleteTest")
+                                                                 .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(1)
+                                                                 .setPreferredReads(1)
+                                                                 .setRequiredReads(1)
+                                                                 .setPreferredWrites(1)
+                                                                 .setRequiredWrites(1)
+                                                                 .build();
+        adminClient.addStore(definition);
+
+        // now test the store
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
+                                                                                                             .getSocketUrl()
+                                                                                                             .toString()));
+
+        StoreClient<Object, Object> client = factory.getStoreClient("deleteTest");
+
+        int numStores = adminClient.getRemoteStoreDefList(0).getValue().size();
+
+        // delete the store
+        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().contains(definition), true);
+        adminClient.deleteStore("deleteTest");
+        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().size(), numStores - 1);
+        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().contains(definition), false);
+
+        // test with deleted store
+        try {
+            client = factory.getStoreClient("deleteTest");
+            client.put("abc", "123");
+            String s = (String) client.get("abc").getValue();
+            assertEquals(s, "123");
+            fail("Should have received bootstrap failure exception");
+        } catch(Exception e) {
+            if(!(e instanceof BootstrapFailureException))
+                throw e;
+        }
+    }
+
+    @Test
     public void testStateTransitions() {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();

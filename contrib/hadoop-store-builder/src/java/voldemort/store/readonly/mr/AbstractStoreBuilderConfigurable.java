@@ -34,6 +34,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class AbstractStoreBuilderConfigurable {
 
     private int numChunks;

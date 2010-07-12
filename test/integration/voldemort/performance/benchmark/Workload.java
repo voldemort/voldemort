@@ -259,8 +259,6 @@ public class Workload {
         int writePercent = props.getInt(Benchmark.WRITES, 0);
         int deletePercent = props.getInt(Benchmark.DELETES, 0);
         int mixedPercent = props.getInt(Benchmark.MIXED, 0);
-        int recordCount = props.getInt(Benchmark.RECORD_COUNT);
-        int opCount = props.getInt(Benchmark.OPS_COUNT);
         int valueSize = props.getInt(Benchmark.VALUE_SIZE, 1024);
         this.value = BenchmarkUtils.ASCIIString(valueSize);
         int cachedPercent = props.getInt(Benchmark.PERCENT_CACHED, 0);
@@ -281,6 +279,7 @@ public class Workload {
         }
 
         List<Integer> keysFromFile = null;
+        int recordCount = 0;
         if(props.containsKey(Benchmark.REQUEST_FILE)) {
             try {
                 String fileRecordSelectionFile = props.getString(Benchmark.REQUEST_FILE);
@@ -293,7 +292,10 @@ public class Workload {
                 // Falling back to default uniform selection
                 recordSelection = new String(Benchmark.UNIFORM_RECORD_SELECTION);
             }
+        } else {
+            recordCount = props.getInt(Benchmark.RECORD_COUNT, -1);
         }
+        int opCount = props.getInt(Benchmark.OPS_COUNT);
 
         Class<?> keyTypeClass = getKeyTypeClass(keyType);
         int insertStart = props.getInt(Benchmark.START_KEY_INDEX, 0);
@@ -349,15 +351,20 @@ public class Workload {
 
     }
 
-    public boolean doWrite(VoldemortWrapper db) {
+    public boolean doWrite(VoldemortWrapper db, WorkloadPlugin plugin) {
         Object key = warmUpKeyProvider.next();
+        if (plugin != null) {
+            return plugin.doWrite(key, this.value);
+        }
         db.write(key, this.value);
         return true;
     }
 
-    public boolean doTransaction(VoldemortWrapper db) {
-
+    public boolean doTransaction(VoldemortWrapper db, WorkloadPlugin plugin) {
         String op = operationChooser.nextString();
+        if (plugin != null) {
+            return plugin.doTransaction(op);
+        }
         if(op.compareTo(Benchmark.READS) == 0) {
             doTransactionRead(db);
         } else if(op.compareTo(Benchmark.MIXED) == 0) {

@@ -36,6 +36,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
@@ -63,6 +64,7 @@ public class HdfsFetcher implements FileFetcher {
     private final Long maxBytesPerSecond;
     private final int bufferSize;
     private final AtomicInteger copyCount = new AtomicInteger(0);
+    private AsyncOperationStatus status;
 
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
@@ -84,7 +86,8 @@ public class HdfsFetcher implements FileFetcher {
             this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
         this.maxBytesPerSecond = maxBytesPerSecond;
         this.bufferSize = bufferSize;
-        this.tempDir.mkdirs();
+        this.status = null;
+        Utils.mkdirs(this.tempDir);
     }
 
     public File fetch(String fileUrl, String storeName) throws IOException {
@@ -103,7 +106,7 @@ public class HdfsFetcher implements FileFetcher {
                                                     stats);
         try {
             File storeDir = new File(this.tempDir, storeName + "_" + System.currentTimeMillis());
-            storeDir.mkdir();
+            Utils.mkdirs(storeDir);
 
             File destination = new File(storeDir.getAbsoluteFile(), path.getName());
             boolean result = fetch(fs, path, destination, throttler, stats);
@@ -123,7 +126,7 @@ public class HdfsFetcher implements FileFetcher {
                           EventThrottler throttler,
                           CopyStats stats) throws IOException {
         if(!fs.isFile(source)) {
-            dest.mkdirs();
+            Utils.mkdirs(dest);
             FileStatus[] statuses = fs.listStatus(source);
             if(statuses != null) {
                 // sort the files so that index files come last. Maybe
@@ -210,6 +213,13 @@ public class HdfsFetcher implements FileFetcher {
                     logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
                                 + format.format(stats.getBytesPerSecond() / (1024 * 1024))
                                 + " MB/sec");
+                    if(this.status != null) {
+                        this.status.setStatus(stats.getTotalBytesCopied()
+                                              / (1024 * 1024)
+                                              + " MB copied at "
+                                              + format.format(stats.getBytesPerSecond()
+                                                              / (1024 * 1024)) + " MB/sec");
+                    }
                     stats.reset();
                 }
             }
@@ -287,6 +297,10 @@ public class HdfsFetcher implements FileFetcher {
             else
                 return 0;
         }
+    }
+
+    public void setAsyncOperationStatus(AsyncOperationStatus status) {
+        this.status = status;
     }
 
     /*

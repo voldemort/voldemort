@@ -43,6 +43,7 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable implements
         Reducer<BytesWritable, BytesWritable, Text, Text> {
 
@@ -148,6 +149,11 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         this.indexFileStream.close();
         this.valueFileStream.close();
 
+        if(this.nodeId == -1 || this.chunkId == -1) {
+            // No data was read in the reduce phase, do not create any output
+            // directory (Also Issue 258)
+            return;
+        }
         Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
         Path indexFile = new Path(nodeDir, this.chunkId + ".index");
         Path valueFile = new Path(nodeDir, this.chunkId + ".data");

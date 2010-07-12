@@ -25,6 +25,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,6 +40,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.log4j.Logger;
 
@@ -61,6 +65,7 @@ public class ExternalSorter<V> {
 
     private final Serializer<V> serializer;
     private final Comparator<V> comparator;
+    private final boolean gzip;
     private final int internalSortSize;
     private final File tempDir;
     private final int bufferSize;
@@ -77,14 +82,20 @@ public class ExternalSorter<V> {
      */
     @SuppressWarnings("unchecked")
     public ExternalSorter(Serializer<V> serializer, int internalSortSize, int numThreads) {
-        this(serializer, new Comparator<V>() {
+        this(serializer,
+             new Comparator<V>() {
 
-            public int compare(V o1, V o2) {
-                Comparable c1 = (Comparable) o1;
-                Comparable c2 = (Comparable) o2;
-                return c1.compareTo(c2);
-            }
-        }, internalSortSize, System.getProperty("java.io.tmpdir"), 10 * 1024 * 1024, numThreads);
+                 public int compare(V o1, V o2) {
+                     Comparable c1 = (Comparable) o1;
+                     Comparable c2 = (Comparable) o2;
+                     return c1.compareTo(c2);
+                 }
+             },
+             internalSortSize,
+             System.getProperty("java.io.tmpdir"),
+             10 * 1024 * 1024,
+             numThreads,
+             false);
     }
 
     /**
@@ -107,7 +118,8 @@ public class ExternalSorter<V> {
              internalSortSize,
              System.getProperty("java.io.tmpdir"),
              10 * 1024 * 1024,
-             numThreads);
+             numThreads,
+             false);
     }
 
     /**
@@ -128,13 +140,15 @@ public class ExternalSorter<V> {
                           int internalSortSize,
                           String tempDir,
                           int bufferSize,
-                          int numThreads) {
+                          int numThreads,
+                          boolean gzip) {
         this.serializer = serializer;
         this.comparator = comparator;
         this.internalSortSize = internalSortSize;
         this.tempDir = new File(tempDir);
         this.bufferSize = bufferSize;
         this.numThreads = numThreads;
+        this.gzip = gzip;
     }
 
     /**
@@ -182,8 +196,11 @@ public class ExternalSorter<V> {
                         File tempFile = File.createTempFile("segment-", ".dat", tempDir);
                         tempFile.deleteOnExit();
                         tempFiles.add(tempFile);
-                        DataOutputStream output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(tempFile),
-                                                                                                bufferSize));
+                        OutputStream os = new BufferedOutputStream(new FileOutputStream(tempFile),
+                                                                   bufferSize);
+                        if(gzip)
+                            os = new GZIPOutputStream(os);
+                        DataOutputStream output = new DataOutputStream(os);
                         for(int i = 0; i < segmentSize; i++)
                             writeValue(output, buffer[i]);
                         output.close();
@@ -241,8 +258,10 @@ public class ExternalSorter<V> {
             this.inputs = new ArrayList<FileAndStream>(files.size());
             for(File f: files) {
                 try {
-                    DataInputStream inputStream = new DataInputStream(new BufferedInputStream(new FileInputStream(f),
-                                                                                              readBufferSize));
+                    InputStream is = new BufferedInputStream(new FileInputStream(f), readBufferSize);
+                    if(gzip)
+                        is = new GZIPInputStream(is);
+                    DataInputStream inputStream = new DataInputStream(is);
                     this.inputs.add(new FileAndStream(f, inputStream));
                 } catch(IOException e) {
                     throw new VoldemortException(e);

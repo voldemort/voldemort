@@ -50,6 +50,7 @@ import voldemort.xml.StoreDefinitionsMapper;
  * Builds a read-only voldemort store as a hadoop job from the given input data.
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreBuilder {
 
     public static final long MIN_CHUNK_SIZE = 1L;

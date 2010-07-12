@@ -28,6 +28,7 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
+@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigurable implements
         Partitioner<BytesWritable, BytesWritable> {
 

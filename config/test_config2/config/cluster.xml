@@ -5,13 +5,15 @@
 		<host>localhost</host>
 		<http-port>8081</http-port>
 		<socket-port>6666</socket-port>
+		<admin-port>6667</admin-port>
 		<partitions>0, 1</partitions>
 	</server>
 	<server>
 		<id>1</id>
 		<host>localhost</host>
 		<http-port>8082</http-port>
-		<socket-port>6667</socket-port>
+		<socket-port>6668</socket-port>
+		<admin-port>6669</admin-port>
 		<partitions>2, 3</partitions>
 	</server>
 </cluster>

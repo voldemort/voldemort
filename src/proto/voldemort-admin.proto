@@ -131,6 +131,36 @@ message AddStoreResponse {
   optional Error error = 1;
 }
 
+message DeleteStoreRequest {
+  required string storeName = 1;
+}
+
+message DeleteStoreResponse {
+  optional Error error = 1;
+}
+
+message FetchStoreRequest {
+  required string store_name = 1;
+  required string store_dir = 2;
+}
+
+message SwapStoreRequest {
+  required string store_name = 1;
+  required string store_dir = 2;
+}
+
+message SwapStoreResponse {
+  optional Error error = 1;
+}
+
+message RollbackStoreRequest {
+  required string store_name = 1;
+}
+
+message RollbackStoreResponse {
+  optional Error error = 1;
+}
+ 
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -144,6 +174,10 @@ enum AdminRequestType {
   ASYNC_OPERATION_LIST = 9;
   TRUNCATE_ENTRIES = 10;
   ADD_STORE = 11;
+  DELETE_STORE = 12;
+  FETCH_STORE = 13;
+  SWAP_STORE = 14;
+  ROLLBACK_STORE = 15;
 }
 
 message VoldemortAdminRequest {
@@ -160,6 +194,10 @@ message VoldemortAdminRequest {
   optional AsyncOperationListRequest async_operation_list = 11;
   optional TruncateEntriesRequest truncate_entries = 12;
   optional AddStoreRequest add_store = 13;
+  optional DeleteStoreRequest delete_store = 14;
+  optional FetchStoreRequest fetch_store = 15;
+  optional SwapStoreRequest swap_store = 16;
+  optional RollbackStoreRequest rollback_store = 17;
 }
 
 

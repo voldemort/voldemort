@@ -1,10 +1,14 @@
 package voldemort.utils;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
+import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+
+import com.google.common.base.Joiner;
 
 /**
  * Helper functions for command line parsing. Because jopt-simple is a little
@@ -43,6 +47,19 @@ public class CmdUtils {
             return options.valueOf(opt);
         else
             return defaultValue;
+    }
+
+    public static void croakIfMissing(OptionParser parser, OptionSet options, String... required) {
+        Set<String> missing = CmdUtils.missing(options, required);
+        if(missing.size() > 0) {
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
+            try {
+                parser.printHelpOn(System.err);
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
+            System.exit(1);
+        }
     }
 
 }

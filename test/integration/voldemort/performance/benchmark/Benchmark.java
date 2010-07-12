@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.text.NumberFormat;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
@@ -90,6 +91,7 @@ public class Benchmark {
     public static final String HELP = "help";
     public static final String STORE_NAME = "store-name";
     public static final String RECORD_COUNT = "record-count";
+    public static final String PLUGIN_CLASS = "plugin-class";
     public static final String OPS_COUNT = "ops-count";
     public static final String METRIC_TYPE = "metric-type";
     public static final String HISTOGRAM_METRIC_TYPE = "histogram";
@@ -107,8 +109,10 @@ public class Benchmark {
     private double perThreadThroughputPerMs;
     private int recordCount, opsCount;
     private Workload workLoad;
+    private String pluginName;
     private int statusIntervalSec;
     private boolean storeInitialized = false;
+    private boolean warmUpCompleted = false;
     private boolean verbose = false;
     private boolean verifyRead = false;
     private boolean ignoreNulls = false;
@@ -163,13 +167,15 @@ public class Benchmark {
         private int opsCount;
         private double targetThroughputPerMs;
         private int opsDone;
+        private final WorkloadPlugin plugin;
 
         public ClientThread(VoldemortWrapper db,
                             boolean runBenchmark,
                             Workload workLoad,
                             int opsCount,
                             double targetThroughputPerMs,
-                            boolean verbose) {
+                            boolean verbose,
+                            WorkloadPlugin plugin) {
             this.db = db;
             this.runBenchmark = runBenchmark;
             this.workLoad = workLoad;
@@ -177,6 +183,7 @@ public class Benchmark {
             this.opsDone = 0;
             this.targetThroughputPerMs = targetThroughputPerMs;
             this.verbose = verbose;
+            this.plugin = plugin;
         }
 
         public int getOpsDone() {
@@ -186,14 +193,19 @@ public class Benchmark {
         public void run() {
             long startTime = System.currentTimeMillis();
             while(opsDone < this.opsCount) {
-                if(runBenchmark) {
-                    if(!workLoad.doTransaction(this.db)) {
-                        break;
+                try {
+                    if(runBenchmark) {
+                        if(!workLoad.doTransaction(this.db, plugin)) {
+                            break;
+                        }
+                    } else {
+                        if(!workLoad.doWrite(this.db, plugin)) {
+                            break;
+                        }
                     }
-                } else {
-                    if(!workLoad.doWrite(this.db)) {
-                        break;
-                    }
+                } catch(Exception e) {
+                    if(this.verbose)
+                        e.printStackTrace();
                 }
                 opsDone++;
                 if(targetThroughputPerMs > 0) {
@@ -277,18 +289,17 @@ public class Benchmark {
         this.targetThroughput = workloadProps.getInt(TARGET_THROUGHPUT, -1);
         this.perThreadThroughputPerMs = -1;
         if(targetThroughput > 0) {
-            double targetperthread = ((double) targetThroughput) / ((double) numThreads);
-            this.perThreadThroughputPerMs = targetperthread / 1000.0;
+            double targetPerThread = ((double) targetThroughput) / ((double) numThreads);
+            this.perThreadThroughputPerMs = targetPerThread / 1000.0;
         }
 
-        // Compulsory parameters
-        if(workloadProps.containsKey(RECORD_COUNT) && workloadProps.containsKey(OPS_COUNT)) {
-            this.recordCount = workloadProps.getInt(RECORD_COUNT);
+        if(workloadProps.containsKey(OPS_COUNT)) {
             this.opsCount = workloadProps.getInt(OPS_COUNT);
         } else {
-            throw new VoldemortException("Missing compulsory parameters - " + RECORD_COUNT
-                                         + "  or " + OPS_COUNT);
+            throw new VoldemortException("Missing compulsory parameters - " + OPS_COUNT);
         }
+        this.recordCount = workloadProps.getInt(RECORD_COUNT, -1);
+        this.pluginName = workloadProps.getString(PLUGIN_CLASS, null);
 
         // Initialize measurement
         Metrics.setProperties(workloadProps);
@@ -382,6 +393,7 @@ public class Benchmark {
     public void warmUpAndRun() throws Exception {
         if(this.recordCount > 0) {
             runTests(false);
+            this.warmUpCompleted = true;
             Metrics.getInstance().reset();
         }
 
@@ -410,14 +422,31 @@ public class Benchmark {
 
         for(int index = 0; index < this.numThreads; index++) {
             VoldemortWrapper db = new VoldemortWrapper(storeClient,
-                                                       this.verifyRead,
+                                                       this.verifyRead && this.warmUpCompleted,
                                                        this.ignoreNulls);
+            WorkloadPlugin plugin = null;
+            if (this.pluginName != null && this.pluginName.length() > 0) {
+                Class<?> cls = Class.forName(this.pluginName);
+                try {
+                    plugin = (WorkloadPlugin) cls.newInstance();
+                } catch (IllegalAccessException e) {
+                    System.err.println("Class not accessible ");
+                    System.exit(1);
+                } catch (InstantiationException e) {
+                    System.err.println("Class not instantiable.");
+                    System.exit(1);
+                }
+                plugin.setDb(db);
+            }
+
+
             Thread clientThread = new ClientThread(db,
                                                    runBenchmark,
                                                    this.workLoad,
                                                    localOpsCounts / this.numThreads,
                                                    this.perThreadThroughputPerMs,
-                                                   this.verbose);
+                                                   this.verbose,
+                                                   plugin);
             threads.add(clientThread);
         }
 
@@ -445,11 +474,14 @@ public class Benchmark {
         if(this.statusIntervalSec > 0) {
             statusThread.interrupt();
         }
+        NumberFormat nf = NumberFormat.getInstance();
+        nf.setMaximumFractionDigits(4);
 
-        System.out.println("[" + label + "]\tRunTime(ms): " + (endRunBenchmark - startRunBenchmark));
+        System.out.println("[" + label + "]\tRunTime(ms): "
+                           + nf.format((endRunBenchmark - startRunBenchmark)));
         double throughput = Time.MS_PER_SECOND * ((double) localOpsCounts)
                             / ((double) (endRunBenchmark - startRunBenchmark));
-        System.out.println("[" + label + "]\tThroughput(ops/sec): " + throughput);
+        System.out.println("[" + label + "]\tThroughput(ops/sec): " + nf.format(throughput));
 
         if(runBenchmark) {
             Metrics.getInstance().printReport(System.out);
@@ -460,60 +492,77 @@ public class Benchmark {
     public static void main(String args[]) throws IOException {
         // Logger.getRootLogger().removeAllAppenders();
         OptionParser parser = new OptionParser();
-        parser.accepts(READS, "execute read operations").withOptionalArg().ofType(Integer.class);
-        parser.accepts(WRITES, "execute write operations").withOptionalArg().ofType(Integer.class);
-        parser.accepts(DELETES, "execute delete operations")
-              .withOptionalArg()
+        parser.accepts(READS, "percentage of --ops-count to be reads; valid values [0-100]")
+              .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(MIXED, "generate a mix of read and write requests")
-              .withOptionalArg()
+        parser.accepts(WRITES, "percentage of --ops-count to be writes; valid values [0-100]")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts(DELETES, "percentage of --ops-count to be deletes; valid values [0-100]")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts(MIXED, "percentage of --ops-count to be updates; valid values [0-100]")
+              .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(VERBOSE, "verbose");
-        parser.accepts(THREADS, "max number concurrent worker threads  Default = 1")
+        parser.accepts(THREADS, "max number concurrent worker threads; Default = " + MAX_WORKERS)
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(ITERATIONS, "number of times to repeat the test  Default = 1")
+        parser.accepts(ITERATIONS, "number of times to repeat benchmark phase; Default = 1")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(VERIFY, "verify values read");
-        parser.accepts(HANDSHAKE, "perform a handshake");
+        parser.accepts(VERIFY, "verify values read; runs only if warm-up phase is included");
         parser.accepts(PERCENT_CACHED,
-                       "percentage of requests to come from previously requested keys; valid values are in range [0..100]; 0 means caching disabled  Default = 0")
+                       "percentage of requests to come from previously requested keys; valid values are in range [0..100]; 0 means caching disabled. Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(START_KEY_INDEX, "starting point when using int keys. Default = 0")
+        parser.accepts(START_KEY_INDEX, "key index to start warm-up phase from; Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(INTERVAL, "print requests on this interval  Default = 0")
+        parser.accepts(INTERVAL, "print status at interval seconds; Default = 0")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(IGNORE_NULLS, "ignore null values");
-
-        parser.accepts(PROP_FILE, "file containing all the properties").withRequiredArg();
-        parser.accepts(STORAGE_ENGINE_TYPE, "file containing all the properties  Default = memory")
+        parser.accepts(IGNORE_NULLS, "ignore null values in results");
+        parser.accepts(PROP_FILE,
+                       "file containing all the properties in key=value format; will override all other command line options specified")
               .withRequiredArg();
-        parser.accepts(KEY_TYPE, "which key type to support  Default = string").withRequiredArg();
+        parser.accepts(STORAGE_ENGINE_TYPE,
+                       "storage engine type; [ " + BdbStorageConfiguration.TYPE_NAME + " | "
+                               + MysqlStorageConfiguration.TYPE_NAME + " | "
+                               + InMemoryStorageConfiguration.TYPE_NAME + " <default> ]")
+              .withRequiredArg();
+        parser.accepts(KEY_TYPE,
+                       "for local tests; key type to support; [ " + IDENTITY_KEY_TYPE + " | "
+                               + JSONINT_KEY_TYPE + " | " + JSONSTRING_KEY_TYPE + "|"
+                               + STRING_KEY_TYPE + " <default> ]").withRequiredArg();
         parser.accepts(REQUEST_FILE,
-                       "execute specific requests in order. Overrides " + RECORD_SELECTION)
-              .withRequiredArg();
-        parser.accepts(VALUE_SIZE, "size in bytes for random value.  Default = 1024")
+                       "file with limited list of keys to be used during benchmark phase; Overrides "
+                               + RECORD_SELECTION).withRequiredArg();
+        parser.accepts(VALUE_SIZE,
+                       "size in bytes for random value; used during warm-up phase and write operation of benchmark phase; Default = 1024")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(RECORD_SELECTION,
-                       "how to select record [zipfian | latest | uniform <default>]")
-              .withRequiredArg();
-        parser.accepts(TARGET_THROUGHPUT, "fix the throughput")
-              .withRequiredArg()
-              .ofType(Integer.class);
+                       "record selection distribution [ " + ZIPFIAN_RECORD_SELECTION + " | "
+                               + LATEST_RECORD_SELECTION + " | " + UNIFORM_RECORD_SELECTION
+                               + " <default> ]").withRequiredArg();
+        parser.accepts(TARGET_THROUGHPUT, "fix ops/sec").withRequiredArg().ofType(Integer.class);
         parser.accepts(RECORD_COUNT, "number of records inserted during warmup phase")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(OPS_COUNT, "number of operations to do")
+        parser.accepts(OPS_COUNT, "number of operations to do during benchmark phase")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(URL, "url on which to run remote tests").withRequiredArg();
-        parser.accepts(STORE_NAME, "store name on the remote URL").withRequiredArg();
-        parser.accepts(METRIC_TYPE, "type of metric [histogram | summary]").withRequiredArg();
+        parser.accepts(URL, "for remote tests; url of remote server").withRequiredArg();
+        parser.accepts(STORE_NAME, "for remote tests; store name on the remote " + URL)
+              .withRequiredArg();
+        parser.accepts(HANDSHAKE, "for remote tests; basic handshake operations with " + URL);
+        parser.accepts(METRIC_TYPE,
+                       "type of result metric [ " + HISTOGRAM_METRIC_TYPE + " | "
+                               + SUMMARY_METRIC_TYPE + " <default> ]").withRequiredArg();
+        parser.accepts(PLUGIN_CLASS,
+                       "classname of implementation of WorkloadPlugin; used to run customized operations ")
+              .withRequiredArg();
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -539,81 +588,45 @@ public class Benchmark {
         } else {
             mainProps = new Props();
 
-            // Backward compatibility with RemoteTests
-            List<String> nonOptions = options.nonOptionArguments();
-            if(nonOptions.size() != 3 && nonOptions.size() != 0) {
-                printUsage(parser, "Incorrect options");
-            }
-
-            if(nonOptions.size() == 3) {
-                mainProps.put(URL, nonOptions.get(0));
-                mainProps.put(STORE_NAME, nonOptions.get(1));
-                mainProps.put(OPS_COUNT, Integer.parseInt(nonOptions.get(2)));
-            } else {
-
-                // Parse Ops_count
-                if(!options.has(OPS_COUNT)) {
-                    printUsage(parser, "Missing " + OPS_COUNT);
-                }
-                mainProps.put(OPS_COUNT, (Integer) options.valueOf(OPS_COUNT));
-
-                if(options.has(URL)) {
-                    mainProps.put(URL, (String) options.valueOf(URL));
-                    if(options.has(HANDSHAKE)) {
-                        mainProps.put(HANDSHAKE, "true");
-                    } else {
-                        mainProps.put(HANDSHAKE, "false");
-                    }
-                    if(options.has(STORE_NAME)) {
-                        mainProps.put(STORE_NAME, (String) options.valueOf(STORE_NAME));
-                    } else {
-                        printUsage(parser, "Missing store name");
-                    }
-                } else {
-                    mainProps.put(KEY_TYPE, CmdUtils.valueOf(options, KEY_TYPE, STRING_KEY_TYPE));
-                    mainProps.put(STORAGE_ENGINE_TYPE,
-                                  CmdUtils.valueOf(options,
-                                                   STORAGE_ENGINE_TYPE,
-                                                   InMemoryStorageConfiguration.TYPE_NAME));
-                }
-
-            }
-
-            // Parse Record_Count
-            if(options.has(RECORD_COUNT)) {
-                mainProps.put(RECORD_COUNT, (Integer) options.valueOf(RECORD_COUNT));
-            } else {
-                mainProps.put(RECORD_COUNT, 0);
-            }
-
-            mainProps.put(RECORD_SELECTION, CmdUtils.valueOf(options,
-                                                             RECORD_SELECTION,
-                                                             UNIFORM_RECORD_SELECTION));
             if(options.has(REQUEST_FILE)) {
                 mainProps.put(REQUEST_FILE, (String) options.valueOf(REQUEST_FILE));
-
-                // Override existing RECORD_SELECTION setting
                 mainProps.put(RECORD_SELECTION, FILE_RECORD_SELECTION);
-            }
-
-            if(options.has(VERBOSE)) {
-                mainProps.put(VERBOSE, "true");
             } else {
-                mainProps.put(VERBOSE, "false");
+                mainProps.put(RECORD_SELECTION, CmdUtils.valueOf(options,
+                                                                 RECORD_SELECTION,
+                                                                 UNIFORM_RECORD_SELECTION));
+
+                if(options.has(RECORD_COUNT)) {
+                    mainProps.put(RECORD_COUNT, (Integer) options.valueOf(RECORD_COUNT));
+                } else {
+                    mainProps.put(RECORD_COUNT, 0);
+                }
             }
 
-            if(options.has(VERIFY)) {
-                mainProps.put(VERIFY, "true");
+            if(!options.has(OPS_COUNT)) {
+                printUsage(parser, "Missing " + OPS_COUNT);
+            }
+            mainProps.put(OPS_COUNT, (Integer) options.valueOf(OPS_COUNT));
+
+            if(options.has(URL)) {
+                mainProps.put(URL, (String) options.valueOf(URL));
+                mainProps.put(HANDSHAKE, getCmdBoolean(options, HANDSHAKE));
+                if(options.has(STORE_NAME)) {
+                    mainProps.put(STORE_NAME, (String) options.valueOf(STORE_NAME));
+                } else {
+                    printUsage(parser, "Missing store name");
+                }
             } else {
-                mainProps.put(VERIFY, "false");
+                mainProps.put(KEY_TYPE, CmdUtils.valueOf(options, KEY_TYPE, STRING_KEY_TYPE));
+                mainProps.put(STORAGE_ENGINE_TYPE,
+                              CmdUtils.valueOf(options,
+                                               STORAGE_ENGINE_TYPE,
+                                               InMemoryStorageConfiguration.TYPE_NAME));
             }
 
-            if(options.has(IGNORE_NULLS)) {
-                mainProps.put(IGNORE_NULLS, "true");
-            } else {
-                mainProps.put(IGNORE_NULLS, "false");
-            }
-
+            mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));
+            mainProps.put(VERIFY, getCmdBoolean(options, VERIFY));
+            mainProps.put(IGNORE_NULLS, getCmdBoolean(options, IGNORE_NULLS));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));
@@ -622,34 +635,11 @@ public class Benchmark {
             mainProps.put(INTERVAL, CmdUtils.valueOf(options, INTERVAL, 0));
             mainProps.put(TARGET_THROUGHPUT, CmdUtils.valueOf(options, TARGET_THROUGHPUT, -1));
             mainProps.put(METRIC_TYPE, CmdUtils.valueOf(options, METRIC_TYPE, SUMMARY_METRIC_TYPE));
-
-            String ops = "";
-            ops += checkOpsRatio(options, mainProps, READS);
-            ops += checkOpsRatio(options, mainProps, WRITES);
-            ops += checkOpsRatio(options, mainProps, DELETES);
-            ops += checkOpsRatio(options, mainProps, MIXED);
-
-            if(ops.compareTo("") != 0) {
-                int contrib = 100 / ops.length();
-                // Even approximate number close to 100 works
-                if(ops.contains(READS))
-                    mainProps.put(READS, contrib);
-                else
-                    mainProps.put(READS, 0);
-                if(ops.contains(WRITES))
-                    mainProps.put(WRITES, contrib);
-                else
-                    mainProps.put(WRITES, 0);
-                if(ops.contains(DELETES))
-                    mainProps.put(DELETES, contrib);
-                else
-                    mainProps.put(DELETES, 0);
-                if(ops.contains(MIXED))
-                    mainProps.put(MIXED, contrib);
-                else
-                    mainProps.put(MIXED, 0);
-            }
-
+            mainProps.put(READS, CmdUtils.valueOf(options, READS, 0));
+            mainProps.put(WRITES, CmdUtils.valueOf(options, WRITES, 0));
+            mainProps.put(DELETES, CmdUtils.valueOf(options, DELETES, 0));
+            mainProps.put(MIXED, CmdUtils.valueOf(options, MIXED, 0));
+            mainProps.put(PLUGIN_CLASS, CmdUtils.valueOf(options, PLUGIN_CLASS, ""));
         }
 
         // Start the benchmark
@@ -675,17 +665,14 @@ public class Benchmark {
     private static void printUsage(OptionParser parser, String errorCommand) throws IOException {
         parser.printHelpOn(System.err);
         Utils.croak("Usage: $VOLDEMORT_HOME/bin/run-class.sh " + Benchmark.class.getName()
-                    + " [options] bootstrapUrl storeName num-requests\n " + errorCommand);
+                    + " [options]\n " + errorCommand);
     }
 
-    private static String checkOpsRatio(OptionSet options,
-                                        Props returnProps,
-                                        String currentOperation) {
-        if(options.has(currentOperation) && options.valueOf(currentOperation) == null) {
-            return currentOperation;
+    private static String getCmdBoolean(OptionSet option, String command) {
+        if(option.has(command)) {
+            return "true";
         } else {
-            returnProps.put(currentOperation, CmdUtils.valueOf(options, currentOperation, 0));
-            return "";
+            return "false";
         }
     }
 }

@@ -39,6 +39,7 @@ import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
+@SuppressWarnings("deprecation")
 public class MysqlBuildPerformanceTest {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {

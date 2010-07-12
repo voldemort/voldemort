@@ -16,11 +16,13 @@
 
 package voldemort.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
 import junit.framework.TestCase;
+import voldemort.VoldemortException;
 
 public class UtilsTest extends TestCase {
 
@@ -35,4 +37,22 @@ public class UtilsTest extends TestCase {
         assertEquals(Arrays.asList(1, 2, 3, 4), Utils.sorted(Arrays.asList(4, 3, 2, 1)));
     }
 
+    public void testMkDir() {
+        File tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
+                                                                      + System.currentTimeMillis());
+
+        // Working case
+        tempDir = new File(System.getProperty("java.io.tmpdir"), "temp"
+                                                                 + System.currentTimeMillis());
+        Utils.mkdirs(tempDir);
+        assertTrue(tempDir.exists());
+
+        // Exists & writable false
+        tempDir.setWritable(false);
+        try {
+            Utils.mkdirs(tempDir);
+            fail("Mkdir should have thrown an exception");
+        } catch(VoldemortException e) {}
+
+    }
 }

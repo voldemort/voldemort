@@ -22,6 +22,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.io.FileDeleteStrategy;
@@ -126,10 +127,11 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         final Random rand = new Random();
         final AtomicInteger count = new AtomicInteger(0);
+        final AtomicBoolean keepRunning = new AtomicBoolean(true);
         executor.execute(new Runnable() {
 
             public void run() {
-                while(!Thread.interrupted()) {
+                while(keepRunning.get()) {
                     byte[] bytes = Integer.toString(count.getAndIncrement()).getBytes();
                     store.put(new ByteArray(bytes), Versioned.value(bytes));
                     count.incrementAndGet();
@@ -139,7 +141,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         executor.execute(new Runnable() {
 
             public void run() {
-                while(!Thread.interrupted()) {
+                while(keepRunning.get()) {
                     byte[] bytes = Integer.toString(rand.nextInt(count.get())).getBytes();
                     store.delete(new ByteArray(bytes), new VectorClock());
                     count.incrementAndGet();
@@ -156,7 +158,8 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         while(iter.hasNext())
             iter.next();
         iter.close();
-        executor.shutdownNow();
-        assertTrue(executor.awaitTermination(15, TimeUnit.SECONDS));
+        keepRunning.set(false);
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
     }
 }

@@ -88,6 +88,10 @@ public class StoreRepository {
         return localStores.get(storeName);
     }
 
+    public Store<ByteArray, byte[]> removeLocalStore(String storeName) {
+        return localStores.remove(storeName);
+    }
+
     public void addLocalStore(Store<ByteArray, byte[]> store) {
         Store<ByteArray, byte[]> found = this.localStores.putIfAbsent(store.getName(), store);
         if(found != null)
@@ -113,6 +117,10 @@ public class StoreRepository {
         if(found != null)
             throw new VoldemortException("Storage Engine '" + engine.getName()
                                          + "' has already been initialized.");
+    }
+
+    public Store<ByteArray, byte[]> removeStorageEngine(String storeName) {
+        return this.storageEngines.remove(storeName);
     }
 
     public List<StorageEngine<ByteArray, byte[]>> getAllStorageEngines() {
@@ -146,12 +154,20 @@ public class StoreRepository {
         return new ArrayList<Store<ByteArray, byte[]>>(this.routedStores.values());
     }
 
+    public Store<ByteArray, byte[]> removeRoutedStore(String storeName) {
+        return this.routedStores.remove(storeName);
+    }
+
     public boolean hasNodeStore(String name, int nodeId) {
         return this.nodeStores.containsKey(Pair.create(name, nodeId));
     }
 
     public Store<ByteArray, byte[]> getNodeStore(String storeName, Integer id) {
         return nodeStores.get(Pair.create(storeName, id));
+    }
+
+    public Store<ByteArray, byte[]> removeNodeStore(String storeName, int nodeId) {
+        return this.nodeStores.remove(Pair.create(storeName, nodeId));
     }
 
     public void addNodeStore(int nodeId, Store<ByteArray, byte[]> store) {

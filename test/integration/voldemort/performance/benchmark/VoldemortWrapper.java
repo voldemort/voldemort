@@ -107,7 +107,7 @@ public class VoldemortWrapper {
             res = this.Ok;
         }
 
-        measurement.reportReturnCode(WRITES_STRING, this.Ok);
+        measurement.reportReturnCode(WRITES_STRING, res);
         return res;
     }
 

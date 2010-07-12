@@ -16,6 +16,7 @@
 package voldemort.performance.benchmark;
 
 import java.io.PrintStream;
+import java.text.NumberFormat;
 import java.util.HashMap;
 
 class Results {
@@ -144,14 +145,17 @@ public class Measurement {
     public void printReport(PrintStream out) {
 
         Results result = generateResults();
+        NumberFormat nf = NumberFormat.getInstance();
+        nf.setMaximumFractionDigits(4);
+
         out.println("[" + getName() + "]\tOperations: " + operations);
         out.println("[" + getName() + "]\tAverage(ms): "
-                    + (((double) totalLatency) / ((double) operations)));
-        out.println("[" + getName() + "]\tMin(ms): " + minLatency);
-        out.println("[" + getName() + "]\tMax(ms): " + maxLatency);
-        out.println("[" + getName() + "]\tMedian(ms): " + result.medianLatency);
-        out.println("[" + getName() + "]\t95th(ms): " + result.q95Latency);
-        out.println("[" + getName() + "]\t99th(ms): " + result.q99Latency);
+                    + nf.format((((double) totalLatency) / ((double) operations))));
+        out.println("[" + getName() + "]\tMin(ms): " + nf.format(minLatency));
+        out.println("[" + getName() + "]\tMax(ms): " + nf.format(maxLatency));
+        out.println("[" + getName() + "]\tMedian(ms): " + nf.format(result.medianLatency));
+        out.println("[" + getName() + "]\t95th(ms): " + nf.format(result.q95Latency));
+        out.println("[" + getName() + "]\t99th(ms): " + nf.format(result.q99Latency));
 
         if(!this.summaryOnly) {
             for(Integer I: returnCodes.keySet()) {
