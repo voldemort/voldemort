@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.text.NumberFormat;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
@@ -473,11 +474,14 @@ public class Benchmark {
         if(this.statusIntervalSec > 0) {
             statusThread.interrupt();
         }
+        NumberFormat nf = NumberFormat.getInstance();
+        nf.setMaximumFractionDigits(4);
 
-        System.out.println("[" + label + "]\tRunTime(ms): " + (endRunBenchmark - startRunBenchmark));
+        System.out.println("[" + label + "]\tRunTime(ms): "
+                           + nf.format((endRunBenchmark - startRunBenchmark)));
         double throughput = Time.MS_PER_SECOND * ((double) localOpsCounts)
                             / ((double) (endRunBenchmark - startRunBenchmark));
-        System.out.println("[" + label + "]\tThroughput(ops/sec): " + throughput);
+        System.out.println("[" + label + "]\tThroughput(ops/sec): " + nf.format(throughput));
 
         if(runBenchmark) {
             Metrics.getInstance().printReport(System.out);
