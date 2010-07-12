@@ -27,6 +27,7 @@ import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.StripedLock;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occured;
@@ -38,26 +39,27 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private static final Logger logger = Logger.getLogger(KratiStorageEngine.class);
     private final String name;
-
-    private DynamicDataStore datastore = null;
+    private final DynamicDataStore datastore;
+    private final StripedLock locks;
 
     public KratiStorageEngine(String name,
                               SegmentFactory segmentFactory,
                               int segmentFileSizeMB,
+                              int lockStripes,
                               double hashLoadFactor,
                               int initLevel,
                               File dataDirectory) {
         this.name = Utils.notNull(name);
         try {
-            datastore = new DynamicDataStore(dataDirectory,
-                                             initLevel,
-                                             segmentFileSizeMB,
-                                             segmentFactory,
-                                             hashLoadFactor,
-                                             new FnvHashFunction());
+            this.datastore = new DynamicDataStore(dataDirectory,
+                                                  initLevel,
+                                                  segmentFileSizeMB,
+                                                  segmentFactory,
+                                                  hashLoadFactor,
+                                                  new FnvHashFunction());
+            this.locks = new StripedLock(lockStripes);
         } catch(Exception e) {
-            logger.error("Failed to initialize datastore");
-            datastore = null;
+            throw new VoldemortException("Failure initializing store.", e);
         }
 
     }
@@ -86,8 +88,8 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
         try {
             datastore.clear();
         } catch(Exception e) {
-            logger.error(e);
-            throw new VoldemortException("Failed to truncate Krati");
+            logger.error("Failed to truncate store '" + name + "': ", e);
+            throw new VoldemortException("Failed to truncate store '" + name + "'.");
         }
     }
 
@@ -96,8 +98,8 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
         try {
             return disassembleValues(datastore.get(key.get()));
         } catch(Exception e) {
-            logger.error(e);
-            throw new VoldemortException("Failed to deserialize data");
+            logger.error("Error reading value: ", e);
+            throw new VoldemortException("Error reading value: ", e);
         }
     }
 
@@ -134,10 +136,8 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
                             returnedList.add(Pair.create(new ByteArray(key), currentVersion));
                         }
                     }
-
                 }
             }
-
         }
         return new KratiClosableIterator(returnedList);
     }
@@ -149,82 +149,79 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public boolean delete(ByteArray key, Version maxVersion) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
-        if(maxVersion == null) {
-            try {
-                return datastore.delete(key.get());
-            } catch(Exception e) {
-                logger.error(e);
-                throw new VoldemortException("Failed to delete key" + key);
-            }
-        }
-
-        List<Versioned<byte[]>> returnedValuesList = this.get(key);
-
-        // Case if there is nothing to delete
-        if(returnedValuesList.size() == 0) {
-            return false;
-        }
-
-        Iterator<Versioned<byte[]>> iter = returnedValuesList.iterator();
-        while(iter.hasNext()) {
-            Versioned<byte[]> currentValue = iter.next();
-            Version currentVersion = currentValue.getVersion();
-            if(currentVersion.compare(maxVersion) == Occured.BEFORE) {
-                iter.remove();
+        synchronized(this.locks.lockFor(key.get())) {
+            if(maxVersion == null) {
+                try {
+                    return datastore.delete(key.get());
+                } catch(Exception e) {
+                    logger.error("Failed to delete key: ", e);
+                    throw new VoldemortException("Failed to delete key: " + key, e);
+                }
             }
 
-        }
+            List<Versioned<byte[]>> returnedValuesList = this.get(key);
 
-        try {
+            // Case if there is nothing to delete
             if(returnedValuesList.size() == 0) {
-                List<Versioned<byte[]>> genList = this.get(key);
-                return datastore.delete(key.get());
-            } else {
-                return datastore.put(key.get(), assembleValues(returnedValuesList));
+                return false;
             }
-        } catch(Exception e) {
-            logger.error(e);
-            throw new VoldemortException("Failed to delete key " + key);
+
+            Iterator<Versioned<byte[]>> iter = returnedValuesList.iterator();
+            while(iter.hasNext()) {
+                Versioned<byte[]> currentValue = iter.next();
+                Version currentVersion = currentValue.getVersion();
+                if(currentVersion.compare(maxVersion) == Occured.BEFORE) {
+                    iter.remove();
+                }
+            }
+
+            try {
+                if(returnedValuesList.size() == 0)
+                    return datastore.delete(key.get());
+                else
+                    return datastore.put(key.get(), assembleValues(returnedValuesList));
+            } catch(Exception e) {
+                String message = "Failed to delete key " + key;
+                logger.error(message, e);
+                throw new VoldemortException(message, e);
+            }
         }
     }
 
     public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
-        // First get the value
-        List<Versioned<byte[]>> existingValuesList = this.get(key);
+        synchronized(this.locks.lockFor(key.get())) {
+            // First get the value
+            List<Versioned<byte[]>> existingValuesList = this.get(key);
 
-        // If no value, add one
-        if(existingValuesList.size() == 0) {
+            // If no value, add one
+            if(existingValuesList.size() == 0) {
+                existingValuesList = new ArrayList<Versioned<byte[]>>();
+                existingValuesList.add(new Versioned<byte[]>(value.getValue(), value.getVersion()));
+            } else {
 
-            existingValuesList = new ArrayList<Versioned<byte[]>>();
-            existingValuesList.add(new Versioned<byte[]>(value.getValue(), value.getVersion()));
-
-        } else {
-
-            // Update the value
-            List<Versioned<byte[]>> removedValueList = new ArrayList<Versioned<byte[]>>();
-            for(Versioned<byte[]> versioned: existingValuesList) {
-                Occured occured = value.getVersion().compare(versioned.getVersion());
-
-                if(occured == Occured.BEFORE) {
-                    throw new ObsoleteVersionException("Obsolete version for key '" + key + "': "
-                                                       + value.getVersion());
-                } else if(occured == Occured.AFTER) {
-                    removedValueList.add(versioned);
+                // Update the value
+                List<Versioned<byte[]>> removedValueList = new ArrayList<Versioned<byte[]>>();
+                for(Versioned<byte[]> versioned: existingValuesList) {
+                    Occured occured = value.getVersion().compare(versioned.getVersion());
+                    if(occured == Occured.BEFORE)
+                        throw new ObsoleteVersionException("Obsolete version for key '" + key
+                                                           + "': " + value.getVersion());
+                    else if(occured == Occured.AFTER)
+                        removedValueList.add(versioned);
                 }
-
+                existingValuesList.removeAll(removedValueList);
+                existingValuesList.add(value);
             }
-            existingValuesList.removeAll(removedValueList);
-            existingValuesList.add(value);
 
-        }
-
-        try {
-            datastore.put(key.get(), assembleValues(existingValuesList));
-        } catch(Exception e) {
-            logger.error(e);
-            throw new VoldemortException("Failed to put key " + key);
+            try {
+                datastore.put(key.get(), assembleValues(existingValuesList));
+            } catch(Exception e) {
+                String message = "Failed to put key " + key;
+                logger.error(message, e);
+                throw new VoldemortException(message, e);
+            }
         }
     }
 

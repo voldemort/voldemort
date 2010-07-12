@@ -21,6 +21,7 @@ public class KratiStorageEngineTest extends AbstractStorageEngineTest {
         this.store = new KratiStorageEngine("storeName",
                                             new MappedSegmentFactory(),
                                             10,
+                                            10,
                                             0.75,
                                             0,
                                             storeDir);

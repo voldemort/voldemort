@@ -21,17 +21,22 @@ public class KratiStorageConfiguration implements StorageConfiguration {
     private static Logger logger = Logger.getLogger(KratiStorageConfiguration.class);
 
     private final String dataDirectory;
-    private final int segmentFileSizeMB, initLevel;
+    private final int lockStripes;
+    private final int segmentFileSizeMb;
+    private final int initLevel;
     private final double hashLoadFactor;
     private final Object lock = new Object();
     private final Class<?> factoryClass;
 
     public KratiStorageConfiguration(VoldemortConfig config) {
         Props props = config.getAllProps();
-        this.dataDirectory = props.getString("krati.segment.datadirectory", "/tmp/kratiSeg");
-        this.segmentFileSizeMB = props.getInt("krati.segment.filesize.mb", 256);
+        File kratiDir = new File(config.getDataDirectory(), "krati");
+        kratiDir.mkdirs();
+        this.dataDirectory = kratiDir.getAbsolutePath();
+        this.segmentFileSizeMb = props.getInt("krati.segment.filesize.mb", 256);
         this.hashLoadFactor = props.getDouble("krati.load.factor", 0.75);
         this.initLevel = props.getInt("krati.initlevel", 2);
+        this.lockStripes = props.getInt("krati.lock.stripes", 50);
         this.factoryClass = ReflectUtils.loadClass(props.getString("krati.segment.factory.class",
                                                                    MappedSegmentFactory.class.getName()));
     }
@@ -42,14 +47,15 @@ public class KratiStorageConfiguration implements StorageConfiguration {
         synchronized(lock) {
             File storeDir = new File(dataDirectory, storeName);
             if(!storeDir.exists()) {
-                logger.info("Creating Krati data directory '" + storeDir.getAbsolutePath() + ".");
+                logger.info("Creating krati data directory '" + storeDir.getAbsolutePath() + "'.");
                 storeDir.mkdirs();
             }
 
             SegmentFactory segmentFactory = (SegmentFactory) ReflectUtils.callConstructor(factoryClass);
             return new KratiStorageEngine(storeName,
                                           segmentFactory,
-                                          segmentFileSizeMB,
+                                          segmentFileSizeMb,
+                                          lockStripes,
                                           hashLoadFactor,
                                           initLevel,
                                           storeDir);
