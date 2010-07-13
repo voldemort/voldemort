@@ -16,7 +16,6 @@
 
 package voldemort.xml;
 
-import static voldemort.VoldemortTestConstants.getSimpleStoreDefinitionsXml;
 
 import java.io.StringReader;
 import java.util.List;
@@ -29,7 +28,7 @@ public class StoreDefinitionMapperTest extends TestCase {
 
     public void testParsing() {
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
-        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(getSimpleStoreDefinitionsXml()));
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSimpleStoreDefinitionsXml()));
         String output = mapper.writeStoreList(storeDefs);
         List<StoreDefinition> found = mapper.readStoreList(new StringReader(output));
         checkEquals(storeDefs, found);
@@ -50,6 +49,13 @@ public class StoreDefinitionMapperTest extends TestCase {
     public void testNoVersionStore() {
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
         List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getNoVersionStoreDefinitionsXml()));
+        String written = mapper.writeStoreList(storeDefs);
+        assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
+    }
+
+    public void testSingleStoreWithZones() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreWithZonesXml()));
         String written = mapper.writeStoreList(storeDefs);
         assertEquals(storeDefs, mapper.readStoreList(new StringReader(written)));
     }

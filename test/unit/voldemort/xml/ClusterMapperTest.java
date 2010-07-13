@@ -17,12 +17,14 @@
 package voldemort.xml;
 
 import java.io.StringReader;
+import java.util.Collection;
 import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 
 public class ClusterMapperTest extends TestCase {
 
@@ -37,11 +39,25 @@ public class ClusterMapperTest extends TestCase {
         List<Integer> tags = node.getPartitionIds();
         assertTrue("Tag not found.", tags.contains(0));
         assertTrue("Tag not found.", tags.contains(1));
+
     }
 
     public void testOtherClusters() {
         ClusterMapper mapper = new ClusterMapper();
-        mapper.readCluster(new StringReader(VoldemortTestConstants.getNineNodeClusterXml()));
-        mapper.readCluster(new StringReader(VoldemortTestConstants.getTwoNodeClusterXml()));
+        Cluster cluster = mapper.readCluster(new StringReader(VoldemortTestConstants.getNineNodeClusterXml()));
+        assertEquals(cluster.getNumberOfNodes(), 9);
+        assertEquals(cluster.getZones().size(), 1);
+
+        cluster = mapper.readCluster(new StringReader(VoldemortTestConstants.getTwoNodeClusterXml()));
+        assertEquals(cluster.getNumberOfNodes(), 2);
+        assertEquals(cluster.getZones().size(), 1);
+
+        cluster = mapper.readCluster(new StringReader(VoldemortTestConstants.getFourNodeClusterWithZonesXml()));
+        assertEquals(cluster.getNumberOfNodes(), 4);
+        Collection<Zone> zones = cluster.getZones();
+        assertEquals(zones.size(), 3);
+        for(Zone zone: zones) {
+            assertEquals(zone.getProximityList().size(), 2);
+        }
     }
 }

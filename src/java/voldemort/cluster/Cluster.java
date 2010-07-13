@@ -46,9 +46,28 @@ public class Cluster implements Serializable {
     private final String name;
     private final int numberOfTags;
     private final Map<Integer, Node> nodesById;
+    private final Map<Integer, Zone> zonesById;
 
     public Cluster(String name, List<Node> nodes) {
+        this(name, nodes, new ArrayList<Zone>());
+    }
+
+    public Cluster(String name, List<Node> nodes, List<Zone> zones) {
         this.name = Utils.notNull(name);
+        if(zones.size() != 0) {
+            zonesById = new LinkedHashMap<Integer, Zone>(zones.size());
+            for(Zone zone: zones) {
+                if(zonesById.containsKey(zone.getId()))
+                    throw new IllegalArgumentException("Zone id " + zone.getId()
+                                                       + " appears twice in the zone list.");
+                zonesById.put(zone.getId(), zone);
+            }
+        } else {
+            // Add default zone
+            zonesById = new LinkedHashMap<Integer, Zone>(1);
+            zonesById.put(Zone.DEFAULT_ZONE_ID, new Zone());
+        }
+
         this.nodesById = new LinkedHashMap<Integer, Node>(nodes.size());
         for(Node node: nodes) {
             if(nodesById.containsKey(node.getId()))
@@ -78,6 +97,21 @@ public class Cluster implements Serializable {
 
     public Collection<Node> getNodes() {
         return nodesById.values();
+    }
+
+    public Collection<Zone> getZones() {
+        return zonesById.values();
+    }
+
+    public Zone getZoneById(int id) {
+        Zone zone = zonesById.get(id);
+        if(zone == null)
+            throw new VoldemortException("No such zone in cluster: " + id);
+        return zone;
+    }
+
+    public int getNumberOfZones() {
+        return zonesById.size();
     }
 
     public Node getNodeById(int id) {

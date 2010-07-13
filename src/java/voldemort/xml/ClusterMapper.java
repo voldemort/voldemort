@@ -21,6 +21,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -43,6 +44,7 @@ import org.xml.sax.SAXException;
 
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 
 /**
  * Parse a cluster xml file
@@ -55,6 +57,9 @@ public class ClusterMapper {
 
     private static final String SERVER_ID_ELMT = "id";
     private static final String SERVER_PARTITIONS_ELMT = "partitions";
+    private static final String ZONE_ELMT = "zone";
+    private static final String ZONE_ID_ELMT = "zone-id";
+    private static final String ZONE_PROXIMITY_LIST_ELMT = "proximity-list";
     private static final String SERVER_ELMT = "server";
     private static final String CLUSTER_NAME_ELMT = "name";
     private static final String CLUSTER_ELMT = "cluster";
@@ -98,10 +103,15 @@ public class ClusterMapper {
                 throw new MappingException("Invalid root element: "
                                            + doc.getRootElement().getName());
             String name = root.getChildText(CLUSTER_NAME_ELMT);
-            List<Node> nodes = new ArrayList<Node>();
+
+            List<Zone> zones = new ArrayList<Zone>();
+            for(Element node: (List<Element>) root.getChildren(ZONE_ELMT))
+                zones.add(readZone(node));
+
+            List<Node> servers = new ArrayList<Node>();
             for(Element node: (List<Element>) root.getChildren(SERVER_ELMT))
-                nodes.add(readServer(node));
-            return new Cluster(name, nodes);
+                servers.add(readServer(node));
+            return new Cluster(name, servers, zones);
         } catch(JDOMException e) {
             throw new MappingException(e);
         } catch(SAXException e) {
@@ -109,6 +119,16 @@ public class ClusterMapper {
         } catch(IOException e) {
             throw new MappingException(e);
         }
+    }
+
+    private Zone readZone(Element zone) {
+        int zoneId = Integer.parseInt(zone.getChildText(ZONE_ID_ELMT));
+        String proximityListTest = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
+        LinkedList<Integer> proximityList = new LinkedList<Integer>();
+        for(String node: COMMA_SEP.split(proximityListTest))
+            if(node.trim().length() > 0)
+                proximityList.add(Integer.parseInt(node.trim()));
+        return new Zone(zoneId, proximityList);
     }
 
     public Node readServer(Element server) {
@@ -120,23 +140,34 @@ public class ClusterMapper {
         // read admin-port default to -1 if not available
         int adminPort = (null != server.getChildText(ADMIN_PORT_ELMT)) ? Integer.parseInt(server.getChildText(ADMIN_PORT_ELMT))
                                                                       : -1;
-
+        int zoneId = (null != server.getChildText(ZONE_ID_ELMT)) ? Integer.parseInt(server.getChildText(ZONE_ID_ELMT))
+                                                                : Zone.DEFAULT_ZONE_ID;
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
         for(String aPartition: COMMA_SEP.split(partitionsText))
             if(aPartition.trim().length() > 0)
                 partitions.add(Integer.parseInt(aPartition.trim()));
 
-        return new Node(id, host, httpPort, socketPort, adminPort, partitions);
+        return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
     }
 
     public String writeCluster(Cluster cluster) {
         Document doc = new Document(new Element(CLUSTER_ELMT));
         doc.getRootElement().addContent(new Element(CLUSTER_NAME_ELMT).setText(cluster.getName()));
+        for(Zone n: cluster.getZones())
+            doc.getRootElement().addContent(mapZone(n));
         for(Node n: cluster.getNodes())
             doc.getRootElement().addContent(mapServer(n));
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
         return serializer.outputString(doc.getRootElement());
+    }
+
+    private Element mapZone(Zone zone) {
+        Element zoneElement = new Element(ZONE_ELMT);
+        zoneElement.addContent(new Element(ZONE_ID_ELMT).setText(Integer.toString(zone.getId())));
+        String proximityListTest = StringUtils.join(zone.getProximityList().toArray(), ", ");
+        zoneElement.addContent(new Element(ZONE_PROXIMITY_LIST_ELMT).setText(proximityListTest));
+        return zoneElement;
     }
 
     private Element mapServer(Node node) {
@@ -148,6 +179,7 @@ public class ClusterMapper {
         server.addContent(new Element(ADMIN_PORT_ELMT).setText(Integer.toString(node.getAdminPort())));
         String serverPartitionsText = StringUtils.join(node.getPartitionIds().toArray(), ", ");
         server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(serverPartitionsText));
+        server.addContent(new Element(ZONE_ID_ELMT).setText(Integer.toString(node.getZoneId())));
         return server;
     }
 }

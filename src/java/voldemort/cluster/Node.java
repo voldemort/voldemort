@@ -44,6 +44,7 @@ public class Node implements Serializable, Comparable<Node> {
     private final int httpPort;
     private final int socketPort;
     private final int adminPort;
+    private final int zoneId;
     private final List<Integer> partitions;
 
     public Node(int id,
@@ -52,10 +53,21 @@ public class Node implements Serializable, Comparable<Node> {
                 int socketPort,
                 int adminPort,
                 List<Integer> partitions) {
+        this(id, host, httpPort, socketPort, adminPort, Zone.DEFAULT_ZONE_ID, partitions);
+    }
+
+    public Node(int id,
+                String host,
+                int httpPort,
+                int socketPort,
+                int adminPort,
+                int zoneId,
+                List<Integer> partitions) {
         this.id = id;
         this.host = Utils.notNull(host);
         this.httpPort = httpPort;
         this.socketPort = socketPort;
+        this.zoneId = zoneId;
         this.partitions = ImmutableList.copyOf(partitions);
 
         // fix default value for adminPort if not defined
@@ -78,6 +90,10 @@ public class Node implements Serializable, Comparable<Node> {
 
     public int getSocketPort() {
         return socketPort;
+    }
+
+    public int getZoneId() {
+        return zoneId;
     }
 
     public int getAdminPort() {
@@ -114,7 +130,7 @@ public class Node implements Serializable, Comparable<Node> {
 
     @Override
     public String toString() {
-        return "Node" + getId() + " partitionList:" + partitions;
+        return "Node" + getId() + " in zone " + getZoneId() + " partitionList:" + partitions;
     }
 
     @Override

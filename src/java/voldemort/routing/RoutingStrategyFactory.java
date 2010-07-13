@@ -20,6 +20,10 @@ public class RoutingStrategyFactory {
                                                  storeDef.getReplicationFactor());
         } else if(RoutingStrategyType.TO_ALL_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
             return new RouteToAllStrategy(cluster.getNodes());
+        } else if(RoutingStrategyType.ZONE_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
+            return new ZoneRoutingStrategy(cluster.getNodes(),
+                                           storeDef.getZoneReplicationFactor(),
+                                           storeDef.getReplicationFactor());
         } else {
             throw new VoldemortException("RoutingStrategyType:" + storeDef.getRoutingStrategyType()
                                          + " not handled by " + this.getClass());

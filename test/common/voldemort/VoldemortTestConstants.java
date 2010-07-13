@@ -70,12 +70,24 @@ public class VoldemortTestConstants {
         return readString("config/three-node-cluster.xml");
     }
 
+    public static String getFourNodeClusterWithZonesXml() {
+        return readString("config/four-node-cluster-with-zones.xml");
+    }
+
+    public static String getSingleStoreWithZonesXml() {
+        return readString("config/single-store-with-zones.xml");
+    }
+
     public static Cluster getNineNodeCluster() {
         return new ClusterMapper().readCluster(new StringReader(getNineNodeClusterXml()));
     }
 
     public static Cluster getThreeNodeCluster() {
         return new ClusterMapper().readCluster(new StringReader(getThreeNodeClusterXml()));
+    }
+
+    public static Cluster getFourNodeClusterWithZones() {
+        return new ClusterMapper().readCluster(new StringReader(getFourNodeClusterWithZonesXml()));
     }
 
     private static String readString(String filename) {

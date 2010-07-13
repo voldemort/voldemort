@@ -1,5 +1,7 @@
 package voldemort.store;
 
+import java.util.HashMap;
+
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.views.View;
@@ -28,6 +30,9 @@ public class StoreDefinitionBuilder {
     private String routingStrategyType = null;
     private String viewOf = null;
     private View<?, ?, ?> view = null;
+    private HashMap<Integer, Integer> zoneReplicationFactor = null;
+    private Integer zoneCountReads;
+    private Integer zoneCountWrites;
 
     public String getName() {
         return Utils.notNull(name);
@@ -180,6 +185,33 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public HashMap<Integer, Integer> getZoneReplicationFactor() {
+        return zoneReplicationFactor;
+    }
+
+    public StoreDefinitionBuilder setZoneReplicationFactor(HashMap<Integer, Integer> zoneReplicationFactor) {
+        this.zoneReplicationFactor = zoneReplicationFactor;
+        return this;
+    }
+
+    public Integer getZoneCountReads() {
+        return zoneCountReads;
+    }
+
+    public StoreDefinitionBuilder setZoneCountReads(Integer zoneCountReads) {
+        this.zoneCountReads = zoneCountReads;
+        return this;
+    }
+
+    public Integer getZoneCountWrites() {
+        return zoneCountWrites;
+    }
+
+    public StoreDefinitionBuilder setZoneCountWrites(Integer zoneCountWrites) {
+        this.zoneCountWrites = zoneCountWrites;
+        return this;
+    }
+
     public StoreDefinition build() {
         return new StoreDefinition(this.getName(),
                                    this.getType(),
@@ -194,6 +226,9 @@ public class StoreDefinitionBuilder {
                                    this.getRequiredWrites(),
                                    this.getViewOf(),
                                    this.getView(),
+                                   this.getZoneReplicationFactor(),
+                                   this.getZoneCountReads(),
+                                   this.getZoneCountWrites(),
                                    this.getRetentionPeriodDays(),
                                    this.getRetentionScanThrottleRate());
     }

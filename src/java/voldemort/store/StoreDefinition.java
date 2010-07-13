@@ -17,6 +17,7 @@
 package voldemort.store;
 
 import java.io.Serializable;
+import java.util.HashMap;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
@@ -49,6 +50,9 @@ public class StoreDefinition implements Serializable {
     private final String routingStrategyType;
     private final String viewOf;
     private final View<?, ?, ?> valueTransformation;
+    private final HashMap<Integer, Integer> zoneReplicationFactor;
+    private final Integer zoneCountReads;
+    private final Integer zoneCountWrites;
 
     public StoreDefinition(String name,
                            String type,
@@ -63,6 +67,9 @@ public class StoreDefinition implements Serializable {
                            int requiredWrites,
                            String viewOfStore,
                            View<?, ?, ?> valTrans,
+                           HashMap<Integer, Integer> zoneReplicationFactor,
+                           Integer zoneCountReads,
+                           Integer zoneCountWrites,
                            Integer retentionDays,
                            Integer retentionThrottleRate) {
         this.name = Utils.notNull(name);
@@ -80,6 +87,9 @@ public class StoreDefinition implements Serializable {
         this.routingStrategyType = routingStrategyType;
         this.viewOf = viewOfStore;
         this.valueTransformation = valTrans;
+        this.zoneReplicationFactor = zoneReplicationFactor;
+        this.zoneCountReads = zoneCountReads;
+        this.zoneCountWrites = zoneCountWrites;
         checkParameterLegality();
     }
 
@@ -109,6 +119,22 @@ public class StoreDefinition implements Serializable {
 
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
             throw new IllegalArgumentException("Retention days must be non-negative.");
+
+        if(zoneCountReads != null && zoneCountReads < 0)
+            throw new IllegalArgumentException("Zone Counts reads must be non-negative");
+
+        if(zoneCountWrites != null && zoneCountWrites < 0)
+            throw new IllegalArgumentException("Zone Counts writes must be non-negative");
+
+        if(zoneReplicationFactor != null && zoneReplicationFactor.size() != 0) {
+            int sumZoneReplicationFactor = 0;
+            for(Integer zoneId: zoneReplicationFactor.keySet()) {
+                sumZoneReplicationFactor += zoneReplicationFactor.get(zoneId);
+            }
+            if(sumZoneReplicationFactor != replicationFactor) {
+                throw new IllegalArgumentException("Sum total of zones does not match the total replication factor");
+            }
+        }
     }
 
     public String getName() {
@@ -195,6 +221,26 @@ public class StoreDefinition implements Serializable {
         return valueTransformation;
     }
 
+    public HashMap<Integer, Integer> getZoneReplicationFactor() {
+        return zoneReplicationFactor;
+    }
+
+    public Integer getZoneCountReads() {
+        return zoneCountReads;
+    }
+
+    public boolean hasZoneCountReads() {
+        return zoneCountReads != null;
+    }
+
+    public Integer getZoneCountWrites() {
+        return zoneCountWrites;
+    }
+
+    public boolean hasZoneCountWrites() {
+        return zoneCountWrites != null;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -220,6 +266,13 @@ public class StoreDefinition implements Serializable {
                                                                 : null,
                                 def.getValueTransformation() != null ? def.getValueTransformation()
                                                                           .getClass() : null)
+               && Objects.equal(getZoneReplicationFactor() != null ? getZoneReplicationFactor().getClass()
+                                                                  : null,
+                                def.getZoneReplicationFactor() != null ? def.getZoneReplicationFactor()
+                                                                            .getClass()
+                                                                      : null)
+               && getZoneCountReads() == def.getZoneCountReads()
+               && getZoneCountWrites() == def.getZoneCountWrites()
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
                && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
     }
@@ -231,6 +284,7 @@ public class StoreDefinition implements Serializable {
                                 getKeySerializer(),
                                 getValueSerializer(),
                                 getRoutingPolicy(),
+                                getRoutingStrategyType(),
                                 getReplicationFactor(),
                                 getRequiredReads(),
                                 getRequiredWrites(),
@@ -239,6 +293,10 @@ public class StoreDefinition implements Serializable {
                                 getViewTargetStoreName(),
                                 getValueTransformation() == null ? null
                                                                 : getValueTransformation().getClass(),
+                                getZoneReplicationFactor() == null ? null
+                                                                  : getZoneReplicationFactor().getClass(),
+                                getZoneCountReads(),
+                                getZoneCountWrites(),
                                 getRetentionDays(),
                                 getRetentionScanThrottleRate());
     }
@@ -247,12 +305,14 @@ public class StoreDefinition implements Serializable {
     public String toString() {
         return "StoreDefinition(name = " + getName() + ", type = " + getType()
                + ", key-serializer = " + getKeySerializer() + ", value-serializer = "
-               + getValueSerializer() + ", routing = " + getRoutingPolicy() + ", replication = "
+               + getValueSerializer() + ", routing = " + getRoutingPolicy()
+               + ", routing-strategy = " + getRoutingStrategyType() + ", replication = "
                + getReplicationFactor() + ", required-reads = " + getRequiredReads()
                + ", preferred-reads = " + getPreferredReads() + ", required-writes = "
                + getRequiredWrites() + ", preferred-writes = " + getPreferredWrites()
                + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
                + getValueTransformation() + ", retention-days = " + getRetentionDays()
-               + ", throttle-rate = " + getRetentionScanThrottleRate() + ")";
+               + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
+               + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites() + ")";
     }
 }

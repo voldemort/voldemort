@@ -53,6 +53,14 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         this(new FnvHashFunction(), nodes, numReplicas);
     }
 
+    public int getNumReplicas() {
+        return this.numReplicas;
+    }
+
+    public Node[] getPartitionToNode() {
+        return partitionToNode;
+    }
+
     public ConsistentRoutingStrategy(HashFunction hash, Collection<Node> nodes, int numReplicas) {
         this.numReplicas = numReplicas;
         this.hash = hash;
@@ -149,5 +157,9 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public List<Integer> getPartitionList(byte[] key) {
         int index = abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
         return getReplicatingPartitionList(index);
+    }
+
+    public String getType() {
+        return RoutingStrategyType.CONSISTENT_STRATEGY;
     }
 }

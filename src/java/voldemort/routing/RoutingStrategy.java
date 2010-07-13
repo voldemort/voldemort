@@ -31,6 +31,13 @@ import voldemort.cluster.Node;
 public interface RoutingStrategy {
 
     /**
+     * Get the type of RoutingStrategyType
+     * 
+     * @return RoutingStrategyType
+     */
+    public String getType();
+
+    /**
      * Get the node preference list for the given key. The preference list is a
      * list of nodes to perform an operation on.
      * 
