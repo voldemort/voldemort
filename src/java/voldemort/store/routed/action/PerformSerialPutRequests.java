@@ -22,6 +22,7 @@ import java.util.Map;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.Store;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
@@ -97,7 +98,7 @@ public class PerformSerialPutRequests extends
 
                 pipelineData.setMaster(node);
                 pipelineData.setVersionedCopy(versionedCopy);
-
+                pipelineData.getZoneResponses().add(node.getZoneId());
                 break;
             } catch(Exception e) {
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -125,13 +126,32 @@ public class PerformSerialPutRequests extends
                                                                                              + " "
                                                                                              + pipeline.getOperation()
                                                                                                        .getSimpleName()
-                                                                                             + "s required, but "
+                                                                                             + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
                                                                                      pipelineData.getFailures()));
                 pipeline.addEvent(Event.ERROR);
             } else {
-                pipeline.addEvent(completeEvent);
+                if(pipelineData.getZonesRequired() != null) {
+
+                    int zonesSatisfied = pipelineData.getZoneResponses().size();
+                    if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                        pipeline.addEvent(completeEvent);
+                    } else {
+                        pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
+                                                                                          + " "
+                                                                                          + pipeline.getOperation()
+                                                                                                    .getSimpleName()
+                                                                                          + "s required zone, but only "
+                                                                                          + zonesSatisfied
+                                                                                          + " succeeded"));
+
+                        pipeline.addEvent(Event.ERROR);
+                    }
+
+                } else {
+                    pipeline.addEvent(completeEvent);
+                }
             }
         } else {
             pipeline.addEvent(masterDeterminedEvent);

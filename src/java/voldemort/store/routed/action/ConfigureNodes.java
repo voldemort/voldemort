@@ -16,15 +16,21 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Pipeline.Operation;
 import voldemort.utils.ByteArray;
 
 public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
@@ -32,14 +38,18 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
 
     private final ByteArray key;
 
+    private final Zone clientZone;
+
     public ConfigureNodes(PD pipelineData,
                           Event completeEvent,
                           FailureDetector failureDetector,
                           int required,
                           RoutingStrategy routingStrategy,
-                          ByteArray key) {
+                          ByteArray key,
+                          Zone clientZone) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.key = key;
+        this.clientZone = clientZone;
     }
 
     public void execute(Pipeline pipeline) {
@@ -56,6 +66,56 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         if(logger.isDebugEnabled())
             logger.debug("Adding " + nodes.size() + " node(s) to preference list");
 
+
+        // Reorder nodes according to operation
+        if(pipelineData.getZonesRequired() != null) {
+
+            if(pipelineData.getZonesRequired() > this.clientZone.getProximityList().size()) {
+                throw new VoldemortException("Number of zones required should be less than the total number of zones");
+            }
+
+            if(pipelineData.getZonesRequired() > required) {
+                throw new VoldemortException("Number of zones required should be less than the required number of "
+                                             + pipeline.getOperation().getSimpleName() + "s");
+            }
+
+            // Create zone id to node mapping
+            Map<Integer, List<Node>> zoneIdToNode = new HashMap<Integer, List<Node>>();
+            for(Node node: nodes) {
+                List<Node> nodesList = null;
+                if(zoneIdToNode.containsKey(node.getZoneId())) {
+                    nodesList = zoneIdToNode.get(node.getZoneId());
+                } else {
+                    nodesList = new ArrayList<Node>();
+                    zoneIdToNode.put(node.getZoneId(), nodesList);
+                }
+                nodesList.add(node);
+            }
+
+            nodes = new ArrayList<Node>();
+            LinkedList<Integer> proximityList = this.clientZone.getProximityList();
+            if(pipeline.getOperation() != Operation.PUT) {
+                // GET, GET_VERSIONS, DELETE
+
+                // Add a node from every zone
+                for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
+                    List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
+                    if(zoneNodes != null) {
+                        nodes.add(zoneNodes.remove(0));
+                    }
+                }
+
+            }
+
+            // Add the rest
+            nodes.addAll(zoneIdToNode.get(this.clientZone.getId()));
+            for(int index = 0; index < proximityList.size(); index++) {
+                List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
+                if(zoneNodes != null)
+                    nodes.addAll(zoneNodes);
+            }
+
+        }
         pipelineData.setNodes(nodes);
         pipeline.addEvent(completeEvent);
     }

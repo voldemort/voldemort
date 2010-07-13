@@ -343,6 +343,8 @@ public class StorageService extends AbstractService {
                                                                        nodeStores,
                                                                        nonblockingStores,
                                                                        true,
+                                                                       cluster.getNodeById(localNode)
+                                                                              .getZoneId(),
                                                                        failureDetector);
 
             store = new RebootstrappingStore(metadata,

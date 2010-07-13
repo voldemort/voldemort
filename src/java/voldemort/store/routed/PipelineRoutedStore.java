@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -45,6 +46,7 @@ import voldemort.store.routed.action.PerformParallelRequests;
 import voldemort.store.routed.action.PerformSerialGetAllRequests;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
+import voldemort.store.routed.action.PerformZoneSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
@@ -59,6 +61,7 @@ import voldemort.versioning.Versioned;
 public class PipelineRoutedStore extends RoutedStore {
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
+    private Zone clientZone;
 
     /**
      * Create a PipelineRoutedStore
@@ -78,6 +81,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                Cluster cluster,
                                StoreDefinition storeDef,
                                boolean repairReads,
+                               int clientZoneId,
                                long timeoutMs,
                                FailureDetector failureDetector) {
         super(name,
@@ -89,6 +93,11 @@ public class PipelineRoutedStore extends RoutedStore {
               failureDetector,
               SystemTime.INSTANCE);
 
+        this.clientZone = cluster.getZoneById(clientZoneId);
+
+        if(this.clientZone == null)
+            this.clientZone = cluster.getZoneById(Zone.DEFAULT_ZONE_ID);
+
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
     }
 
@@ -96,6 +105,8 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreUtils.assertValidKey(key);
 
         BasicPipelineData<List<Versioned<byte[]>>> pipelineData = new BasicPipelineData<List<Versioned<byte[]>>>();
+        pipelineData.setZonesRequired(storeDef.getZoneCountReads());
+
         final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
 
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
@@ -120,7 +131,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                         failureDetector,
                                                                                                                         storeDef.getRequiredReads(),
                                                                                                                         routingStrategy,
-                                                                                                                        key));
+                                                                                                                        key,
+                                                                                                                        clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                  repairReads ? Event.RESPONSES_RECEIVED
@@ -132,7 +144,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  timeoutMs,
                                                                                                                                  nonblockingStores,
                                                                                                                                  nonblockingStoreRequest,
-                                                                                                                                 Event.INSUFFICIENT_SUCCESSES));
+                                                                                                                                 Event.INSUFFICIENT_SUCCESSES,
+                                                                                                                                 Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                repairReads ? Event.RESPONSES_RECEIVED
@@ -152,6 +165,16 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                storeDef.getPreferredReads(),
                                                                                                nonblockingStores,
                                                                                                readRepairer));
+
+        if(pipelineData.getZonesRequired() != null)
+            pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
+                                    new PerformZoneSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
+                                                                                                                                       repairReads ? Event.RESPONSES_RECEIVED
+                                                                                                                                                  : Event.COMPLETED,
+                                                                                                                                       key,
+                                                                                                                                       failureDetector,
+                                                                                                                                       innerStores,
+                                                                                                                                       blockingStoreRequest));
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();
@@ -176,6 +199,7 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreUtils.assertValidKeys(keys);
 
         GetAllPipelineData pipelineData = new GetAllPipelineData();
+        pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         Pipeline pipeline = new Pipeline(Operation.GET_ALL, timeoutMs, TimeUnit.MILLISECONDS);
 
         pipeline.addEventAction(Event.STARTED,
@@ -185,7 +209,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          storeDef.getPreferredReads(),
                                                          storeDef.getRequiredReads(),
                                                          routingStrategy,
-                                                         keys));
+                                                         keys,
+                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,
@@ -223,6 +248,8 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreUtils.assertValidKey(key);
 
         BasicPipelineData<List<Version>> pipelineData = new BasicPipelineData<List<Version>>();
+        pipelineData.setZonesRequired(storeDef.getZoneCountReads());
+
         final Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS,
                                                timeoutMs,
                                                TimeUnit.MILLISECONDS);
@@ -241,7 +268,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                     failureDetector,
                                                                                                     storeDef.getRequiredReads(),
                                                                                                     routingStrategy,
-                                                                                                    key));
+                                                                                                    key,
+                                                                                                    clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
                                                                                                              Event.COMPLETED,
@@ -252,6 +280,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                              timeoutMs,
                                                                                                              nonblockingStores,
                                                                                                              storeRequest,
+                                                                                                             null,
                                                                                                              null));
 
         pipeline.addEvent(Event.STARTED);
@@ -272,6 +301,8 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreUtils.assertValidKey(key);
 
         BasicPipelineData<Boolean> pipelineData = new BasicPipelineData<Boolean>();
+        pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
+
         final Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
 
         NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
@@ -296,7 +327,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         failureDetector,
                                                                                         storeDef.getRequiredWrites(),
                                                                                         routingStrategy,
-                                                                                        key));
+                                                                                        key,
+                                                                                        clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
                                                                                                  Event.COMPLETED,
@@ -307,7 +339,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                  timeoutMs,
                                                                                                  nonblockingStores,
                                                                                                  nonblockingDelete,
-                                                                                                 Event.INSUFFICIENT_SUCCESSES));
+                                                                                                 Event.INSUFFICIENT_SUCCESSES,
+                                                                                                 Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
                                                                                                Event.COMPLETED,
@@ -318,6 +351,16 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                storeDef.getRequiredWrites(),
                                                                                                blockingDelete,
                                                                                                null));
+
+        if(pipelineData.getZonesRequired() != null)
+            pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
+                                    new PerformZoneSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
+                                                                                                       repairReads ? Event.RESPONSES_RECEIVED
+                                                                                                                  : Event.COMPLETED,
+                                                                                                       key,
+                                                                                                       failureDetector,
+                                                                                                       innerStores,
+                                                                                                       blockingDelete));
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();
@@ -337,6 +380,9 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreUtils.assertValidKey(key);
 
         PutPipelineData pipelineData = new PutPipelineData();
+        pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
+        pipelineData.setStartTimeNs(System.nanoTime());
+
         Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
 
         pipeline.addEventAction(Event.STARTED,
@@ -345,7 +391,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                           failureDetector,
                                                                           storeDef.getRequiredWrites(),
                                                                           routingStrategy,
-                                                                          key));
+                                                                          key,
+                                                                          clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformSerialPutRequests(pipelineData,
                                                              Event.COMPLETED,
@@ -361,6 +408,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                Event.RESPONSES_RECEIVED,
                                                                key,
                                                                failureDetector,
+                                                               storeDef.getPreferredWrites(),
                                                                storeDef.getRequiredWrites(),
                                                                timeoutMs,
                                                                nonblockingStores));

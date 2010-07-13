@@ -7,6 +7,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -50,6 +51,7 @@ public class RoutedStoreFactory {
                               Map<Integer, Store<ByteArray, byte[]>> nodeStores,
                               Map<Integer, NonblockingStore> nonblockingStores,
                               boolean repairReads,
+                              int clientZoneId,
                               FailureDetector failureDetector) {
         if(isPipelineRoutedStoreEnabled) {
             return new PipelineRoutedStore(storeDefinition.getName(),
@@ -58,6 +60,7 @@ public class RoutedStoreFactory {
                                            cluster,
                                            storeDefinition,
                                            repairReads,
+                                           clientZoneId,
                                            routingTimeoutMs,
                                            failureDetector);
         } else {
@@ -88,6 +91,7 @@ public class RoutedStoreFactory {
                       nodeStores,
                       nonblockingStores,
                       repairReads,
+                      Zone.DEFAULT_ZONE_ID,
                       failureDetector);
     }
 

@@ -17,6 +17,7 @@
 package voldemort.store.routed.action;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,7 +102,7 @@ public class PerformParallelGetAllRequests
         }
 
         try {
-            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            latch.await(timeoutMs * 3, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -131,6 +132,14 @@ public class PerformParallelGetAllRequests
                         else
                             existing.addAll(retrieved);
                     }
+
+                    HashSet<Integer> zoneResponses = null;
+                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
+                        zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
+                    } else {
+                        zoneResponses = new HashSet<Integer>();
+                    }
+                    zoneResponses.add(response.getNode().getZoneId());
                 }
 
                 pipelineData.getResponses()

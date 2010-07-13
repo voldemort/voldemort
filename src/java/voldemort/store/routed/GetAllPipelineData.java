@@ -17,6 +17,7 @@
 package voldemort.store.routed;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +47,18 @@ public class GetAllPipelineData extends
 
     private final Map<ByteArray, MutableInt> keyToSuccessCount;
 
+    private final Map<ByteArray, HashSet<Integer>> keyToZoneResponses;
+
+    private Integer zonesRequired;
+
     public GetAllPipelineData() {
         this.result = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         this.keyToSuccessCount = new HashMap<ByteArray, MutableInt>();
+        this.keyToZoneResponses = new HashMap<ByteArray, HashSet<Integer>>();
+    }
+
+    public Map<ByteArray, HashSet<Integer>> getKeyToZoneResponse() {
+        return this.keyToZoneResponses;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getResult() {
@@ -80,6 +90,14 @@ public class GetAllPipelineData extends
         }
 
         return value;
+    }
+
+    public void setZonesRequired(Integer zonesRequired) {
+        this.zonesRequired = zonesRequired;
+    }
+
+    public Integer getZonesRequired() {
+        return this.zonesRequired;
     }
 
 }

@@ -89,6 +89,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final StoreStats stats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
+    private final int clientZoneId;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -102,6 +103,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.jmxId = jmxIdCounter.getAndIncrement();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
+        this.clientZoneId = config.getClientZoneId();
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getRoutingTimeout(TimeUnit.MILLISECONDS));
@@ -165,6 +167,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                    clientMapping,
                                                                    nonblockingStores,
                                                                    repairReads,
+                                                                   clientZoneId,
                                                                    getFailureDetector());
 
         if(isJmxEnabled) {

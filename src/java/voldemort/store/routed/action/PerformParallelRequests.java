@@ -27,6 +27,7 @@ import org.apache.log4j.Level;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.nonblockingstore.NonblockingStoreRequest;
@@ -53,6 +54,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
     private final Event insufficientSuccessesEvent;
 
+    private final Event insufficientZonesEvent;
+
     public PerformParallelRequests(PD pipelineData,
                                    Event completeEvent,
                                    ByteArray key,
@@ -62,7 +65,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                    long timeoutMs,
                                    Map<Integer, NonblockingStore> nonblockingStores,
                                    NonblockingStoreRequest storeRequest,
-                                   Event insufficientSuccessesEvent) {
+                                   Event insufficientSuccessesEvent,
+                                   Event insufficientZonesEvent) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
         this.preferred = preferred;
@@ -71,6 +75,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.nonblockingStores = nonblockingStores;
         this.storeRequest = storeRequest;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
+        this.insufficientZonesEvent = insufficientZonesEvent;
     }
 
     @SuppressWarnings("unchecked")
@@ -128,6 +133,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 pipelineData.incrementSuccesses();
                 pipelineData.getResponses().add((Response<ByteArray, V>) response);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
         }
 
@@ -139,15 +145,39 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                              + " "
                                                                                              + pipeline.getOperation()
                                                                                                        .getSimpleName()
-                                                                                             + "s required, but "
+                                                                                             + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
                                                                                      pipelineData.getFailures()));
 
                 pipeline.addEvent(Event.ERROR);
             }
+
         } else {
-            pipeline.addEvent(completeEvent);
+
+            if(pipelineData.getZonesRequired() != null) {
+
+                int zonesSatisfied = pipelineData.getZoneResponses().size();
+                if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                    pipeline.addEvent(completeEvent);
+                } else {
+                    if(this.insufficientZonesEvent != null) {
+                        pipeline.addEvent(this.insufficientZonesEvent);
+                    } else {
+                        pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
+                                                                                          + " "
+                                                                                          + pipeline.getOperation()
+                                                                                                    .getSimpleName()
+                                                                                          + "s required zone, but only "
+                                                                                          + zonesSatisfied
+                                                                                          + " succeeded"));
+                    }
+
+                }
+
+            } else {
+                pipeline.addEvent(completeEvent);
+            }
         }
     }
 

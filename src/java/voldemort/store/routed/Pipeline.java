@@ -53,6 +53,7 @@ public class Pipeline {
         CONFIGURED,
         COMPLETED,
         INSUFFICIENT_SUCCESSES,
+        INSUFFICIENT_ZONES,
         RESPONSES_RECEIVED,
         ERROR,
         MASTER_DETERMINED;

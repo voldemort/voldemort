@@ -31,6 +31,8 @@ public class PutPipelineData extends BasicPipelineData<Void> {
 
     private Versioned<byte[]> versionedCopy;
 
+    private long startTimeNs;
+
     /**
      * Returns the previously determined "master" node. This is the first node
      * in the preference list that succeeded in "putting" the value.
@@ -74,6 +76,24 @@ public class PutPipelineData extends BasicPipelineData<Void> {
 
     public void setVersionedCopy(Versioned<byte[]> versionedCopy) {
         this.versionedCopy = versionedCopy;
+    }
+
+    /**
+     * Set start time to perform timeout correctly
+     * 
+     * @param nanoTime
+     */
+    public void setStartTimeNs(long startTimeNs) {
+        this.startTimeNs = startTimeNs;
+    }
+
+    /**
+     * Get start time to perform timeout correctly
+     * 
+     * @param nanoTime
+     */
+    public long getStartTimeNs() {
+        return this.startTimeNs;
     }
 
 }

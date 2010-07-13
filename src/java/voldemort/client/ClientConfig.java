@@ -22,6 +22,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
@@ -54,6 +55,8 @@ public class ClientConfig {
     private volatile boolean enableJmx = true;
 
     private volatile boolean enablePipelineRoutedStore = false;
+    private volatile boolean enableZoneRouting = false;
+    private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
@@ -87,6 +90,8 @@ public class ClientConfig {
     public static final String REQUEST_FORMAT_PROPERTY = "request_format";
     public static final String ENABLE_JMX_PROPERTY = "enable_jmx";
     public static final String ENABLE_PIPELINE_ROUTED_STORE_PROPERTY = "enable_pipeline_routed_store";
+    public static final String ENABLE_ZONE_ROUTING_PROPERTY = "enable_zone_routing";
+    public static final String CLIENT_ZONE_ID = "client_zone_id";
     public static final String FAILUREDETECTOR_IMPLEMENTATION_PROPERTY = "failuredetector_implementation";
     public static final String FAILUREDETECTOR_BANNAGE_PERIOD_PROPERTY = "failuredetector_bannage_period";
     public static final String FAILUREDETECTOR_THRESHOLD_PROPERTY = "failuredetector_threshold";
@@ -158,6 +163,12 @@ public class ClientConfig {
 
         if(props.containsKey(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY))
             this.setEnablePipelineRoutedStore(props.getBoolean(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY));
+
+        if(props.containsKey(ENABLE_ZONE_ROUTING_PROPERTY))
+            this.setEnableZoneRouting(props.getBoolean(ENABLE_ZONE_ROUTING_PROPERTY));
+
+        if(props.containsKey(CLIENT_ZONE_ID))
+            this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
 
         if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
             this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
@@ -466,6 +477,24 @@ public class ClientConfig {
     public ClientConfig setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
         return this;
+    }
+
+    public boolean isZoneRoutingEnabled() {
+        return enableZoneRouting;
+    }
+
+    public ClientConfig setEnableZoneRouting(boolean enableZoneRouting) {
+        this.enableZoneRouting = enableZoneRouting;
+        return this;
+    }
+
+    public ClientConfig setClientZoneId(int clientZoneId) {
+        this.clientZoneId = clientZoneId;
+        return this;
+    }
+
+    public int getClientZoneId() {
+        return this.clientZoneId;
     }
 
     public boolean isPipelineRoutedStoreEnabled() {

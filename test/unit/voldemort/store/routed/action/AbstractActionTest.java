@@ -16,6 +16,8 @@
 
 package voldemort.store.routed.action;
 
+import java.io.StringReader;
+
 import org.junit.After;
 import org.junit.Before;
 
@@ -25,24 +27,33 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
+import voldemort.xml.StoreDefinitionsMapper;
 
 public class AbstractActionTest {
 
-    protected Cluster cluster;
+    protected Cluster cluster, clusterWithZones;
+    protected StoreDefinition storeDef;
     protected final ByteArray aKey = TestUtils.toByteArray("jay");
-    protected FailureDetector failureDetector;
+    protected FailureDetector failureDetector, failureDetectorWithZones;
 
     @Before
     public void setUp() throws Exception {
         cluster = VoldemortTestConstants.getThreeNodeCluster();
         failureDetector = new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes()));
+        clusterWithZones = VoldemortTestConstants.getFourNodeClusterWithZones();
+        failureDetectorWithZones = new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(clusterWithZones.getNodes()));
+        storeDef = new StoreDefinitionsMapper().readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreWithZonesXml()))
+                                               .get(0);
     }
 
     @After
     public void tearDown() throws Exception {
         if(failureDetector != null)
             failureDetector.destroy();
+        if(failureDetectorWithZones != null)
+            failureDetectorWithZones.destroy();
     }
 
 }

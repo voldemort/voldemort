@@ -16,6 +16,7 @@
 
 package voldemort.store.routed;
 
+import java.util.HashSet;
 import java.util.List;
 
 import voldemort.cluster.Node;
@@ -28,6 +29,19 @@ public class BasicPipelineData<V> extends PipelineData<ByteArray, V> {
     private int nodeIndex;
 
     private int successes;
+
+    private HashSet<Integer> zoneResponses;
+
+    private Integer zonesRequired;
+
+    public BasicPipelineData() {
+        super();
+        zoneResponses = new HashSet<Integer>();
+    }
+
+    public HashSet<Integer> getZoneResponses() {
+        return zoneResponses;
+    }
 
     public List<Node> getNodes() {
         return nodes;
@@ -51,6 +65,14 @@ public class BasicPipelineData<V> extends PipelineData<ByteArray, V> {
 
     public void incrementSuccesses() {
         successes++;
+    }
+
+    public void setZonesRequired(Integer zonesRequired) {
+        this.zonesRequired = zonesRequired;
+    }
+
+    public Integer getZonesRequired() {
+        return this.zonesRequired;
     }
 
 }

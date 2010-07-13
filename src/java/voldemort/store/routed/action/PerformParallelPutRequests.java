@@ -18,6 +18,7 @@ package voldemort.store.routed.action;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,7 @@ import org.apache.log4j.Level;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
@@ -34,10 +36,13 @@ import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
 public class PerformParallelPutRequests extends
         AbstractKeyBasedAction<ByteArray, Void, PutPipelineData> {
+
+    private final int preferred;
 
     private final int required;
 
@@ -51,11 +56,13 @@ public class PerformParallelPutRequests extends
                                       Event completeEvent,
                                       ByteArray key,
                                       FailureDetector failureDetector,
+                                      int preferred,
                                       int required,
                                       long timeoutMs,
                                       Map<Integer, NonblockingStore> nonblockingStores) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
+        this.preferred = preferred;
         this.required = required;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
@@ -72,9 +79,11 @@ public class PerformParallelPutRequests extends
         List<Node> nodes = pipelineData.getNodes();
         int firstParallelNodeIndex = nodes.indexOf(master) + 1;
         int attempts = nodes.size() - firstParallelNodeIndex;
+        int blocks = Math.min(preferred - 1, attempts);
 
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
-        final CountDownLatch latch = new CountDownLatch(attempts);
+        final CountDownLatch attemptsLatch = new CountDownLatch(attempts);
+        final CountDownLatch blocksLatch = new CountDownLatch(blocks);
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -96,7 +105,8 @@ public class PerformParallelPutRequests extends
                                                                                 key,
                                                                                 result,
                                                                                 requestTime));
-                    latch.countDown();
+                    attemptsLatch.countDown();
+                    blocksLatch.countDown();
                 }
 
             };
@@ -110,35 +120,117 @@ public class PerformParallelPutRequests extends
         }
 
         try {
-            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            blocksLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
         }
 
-        for(Response<ByteArray, Object> response: responses.values()) {
+        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+            Response<ByteArray, Object> response = responseEntry.getValue();
             if(response.getValue() instanceof Exception) {
                 if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                responses.remove(responseEntry.getKey());
             }
         }
 
+        boolean quorumSatisfied = true;
         if(pipelineData.getSuccesses() < required) {
-            pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                         + " "
-                                                                                         + pipeline.getOperation()
-                                                                                                   .getSimpleName()
-                                                                                         + "s required, but "
-                                                                                         + pipelineData.getSuccesses()
-                                                                                         + " succeeded",
-                                                                                 pipelineData.getFailures()));
+            long timeMs = (System.nanoTime() - pipelineData.getStartTimeNs()) / Time.NS_PER_MS;
 
-            pipeline.addEvent(Event.ERROR);
-        } else {
-            pipeline.addEvent(completeEvent);
+            if((timeoutMs - timeMs) > 0) {
+                try {
+                    attemptsLatch.await(timeoutMs - timeMs, TimeUnit.MILLISECONDS);
+                } catch(InterruptedException e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
+
+                for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+                    Response<ByteArray, Object> response = responseEntry.getValue();
+                    if(response.getValue() instanceof Exception) {
+                        if(handleResponseError(response, pipeline, failureDetector))
+                            return;
+                    } else {
+                        pipelineData.incrementSuccesses();
+                        failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                        pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                        responses.remove(responseEntry.getKey());
+                    }
+                }
+            }
+
+            if(pipelineData.getSuccesses() < required) {
+                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                             + " "
+                                                                                             + pipeline.getOperation()
+                                                                                                       .getSimpleName()
+                                                                                             + "s required, but only "
+                                                                                             + pipelineData.getSuccesses()
+                                                                                             + " succeeded",
+                                                                                     pipelineData.getFailures()));
+
+                pipeline.addEvent(Event.ERROR);
+                quorumSatisfied = false;
+            }
+        }
+
+        if(quorumSatisfied) {
+            if(pipelineData.getZonesRequired() != null) {
+
+                int zonesSatisfied = pipelineData.getZoneResponses().size();
+                if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                    pipeline.addEvent(completeEvent);
+                } else {
+                    long timeMs = (System.nanoTime() - pipelineData.getStartTimeNs())
+                                  / Time.NS_PER_MS;
+
+                    if((timeoutMs - timeMs) > 0) {
+                        try {
+                            attemptsLatch.await(timeoutMs - timeMs, TimeUnit.MILLISECONDS);
+                        } catch(InterruptedException e) {
+                            if(logger.isEnabledFor(Level.WARN))
+                                logger.warn(e, e);
+                        }
+
+                        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+                            Response<ByteArray, Object> response = responseEntry.getValue();
+                            if(response.getValue() instanceof Exception) {
+                                if(handleResponseError(response, pipeline, failureDetector))
+                                    return;
+                            } else {
+                                pipelineData.incrementSuccesses();
+                                failureDetector.recordSuccess(response.getNode(),
+                                                              response.getRequestTime());
+                                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                                responses.remove(responseEntry.getKey());
+                            }
+                        }
+                    }
+
+                    if(pipelineData.getZoneResponses().size() >= (pipelineData.getZonesRequired() + 1)) {
+                        pipeline.addEvent(completeEvent);
+                    } else {
+                        pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
+                                                                                          + " "
+                                                                                          + pipeline.getOperation()
+                                                                                                    .getSimpleName()
+                                                                                          + "s required zone, but only "
+                                                                                          + zonesSatisfied
+                                                                                          + " succeeded"));
+
+                        pipeline.addEvent(Event.ERROR);
+                    }
+                }
+
+            } else {
+                pipeline.addEvent(completeEvent);
+            }
         }
     }
 }

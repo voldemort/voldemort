@@ -18,6 +18,7 @@ package voldemort.store.routed.action;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -70,10 +71,27 @@ public class PerformSerialGetAllRequests
         Map<ByteArray, List<Versioned<byte[]>>> result = pipelineData.getResult();
 
         for(ByteArray key: keys) {
+            boolean zoneRequirement = false;
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
-            if(successCount.intValue() >= preferred)
-                continue;
+            if(successCount.intValue() >= preferred) {
+                if(pipelineData.getZonesRequired() != null) {
+
+                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
+                        int zonesSatisfied = pipelineData.getKeyToZoneResponse().get(key).size();
+                        if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
+                            continue;
+                        } else {
+                            zoneRequirement = true;
+                        }
+                    } else {
+                        zoneRequirement = true;
+                    }
+
+                } else {
+                    continue;
+                }
+            }
 
             List<Node> extraNodes = pipelineData.getKeyToExtraNodesMap().get(key);
 
@@ -104,8 +122,22 @@ public class PerformSerialGetAllRequests
                     pipelineData.getResponses().add(response);
                     failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
 
-                    if(successCount.intValue() >= preferred)
-                        break;
+                    HashSet<Integer> zoneResponses = null;
+                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
+                        zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
+                    } else {
+                        zoneResponses = new HashSet<Integer>();
+                    }
+                    zoneResponses.add(response.getNode().getZoneId());
+
+                    if(zoneRequirement) {
+                        if(zoneResponses.size() >= pipelineData.getZonesRequired())
+                            break;
+                    } else {
+                        if(successCount.intValue() >= preferred)
+                            break;
+                    }
+
                 } catch(Exception e) {
                     long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
 

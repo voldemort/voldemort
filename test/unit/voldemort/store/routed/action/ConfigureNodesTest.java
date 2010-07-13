@@ -19,12 +19,16 @@ package voldemort.store.routed.action;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
+import voldemort.cluster.Node;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.ZoneRoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
@@ -42,7 +46,8 @@ public class ConfigureNodesTest extends AbstractActionTest {
                                                                                                                          failureDetector,
                                                                                                                          1,
                                                                                                                          routingStrategy,
-                                                                                                                         aKey);
+                                                                                                                         aKey,
+                                                                                                                         null);
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);
         pipeline.addEvent(Event.STARTED);
@@ -64,7 +69,8 @@ public class ConfigureNodesTest extends AbstractActionTest {
                                                                                                                          cluster.getNodes()
                                                                                                                                 .size() + 1,
                                                                                                                          routingStrategy,
-                                                                                                                         aKey);
+                                                                                                                         aKey,
+                                                                                                                         null);
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);
         pipeline.addEvent(Event.STARTED);
@@ -76,4 +82,63 @@ public class ConfigureNodesTest extends AbstractActionTest {
             fail();
     }
 
+    @Test
+    public void testConfigureNodesWithZones() throws Exception {
+        RoutingStrategy routingStrategy = new ZoneRoutingStrategy(clusterWithZones.getNodes(),
+                                                                  storeDef.getZoneReplicationFactor(),
+                                                                  storeDef.getReplicationFactor());
+
+        BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
+        Pipeline pipeline = new Pipeline(Operation.PUT, 10000, TimeUnit.MILLISECONDS);
+
+        // PUT with changing zone id
+        for(int clusterZoneId = 0; clusterZoneId < clusterWithZones.getNumberOfZones(); clusterZoneId++) {
+            pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
+            pipeline.addEventAction(Event.STARTED,
+                                    new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
+                                                                                          Event.COMPLETED,
+                                                                                          failureDetectorWithZones,
+                                                                                          storeDef.getRequiredReads(),
+                                                                                          routingStrategy,
+                                                                                          aKey,
+                                                                                          clusterWithZones.getZoneById(clusterZoneId)));
+            pipeline.addEvent(Event.STARTED);
+            pipeline.execute();
+
+            List<Node> pipelineNodes = pipelineData.getNodes();
+            int pipelineNodesIndex = 0;
+            LinkedList<Integer> proximityList = clusterWithZones.getZoneById(clusterZoneId)
+                                                                .getProximityList();
+
+            // Check if returned list is as per the proximity list
+            assertEquals(pipelineNodes.get(pipelineNodesIndex++).getZoneId(), clusterZoneId);
+            for(; pipelineNodesIndex < pipelineNodes.size(); pipelineNodesIndex++) {
+                assertEquals(proximityList.get(pipelineNodesIndex - 1),
+                             new Integer(pipelineNodes.get(pipelineNodesIndex).getZoneId()));
+            }
+        }
+
+        // GET with changing zone requirements
+        for(int zoneReq = 0; zoneReq < clusterWithZones.getNumberOfZones(); zoneReq++) {
+            pipelineData = new BasicPipelineData<byte[]>();
+            pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
+            pipelineData.setZonesRequired(zoneReq);
+            pipeline.addEventAction(Event.STARTED,
+                                    new ConfigureNodes<byte[], BasicPipelineData<byte[]>>(pipelineData,
+                                                                                          Event.COMPLETED,
+                                                                                          failureDetectorWithZones,
+                                                                                          storeDef.getRequiredReads(),
+                                                                                          routingStrategy,
+                                                                                          aKey,
+                                                                                          clusterWithZones.getZoneById(0)));
+            pipeline.addEvent(Event.STARTED);
+            pipeline.execute();
+
+            // Check the first few nodes which are from different zones
+            int zoneId = 1;
+            for(int index = 0; index < zoneReq; index++) {
+                assertEquals(pipelineData.getNodes().get(index).getZoneId(), zoneId++);
+            }
+        }
+    }
 }
