@@ -57,7 +57,7 @@ public class Metrics {
         return new Measurement(name, this.summaryOnly);
     }
 
-    public synchronized void measure(String operation, int latency) {
+    public synchronized void recordLatency(String operation, int latency) {
         if(!data.containsKey(operation)) {
             synchronized(this) {
                 if(!data.containsKey(operation)) {
@@ -65,14 +65,10 @@ public class Metrics {
                 }
             }
         }
-        try {
-            data.get(operation).measure(latency);
-        } catch(java.lang.ArrayIndexOutOfBoundsException e) {
-            // Do nothing
-        }
+        data.get(operation).recordLatency(latency);
     }
 
-    public void reportReturnCode(String operation, int code) {
+    public void recordReturnCode(String operation, int code) {
         if(!data.containsKey(operation)) {
             synchronized(this) {
                 if(!data.containsKey(operation)) {
@@ -80,7 +76,7 @@ public class Metrics {
                 }
             }
         }
-        data.get(operation).reportReturnCode(code);
+        data.get(operation).recordReturnCode(code);
     }
 
     public void reset() {

@@ -16,7 +16,7 @@
 
 package voldemort.performance.benchmark.generator;
 
-import voldemort.performance.benchmark.BenchmarkUtils;
+import voldemort.utils.FnvHashFunction;
 
 /**
  * A generator of a Zipfian distribution. It produces a sequence of items, such
@@ -34,6 +34,7 @@ public class ScrambledZipfianGenerator extends IntegerGenerator {
 
     private ZipfianGenerator generator;
     private long min, max, itemCount;
+    private FnvHashFunction hash;
 
     public ScrambledZipfianGenerator(long items) {
         this(0, items - 1);
@@ -43,11 +44,12 @@ public class ScrambledZipfianGenerator extends IntegerGenerator {
         this(min, max, ZipfianGenerator.ZIPFIAN_CONSTANT);
     }
 
-    ScrambledZipfianGenerator(long min, long max, double zipfianConstant) {
+    public ScrambledZipfianGenerator(long min, long max, double zipfianConstant) {
         this.min = min;
         this.max = max;
         this.itemCount = this.max - this.min + 1;
         generator = new ZipfianGenerator(0, ITEM_COUNT, zipfianConstant, ZETAN);
+        hash = new FnvHashFunction();
     }
 
     @Override
@@ -57,7 +59,7 @@ public class ScrambledZipfianGenerator extends IntegerGenerator {
 
     public long nextLong() {
         long ret = generator.nextLong();
-        ret = min + BenchmarkUtils.FNVhash64(ret) % itemCount;
+        ret = min + hash.hash64(ret) % itemCount;
         setLastInt((int) ret);
         return ret;
     }

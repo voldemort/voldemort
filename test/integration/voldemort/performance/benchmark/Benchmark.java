@@ -97,19 +97,18 @@ public class Benchmark {
     public static final String SUMMARY_METRIC_TYPE = "summary";
     public static final String VERBOSE = "v";
     public static final String VERIFY = "verify";
+    public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
+    public static final String CLIENT_ZONE_ID = "client-zoneid";
     private static final String DUMMY_DB = "benchmark_db";
 
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
-    private int numThreads;
-    private int numIterations;
-    private int targetThroughput;
+    private int numThreads, numIterations, targetThroughput, recordCount, opsCount,
+            statusIntervalSec;
     private double perThreadThroughputPerMs;
-    private int recordCount, opsCount;
     private Workload workLoad;
     private String pluginName;
-    private int statusIntervalSec;
     private boolean storeInitialized = false;
     private boolean warmUpCompleted = false;
     private boolean verbose = false;
@@ -319,6 +318,8 @@ public class Benchmark {
         this.verbose = benchmarkProps.getBoolean(VERBOSE, false);
         this.verifyRead = benchmarkProps.getBoolean(VERIFY, false);
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
+        boolean enablePipelineRouted = benchmarkProps.getBoolean(PIPELINE_ROUTED_STORE, false);
+        int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
 
         if(benchmarkProps.containsKey(URL)) {
 
@@ -338,8 +339,12 @@ public class Benchmark {
                                                                                 TimeUnit.SECONDS)
                                                           .setSocketTimeout(60, TimeUnit.SECONDS)
                                                           .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
-                                                          .setSocketBufferSize(4 * 1024);
+                                                          .setSocketBufferSize(4 * 1024)
+                                                          .setEnablePipelineRoutedStore(enablePipelineRouted);
 
+            if(clientZoneId >= 0) {
+                clientConfig.setClientZoneId(clientZoneId).setEnableZoneRouting(true);
+            }
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
             this.storeClient = socketFactory.getStoreClient(storeName);
             StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
@@ -418,20 +423,19 @@ public class Benchmark {
                                                        this.verifyRead && this.warmUpCompleted,
                                                        this.ignoreNulls);
             WorkloadPlugin plugin = null;
-            if (this.pluginName != null && this.pluginName.length() > 0) {
+            if(this.pluginName != null && this.pluginName.length() > 0) {
                 Class<?> cls = Class.forName(this.pluginName);
                 try {
                     plugin = (WorkloadPlugin) cls.newInstance();
-                } catch (IllegalAccessException e) {
+                } catch(IllegalAccessException e) {
                     System.err.println("Class not accessible ");
                     System.exit(1);
-                } catch (InstantiationException e) {
+                } catch(InstantiationException e) {
                     System.err.println("Class not instantiable.");
                     System.exit(1);
                 }
                 plugin.setDb(db);
             }
-
 
             Thread clientThread = new ClientThread(db,
                                                    runBenchmark,
@@ -575,6 +579,11 @@ public class Benchmark {
                        "classname of implementation of WorkloadPlugin; used to run customized operations ")
               .withRequiredArg()
               .describedAs("class-name");
+        parser.accepts(PIPELINE_ROUTED_STORE, "enable pipeline routed store");
+        parser.accepts(CLIENT_ZONE_ID, "zone id for client; enables zone routing")
+              .withRequiredArg()
+              .describedAs("zone-id")
+              .ofType(Integer.class);
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -639,6 +648,8 @@ public class Benchmark {
             mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));
             mainProps.put(VERIFY, getCmdBoolean(options, VERIFY));
             mainProps.put(IGNORE_NULLS, getCmdBoolean(options, IGNORE_NULLS));
+            mainProps.put(PIPELINE_ROUTED_STORE, getCmdBoolean(options, PIPELINE_ROUTED_STORE));
+            mainProps.put(CLIENT_ZONE_ID, CmdUtils.valueOf(options, CLIENT_ZONE_ID, -1));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));

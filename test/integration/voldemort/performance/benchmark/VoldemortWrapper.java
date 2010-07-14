@@ -23,18 +23,32 @@ import voldemort.versioning.Versioned;
 
 public class VoldemortWrapper {
 
-    public final int Ok = 0;
-    public final int Error = -1;
+    public enum ReturnCode {
+        Ok,
+        Error
+    }
 
     private StoreClient<Object, Object> voldemortStore;
     private Metrics measurement;
     private boolean verifyReads;
     private boolean ignoreNulls;
 
-    public static final String READS_STRING = "reads";
-    public static final String DELETES_STRING = "deletes";
-    public static final String WRITES_STRING = "writes";
-    public static final String MIXED_STRING = "transactions";
+    public enum Operations {
+        Read("reads"),
+        Delete("deletes"),
+        Write("writes"),
+        Mixed("transactions");
+
+        private String opString;
+
+        public String getOpString() {
+            return this.opString;
+        }
+
+        Operations(String opString) {
+            this.opString = opString;
+        }
+    }
 
     public VoldemortWrapper(StoreClient<Object, Object> storeClient,
                             boolean verifyReads,
@@ -45,26 +59,26 @@ public class VoldemortWrapper {
         this.ignoreNulls = ignoreNulls;
     }
 
-    public int read(Object key, Object expectedValue) {
+    public void read(Object key, Object expectedValue) {
         long startNs = System.nanoTime();
         Versioned<Object> returnedValue = voldemortStore.get(key);
         long endNs = System.nanoTime();
-        measurement.measure(READS_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
+        measurement.recordLatency(Operations.Read.getOpString(),
+                                  (int) ((endNs - startNs) / Time.NS_PER_MS));
 
-        int res = this.Ok;
+        ReturnCode res = ReturnCode.Ok;
         if(returnedValue == null && !this.ignoreNulls) {
-            res = this.Error;
+            res = ReturnCode.Error;
         }
 
         if(verifyReads && !expectedValue.equals(returnedValue.getValue())) {
-            res = this.Error;
+            res = ReturnCode.Error;
         }
 
-        measurement.reportReturnCode(READS_STRING, res);
-        return res;
+        measurement.recordReturnCode(Operations.Read.getOpString(), res.ordinal());
     }
 
-    public int mixed(final Object key, final Object newValue) {
+    public void mixed(final Object key, final Object newValue) {
 
         boolean updated = voldemortStore.applyUpdate(new UpdateAction<Object, Object>() {
 
@@ -76,20 +90,20 @@ public class VoldemortWrapper {
                     voldemortStore.put(key, newValue);
                 }
                 long endNs = System.nanoTime();
-                measurement.measure(MIXED_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
+                measurement.recordLatency(Operations.Mixed.getOpString(),
+                                          (int) ((endNs - startNs) / Time.NS_PER_MS));
             }
         }, 3);
 
-        int res = this.Error;
+        ReturnCode res = ReturnCode.Error;
         if(updated) {
-            res = this.Ok;
+            res = ReturnCode.Ok;
         }
 
-        measurement.reportReturnCode(MIXED_STRING, res);
-        return res;
+        measurement.recordReturnCode(Operations.Mixed.getOpString(), res.ordinal());
     }
 
-    public int write(final Object key, final Object value) {
+    public void write(final Object key, final Object value) {
 
         boolean written = voldemortStore.applyUpdate(new UpdateAction<Object, Object>() {
 
@@ -98,31 +112,31 @@ public class VoldemortWrapper {
                 long startNs = System.nanoTime();
                 storeClient.put(key, value);
                 long endNs = System.nanoTime();
-                measurement.measure(WRITES_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
+                measurement.recordLatency(Operations.Write.getOpString(),
+                                          (int) ((endNs - startNs) / Time.NS_PER_MS));
             }
         }, 3);
 
-        int res = this.Error;
+        ReturnCode res = ReturnCode.Error;
         if(written) {
-            res = this.Ok;
+            res = ReturnCode.Ok;
         }
 
-        measurement.reportReturnCode(WRITES_STRING, res);
-        return res;
+        measurement.recordReturnCode(Operations.Write.getOpString(), res.ordinal());
     }
 
-    public int delete(Object key) {
+    public void delete(Object key) {
         long startNs = System.nanoTime();
         boolean deleted = voldemortStore.delete(key);
         long endNs = System.nanoTime();
 
-        int res = this.Error;
+        ReturnCode res = ReturnCode.Error;
         if(deleted) {
-            res = this.Ok;
+            res = ReturnCode.Ok;
         }
 
-        measurement.measure(DELETES_STRING, (int) ((endNs - startNs) / Time.NS_PER_MS));
-        measurement.reportReturnCode(DELETES_STRING, res);
-        return res;
+        measurement.recordLatency(Operations.Delete.getOpString(),
+                                  (int) ((endNs - startNs) / Time.NS_PER_MS));
+        measurement.recordReturnCode(Operations.Delete.getOpString(), res.ordinal());
     }
 }

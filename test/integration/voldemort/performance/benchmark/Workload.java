@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import voldemort.TestUtils;
 import voldemort.performance.benchmark.generator.CounterGenerator;
 import voldemort.performance.benchmark.generator.DiscreteGenerator;
 import voldemort.performance.benchmark.generator.FileIntegerGenerator;
@@ -183,9 +184,6 @@ public class Workload {
             }
         }
 
-        /**
-         * Never used
-         */
         public int lastInt() {
             return 0;
         }
@@ -260,7 +258,7 @@ public class Workload {
         int deletePercent = props.getInt(Benchmark.DELETES, 0);
         int mixedPercent = props.getInt(Benchmark.MIXED, 0);
         int valueSize = props.getInt(Benchmark.VALUE_SIZE, 1024);
-        this.value = BenchmarkUtils.ASCIIString(valueSize);
+        this.value = new String(TestUtils.randomBytes(valueSize));
         int cachedPercent = props.getInt(Benchmark.PERCENT_CACHED, 0);
         String keyType = props.getString(Benchmark.KEY_TYPE, Benchmark.STRING_KEY_TYPE);
         String recordSelection = props.getString(Benchmark.RECORD_SELECTION,
@@ -271,6 +269,7 @@ public class Workload {
         double deleteProportion = (double) deletePercent / (double) 100;
         double mixedProportion = (double) mixedPercent / (double) 100;
 
+        // Using default read only
         if(Math.abs((writeProportion + readProportion + mixedProportion + deleteProportion) - 1.0) > 0.1) {
             readProportion = 1.0;
             mixedProportion = 0.0;

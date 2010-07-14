@@ -21,48 +21,41 @@ import java.util.HashMap;
 
 class Results {
 
-    public Results(int ops, int minL, int maxL, long totL, int medL, int q95, int q99) {
-        operations = ops;
-        minLatency = minL;
-        maxLatency = maxL;
-        totalLatency = totL;
-        medianLatency = medL;
-        q99Latency = q99;
-        q95Latency = q95;
-    }
+    public int operations;
+    public long totalLatency, minLatency, maxLatency, q99Latency, q95Latency, medianLatency;
 
-    public int operations = -1;
-    public int minLatency = -1;
-    public int maxLatency = -1;
-    public long totalLatency = -1;
-    public int medianLatency = -1;
-    public int q99Latency = -1;
-    public int q95Latency = -1;
+    public Results(int ops, long minL, long maxL, long totalLat, long medL, long q95, long q99) {
+        this.operations = ops;
+        this.minLatency = minL;
+        this.maxLatency = maxL;
+        this.totalLatency = totalLat;
+        this.medianLatency = medL;
+        this.q99Latency = q99;
+        this.q95Latency = q95;
+    }
 
     @Override
     public String toString() {
         StringBuffer buffer = new StringBuffer();
-        buffer.append("OPERATIONS = " + operations);
-        buffer.append("MINLATENCY = " + minLatency);
-        buffer.append("MAXLATENCY = " + maxLatency);
-        buffer.append("MEDIANLATENCY = " + medianLatency);
-        buffer.append("Q95LATENCY = " + q95Latency);
-        buffer.append("Q99LATENCY = " + q99Latency);
-
+        buffer.append("Operations = " + operations + "\n");
+        buffer.append("Min Latency = " + minLatency + "\n");
+        buffer.append("Max latency = " + maxLatency + "\n");
+        buffer.append("Median Latency = " + medianLatency + "\n");
+        buffer.append("95th percentile Latency = " + q95Latency + "\n");
+        buffer.append("99th percentile Latency = " + q99Latency + "\n");
         return buffer.toString();
-
     }
 }
 
 public class Measurement {
 
-    private String _name;
+    private String name;
 
     public String getName() {
-        return _name;
+        return name;
     }
 
-    private int _buckets;
+    private int buckets;
     private int[] histogram;
     private int histogramOverflow;
     private int windowOperations;
@@ -75,9 +68,9 @@ public class Measurement {
     private boolean summaryOnly = false;
 
     public Measurement(String name, boolean summaryOnly) {
-        this._name = name;
-        this._buckets = 1000;
-        this.histogram = new int[_buckets];
+        this.name = name;
+        this.buckets = 1000;
+        this.histogram = new int[buckets];
         this.histogramOverflow = 0;
         this.operations = 0;
         this.totalLatency = 0;
@@ -89,7 +82,7 @@ public class Measurement {
         this.summaryOnly = summaryOnly;
     }
 
-    public synchronized void reportReturnCode(int code) {
+    public synchronized void recordReturnCode(int code) {
         Integer Icode = code;
         if(!returnCodes.containsKey(Icode)) {
             int[] val = new int[1];
@@ -99,8 +92,8 @@ public class Measurement {
         returnCodes.get(Icode)[0]++;
     }
 
-    public synchronized void measure(int latency) {
-        if(latency >= _buckets) {
+    public synchronized void recordLatency(int latency) {
+        if(latency >= buckets) {
             histogramOverflow++;
         } else {
             histogram[latency]++;
@@ -123,7 +116,7 @@ public class Measurement {
         int median = 0, q95 = 0, q99 = 0;
         int opcounter = 0;
         boolean done95th = false, done50th = false;
-        for(int i = 0; i < _buckets; i++) {
+        for(int i = 0; i < buckets; i++) {
             opcounter += histogram[i];
             double currentQuartile = ((double) opcounter) / ((double) operations);
             if(!done50th && currentQuartile >= 0.50) {
@@ -163,10 +156,10 @@ public class Measurement {
                 out.println("[" + getName() + "]\tReturn: " + I + "\t" + val[0]);
             }
 
-            for(int i = 0; i < _buckets; i++) {
+            for(int i = 0; i < buckets; i++) {
                 out.println("[" + getName() + "]: " + i + "\t" + histogram[i]);
             }
-            out.println("[" + getName() + "]: >" + _buckets + "\t" + histogramOverflow);
+            out.println("[" + getName() + "]: >" + buckets + "\t" + histogramOverflow);
         }
     }
 }

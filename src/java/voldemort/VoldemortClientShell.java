@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
@@ -52,17 +54,32 @@ public class VoldemortClientShell {
     private static DefaultStoreClient<Object, Object> client;
 
     public static void main(String[] args) throws Exception {
-        if(args.length < 2 || args.length > 3)
-            Utils.croak("USAGE: java VoldemortClientShell store_name bootstrap_url [command_file]");
 
-        String storeName = args[0];
-        String bootstrapUrl = args[1];
+        OptionParser parser = new OptionParser();
+        parser.accepts("client-zone-id", "client zone id for zone routing")
+              .withRequiredArg()
+              .describedAs("zone-id")
+              .ofType(Integer.class);
+        parser.accepts("enable-pipeline-routed-store");
+        parser.accepts("enable-zone-routing");
+        OptionSet options = parser.parse(args);
+
+        List<String> nonOptions = options.nonOptionArguments();
+        if(nonOptions.size() < 2 || nonOptions.size() > 3) {
+            System.err.println("Usage: java VoldemortClientShell [options] store_name bootstrap_url [command_file]");
+            parser.printHelpOn(System.err);
+            System.exit(-1);
+        }
+
+        String storeName = nonOptions.get(0);
+        String bootstrapUrl = nonOptions.get(1);
+
         String commandsFileName = "";
         BufferedReader fileReader = null;
         BufferedReader inputReader = null;
         try {
-            if(args.length == 3) {
-                commandsFileName = args[2];
+            if(nonOptions.size() == 3) {
+                commandsFileName = nonOptions.get(2);
                 fileReader = new BufferedReader(new FileReader(commandsFileName));
             }
 
@@ -72,6 +89,19 @@ public class VoldemortClientShell {
         }
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl);
+
+        if(options.has("client-zone-id")) {
+            clientConfig.setClientZoneId(new Integer((String) options.valueOf("client-zone-id")).intValue());
+        }
+
+        if(options.has("enable-pipeline-routed-store")) {
+            clientConfig.setEnablePipelineRoutedStore(true);
+        }
+
+        if(options.has("enable-zone-routing")) {
+            clientConfig.setEnableZoneRouting(true);
+        }
+
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
         try {
