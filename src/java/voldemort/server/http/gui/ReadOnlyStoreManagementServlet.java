@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -74,12 +75,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     @Override
-    public void init() throws ServletException {
-        super.init();
-        VoldemortServer server = (VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY);
+    public void init(ServletConfig config) throws ServletException {
+        super.init(config);
+        VoldemortServer server = (VoldemortServer) config.getServletContext()
+                                                         .getAttribute(VoldemortServletContextListener.SERVER_KEY);
 
         initStores(server);
-        initVelocity();
+        initVelocity(config);
         setFetcherClass(server);
     }
 
@@ -87,8 +89,9 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         this.stores = getReadOnlyStores(server);
     }
 
-    public void initVelocity() {
-        this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
+    public void initVelocity(ServletConfig config) {
+        this.velocityEngine = (VelocityEngine) Utils.notNull(config.getServletContext()
+                                                                   .getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
     private void setFetcherClass(VoldemortServer server) {
@@ -125,7 +128,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
-        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         Map<String, Object> params = Maps.newHashMap();
         params.put("stores", stores);
         velocityEngine.render("read-only-mgmt.vm", params, resp.getOutputStream());
@@ -213,7 +215,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     private ReadOnlyStorageEngine getStore(String storeName) throws ServletException {
-        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         for(ReadOnlyStorageEngine store: this.stores)
             if(store.getName().equals(storeName))
                 return store;
