@@ -129,9 +129,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                           InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
-        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml));
+        List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
+                                                                    false);
         StoreDefinition storeDef = null;
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
@@ -198,7 +199,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         FailureDetector result = failureDetector;
         if (result == null) {
             String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
-            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml));
+            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
