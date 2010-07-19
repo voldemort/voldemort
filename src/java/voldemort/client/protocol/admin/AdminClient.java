@@ -158,7 +158,7 @@ public class AdminClient {
         // release all threads/sockets hold by the factory.
         factory.close();
 
-        return clusterMapper.readCluster(new StringReader(clusterXml));
+        return clusterMapper.readCluster(new StringReader(clusterXml), false);
     }
 
     private SocketPool createSocketPool(AdminClientConfig config) {
@@ -1030,7 +1030,7 @@ public class AdminClient {
      */
     public Versioned<Cluster> getRemoteCluster(int nodeId) throws VoldemortException {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()));
+        Cluster cluster = clusterMapper.readCluster(new StringReader(value.getValue()), false);
         return new Versioned<Cluster>(cluster, value.getVersion());
     }
 
@@ -1054,7 +1054,8 @@ public class AdminClient {
     public Versioned<List<StoreDefinition>> getRemoteStoreDefList(int nodeId)
             throws VoldemortException {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.STORES_KEY);
-        List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(value.getValue()));
+        List<StoreDefinition> storeList = storeMapper.readStoreList(new StringReader(value.getValue()),
+                                                                    false);
         return new Versioned<List<StoreDefinition>>(storeList, value.getVersion());
     }
 

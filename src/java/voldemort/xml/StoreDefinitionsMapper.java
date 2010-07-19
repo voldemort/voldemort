@@ -112,12 +112,18 @@ public class StoreDefinitionsMapper {
     }
 
     public List<StoreDefinition> readStoreList(Reader input) {
+        return readStoreList(input, true);
+    }
+
+    public List<StoreDefinition> readStoreList(Reader input, boolean verifySchema) {
         try {
 
             SAXBuilder builder = new SAXBuilder();
             Document doc = builder.build(input);
-            Validator validator = schema.newValidator();
-            validator.validate(new JDOMSource(doc));
+            if(verifySchema) {
+                Validator validator = schema.newValidator();
+                validator.validate(new JDOMSource(doc));
+            }
             Element root = doc.getRootElement();
             if(!root.getName().equals(STORES_ELMT))
                 throw new MappingException("Invalid root element: "

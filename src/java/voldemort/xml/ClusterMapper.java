@@ -91,13 +91,19 @@ public class ClusterMapper {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public Cluster readCluster(Reader input) {
+        return readCluster(input, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Cluster readCluster(Reader input, boolean verifySchema) {
         try {
             SAXBuilder builder = new SAXBuilder(false);
             Document doc = builder.build(input);
-            Validator validator = this.schema.newValidator();
-            validator.validate(new JDOMSource(doc));
+            if(verifySchema) {
+                Validator validator = this.schema.newValidator();
+                validator.validate(new JDOMSource(doc));
+            }
             Element root = doc.getRootElement();
             if(!root.getName().equals(CLUSTER_ELMT))
                 throw new MappingException("Invalid root element: "
