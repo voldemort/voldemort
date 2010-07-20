@@ -50,12 +50,18 @@ public class TypicaEc2Connection implements Ec2Connection {
     private final Log logger = LogFactory.getLog(getClass());
 
     public TypicaEc2Connection(String accessId, String secretKey) {
-        this(accessId, secretKey, null);
+        this(accessId, secretKey, null, null);
     }
 
-    public TypicaEc2Connection(String accessId, String secretKey, Ec2ConnectionListener listener) {
+    public TypicaEc2Connection(String accessId,
+                               String secretKey,
+                               Ec2ConnectionListener listener,
+                               String regionUrl) {
         ec2 = new Jec2(accessId, secretKey);
         this.listener = listener;
+
+        if(ec2 != null)
+            ec2.setRegionUrl(regionUrl);
     }
 
     public List<HostNamePair> list() throws Exception {

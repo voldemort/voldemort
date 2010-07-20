@@ -36,14 +36,18 @@ public class Ec2RemoteTestUtils {
         return createInstances(ec2Config.getInstanceCount(), ec2Config);
     }
 
-    public static List<HostNamePair> createInstances(int instanceCount, Ec2RemoteTestConfig ec2Config) throws Exception{
+    public static List<HostNamePair> createInstances(int instanceCount,
+                                                     Ec2RemoteTestConfig ec2Config)
+            throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey(),
-                                                    new Ec2Listener(ec2Config.getInstanceIdFile()));
+                                                    new Ec2Listener(ec2Config.getInstanceIdFile()),
+                                                    null);
         return ec2.createInstances(ec2Config.getAmi(),
                                    ec2Config.getKeyPairId(),
                                    Ec2Connection.Ec2InstanceType.DEFAULT,
-                                   instanceCount, null);
+                                   instanceCount,
+                                   null);
 
     }
 
@@ -51,7 +55,8 @@ public class Ec2RemoteTestUtils {
             throws Exception {
         Ec2Connection ec2 = new TypicaEc2Connection(ec2Config.getAccessId(),
                                                     ec2Config.getSecretKey(),
-                                                    new Ec2Listener(ec2Config.getInstanceIdFile()));
+                                                    new Ec2Listener(ec2Config.getInstanceIdFile()),
+                                                    null);
         ec2.deleteInstancesByHostName(hostNames);
     }
 

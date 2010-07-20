@@ -18,6 +18,8 @@ package voldemort.utils;
 
 import java.util.List;
 
+import voldemort.cluster.Zone;
+
 /**
  * ClusterNodeDescriptor is a simple POJO for storing the attributes of a node
  * as needed by the cluster.xml cluster descriptor file.
@@ -46,6 +48,12 @@ public class ClusterNodeDescriptor {
 
     private static final int DEFAULT_ADMIN_PORT = DEFAULT_SOCKET_PORT + 1;
 
+    /**
+     * DEFAULT_ZONE_ID is Zone.DEFAULT_ZONE_ID
+     */
+
+    private static final int DEFAULT_ZONE_ID = Zone.DEFAULT_ZONE_ID;
+
     private String hostName;
 
     private int id;
@@ -56,7 +64,27 @@ public class ClusterNodeDescriptor {
 
     private int adminPort = DEFAULT_ADMIN_PORT;
 
+    private int zoneId = DEFAULT_ZONE_ID;
+
     private List<Integer> partitions;
+
+    /**
+     * Returns the Zone ID of this node
+     * 
+     * @return Zone id of this node
+     */
+    public int getZoneId() {
+        return this.zoneId;
+    }
+
+    /**
+     * Assign the zone Id to this node.
+     * 
+     * @param zoneId Zone Id
+     */
+    public void setZoneId(int zoneId) {
+        this.zoneId = zoneId;
+    }
 
     /**
      * Returns the host name (or IP address) of the node. This is the internal

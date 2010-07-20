@@ -28,6 +28,8 @@ import voldemort.utils.Ec2Connection;
 import voldemort.utils.HostNamePair;
 import voldemort.utils.impl.TypicaEc2Connection;
 
+import com.xerox.amazonws.ec2.RegionInfo;
+
 public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
 
     public static void main(String[] args) throws Exception {
@@ -54,12 +56,18 @@ public class VoldemortEc2InstanceTerminatorApp extends VoldemortApp {
               .withRequiredArg();
         parser.accepts("hostnames", "File containing host names").withRequiredArg();
         parser.accepts("instances", "File containing instance IDs").withRequiredArg();
+        parser.accepts("region",
+                       "Region type; options are " + RegionInfo.REGIONURL_AP_SOUTHEAST + ", "
+                               + RegionInfo.REGIONURL_EU_WEST + ", " + RegionInfo.REGIONURL_US_WEST
+                               + ", " + RegionInfo.REGIONURL_US_EAST + " (default) ")
+              .withRequiredArg();
 
         OptionSet options = parse(args);
         String accessId = getAccessId(options);
         String secretKey = getSecretKey(options);
+        String regionUrl = getRegionUrl(options);
 
-        Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey);
+        Ec2Connection ec2Connection = new TypicaEc2Connection(accessId, secretKey, null, regionUrl);
 
         List<String> hostNames = new ArrayList<String>();
         File hostNamesFile = getInputFile(options, "hostnames");

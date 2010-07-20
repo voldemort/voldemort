@@ -66,6 +66,9 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
         parser.accepts("clusterxml",
                        "Voldemort's cluster.xml file on the local file system; used to determine host names")
               .withRequiredArg();
+        parser.accepts("useinternal", "Use internal host name; defaults to true")
+              .withRequiredArg()
+              .ofType(Boolean.class);
 
         OptionSet options = parse(args);
         File hostNamesFile = getRequiredInputFile(options, "hostnames");
@@ -83,10 +86,14 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
         final String hostUserId = CmdUtils.valueOf(options, "hostuserid", "root");
         String voldemortHomeDirectory = getRequiredString(options, "voldemorthome");
         final String voldemortRootDirectory = getRequiredString(options, "voldemortroot");
+        boolean useInternal = CmdUtils.valueOf(options, "useinternal", true);
 
         File clusterXmlFile = getRequiredInputFile(options, "clusterxml");
 
-        Map<String, Integer> nodeIds = getNodeIds(hostNamesFile, clusterXmlFile, hostNamePairs);
+        Map<String, Integer> nodeIds = getNodeIds(hostNamesFile,
+                                                  clusterXmlFile,
+                                                  hostNamePairs,
+                                                  useInternal);
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
 
@@ -117,31 +124,30 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
 
     private Map<String, Integer> getNodeIds(File hostNamesFile,
                                             File clusterXmlFile,
-                                            List<HostNamePair> hostNamePairs) throws Exception {
+                                            List<HostNamePair> hostNamePairs,
+                                            boolean useInternal) throws Exception {
         Map<String, Integer> nodeIds = new HashMap<String, Integer>();
         DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         Document document = documentBuilder.parse(clusterXmlFile);
 
         NodeList documentChildren = document.getChildNodes().item(0).getChildNodes();
-
         for(int i = 0; i < documentChildren.getLength(); i++) {
             Node documentChild = documentChildren.item(i);
-
             if(documentChild.getNodeName().equals("server")) {
                 NodeList serverChildren = documentChild.getChildNodes();
-                String internalHostName = null;
+                String hostName = null;
                 String id = null;
 
                 for(int j = 0; j < serverChildren.getLength(); j++) {
                     Node serverChild = serverChildren.item(j);
 
                     if(serverChild.getNodeName().equals("host"))
-                        internalHostName = serverChild.getTextContent();
+                        hostName = serverChild.getTextContent();
                     else if(serverChild.getNodeName().equals("id"))
                         id = serverChild.getTextContent();
-                }
 
-                if(internalHostName != null && id != null) {
+                }
+                if(hostName != null && id != null) {
                     // Yes, this is super inefficient, but we have to assign the
                     // node ID to the *external* host name but the cluster.xml
                     // file contains the *internal* host name. So loop over all
@@ -149,8 +155,16 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                     // matches the internal host name and assign the node ID to
                     // its corresponding external host name.
                     for(HostNamePair hostNamePair: hostNamePairs) {
-                        if(hostNamePair.getInternalHostName().equals(internalHostName))
-                            nodeIds.put(hostNamePair.getExternalHostName(), Integer.parseInt(id));
+                        if(useInternal) {
+                            if(hostNamePair.getInternalHostName().equals(hostName))
+                                nodeIds.put(hostNamePair.getExternalHostName(),
+                                            Integer.parseInt(id));
+                        } else {
+                            if(hostNamePair.getExternalHostName().equals(hostName))
+                                nodeIds.put(hostNamePair.getExternalHostName(),
+                                            Integer.parseInt(id));
+                        }
+
                     }
                 } else {
                     throw new Exception(clusterXmlFile.getAbsolutePath()
@@ -158,7 +172,6 @@ public class VoldemortClusterStarterApp extends VoldemortApp {
                 }
             }
         }
-
         if(nodeIds.size() != hostNamePairs.size()) {
             throw new Exception(clusterXmlFile.getAbsolutePath()
                                 + " appears to be corrupt; not all of the hosts from "

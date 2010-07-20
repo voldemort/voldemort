@@ -18,6 +18,7 @@ package voldemort.utils.app;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import joptsimple.OptionSet;
@@ -47,23 +48,37 @@ public class VoldemortClusterGeneratorApp extends VoldemortApp {
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("clustername", "Cluster name; defaults to mycluster").withRequiredArg();
+        parser.accepts("useinternal", "Use internal host name; defaults to true")
+              .withRequiredArg()
+              .ofType(Boolean.class);
 
         OptionSet options = parse(args);
-        File hostNamesFile = getRequiredInputFile(options, "hostnames");
+        List<File> hostNamesFiles = getRequiredInputFiles(options, "hostnames");
         int partitions = getRequiredInt(options, "partitions");
         String clusterName = CmdUtils.valueOf(options, "clustername", "mycluster");
+        boolean useInternal = CmdUtils.valueOf(options, "useinternal", true);
 
-        List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNamesFile);
-        List<String> hostNames = new ArrayList<String>();
+        HashMap<Integer, List<String>> zoneToHostNames = new HashMap<Integer, List<String>>();
 
-        for(HostNamePair hostNamePair: hostNamePairs)
-            hostNames.add(hostNamePair.getInternalHostName());
+        int zoneId = 0;
+        // Every file specified is considered as one zone
+        for(File hostNameFile: hostNamesFiles) {
+            List<HostNamePair> hostNamePairs = getHostNamesPairsFromFile(hostNameFile);
+            List<String> hostNames = new ArrayList<String>();
+
+            for(HostNamePair hostNamePair: hostNamePairs) {
+                if(useInternal)
+                    hostNames.add(hostNamePair.getInternalHostName());
+                else
+                    hostNames.add(hostNamePair.getExternalHostName());
+            }
+            zoneToHostNames.put(zoneId++, hostNames);
+        }
 
         String clusterXml = new ClusterGenerator().createClusterDescriptor(clusterName,
-                                                                           hostNames,
+                                                                           zoneToHostNames,
                                                                            partitions);
 
         System.out.print(clusterXml);
     }
-
 }

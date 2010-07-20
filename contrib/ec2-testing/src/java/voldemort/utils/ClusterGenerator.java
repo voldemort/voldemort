@@ -20,12 +20,17 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
+
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 
 /**
  * ClusterGenerator generates a cluster.xml file given either a list of hosts or
@@ -88,11 +93,30 @@ public class ClusterGenerator {
      * 
      * @return List of ClusterNodeDescriptor
      */
-
     public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
                                                                     int numPartitions) {
+        HashMap<Integer, List<String>> zoneToHostName = new HashMap<Integer, List<String>>();
+        zoneToHostName.put(Zone.DEFAULT_ZONE_ID, hostNames);
+        return createClusterNodeDescriptors(zoneToHostName, numPartitions);
+    }
+
+    /**
+     * Creates a list of ClusterNodeDescriptor instances
+     * 
+     * @param zoneToHostNames A mapping from zone to list of host names
+     * @param numPartitions Number of partitions per host
+     * 
+     * @return List of ClusterNodeDescriptor
+     */
+    private List<ClusterNodeDescriptor> createClusterNodeDescriptors(HashMap<Integer, List<String>> zoneToHostNames,
+                                                                     int numPartitions) {
+        int numHosts = 0;
+        for(List<String> hostNames: zoneToHostNames.values()) {
+            numHosts += hostNames.size();
+        }
+
         // Create a list of integers [0..totalPartitions).
-        int totalPartitions = hostNames.size() * numPartitions;
+        int totalPartitions = numHosts * numPartitions;
         List<Integer> allPartitionIds = new ArrayList<Integer>();
 
         for(int i = 0; i < totalPartitions; i++)
@@ -103,64 +127,107 @@ public class ClusterGenerator {
 
         List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
 
-        for(int i = 0; i < hostNames.size(); i++) {
-            String hostName = hostNames.get(i);
-            List<Integer> partitions = allPartitionIds.subList(i * numPartitions, (i + 1)
-                                                                                  * numPartitions);
-            Collections.sort(partitions);
+        int nodeId = 0;
+        for(int zoneId = 0; zoneId < zoneToHostNames.size(); zoneId++) {
+            List<String> hostNames = zoneToHostNames.get(zoneId);
 
-            ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
-            cnd.setHostName(hostName);
-            cnd.setId(i);
-            cnd.setPartitions(partitions);
+            for(int i = 0; i < hostNames.size(); i++) {
+                String hostName = hostNames.get(i);
+                List<Integer> partitions = allPartitionIds.subList(nodeId * numPartitions,
+                                                                   (nodeId + 1) * numPartitions);
+                Collections.sort(partitions);
 
-            list.add(cnd);
+                ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
+                cnd.setHostName(hostName);
+                cnd.setId(nodeId);
+                cnd.setPartitions(partitions);
+                cnd.setZoneId(zoneId);
+
+                nodeId++;
+                list.add(cnd);
+            }
         }
 
         return list;
     }
 
-    public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
+    /**
+     * Creates a list of ClusterNodeDescriptor instances
+     * 
+     * @param zoneToHostNames A mapping from zone to list of host names
+     * @param cluster The cluster describing the various hosts
+     * 
+     * @return List of ClusterNodeDescriptor
+     */
+    public List<ClusterNodeDescriptor> createClusterNodeDescriptors(HashMap<Integer, List<String>> zoneToHostNames,
                                                                     Cluster cluster) {
-        if (cluster.getNumberOfNodes() > hostNames.size())
+        if(cluster.getNumberOfZones() != zoneToHostNames.size())
+            throw new IllegalStateException("zone size does not match");
+
+        int numHosts = 0;
+        for(List<String> hostNames: zoneToHostNames.values()) {
+            numHosts += hostNames.size();
+        }
+
+        if(cluster.getNumberOfNodes() != numHosts)
             throw new IllegalStateException("cluster size exceeds the number of available instances");
 
         List<ClusterNodeDescriptor> list = new ArrayList<ClusterNodeDescriptor>();
-        for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
-            Node node = cluster.getNodeById(i);
-            String hostName = hostNames.get(i);
-            List<Integer> partitions = node.getPartitionIds();
 
-            ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
-            cnd.setHostName(hostName);
-            cnd.setId(i);
-            cnd.setSocketPort(node.getSocketPort());
-            cnd.setHttpPort(node.getHttpPort());
-            cnd.setAdminPort(node.getAdminPort());
-            cnd.setPartitions(partitions);
+        int nodeId = 0;
+        for(int zoneId = 0; zoneId < zoneToHostNames.size(); zoneId++) {
+            List<String> hostNames = zoneToHostNames.get(zoneId);
 
-            list.add(cnd);
+            for(int i = 0; i < hostNames.size(); i++) {
+                Node node = cluster.getNodeById(nodeId);
+                String hostName = hostNames.get(i);
+                List<Integer> partitions = node.getPartitionIds();
+
+                ClusterNodeDescriptor cnd = new ClusterNodeDescriptor();
+                cnd.setHostName(hostName);
+                cnd.setId(nodeId);
+                cnd.setSocketPort(node.getSocketPort());
+                cnd.setHttpPort(node.getHttpPort());
+                cnd.setAdminPort(node.getAdminPort());
+                cnd.setPartitions(partitions);
+                cnd.setZoneId(zoneId);
+
+                nodeId++;
+                list.add(cnd);
+            }
         }
 
         return list;
     }
 
+    /**
+     * @param hostNames <i>Internal</i> host name
+     * @param cluster Number of partitions <b>per host</b>
+     * 
+     * @return List of ClusterNodeDescriptor
+     */
+    public List<ClusterNodeDescriptor> createClusterNodeDescriptors(List<String> hostNames,
+                                                                    Cluster cluster) {
+        HashMap<Integer, List<String>> zoneToHostName = new HashMap<Integer, List<String>>();
+        zoneToHostName.put(Zone.DEFAULT_ZONE_ID, hostNames);
+        return createClusterNodeDescriptors(zoneToHostName, cluster);
+    }
 
     /**
      * Creates a String representing the format used by cluster.xml given the
      * cluster name, host names, and number of partitions for each host.
      * 
      * @param clusterName Name of cluster
-     * @param hostNames <i>Internal</i> host name
+     * @param zoneToHostNames Zone to list of HostNames map
      * @param numPartitions Number of partitions <b>per host</b>
      * 
      * @return String of formatted XML as used by cluster.xml
      */
 
     public String createClusterDescriptor(String clusterName,
-                                          List<String> hostNames,
+                                          HashMap<Integer, List<String>> zoneToHostNames,
                                           int numPartitions) {
-        List<ClusterNodeDescriptor> clusterNodeDescriptors = createClusterNodeDescriptors(hostNames,
+        List<ClusterNodeDescriptor> clusterNodeDescriptors = createClusterNodeDescriptors(zoneToHostNames,
                                                                                           numPartitions);
 
         return createClusterDescriptor(clusterName, clusterNodeDescriptors);
@@ -185,22 +252,55 @@ public class ClusterGenerator {
         pw.println("<cluster>");
         pw.println("\t<name>" + clusterName + "</name>");
 
+        StringBuffer nodesBuffer = new StringBuffer();
+        Set<Integer> zoneIds = new HashSet<Integer>();
         for(ClusterNodeDescriptor cnd: clusterNodeDescriptors) {
             String partitions = StringUtils.join(cnd.getPartitions(), ", ");
 
-            pw.println("\t<server>");
-            pw.println("\t\t<id>" + cnd.getId() + "</id>");
-            pw.println("\t\t<host>" + cnd.getHostName() + "</host>");
-            pw.println("\t\t<http-port>" + cnd.getHttpPort() + "</http-port>");
-            pw.println("\t\t<socket-port>" + cnd.getSocketPort() + "</socket-port>");
-            pw.println("\t\t<admin-port>" + cnd.getAdminPort() + "</admin-port>");
-            pw.println("\t\t<partitions>" + partitions + "</partitions>");
-            pw.println("\t</server>");
+            nodesBuffer.append("\t<server>\n");
+            nodesBuffer.append("\t\t<id>" + cnd.getId() + "</id>\n");
+            nodesBuffer.append("\t\t<host>" + cnd.getHostName() + "</host>\n");
+            nodesBuffer.append("\t\t<http-port>" + cnd.getHttpPort() + "</http-port>\n");
+            nodesBuffer.append("\t\t<socket-port>" + cnd.getSocketPort() + "</socket-port>\n");
+            nodesBuffer.append("\t\t<admin-port>" + cnd.getAdminPort() + "</admin-port>\n");
+            nodesBuffer.append("\t\t<partitions>" + partitions + "</partitions>\n");
+            nodesBuffer.append("\t\t<zone-id>" + cnd.getZoneId() + "</zone-id>\n");
+            nodesBuffer.append("\t</server>");
+
+            zoneIds.add(cnd.getZoneId());
         }
 
+        // Insert zones
+        for(Integer zoneId: zoneIds) {
+            pw.println("\t<zone>");
+            pw.println("\t\t<zone-id>" + zoneId + "</zone-id>");
+            pw.println("\t\t<proximity-list>" + generateProximityList(zoneId, zoneIds.size())
+                       + "</proximity-list>");
+            pw.println("\t</zone>");
+        }
+
+        // Insert servers
+        pw.println(nodesBuffer.toString());
         pw.println("</cluster>");
 
         return sw.toString();
     }
 
+    /**
+     * Generate sequential proximity list
+     * 
+     * @param zoneId Id of the Zone for which the proximity List is being
+     *        generated
+     * @param totalZones Total number of zones
+     * @return String of list of zones
+     */
+    private String generateProximityList(int zoneId, int totalZones) {
+        List<Integer> proximityList = new ArrayList<Integer>();
+        int currentZoneId = (zoneId + 1) % totalZones;
+        for(int i = 0; i < (totalZones - 1); i++) {
+            proximityList.add(currentZoneId);
+            currentZoneId = (currentZoneId + 1) % totalZones;
+        }
+        return StringUtils.join(proximityList, ", ");
+    }
 }
