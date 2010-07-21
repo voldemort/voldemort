@@ -343,7 +343,7 @@ public class Benchmark {
                                                           .setEnablePipelineRoutedStore(enablePipelineRouted);
 
             if(clientZoneId >= 0) {
-                clientConfig.setClientZoneId(clientZoneId).setEnableZoneRouting(true);
+                clientConfig.setClientZoneId(clientZoneId);
             }
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
             this.storeClient = socketFactory.getStoreClient(storeName);

@@ -18,7 +18,7 @@
 
 if [ $# -lt 2 ];
 then
-	echo 'USAGE: bin/voldemort-shell.sh store_name bootstrap_url [command_file]'
+	echo 'USAGE: bin/voldemort-shell.sh store_name bootstrap_url [command_file] [--client-zone-id <zone-id>]'
 	exit 1
 fi
 

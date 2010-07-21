@@ -6,9 +6,11 @@ import java.util.concurrent.ExecutorService;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -64,6 +66,12 @@ public class RoutedStoreFactory {
                                            routingTimeoutMs,
                                            failureDetector);
         } else {
+            if(storeDefinition.getRoutingStrategyType()
+                              .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+                throw new VoldemortException("Zone Routing for store '" + storeDefinition.getName()
+                                             + "' not supported using thread pool routed store.");
+            }
+
             return new ThreadPoolRoutedStore(storeDefinition.getName(),
                                              nodeStores,
                                              cluster,

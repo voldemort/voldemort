@@ -60,13 +60,11 @@ public class VoldemortClientShell {
               .withRequiredArg()
               .describedAs("zone-id")
               .ofType(Integer.class);
-        parser.accepts("enable-pipeline-routed-store");
-        parser.accepts("enable-zone-routing");
         OptionSet options = parser.parse(args);
 
         List<String> nonOptions = options.nonOptionArguments();
         if(nonOptions.size() < 2 || nonOptions.size() > 3) {
-            System.err.println("Usage: java VoldemortClientShell [options] store_name bootstrap_url [command_file]");
+            System.err.println("Usage: java VoldemortClientShell store_name bootstrap_url [command_file] [options]");
             parser.printHelpOn(System.err);
             System.exit(-1);
         }
@@ -91,15 +89,8 @@ public class VoldemortClientShell {
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl);
 
         if(options.has("client-zone-id")) {
-            clientConfig.setClientZoneId(new Integer((String) options.valueOf("client-zone-id")).intValue());
-        }
-
-        if(options.has("enable-pipeline-routed-store")) {
             clientConfig.setEnablePipelineRoutedStore(true);
-        }
-
-        if(options.has("enable-zone-routing")) {
-            clientConfig.setEnableZoneRouting(true);
+            clientConfig.setClientZoneId((Integer) options.valueOf("client-zone-id"));
         }
 
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);

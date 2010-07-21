@@ -209,6 +209,19 @@ public class StoreDefinitionsMapper {
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
         }
 
+        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+            if(zoneCountReads == null || zoneCountWrites == null || zoneReplicationFactor == null) {
+                throw new MappingException("Have not set one of the following correctly for store '"
+                                           + name
+                                           + "' - "
+                                           + STORE_ZONE_COUNT_READS
+                                           + ", "
+                                           + STORE_ZONE_COUNT_WRITES
+                                           + ", "
+                                           + STORE_ZONE_REPLICATION_FACTOR_ELMT);
+            }
+        }
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setKeySerializer(keySerializer)
