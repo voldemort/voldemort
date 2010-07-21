@@ -120,7 +120,10 @@ public class PerformParallelPutRequests extends
         }
 
         try {
-            blocksLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            long ellapsedNs = System.nanoTime() - pipelineData.getStartTimeNs();
+            long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+            if(remainingNs > 0)
+                blocksLatch.await(remainingNs, TimeUnit.NANOSECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -141,11 +144,11 @@ public class PerformParallelPutRequests extends
 
         boolean quorumSatisfied = true;
         if(pipelineData.getSuccesses() < required) {
-            long timeMs = (System.nanoTime() - pipelineData.getStartTimeNs()) / Time.NS_PER_MS;
-
-            if((timeoutMs - timeMs) > 0) {
+            long ellapsedNs = System.nanoTime() - pipelineData.getStartTimeNs();
+            long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+            if(remainingNs > 0) {
                 try {
-                    attemptsLatch.await(timeoutMs - timeMs, TimeUnit.MILLISECONDS);
+                    attemptsLatch.await(remainingNs, TimeUnit.NANOSECONDS);
                 } catch(InterruptedException e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e, e);
