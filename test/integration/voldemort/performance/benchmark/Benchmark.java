@@ -473,6 +473,7 @@ public class Benchmark {
         }
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(4);
+        nf.setGroupingUsed(false);
 
         System.out.println("[" + label + "]\tRunTime(ms): "
                            + nf.format((endRunBenchmark - startRunBenchmark)));

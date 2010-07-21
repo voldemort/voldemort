@@ -140,6 +140,7 @@ public class Measurement {
         Results result = generateResults();
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(4);
+        nf.setGroupingUsed(false);
 
         out.println("[" + getName() + "]\tOperations: " + operations);
         out.println("[" + getName() + "]\tAverage(ms): "
