@@ -60,7 +60,7 @@ public class TypicaEc2Connection implements Ec2Connection {
         ec2 = new Jec2(accessId, secretKey);
         this.listener = listener;
 
-        if(ec2 != null)
+        if(regionUrl != null && ec2 != null)
             ec2.setRegionUrl(regionUrl);
     }
 
