@@ -347,6 +347,7 @@ public class StorageService extends AbstractService {
                                                                        def,
                                                                        nodeStores,
                                                                        nonblockingStores,
+                                                                       null,
                                                                        true,
                                                                        cluster.getNodeById(localNode)
                                                                               .getZoneId(),

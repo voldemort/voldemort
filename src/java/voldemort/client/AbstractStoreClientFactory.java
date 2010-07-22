@@ -167,6 +167,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                    storeDef,
                                                                    clientMapping,
                                                                    nonblockingStores,
+                                                                   null,
                                                                    repairReads,
                                                                    clientZoneId,
                                                                    getFailureDetector());
