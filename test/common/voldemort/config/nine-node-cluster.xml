@@ -23,7 +23,7 @@
     <http-port>8082</http-port>
     <socket-port>6668</socket-port>
     <admin-port>7668</admin-port>
-    <partitions>22, 16, 12</partitions>
+    <partitions>22, 12</partitions>
   </server>
   <server>
     <id>3</id>
