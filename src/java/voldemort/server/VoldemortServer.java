@@ -20,6 +20,7 @@ import static voldemort.utils.Utils.croak;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -40,6 +41,7 @@ import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
@@ -198,6 +200,11 @@ public class VoldemortServer extends AbstractService {
 
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
+
+        if(voldemortConfig.isSlopEnabled())
+            scheduler.schedule(new SlopPusherJob(storeRepository),
+                               new Date(),
+                               voldemortConfig.getSlopFrequencyMs());
 
         return ImmutableList.copyOf(services);
     }

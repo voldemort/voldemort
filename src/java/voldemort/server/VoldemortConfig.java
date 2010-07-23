@@ -129,6 +129,8 @@ public class VoldemortConfig implements Serializable {
 
     private final long pusherPollMs;
 
+    private final long slopFrequencyMs;
+
     private int adminCoreThreads;
     private int adminMaxThreads;
     private int adminStreamBufferSize;
@@ -205,6 +207,7 @@ public class VoldemortConfig implements Serializable {
                                                                              + "read-only");
 
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
+        this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -718,6 +721,10 @@ public class VoldemortConfig implements Serializable {
 
     public int getSocketTimeoutMs() {
         return this.socketTimeoutMs;
+    }
+
+    public long getSlopFrequencyMs() {
+        return this.slopFrequencyMs;
     }
 
     public void setSocketTimeoutMs(int socketTimeoutMs) {
