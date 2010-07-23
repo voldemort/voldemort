@@ -113,7 +113,10 @@ public class PerformSerialPutRequests extends
             pipelineData.setFatalError(new InsufficientOperationalNodesException("No master node succeeded!",
                                                                                  failures.size() > 0 ? failures.get(0)
                                                                                                     : null));
-            pipeline.addEvent(Event.ERROR);
+            if(pipeline.isHintedHandoffEnabled())
+                pipeline.addEvent(Event.ABORTED);
+            else
+                pipeline.addEvent(Event.ERROR);
             return;
         }
 
@@ -130,7 +133,10 @@ public class PerformSerialPutRequests extends
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
                                                                                      pipelineData.getFailures()));
-                pipeline.addEvent(Event.ERROR);
+                if(pipeline.isHintedHandoffEnabled())
+                    pipeline.addEvent(Event.ABORTED);
+                else
+                    pipeline.addEvent(Event.ERROR);
             } else {
                 if(pipelineData.getZonesRequired() != null) {
 
@@ -145,8 +151,10 @@ public class PerformSerialPutRequests extends
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
                                                                                           + " succeeded"));
-
-                        pipeline.addEvent(Event.ERROR);
+                        if(pipeline.isHintedHandoffEnabled())
+                            pipeline.addEvent(Event.ABORTED);
+                        else
+                            pipeline.addEvent(Event.ERROR);
                     }
 
                 } else {

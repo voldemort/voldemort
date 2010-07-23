@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Node;
 
 /**
  * PipelineData includes a common set of data that is used to represent the
@@ -64,9 +65,14 @@ public abstract class PipelineData<K, V> {
 
     protected VoldemortException fatalError;
 
+    protected volatile String storeName;
+
+    protected final List<Node> failedNodes;
+
     public PipelineData() {
         this.responses = new ArrayList<Response<K, V>>();
         this.failures = new ArrayList<Exception>();
+        this.failedNodes = new ArrayList<Node>();
     }
 
     /**
@@ -124,4 +130,19 @@ public abstract class PipelineData<K, V> {
         this.failures.add(e);
     }
 
+    public void addFailedNode(Node node) {
+        failedNodes.add(node);
+    }
+
+    public List<Node> getFailedNodes() {
+        return failedNodes;
+    }
+
+    public String getStoreName() {
+        return storeName;
+    }
+
+    public void setStoreName(String storeName) {
+        this.storeName = storeName;
+    }
 }

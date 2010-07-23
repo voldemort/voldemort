@@ -61,6 +61,7 @@ public class RoutedStoreFactory {
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
                                            nonblockingStores,
+                                           slopStores,
                                            cluster,
                                            storeDefinition,
                                            repairReads,

@@ -83,7 +83,7 @@ public class SlopPusherTest extends TestCase {
             Slop slop = vs.getValue();
             assertEquals("Slop remains.", 0, repo.getSlopStore().get(slop.makeKey()).size());
             assertTrue(bytesEqual(slop.getValue(), repo.getNodeStore(STORE_NAME, slop.getNodeId())
-                                                       .get(slop.makeKey())
+                                                       .get(slop.getKey())
                                                        .get(0)
                                                        .getValue()));
         }

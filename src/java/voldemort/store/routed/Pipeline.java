@@ -56,7 +56,9 @@ public class Pipeline {
         INSUFFICIENT_ZONES,
         RESPONSES_RECEIVED,
         ERROR,
-        MASTER_DETERMINED;
+        MASTER_DETERMINED,
+        ABORTED,
+        HANDOFF_FINISHED;
 
     }
 
@@ -85,6 +87,8 @@ public class Pipeline {
     private final Map<Event, Action> eventActions;
 
     private final Logger logger = Logger.getLogger(getClass());
+
+    private volatile boolean enableHintedHandoff = false;
 
     /**
      * 
@@ -131,6 +135,14 @@ public class Pipeline {
             logger.trace("Adding event " + event);
 
         eventQueue.add(event);
+    }
+
+    public boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff;
+    }
+
+    public void setEnableHintedHandoff(boolean enableHintedHandoff) {
+        this.enableHintedHandoff = enableHintedHandoff;
     }
 
     /**

@@ -177,8 +177,10 @@ public class PerformParallelPutRequests extends
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
                                                                                      pipelineData.getFailures()));
-
-                pipeline.addEvent(Event.ERROR);
+                if(pipeline.isHintedHandoffEnabled())
+                    pipeline.addEvent(Event.ABORTED);
+                else
+                    pipeline.addEvent(Event.ERROR);
                 quorumSatisfied = false;
             }
         }
@@ -226,8 +228,10 @@ public class PerformParallelPutRequests extends
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
                                                                                           + " succeeded"));
-
-                        pipeline.addEvent(Event.ERROR);
+                        if(pipeline.isHintedHandoffEnabled())
+                            pipeline.addEvent(Event.ABORTED);
+                        else
+                            pipeline.addEvent(Event.ERROR);
                     }
                 }
 

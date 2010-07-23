@@ -71,10 +71,10 @@ public class SlopPusherJob implements Runnable {
                                                                             slop.getNodeId());
                     try {
                         if(slop.getOperation() == Operation.PUT)
-                            store.put(keyAndVal.getFirst(),
+                            store.put(slop.getKey(),
                                       new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
                         else if(slop.getOperation() == Operation.DELETE)
-                            store.delete(keyAndVal.getFirst(), versioned.getVersion());
+                            store.delete(slop.getKey(), versioned.getVersion());
                         else
                             logger.error("Unknown slop operation: " + slop.getOperation());
                         slopStore.delete(slop.makeKey(), versioned.getVersion());

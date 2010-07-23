@@ -69,9 +69,9 @@ public class HintedHandoffTest {
     private final static int NUM_NODES_FAILED = 4;
 
     private final static int REPLICATION_FACTOR = 3;
-    private final static int P_READS = 2;
+    private final static int P_READS = 1;
     private final static int R_READS = 1;
-    private final static int P_WRITES = 2;
+    private final static int P_WRITES = 3;
     private final static int R_WRITES = 1;
 
     private final static int KEY_LENGTH = 64;

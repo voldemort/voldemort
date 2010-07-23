@@ -41,6 +41,7 @@ import voldemort.store.routed.action.ConfigureNodes;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
+import voldemort.store.routed.action.PerformHintedHandoff;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
 import voldemort.store.routed.action.PerformParallelRequests;
@@ -49,6 +50,7 @@ import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
 import voldemort.store.routed.action.PerformZoneSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
+import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.Version;
@@ -62,6 +64,8 @@ import voldemort.versioning.Versioned;
 public class PipelineRoutedStore extends RoutedStore {
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
+    private final Map<Integer, Store<ByteArray, Slop>> slopStores;
+    private final Cluster cluster;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
 
@@ -80,6 +84,7 @@ public class PipelineRoutedStore extends RoutedStore {
     public PipelineRoutedStore(String name,
                                Map<Integer, Store<ByteArray, byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
+                               Map<Integer, Store<ByteArray, Slop>> slopStores,
                                Cluster cluster,
                                StoreDefinition storeDef,
                                boolean repairReads,
@@ -103,6 +108,8 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
+        this.slopStores = slopStores;
+        this.cluster = cluster;
     }
 
     public List<Versioned<byte[]>> get(final ByteArray key) {
@@ -317,6 +324,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
         else
             pipelineData.setZonesRequired(null);
+        pipelineData.setStoreName(name);
         final Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
 
         NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
@@ -399,8 +407,10 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStartTimeNs(System.nanoTime());
+        pipelineData.setStoreName(name);
 
         Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
+        pipeline.setEnableHintedHandoff(slopStores != null);
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Void, PutPipelineData>(pipelineData,
@@ -412,7 +422,9 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                           clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformSerialPutRequests(pipelineData,
-                                                             Event.COMPLETED,
+                                                             slopStores != null
+                                                             ? Event.RESPONSES_RECEIVED
+                                                             : Event.COMPLETED,
                                                              key,
                                                              failureDetector,
                                                              innerStores,
@@ -429,10 +441,32 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                storeDef.getRequiredWrites(),
                                                                timeoutMs,
                                                                nonblockingStores));
-        pipeline.addEventAction(Event.RESPONSES_RECEIVED, new IncrementClock(pipelineData,
-                                                                             Event.COMPLETED,
-                                                                             versioned,
-                                                                             time));
+        if(slopStores != null) {
+            pipeline.addEventAction(Event.ABORTED, new PerformHintedHandoff(pipelineData,
+                                                                            Event.ERROR,
+                                                                            key,
+                                                                            versioned,
+                                                                            failureDetector,
+                                                                            slopStores,
+                                                                            cluster,
+                                                                            time));
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED, new PerformHintedHandoff(pipelineData,
+                                                                                       Event.HANDOFF_FINISHED,
+                                                                                       key,
+                                                                                       versioned,
+                                                                                       failureDetector,
+                                                                                       slopStores,
+                                                                                       cluster,
+                                                                                       time));
+            pipeline.addEventAction(Event.HANDOFF_FINISHED, new IncrementClock(pipelineData,
+                                                                               Event.COMPLETED,
+                                                                               versioned,
+                                                                               time));
+        } else
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED, new IncrementClock(pipelineData,
+                                                                                 Event.COMPLETED,
+                                                                                 versioned,
+                                                                                 time));
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();
@@ -440,7 +474,7 @@ public class PipelineRoutedStore extends RoutedStore {
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
     }
-
+    
     @Override
     public void close() {
         VoldemortException exception = null;
