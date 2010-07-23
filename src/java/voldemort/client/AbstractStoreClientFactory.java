@@ -32,9 +32,11 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.serialization.SlopSerializer;
 import voldemort.serialization.StringSerializer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -46,6 +48,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.store.slop.Slop;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
@@ -78,6 +81,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     protected static final Logger logger = Logger.getLogger(AbstractStoreClientFactory.class);
 
+    private static final Serializer<ByteArray> slopKeySerializer = new ByteArraySerializer();
+    private static final Serializer<Slop> slopValueSerializer = new SlopSerializer();
+    
     private final URI[] bootstrapUrls;
     private final ExecutorService threadPool;
     private final SerializerFactory serializerFactory;
@@ -151,6 +157,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         Map<Integer, Store<ByteArray, byte[]>> clientMapping = Maps.newHashMap();
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
+        Map<Integer, Store<ByteArray, Slop>> slopStores = null;
+        if (config.isHintedHandoffEnabled())
+            slopStores = Maps.newHashMap();
+
         for(Node node: cluster.getNodes()) {
             Store<ByteArray, byte[]> store = getStore(storeDef.getName(),
                                                       node.getHost(),
@@ -161,13 +171,23 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
             NonblockingStore nonblockingStore = routedStoreFactory.toNonblockingStore(store);
             nonblockingStores.put(node.getId(), nonblockingStore);
+
+            if(slopStores != null) {
+                Store<ByteArray, Slop> slopStore = SerializingStore.wrap(getStore("slop",
+                                                                                  node.getHost(),
+                                                                                  getPort(node),
+                                                                                  this.requestFormatType),
+                                                                         slopKeySerializer,
+                                                                         slopValueSerializer);
+                slopStores.put(node.getId(), slopStore);
+            }
         }
 
         Store<ByteArray, byte[]> store = routedStoreFactory.create(cluster,
                                                                    storeDef,
                                                                    clientMapping,
                                                                    nonblockingStores,
-                                                                   null,
+                                                                   slopStores,
                                                                    repairReads,
                                                                    clientZoneId,
                                                                    getFailureDetector());
