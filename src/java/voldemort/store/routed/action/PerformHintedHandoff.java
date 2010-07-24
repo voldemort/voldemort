@@ -63,7 +63,8 @@ public class PerformHintedHandoff extends
         Collections.shuffle(nodes, rand);
 
         Versioned<byte[]> versionedCopy = pipelineData.getVersionedCopy();
-        for(Node failedNode: pipelineData.getFailedNodes()) {
+        List<Node> failedNodes = pipelineData.getFailedNodes();
+        for(Node failedNode: failedNodes) {
             int failedNodeId = failedNode.getId();
             if(versionedCopy == null) {
                 VectorClock clock = (VectorClock) versioned.getVersion();
@@ -90,7 +91,7 @@ public class PerformHintedHandoff extends
                 int nodeId = node.getId();
                 Store<ByteArray, Slop> slopStore = slopStores.get(nodeId);
 
-                if(nodeId != failedNode.getId() && failureDetector.isAvailable(node)) {
+                if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
                     Utils.notNull(slopStore);
                     long startNs = System.nanoTime();
 
