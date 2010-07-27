@@ -39,6 +39,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
@@ -191,6 +192,14 @@ public class HadoopStoreBuilder {
 
             logger.info("Building store...");
             JobClient.runJob(conf);
+
+            // Issue 258 : Check if all folder exists with empty folders
+            for(Node node: cluster.getNodes()) {
+                Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
+                if(!outputFs.exists(nodePath)) {
+                    outputFs.mkdirs(nodePath); // Create empty folder
+                }
+            }
 
             if(checkSumType != CheckSumType.NONE) {
 

@@ -128,8 +128,11 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             new Path(inputFile.getAbsolutePath()));
         builder.build();
 
-        // Should not produce node--1 directory
-        assertNull(outputDir.listFiles());
+        // Should not produce node--1 directory + have one folder for every node
+        assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
+        for(File f: outputDir.listFiles()) {
+            assertFalse(f.toString().contains("node--1"));
+        }
     }
 
     public void testHadoopBuild() throws Exception {
