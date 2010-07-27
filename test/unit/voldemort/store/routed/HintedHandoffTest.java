@@ -40,6 +40,7 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import java.util.Arrays;
@@ -220,19 +221,7 @@ public class HintedHandoffTest {
     public void testSlopPushers() throws Exception {
         Set<Integer> failedNodes = getFailedNodes();
         Set<ByteArray> failedKeys = populateStore(failedNodes);
-
-        for(int node: failedNodes) {
-            ForceFailStore forceFailStore = getForceFailStore(node);
-            forceFailStore.setFail(false);
-
-            if(logger.isTraceEnabled())
-                logger.trace("Stopped failing requests to " + node);
-        }
-
-        while(!failedNodes.isEmpty())
-            for(int node: failedNodes)
-                if(failureDetector.isAvailable(cluster.getNodeById(node)))
-                    failedNodes.remove(node);
+        reviveNodes(failedNodes);
 
         for(SlopPusherJob job: slopPusherJobs) {
             if (logger.isTraceEnabled())
@@ -253,6 +242,72 @@ public class HintedHandoffTest {
             assertEquals("slop entry should be correct for " + key,
                          keyValues.get(key),
                          new ByteArray(values.get(0).getValue()));
+        }
+    }
+
+    private void reviveNodes(Set<Integer> failedNodes) {
+        for(int node: failedNodes) {
+            ForceFailStore forceFailStore = getForceFailStore(node);
+            forceFailStore.setFail(false);
+
+            if(logger.isTraceEnabled())
+                logger.trace("Stopped failing requests to " + node);
+        }
+
+        while(!failedNodes.isEmpty())
+            for(int node: failedNodes)
+                if(failureDetector.isAvailable(cluster.getNodeById(node)))
+                    failedNodes.remove(node);
+    }
+
+    @Test
+    public void testDeleteHandoff() throws Exception {
+        populateStore(Sets.<Integer>newHashSet());
+
+        Map<ByteArray, Version> versions = Maps.newHashMap();
+        for(ByteArray key: keyValues.keySet())
+            versions.put(key, store.get(key).get(0).getVersion());
+
+        Set<Integer> failedNodes = getFailedNodes();
+        Set<ByteArray> failedKeys = Sets.newHashSet();
+
+        Random rand = new Random();
+        for(ByteArray key: keysToNodes.keySet()) {
+            Iterable<Integer> nodes = keysToNodes.get(key);
+
+            for(int i=0; i < REPLICATION_FACTOR; i++) {
+                int node = Iterables.get(nodes, i);
+                if(failedNodes.contains(node)) {
+                    failedKeys.add(key);
+                    break;
+                }
+            }
+        }
+
+        for(ByteArray failedKey: failedKeys) {
+            try {
+                store.delete(failedKey, versions.get(failedKey));
+            } catch(Exception e) {
+                if(logger.isTraceEnabled())
+                    logger.trace(e, e);
+            }
+        }
+
+        reviveNodes(failedNodes);
+
+        for(SlopPusherJob job: slopPusherJobs) {
+            if (logger.isTraceEnabled())
+                logger.trace("Started slop pusher job " + job);
+
+            job.run();
+
+            if (logger.isTraceEnabled())
+                logger.trace("Finished slop pusher job " + job);
+        }
+
+        for(ByteArray key: failedKeys) {
+            List<Versioned<byte[]>> res = store.get(key);
+            assertTrue("key should be deleted", res.size() == 0);
         }
     }
 
