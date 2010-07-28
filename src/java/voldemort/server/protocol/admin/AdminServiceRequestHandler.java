@@ -214,14 +214,26 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
         boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
 
-        if(fetchValues)
-            return new FetchEntriesStreamRequestHandler(request,
-                                                        metadataStore,
-                                                        errorCodeMapper,
-                                                        voldemortConfig,
-                                                        storeRepository,
-                                                        networkClassLoader);
-        else
+        if(fetchValues) {
+            boolean fetchMasterValues = request.hasFetchMasterEntries()
+                                        && request.getFetchMasterEntries();
+
+            if(fetchMasterValues) {
+                return new FetchMasterEntriesStreamRequestHandler(request,
+                                                                  metadataStore,
+                                                                  errorCodeMapper,
+                                                                  voldemortConfig,
+                                                                  storeRepository,
+                                                                  networkClassLoader);
+            } else {
+                return new FetchEntriesStreamRequestHandler(request,
+                                                            metadataStore,
+                                                            errorCodeMapper,
+                                                            voldemortConfig,
+                                                            storeRepository,
+                                                            networkClassLoader);
+            }
+        } else
             return new FetchKeysStreamRequestHandler(request,
                                                      metadataStore,
                                                      errorCodeMapper,
