@@ -18,7 +18,6 @@ package voldemort.hadoop;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -29,10 +28,12 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
@@ -61,13 +62,23 @@ public class VoldemortInputFormat extends InputFormat<ByteArray, Versioned<byte[
 
         AdminClient adminClient = new AdminClient(bootstrapURL, new AdminClientConfig());
 
-        /**
-         * TODO: To put check to see if store exists
-         */
+        // Check if storeName exists on the node with id 0
         Cluster cluster = adminClient.getAdminClientCluster();
-        Collection<Node> nodes = cluster.getNodes();
-        Iterator<Node> nodeIter = nodes.iterator();
+        List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(0).getValue();
 
+        boolean foundStore = false;
+        for(StoreDefinition storeDef: storeDefList) {
+            if(storeDef.getName().compareTo(storeName) == 0) {
+                foundStore = true;
+                break;
+            }
+        }
+        if(!foundStore) {
+            throw new VoldemortException("Store '" + storeName + "' not found");
+        }
+
+        // Generate splits
+        Iterator<Node> nodeIter = cluster.getNodes().iterator();
         List<InputSplit> splits = new ArrayList<InputSplit>();
         while(nodeIter.hasNext()) {
             Node currentNode = nodeIter.next();

@@ -55,7 +55,6 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
         // seeks by getting back only Master replica values
         if(validPartition(key.get()) && filter.accept(key, null)) {
             for(Versioned<byte[]> value: storageEngine.get(key)) {
-                System.out.println("H");
                 throttler.maybeThrottle(key.length());
                 fetched++;
                 VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
