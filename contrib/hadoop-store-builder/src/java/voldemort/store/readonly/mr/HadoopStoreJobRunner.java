@@ -69,7 +69,6 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("cluster", "local path to cluster.xml.").withRequiredArg();
         parser.accepts("storedefinitions", "local path to stores.xml.").withRequiredArg();
         parser.accepts("storename", "store name from store definition.").withRequiredArg();
-        parser.accepts("replication", "replication factor (default=2).").withRequiredArg();
         parser.accepts("chunksize", "maximum size of a chunk in bytes.").withRequiredArg();
         parser.accepts("inputformat", "JavaClassName (default=text).").withRequiredArg();
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
@@ -118,7 +117,6 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                 storeDef = def;
         }
 
-        int replicationFactor = Integer.parseInt(CmdUtils.valueOf(options, "replication", "2"));
         long chunkSizeBytes = Long.parseLong((String) options.valueOf("chunksize"));
         Path inputPath = new Path((String) options.valueOf("input"));
         Path tempDir = new Path((String) options.valueOf("tmpdir"));
@@ -171,7 +169,6 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             inputFormatClass,
                                                             cluster,
                                                             storeDef,
-                                                            replicationFactor,
                                                             chunkSizeBytes,
                                                             tempDir,
                                                             outputDir,

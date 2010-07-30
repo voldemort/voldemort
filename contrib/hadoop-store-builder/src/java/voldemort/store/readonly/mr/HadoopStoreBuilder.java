@@ -66,7 +66,6 @@ public class HadoopStoreBuilder {
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
     private final StoreDefinition storeDef;
-    private final int replicationFactor;
     private final long chunkSizeBytes;
     private final Path inputPath;
     private final Path outputDir;
@@ -79,7 +78,6 @@ public class HadoopStoreBuilder {
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
-                              int replicationFactor,
                               long chunkSizeBytes,
                               Path tempDir,
                               Path outputDir,
@@ -91,7 +89,6 @@ public class HadoopStoreBuilder {
         this.inputPath = inputPath;
         this.cluster = Utils.notNull(cluster);
         this.storeDef = Utils.notNull(storeDef);
-        this.replicationFactor = replicationFactor;
         this.chunkSizeBytes = chunkSizeBytes;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
@@ -122,7 +119,6 @@ public class HadoopStoreBuilder {
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
-                              int replicationFactor,
                               long chunkSizeBytes,
                               Path tempDir,
                               Path outputDir,
@@ -133,7 +129,6 @@ public class HadoopStoreBuilder {
              inputFormatClass,
              cluster,
              storeDef,
-             replicationFactor,
              chunkSizeBytes,
              tempDir,
              outputDir,
@@ -151,7 +146,6 @@ public class HadoopStoreBuilder {
         conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-        conf.setInt("store.output.replication.factor", replicationFactor);
         conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
         conf.setMapperClass(mapperClass);
         conf.setMapOutputKeyClass(BytesWritable.class);

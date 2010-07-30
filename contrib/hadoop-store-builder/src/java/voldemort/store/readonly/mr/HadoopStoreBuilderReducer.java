@@ -132,7 +132,6 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                                                                    + "."
                                                                                    + this.taskId
                                                                                    + ".data");
-            int replicationFactor = job.getInt("store.output.replication.factor", 2);
 
             logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
                         + " for writing.");

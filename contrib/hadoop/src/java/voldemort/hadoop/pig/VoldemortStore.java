@@ -33,14 +33,13 @@ import voldemort.hadoop.VoldemortInputFormat;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+@SuppressWarnings("unchecked")
 public class VoldemortStore extends LoadFunc {
 
     private Configuration conf;
 
-    @SuppressWarnings("unchecked")
     private RecordReader reader;
 
-    @SuppressWarnings("unchecked")
     @Override
     public InputFormat getInputFormat() throws IOException {
         VoldemortInputFormat inputFormat = new VoldemortInputFormat();

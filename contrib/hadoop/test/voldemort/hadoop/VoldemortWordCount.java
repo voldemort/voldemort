@@ -82,6 +82,7 @@ public class VoldemortWordCount extends Configured implements Tool {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public int run(String[] args) throws Exception {
 
         if(args.length != 2) {
