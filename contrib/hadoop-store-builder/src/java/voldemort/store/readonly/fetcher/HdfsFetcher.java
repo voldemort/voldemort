@@ -63,8 +63,9 @@ public class HdfsFetcher implements FileFetcher {
     private File tempDir;
     private final Long maxBytesPerSecond;
     private final int bufferSize;
-    private final AtomicInteger copyCount = new AtomicInteger(0);
+    private static final AtomicInteger copyCount = new AtomicInteger(0);
     private AsyncOperationStatus status;
+    private EventThrottler throttler = null;
 
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
@@ -85,6 +86,8 @@ public class HdfsFetcher implements FileFetcher {
         else
             this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
         this.maxBytesPerSecond = maxBytesPerSecond;
+        if(this.maxBytesPerSecond != null)
+            this.throttler = new EventThrottler(this.maxBytesPerSecond);
         this.bufferSize = bufferSize;
         this.status = null;
         Utils.mkdirs(this.tempDir);
@@ -97,11 +100,8 @@ public class HdfsFetcher implements FileFetcher {
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         FileSystem fs = path.getFileSystem(config);
-        EventThrottler throttler = null;
-        if(maxBytesPerSecond != null)
-            throttler = new EventThrottler(maxBytesPerSecond);
 
-        CopyStats stats = new CopyStats(fileUrl);
+        CopyStats stats = new CopyStats(fileUrl, sizeOfPath(fs, path));
         ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
                                                     stats);
         try {
@@ -109,7 +109,7 @@ public class HdfsFetcher implements FileFetcher {
             Utils.mkdirs(storeDir);
 
             File destination = new File(storeDir.getAbsoluteFile(), path.getName());
-            boolean result = fetch(fs, path, destination, throttler, stats);
+            boolean result = fetch(fs, path, destination, stats);
             if(result) {
                 return destination;
             } else {
@@ -120,11 +120,8 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
-    private boolean fetch(FileSystem fs,
-                          Path source,
-                          File dest,
-                          EventThrottler throttler,
-                          CopyStats stats) throws IOException {
+    private boolean fetch(FileSystem fs, Path source, File dest, CopyStats stats)
+            throws IOException {
         if(!fs.isFile(source)) {
             Utils.mkdirs(dest);
             FileStatus[] statuses = fs.listStatus(source);
@@ -156,7 +153,6 @@ public class HdfsFetcher implements FileFetcher {
                         copyFileWithCheckSum(fs,
                                              status.getPath(),
                                              copyLocation,
-                                             throttler,
                                              stats,
                                              fileCheckSumGenerator);
 
@@ -184,7 +180,6 @@ public class HdfsFetcher implements FileFetcher {
     private void copyFileWithCheckSum(FileSystem fs,
                                       Path source,
                                       File dest,
-                                      EventThrottler throttler,
                                       CopyStats stats,
                                       CheckSum fileCheckSumGenerator) throws IOException {
         logger.info("Starting copy of " + source + " to " + dest);
@@ -212,13 +207,16 @@ public class HdfsFetcher implements FileFetcher {
                     format.setMaximumFractionDigits(2);
                     logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
                                 + format.format(stats.getBytesPerSecond() / (1024 * 1024))
-                                + " MB/sec");
+                                + " MB/sec - " + format.format(stats.getPercentCopied())
+                                + " % complete");
                     if(this.status != null) {
                         this.status.setStatus(stats.getTotalBytesCopied()
                                               / (1024 * 1024)
                                               + " MB copied at "
                                               + format.format(stats.getBytesPerSecond()
-                                                              / (1024 * 1024)) + " MB/sec");
+                                                              / (1024 * 1024)) + " MB/sec - "
+                                              + format.format(stats.getPercentCopied())
+                                              + " % complete");
                     }
                     stats.reset();
                 }
@@ -230,17 +228,33 @@ public class HdfsFetcher implements FileFetcher {
         }
     }
 
+    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
+        long size = 0;
+        FileStatus[] statuses = fs.listStatus(path);
+        if(statuses != null) {
+            for(FileStatus status: statuses) {
+                if(status.isDir())
+                    size += sizeOfPath(fs, status.getPath());
+                else
+                    size += status.getLen();
+            }
+        }
+        return size;
+    }
+
     public static class CopyStats {
 
         private final String fileName;
         private volatile long bytesSinceLastReport;
         private volatile long totalBytesCopied;
         private volatile long lastReportNs;
+        private volatile long totalBytes;
 
-        public CopyStats(String fileName) {
+        public CopyStats(String fileName, long totalBytes) {
             this.fileName = fileName;
             this.totalBytesCopied = 0L;
             this.bytesSinceLastReport = 0L;
+            this.totalBytes = totalBytes;
             this.lastReportNs = System.nanoTime();
         }
 
@@ -256,6 +270,14 @@ public class HdfsFetcher implements FileFetcher {
 
         public long getBytesSinceLastReport() {
             return bytesSinceLastReport;
+        }
+
+        public double getPercentCopied() {
+            if(totalBytes == 0) {
+                return 0.0;
+            } else {
+                return (double) (totalBytesCopied * 100) / (double) totalBytes;
+            }
         }
 
         @JmxGetter(name = "totalBytesCopied", description = "The total number of bytes copied so far in this transfer.")

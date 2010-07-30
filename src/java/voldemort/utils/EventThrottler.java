@@ -42,7 +42,7 @@ public class EventThrottler {
         this.startTime = 0L;
     }
 
-    public void maybeThrottle(int eventsSeen) {
+    public synchronized void maybeThrottle(int eventsSeen) {
         eventsSeenInLastInterval += eventsSeen;
         long now = time.getNanoseconds();
         long ellapsedNs = now - startTime;

@@ -868,8 +868,8 @@ public class AdminClient {
         while(System.currentTimeMillis() < waitUntil) {
             try {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-                logger.info("Status for async task " + requestId + " at node " + nodeId + " is "
-                            + status);
+                logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
+                            + status.getStatus());
                 description = status.getDescription();
                 if(status.hasException())
                     throw status.getException();

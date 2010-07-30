@@ -370,6 +370,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     File fetchDir = null;
 
                     if(fileFetcher == null) {
+                        logger.warn("File fetcher class has not instantiated correctly");
                         fetchDir = new File(fetchUrl);
                     } else {
                         logger.info("Executing fetch of " + fetchUrl);
@@ -382,8 +383,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
                         }
                         if(fetchDir == null) {
-                            throw new VoldemortException("Checksum failed for " + fetchUrl
-                                                         + " and store name = " + storeName);
+                            throw new VoldemortException("File fetcher failed for " + fetchUrl
+                                                         + " and store name = " + storeName
+                                                         + " due to incorrect path/checksum error");
                         } else {
                             logger.info("Fetch complete.");
                         }
