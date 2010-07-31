@@ -529,8 +529,9 @@ public class ClientConfig {
         return enableHintedHandoff;
     }
 
-    public void setEnableHintedHandoff(boolean enableHintedHandoff) {
+    public ClientConfig setEnableHintedHandoff(boolean enableHintedHandoff) {
         this.enableHintedHandoff = enableHintedHandoff;
+        return this;
     }
 
     public String getFailureDetectorImplementation() {
