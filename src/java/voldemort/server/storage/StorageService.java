@@ -57,6 +57,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -190,6 +191,10 @@ public class StorageService extends AbstractService {
             storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
                                                                        new ByteArraySerializer(),
                                                                        new SlopSerializer()));
+            
+            scheduler.schedule(new SlopPusherJob(storeRepository),
+                               new Date(),
+                               voldemortConfig.getSlopFrequencyMs());
         }
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");

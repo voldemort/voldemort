@@ -201,10 +201,7 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
 
-        if(voldemortConfig.isSlopEnabled())
-            scheduler.schedule(new SlopPusherJob(storeRepository),
-                               new Date(),
-                               voldemortConfig.getSlopFrequencyMs());
+      
 
         return ImmutableList.copyOf(services);
     }
