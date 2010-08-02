@@ -102,7 +102,7 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
         this.totalBytes = 0;
         this.chunkId = job.getInt("mapred.task.partition", -1); // http://www.mail-archive.com/core-user@hadoop.apache.org/msg05749.html
         int hadoopNodeId = job.getInt("hadoop.node.id", -1);
-        int hadoopPushVersion = job.getInt("hadoop.push.version", -1);
+        long hadoopPushVersion = job.getLong("hadoop.push.version", -1L);
         long jobStartTime = job.getLong("job.start.time.ms", -1);
         if(this.chunkId < 0 || hadoopPushVersion < 0 || hadoopNodeId < 0 || jobStartTime < 0) {
             throw new RuntimeException("Incorrect chunk id / hadoop push version / hadoop node id / job start time");

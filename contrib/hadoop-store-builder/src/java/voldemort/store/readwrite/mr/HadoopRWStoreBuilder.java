@@ -61,8 +61,8 @@ public class HadoopRWStoreBuilder {
     private final StoreDefinition storeDef;
     private final Path inputPath;
     private final Path tempPath;
-    private final long chunkSizeBytes;
-    private final int hadoopPushVersion, hadoopNodeId;
+    private final long chunkSizeBytes, hadoopPushVersion;
+    private final int hadoopNodeId;
 
     public HadoopRWStoreBuilder(Configuration conf,
                                 Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass,
@@ -79,7 +79,7 @@ public class HadoopRWStoreBuilder {
              storeDef,
              chunkSizeBytes,
              cluster.getNumberOfNodes(),
-             1,
+             1L,
              tempPath,
              inputPath);
     }
@@ -91,7 +91,7 @@ public class HadoopRWStoreBuilder {
                                 StoreDefinition storeDef,
                                 long chunkSizeBytes,
                                 int hadoopNodeId,
-                                int hadoopPushVersion,
+                                long hadoopPushVersion,
                                 Path tempPath,
                                 Path inputPath) {
         this.config = conf;
@@ -119,7 +119,7 @@ public class HadoopRWStoreBuilder {
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
         conf.setInt("hadoop.node.id", this.hadoopNodeId);
-        conf.setInt("hadoop.push.version", this.hadoopPushVersion);
+        conf.setLong("hadoop.push.version", this.hadoopPushVersion);
         conf.setLong("job.start.time.ms", System.currentTimeMillis());
 
         conf.setPartitionerClass(HadoopRWStoreBuilderPartitioner.class);

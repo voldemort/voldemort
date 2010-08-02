@@ -173,11 +173,11 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
             hadoopNodeId = (short) cluster.getNumberOfNodes();
         }
 
-        int pushVersion;
+        long pushVersion;
         if(options.has("pushversion")) {
-            pushVersion = Integer.parseInt((String) options.valueOf("pushversion"));
+            pushVersion = Long.parseLong((String) options.valueOf("pushversion"));
         } else {
-            pushVersion = 1;
+            pushVersion = 1L;
         }
 
         Configuration conf = getConf();
