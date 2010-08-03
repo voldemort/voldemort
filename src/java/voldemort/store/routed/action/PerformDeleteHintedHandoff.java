@@ -16,7 +16,7 @@ import java.util.Date;
 import java.util.Map;
 
 public class PerformDeleteHintedHandoff
-               extends AbstractHintedHandoff<Boolean, BasicPipelineData<Boolean>> {
+               extends AbstractHintedHandoffAction<Boolean, BasicPipelineData<Boolean>> {
 
     private final Version version;
 
@@ -47,7 +47,7 @@ public class PerformDeleteHintedHandoff
                                  failedNodeId,
                                  new Date());
 
-            boolean persisted = handoffSlop(failedNode, version, slop);
+            boolean persisted = hintedHandoff.sendHint(failedNode, version, slop);
 
             Exception e = pipelineData.getFatalError();
             if(e != null) {

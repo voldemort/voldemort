@@ -18,6 +18,7 @@ package voldemort.store.routed;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
@@ -72,7 +73,7 @@ public abstract class PipelineData<K, V> {
     public PipelineData() {
         this.responses = new ArrayList<Response<K, V>>();
         this.failures = new ArrayList<Exception>();
-        this.failedNodes = new ArrayList<Node>();
+        this.failedNodes = new CopyOnWriteArrayList<Node>();
     }
 
     /**

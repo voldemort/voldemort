@@ -19,7 +19,7 @@ import java.util.Date;
 import java.util.Map;
 
 public class PerformPutHintedHandoff extends
-                                     AbstractHintedHandoff<Void, PutPipelineData> {
+                                     AbstractHintedHandoffAction<Void, PutPipelineData> {
 
     private final Versioned<byte[]> versioned;
 
@@ -63,7 +63,7 @@ public class PerformPutHintedHandoff extends
                                  failedNodeId,
                                  new Date());
 
-            boolean persisted = handoffSlop(failedNode, version, slop);
+            boolean persisted = hintedHandoff.sendHint(failedNode, version, slop);
 
             Exception e = pipelineData.getFatalError();
             if(e != null) {

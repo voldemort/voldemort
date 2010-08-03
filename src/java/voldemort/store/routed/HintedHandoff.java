@@ -1,12 +1,10 @@
-package voldemort.store.routed.action;
+package voldemort.store.routed;
 
-import voldemort.cluster.Cluster;
+import org.apache.log4j.Logger;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.routed.BasicPipelineData;
-import voldemort.store.routed.Pipeline;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -14,7 +12,6 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -22,34 +19,33 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-public abstract class AbstractHintedHandoff<V, PD extends BasicPipelineData<V>> extends
-                                                                                AbstractKeyBasedAction<ByteArray, V, PD> {
+public class HintedHandoff {
 
+    private static final Logger logger = Logger.getLogger(HintedHandoff.class);
+    
     private final FailureDetector failureDetector;
 
     private final Map<Integer, Store<ByteArray, Slop>> slopStores;
 
     private final List<Node> nodes;
 
-    protected final List<Node> failedNodes;
-    
-    public AbstractHintedHandoff(PD pipelineData,
-                                 Pipeline.Event completeEvent,
-                                 ByteArray key,
-                                 FailureDetector failureDetector,
-                                 Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                 Cluster cluster) {
-        super(pipelineData, completeEvent, key);
+    private final List<Node> failedNodes;
+
+    public HintedHandoff(FailureDetector failureDetector,
+                         Map<Integer, Store<ByteArray, Slop>> slopStores,
+                         List<Node> nodes,
+                         List<Node> failedNodes) {
         this.failureDetector = failureDetector;
         this.slopStores = slopStores;
-        nodes = new ArrayList<Node>(cluster.getNodes());
-        failedNodes = pipelineData.getFailedNodes();
+        this.nodes = nodes;
+        this.failedNodes = failedNodes;
 
         // shuffle potential slop nodes to avoid cascading failures
         Collections.shuffle(nodes, new Random());
     }
 
-     protected boolean handoffSlop(Node failedNode, Version version, Slop slop) {
+
+    public boolean sendHint(Node failedNode, Version version, Slop slop) {
         Set<Node> used = new HashSet<Node>(nodes.size());
         boolean persisted = false;
         for(Node node: nodes) {
@@ -91,6 +87,4 @@ public abstract class AbstractHintedHandoff<V, PD extends BasicPipelineData<V>> 
                 nodes.remove(usedNode);
         return persisted;
     }
-    
-    public abstract void execute(Pipeline pipeline);
 }

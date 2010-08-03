@@ -468,24 +468,26 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                storeDef.getPreferredWrites(),
                                                                storeDef.getRequiredWrites(),
                                                                timeoutMs,
-                                                               nonblockingStores));
+                                                               nonblockingStores,
+                                                               slopStores,
+                                                               new ArrayList<Node>(cluster.getNodes())));
         if(isHintedHandoffEnabled()) {
             pipeline.addEventAction(Event.ABORTED, new PerformPutHintedHandoff(pipelineData,
-                                                                            Event.ERROR,
-                                                                            key,
-                                                                            versioned,
-                                                                            failureDetector,
-                                                                            slopStores,
-                                                                            cluster,
-                                                                            time));
+                                                                               Event.ERROR,
+                                                                               key,
+                                                                               versioned,
+                                                                               failureDetector,
+                                                                               slopStores,
+                                                                               cluster,
+                                                                               time));
             pipeline.addEventAction(Event.RESPONSES_RECEIVED, new PerformPutHintedHandoff(pipelineData,
-                                                                                       Event.HANDOFF_FINISHED,
-                                                                                       key,
-                                                                                       versioned,
-                                                                                       failureDetector,
-                                                                                       slopStores,
-                                                                                       cluster,
-                                                                                       time));
+                                                                                          Event.HANDOFF_FINISHED,
+                                                                                          key,
+                                                                                          versioned,
+                                                                                          failureDetector,
+                                                                                          slopStores,
+                                                                                          cluster,
+                                                                                          time));
             pipeline.addEventAction(Event.HANDOFF_FINISHED, new IncrementClock(pipelineData,
                                                                                Event.COMPLETED,
                                                                                versioned,
