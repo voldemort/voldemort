@@ -41,6 +41,7 @@ import voldemort.utils.HostNamePair;
 
 import com.xerox.amazonws.ec2.RegionInfo;
 
+@SuppressWarnings("unchecked")
 public abstract class VoldemortApp {
 
     protected final OptionParser parser = new OptionParser();
@@ -77,7 +78,6 @@ public abstract class VoldemortApp {
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected void setLogging(OptionSet options) {
         // "Options are \"debug\", \"info\" (default), \"warn\", \"error\", or \"off\"")
         String levelString = CmdUtils.valueOf(options, "logging", "info");
