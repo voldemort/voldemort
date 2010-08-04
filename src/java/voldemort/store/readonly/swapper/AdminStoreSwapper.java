@@ -16,6 +16,10 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.Occured;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 public class AdminStoreSwapper extends StoreSwapper {
 
@@ -103,5 +107,48 @@ public class AdminStoreSwapper extends StoreSwapper {
 
         if(exception != null)
             throw new VoldemortException(exception);
+    }
+
+    public void invokeUpdateClusterMetadata() {
+        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
+        List<Integer> requiredNodeIds = new ArrayList<Integer>();
+
+        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
+        clusterList.add(latestCluster);
+
+        boolean sameCluster = true;
+        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            requiredNodeIds.add(node.getId());
+            try {
+                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
+                if(null != newClock && !clusterList.contains(versionedCluster)) {
+
+                    if(sameCluster
+                       && !adminClient.getAdminClientCluster().equals(versionedCluster.getValue())) {
+                        sameCluster = false;
+                    }
+                    // check no two clocks are concurrent.
+                    RebalanceUtils.checkNotConcurrent(clusterList, newClock);
+
+                    // add to clock list
+                    clusterList.add(versionedCluster);
+
+                    // update latestClock
+                    Occured occured = newClock.compare(latestCluster.getVersion());
+                    if(Occured.AFTER.equals(occured))
+                        latestCluster = versionedCluster;
+                }
+            } catch(Exception e) {
+                throw new VoldemortException("Failed to get cluster metadata from node:" + node, e);
+            }
+        }
+
+        if(!sameCluster) {
+            VectorClock latestClock = (VectorClock) latestCluster.getVersion();
+            latestClock.incrementVersion(cluster.getNodes().iterator().next().getId(),
+                                         System.currentTimeMillis());
+            RebalanceUtils.propagateCluster(adminClient, cluster, latestClock, requiredNodeIds);
+        }
     }
 }

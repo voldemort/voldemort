@@ -191,7 +191,7 @@ public class RebalanceUtils {
         return latestCluster;
     }
 
-    private static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
+    public static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
                                            VectorClock newClock) {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
