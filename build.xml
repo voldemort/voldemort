@@ -231,7 +231,7 @@
     </junitreport>
   </target>
 
-  <target name="ec2testing-junit" depends="contrib-jar" description="Run EC2 testing contrib junit tests.">
+  <target name="ec2testing-junit" depends="all" description="Run EC2 testing contrib junit tests.">
     <copy todir="${testclasses.dir}">
       <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
     </copy>
