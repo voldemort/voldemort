@@ -54,10 +54,14 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
     private int sizeInt = ByteUtils.SIZE_OF_INT;
     private VectorClock vectorClock;
 
+    protected static enum RecordCounter {
+        RECORDS_STREAMED;
+    }
+
     public void reduce(BytesWritable key,
                        final Iterator<BytesWritable> values,
                        OutputCollector<BytesWritable, BytesWritable> output,
-                       Reporter reporter) throws IOException {
+                       final Reporter reporter) throws IOException {
         this.transferStartTime = System.nanoTime();
 
         this.iterator = new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
@@ -87,6 +91,7 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
                     totalBytes += (keyBytesLength + valueBytesLength);
                     ByteArray key = new ByteArray(keyBytes);
                     Versioned<byte[]> versioned = Versioned.value(valueBytes, vectorClock);
+                    reporter.incrCounter(RecordCounter.RECORDS_STREAMED, 1);
                     return new Pair<ByteArray, Versioned<byte[]>>(key, versioned);
                 }
                 return endOfData();
@@ -115,7 +120,7 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
 
         logger.info("Working on Node id - " + this.nodeId + " and chunk id - " + this.chunkId);
         this.client = new AdminClient(getCluster(), new AdminClientConfig());
-        logger.info("Opening partition admin client " + this.nodeId);
+        logger.info("Connected to admin client on " + this.nodeId);
     }
 
     @Override
