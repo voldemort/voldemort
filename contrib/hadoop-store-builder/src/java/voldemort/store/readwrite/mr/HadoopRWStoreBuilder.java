@@ -16,11 +16,9 @@
 
 package voldemort.store.readwrite.mr;
 
-import java.io.IOException;
 import java.util.Collections;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
@@ -55,21 +53,20 @@ public class HadoopRWStoreBuilder {
 
     private final Configuration config;
     private final Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass;
-    @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
     private final StoreDefinition storeDef;
     private final Path inputPath;
     private final Path tempPath;
-    private final long chunkSizeBytes, hadoopPushVersion;
-    private final int hadoopNodeId;
+    private final int reducersPerNode, hadoopNodeId;
+    private final long hadoopPushVersion;
 
     public HadoopRWStoreBuilder(Configuration conf,
                                 Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass,
                                 Class<? extends InputFormat> inputFormatClass,
                                 Cluster cluster,
                                 StoreDefinition storeDef,
-                                long chunkSizeBytes,
+                                int reducersPerNode,
                                 Path tempPath,
                                 Path inputPath) {
         this(conf,
@@ -77,7 +74,7 @@ public class HadoopRWStoreBuilder {
              inputFormatClass,
              cluster,
              storeDef,
-             chunkSizeBytes,
+             reducersPerNode,
              cluster.getNumberOfNodes(),
              1L,
              tempPath,
@@ -89,7 +86,7 @@ public class HadoopRWStoreBuilder {
                                 Class<? extends InputFormat> inputFormatClass,
                                 Cluster cluster,
                                 StoreDefinition storeDef,
-                                long chunkSizeBytes,
+                                int reducersPerNode,
                                 int hadoopNodeId,
                                 long hadoopPushVersion,
                                 Path tempPath,
@@ -103,10 +100,9 @@ public class HadoopRWStoreBuilder {
         this.tempPath = Utils.notNull(tempPath);
         this.hadoopNodeId = hadoopNodeId;
         this.hadoopPushVersion = hadoopPushVersion;
-        this.chunkSizeBytes = chunkSizeBytes;
-        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
-            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
-                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
+        this.reducersPerNode = reducersPerNode;
+        if(reducersPerNode < 0)
+            throw new VoldemortException("Number of reducers cannot be negative");
     }
 
     /**
@@ -143,18 +139,13 @@ public class HadoopRWStoreBuilder {
             FileSystem tempFs = tempPath.getFileSystem(conf);
             tempFs.delete(tempPath, true);
 
-            long size = sizeOfPath(tempFs, inputPath);
-            int numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                            / cluster.getNumberOfNodes() / chunkSizeBytes), 1);
-            logger.info("Data size = " + size + ", replication factor = "
-                        + storeDef.getReplicationFactor() + ", numNodes = "
-                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
-                        + ",  num.chunks = " + numChunks);
-            conf.setInt("num.chunks", numChunks);
-            int numReduces = cluster.getNumberOfNodes() * numChunks;
-            conf.setNumReduceTasks(numReduces);
+            conf.setInt("num.chunks", reducersPerNode);
+            int numReducers = cluster.getNumberOfNodes() * reducersPerNode;
+            logger.info("Replication factor = " + storeDef.getReplicationFactor() + ", numNodes = "
+                        + cluster.getNumberOfNodes() + ", reducers per node = " + reducersPerNode
+                        + ", numReducers = " + numReducers);
+            conf.setNumReduceTasks(numReducers);
 
-            logger.info("Number of reduces: " + numReduces);
             logger.info("Building RW store...");
             JobClient.runJob(conf);
 
@@ -164,17 +155,4 @@ public class HadoopRWStoreBuilder {
 
     }
 
-    private long sizeOfPath(FileSystem fs, Path path) throws IOException {
-        long size = 0;
-        FileStatus[] statuses = fs.listStatus(path);
-        if(statuses != null) {
-            for(FileStatus status: statuses) {
-                if(status.isDir())
-                    size += sizeOfPath(fs, status.getPath());
-                else
-                    size += status.getLen();
-            }
-        }
-        return size;
-    }
 }

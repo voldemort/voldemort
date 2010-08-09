@@ -132,7 +132,7 @@ public class HadoopRWStoreBuilderTest extends TestCase {
                                                                 TextInputFormat.class,
                                                                 cluster,
                                                                 storeDef,
-                                                                60 * 1000,
+                                                                1,
                                                                 hadoopNodeId,
                                                                 hadoopPushVersion,
                                                                 new Path(tempDir.getAbsolutePath()),

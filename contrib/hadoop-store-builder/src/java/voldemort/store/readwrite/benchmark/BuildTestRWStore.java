@@ -90,7 +90,7 @@ public class BuildTestRWStore extends Configured implements Tool {
                                                                 SequenceFileInputFormat.class,
                                                                 cluster,
                                                                 def,
-                                                                (long) (1.5 * 1024 * 1024 * 1024),
+                                                                1,
                                                                 new Path(tempDir),
                                                                 new Path(inputDir));
         builder.build();

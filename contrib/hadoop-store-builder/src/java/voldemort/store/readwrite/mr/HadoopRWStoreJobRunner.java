@@ -53,7 +53,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 
 /**
- * A runner class to facitilate the launching of HadoopStoreBuilder from the
+ * A runner class to facilitate the launching of HadoopStoreBuilder from the
  * command-line.
  */
 @SuppressWarnings("deprecation")
@@ -82,11 +82,16 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
         parser.accepts("storedefinitions", "local path to stores.xml.").withRequiredArg();
         parser.accepts("storename", "store name from store definition.").withRequiredArg();
         parser.accepts("inputformat", "JavaClassName (default=text).").withRequiredArg();
-        parser.accepts("chunksize", "maximum size of a chunk in bytes.").withRequiredArg();
+        parser.accepts("reducerspernode", "number of reducers per node (default=1)")
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
         parser.accepts("hadoopnodeid", "node id for hadoop (default=num_nodes+1)")
-              .withRequiredArg();
-        parser.accepts("pushversion", "version of push (default=1)").withRequiredArg();
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("pushversion", "version of push (default=1)")
+              .withRequiredArg()
+              .ofType(Long.class);
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -108,8 +113,7 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
                                                "mapper",
                                                "cluster",
                                                "storedefinitions",
-                                               "storename",
-                                               "chunksize");
+                                               "storename");
 
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing)
@@ -124,7 +128,6 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
         String storeName = (String) options.valueOf("storename");
         Path inputPath = new Path((String) options.valueOf("input"));
         Path tempPath = new Path((String) options.valueOf("temp"));
-        long chunkSizeBytes = Long.parseLong((String) options.valueOf("chunksize"));
 
         List<StoreDefinition> stores;
         stores = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storeDefFile)));
@@ -168,14 +171,21 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
 
         int hadoopNodeId;
         if(options.has("hadoopnodeid")) {
-            hadoopNodeId = Integer.parseInt((String) options.valueOf("hadoopnodeid"));
+            hadoopNodeId = (Integer) options.valueOf("hadoopnodeid");
         } else {
             hadoopNodeId = (short) cluster.getNumberOfNodes();
         }
 
+        int reducersPerNode;
+        if(options.has("reducerspernode")) {
+            reducersPerNode = (Integer) options.valueOf("reducerspernode");
+        } else {
+            reducersPerNode = 1;
+        }
+
         long pushVersion;
         if(options.has("pushversion")) {
-            pushVersion = Long.parseLong((String) options.valueOf("pushversion"));
+            pushVersion = (Long) options.valueOf("pushversion");
         } else {
             pushVersion = 1L;
         }
@@ -194,7 +204,7 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
                                                                 inputFormatClass,
                                                                 cluster,
                                                                 storeDef,
-                                                                chunkSizeBytes,
+                                                                reducersPerNode,
                                                                 hadoopNodeId,
                                                                 pushVersion,
                                                                 tempPath,

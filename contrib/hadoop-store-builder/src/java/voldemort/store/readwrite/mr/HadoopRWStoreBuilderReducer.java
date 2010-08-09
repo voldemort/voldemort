@@ -97,7 +97,10 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
                 return endOfData();
             }
         };
+        logger.info("Connecting to admin client on " + this.nodeId + " - chunk id - "
+                    + this.chunkId);
         this.client.updateEntries(this.nodeId, getStoreName(), this.iterator, null);
+        logger.info("Completed transfer of chunk id " + this.chunkId + " to node " + this.nodeId);
     }
 
     @Override
@@ -118,9 +121,8 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
         versions.add(0, new ClockEntry((short) hadoopNodeId, hadoopPushVersion));
         vectorClock = new VectorClock(versions, jobStartTime);
 
-        logger.info("Working on Node id - " + this.nodeId + " and chunk id - " + this.chunkId);
         this.client = new AdminClient(getCluster(), new AdminClientConfig());
-        logger.info("Connected to admin client on " + this.nodeId);
+        logger.info("Reducer for Node id - " + this.nodeId + " and chunk id - " + this.chunkId);
     }
 
     @Override
