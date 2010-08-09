@@ -86,10 +86,10 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
-        parser.accepts("hadoopnodeid", "node id for hadoop (default=num_nodes+1)")
+        parser.accepts("vectornodeid", "node id whose vector clock to set (default=master)")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts("pushversion", "version of push (default=1)")
+        parser.accepts("vectorversion", "version of vector clock (default=1)")
               .withRequiredArg()
               .ofType(Long.class);
         parser.accepts("help", "print usage information");
@@ -169,11 +169,18 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
             inputFormatClass = TextInputFormat.class;
         }
 
-        int hadoopNodeId;
-        if(options.has("hadoopnodeid")) {
-            hadoopNodeId = (Integer) options.valueOf("hadoopnodeid");
+        int vectorNodeId;
+        if(options.has("vectornodeid")) {
+            vectorNodeId = (Integer) options.valueOf("vectornodeid");
         } else {
-            hadoopNodeId = (short) cluster.getNumberOfNodes();
+            vectorNodeId = -1; // To denote master
+        }
+
+        long vectorNodeVersion;
+        if(options.has("vectorversion")) {
+            vectorNodeVersion = (Long) options.valueOf("vectorversion");
+        } else {
+            vectorNodeVersion = 1L;
         }
 
         int reducersPerNode;
@@ -181,13 +188,6 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
             reducersPerNode = (Integer) options.valueOf("reducerspernode");
         } else {
             reducersPerNode = 1;
-        }
-
-        long pushVersion;
-        if(options.has("pushversion")) {
-            pushVersion = (Long) options.valueOf("pushversion");
-        } else {
-            pushVersion = 1L;
         }
 
         Configuration conf = getConf();
@@ -205,8 +205,8 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
                                                                 cluster,
                                                                 storeDef,
                                                                 reducersPerNode,
-                                                                hadoopNodeId,
-                                                                pushVersion,
+                                                                vectorNodeId,
+                                                                vectorNodeVersion,
                                                                 tempPath,
                                                                 inputPath);
 

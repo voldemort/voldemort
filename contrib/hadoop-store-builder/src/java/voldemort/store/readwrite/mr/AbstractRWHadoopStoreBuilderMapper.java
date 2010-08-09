@@ -18,6 +18,7 @@ package voldemort.store.readwrite.mr;
 
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.io.BytesWritable;
@@ -38,6 +39,8 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.mr.AbstractStoreBuilderConfigurable;
 import voldemort.utils.ByteUtils;
+import voldemort.versioning.ClockEntry;
+import voldemort.versioning.VectorClock;
 
 /**
  * A base class that can be used for building voldemort read-only stores. To use
@@ -61,8 +64,14 @@ public abstract class AbstractRWHadoopStoreBuilderMapper<K, V> extends
     private CompressionStrategy keyCompressor;
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
-    private int sizeInt = ByteUtils.SIZE_OF_INT;
+    private int sizeInt = ByteUtils.SIZE_OF_INT, vectorNodeId;
+    private long vectorNodeVersion, jobStartTime;
+    private List<ClockEntry> versions = new ArrayList<ClockEntry>();
+    private VectorClock vectorClock;
 
+    /**
+     * Can return a null in which case the record will be ignored
+     */
     public abstract Object makeKey(K key, V value);
 
     public abstract Object makeValue(K key, V value);
@@ -78,8 +87,14 @@ public abstract class AbstractRWHadoopStoreBuilderMapper<K, V> extends
                     V value,
                     OutputCollector<BytesWritable, BytesWritable> output,
                     Reporter reporter) throws IOException {
-        byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
-        byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
+        Object keyObject = makeKey(key, value);
+        Object valueObject = makeValue(key, value);
+
+        if(keyObject == null || valueObject == null)
+            return;
+
+        byte[] keyBytes = keySerializer.toBytes(keyObject);
+        byte[] valBytes = valueSerializer.toBytes(valueObject);
 
         // compress key and values if required
         if(keySerializerDefinition.hasCompression()) {
@@ -90,8 +105,24 @@ public abstract class AbstractRWHadoopStoreBuilderMapper<K, V> extends
             valBytes = valueCompressor.deflate(valBytes);
         }
 
-        // Generate value
-        byte[] outputValBytes = new byte[keyBytes.length + sizeInt + valBytes.length + sizeInt];
+        List<Node> nodeList = routingStrategy.routeRequest(keyBytes);
+
+        // Generate vector clock
+        versions.clear();
+        if(vectorNodeId < 0) {
+            // Use master node
+            versions.add(0, new ClockEntry((short) nodeList.get(0).getId(), vectorNodeVersion));
+        } else {
+            // Use node id specified
+            versions.add(0, new ClockEntry((short) vectorNodeId, vectorNodeVersion));
+        }
+        vectorClock = new VectorClock(versions, jobStartTime);
+        byte[] vectorClockBytes = vectorClock.toBytes();
+
+        // Generate mapper value
+        byte[] outputValBytes = new byte[(3 * sizeInt) + keyBytes.length + valBytes.length
+                                         + vectorClockBytes.length];
+
         ByteUtils.writeInt(outputValBytes, keyBytes.length, 0);
         System.arraycopy(keyBytes, 0, outputValBytes, sizeInt, keyBytes.length);
         ByteUtils.writeInt(outputValBytes, valBytes.length, sizeInt + keyBytes.length);
@@ -100,11 +131,17 @@ public abstract class AbstractRWHadoopStoreBuilderMapper<K, V> extends
                          outputValBytes,
                          sizeInt + sizeInt + keyBytes.length,
                          valBytes.length);
+        ByteUtils.writeInt(outputValBytes, vectorClockBytes.length, (2 * sizeInt) + keyBytes.length
+                                                                    + valBytes.length);
+        System.arraycopy(vectorClockBytes,
+                         0,
+                         outputValBytes,
+                         (3 * sizeInt) + keyBytes.length + valBytes.length,
+                         vectorClockBytes.length);
         BytesWritable outputVal = new BytesWritable(outputValBytes);
 
-        // Generate key
+        // Generate mapper key & output
         int chunkId = ReadOnlyUtils.chunk(md5er.digest(keyBytes), getNumChunks());
-        List<Node> nodeList = routingStrategy.routeRequest(keyBytes);
         for(Node node: nodeList) {
             byte[] outputKeyBytes = new byte[sizeInt + sizeInt];
             ByteUtils.writeInt(outputKeyBytes, node.getId(), 0);
@@ -143,5 +180,13 @@ public abstract class AbstractRWHadoopStoreBuilderMapper<K, V> extends
 
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         routingStrategy = factory.updateRoutingStrategy(getStoreDef(), getCluster());
+
+        vectorNodeId = conf.getInt("vector.node.id", -1);
+        vectorNodeVersion = conf.getLong("vector.node.version", 1L);
+
+        jobStartTime = conf.getLong("job.start.time.ms", -1);
+        if(jobStartTime < 0) {
+            throw new RuntimeException("Incorrect job start time");
+        }
     }
 }

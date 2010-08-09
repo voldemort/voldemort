@@ -17,9 +17,7 @@
 package voldemort.store.readwrite.mr;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
@@ -34,7 +32,6 @@ import voldemort.store.readonly.mr.AbstractStoreBuilderConfigurable;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
-import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -52,7 +49,6 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
     private long totalBytes;
     private long transferStartTime;
     private int sizeInt = ByteUtils.SIZE_OF_INT;
-    private VectorClock vectorClock;
 
     protected static enum RecordCounter {
         RECORDS_STREAMED;
@@ -70,27 +66,44 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
             protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
                 while(values.hasNext()) {
                     BytesWritable keyValue = values.next();
-                    byte[] tempKeyValueBytes = new byte[keyValue.get().length];
-                    System.arraycopy(keyValue.get(), 0, tempKeyValueBytes, 0, keyValue.get().length);
+                    byte[] keyValueBytes = new byte[keyValue.get().length];
+                    System.arraycopy(keyValue.get(), 0, keyValueBytes, 0, keyValue.get().length);
 
                     // Reading key
-                    int keyBytesLength = ByteUtils.readInt(tempKeyValueBytes, 0);
+                    int keyBytesLength = ByteUtils.readInt(keyValueBytes, 0);
                     byte[] keyBytes = new byte[keyBytesLength];
-                    System.arraycopy(tempKeyValueBytes, sizeInt, keyBytes, 0, keyBytesLength);
+                    System.arraycopy(keyValueBytes, sizeInt, keyBytes, 0, keyBytesLength);
 
                     // Reading value
-                    int valueBytesLength = ByteUtils.readInt(tempKeyValueBytes, sizeInt
-                                                                                + keyBytesLength);
+                    int valueBytesLength = ByteUtils.readInt(keyValueBytes, sizeInt
+                                                                            + keyBytesLength);
                     byte[] valueBytes = new byte[valueBytesLength];
-                    System.arraycopy(tempKeyValueBytes,
+                    System.arraycopy(keyValueBytes,
                                      sizeInt + sizeInt + keyBytesLength,
                                      valueBytes,
                                      0,
                                      valueBytesLength);
 
-                    totalBytes += (keyBytesLength + valueBytesLength);
+                    // Reading vector clock
+                    int vectorClockBytesLength = ByteUtils.readInt(keyValueBytes,
+                                                                   sizeInt + sizeInt
+                                                                           + keyBytesLength
+                                                                           + valueBytesLength);
+                    byte[] vectorClockBytes = new byte[vectorClockBytesLength];
+                    System.arraycopy(keyValueBytes,
+                                     sizeInt + sizeInt + sizeInt + keyBytesLength
+                                             + valueBytesLength,
+                                     vectorClockBytes,
+                                     0,
+                                     vectorClockBytesLength);
+                    VectorClock vectorClock = new VectorClock(vectorClockBytes);
+
+                    totalBytes += (keyBytesLength + valueBytesLength + vectorClockBytesLength);
+
+                    // Generating output
                     ByteArray key = new ByteArray(keyBytes);
                     Versioned<byte[]> versioned = Versioned.value(valueBytes, vectorClock);
+
                     reporter.incrCounter(RecordCounter.RECORDS_STREAMED, 1);
                     return new Pair<ByteArray, Versioned<byte[]>>(key, versioned);
                 }
@@ -109,17 +122,11 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
 
         this.totalBytes = 0;
         this.chunkId = job.getInt("mapred.task.partition", -1); // http://www.mail-archive.com/core-user@hadoop.apache.org/msg05749.html
-        int hadoopNodeId = job.getInt("hadoop.node.id", -1);
-        long hadoopPushVersion = job.getLong("hadoop.push.version", -1L);
-        long jobStartTime = job.getLong("job.start.time.ms", -1);
-        if(this.chunkId < 0 || hadoopPushVersion < 0 || hadoopNodeId < 0 || jobStartTime < 0) {
-            throw new RuntimeException("Incorrect chunk id / hadoop push version / hadoop node id / job start time");
+
+        if(this.chunkId < 0) {
+            throw new RuntimeException("Incorrect chunk id ");
         }
         this.nodeId = this.chunkId / getNumChunks();
-
-        List<ClockEntry> versions = new ArrayList<ClockEntry>();
-        versions.add(0, new ClockEntry((short) hadoopNodeId, hadoopPushVersion));
-        vectorClock = new VectorClock(versions, jobStartTime);
 
         this.client = new AdminClient(getCluster(), new AdminClientConfig());
         logger.info("Reducer for Node id - " + this.nodeId + " and chunk id - " + this.chunkId);

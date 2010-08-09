@@ -58,8 +58,8 @@ public class HadoopRWStoreBuilder {
     private final StoreDefinition storeDef;
     private final Path inputPath;
     private final Path tempPath;
-    private final int reducersPerNode, hadoopNodeId;
-    private final long hadoopPushVersion;
+    private final int reducersPerNode, vectorNodeId;
+    private final long vectorNodeVersion;
 
     public HadoopRWStoreBuilder(Configuration conf,
                                 Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass,
@@ -75,7 +75,7 @@ public class HadoopRWStoreBuilder {
              cluster,
              storeDef,
              reducersPerNode,
-             cluster.getNumberOfNodes(),
+             -1,
              1L,
              tempPath,
              inputPath);
@@ -87,8 +87,8 @@ public class HadoopRWStoreBuilder {
                                 Cluster cluster,
                                 StoreDefinition storeDef,
                                 int reducersPerNode,
-                                int hadoopNodeId,
-                                long hadoopPushVersion,
+                                int vectorNodeId,
+                                long vectorNodeVersion,
                                 Path tempPath,
                                 Path inputPath) {
         this.config = conf;
@@ -98,8 +98,8 @@ public class HadoopRWStoreBuilder {
         this.cluster = Utils.notNull(cluster);
         this.storeDef = Utils.notNull(storeDef);
         this.tempPath = Utils.notNull(tempPath);
-        this.hadoopNodeId = hadoopNodeId;
-        this.hadoopPushVersion = hadoopPushVersion;
+        this.vectorNodeId = vectorNodeId;
+        this.vectorNodeVersion = vectorNodeVersion;
         this.reducersPerNode = reducersPerNode;
         if(reducersPerNode < 0)
             throw new VoldemortException("Number of reducers cannot be negative");
@@ -114,8 +114,8 @@ public class HadoopRWStoreBuilder {
         conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-        conf.setInt("hadoop.node.id", this.hadoopNodeId);
-        conf.setLong("hadoop.push.version", this.hadoopPushVersion);
+        conf.setInt("vector.node.id", this.vectorNodeId);
+        conf.setLong("vector.node.version", this.vectorNodeVersion);
         conf.setLong("job.start.time.ms", System.currentTimeMillis());
 
         conf.setPartitionerClass(HadoopRWStoreBuilderPartitioner.class);
@@ -129,6 +129,7 @@ public class HadoopRWStoreBuilder {
         conf.setOutputFormat(SequenceFileOutputFormat.class);
         conf.setOutputKeyClass(BytesWritable.class);
         conf.setOutputValueClass(BytesWritable.class);
+        conf.setReduceSpeculativeExecution(false);
 
         conf.setJarByClass(getClass());
         FileInputFormat.setInputPaths(conf, inputPath);
