@@ -50,9 +50,9 @@ public class HintedHandoff {
         boolean persisted = false;
         for(Node node: nodes) {
             int nodeId = node.getId();
-            Store<ByteArray, Slop> slopStore = slopStores.get(nodeId);
 
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
+                Store<ByteArray, Slop> slopStore = slopStores.get(nodeId);
                 Utils.notNull(slopStore);
                 long startNs = System.nanoTime();
 

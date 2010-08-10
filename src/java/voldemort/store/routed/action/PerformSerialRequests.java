@@ -110,10 +110,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                              + " succeeded",
                                                                                      pipelineData.getFailures()));
 
-                if(pipeline.isHintedHandoffEnabled())
-                    pipeline.addEvent(Event.ABORTED);
-                else
-                    pipeline.addEvent(Event.ERROR);
+                pipeline.abort();
             }
         } else {
             if(pipelineData.getZonesRequired() != null) {
@@ -130,10 +127,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                       + zonesSatisfied
                                                                                       + " succeeded"));
 
-                    if(pipeline.isHintedHandoffEnabled())
-                        pipeline.addEvent(Event.ABORTED);
-                    else
-                        pipeline.addEvent(Event.ERROR);
+                    pipeline.abort();
                 }
 
             } else {

@@ -68,10 +68,7 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
             failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);
         } else if(e instanceof VoldemortApplicationException) {
             pipelineData.setFatalError((VoldemortApplicationException) e);
-            if(pipeline.isHintedHandoffEnabled())
-                pipeline.addEvent(Event.ABORTED);
-            else
-                pipeline.addEvent(Event.ERROR);
+            pipeline.abort();
 
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("Error is fatal - aborting further pipeline processing");

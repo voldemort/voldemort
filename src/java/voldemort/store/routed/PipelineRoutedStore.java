@@ -151,7 +151,7 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                  repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                            : Event.COMPLETED,
+                                                                                                                                             : Event.COMPLETED,
                                                                                                                                  key,
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
@@ -164,7 +164,7 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                          : Event.COMPLETED,
+                                                                                                                                           : Event.COMPLETED,
                                                                                                                                key,
                                                                                                                                failureDetector,
                                                                                                                                innerStores,
@@ -185,7 +185,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
                                     new PerformZoneSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                        repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                                  : Event.COMPLETED,
+                                                                                                                                                   : Event.COMPLETED,
                                                                                                                                        key,
                                                                                                                                        failureDetector,
                                                                                                                                        innerStores,
@@ -238,7 +238,7 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialGetAllRequests(pipelineData,
                                                                 repairReads ? Event.RESPONSES_RECEIVED
-                                                                           : Event.COMPLETED,
+                                                                            : Event.COMPLETED,
                                                                 keys,
                                                                 failureDetector,
                                                                 innerStores,

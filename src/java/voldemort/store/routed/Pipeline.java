@@ -121,6 +121,13 @@ public class Pipeline {
         eventActions.put(event, action);
     }
 
+    public void abort() {
+        if(isHintedHandoffEnabled())
+            addEvent(Event.ABORTED);
+        else
+            addEvent(Event.ERROR);
+    }
+
     /**
      * Add an event to the queue. It will be processed in the order received.
      * 

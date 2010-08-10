@@ -95,10 +95,7 @@ public class PerformZoneSerialRequests<V, PD extends BasicPipelineData<V>> exten
                                                                               + zonesSatisfied
                                                                               + " succeeded"));
 
-            if(pipeline.isHintedHandoffEnabled())
-                pipeline.addEvent(Event.ABORTED);
-            else
-                pipeline.addEvent(Event.ERROR);
+            pipeline.abort();
         }
     }
 }
