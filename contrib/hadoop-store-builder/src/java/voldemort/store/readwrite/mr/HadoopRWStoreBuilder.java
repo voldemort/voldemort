@@ -53,6 +53,7 @@ public class HadoopRWStoreBuilder {
 
     private final Configuration config;
     private final Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass;
+    @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
     private final StoreDefinition storeDef;
@@ -61,6 +62,7 @@ public class HadoopRWStoreBuilder {
     private final int reducersPerNode, vectorNodeId;
     private final long vectorNodeVersion;
 
+    @SuppressWarnings("unchecked")
     public HadoopRWStoreBuilder(Configuration conf,
                                 Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass,
                                 Class<? extends InputFormat> inputFormatClass,
@@ -81,6 +83,7 @@ public class HadoopRWStoreBuilder {
              inputPath);
     }
 
+    @SuppressWarnings("unchecked")
     public HadoopRWStoreBuilder(Configuration conf,
                                 Class<? extends AbstractRWHadoopStoreBuilderMapper<?, ?>> mapperClass,
                                 Class<? extends InputFormat> inputFormatClass,

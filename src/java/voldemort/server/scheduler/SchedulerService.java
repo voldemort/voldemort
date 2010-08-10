@@ -21,8 +21,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
@@ -35,8 +33,6 @@ import voldemort.utils.Time;
  */
 @JmxManaged(description = "A service that runs scheduled jobs.")
 public class SchedulerService extends AbstractService {
-
-    private static final Logger logger = Logger.getLogger(SchedulerService.class.getName());
 
     private final ScheduledThreadPoolExecutor scheduler;
     private final Time time;

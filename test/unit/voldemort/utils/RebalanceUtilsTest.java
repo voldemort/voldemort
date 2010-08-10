@@ -35,7 +35,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 public class RebalanceUtilsTest extends TestCase {
 
-    private static String testStoreName = "test-replication-memory";
     private static String storeDefFile = "test/common/voldemort/config/stores.xml";
 
     private Cluster currentCluster;

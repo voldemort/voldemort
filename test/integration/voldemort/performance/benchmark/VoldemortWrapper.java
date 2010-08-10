@@ -85,15 +85,13 @@ public class VoldemortWrapper {
             @Override
             public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
-                Versioned<Object> v = storeClient.get(key);
-                if(v != null) {
-                    voldemortStore.put(key, newValue);
-                }
+                storeClient.get(key);
+                storeClient.put(key, newValue);
                 long endNs = System.nanoTime();
                 measurement.recordLatency(Operations.Mixed.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
             }
-        }, 3);
+        });
 
         ReturnCode res = ReturnCode.Error;
         if(updated) {
@@ -115,7 +113,7 @@ public class VoldemortWrapper {
                 measurement.recordLatency(Operations.Write.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
             }
-        }, 3);
+        });
 
         ReturnCode res = ReturnCode.Error;
         if(written) {

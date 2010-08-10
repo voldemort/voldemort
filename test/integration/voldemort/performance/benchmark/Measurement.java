@@ -69,7 +69,7 @@ public class Measurement {
 
     public Measurement(String name, boolean summaryOnly) {
         this.name = name;
-        this.buckets = 1000;
+        this.buckets = 3000; // Default bucket size of 3000 milliseconds
         this.histogram = new int[buckets];
         this.histogramOverflow = 0;
         this.operations = 0;

@@ -16,8 +16,6 @@
 
 package voldemort.store.readonly;
 
-import java.io.IOException;
-
 import junit.framework.TestCase;
 import voldemort.utils.ByteUtils;
 
@@ -28,7 +26,7 @@ import voldemort.utils.ByteUtils;
  */
 public class ReadOnlyUtilsTest extends TestCase {
 
-    public void testMinIntegerBug() throws IOException {
+    public void testMinIntegerBug() {
         byte[] keyBytes = new byte[4];
         ByteUtils.writeInt(keyBytes, Integer.MIN_VALUE, 0);
         assertEquals(0, ReadOnlyUtils.chunk(keyBytes, 15));

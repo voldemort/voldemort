@@ -48,7 +48,6 @@ public class GossiperTest extends TestCase {
                                                                                   10000,
                                                                                   100000,
                                                                                   32 * 1024);
-    private static String testStoreName = "test-replication-memory";
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     private final boolean useNio;
 

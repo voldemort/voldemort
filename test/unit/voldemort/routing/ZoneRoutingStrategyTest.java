@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 
 public class ZoneRoutingStrategyTest extends TestCase {
 
-    private final byte[] key = new byte[0];
-
     private ZoneRoutingStrategy getRouter(int... zonesRepFactor) {
         int totalZoneRepFactor = 0;
         for(int i = 0; i < zonesRepFactor.length; i++) {

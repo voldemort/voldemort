@@ -160,27 +160,27 @@ public class Benchmark {
 
         private VoldemortWrapper db;
         private boolean runBenchmark;
-        private boolean verbose;
-        private Workload workLoad;
-        private int opsCount;
+        private boolean isVerbose;
+        private Workload clientWorkLoad;
+        private int operationsCount;
         private double targetThroughputPerMs;
         private int opsDone;
         private final WorkloadPlugin plugin;
 
         public ClientThread(VoldemortWrapper db,
                             boolean runBenchmark,
-                            Workload workLoad,
-                            int opsCount,
+                            Workload w,
+                            int operationsCount,
                             double targetThroughputPerMs,
-                            boolean verbose,
+                            boolean isVerbose,
                             WorkloadPlugin plugin) {
             this.db = db;
             this.runBenchmark = runBenchmark;
-            this.workLoad = workLoad;
-            this.opsCount = opsCount;
+            this.clientWorkLoad = w;
+            this.operationsCount = operationsCount;
             this.opsDone = 0;
             this.targetThroughputPerMs = targetThroughputPerMs;
-            this.verbose = verbose;
+            this.isVerbose = isVerbose;
             this.plugin = plugin;
         }
 
@@ -188,27 +188,28 @@ public class Benchmark {
             return this.opsDone;
         }
 
+        @Override
         public void run() {
             long startTime = System.currentTimeMillis();
-            while(opsDone < this.opsCount) {
+            while(opsDone < this.operationsCount) {
                 try {
                     if(runBenchmark) {
-                        if(!workLoad.doTransaction(this.db, plugin)) {
+                        if(!clientWorkLoad.doTransaction(this.db, plugin)) {
                             break;
                         }
                     } else {
-                        if(!workLoad.doWrite(this.db, plugin)) {
+                        if(!clientWorkLoad.doWrite(this.db, plugin)) {
                             break;
                         }
                     }
                 } catch(Exception e) {
-                    if(this.verbose)
+                    if(this.isVerbose)
                         e.printStackTrace();
                 }
                 opsDone++;
                 if(targetThroughputPerMs > 0) {
-                    while(System.currentTimeMillis() - startTime < ((double) opsDone)
-                                                                   / targetThroughputPerMs) {
+                    double timePerOp = ((double) opsDone) / targetThroughputPerMs;
+                    while(System.currentTimeMillis() - startTime < timePerOp) {
                         try {
                             sleep(1);
                         } catch(InterruptedException e) {}
