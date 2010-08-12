@@ -329,10 +329,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
         try {
-            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeName);
-            if(store == null)
-                throw new VoldemortException("'" + storeName
-                                             + "' is not a registered read-only store.");
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                   storeName);
+
             if(!Utils.isReadableDir(dir))
                 throw new VoldemortException("Store directory '" + dir
                                              + "' is not a readable directory.");
@@ -367,6 +366,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 @Override
                 public void operate() {
+                    ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                           storeName);
+
                     File fetchDir = null;
 
                     if(fileFetcher == null) {
@@ -377,7 +379,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         updateStatus("Executing fetch of " + fetchUrl);
                         try {
                             fileFetcher.setAsyncOperationStatus(status);
-                            fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+                            fetchDir = fileFetcher.fetch(fetchUrl,
+                                                         store.getStoreDirPath() + File.separator
+                                                                 + "version-"
+                                                                 + (store.getMaxVersion() + 1),
+                                                         storeName);
                             updateStatus("Completed fetch of " + fetchUrl);
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());

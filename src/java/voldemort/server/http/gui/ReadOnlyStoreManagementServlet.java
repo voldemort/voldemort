@@ -172,6 +172,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             ServletException {
         String fetchUrl = getRequired(req, "dir");
         String storeName = getOptional(req, "store");
+        ReadOnlyStorageEngine store = this.getStore(storeName);
 
         // fetch the files if necessary
         File fetchDir = null;
@@ -181,7 +182,10 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         } else {
             logger.info("Executing fetch of " + fetchUrl);
             try {
-                fetchDir = fileFetcher.fetch(fetchUrl, storeName);
+                fetchDir = fileFetcher.fetch(fetchUrl,
+                                             store.getStoreDirPath() + File.separator + "version-"
+                                                     + (store.getMaxVersion() + 1),
+                                             storeName);
             } catch(Exception e) {
                 throw new ServletException("Exception in Fetcher = " + e.getMessage());
             }

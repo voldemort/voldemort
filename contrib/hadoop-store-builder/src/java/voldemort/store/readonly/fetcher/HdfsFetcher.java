@@ -55,8 +55,6 @@ import voldemort.utils.Utils;
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
-    private static final String DEFAULT_TEMP_DIR = new File(System.getProperty("java.io.tmpdir"),
-                                                            "hdfs-fetcher").getAbsolutePath();
     private static final int REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
@@ -70,45 +68,40 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
                                                            : null,
-             new File(props.getString("hdfs.fetcher.tmp.dir", DEFAULT_TEMP_DIR)),
              (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
         logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
                     + " and throttle rate " + maxBytesPerSecond + " and buffer size " + bufferSize);
     }
 
     public HdfsFetcher() {
-        this((Long) null, null, DEFAULT_BUFFER_SIZE);
+        this((Long) null, DEFAULT_BUFFER_SIZE);
     }
 
-    public HdfsFetcher(Long maxBytesPerSecond, File tempDir, int bufferSize) {
-        if(tempDir == null)
-            this.tempDir = new File(DEFAULT_TEMP_DIR);
-        else
-            this.tempDir = Utils.notNull(new File(tempDir, "hdfs-fetcher"));
+    public HdfsFetcher(Long maxBytesPerSecond, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
         if(this.maxBytesPerSecond != null)
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
         this.bufferSize = bufferSize;
         this.status = null;
-        Utils.mkdirs(this.tempDir);
     }
 
-    public File fetch(String fileUrl, String storeName) throws IOException {
-        Path path = new Path(fileUrl);
+    public File fetch(String sourceFileUrl, String destinationFile, String storeName)
+            throws IOException {
+        Path path = new Path(sourceFileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         FileSystem fs = path.getFileSystem(config);
 
-        CopyStats stats = new CopyStats(fileUrl, sizeOfPath(fs, path));
+        CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
         ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
                                                     stats);
         try {
             File storeDir = new File(this.tempDir, storeName + "_" + System.currentTimeMillis());
             Utils.mkdirs(storeDir);
 
-            File destination = new File(storeDir.getAbsoluteFile(), path.getName());
+            File destination = new File(destinationFile);
             boolean result = fetch(fs, path, destination, stats);
             if(result) {
                 return destination;
@@ -342,9 +335,9 @@ public class HdfsFetcher implements FileFetcher {
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
         FileStatus status = p.getFileSystem(config).getFileStatus(p);
         long size = status.getLen();
-        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, null, DEFAULT_BUFFER_SIZE);
+        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
-        File location = fetcher.fetch(url, storeName);
+        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir"), storeName);
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(2);
