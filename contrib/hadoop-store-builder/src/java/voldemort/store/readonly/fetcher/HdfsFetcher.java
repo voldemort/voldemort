@@ -58,7 +58,6 @@ public class HdfsFetcher implements FileFetcher {
     private static final int REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
-    private File tempDir;
     private final Long maxBytesPerSecond;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
@@ -69,8 +68,8 @@ public class HdfsFetcher implements FileFetcher {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
                                                            : null,
              (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
-        logger.info("Created hdfs fetcher with temp dir = " + tempDir.getAbsolutePath()
-                    + " and throttle rate " + maxBytesPerSecond + " and buffer size " + bufferSize);
+        logger.info("Created hdfs fetcher with throttle rate " + maxBytesPerSecond
+                    + " and buffer size " + bufferSize);
     }
 
     public HdfsFetcher() {
@@ -98,9 +97,6 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
                                                     stats);
         try {
-            File storeDir = new File(this.tempDir, storeName + "_" + System.currentTimeMillis());
-            Utils.mkdirs(storeDir);
-
             File destination = new File(destinationFile);
             boolean result = fetch(fs, path, destination, stats);
             if(result) {

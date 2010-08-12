@@ -174,10 +174,19 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         return storeDir.getAbsolutePath();
     }
 
+    private boolean checkVersionDirName(File dir) {
+        if(dir.isDirectory() && dir.getName().contains("version-")
+           && !dir.getName().endsWith(".bak")) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     private File setMaxVersion(File[] versionDirs) {
         int max = 0;
         for(File versionDir: versionDirs) {
-            if(versionDir.isDirectory() && versionDir.getName().contains("version-")) {
+            if(checkVersionDirName(versionDir)) {
                 int version = Integer.parseInt(versionDir.getName().replace("version-", ""));
                 if(version > max) {
                     max = version;
@@ -189,7 +198,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     private File setMaxVersion(File versionDir) {
-        if(versionDir.isDirectory() && versionDir.getName().contains("version-")) {
+        if(checkVersionDirName(versionDir)) {
             maxVersion = Integer.parseInt(versionDir.getName().replace("version-", ""));
         }
         return new File(storeDir, "version-" + maxVersion);
@@ -229,9 +238,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             throw new VoldemortException("File " + newDataDir.getAbsolutePath()
                                          + " does not exist.");
 
-        if(!newDataDir.getName().startsWith("version-"))
-            throw new VoldemortException("Invalid version folder name '" + newDataDir.getName()
-                                         + "'. Should be of the format 'version-n'");
+        if(!(newDataDir.getParentFile().compareTo(storeDir.getAbsoluteFile()) == 0 && checkVersionDirName(newDataDir)))
+            throw new VoldemortException("Invalid version folder name '"
+                                         + newDataDir
+                                         + "'. Either parent directory is incorrect or format(version-n) is incorrect");
 
         logger.info("Acquiring write lock on '" + getName() + "':");
         fileModificationLock.writeLock().lock();

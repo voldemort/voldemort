@@ -255,17 +255,28 @@ public class ReadOnlyStorageEngineTest {
         assertVersionsExist(dir, 0);
     }
 
-    @Test(expected = VoldemortException.class)
+    @Test
     public void testBadSwapNameThrows() throws IOException {
         File versionDir = new File(dir, "version-0");
         createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
         assertVersionsExist(dir, 0);
 
-        // swap to a directory with bad name
+        // swap to a directory with an incorrect parent directory
         File newDir = TestUtils.createTempDir();
         createStoreFiles(newDir, 73, 1024, 2);
-        engine.swapFiles(newDir.getAbsolutePath());
+        try {
+            engine.swapFiles(newDir.getAbsolutePath());
+            fail("Swap files should have failed since parent directory is incorrect");
+        } catch(VoldemortException e) {}
+
+        // swap to a directory with incorrect name
+        newDir = new File(dir, "blah");
+        createStoreFiles(newDir, 73, 1024, 2);
+        try {
+            engine.swapFiles(newDir.getAbsolutePath());
+            fail("Swap files should have failed since name is incorrect");
+        } catch(VoldemortException e) {}
     }
 
     @Test(expected = VoldemortException.class)
