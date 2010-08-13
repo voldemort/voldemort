@@ -44,14 +44,16 @@ public abstract class StoreSwapper {
         this.executor = executor;
     }
 
-    public void swapStoreData(String storeName, String basePath) {
-        List<String> fetched = invokeFetch(storeName, basePath);
+    public void swapStoreData(String storeName, String basePath, long pushVersion) {
+        List<String> fetched = invokeFetch(storeName, basePath, pushVersion);
         invokeSwap(storeName, fetched);
     }
 
-    protected abstract List<String> invokeFetch(final String storeName, final String basePath);
+    protected abstract List<String> invokeFetch(String storeName, String basePath, long pushVersion);
 
     protected abstract void invokeSwap(String storeName, List<String> fetchFiles);
+
+    protected abstract void invokeRollback(String storeName);
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
@@ -74,6 +76,9 @@ public abstract class StoreSwapper {
               .ofType(Integer.class);
         parser.accepts("rollback", "Rollback store to older version");
         parser.accepts("admin", "Use admin services. Default = false");
+        parser.accepts("push-version", "Version of push. Default = latest_version+1")
+              .withRequiredArg()
+              .ofType(Long.class);
 
         OptionSet options = parser.parse(args);
         if(options.has("help")) {
@@ -98,10 +103,17 @@ public abstract class StoreSwapper {
         boolean useAdminServices = options.has("admin");
         boolean rollbackStore = options.has("rollback");
 
+        // -1 signifies current_version + 1
+        Long pushVersion = -1L;
+        if(options.has("push-version")) {
+            pushVersion = (Long) options.valueOf("push-version");
+        }
+
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
         ExecutorService executor = Executors.newFixedThreadPool(10);
         StoreSwapper swapper = null;
+
         if(useAdminServices) {
             swapper = new AdminStoreSwapper(cluster, executor, timeoutMs);
         } else {
@@ -116,26 +128,20 @@ public abstract class StoreSwapper {
 
             swapper = new HttpStoreSwapper(cluster, executor, client, mgmtPath);
         }
+
+        long start = System.currentTimeMillis();
         if(rollbackStore) {
-            if(useAdminServices) {
-                long start = System.currentTimeMillis();
-                ((AdminStoreSwapper) swapper).invokeRollback(storeName);
-                long end = System.currentTimeMillis();
-                logger.info("Rollback succeeded on all nodes in "
-                            + ((end - start) / Time.MS_PER_SECOND) + " seconds.");
-            } else {
-                System.err.println("Rollback supported only using admin services");
-                System.exit(1);
-            }
+            swapper.invokeRollback(storeName);
         } else {
-            long start = System.currentTimeMillis();
-            swapper.swapStoreData(storeName, filePath);
-            long end = System.currentTimeMillis();
-            logger.info("Swap succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
-                        + " seconds.");
+            swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
         }
+        long end = System.currentTimeMillis();
+        logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
+                    + " seconds.");
+
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.SECONDS);
+
         System.exit(0);
     }
 }

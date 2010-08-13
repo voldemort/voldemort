@@ -171,40 +171,55 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
         String fetchUrl = getRequired(req, "dir");
-        String storeName = getOptional(req, "store");
+        String storeName = getRequired(req, "store");
+        String pushVersionString = getOptional(req, "pushVersion");
+
         ReadOnlyStorageEngine store = this.getStore(storeName);
+
+        long pushVersion;
+        if(pushVersionString == null) {
+            pushVersion = store.getMaxVersion() + 1;
+        } else {
+            pushVersion = Long.parseLong(pushVersionString);
+            if(pushVersion <= store.getMaxVersion()) {
+                throw new ServletException("Version of push specified (" + pushVersion
+                                           + ") should be greater than current version "
+                                           + store.getMaxVersion());
+            }
+        }
 
         // fetch the files if necessary
         File fetchDir = null;
         if(fileFetcher == null) {
+
             logger.warn("File fetcher class has not instantiated correctly");
             fetchDir = new File(fetchUrl);
+
         } else {
             logger.info("Executing fetch of " + fetchUrl);
+
             try {
-                fetchDir = fileFetcher.fetch(fetchUrl,
-                                             store.getStoreDirPath() + File.separator + "version-"
-                                                     + (store.getMaxVersion() + 1),
-                                             storeName);
+                fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath() + File.separator
+                                                       + "version-" + pushVersion, storeName);
+
+                if(fetchDir == null) {
+                    throw new ServletException("File fetcher failed for " + fetchUrl
+                                               + " and store name = " + storeName
+                                               + " due to incorrect input path/checksum error");
+                } else {
+                    logger.info("Fetch complete.");
+                }
+
             } catch(Exception e) {
                 throw new ServletException("Exception in Fetcher = " + e.getMessage());
             }
-            if(fetchDir == null) {
-                throw new VoldemortException("File fetcher failed for " + fetchUrl
-                                             + " and store name = " + storeName
-                                             + " due to incorrect path/checksum error");
-            } else {
-                logger.info("Fetch complete.");
-            }
+
         }
         resp.getWriter().write(fetchDir.getAbsolutePath());
     }
 
     private String getOptional(HttpServletRequest req, String name) {
-        String val = req.getParameter(name);
-        if(val == null)
-            return "";
-        return val;
+        return req.getParameter(name);
     }
 
     private void doRollback(HttpServletRequest req) throws ServletException {

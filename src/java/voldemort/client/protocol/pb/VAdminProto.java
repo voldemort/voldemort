@@ -9050,6 +9050,13 @@ public final class VAdminProto {
     public boolean hasStoreDir() { return hasStoreDir; }
     public java.lang.String getStoreDir() { return storeDir_; }
     
+    // optional int64 push_version = 3;
+    public static final int PUSH_VERSION_FIELD_NUMBER = 3;
+    private boolean hasPushVersion;
+    private long pushVersion_ = 0L;
+    public boolean hasPushVersion() { return hasPushVersion; }
+    public long getPushVersion() { return pushVersion_; }
+    
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       if (!hasStoreDir) return false;
@@ -9063,6 +9070,9 @@ public final class VAdminProto {
       }
       if (hasStoreDir()) {
         output.writeString(2, getStoreDir());
+      }
+      if (hasPushVersion()) {
+        output.writeInt64(3, getPushVersion());
       }
       getUnknownFields().writeTo(output);
     }
@@ -9080,6 +9090,10 @@ public final class VAdminProto {
       if (hasStoreDir()) {
         size += com.google.protobuf.CodedOutputStream
           .computeStringSize(2, getStoreDir());
+      }
+      if (hasPushVersion()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(3, getPushVersion());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -9236,6 +9250,9 @@ public final class VAdminProto {
         if (other.hasStoreDir()) {
           setStoreDir(other.getStoreDir());
         }
+        if (other.hasPushVersion()) {
+          setPushVersion(other.getPushVersion());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -9267,6 +9284,10 @@ public final class VAdminProto {
             }
             case 18: {
               setStoreDir(input.readString());
+              break;
+            }
+            case 24: {
+              setPushVersion(input.readInt64());
               break;
             }
           }
@@ -9313,6 +9334,24 @@ public final class VAdminProto {
       public Builder clearStoreDir() {
         result.hasStoreDir = false;
         result.storeDir_ = getDefaultInstance().getStoreDir();
+        return this;
+      }
+      
+      // optional int64 push_version = 3;
+      public boolean hasPushVersion() {
+        return result.hasPushVersion();
+      }
+      public long getPushVersion() {
+        return result.getPushVersion();
+      }
+      public Builder setPushVersion(long value) {
+        result.hasPushVersion = true;
+        result.pushVersion_ = value;
+        return this;
+      }
+      public Builder clearPushVersion() {
+        result.hasPushVersion = false;
+        result.pushVersion_ = 0L;
         return this;
       }
     }
@@ -12055,53 +12094,53 @@ public final class VAdminProto {
       "on\030\001 \002(\t\"3\n\020AddStoreResponse\022\037\n\005error\030\001 " +
       "\001(\0132\020.voldemort.Error\"\'\n\022DeleteStoreRequ" +
       "est\022\021\n\tstoreName\030\001 \002(\t\"6\n\023DeleteStoreRes" +
-      "ponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\":" +
+      "ponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"P" +
       "\n\021FetchStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022" +
-      "\021\n\tstore_dir\030\002 \002(\t\"9\n\020SwapStoreRequest\022\022" +
-      "\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"4\n" +
-      "\021SwapStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vold" +
-      "emort.Error\"*\n\024RollbackStoreRequest\022\022\n\ns",
-      "tore_name\030\001 \002(\t\"8\n\025RollbackStoreResponse" +
-      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"\271\010\n\025Vo" +
-      "ldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033.vold" +
-      "emort.AdminRequestType\0223\n\014get_metadata\030\002" +
-      " \001(\0132\035.voldemort.GetMetadataRequest\0229\n\017u" +
-      "pdate_metadata\030\003 \001(\0132 .voldemort.UpdateM" +
-      "etadataRequest\022J\n\030update_partition_entri" +
-      "es\030\004 \001(\0132(.voldemort.UpdatePartitionEntr" +
-      "iesRequest\022H\n\027fetch_partition_entries\030\005 " +
-      "\001(\0132\'.voldemort.FetchPartitionEntriesReq",
-      "uest\022J\n\030delete_partition_entries\030\006 \001(\0132(" +
-      ".voldemort.DeletePartitionEntriesRequest" +
-      "\022K\n\031initiate_fetch_and_update\030\007 \001(\0132(.vo" +
-      "ldemort.InitiateFetchAndUpdateRequest\022F\n" +
-      "\026async_operation_status\030\010 \001(\0132&.voldemor" +
-      "t.AsyncOperationStatusRequest\022H\n\027initiat" +
-      "e_rebalance_node\030\t \001(\0132\'.voldemort.Initi" +
-      "ateRebalanceNodeRequest\022B\n\024async_operati" +
-      "on_stop\030\n \001(\0132$.voldemort.AsyncOperation" +
-      "StopRequest\022B\n\024async_operation_list\030\013 \001(",
-      "\0132$.voldemort.AsyncOperationListRequest\022" +
-      ";\n\020truncate_entries\030\014 \001(\0132!.voldemort.Tr" +
-      "uncateEntriesRequest\022-\n\tadd_store\030\r \001(\0132" +
-      "\032.voldemort.AddStoreRequest\0223\n\014delete_st" +
-      "ore\030\016 \001(\0132\035.voldemort.DeleteStoreRequest" +
-      "\0221\n\013fetch_store\030\017 \001(\0132\034.voldemort.FetchS" +
-      "toreRequest\022/\n\nswap_store\030\020 \001(\0132\033.voldem" +
-      "ort.SwapStoreRequest\0227\n\016rollback_store\030\021" +
-      " \001(\0132\037.voldemort.RollbackStoreRequest*\212\003" +
-      "\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000\022\023\n\017",
-      "UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_EN" +
-      "TRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030" +
-      "DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_F" +
-      "ETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_STA" +
-      "TUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024AS" +
-      "YNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION_" +
-      "LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STOR" +
-      "E\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016" +
-      "\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017B-\n\034vo" +
-      "ldemort.client.protocol.pbB\013VAdminProtoH",
-      "\001"
+      "\021\n\tstore_dir\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003" +
+      "\"9\n\020SwapStoreRequest\022\022\n\nstore_name\030\001 \002(\t" +
+      "\022\021\n\tstore_dir\030\002 \002(\t\"4\n\021SwapStoreResponse" +
+      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"*\n\024Rol",
+      "lbackStoreRequest\022\022\n\nstore_name\030\001 \002(\t\"8\n" +
+      "\025RollbackStoreResponse\022\037\n\005error\030\001 \001(\0132\020." +
+      "voldemort.Error\"\271\010\n\025VoldemortAdminReques" +
+      "t\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminRequest" +
+      "Type\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.G" +
+      "etMetadataRequest\0229\n\017update_metadata\030\003 \001" +
+      "(\0132 .voldemort.UpdateMetadataRequest\022J\n\030" +
+      "update_partition_entries\030\004 \001(\0132(.voldemo" +
+      "rt.UpdatePartitionEntriesRequest\022H\n\027fetc" +
+      "h_partition_entries\030\005 \001(\0132\'.voldemort.Fe",
+      "tchPartitionEntriesRequest\022J\n\030delete_par" +
+      "tition_entries\030\006 \001(\0132(.voldemort.DeleteP" +
+      "artitionEntriesRequest\022K\n\031initiate_fetch" +
+      "_and_update\030\007 \001(\0132(.voldemort.InitiateFe" +
+      "tchAndUpdateRequest\022F\n\026async_operation_s" +
+      "tatus\030\010 \001(\0132&.voldemort.AsyncOperationSt" +
+      "atusRequest\022H\n\027initiate_rebalance_node\030\t" +
+      " \001(\0132\'.voldemort.InitiateRebalanceNodeRe" +
+      "quest\022B\n\024async_operation_stop\030\n \001(\0132$.vo" +
+      "ldemort.AsyncOperationStopRequest\022B\n\024asy",
+      "nc_operation_list\030\013 \001(\0132$.voldemort.Asyn" +
+      "cOperationListRequest\022;\n\020truncate_entrie" +
+      "s\030\014 \001(\0132!.voldemort.TruncateEntriesReque" +
+      "st\022-\n\tadd_store\030\r \001(\0132\032.voldemort.AddSto" +
+      "reRequest\0223\n\014delete_store\030\016 \001(\0132\035.voldem" +
+      "ort.DeleteStoreRequest\0221\n\013fetch_store\030\017 " +
+      "\001(\0132\034.voldemort.FetchStoreRequest\022/\n\nswa" +
+      "p_store\030\020 \001(\0132\033.voldemort.SwapStoreReque" +
+      "st\0227\n\016rollback_store\030\021 \001(\0132\037.voldemort.R" +
+      "ollbackStoreRequest*\212\003\n\020AdminRequestType",
+      "\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022" +
+      "\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_P" +
+      "ARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_E" +
+      "NTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022" +
+      "\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_" +
+      "REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP" +
+      "\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE" +
+      "_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STOR" +
+      "E\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016" +
+      "ROLLBACK_STORE\020\017B-\n\034voldemort.client.pro",
+      "tocol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -12321,7 +12360,7 @@ public final class VAdminProto {
           internal_static_voldemort_FetchStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_FetchStoreRequest_descriptor,
-              new java.lang.String[] { "StoreName", "StoreDir", },
+              new java.lang.String[] { "StoreName", "StoreDir", "PushVersion", },
               voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.Builder.class);
           internal_static_voldemort_SwapStoreRequest_descriptor =

@@ -347,6 +347,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AsyncOperationStatusResponse handleFetchStore(VAdminProto.FetchStoreRequest request) {
         final String fetchUrl = request.getStoreDir();
         final String storeName = request.getStoreName();
+
         int requestId = asyncService.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
                                                                                                             .setRequestId(requestId)
@@ -354,47 +355,66 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setDescription("Fetch store")
                                                                                                             .setStatus("started");
         try {
+            final ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                         storeName);
+            final long pushVersion;
+            if(request.hasPushVersion()) {
+                pushVersion = request.getPushVersion();
+                if(pushVersion <= store.getMaxVersion()) {
+                    throw new VoldemortException("Version of push specified (" + pushVersion
+                                                 + ") should be greater than current version "
+                                                 + store.getMaxVersion());
+                }
+            } else {
+                pushVersion = store.getMaxVersion() + 1;
+            }
+
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
 
                 private String fetchDirPath = null;
 
                 @Override
                 public void markComplete() {
+                    if(fetchDirPath != null)
+                        status.setStatus(fetchDirPath);
                     status.setComplete(true);
-                    status.setStatus(fetchDirPath);
                 }
 
                 @Override
                 public void operate() {
-                    ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                           storeName);
 
                     File fetchDir = null;
 
                     if(fileFetcher == null) {
+
                         logger.warn("File fetcher class has not instantiated correctly");
                         fetchDir = new File(fetchUrl);
+
                     } else {
+
                         logger.info("Executing fetch of " + fetchUrl);
                         updateStatus("Executing fetch of " + fetchUrl);
+
                         try {
                             fileFetcher.setAsyncOperationStatus(status);
-                            fetchDir = fileFetcher.fetch(fetchUrl,
-                                                         store.getStoreDirPath() + File.separator
-                                                                 + "version-"
-                                                                 + (store.getMaxVersion() + 1),
-                                                         storeName);
+                            fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()
+                                                                   + File.separator + "version-"
+                                                                   + pushVersion, storeName);
                             updateStatus("Completed fetch of " + fetchUrl);
+
+                            if(fetchDir == null) {
+                                throw new VoldemortException("File fetcher failed for "
+                                                             + fetchUrl
+                                                             + " and store name = "
+                                                             + storeName
+                                                             + " due to incorrect input path/checksum error");
+                            } else {
+                                logger.info("Fetch complete.");
+                            }
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
                         }
-                        if(fetchDir == null) {
-                            throw new VoldemortException("File fetcher failed for " + fetchUrl
-                                                         + " and store name = " + storeName
-                                                         + " due to incorrect path/checksum error");
-                        } else {
-                            logger.info("Fetch complete.");
-                        }
+
                     }
                     fetchDirPath = new String(fetchDir.getAbsolutePath());
                 }

@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
@@ -98,7 +99,14 @@ public class HdfsFetcher implements FileFetcher {
                                                     stats);
         try {
             File destination = new File(destinationFile);
+
+            if(destination.exists()) {
+                throw new VoldemortException("Version directory " + destination.getAbsolutePath()
+                                             + " already exists");
+            }
+
             boolean result = fetch(fs, path, destination, stats);
+
             if(result) {
                 return destination;
             } else {

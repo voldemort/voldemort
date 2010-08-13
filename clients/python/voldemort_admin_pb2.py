@@ -894,6 +894,13 @@ _FETCHSTOREREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='push_version', full_name='voldemort.FetchStoreRequest.push_version', index=2,
+      number=3, type=3, cpp_type=2, label=1,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],

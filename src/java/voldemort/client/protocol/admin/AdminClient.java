@@ -1181,17 +1181,26 @@ public class AdminClient {
     }
 
     /**
-     * Fetch store data from directory 'storeDir' on node id.=
+     * Fetch data from directory 'storeDir' on node id
      * 
-     * @param nodeId Id of the node to fetch the data to
-     * @param storeName Name of the store
-     * @param storeDir Directory of the store where content is available
-     * @return
+     * @param nodeId The id of the node on which to fetch the data
+     * @param storeName The name of the store
+     * @param storeDir The directory from where to read the data
+     * @param pushVersion The version of the push
+     * @param timeoutMs Time timeout in milliseconds
+     * @return The path of the directory where the data is stored finally
      */
-    public String fetchStore(int nodeId, String storeName, String storeDir, long timeoutMs) {
+    public String fetchStore(int nodeId,
+                             String storeName,
+                             String storeDir,
+                             long pushVersion,
+                             long timeoutMs) {
         VAdminProto.FetchStoreRequest.Builder fetchStoreRequest = VAdminProto.FetchStoreRequest.newBuilder()
                                                                                                .setStoreName(storeName)
                                                                                                .setStoreDir(storeDir);
+        if(pushVersion > 0) {
+            fetchStoreRequest.setPushVersion(pushVersion);
+        }
 
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setFetchStore(fetchStoreRequest)
@@ -1220,7 +1229,7 @@ public class AdminClient {
      * 
      * @param nodeId The node id where we would want to swap the data
      * @param storeName Name of the store
-     * @param storeDir The temporary directory where the data is present
+     * @param storeDir The directory where the data is present
      */
     public void swapStore(int nodeId, String storeName, String storeDir) {
         VAdminProto.SwapStoreRequest.Builder swapStoreRequest = VAdminProto.SwapStoreRequest.newBuilder()

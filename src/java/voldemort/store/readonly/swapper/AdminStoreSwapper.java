@@ -34,6 +34,7 @@ public class AdminStoreSwapper extends StoreSwapper {
         this.timeoutMs = timeoutMs;
     }
 
+    @Override
     public void invokeRollback(final String storeName) {
         for(Node node: cluster.getNodes()) {
             try {
@@ -50,7 +51,9 @@ public class AdminStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    protected List<String> invokeFetch(final String storeName, final String basePath) {
+    protected List<String> invokeFetch(final String storeName,
+                                       final String basePath,
+                                       final long pushVersion) {
         // do fetch
         Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
@@ -62,6 +65,7 @@ public class AdminStoreSwapper extends StoreSwapper {
                     String response = adminClient.fetchStore(node.getId(),
                                                              storeName,
                                                              storeDir,
+                                                             pushVersion,
                                                              timeoutMs);
                     if(response == null)
                         throw new VoldemortException("Swap request on node " + node.getId() + " ("
