@@ -256,6 +256,11 @@ public class StorageService extends AbstractService {
                 }
 
             }
+            if(voldemortConfig.isServerRoutingEnabled()) {
+                this.storeRepository.removeRoutedStore(engineName);
+                for(Node node: metadata.getCluster().getNodes())
+                    this.storeRepository.removeNodeStore(storeDef.getName(), node.getId());
+            }
         }
 
         storeRepository.removeStorageEngine(engineName);

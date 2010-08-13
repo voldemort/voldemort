@@ -265,6 +265,13 @@ public class AdminServiceBasicTest extends TestCase {
             if(!(e instanceof BootstrapFailureException))
                 throw e;
         }
+        // try adding the store again
+        adminClient.addStore(definition);
+
+        client = factory.getStoreClient("deleteTest");
+        client.put("abc", "123");
+        String s = (String) client.get("abc").getValue();
+        assertEquals(s, "123");
     }
 
     @Test

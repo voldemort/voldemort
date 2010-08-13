@@ -47,9 +47,9 @@ public class NodeValueTest {
         assertFalse(v1.equals(v3));
         assertFalse(v1.hashCode() == v3.hashCode());
 
-        NodeValue nv1 = createNodeValue(1, v1);
-        NodeValue nv2 = createNodeValue(1, v2);
-        NodeValue nv3 = createNodeValue(1, v3);
+        NodeValue<ByteArray, byte[]> nv1 = createNodeValue(1, v1);
+        NodeValue<ByteArray, byte[]> nv2 = createNodeValue(1, v2);
+        NodeValue<ByteArray, byte[]> nv3 = createNodeValue(1, v3);
 
         logger.info("nv1 = " + nv1);
         logger.info("nv2 = " + nv2);

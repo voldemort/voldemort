@@ -156,6 +156,7 @@ public class StoreDefinitionsMapper {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private StoreDefinition readStore(Element store) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);

@@ -53,7 +53,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 
 /**
- * A runner class to facitilate the launching of HadoopStoreBuilder from the
+ * A runner class to facilitate the launching of HadoopStoreBuilder from the
  * command-line.
  */
 @SuppressWarnings("deprecation")
@@ -82,11 +82,16 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
         parser.accepts("storedefinitions", "local path to stores.xml.").withRequiredArg();
         parser.accepts("storename", "store name from store definition.").withRequiredArg();
         parser.accepts("inputformat", "JavaClassName (default=text).").withRequiredArg();
-        parser.accepts("chunksize", "maximum size of a chunk in bytes.").withRequiredArg();
+        parser.accepts("reducerspernode", "number of reducers per node (default=1)")
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
-        parser.accepts("hadoopnodeid", "node id for hadoop (default=num_nodes+1)")
-              .withRequiredArg();
-        parser.accepts("pushversion", "version of push (default=1)").withRequiredArg();
+        parser.accepts("vectornodeid", "node id whose vector clock to set (default=master)")
+              .withRequiredArg()
+              .ofType(Integer.class);
+        parser.accepts("vectorversion", "version of vector clock (default=1)")
+              .withRequiredArg()
+              .ofType(Long.class);
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -108,8 +113,7 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
                                                "mapper",
                                                "cluster",
                                                "storedefinitions",
-                                               "storename",
-                                               "chunksize");
+                                               "storename");
 
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing)
@@ -124,7 +128,6 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
         String storeName = (String) options.valueOf("storename");
         Path inputPath = new Path((String) options.valueOf("input"));
         Path tempPath = new Path((String) options.valueOf("temp"));
-        long chunkSizeBytes = Long.parseLong((String) options.valueOf("chunksize"));
 
         List<StoreDefinition> stores;
         stores = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storeDefFile)));
@@ -166,18 +169,25 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
             inputFormatClass = TextInputFormat.class;
         }
 
-        int hadoopNodeId;
-        if(options.has("hadoopnodeid")) {
-            hadoopNodeId = Integer.parseInt((String) options.valueOf("hadoopnodeid"));
+        int vectorNodeId;
+        if(options.has("vectornodeid")) {
+            vectorNodeId = (Integer) options.valueOf("vectornodeid");
         } else {
-            hadoopNodeId = (short) cluster.getNumberOfNodes();
+            vectorNodeId = -1; // To denote master
         }
 
-        long pushVersion;
-        if(options.has("pushversion")) {
-            pushVersion = Long.parseLong((String) options.valueOf("pushversion"));
+        long vectorNodeVersion;
+        if(options.has("vectorversion")) {
+            vectorNodeVersion = (Long) options.valueOf("vectorversion");
         } else {
-            pushVersion = 1L;
+            vectorNodeVersion = 1L;
+        }
+
+        int reducersPerNode;
+        if(options.has("reducerspernode")) {
+            reducersPerNode = (Integer) options.valueOf("reducerspernode");
+        } else {
+            reducersPerNode = 1;
         }
 
         Configuration conf = getConf();
@@ -194,9 +204,9 @@ public class HadoopRWStoreJobRunner extends Configured implements Tool {
                                                                 inputFormatClass,
                                                                 cluster,
                                                                 storeDef,
-                                                                chunkSizeBytes,
-                                                                hadoopNodeId,
-                                                                pushVersion,
+                                                                reducersPerNode,
+                                                                vectorNodeId,
+                                                                vectorNodeVersion,
                                                                 tempPath,
                                                                 inputPath);
 
