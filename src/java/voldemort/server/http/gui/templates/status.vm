@@ -59,25 +59,25 @@
 	      <tr>
 	      	<td>Request Count:</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).count</td>
+	      	<td>$store.stats.counters.get($counter).count</td>
  		    #end
 	      </tr>
 	      <tr>
 	      	<td>Average Time:</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).displayAverageTimeInMs</td>
+	      	<td>$store.stats.counters.get($counter).displayAverageTimeInMs</td>
  		    #end
 	      </tr>
 	      <tr>
 	      	<td>Throughput (req/sec):</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).displayThroughput</td>
+	      	<td>$store.stats.counters.get($counter).displayThroughput</td>
  		    #end
 	      </tr>
 	      <tr>
 	      	<td>Total Operations:</td>
   		    #foreach($counter in $counters)
-	      	<td>$store.counters.get($counter).totalCount</td>
+	      	<td>$store.stats.counters.get($counter).totalCount</td>
  		    #end
 	      </tr>
 		</table>
