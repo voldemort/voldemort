@@ -98,6 +98,7 @@ public class Benchmark {
     public static final String VERBOSE = "v";
     public static final String VERIFY = "verify";
     public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
+    public static final String HINTED_HANDOFF = "enable-hinted-handoff";
     public static final String CLIENT_ZONE_ID = "client-zoneid";
     private static final String DUMMY_DB = "benchmark_db";
 
@@ -320,6 +321,7 @@ public class Benchmark {
         this.verifyRead = benchmarkProps.getBoolean(VERIFY, false);
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
         boolean enablePipelineRouted = benchmarkProps.getBoolean(PIPELINE_ROUTED_STORE, false);
+        boolean enableHintedHandoff = benchmarkProps.getBoolean(HINTED_HANDOFF, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
 
         if(benchmarkProps.containsKey(URL)) {
@@ -341,6 +343,7 @@ public class Benchmark {
                                                           .setSocketTimeout(60, TimeUnit.SECONDS)
                                                           .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
                                                           .setSocketBufferSize(4 * 1024)
+                                                          .setEnableHintedHandoff(enableHintedHandoff)
                                                           .setEnablePipelineRoutedStore(enablePipelineRouted);
 
             if(clientZoneId >= 0) {
@@ -582,6 +585,7 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("class-name");
         parser.accepts(PIPELINE_ROUTED_STORE, "enable pipeline routed store");
+        parser.accepts(HINTED_HANDOFF, "enable hinted handoff");
         parser.accepts(CLIENT_ZONE_ID, "zone id for client; enables zone routing")
               .withRequiredArg()
               .describedAs("zone-id")
@@ -651,6 +655,7 @@ public class Benchmark {
             mainProps.put(VERIFY, getCmdBoolean(options, VERIFY));
             mainProps.put(IGNORE_NULLS, getCmdBoolean(options, IGNORE_NULLS));
             mainProps.put(PIPELINE_ROUTED_STORE, getCmdBoolean(options, PIPELINE_ROUTED_STORE));
+            mainProps.put(HINTED_HANDOFF, getCmdBoolean(options, HINTED_HANDOFF));
             mainProps.put(CLIENT_ZONE_ID, CmdUtils.valueOf(options, CLIENT_ZONE_ID, -1));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
