@@ -109,8 +109,8 @@ public class ClientRequestExecutorFactory implements
         // Since we're non-blocking and it takes a non-zero amount of time to
         // connect, invoke finishConnect and loop.
         while(!socketChannel.finishConnect()) {
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Still connecting to " + dest);
+            if(logger.isTraceEnabled())
+                logger.trace("Still connecting to " + dest);
         }
 
         int numCreated = created.incrementAndGet();
