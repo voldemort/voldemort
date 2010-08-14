@@ -360,13 +360,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();
-                if(pushVersion <= store.getMaxVersion()) {
+                if(pushVersion <= store.getMaxVersionId()) {
                     throw new VoldemortException("Version of push specified (" + pushVersion
                                                  + ") should be greater than current version "
-                                                 + store.getMaxVersion());
+                                                 + store.getMaxVersionId());
                 }
             } else {
-                pushVersion = store.getMaxVersion() + 1;
+                pushVersion = store.getMaxVersionId() + 1;
             }
 
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {

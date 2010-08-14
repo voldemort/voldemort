@@ -178,13 +178,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
         long pushVersion;
         if(pushVersionString == null) {
-            pushVersion = store.getMaxVersion() + 1;
+            pushVersion = store.getMaxVersionId() + 1;
         } else {
             pushVersion = Long.parseLong(pushVersionString);
-            if(pushVersion <= store.getMaxVersion()) {
+            if(pushVersion <= store.getMaxVersionId()) {
                 throw new ServletException("Version of push specified (" + pushVersion
                                            + ") should be greater than current version "
-                                           + store.getMaxVersion());
+                                           + store.getMaxVersionId());
             }
         }
 
