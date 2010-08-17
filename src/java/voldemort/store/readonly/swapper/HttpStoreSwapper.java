@@ -49,7 +49,7 @@ public class HttpStoreSwapper extends StoreSwapper {
                     String storeDir = basePath + "/node-" + node.getId();
                     post.addParameter("dir", storeDir);
                     post.addParameter("store", storeName);
-                    if(pushVersion > 0)
+                    if(pushVersion >= 0)
                         post.addParameter("pushVersion", Long.toString(pushVersion));
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
                     int responseCode = httpClient.executeMethod(post);
@@ -82,7 +82,6 @@ public class HttpStoreSwapper extends StoreSwapper {
     @Override
     protected void invokeSwap(String storeName, List<String> fetchFiles) {
         // do swap
-        int successes = 0;
         Exception exception = null;
         for(int nodeId = 0; nodeId < cluster.getNumberOfNodes(); nodeId++) {
             try {
@@ -97,7 +96,6 @@ public class HttpStoreSwapper extends StoreSwapper {
                 int responseCode = httpClient.executeMethod(post);
                 String response = post.getStatusText();
                 if(responseCode == 200) {
-                    successes++;
                     logger.info("Swap succeeded for node " + node.getId());
                 } else {
                     throw new VoldemortException(response);
@@ -114,6 +112,7 @@ public class HttpStoreSwapper extends StoreSwapper {
 
     @Override
     protected void invokeRollback(String storeName) {
+        Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
                 logger.info("Attempting rollback for node " + node.getId() + " storeName = "
@@ -130,9 +129,13 @@ public class HttpStoreSwapper extends StoreSwapper {
                     throw new VoldemortException(response);
                 }
             } catch(Exception e) {
+                exception = e;
                 logger.error("Exception thrown during rollback operation on node " + node.getId()
                              + ": ", e);
             }
         }
+
+        if(exception != null)
+            throw new VoldemortException(exception);
     }
 }

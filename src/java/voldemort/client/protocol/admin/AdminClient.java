@@ -1198,7 +1198,7 @@ public class AdminClient {
         VAdminProto.FetchStoreRequest.Builder fetchStoreRequest = VAdminProto.FetchStoreRequest.newBuilder()
                                                                                                .setStoreName(storeName)
                                                                                                .setStoreDir(storeDir);
-        if(pushVersion > 0) {
+        if(pushVersion >= 0) {
             fetchStoreRequest.setPushVersion(pushVersion);
         }
 

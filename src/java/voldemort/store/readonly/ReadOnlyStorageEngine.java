@@ -101,9 +101,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     /**
      * Open the store with the version directory specified. If null is specified
-     * we open the max versioned directory
+     * we open the directory with the maximum version
      * 
-     * @param versionDir Version Directory to use
+     * @param versionDir Version Directory to open. If null, we open the max
+     *        versioned directory
      */
     public void open(File versionDir) {
         /* acquire modification lock */
@@ -113,12 +114,34 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             if(isOpen)
                 throw new IllegalStateException("Attempt to open already open store.");
 
-            // Find latest directory
+            // Find version directory from symbolic link or max version id
             if(versionDir == null) {
-                versionDir = findLatestVersion();
-            } else {
-                setMaxVersion(versionDir);
+                File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDir);
+
+                // No version directories exist, create new empty folder
+                if(versionDirs == null || versionDirs.length == 0) {
+                    versionDir = new File(storeDir, "version-0");
+                } else {
+                    // Check if latest symbolic link exists
+                    File latestVersion = getLatestFile();
+                    if(latestVersion != null) {
+                        versionDir = latestVersion;
+                    } else {
+                        versionDir = ReadOnlyUtils.findKthVersionedDir(versionDirs,
+                                                                       versionDirs.length);
+                    }
+                }
             }
+
+            // Set the max version id
+            long versionId = ReadOnlyUtils.getVersionId(versionDir);
+            if(versionId == -1) {
+                throw new VoldemortException("Unable to parse id from version directory "
+                                             + versionDir.getAbsolutePath());
+            } else {
+                maxVersionId = versionId;
+            }
+
             Utils.mkdirs(versionDir);
 
             // Create symbolic link
@@ -134,21 +157,26 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * Find the max versioned directory
+     * Returns the directory pointed to by the 'latest' symbolic link. If it
+     * does not exist or pointed file is incorrect we return null
      * 
-     * @param storeDir
-     * @return the directory with the max version
+     * @return The directory pointed by 'latest' symbolic link
      */
-    public File findLatestVersion() {
-        File[] versionDirs = ReadOnlyUtils.versionDirs(storeDir);
+    private File getLatestFile() {
+        File latestSymLink = new File(storeDir, "latest");
+        if(latestSymLink.exists() && Utils.isSymLink(latestSymLink)) {
+            File canonicalLatestVersion = null;
+            try {
+                canonicalLatestVersion = latestSymLink.getCanonicalFile();
+            } catch(IOException e) {}
 
-        // No version directories exist, create new empty folder
-        if(versionDirs == null || versionDirs.length == 0) {
-            File version0 = new File(storeDir, "version-0");
-            return setMaxVersion(version0);
+            if(canonicalLatestVersion != null
+               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
+                return canonicalLatestVersion;
+            else
+                return null;
         }
-
-        return setMaxVersion(ReadOnlyUtils.findKthVersionedDir(versionDirs, versionDirs.length));
+        return null;
     }
 
     public long getMaxVersionId() {
@@ -157,13 +185,6 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public String getStoreDirPath() {
         return storeDir.getAbsolutePath();
-    }
-
-    private File setMaxVersion(File versionDir) {
-        if(ReadOnlyUtils.checkVersionDirName(versionDir)) {
-            maxVersionId = ReadOnlyUtils.getVersionId(versionDir);
-        }
-        return new File(storeDir, "version-" + maxVersionId);
     }
 
     /**
@@ -196,6 +217,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public void swapFiles(String newStoreDirectory) {
         logger.info("Swapping files for store '" + getName() + "' to " + newStoreDirectory);
         File newDataDir = new File(newStoreDirectory);
+
         if(!newDataDir.exists())
             throw new VoldemortException("File " + newDataDir.getAbsolutePath()
                                          + " does not exist.");
@@ -205,22 +227,25 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                          + newDataDir
                                          + "'. Either parent directory is incorrect or format(version-n) is incorrect");
 
-        // check if we're greater than latest since we want last write to win
-        File latestVersion = new File(storeDir, "latest");
-        if(latestVersion.exists() && Utils.isSymLink(latestVersion)) {
-            File canonicalLatestVersion = null;
-            try {
-                canonicalLatestVersion = latestVersion.getCanonicalFile();
-            } catch(IOException e) {}
+        long newVersionId = ReadOnlyUtils.getVersionId(newDataDir);
+        if(newVersionId == -1)
+            throw new VoldemortException("Unable to parse folder name since format(version-n) is incorrect: "
+                                         + newStoreDirectory);
 
-            // Check if canonical directory exists, if not fall back to manual
-            // search
-            if(canonicalLatestVersion != null
-               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion)) {
-                long latestVersionId = ReadOnlyUtils.getVersionId(canonicalLatestVersion);
-                long newVersionId = ReadOnlyUtils.getVersionId(newDataDir);
-                if(latestVersionId >= newVersionId)
+        // check if we're greater than latest since we want last write to win
+        File latestVersion = getLatestFile();
+        if(latestVersion != null) {
+            long latestVersionId = ReadOnlyUtils.getVersionId(latestVersion);
+            if(latestVersionId == -1) {
+                logger.error("Unable to parse current latest version: "
+                             + latestVersion.getAbsolutePath());
+            } else {
+                if(latestVersionId >= newVersionId) {
+                    logger.info("No swap required since current latest version " + latestVersionId
+                                + " is greater than swap version " + newVersionId);
+                    deleteBackups();
                     return;
+                }
             }
         }
 
@@ -239,7 +264,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             try {
                 // we failed to do the swap, attempt a rollback
                 if(!success)
-                    rollback();
+                    rollback(newDataDir);
             } finally {
                 fileModificationLock.writeLock().unlock();
                 if(success)
@@ -249,13 +274,23 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                     logger.error("Swap operation failed.");
             }
         }
+
         // okay we have released the lock and the store is now open again, it is
         // safe to do a potentially slow delete if we have one too many backups
-        File[] storeDirList = ReadOnlyUtils.versionDirs(storeDir);
-        File extraBackup = ReadOnlyUtils.findKthVersionedDir(storeDirList, storeDirList.length
-                                                                           - numBackups - 1);
-        if(extraBackup != null && extraBackup.exists())
-            deleteAsync(extraBackup);
+        deleteBackups();
+    }
+
+    public void deleteBackups() {
+        File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, maxVersionId);
+        if(storeDirList.length > (numBackups + 1)) {
+            // delete ALL old directories asynchronously
+            File extraBackup;
+            for(int k = storeDirList.length - numBackups - 1; k > 0; k--) {
+                extraBackup = ReadOnlyUtils.findKthVersionedDir(storeDirList, k);
+                if(extraBackup != null)
+                    deleteAsync(extraBackup);
+            }
+        }
     }
 
     /**
@@ -279,7 +314,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     @JmxOperation(description = "Rollback to the most recent backup of the current store.")
-    public void rollback() {
+    public void rollback(File versionDir) {
         logger.info("Rolling back store '" + getName() + "'");
         fileModificationLock.writeLock().lock();
         try {
@@ -287,12 +322,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 close();
 
             // find previous version
-            File[] storeDirList = ReadOnlyUtils.versionDirs(storeDir);
-            File backup = ReadOnlyUtils.findKthVersionedDir(storeDirList, storeDirList.length - 1);
-            if(backup == null || !backup.exists())
+            File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir);
+            if(storeDirList.length < 2)
                 throw new VoldemortException("Previous version does not exists, nothing to roll back to.");
+            File backup = ReadOnlyUtils.findKthVersionedDir(storeDirList, storeDirList.length - 1);
 
-            File primary = new File(storeDir, "version-" + maxVersionId);
+            File primary;
+            if(versionDir == null) {
+                primary = new File(storeDir, "version-" + maxVersionId);
+            } else {
+                primary = versionDir;
+            }
             DateFormat df = new SimpleDateFormat("MM-dd-yyyy");
             if(primary.exists())
                 Utils.move(primary, new File(storeDir, "version-" + maxVersionId + "."

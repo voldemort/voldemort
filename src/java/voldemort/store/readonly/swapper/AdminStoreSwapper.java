@@ -36,6 +36,7 @@ public class AdminStoreSwapper extends StoreSwapper {
 
     @Override
     public void invokeRollback(final String storeName) {
+        Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
                 logger.info("Attempting rollback for node " + node.getId() + " storeName = "
@@ -43,10 +44,14 @@ public class AdminStoreSwapper extends StoreSwapper {
                 adminClient.rollbackStore(node.getId(), storeName);
                 logger.info("Rollback succeeded for node " + node.getId());
             } catch(Exception e) {
+                exception = e;
                 logger.error("Exception thrown during rollback operation on node " + node.getId()
                              + ": ", e);
             }
         }
+
+        if(exception != null)
+            throw new VoldemortException(exception);
 
     }
 

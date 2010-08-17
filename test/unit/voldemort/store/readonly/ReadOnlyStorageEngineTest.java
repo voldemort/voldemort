@@ -22,6 +22,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import voldemort.Attempt;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
@@ -246,13 +247,47 @@ public class ReadOnlyStorageEngineTest {
         assertVersionsExist(dir, 0);
 
         // swap to a new version
-        File newDir = new File(dir, "version-1");
-        createStoreFiles(newDir, 0, 0, 2);
-        engine.swapFiles(newDir.getAbsolutePath());
+        File newDirv1 = new File(dir, "version-1");
+        createStoreFiles(newDirv1, 0, 0, 2);
+        engine.swapFiles(newDirv1.getAbsolutePath());
         assertVersionsExist(dir, 0, 1);
 
-        engine.rollback();
+        // rollback
+        engine.rollback(null);
         assertVersionsExist(dir, 0);
+
+    }
+
+    @Test
+    public void testSwapRollbackFail() throws IOException {
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 1);
+        assertVersionsExist(dir, 0);
+
+        // try rollback on only one folder
+        try {
+            engine.rollback(null);
+            fail("Should have thrown an exception since no rollback version");
+        } catch(VoldemortException e) {}
+
+        // swap to a new version
+        File newDir = new File(dir, "version-100");
+        createStoreFiles(newDir, 0, 0, 2);
+        engine.swapFiles(newDir.getAbsolutePath());
+        assertVersionsExist(dir, 0, 100);
+
+        // try to swap to a version with version-id less than current max
+        File newDir2 = new File(dir, "version-99");
+        createStoreFiles(newDir2, 0, 0, 2);
+        engine.swapFiles(newDir2.getAbsolutePath());
+
+        // try to swap a version with wrong name format
+        File newDir3 = new File(dir, "version-1a3");
+        createStoreFiles(newDir3, 0, 0, 2);
+        try {
+            engine.swapFiles(newDir3.getAbsolutePath());
+            fail("Should have thrown an exception since version directory name format is incorrect");
+        } catch(VoldemortException e) {}
+
     }
 
     @Test
@@ -277,6 +312,41 @@ public class ReadOnlyStorageEngineTest {
             engine.swapFiles(newDir.getAbsolutePath());
             fail("Swap files should have failed since name is incorrect");
         } catch(VoldemortException e) {}
+    }
+
+    @Test
+    public void testBackupLogic() throws Exception {
+        File dirv0 = new File(dir, "version-0");
+        createStoreFiles(dirv0, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 0);
+        assertVersionsExist(dir, 0);
+
+        // create directory to imitate a fetch state happening concurrently
+        // with swap
+        File dirv2 = new File(dir, "version-2");
+        createStoreFiles(dirv2, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+
+        // swap in directory 1
+        File dirv1 = new File(dir, "version-1");
+        createStoreFiles(dirv1, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        engine.swapFiles(dirv1.getAbsolutePath());
+
+        // check latest symbolic link exists
+        File latest = new File(dir, "latest");
+        assertTrue(latest.exists());
+
+        // ...and points to 1
+        assertTrue(latest.getCanonicalPath().contains("version-1"));
+
+        // ...and version-2 is still in fetch state. Assert with backoff since
+        // delete may take time
+        TestUtils.assertWithBackoff(100, 5000, new Attempt() {
+
+            public void checkCondition() throws Exception, AssertionError {
+                assertEquals(ReadOnlyUtils.getVersionDirs(dir).length, 2);
+            }
+        });
+
     }
 
     @Test(expected = VoldemortException.class)

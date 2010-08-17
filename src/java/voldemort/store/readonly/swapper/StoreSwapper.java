@@ -24,6 +24,7 @@ import voldemort.utils.Time;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
@@ -88,9 +89,11 @@ public abstract class StoreSwapper {
 
         Set<String> missing = CmdUtils.missing(options, "cluster", "name", "file");
         if(missing.size() > 0) {
-            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-            parser.printHelpOn(System.err);
-            System.exit(1);
+            if(!(missing.equals(ImmutableSet.of("file")) && (options.has("rollback")))) {
+                System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
+                parser.printHelpOn(System.err);
+                System.exit(1);
+            }
         }
 
         String clusterXml = (String) options.valueOf("cluster");

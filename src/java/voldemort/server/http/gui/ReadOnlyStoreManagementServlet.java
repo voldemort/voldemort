@@ -225,7 +225,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private void doRollback(HttpServletRequest req) throws ServletException {
         String storeName = getRequired(req, "store");
         ReadOnlyStorageEngine store = getStore(storeName);
-        store.rollback();
+        store.rollback(null);
     }
 
     private String getRequired(HttpServletRequest req, String name) throws ServletException {

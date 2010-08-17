@@ -16,8 +16,13 @@
 
 package voldemort.store.readonly;
 
+import java.io.File;
+import java.io.IOException;
+
 import junit.framework.TestCase;
+import voldemort.TestUtils;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 
 /**
  * Tests for the HDFS-based fetcher
@@ -32,4 +37,65 @@ public class ReadOnlyUtilsTest extends TestCase {
         assertEquals(0, ReadOnlyUtils.chunk(keyBytes, 15));
     }
 
+    public void testVersionParsing() throws IOException {
+        File tempParentDir = TestUtils.createTempDir();
+
+        File testFile = new File(tempParentDir, "blahDir");
+        Utils.mkdirs(testFile);
+        assertFalse(ReadOnlyUtils.checkVersionDirName(testFile));
+        assertEquals(ReadOnlyUtils.getVersionId(testFile), -1);
+
+        File testFile2 = new File(tempParentDir, "blahFile");
+        testFile2.createNewFile();
+        assertFalse(ReadOnlyUtils.checkVersionDirName(testFile2));
+        assertEquals(ReadOnlyUtils.getVersionId(testFile2), -1);
+
+        File testFile3 = new File(tempParentDir, "version-23");
+        Utils.mkdirs(testFile3);
+        assertTrue(ReadOnlyUtils.checkVersionDirName(testFile3));
+        assertEquals(ReadOnlyUtils.getVersionId(testFile3), 23);
+
+        File testFile4 = new File(tempParentDir, "version-23.bak");
+        Utils.mkdirs(testFile4);
+        assertFalse(ReadOnlyUtils.checkVersionDirName(testFile4));
+        assertEquals(ReadOnlyUtils.getVersionId(testFile4), -1);
+
+        File latestSymLink = new File(tempParentDir, "latest");
+        Utils.symlink(testFile.getAbsolutePath(), latestSymLink.getAbsolutePath());
+        assertFalse(ReadOnlyUtils.checkVersionDirName(latestSymLink));
+        assertEquals(ReadOnlyUtils.getVersionId(latestSymLink), -1);
+
+        assertEquals(ReadOnlyUtils.getVersionDirs(tempParentDir).length, 1);
+    }
+
+    private void generateVersionDirs(final File parentDir, final int... versions) {
+        File versionDir = null;
+        for(int version: versions) {
+            versionDir = new File(parentDir, "version-" + version);
+            Utils.mkdirs(versionDir);
+        }
+    }
+
+    public void testFindKthVersionedDir() {
+        File tempParentDir = TestUtils.createTempDir();
+        generateVersionDirs(tempParentDir, 0);
+        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 2));
+        assertEquals(new File(tempParentDir, "version-0"),
+                     ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                       1));
+
+        tempParentDir = TestUtils.createTempDir();
+        int[] versions = { 6, 10, 20, 100, 200, 250, 300 };
+        generateVersionDirs(tempParentDir, versions);
+        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                     -1));
+        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 8));
+        int numVersion = 1;
+        for(int version: versions) {
+            assertEquals(new File(tempParentDir, "version-" + version),
+                         ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                           numVersion++));
+        }
+
+    }
 }

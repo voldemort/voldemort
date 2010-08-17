@@ -315,7 +315,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             if(store == null)
                 throw new VoldemortException("'" + storeName
                                              + "' is not a registered read-only store.");
-            store.rollback();
+            store.rollback(null);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
