@@ -49,7 +49,7 @@ public class HttpStoreSwapper extends StoreSwapper {
                     String storeDir = basePath + "/node-" + node.getId();
                     post.addParameter("dir", storeDir);
                     post.addParameter("store", storeName);
-                    if(pushVersion >= 0)
+                    if(pushVersion > 0)
                         post.addParameter("pushVersion", Long.toString(pushVersion));
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
                     int responseCode = httpClient.executeMethod(post);

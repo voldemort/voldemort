@@ -68,9 +68,9 @@ public class ReadOnlyUtilsTest extends TestCase {
         assertEquals(ReadOnlyUtils.getVersionDirs(tempParentDir).length, 1);
     }
 
-    private void generateVersionDirs(final File parentDir, final int... versions) {
+    private void generateVersionDirs(final File parentDir, final String... versions) {
         File versionDir = null;
-        for(int version: versions) {
+        for(String version: versions) {
             versionDir = new File(parentDir, "version-" + version);
             Utils.mkdirs(versionDir);
         }
@@ -78,24 +78,32 @@ public class ReadOnlyUtilsTest extends TestCase {
 
     public void testFindKthVersionedDir() {
         File tempParentDir = TestUtils.createTempDir();
-        generateVersionDirs(tempParentDir, 0);
+        generateVersionDirs(tempParentDir, "0");
         assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 2));
         assertEquals(new File(tempParentDir, "version-0"),
                      ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
                                                        1));
 
         tempParentDir = TestUtils.createTempDir();
-        int[] versions = { 6, 10, 20, 100, 200, 250, 300 };
+        String[] versions = { "6", "10", "20", "100", "200", "250", "300" };
         generateVersionDirs(tempParentDir, versions);
+
         assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
                                                      -1));
         assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 8));
         int numVersion = 1;
-        for(int version: versions) {
+        for(String version: versions) {
             assertEquals(new File(tempParentDir, "version-" + version),
                          ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
                                                            numVersion++));
         }
+
+        tempParentDir = TestUtils.createTempDir();
+        String[] version2 = { "6", "10", "6a" };
+        generateVersionDirs(tempParentDir, version2);
+        assertEquals(new File(tempParentDir, "version-6a"),
+                     ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                       3));
 
     }
 }

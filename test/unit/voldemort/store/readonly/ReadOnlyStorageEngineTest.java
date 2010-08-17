@@ -356,7 +356,7 @@ public class ReadOnlyStorageEngineTest {
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
         assertVersionsExist(dir, 0);
 
-        // swap to a directory with bad name
+        // swap to a directory with bad data
         File newDir = new File(dir, "version-1");
         createStoreFiles(newDir, 73, 1024, 2);
         engine.swapFiles(newDir.getAbsolutePath());

@@ -116,11 +116,20 @@ public class ReadOnlyUtils {
                 long fileId1 = getVersionId(file1), fileId2 = getVersionId(file2);
                 if(fileId1 == fileId2) {
                     return 0;
-                } else if(fileId1 < fileId2) {
-                    return -1;
                 } else {
-                    return 1;
+                    if(fileId1 == -1) {
+                        return 1;
+                    }
+                    if(fileId2 == -1) {
+                        return -1;
+                    }
+                    if(fileId1 < fileId2) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
                 }
+
             }
         });
 
