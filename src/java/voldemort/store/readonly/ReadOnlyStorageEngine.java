@@ -334,7 +334,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             File backup = ReadOnlyUtils.findKthVersionedDir(storeDirList, storeDirList.length - 1);
 
             File primary;
-            if(versionDir != null && versionDir.exists()) {
+            if(versionDir != null) {
                 primary = versionDir;
             } else {
                 primary = new File(storeDir, "version-" + maxVersionId);
