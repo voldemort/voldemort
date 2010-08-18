@@ -339,7 +339,8 @@ public class HdfsFetcher implements FileFetcher {
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
-        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir"));
+        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
+                                           + start);
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(2);
