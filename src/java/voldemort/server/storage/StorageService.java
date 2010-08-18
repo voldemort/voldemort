@@ -289,16 +289,17 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[]>(store,
                                                         cluster.getName(),
                                                         SystemTime.INSTANCE);
+        if(!"slop".equals(store.getName())) {
+            if(voldemortConfig.isRedirectRoutingEnabled())
+                store = new RedirectingStore(store,
+                                             metadata,
+                                             storeRepository,
+                                             failureDetector,
+                                             storeFactory);
 
-        if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store,
-                                         metadata,
-                                         storeRepository,
-                                         failureDetector,
-                                         storeFactory);
-
-        if(voldemortConfig.isMetadataCheckingEnabled())
-            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+            if(voldemortConfig.isMetadataCheckingEnabled())
+                store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+        }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
             StatTrackingStore<ByteArray, byte[]> statStore = new StatTrackingStore<ByteArray, byte[]>(store,
