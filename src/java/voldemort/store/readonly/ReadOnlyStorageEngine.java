@@ -313,6 +313,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }, "background-file-delete").start();
     }
 
+    /**
+     * Rollback the specified version. If null is specified rollbacks the
+     * current version
+     * 
+     * @param versionDir The version directory to rollback
+     */
     @JmxOperation(description = "Rollback to the most recent backup of the current store.")
     public void rollback(File versionDir) {
         logger.info("Rolling back store '" + getName() + "'");
@@ -328,14 +334,15 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             File backup = ReadOnlyUtils.findKthVersionedDir(storeDirList, storeDirList.length - 1);
 
             File primary;
-            if(versionDir == null) {
-                primary = new File(storeDir, "version-" + maxVersionId);
-            } else {
+            if(versionDir != null && versionDir.exists()) {
                 primary = versionDir;
+            } else {
+                primary = new File(storeDir, "version-" + maxVersionId);
             }
+
             DateFormat df = new SimpleDateFormat("MM-dd-yyyy");
             if(primary.exists())
-                Utils.move(primary, new File(storeDir, "version-" + maxVersionId + "."
+                Utils.move(primary, new File(storeDir, primary.getName() + "."
                                                        + df.format(new Date()) + ".bak"));
             open(backup);
         } finally {
