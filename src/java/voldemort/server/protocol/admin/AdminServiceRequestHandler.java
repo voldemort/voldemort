@@ -399,7 +399,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()
                                                                    + File.separator + "version-"
-                                                                   + pushVersion, storeName);
+                                                                   + pushVersion);
                             updateStatus("Completed fetch of " + fetchUrl);
 
                             if(fetchDir == null) {

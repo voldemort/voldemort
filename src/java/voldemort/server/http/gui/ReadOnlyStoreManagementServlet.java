@@ -200,7 +200,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
             try {
                 fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath() + File.separator
-                                                       + "version-" + pushVersion, storeName);
+                                                       + "version-" + pushVersion);
 
                 if(fetchDir == null) {
                     throw new ServletException("File fetcher failed for " + fetchUrl

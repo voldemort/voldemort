@@ -43,16 +43,14 @@ public class HdfsFetcherTest extends TestCase {
         // Required for backward compatibility with existing hadoop stores
         HdfsFetcher fetcher = new HdfsFetcher();
         File fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                         testDestinationDirectory.getAbsolutePath(),
-                                         "storeName");
+                                         testDestinationDirectory.getAbsolutePath() + "1");
         assertNotNull(fetchedFile);
 
         // Test 2: Add checksum file with incorrect fileName, should not fail
         File checkSumFile = new File(testSourceDirectory, "blahcheckSum.txt");
         checkSumFile.createNewFile();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "2");
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 
@@ -61,8 +59,7 @@ public class HdfsFetcherTest extends TestCase {
         checkSumFile = new File(testSourceDirectory, "adler32checkSum.txt");
         checkSumFile.createNewFile();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "3");
         assertNull(fetchedFile);
 
         // Test 4: Add wrong contents to file i.e. contents of CRC32 instead of
@@ -73,8 +70,7 @@ public class HdfsFetcherTest extends TestCase {
         os.write(checkSumBytes);
         os.close();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "4");
         assertNull(fetchedFile);
         checkSumFile.delete();
 
@@ -86,8 +82,7 @@ public class HdfsFetcherTest extends TestCase {
         os.write(checkSumBytes2);
         os.close();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "5");
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 
@@ -99,8 +94,7 @@ public class HdfsFetcherTest extends TestCase {
         os.write(checkSumBytes3);
         os.close();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "6");
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 
@@ -112,8 +106,7 @@ public class HdfsFetcherTest extends TestCase {
         os.write(checkSumBytes4);
         os.close();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath(),
-                                    "storeName");
+                                    testDestinationDirectory.getAbsolutePath() + "7");
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 

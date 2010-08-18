@@ -85,8 +85,7 @@ public class HdfsFetcher implements FileFetcher {
         this.status = null;
     }
 
-    public File fetch(String sourceFileUrl, String destinationFile, String storeName)
-            throws IOException {
+    public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
         Path path = new Path(sourceFileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
@@ -327,9 +326,8 @@ public class HdfsFetcher implements FileFetcher {
      */
     public static void main(String[] args) throws Exception {
         if(args.length != 1)
-            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url storeName");
+            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url");
         String url = args[0];
-        String storeName = args[1];
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
         Configuration config = new Configuration();
@@ -341,7 +339,7 @@ public class HdfsFetcher implements FileFetcher {
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
-        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir"), storeName);
+        File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir"));
         double rate = size * Time.MS_PER_SECOND / (double) (System.currentTimeMillis() - start);
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(2);

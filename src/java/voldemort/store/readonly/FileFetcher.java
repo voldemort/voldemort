@@ -17,7 +17,7 @@ import voldemort.server.protocol.admin.AsyncOperationStatus;
  */
 public interface FileFetcher {
 
-    public File fetch(String source, String dest, String storeName) throws IOException;
+    public File fetch(String source, String dest) throws IOException;
 
     public void setAsyncOperationStatus(AsyncOperationStatus status);
 }
