@@ -735,12 +735,26 @@ public class AdminClient {
         return status;
     }
 
-    // TODO: Javadoc, "integration" test
+    /**
+     * Retrieves a list of asynchronous request ids on the server. Does not
+     * include the completed requests
+     * 
+     * @param nodeId The id of the node whose request ids we want
+     * @return List of async request ids
+     */
     public List<Integer> getAsyncRequestList(int nodeId) {
         return getAsyncRequestList(nodeId, false);
     }
 
-    // TODO: Javadoc, "integration" test
+    /**
+     * Retrieves a list of asynchronous request ids on the server. Depending on
+     * the boolean passed also retrieves the completed requests
+     * 
+     * @param nodeId The id of the node whose request ids we want
+     * @param showComplete Boolean to indicate if we want to include the
+     *        completed requests as well
+     * @return List of async request ids
+     */
     public List<Integer> getAsyncRequestList(int nodeId, boolean showComplete) {
         VAdminProto.AsyncOperationListRequest asyncOperationListRequest = VAdminProto.AsyncOperationListRequest.newBuilder()
                                                                                                                .setShowComplete(showComplete)
@@ -758,7 +772,12 @@ public class AdminClient {
         return response.getRequestIdsList();
     }
 
-    // TODO: Javadoc, "integration" test
+    /**
+     * To stop an asynchronous request on the particular node
+     * 
+     * @param nodeId The id of the node on which the request is running
+     * @param requestId The id of the request to terminate
+     */
     public void stopAsyncRequest(int nodeId, int requestId) {
         VAdminProto.AsyncOperationStopRequest asyncOperationStopRequest = VAdminProto.AsyncOperationStopRequest.newBuilder()
                                                                                                                .setRequestId(requestId)
@@ -1215,13 +1234,7 @@ public class AdminClient {
         }
 
         int asyncId = response.getRequestId();
-        try {
-            return waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
-        } catch(VoldemortException e) {
-            // Need to close async fetch operation
-            stopAsyncRequest(nodeId, asyncId);
-            throw e;
-        }
+        return waitForCompletion(nodeId, asyncId, timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /**
