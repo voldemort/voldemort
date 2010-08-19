@@ -35,13 +35,13 @@ public class AdminStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    public void invokeRollback(final String storeName) {
+    public void invokeRollback(final String storeName, final long pushVersion) {
         Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
                 logger.info("Attempting rollback for node " + node.getId() + " storeName = "
                             + storeName);
-                adminClient.rollbackStore(node.getId(), storeName);
+                adminClient.rollbackStore(node.getId(), storeName, pushVersion);
                 logger.info("Rollback succeeded for node " + node.getId());
             } catch(Exception e) {
                 exception = e;

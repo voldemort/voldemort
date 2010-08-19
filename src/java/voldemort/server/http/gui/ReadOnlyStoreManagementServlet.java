@@ -158,9 +158,11 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             ServletException {
         String dir = getRequired(req, "dir");
         String storeName = getRequired(req, "store");
+
         ReadOnlyStorageEngine store = this.getStore(storeName);
         if(store == null)
             throw new ServletException("'" + storeName + "' is not a registered read-only store.");
+
         if(!Utils.isReadableDir(dir))
             throw new ServletException("Store directory '" + dir + "' is not a readable directory.");
 
@@ -175,17 +177,18 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         String pushVersionString = getOptional(req, "pushVersion");
 
         ReadOnlyStorageEngine store = this.getStore(storeName);
+        if(store == null)
+            throw new ServletException("'" + storeName + "' is not a registered read-only store.");
 
         long pushVersion;
         if(pushVersionString == null) {
             pushVersion = store.getMaxVersionId() + 1;
         } else {
             pushVersion = Long.parseLong(pushVersionString);
-            if(pushVersion <= store.getMaxVersionId()) {
+            if(pushVersion <= store.getMaxVersionId())
                 throw new ServletException("Version of push specified (" + pushVersion
                                            + ") should be greater than current version "
                                            + store.getMaxVersionId());
-            }
         }
 
         // fetch the files if necessary
@@ -218,14 +221,31 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         resp.getWriter().write(fetchDir.getAbsolutePath());
     }
 
-    private String getOptional(HttpServletRequest req, String name) {
-        return req.getParameter(name);
-    }
-
     private void doRollback(HttpServletRequest req) throws ServletException {
         String storeName = getRequired(req, "store");
+        String pushVersionString = getOptional(req, "pushVersion");
+
         ReadOnlyStorageEngine store = getStore(storeName);
-        store.rollback(null);
+        if(store == null)
+            throw new ServletException("'" + storeName + "' is not a registered read-only store.");
+
+        long pushVersion;
+        if(pushVersionString == null) {
+            pushVersion = store.getMaxVersionId();
+        } else {
+            pushVersion = Long.parseLong(pushVersionString);
+        }
+
+        File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
+        if(!rollbackVersionDir.exists())
+            throw new ServletException("Rollback failed since version of push specified ("
+                                       + pushVersion + ") does not exist. ");
+
+        store.rollback(rollbackVersionDir);
+    }
+
+    private String getOptional(HttpServletRequest req, String name) {
+        return req.getParameter(name);
     }
 
     private String getRequired(HttpServletRequest req, String name) throws ServletException {

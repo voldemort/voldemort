@@ -111,7 +111,7 @@ public class HttpStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    protected void invokeRollback(String storeName) {
+    protected void invokeRollback(String storeName, final long pushVersion) {
         Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
@@ -121,6 +121,8 @@ public class HttpStoreSwapper extends StoreSwapper {
                 PostMethod post = new PostMethod(url);
                 post.addParameter("operation", "rollback");
                 post.addParameter("store", storeName);
+                if(pushVersion > 0)
+                    post.addParameter("pushVersion", Long.toString(pushVersion));
                 int responseCode = httpClient.executeMethod(post);
                 String response = post.getStatusText();
                 if(responseCode == 200) {

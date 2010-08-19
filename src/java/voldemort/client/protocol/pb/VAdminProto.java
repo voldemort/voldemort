@@ -10004,6 +10004,13 @@ public final class VAdminProto {
     public boolean hasStoreName() { return hasStoreName; }
     public java.lang.String getStoreName() { return storeName_; }
     
+    // optional int64 push_version = 2;
+    public static final int PUSH_VERSION_FIELD_NUMBER = 2;
+    private boolean hasPushVersion;
+    private long pushVersion_ = 0L;
+    public boolean hasPushVersion() { return hasPushVersion; }
+    public long getPushVersion() { return pushVersion_; }
+    
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       return true;
@@ -10013,6 +10020,9 @@ public final class VAdminProto {
                         throws java.io.IOException {
       if (hasStoreName()) {
         output.writeString(1, getStoreName());
+      }
+      if (hasPushVersion()) {
+        output.writeInt64(2, getPushVersion());
       }
       getUnknownFields().writeTo(output);
     }
@@ -10026,6 +10036,10 @@ public final class VAdminProto {
       if (hasStoreName()) {
         size += com.google.protobuf.CodedOutputStream
           .computeStringSize(1, getStoreName());
+      }
+      if (hasPushVersion()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(2, getPushVersion());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -10179,6 +10193,9 @@ public final class VAdminProto {
         if (other.hasStoreName()) {
           setStoreName(other.getStoreName());
         }
+        if (other.hasPushVersion()) {
+          setPushVersion(other.getPushVersion());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -10208,6 +10225,10 @@ public final class VAdminProto {
               setStoreName(input.readString());
               break;
             }
+            case 16: {
+              setPushVersion(input.readInt64());
+              break;
+            }
           }
         }
       }
@@ -10231,6 +10252,24 @@ public final class VAdminProto {
       public Builder clearStoreName() {
         result.hasStoreName = false;
         result.storeName_ = getDefaultInstance().getStoreName();
+        return this;
+      }
+      
+      // optional int64 push_version = 2;
+      public boolean hasPushVersion() {
+        return result.hasPushVersion();
+      }
+      public long getPushVersion() {
+        return result.getPushVersion();
+      }
+      public Builder setPushVersion(long value) {
+        result.hasPushVersion = true;
+        result.pushVersion_ = value;
+        return this;
+      }
+      public Builder clearPushVersion() {
+        result.hasPushVersion = false;
+        result.pushVersion_ = 0L;
         return this;
       }
     }
@@ -12099,48 +12138,49 @@ public final class VAdminProto {
       "\021\n\tstore_dir\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003" +
       "\"9\n\020SwapStoreRequest\022\022\n\nstore_name\030\001 \002(\t" +
       "\022\021\n\tstore_dir\030\002 \002(\t\"4\n\021SwapStoreResponse" +
-      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"*\n\024Rol",
-      "lbackStoreRequest\022\022\n\nstore_name\030\001 \002(\t\"8\n" +
-      "\025RollbackStoreResponse\022\037\n\005error\030\001 \001(\0132\020." +
-      "voldemort.Error\"\271\010\n\025VoldemortAdminReques" +
-      "t\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminRequest" +
-      "Type\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.G" +
-      "etMetadataRequest\0229\n\017update_metadata\030\003 \001" +
-      "(\0132 .voldemort.UpdateMetadataRequest\022J\n\030" +
-      "update_partition_entries\030\004 \001(\0132(.voldemo" +
-      "rt.UpdatePartitionEntriesRequest\022H\n\027fetc" +
-      "h_partition_entries\030\005 \001(\0132\'.voldemort.Fe",
-      "tchPartitionEntriesRequest\022J\n\030delete_par" +
-      "tition_entries\030\006 \001(\0132(.voldemort.DeleteP" +
-      "artitionEntriesRequest\022K\n\031initiate_fetch" +
-      "_and_update\030\007 \001(\0132(.voldemort.InitiateFe" +
-      "tchAndUpdateRequest\022F\n\026async_operation_s" +
-      "tatus\030\010 \001(\0132&.voldemort.AsyncOperationSt" +
-      "atusRequest\022H\n\027initiate_rebalance_node\030\t" +
-      " \001(\0132\'.voldemort.InitiateRebalanceNodeRe" +
-      "quest\022B\n\024async_operation_stop\030\n \001(\0132$.vo" +
-      "ldemort.AsyncOperationStopRequest\022B\n\024asy",
-      "nc_operation_list\030\013 \001(\0132$.voldemort.Asyn" +
-      "cOperationListRequest\022;\n\020truncate_entrie" +
-      "s\030\014 \001(\0132!.voldemort.TruncateEntriesReque" +
-      "st\022-\n\tadd_store\030\r \001(\0132\032.voldemort.AddSto" +
-      "reRequest\0223\n\014delete_store\030\016 \001(\0132\035.voldem" +
-      "ort.DeleteStoreRequest\0221\n\013fetch_store\030\017 " +
-      "\001(\0132\034.voldemort.FetchStoreRequest\022/\n\nswa" +
-      "p_store\030\020 \001(\0132\033.voldemort.SwapStoreReque" +
-      "st\0227\n\016rollback_store\030\021 \001(\0132\037.voldemort.R" +
-      "ollbackStoreRequest*\212\003\n\020AdminRequestType",
-      "\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022" +
-      "\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_P" +
-      "ARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_E" +
-      "NTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022" +
-      "\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_" +
-      "REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP" +
-      "\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE" +
-      "_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STOR" +
-      "E\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016" +
-      "ROLLBACK_STORE\020\017B-\n\034voldemort.client.pro",
-      "tocol.pbB\013VAdminProtoH\001"
+      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"@\n\024Rol",
+      "lbackStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\024\n" +
+      "\014push_version\030\002 \001(\003\"8\n\025RollbackStoreResp" +
+      "onse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"\271\010" +
+      "\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033." +
+      "voldemort.AdminRequestType\0223\n\014get_metada" +
+      "ta\030\002 \001(\0132\035.voldemort.GetMetadataRequest\022" +
+      "9\n\017update_metadata\030\003 \001(\0132 .voldemort.Upd" +
+      "ateMetadataRequest\022J\n\030update_partition_e" +
+      "ntries\030\004 \001(\0132(.voldemort.UpdatePartition" +
+      "EntriesRequest\022H\n\027fetch_partition_entrie",
+      "s\030\005 \001(\0132\'.voldemort.FetchPartitionEntrie" +
+      "sRequest\022J\n\030delete_partition_entries\030\006 \001" +
+      "(\0132(.voldemort.DeletePartitionEntriesReq" +
+      "uest\022K\n\031initiate_fetch_and_update\030\007 \001(\0132" +
+      "(.voldemort.InitiateFetchAndUpdateReques" +
+      "t\022F\n\026async_operation_status\030\010 \001(\0132&.vold" +
+      "emort.AsyncOperationStatusRequest\022H\n\027ini" +
+      "tiate_rebalance_node\030\t \001(\0132\'.voldemort.I" +
+      "nitiateRebalanceNodeRequest\022B\n\024async_ope" +
+      "ration_stop\030\n \001(\0132$.voldemort.AsyncOpera",
+      "tionStopRequest\022B\n\024async_operation_list\030" +
+      "\013 \001(\0132$.voldemort.AsyncOperationListRequ" +
+      "est\022;\n\020truncate_entries\030\014 \001(\0132!.voldemor" +
+      "t.TruncateEntriesRequest\022-\n\tadd_store\030\r " +
+      "\001(\0132\032.voldemort.AddStoreRequest\0223\n\014delet" +
+      "e_store\030\016 \001(\0132\035.voldemort.DeleteStoreReq" +
+      "uest\0221\n\013fetch_store\030\017 \001(\0132\034.voldemort.Fe" +
+      "tchStoreRequest\022/\n\nswap_store\030\020 \001(\0132\033.vo" +
+      "ldemort.SwapStoreRequest\0227\n\016rollback_sto" +
+      "re\030\021 \001(\0132\037.voldemort.RollbackStoreReques",
+      "t*\212\003\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000" +
+      "\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITIO" +
+      "N_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003" +
+      "\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIA" +
+      "TE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION" +
+      "_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030" +
+      "\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERAT" +
+      "ION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_" +
+      "STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE" +
+      "\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017B-",
+      "\n\034voldemort.client.protocol.pbB\013VAdminPr" +
+      "otoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -12384,7 +12424,7 @@ public final class VAdminProto {
           internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RollbackStoreRequest_descriptor,
-              new java.lang.String[] { "StoreName", },
+              new java.lang.String[] { "StoreName", "PushVersion", },
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.Builder.class);
           internal_static_voldemort_RollbackStoreResponse_descriptor =

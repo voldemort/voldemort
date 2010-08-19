@@ -1183,9 +1183,13 @@ public class AdminClient {
      * @param nodeId The node id on which to rollback
      * @param storeName The name of the RO Store to rollback
      */
-    public void rollbackStore(int nodeId, String storeName) {
+    public void rollbackStore(int nodeId, String storeName, long pushVersion) {
         VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
                                                                                                         .setStoreName(storeName);
+        if(pushVersion > 0) {
+            rollbackStoreRequest.setPushVersion(pushVersion);
+        }
+
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setRollbackStore(rollbackStoreRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.ROLLBACK_STORE)

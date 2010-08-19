@@ -311,11 +311,22 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.RollbackStoreResponse.Builder response = VAdminProto.RollbackStoreResponse.newBuilder();
 
         try {
-            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeName);
-            if(store == null)
-                throw new VoldemortException("'" + storeName
-                                             + "' is not a registered read-only store.");
-            store.rollback(null);
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                   storeName);
+
+            long pushVersion;
+            if(request.hasPushVersion()) {
+                pushVersion = request.getPushVersion();
+            } else {
+                pushVersion = store.getMaxVersionId();
+            }
+
+            File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
+            if(!rollbackVersionDir.exists())
+                throw new VoldemortException("Rollback failed since version of push specified ("
+                                             + pushVersion + ") does not exist. ");
+
+            store.rollback(rollbackVersionDir);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
@@ -360,11 +371,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();
-                if(pushVersion <= store.getMaxVersionId()) {
+                if(pushVersion <= store.getMaxVersionId())
                     throw new VoldemortException("Version of push specified (" + pushVersion
                                                  + ") should be greater than current version "
                                                  + store.getMaxVersionId());
-                }
             } else {
                 pushVersion = store.getMaxVersionId() + 1;
             }

@@ -156,6 +156,7 @@ message SwapStoreResponse {
 
 message RollbackStoreRequest {
   required string store_name = 1;
+  optional int64 push_version = 2; 
 }
 
 message RollbackStoreResponse {

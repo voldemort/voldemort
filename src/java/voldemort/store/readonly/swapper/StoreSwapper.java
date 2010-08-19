@@ -54,7 +54,7 @@ public abstract class StoreSwapper {
 
     protected abstract void invokeSwap(String storeName, List<String> fetchFiles);
 
-    protected abstract void invokeRollback(String storeName);
+    protected abstract void invokeRollback(String storeName, long pushVersion);
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
@@ -77,9 +77,7 @@ public abstract class StoreSwapper {
               .ofType(Integer.class);
         parser.accepts("rollback", "Rollback store to older version");
         parser.accepts("admin", "Use admin services. Default = false");
-        parser.accepts("push-version", "Version of push. Default = latest_version+1")
-              .withRequiredArg()
-              .ofType(Long.class);
+        parser.accepts("push-version", "Version of push").withRequiredArg().ofType(Long.class);
 
         OptionSet options = parser.parse(args);
         if(options.has("help")) {
@@ -106,7 +104,7 @@ public abstract class StoreSwapper {
         boolean useAdminServices = options.has("admin");
         boolean rollbackStore = options.has("rollback");
 
-        // -1 signifies current_version + 1
+        // -1 is default. For push, maxVersion+1. For rollback, maxVersion
         Long pushVersion = -1L;
         if(options.has("push-version")) {
             pushVersion = (Long) options.valueOf("push-version");
@@ -134,7 +132,7 @@ public abstract class StoreSwapper {
 
         long start = System.currentTimeMillis();
         if(rollbackStore) {
-            swapper.invokeRollback(storeName);
+            swapper.invokeRollback(storeName, pushVersion.longValue());
         } else {
             swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
         }

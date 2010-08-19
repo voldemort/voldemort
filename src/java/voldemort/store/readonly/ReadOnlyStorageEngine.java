@@ -264,7 +264,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             try {
                 // we failed to do the swap, attempt a rollback
                 if(!success)
-                    rollback(newDataDir);
+                    rollback(null);
             } finally {
                 fileModificationLock.writeLock().unlock();
                 if(success)
