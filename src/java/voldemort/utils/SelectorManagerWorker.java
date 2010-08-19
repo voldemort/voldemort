@@ -24,6 +24,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -55,6 +56,8 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     protected final long createTimestamp;
 
+    protected final AtomicBoolean isClosed;
+
     protected final Logger logger = Logger.getLogger(getClass());
 
     public SelectorManagerWorker(Selector selector,
@@ -67,6 +70,7 @@ public abstract class SelectorManagerWorker implements Runnable {
         this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize));
         this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
         this.createTimestamp = System.nanoTime();
+        this.isClosed = new AtomicBoolean(false);
 
         if(logger.isDebugEnabled())
             logger.debug("Accepting remote connection from " + socketChannel.socket());
@@ -115,6 +119,17 @@ public abstract class SelectorManagerWorker implements Runnable {
     }
 
     public void close() {
+        // Due to certain code paths, close may be called in a recursive
+        // fashion. Rather than trying to handle all of the cases, simply keep
+        // track of whether we've been called before and only perform the logic
+        // once.
+        if(!isClosed.compareAndSet(false, true))
+            return;
+
+        closeInternal();
+    }
+
+    protected void closeInternal() {
         if(logger.isInfoEnabled())
             logger.info("Closing remote connection from " + socketChannel.socket());
 
@@ -143,6 +158,10 @@ public abstract class SelectorManagerWorker implements Runnable {
                     logger.warn(e.getMessage(), e);
             }
         }
+    }
+
+    public boolean isClosed() {
+        return isClosed.get();
     }
 
     /**
