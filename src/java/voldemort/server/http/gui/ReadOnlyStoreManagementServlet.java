@@ -50,9 +50,13 @@ import com.google.common.collect.Maps;
  * stores. The operations are
  * <ol>
  * <li>FETCH. Fetch the given files to the local node. Parameters:
- * operation=fetch, index=index-file-url, data=data-file-url</li>
- * <li>SWAP. operation=swap, store=store-name, index=index-file-url,
- * data=data-file-url</li>
+ * operation="fetch", dir=[data-directory], store=[name-of-store],
+ * pushVersion=[version-of-push]</li>
+ * <li>SWAP. Swap the data directory atomically. Parameters: operation="swap",
+ * store=[name-of-store]</li>
+ * <li>ROLLBACK. Rollback the store to previous push version. Parameters:
+ * operation="rollback", store=[name-of-store],
+ * pushVersion=[version-of-push-to-rollback-to]</li>
  * </ol>
  * 
  * 
@@ -223,25 +227,19 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
     private void doRollback(HttpServletRequest req) throws ServletException {
         String storeName = getRequired(req, "store");
-        String pushVersionString = getOptional(req, "pushVersion");
+        long pushVersion = Long.parseLong(getRequired(req, "pushVersion"));
 
         ReadOnlyStorageEngine store = getStore(storeName);
         if(store == null)
             throw new ServletException("'" + storeName + "' is not a registered read-only store.");
 
-        long pushVersion;
-        if(pushVersionString == null) {
-            pushVersion = store.getMaxVersionId();
-        } else {
-            pushVersion = Long.parseLong(pushVersionString);
+        try {
+            File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
+
+            store.rollback(rollbackVersionDir);
+        } catch(Exception e) {
+            throw new ServletException("Exception in Fetcher = " + e.getMessage());
         }
-
-        File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
-        if(!rollbackVersionDir.exists())
-            throw new ServletException("Rollback failed since version of push specified ("
-                                       + pushVersion + ") does not exist. ");
-
-        store.rollback(rollbackVersionDir);
     }
 
     private String getOptional(HttpServletRequest req, String name) {

@@ -976,7 +976,7 @@ _ROLLBACKSTOREREQUEST = descriptor.Descriptor(
       options=None),
     descriptor.FieldDescriptor(
       name='push_version', full_name='voldemort.RollbackStoreRequest.push_version', index=1,
-      number=2, type=3, cpp_type=2, label=1,
+      number=2, type=3, cpp_type=2, label=2,
       default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,

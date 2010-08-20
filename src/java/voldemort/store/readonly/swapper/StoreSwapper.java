@@ -77,7 +77,9 @@ public abstract class StoreSwapper {
               .ofType(Integer.class);
         parser.accepts("rollback", "Rollback store to older version");
         parser.accepts("admin", "Use admin services. Default = false");
-        parser.accepts("push-version", "Version of push").withRequiredArg().ofType(Long.class);
+        parser.accepts("push-version", "[REQUIRED] Version of push to fetch / rollback-to")
+              .withRequiredArg()
+              .ofType(Long.class);
 
         OptionSet options = parser.parse(args);
         if(options.has("help")) {
@@ -85,7 +87,7 @@ public abstract class StoreSwapper {
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "cluster", "name", "file");
+        Set<String> missing = CmdUtils.missing(options, "cluster", "name", "file", "push-version");
         if(missing.size() > 0) {
             if(!(missing.equals(ImmutableSet.of("file")) && (options.has("rollback")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
@@ -103,12 +105,7 @@ public abstract class StoreSwapper {
                                          (int) (3 * Time.SECONDS_PER_HOUR * Time.MS_PER_SECOND));
         boolean useAdminServices = options.has("admin");
         boolean rollbackStore = options.has("rollback");
-
-        // -1 is default. For push, maxVersion+1. For rollback, maxVersion
-        Long pushVersion = -1L;
-        if(options.has("push-version")) {
-            pushVersion = (Long) options.valueOf("push-version");
-        }
+        Long pushVersion = (Long) options.valueOf("push-version");
 
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));

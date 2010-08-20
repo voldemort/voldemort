@@ -682,8 +682,8 @@ public class AdminClient {
      * node.
      * <p>
      * 
-     * @param nodeId
-     * @param storeName
+     * @param nodeId The node id on which the store is present
+     * @param storeName The name of the store
      */
     public void truncate(int nodeId, String storeName) {
         VAdminProto.TruncateEntriesRequest.Builder truncateRequest = VAdminProto.TruncateEntriesRequest.newBuilder()
@@ -1028,6 +1028,7 @@ public class AdminClient {
     /**
      * Update the cluster information {@link MetadataStore#CLUSTER_KEY} on a
      * remote node.
+     * <p>
      * 
      * @param nodeId Id of the remote node
      * @param cluster The new cluster object
@@ -1042,6 +1043,7 @@ public class AdminClient {
 
     /**
      * Get the cluster information from a remote node.
+     * <p>
      * 
      * @param nodeId Node to retrieve information from
      * @return A cluster object with its {@link voldemort.versioning.Version}
@@ -1055,6 +1057,11 @@ public class AdminClient {
 
     /**
      * Update the store definitions on a remote node.
+     * <p>
+     * 
+     * @param nodeId The node id of the machine
+     * @param storesList The new store list
+     * @throws VoldemortException
      */
     public void updateRemoteStoreDefList(int nodeId, List<StoreDefinition> storesList)
             throws VoldemortException {
@@ -1069,6 +1076,12 @@ public class AdminClient {
 
     /**
      * Retrieve the store definitions from a remote node.
+     * <p>
+     * 
+     * @param nodeId The node id from which we can to remote the store
+     *        definition
+     * @return The list of store definitions from the remote machine
+     * @throws VoldemortException
      */
     public Versioned<List<StoreDefinition>> getRemoteStoreDefList(int nodeId)
             throws VoldemortException {
@@ -1117,6 +1130,7 @@ public class AdminClient {
 
     /**
      * Add a new store definition to all active nodes in the cluster.
+     * <p>
      * 
      * @param def the definition of the store to add
      */
@@ -1140,6 +1154,7 @@ public class AdminClient {
 
     /**
      * Delete a store from all active nodes in the cluster
+     * <p>
      * 
      * @param storeName name of the store to delete
      */
@@ -1179,16 +1194,16 @@ public class AdminClient {
 
     /**
      * Rollback RO store to most recent backup of the current store
+     * <p>
      * 
      * @param nodeId The node id on which to rollback
      * @param storeName The name of the RO Store to rollback
+     * @param pushVersion The version of the push to revert back to
      */
     public void rollbackStore(int nodeId, String storeName, long pushVersion) {
         VAdminProto.RollbackStoreRequest.Builder rollbackStoreRequest = VAdminProto.RollbackStoreRequest.newBuilder()
-                                                                                                        .setStoreName(storeName);
-        if(pushVersion > 0) {
-            rollbackStoreRequest.setPushVersion(pushVersion);
-        }
+                                                                                                        .setStoreName(storeName)
+                                                                                                        .setPushVersion(pushVersion);
 
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setRollbackStore(rollbackStoreRequest)
@@ -1205,6 +1220,7 @@ public class AdminClient {
 
     /**
      * Fetch data from directory 'storeDir' on node id
+     * <p>
      * 
      * @param nodeId The id of the node on which to fetch the data
      * @param storeName The name of the store
@@ -1242,7 +1258,8 @@ public class AdminClient {
     }
 
     /**
-     * Swap store data atomically from temporary directory
+     * Swap store data atomically on a single node
+     * <p>
      * 
      * @param nodeId The node id where we would want to swap the data
      * @param storeName Name of the store

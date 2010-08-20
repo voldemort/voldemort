@@ -10004,7 +10004,7 @@ public final class VAdminProto {
     public boolean hasStoreName() { return hasStoreName; }
     public java.lang.String getStoreName() { return storeName_; }
     
-    // optional int64 push_version = 2;
+    // required int64 push_version = 2;
     public static final int PUSH_VERSION_FIELD_NUMBER = 2;
     private boolean hasPushVersion;
     private long pushVersion_ = 0L;
@@ -10013,6 +10013,7 @@ public final class VAdminProto {
     
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
+      if (!hasPushVersion) return false;
       return true;
     }
     
@@ -10255,7 +10256,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // optional int64 push_version = 2;
+      // required int64 push_version = 2;
       public boolean hasPushVersion() {
         return result.hasPushVersion();
       }
@@ -12140,7 +12141,7 @@ public final class VAdminProto {
       "\022\021\n\tstore_dir\030\002 \002(\t\"4\n\021SwapStoreResponse" +
       "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"@\n\024Rol",
       "lbackStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\024\n" +
-      "\014push_version\030\002 \001(\003\"8\n\025RollbackStoreResp" +
+      "\014push_version\030\002 \002(\003\"8\n\025RollbackStoreResp" +
       "onse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"\271\010" +
       "\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002(\0162\033." +
       "voldemort.AdminRequestType\0223\n\014get_metada" +

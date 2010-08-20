@@ -246,15 +246,38 @@ public class ReadOnlyStorageEngineTest {
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
         assertVersionsExist(dir, 0);
 
-        // swap to a new version
+        // swap to a new version with latest present
         File newDirv1 = new File(dir, "version-1");
         createStoreFiles(newDirv1, 0, 0, 2);
         engine.swapFiles(newDirv1.getAbsolutePath());
         assertVersionsExist(dir, 0, 1);
 
+        // swap to a new version with no latest present
+        File latestSymLink = new File(dir, "latest");
+        latestSymLink.delete();
+        File newDirv2 = new File(dir, "version-2");
+        createStoreFiles(newDirv2, 0, 0, 2);
+        engine.swapFiles(newDirv2.getAbsolutePath());
+        assertVersionsExist(dir, 0, 1, 2);
+
         // rollback
-        engine.rollback(null);
+        engine.rollback(versionDir);
         assertVersionsExist(dir, 0);
+
+        // test initial open without latest
+        engine.close();
+        latestSymLink.delete();
+        File newDirv100 = new File(dir, "version-100");
+        createStoreFiles(newDirv100, 0, 0, 2);
+        File newDirv534 = new File(dir, "version-534");
+        createStoreFiles(newDirv534, 0, 0, 2);
+        engine.open(null);
+        assertTrue(latestSymLink.getCanonicalPath().contains("version-534"));
+        engine.close();
+
+        // test initial open with latest pointing at intermediate version folder
+        Utils.symlink(newDirv100.getAbsolutePath(), latestSymLink.getAbsolutePath());
+        engine.open(null);
 
     }
 
@@ -263,11 +286,14 @@ public class ReadOnlyStorageEngineTest {
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 1);
         assertVersionsExist(dir, 0);
 
-        // try rollback on only one folder
+        // try to rollback nothing
         try {
             engine.rollback(null);
-            fail("Should have thrown an exception since no rollback version");
+            fail("Should have thrown an exception since null is passed");
         } catch(VoldemortException e) {}
+
+        // try to rollback nothing
+        engine.rollback(new File(dir, "version-0"));
 
         // swap to a new version
         File newDir = new File(dir, "version-100");
@@ -356,7 +382,7 @@ public class ReadOnlyStorageEngineTest {
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
         assertVersionsExist(dir, 0);
 
-        // swap to a directory with bad data
+        // swap to a directory with bad data, rollback should kick-in
         File newDir = new File(dir, "version-1");
         createStoreFiles(newDir, 73, 1024, 2);
         engine.swapFiles(newDir.getAbsolutePath());

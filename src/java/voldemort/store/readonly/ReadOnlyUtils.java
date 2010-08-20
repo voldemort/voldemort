@@ -51,7 +51,7 @@ public class ReadOnlyUtils {
         try {
             return Long.parseLong(versionDir.getName().replace("version-", ""));
         } catch(NumberFormatException e) {
-            logger.error("Cannot parse version directory to obtain id "
+            logger.trace("Cannot parse version directory to obtain id "
                          + versionDir.getAbsolutePath());
             return -1;
         }
@@ -65,12 +65,7 @@ public class ReadOnlyUtils {
      * @return An array of version directories
      */
     public static File[] getVersionDirs(File rootDir) {
-        return rootDir.listFiles(new FileFilter() {
-
-            public boolean accept(File pathName) {
-                return checkVersionDirName(pathName);
-            }
-        });
+        return getVersionDirs(rootDir, 0, Long.MAX_VALUE);
     }
 
     /**
@@ -78,15 +73,16 @@ public class ReadOnlyUtils {
      * specified
      * 
      * @param rootDir The parent directory
+     * @param maxId The
      * @return An array of version directories
      */
-    public static File[] getVersionDirs(File rootDir, final long maxId) {
+    public static File[] getVersionDirs(File rootDir, final long minId, final long maxId) {
         return rootDir.listFiles(new FileFilter() {
 
             public boolean accept(File pathName) {
                 if(checkVersionDirName(pathName)) {
                     long versionId = getVersionId(pathName);
-                    if(versionId != -1 && versionId <= maxId) {
+                    if(versionId != -1 && versionId <= maxId && versionId >= minId) {
                         return true;
                     }
                 }

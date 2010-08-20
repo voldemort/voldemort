@@ -308,23 +308,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.RollbackStoreResponse handleRollbackStore(VAdminProto.RollbackStoreRequest request) {
         final String storeName = request.getStoreName();
+        final long pushVersion = request.getPushVersion();
         VAdminProto.RollbackStoreResponse.Builder response = VAdminProto.RollbackStoreResponse.newBuilder();
 
         try {
             ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
                                                                                    storeName);
 
-            long pushVersion;
-            if(request.hasPushVersion()) {
-                pushVersion = request.getPushVersion();
-            } else {
-                pushVersion = store.getMaxVersionId();
-            }
-
             File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
-            if(!rollbackVersionDir.exists())
-                throw new VoldemortException("Rollback failed since version of push specified ("
-                                             + pushVersion + ") does not exist. ");
 
             store.rollback(rollbackVersionDir);
         } catch(VoldemortException e) {
