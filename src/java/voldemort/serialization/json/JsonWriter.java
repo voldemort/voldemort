@@ -49,9 +49,9 @@ public class JsonWriter {
             } else if(o instanceof Date) {
                 writeDate((Date) o);
             } else if(o instanceof String) {
-                writer.write("'");
+                writer.write('"');
                 writer.write((String) o);
-                writer.write("'");
+                writer.write('"');
             } else {
                 writer.write(o.toString());
             }
@@ -65,9 +65,9 @@ public class JsonWriter {
         Set<Map.Entry<String, Object>> entrySet = values.entrySet();
         int index = 0;
         for(Map.Entry<String, Object> entry: entrySet) {
-            writer.write("'");
+            writer.write('"');
             writer.write(entry.getKey());
-            writer.write("'");
+            writer.write('"');
 
             writer.write(':');
 
