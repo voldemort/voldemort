@@ -1,5 +1,23 @@
+/*
+ * Copyright 2010 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.routed;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -12,8 +30,8 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -33,20 +51,20 @@ public class HintedHandoff {
 
     public HintedHandoff(FailureDetector failureDetector,
                          Map<Integer, Store<ByteArray, Slop>> slopStores,
-                         List<Node> nodes,
+                         Collection<Node> nodes,
                          List<Node> failedNodes) {
         this.failureDetector = failureDetector;
         this.slopStores = slopStores;
-        this.nodes = nodes;
+        this.nodes = Lists.newArrayList(nodes);
         this.failedNodes = failedNodes;
 
         // shuffle potential slop nodes to avoid cascading failures
-        Collections.shuffle(nodes, new Random());
+        Collections.shuffle(this.nodes, new Random());
     }
 
 
     public boolean sendHint(Node failedNode, Version version, Slop slop) {
-        Set<Node> used = new HashSet<Node>(nodes.size());
+        Set<Node> used = Sets.newHashSetWithExpectedSize(nodes.size());
         boolean persisted = false;
         for(Node node: nodes) {
             int nodeId = node.getId();
