@@ -98,12 +98,5 @@ public class ReadOnlyUtilsTest extends TestCase {
                                                            numVersion++));
         }
 
-        tempParentDir = TestUtils.createTempDir();
-        String[] version2 = { "6", "10", "6a" };
-        generateVersionDirs(tempParentDir, version2);
-        assertEquals(new File(tempParentDir, "version-6a"),
-                     ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
-                                                       3));
-
     }
 }

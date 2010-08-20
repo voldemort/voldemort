@@ -240,7 +240,7 @@ public class ReadOnlyStorageEngineTest {
     }
 
     @Test
-    public void testSwap() throws IOException {
+    public void testSwap() throws Exception {
         File versionDir = new File(dir, "version-0");
         createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
@@ -262,7 +262,12 @@ public class ReadOnlyStorageEngineTest {
 
         // rollback
         engine.rollback(versionDir);
-        assertVersionsExist(dir, 0);
+        TestUtils.assertWithBackoff(100, 5000, new Attempt() {
+
+            public void checkCondition() throws Exception, AssertionError {
+                assertVersionsExist(dir, 0);
+            }
+        });
 
         // test initial open without latest
         engine.close();
