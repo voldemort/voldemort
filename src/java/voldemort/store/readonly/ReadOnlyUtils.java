@@ -92,18 +92,21 @@ public class ReadOnlyUtils {
     }
 
     /**
-     * Returns the k-th directory in sorted (version-id) version directories.
-     * Value of k should be from 1 to length(versionDirs)
-     * 
+     * Returns the directories sorted and indexed between [start, end] where
+     * start >= 0 and end < len(files)
+     * <p>
      * Can be made better using 'selection algorithm'
+     * <p>
      * 
      * @param versionDirs The list of files to search in
-     * @param kth K-th index [1...len(versionDirs)]
-     * @return The kth file from versionDirs
+     * @param start Starting index
+     * @param end End index
+     * @return Array of files
      */
-    public static File findKthVersionedDir(File[] versionDirs, int kth) {
-        if(versionDirs.length < kth || kth <= 0) {
-            logger.error("Incorrect version number requested " + kth);
+    public static File[] findKthVersionedDir(File[] versionDirs, int start, int end) {
+        if(start < 0 || end >= versionDirs.length) {
+            logger.error("Incorrect version number requested (" + start + "," + end
+                         + "). Should be between (0," + (versionDirs.length - 1) + ")");
             return null;
         }
         Collections.sort(Arrays.asList(versionDirs), new Comparator<File>() {
@@ -129,6 +132,10 @@ public class ReadOnlyUtils {
             }
         });
 
-        return versionDirs[kth - 1];
+        File[] returnedFiles = new File[end - start + 1];
+        for(int index = start, index2 = 0; index <= end; index++, index2++) {
+            returnedFiles[index2] = versionDirs[index];
+        }
+        return returnedFiles;
     }
 }

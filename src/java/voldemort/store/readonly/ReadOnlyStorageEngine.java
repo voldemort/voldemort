@@ -166,7 +166,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         if(versionDirs == null || versionDirs.length == 0) {
             return null;
         } else {
-            return ReadOnlyUtils.findKthVersionedDir(versionDirs, versionDirs.length);
+            return ReadOnlyUtils.findKthVersionedDir(versionDirs,
+                                                     versionDirs.length - 1,
+                                                     versionDirs.length - 1)[0];
         }
     }
 
@@ -278,11 +280,14 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, 0L, maxVersionId);
         if(storeDirList.length > (numBackups + 1)) {
             // delete ALL old directories asynchronously
-            File extraBackup;
-            for(int k = storeDirList.length - numBackups - 1; k > 0; k--) {
-                extraBackup = ReadOnlyUtils.findKthVersionedDir(storeDirList, k);
-                if(extraBackup != null)
-                    deleteAsync(extraBackup);
+            File[] extraBackups = ReadOnlyUtils.findKthVersionedDir(storeDirList,
+                                                                    0,
+                                                                    storeDirList.length
+                                                                            - (numBackups + 1) - 1);
+            if(extraBackups != null) {
+                for(File backUpFile: extraBackups) {
+                    deleteAsync(backUpFile);
+                }
             }
         }
     }
@@ -329,6 +334,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 logger.warn("No rollback performed since there are no back-up directories");
                 return;
             }
+            backUpDirs = ReadOnlyUtils.findKthVersionedDir(backUpDirs, 0, backUpDirs.length - 1);
 
             if(isOpen)
                 close();

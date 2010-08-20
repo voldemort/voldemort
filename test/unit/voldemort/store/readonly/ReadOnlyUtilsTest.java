@@ -79,24 +79,48 @@ public class ReadOnlyUtilsTest extends TestCase {
     public void testFindKthVersionedDir() {
         File tempParentDir = TestUtils.createTempDir();
         generateVersionDirs(tempParentDir, "0");
-        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 2));
-        assertEquals(new File(tempParentDir, "version-0"),
-                     ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
-                                                       1));
+        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                     -1,
+                                                     100));
+        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                     0,
+                                                     1));
+
+        File[] returnedFiles = ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
+                                                                 0,
+                                                                 0);
+        assertEquals(returnedFiles.length, 1);
+        assertEquals(returnedFiles[0], new File(tempParentDir, "version-0"));
 
         tempParentDir = TestUtils.createTempDir();
-        String[] versions = { "6", "10", "20", "100", "200", "250", "300" };
+        String[] versions = { "100", "10", "200", "20", "250", "300", "6", "6a" };
         generateVersionDirs(tempParentDir, versions);
 
-        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
-                                                     -1));
-        assertNull(ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir), 8));
-        int numVersion = 1;
-        for(String version: versions) {
-            assertEquals(new File(tempParentDir, "version-" + version),
-                         ReadOnlyUtils.findKthVersionedDir(ReadOnlyUtils.getVersionDirs(tempParentDir),
-                                                           numVersion++));
-        }
+        returnedFiles = ReadOnlyUtils.getVersionDirs(tempParentDir);
+        assertEquals(returnedFiles.length, 7);
+
+        File[] returnedFiles2 = ReadOnlyUtils.findKthVersionedDir(returnedFiles, 5, 6);
+        assertEquals(returnedFiles2.length, 2);
+        assertEquals(returnedFiles2[0], new File(tempParentDir, "version-250"));
+        assertEquals(returnedFiles2[1], new File(tempParentDir, "version-300"));
+
+        returnedFiles2 = ReadOnlyUtils.findKthVersionedDir(returnedFiles, 0, 3);
+        assertEquals(returnedFiles2.length, 4);
+        assertEquals(returnedFiles2[0], new File(tempParentDir, "version-6"));
+        assertEquals(returnedFiles2[1], new File(tempParentDir, "version-10"));
+        assertEquals(returnedFiles2[2], new File(tempParentDir, "version-20"));
+        assertEquals(returnedFiles2[3], new File(tempParentDir, "version-100"));
+
+        returnedFiles2 = ReadOnlyUtils.findKthVersionedDir(returnedFiles, 0, 0);
+        assertEquals(returnedFiles2.length, 1);
+        assertEquals(returnedFiles2[0], new File(tempParentDir, "version-6"));
+
+        returnedFiles2 = ReadOnlyUtils.findKthVersionedDir(returnedFiles, 6, 6);
+        assertEquals(returnedFiles2.length, 1);
+        assertEquals(returnedFiles2[0], new File(tempParentDir, "version-300"));
+
+        returnedFiles2 = ReadOnlyUtils.findKthVersionedDir(returnedFiles, 7, 7);
+        assertNull(returnedFiles2);
 
     }
 }
