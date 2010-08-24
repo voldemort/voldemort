@@ -75,6 +75,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='ROLLBACK_STORE', index=15, number=15,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='GET_RO_MAX_VERSION', index=16, number=16,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -96,6 +100,7 @@ DELETE_STORE = 12
 FETCH_STORE = 13
 SWAP_STORE = 14
 ROLLBACK_STORE = 15
+GET_RO_MAX_VERSION = 16
 
 
 
@@ -1012,6 +1017,57 @@ _ROLLBACKSTORERESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_GETROMAXVERSIONREQUEST = descriptor.Descriptor(
+  name='GetROMaxVersionRequest',
+  full_name='voldemort.GetROMaxVersionRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store_name', full_name='voldemort.GetROMaxVersionRequest.store_name', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_GETROMAXVERSIONRESPONSE = descriptor.Descriptor(
+  name='GetROMaxVersionResponse',
+  full_name='voldemort.GetROMaxVersionResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='push_version', full_name='voldemort.GetROMaxVersionResponse.push_version', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.GetROMaxVersionResponse.error', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -1137,6 +1193,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='get_ro_max_version', full_name='voldemort.VoldemortAdminRequest.get_ro_max_version', index=17,
+      number=18, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1169,6 +1232,7 @@ _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._E
 _DELETESTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _SWAPSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ROLLBACKSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_GETROMAXVERSIONRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -1186,6 +1250,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['delete_store'].message_type = _DELETESTOR
 _VOLDEMORTADMINREQUEST.fields_by_name['fetch_store'].message_type = _FETCHSTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['swap_store'].message_type = _SWAPSTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['rollback_store'].message_type = _ROLLBACKSTOREREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['get_ro_max_version'].message_type = _GETROMAXVERSIONREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1310,6 +1375,14 @@ class RollbackStoreRequest(message.Message):
 class RollbackStoreResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ROLLBACKSTORERESPONSE
+
+class GetROMaxVersionRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _GETROMAXVERSIONREQUEST
+
+class GetROMaxVersionResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _GETROMAXVERSIONRESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

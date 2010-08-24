@@ -56,6 +56,8 @@ public abstract class StoreSwapper {
 
     protected abstract void invokeRollback(String storeName, long pushVersion);
 
+    protected abstract void stop();
+
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
@@ -127,19 +129,21 @@ public abstract class StoreSwapper {
             swapper = new HttpStoreSwapper(cluster, executor, client, mgmtPath);
         }
 
-        long start = System.currentTimeMillis();
-        if(rollbackStore) {
-            swapper.invokeRollback(storeName, pushVersion.longValue());
-        } else {
-            swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
+        try {
+            long start = System.currentTimeMillis();
+            if(rollbackStore) {
+                swapper.invokeRollback(storeName, pushVersion.longValue());
+            } else {
+                swapper.swapStoreData(storeName, filePath, pushVersion.longValue());
+            }
+            long end = System.currentTimeMillis();
+            logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
+                        + " seconds.");
+        } finally {
+            swapper.stop();
+            executor.shutdownNow();
+            executor.awaitTermination(1, TimeUnit.SECONDS);
         }
-        long end = System.currentTimeMillis();
-        logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
-                    + " seconds.");
-
-        executor.shutdownNow();
-        executor.awaitTermination(1, TimeUnit.SECONDS);
-
         System.exit(0);
     }
 }

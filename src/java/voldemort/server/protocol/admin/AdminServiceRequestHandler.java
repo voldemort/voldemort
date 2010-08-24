@@ -51,6 +51,7 @@ import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -204,11 +205,41 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRollbackStore(request.getRollbackStore()));
                 break;
+            case GET_RO_MAX_VERSION:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetROMaxVersion(request.getGetRoMaxVersion()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    public VAdminProto.GetROMaxVersionResponse handleGetROMaxVersion(VAdminProto.GetROMaxVersionRequest request) {
+        final String storeName = request.getStoreName();
+        VAdminProto.GetROMaxVersionResponse.Builder response = VAdminProto.GetROMaxVersionResponse.newBuilder();
+
+        try {
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                   storeName);
+            File storeDirPath = new File(store.getStoreDirPath());
+
+            if(!storeDirPath.exists())
+                throw new VoldemortException("Unable to locate the directory of the read-only store "
+                                             + storeName);
+
+            File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDirPath);
+            File[] kthDir = ReadOnlyUtils.findKthVersionedDir(versionDirs,
+                                                              versionDirs.length - 1,
+                                                              versionDirs.length - 1);
+
+            response.setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]));
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetROMaxVersion failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
@@ -394,7 +425,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     } else {
 
                         logger.info("Executing fetch of " + fetchUrl);
-                        updateStatus("0 MB copied at O MB/sec - 0 % complete");
+                        updateStatus("0 MB copied at 0 MB/sec - 0 % complete");
                         try {
                             fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()

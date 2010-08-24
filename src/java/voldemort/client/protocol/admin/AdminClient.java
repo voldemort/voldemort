@@ -1281,4 +1281,50 @@ public class AdminClient {
         }
         return;
     }
+
+    /**
+     * Returns the max version of push currently being used by read-only store.
+     * Important to remember that this may not be the 'current' version since
+     * multiple pushes (with greater version numbers) may be in progress
+     * currently
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeName The name of the read-only store
+     * @return The max push version
+     */
+    public long getROMaxVersion(int nodeId, String storeName) {
+        VAdminProto.GetROMaxVersionRequest.Builder getROMaxVersionRequest = VAdminProto.GetROMaxVersionRequest.newBuilder()
+                                                                                                              .setStoreName(storeName);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoMaxVersion(getROMaxVersionRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION)
+                                                                                          .build();
+        VAdminProto.GetROMaxVersionResponse.Builder response = sendAndReceive(nodeId,
+                                                                              adminRequest,
+                                                                              VAdminProto.GetROMaxVersionResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        return response.getPushVersion();
+    }
+
+    /**
+     * This is a wrapper around {@link AdminClient#getMaxVersion(int, String)}
+     * where-in we find the max versions on each machine and then return the max
+     * of all of them
+     * 
+     * @param storeName The name of the read-only store
+     * @return The global max push version
+     */
+    public long getROGlobalMaxVersion(String storeName) {
+        long maxVersionId = 0L;
+        for(Node node: currentCluster.getNodes()) {
+            long currentNodeVersion = getROMaxVersion(node.getId(), storeName);
+            if(currentNodeVersion > maxVersionId) {
+                maxVersionId = currentNodeVersion;
+            }
+        }
+        return maxVersionId;
+    }
 }

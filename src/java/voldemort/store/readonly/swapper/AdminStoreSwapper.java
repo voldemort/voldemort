@@ -160,4 +160,9 @@ public class AdminStoreSwapper extends StoreSwapper {
             RebalanceUtils.propagateCluster(adminClient, cluster, latestClock, requiredNodeIds);
         }
     }
+
+    @Override
+    protected void stop() {
+        adminClient.stop();
+    }
 }
