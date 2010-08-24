@@ -186,13 +186,13 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
         long pushVersion;
         if(pushVersionString == null) {
-            pushVersion = store.getMaxVersionId() + 1;
+            pushVersion = store.getCurrentVersionId() + 1;
         } else {
             pushVersion = Long.parseLong(pushVersionString);
-            if(pushVersion <= store.getMaxVersionId())
+            if(pushVersion <= store.getCurrentVersionId())
                 throw new ServletException("Version of push specified (" + pushVersion
                                            + ") should be greater than current version "
-                                           + store.getMaxVersionId());
+                                           + store.getCurrentVersionId());
         }
 
         // fetch the files if necessary

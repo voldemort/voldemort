@@ -362,12 +362,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();
-                if(pushVersion <= store.getMaxVersionId())
+                if(pushVersion <= store.getCurrentVersionId())
                     throw new VoldemortException("Version of push specified (" + pushVersion
                                                  + ") should be greater than current version "
-                                                 + store.getMaxVersionId());
+                                                 + store.getCurrentVersionId());
             } else {
-                pushVersion = store.getMaxVersionId() + 1;
+                pushVersion = store.getCurrentVersionId() + 1;
             }
 
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
@@ -394,8 +394,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     } else {
 
                         logger.info("Executing fetch of " + fetchUrl);
-                        updateStatus("Executing fetch of " + fetchUrl);
-
+                        updateStatus("0 MB copied at O MB/sec - 0 % complete");
                         try {
                             fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()

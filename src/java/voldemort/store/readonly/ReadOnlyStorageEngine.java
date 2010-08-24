@@ -65,7 +65,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private final String name;
     private final int numBackups;
-    private long maxVersionId;
+    private long currentVersionId;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
@@ -89,7 +89,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.name = Utils.notNull(name);
         this.searchStrategy = searchStrategy;
         this.fileSet = null;
-        this.maxVersionId = 0L;
+        this.currentVersionId = 0L;
         /*
          * A lock that blocks reads during swap(), open(), and close()
          * operations
@@ -128,7 +128,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 throw new VoldemortException("Unable to parse id from version directory "
                                              + versionDir.getAbsolutePath());
             }
-            maxVersionId = versionId;
+            currentVersionId = versionId;
             Utils.mkdirs(versionDir);
 
             // Create symbolic link
@@ -172,8 +172,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public long getMaxVersionId() {
-        return maxVersionId;
+    public long getCurrentVersionId() {
+        return currentVersionId;
     }
 
     public String getStoreDirPath() {
@@ -277,7 +277,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      * Delete all backups asynchronously
      */
     private void deleteBackups() {
-        File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, 0L, maxVersionId);
+        File[] storeDirList = ReadOnlyUtils.getVersionDirs(storeDir, 0L, currentVersionId);
         if(storeDirList.length > (numBackups + 1)) {
             // delete ALL old directories asynchronously
             File[] extraBackups = ReadOnlyUtils.findKthVersionedDir(storeDirList,
