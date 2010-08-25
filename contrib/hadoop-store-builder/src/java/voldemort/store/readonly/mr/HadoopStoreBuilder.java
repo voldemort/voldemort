@@ -72,6 +72,59 @@ public class HadoopStoreBuilder {
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
 
+    /**
+     * Kept for backwards compatibility. We do not use replicationFactor any
+     * more since it is derived from the store definition
+     * 
+     * @param conf A base configuration to start with
+     * @param mapperClass The class to use as the mapper
+     * @param inputFormatClass The input format to use for reading values
+     * @param cluster The voldemort cluster for which the stores are being built
+     * @param storeDef The store definition of the store
+     * @param replicationFactor NOT USED
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
+     */
+    @SuppressWarnings("unchecked")
+    @Deprecated
+    public HadoopStoreBuilder(Configuration conf,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends InputFormat> inputFormatClass,
+                              Cluster cluster,
+                              StoreDefinition storeDef,
+                              int replicationFactor,
+                              long chunkSizeBytes,
+                              Path tempDir,
+                              Path outputDir,
+                              Path inputPath) {
+        this(conf,
+             mapperClass,
+             inputFormatClass,
+             cluster,
+             storeDef,
+             chunkSizeBytes,
+             tempDir,
+             outputDir,
+             inputPath);
+    }
+
+    /**
+     * Create the store builder
+     * 
+     * @param conf A base configuration to start with
+     * @param mapperClass The class to use as the mapper
+     * @param inputFormatClass The input format to use for reading values
+     * @param cluster The voldemort cluster for which the stores are being built
+     * @param storeDef The store definition of the store
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
+     */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
                               Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
@@ -105,13 +158,12 @@ public class HadoopStoreBuilder {
      * @param inputFormatClass The input format to use for reading values
      * @param cluster The voldemort cluster for which the stores are being built
      * @param storeDef The store definition of the store
-     * @param replicationFactor The replication factor to use for storing the
-     *        built store.
      * @param chunkSizeBytes The size of the chunks used by the read-only store
      * @param tempDir The temporary directory to use in hadoop for intermediate
      *        reducer output
      * @param outputDir The directory in which to place the built stores
      * @param inputPath The path from which to read input data
+     * @param checkSumType The checksum algorithm to use
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
