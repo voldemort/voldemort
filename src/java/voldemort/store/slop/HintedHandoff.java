@@ -14,17 +14,13 @@
  * the License.
  */
 
-package voldemort.store.routed;
+package voldemort.store.slop;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.slop.HintedHandoffStrategy;
-import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;

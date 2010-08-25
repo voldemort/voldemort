@@ -16,12 +16,11 @@
 
 package voldemort.store.routed.action;
 
-import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.routed.BasicPipelineData;
-import voldemort.store.routed.HintedHandoff;
+import voldemort.store.slop.HintedHandoff;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
