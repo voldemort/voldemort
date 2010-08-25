@@ -38,6 +38,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -69,7 +70,7 @@ public class PerformParallelPutRequests extends
                                       long timeoutMs,
                                       Map<Integer, NonblockingStore> nonblockingStores,
                                       Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                      List<Node> nodes) {
+                                      HintedHandoffStrategy handoffStrategy) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
         this.preferred = preferred;
@@ -78,7 +79,7 @@ public class PerformParallelPutRequests extends
         this.nonblockingStores = nonblockingStores;
         this.nonblockingHintedHandoff = new HintedHandoff(failureDetector,
                                                           slopStores,
-                                                          nodes,
+                                                          handoffStrategy,
                                                           pipelineData.getFailedNodes());
         isHintedHandoffEnabled = slopStores != null;
     }

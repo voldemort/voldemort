@@ -23,6 +23,7 @@ import voldemort.store.Store;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.HintedHandoff;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 
@@ -41,12 +42,12 @@ public abstract class AbstractHintedHandoffAction<V, PD extends BasicPipelineDat
                                        ByteArray key,
                                        FailureDetector failureDetector,
                                        Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                       Cluster cluster) {
+                                       HintedHandoffStrategy strategy) {
         super(pipelineData, completeEvent, key);
         failedNodes = pipelineData.getFailedNodes();
         hintedHandoff = new HintedHandoff(failureDetector,
                                           slopStores,
-                                          cluster.getNodes(),
+                                          strategy,
                                           failedNodes);
     }
 

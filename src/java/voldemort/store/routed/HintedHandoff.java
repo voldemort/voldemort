@@ -23,6 +23,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -30,12 +31,8 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.Set;
 
 public class HintedHandoff {
 
@@ -45,28 +42,24 @@ public class HintedHandoff {
 
     private final Map<Integer, Store<ByteArray, Slop>> slopStores;
 
-    private final List<Node> nodes;
+    private final HintedHandoffStrategy handoffStrategy;
 
     private final List<Node> failedNodes;
 
     public HintedHandoff(FailureDetector failureDetector,
                          Map<Integer, Store<ByteArray, Slop>> slopStores,
-                         Collection<Node> nodes,
+                         HintedHandoffStrategy handoffStrategy,
                          List<Node> failedNodes) {
         this.failureDetector = failureDetector;
         this.slopStores = slopStores;
-        this.nodes = Lists.newArrayList(nodes);
+        this.handoffStrategy = handoffStrategy;
         this.failedNodes = failedNodes;
-
-        // shuffle potential slop nodes to avoid cascading failures
-        Collections.shuffle(this.nodes, new Random());
     }
 
 
     public boolean sendHint(Node failedNode, Version version, Slop slop) {
-        Set<Node> used = Sets.newHashSetWithExpectedSize(nodes.size());
         boolean persisted = false;
-        for(Node node: nodes) {
+        for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();
 
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
@@ -85,8 +78,6 @@ public class HintedHandoff {
                     persisted = true;
                     failureDetector.recordSuccess(node,
                                                   (System.nanoTime() - startNs) / Time.NS_PER_MS);
-                    used.add(node);
-
                     if(logger.isTraceEnabled())
                         logger.trace("Finished hinted handoff for " + failedNode
                                      + " wrote slop to " + node);
@@ -100,9 +91,6 @@ public class HintedHandoff {
             }
         }
 
-        if(nodes.size() > used.size())
-            for(Node usedNode: used)
-                nodes.remove(usedNode);
         return persisted;
     }
 }

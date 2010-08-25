@@ -51,6 +51,8 @@ import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
 import voldemort.store.routed.action.PerformZoneSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
+import voldemort.store.slop.HandoffToAllStrategy;
+import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
@@ -66,7 +68,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
     private final Map<Integer, Store<ByteArray, Slop>> slopStores;
-    private final Cluster cluster;
+    private final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
 
@@ -110,7 +112,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
-        this.cluster = cluster;
+        this.handoffStrategy = new HandoffToAllStrategy(cluster);
     }
 
     public List<Versioned<byte[]>> get(final ByteArray key) {
@@ -398,14 +400,14 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                              version,
                                                                                              failureDetector,
                                                                                              slopStores,
-                                                                                             cluster));
+                                                                                             handoffStrategy));
             pipeline.addEventAction(Event.ABORTED, new PerformDeleteHintedHandoff(pipelineData,
                                                                                   Event.ERROR,
                                                                                   key,
                                                                                   version,
                                                                                   failureDetector,
                                                                                   slopStores,
-                                                                                  cluster));
+                                                                                  handoffStrategy));
         }
         
         pipeline.addEvent(Event.STARTED);
@@ -470,7 +472,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                timeoutMs,
                                                                nonblockingStores,
                                                                slopStores,
-                                                               new ArrayList<Node>(cluster.getNodes())));
+                                                               handoffStrategy));
         if(isHintedHandoffEnabled()) {
             pipeline.addEventAction(Event.ABORTED, new PerformPutHintedHandoff(pipelineData,
                                                                                Event.ERROR,
@@ -478,7 +480,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                versioned,
                                                                                failureDetector,
                                                                                slopStores,
-                                                                               cluster,
+                                                                               handoffStrategy,
                                                                                time));
             pipeline.addEventAction(Event.RESPONSES_RECEIVED, new PerformPutHintedHandoff(pipelineData,
                                                                                           Event.HANDOFF_FINISHED,
@@ -486,7 +488,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                           versioned,
                                                                                           failureDetector,
                                                                                           slopStores,
-                                                                                          cluster,
+                                                                                          handoffStrategy,
                                                                                           time));
             pipeline.addEventAction(Event.HANDOFF_FINISHED, new IncrementClock(pipelineData,
                                                                                Event.COMPLETED,
