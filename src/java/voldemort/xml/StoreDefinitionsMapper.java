@@ -273,7 +273,7 @@ public class StoreDefinitionsMapper {
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
 
         // get transformations
-        View<?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_TRANS_ELMT));
+        View<?, ?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_TRANS_ELMT));
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
@@ -291,11 +291,11 @@ public class StoreDefinitionsMapper {
                                            .build();
     }
 
-    private View<?, ?, ?> loadTransformation(String className) {
+    private View<?, ?, ?, ?> loadTransformation(String className) {
         if(className == null)
             return null;
         Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (View<?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
+        return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {

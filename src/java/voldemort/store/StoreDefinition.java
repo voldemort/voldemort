@@ -39,6 +39,7 @@ public class StoreDefinition implements Serializable {
     private final String type;
     private final SerializerDefinition keySerializer;
     private final SerializerDefinition valueSerializer;
+    private final SerializerDefinition transformsSerializer;
     private final RoutingTier routingPolicy;
     private final int replicationFactor;
     private final Integer preferredWrites;
@@ -49,15 +50,16 @@ public class StoreDefinition implements Serializable {
     private final Integer retentionScanThrottleRate;
     private final String routingStrategyType;
     private final String viewOf;
-    private final View<?, ?, ?> valueTransformation;
     private final HashMap<Integer, Integer> zoneReplicationFactor;
     private final Integer zoneCountReads;
     private final Integer zoneCountWrites;
+    private final View<?, ?, ?, ?> valueTransformation;
 
     public StoreDefinition(String name,
                            String type,
                            SerializerDefinition keySerializer,
                            SerializerDefinition valueSerializer,
+                           SerializerDefinition transformsSerializer,
                            RoutingTier routingPolicy,
                            String routingStrategyType,
                            int replicationFactor,
@@ -66,7 +68,7 @@ public class StoreDefinition implements Serializable {
                            Integer preferredWrites,
                            int requiredWrites,
                            String viewOfStore,
-                           View<?, ?, ?> valTrans,
+                           View<?, ?, ?, ?> valTrans,
                            HashMap<Integer, Integer> zoneReplicationFactor,
                            Integer zoneCountReads,
                            Integer zoneCountWrites,
@@ -82,6 +84,7 @@ public class StoreDefinition implements Serializable {
         this.routingPolicy = Utils.notNull(routingPolicy);
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
+        this.transformsSerializer = Utils.notNull(transformsSerializer);
         this.retentionPeriodDays = retentionDays;
         this.retentionScanThrottleRate = retentionThrottleRate;
         this.routingStrategyType = routingStrategyType;
@@ -153,6 +156,10 @@ public class StoreDefinition implements Serializable {
         return valueSerializer;
     }
 
+    public SerializerDefinition getTransformsSerializer() {
+        return transformsSerializer;
+    }
+
     public RoutingTier getRoutingPolicy() {
         return this.routingPolicy;
     }
@@ -217,7 +224,7 @@ public class StoreDefinition implements Serializable {
         return this.valueTransformation != null;
     }
 
-    public View<?, ?, ?> getValueTransformation() {
+    public View<?, ?, ?, ?> getValueTransformation() {
         return valueTransformation;
     }
 

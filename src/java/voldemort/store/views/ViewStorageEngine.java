@@ -34,7 +34,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private final Serializer<Object> valSerializer;
     private final Serializer<Object> targetKeySerializer;
     private final Serializer<Object> targetValSerializer;
-    private final View<Object, Object, Object> view;
+    private final View<Object, Object, Object, Object> view;
 
     @SuppressWarnings("unchecked")
     public ViewStorageEngine(String name,
@@ -42,7 +42,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
                              Serializer<?> valSerializer,
                              Serializer<?> targetKeySerializer,
                              Serializer<?> targetValSerializer,
-                             View<?, ?, ?> valueTrans) {
+                             View<?, ?, ?, ?> valueTrans) {
         this.name = name;
         this.target = Utils.notNull(target);
         this.serializingStore = new SerializingStore(target,
@@ -51,7 +51,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.valSerializer = (Serializer<Object>) valSerializer;
         this.targetKeySerializer = (Serializer<Object>) targetKeySerializer;
         this.targetValSerializer = (Serializer<Object>) targetValSerializer;
-        this.view = (View<Object, Object, Object>) valueTrans;
+        this.view = (View<Object, Object, Object, Object>) valueTrans;
         if(valueTrans == null)
             throw new IllegalArgumentException("View without either a key transformation or a value transformation.");
     }
@@ -95,7 +95,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void truncate() {
         ViewIterator iterator = new ViewIterator(target.entries());
-        while (iterator.hasNext()) {
+        while(iterator.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> pair = iterator.next();
             target.delete(pair.getFirst(), pair.getSecond().getVersion());
         }
@@ -113,7 +113,8 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[]> {
     private byte[] valueFromViewSchema(ByteArray key, byte[] value) {
         return this.targetValSerializer.toBytes(this.view.viewToStore(this.serializingStore,
                                                                       this.targetKeySerializer.toObject(key.get()),
-                                                                      this.valSerializer.toObject(value)));
+                                                                      this.valSerializer.toObject(value)),
+                                                                      this.);
     }
 
     private byte[] valueToViewSchema(ByteArray key, byte[] value) {

@@ -10,14 +10,15 @@ import voldemort.store.Store;
  * @param <K> The type of the key
  * @param <V> The type of objects in the view
  * @param <S> The type of objects in the store
+ * @param <T> The type of transforms to be applied on S
  */
-public class AbstractViewTransformation<K, V, S> implements View<K, V, S> {
+public class AbstractViewTransformation<K, V, S, T> implements View<K, V, S, T> {
 
-    public V storeToView(Store<K, S> store, K k, S s) {
+    public V storeToView(Store<K, S> store, K k, S s, T t) {
         throw new UnsupportedViewOperationException("Read attempt on write-only view!");
     }
 
-    public S viewToStore(Store<K, S> store, K k, V v) {
+    public S viewToStore(Store<K, S> store, K k, V v, T t) {
         throw new UnsupportedViewOperationException("Write attempt on read-only view!");
     }
 

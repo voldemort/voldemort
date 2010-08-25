@@ -45,6 +45,7 @@ public class ViewStorageConfiguration implements StorageConfiguration {
                                      factory.getSerializer(def.getValueSerializer()),
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
+                                     factory.getSerializer(targetDef.getTransformsSerializer()),
                                      def.getValueTransformation());
     }
 

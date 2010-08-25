@@ -7,13 +7,13 @@ import voldemort.store.Store;
  * 
  * 
  */
-public class UpperCaseView implements View<String, String, String> {
+public class UpperCaseView implements View<String, String, String, String> {
 
-    public String storeToView(Store<String, String> store, String k, String s) {
+    public String storeToView(Store<String, String> store, String k, String s, String t) {
         return s.toUpperCase();
     }
 
-    public String viewToStore(Store<String, String> store, String k, String v) {
+    public String viewToStore(Store<String, String> store, String k, String v, String t) {
         throw new UnsupportedViewOperationException("View not writable");
     }
 
