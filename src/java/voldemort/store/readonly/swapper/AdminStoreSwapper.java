@@ -13,7 +13,6 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.utils.RebalanceUtils;
@@ -28,9 +27,12 @@ public class AdminStoreSwapper extends StoreSwapper {
     private AdminClient adminClient;
     private long timeoutMs;
 
-    public AdminStoreSwapper(Cluster cluster, ExecutorService executor, long timeoutMs) {
+    public AdminStoreSwapper(Cluster cluster,
+                             ExecutorService executor,
+                             AdminClient adminClient,
+                             long timeoutMs) {
         super(cluster, executor);
-        this.adminClient = new AdminClient(cluster, new AdminClientConfig());
+        this.adminClient = adminClient;
         this.timeoutMs = timeoutMs;
     }
 
@@ -159,10 +161,5 @@ public class AdminStoreSwapper extends StoreSwapper {
                                          System.currentTimeMillis());
             RebalanceUtils.propagateCluster(adminClient, cluster, latestClock, requiredNodeIds);
         }
-    }
-
-    @Override
-    protected void stop() {
-        adminClient.stop();
     }
 }

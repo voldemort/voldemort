@@ -141,9 +141,4 @@ public class HttpStoreSwapper extends StoreSwapper {
         if(exception != null)
             throw new VoldemortException(exception);
     }
-
-    @Override
-    protected void stop() {
-    // Nothing to do here
-    }
 }

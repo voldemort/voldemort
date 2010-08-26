@@ -18,6 +18,8 @@ import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
@@ -55,8 +57,6 @@ public abstract class StoreSwapper {
     protected abstract void invokeSwap(String storeName, List<String> fetchFiles);
 
     protected abstract void invokeRollback(String storeName, long pushVersion);
-
-    protected abstract void stop();
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
@@ -115,7 +115,8 @@ public abstract class StoreSwapper {
         StoreSwapper swapper = null;
 
         if(useAdminServices) {
-            swapper = new AdminStoreSwapper(cluster, executor, timeoutMs);
+            AdminClient client = new AdminClient(cluster, new AdminClientConfig());
+            swapper = new AdminStoreSwapper(cluster, executor, client, timeoutMs);
         } else {
             HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
 
@@ -140,7 +141,6 @@ public abstract class StoreSwapper {
             logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
                         + " seconds.");
         } finally {
-            swapper.stop();
             executor.shutdownNow();
             executor.awaitTermination(1, TimeUnit.SECONDS);
         }
