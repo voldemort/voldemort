@@ -16,7 +16,6 @@
 
 package voldemort.store.routed.action;
 
-import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;

@@ -16,6 +16,7 @@ import voldemort.MutableStoreVerifier;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -27,16 +28,20 @@ import voldemort.cluster.failuredetector.ThresholdFailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.store.ForceFailStore;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.logging.LoggingStore;
+import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -107,16 +112,41 @@ public class HintedHandoffTest {
         });
     }
 
+    private StoreDefinition getStoreDef(String storeName,
+                                        int replicationFactor,
+                                        int preads,
+                                        int rreads,
+                                        int pwrites,
+                                        int rwrites,
+                                        String strategyType) {
+        SerializerDefinition serDef = new SerializerDefinition("string");
+        return new StoreDefinitionBuilder().setName(storeName)
+                       .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                       .setKeySerializer(serDef)
+                       .setValueSerializer(serDef)
+                       .setRoutingPolicy(RoutingTier.SERVER)
+                       .setRoutingStrategyType(strategyType)
+                       .setReplicationFactor(replicationFactor)
+                       .setPreferredReads(preads)
+                       .setRequiredReads(rreads)
+                       .setPreferredWrites(pwrites)
+                       .setRequiredWrites(rwrites)
+                       .setHintedHandoffStrategy(HintedHandoffStrategyType.TO_ALL_STRATEGY)
+                       .setEnableHintedHandoff(true)
+                       .build();
+    }
+
+
     @Before
     public void setUp() throws Exception {
         cluster = getNineNodeCluster();
-        storeDef = ServerTestUtils.getStoreDef(STORE_NAME,
-                                               REPLICATION_FACTOR,
-                                               P_READS,
-                                               R_READS,
-                                               P_WRITES,
-                                               R_WRITES,
-                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        storeDef = getStoreDef(STORE_NAME,
+                               REPLICATION_FACTOR,
+                               P_READS,
+                               R_READS,
+                               P_WRITES,
+                               R_WRITES,
+                               RoutingStrategyType.CONSISTENT_STRATEGY);
         Random rand = new Random();
         for(Node node : cluster.getNodes()) {
             VoldemortException e;

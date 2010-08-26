@@ -53,6 +53,7 @@ import voldemort.store.routed.action.PerformZoneSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
 import voldemort.store.slop.HandoffToAllStrategy;
 import voldemort.store.slop.HintedHandoffStrategy;
+import voldemort.store.slop.HintedHandoffStrategyFactory;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
@@ -112,7 +113,11 @@ public class PipelineRoutedStore extends RoutedStore {
 
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
-        this.handoffStrategy = new HandoffToAllStrategy(cluster);
+        if(storeDef.isHintedHandoffEnabled()) {
+            this.handoffStrategy = new HintedHandoffStrategyFactory().updateHintedHandoffStrategy(storeDef, cluster);
+        } else {
+            this.handoffStrategy = null;
+        }
     }
 
     public List<Versioned<byte[]>> get(final ByteArray key) {

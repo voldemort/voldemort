@@ -33,6 +33,9 @@ public class StoreDefinitionBuilder {
     private HashMap<Integer, Integer> zoneReplicationFactor = null;
     private Integer zoneCountReads;
     private Integer zoneCountWrites;
+    private Boolean enableHintedHandoff = false;
+    private String hintedHandoffStrategy = null;
+    private Integer hintPrefListSize = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -212,6 +215,33 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public Boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff;
+    }
+
+    public StoreDefinitionBuilder setEnableHintedHandoff(Boolean enableHintedHandoff) {
+        this.enableHintedHandoff = enableHintedHandoff;
+        return this;
+    }
+
+    public String getHintedHandoffStrategy() {
+        return hintedHandoffStrategy;
+    }
+
+    public StoreDefinitionBuilder setHintedHandoffStrategy(String hintedHandoffStrategy) {
+        this.hintedHandoffStrategy = hintedHandoffStrategy;
+        return this;
+    }
+
+    public Integer getHintPrefListSize() {
+        return hintPrefListSize;
+    }
+
+    public StoreDefinitionBuilder setHintPrefListSize(Integer hintPrefListSize) {
+        this.hintPrefListSize = hintPrefListSize;
+        return this;
+    }
+
     public StoreDefinition build() {
         return new StoreDefinition(this.getName(),
                                    this.getType(),
@@ -230,7 +260,10 @@ public class StoreDefinitionBuilder {
                                    this.getZoneCountReads(),
                                    this.getZoneCountWrites(),
                                    this.getRetentionPeriodDays(),
-                                   this.getRetentionScanThrottleRate());
+                                   this.getRetentionScanThrottleRate(),
+                                   this.isHintedHandoffEnabled(),
+                                   this.getHintedHandoffStrategy(),
+                                   this.getHintPrefListSize());
     }
 
 }
