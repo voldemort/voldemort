@@ -56,10 +56,10 @@ import voldemort.utils.Utils;
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
-    private static final int REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
+    private static final long REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
-    private final Long maxBytesPerSecond;
+    private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
     private AsyncOperationStatus status;
@@ -68,19 +68,23 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
                                                            : null,
+             props.getBytes("fetcher.reporting.interval.bytes", REPORTING_INTERVAL_BYTES),
              (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
+
         logger.info("Created hdfs fetcher with throttle rate " + maxBytesPerSecond
-                    + " and buffer size " + bufferSize);
+                    + ", buffer size " + bufferSize + ", reporting interval bytes "
+                    + reportingIntervalBytes);
     }
 
     public HdfsFetcher() {
-        this((Long) null, DEFAULT_BUFFER_SIZE);
+        this((Long) null, REPORTING_INTERVAL_BYTES, DEFAULT_BUFFER_SIZE);
     }
 
-    public HdfsFetcher(Long maxBytesPerSecond, int bufferSize) {
+    public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
         if(this.maxBytesPerSecond != null)
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
+        this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
         this.status = null;
     }
@@ -198,7 +202,7 @@ public class HdfsFetcher implements FileFetcher {
                 if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
-                if(stats.getBytesSinceLastReport() > REPORTING_INTERVAL_BYTES) {
+                if(stats.getBytesSinceLastReport() > reportingIntervalBytes) {
                     NumberFormat format = NumberFormat.getNumberInstance();
                     format.setMaximumFractionDigits(2);
                     logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
@@ -337,7 +341,9 @@ public class HdfsFetcher implements FileFetcher {
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
         FileStatus status = p.getFileSystem(config).getFileStatus(p);
         long size = status.getLen();
-        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec, DEFAULT_BUFFER_SIZE);
+        HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec,
+                                              REPORTING_INTERVAL_BYTES,
+                                              DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
         File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
                                            + start);
