@@ -19,6 +19,7 @@ public class AdminClientConfig {
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
     private volatile boolean adminSocketKeepAlive = false;
     private volatile int restoreDataTimeout = 24 * 60 * 60;
+    private volatile int maxBackoffDelayMs = 60 * 1000;
 
     public static final String MAX_CONNECTIONS_PER_NODE_PROPERTY = "max_connections";
     public static final String MAX_TOTAL_CONNECTIONS_PROPERTY = "max_total_connections";
@@ -29,6 +30,7 @@ public class AdminClientConfig {
     public static final String ADMIN_SOCKET_BUFFER_SIZE_PROPERTY = "admin_socket_buffer_size";
     public static final String ADMIN_SOCKET_KEEPALIVE_PROPERTY = "admin_socket_keepalive";
     public static final String RESTORE_DATA_TIMEOUT = "restore.data.timeout.sec";
+    public static final String MAX_BACKOFF_DELAY_MS = "max.backoff.delay.ms";
 
     // sets better default for AdminClient
     public AdminClientConfig() {
@@ -58,9 +60,21 @@ public class AdminClientConfig {
 
         if(props.containsKey(RESTORE_DATA_TIMEOUT))
             this.setRestoreDataTimeout(props.getInt(RESTORE_DATA_TIMEOUT));
+
+        if(props.containsKey(MAX_BACKOFF_DELAY_MS))
+            this.setMaxBackoffDelayMs(props.getInt(MAX_BACKOFF_DELAY_MS));
     }
 
     /* Propery names for propery-based configuration */
+
+    public int getMaxBackoffDelayMs() {
+        return maxBackoffDelayMs;
+    }
+
+    public AdminClientConfig setMaxBackoffDelayMs(int maxBackoffDelayMs) {
+        this.maxBackoffDelayMs = maxBackoffDelayMs;
+        return this;
+    }
 
     public int getMaxConnectionsPerNode() {
         return maxConnectionsPerNode;

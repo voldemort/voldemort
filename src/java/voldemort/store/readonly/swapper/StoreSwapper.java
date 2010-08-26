@@ -113,10 +113,11 @@ public abstract class StoreSwapper {
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
         ExecutorService executor = Executors.newFixedThreadPool(10);
         StoreSwapper swapper = null;
+        AdminClient adminClient = null;
 
         if(useAdminServices) {
-            AdminClient client = new AdminClient(cluster, new AdminClientConfig());
-            swapper = new AdminStoreSwapper(cluster, executor, client, timeoutMs);
+            adminClient = new AdminClient(cluster, new AdminClientConfig());
+            swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
         } else {
             HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
 
@@ -141,6 +142,8 @@ public abstract class StoreSwapper {
             logger.info("Succeeded on all nodes in " + ((end - start) / Time.MS_PER_SECOND)
                         + " seconds.");
         } finally {
+            if(useAdminServices && adminClient != null)
+                adminClient.stop();
             executor.shutdownNow();
             executor.awaitTermination(1, TimeUnit.SECONDS);
         }
