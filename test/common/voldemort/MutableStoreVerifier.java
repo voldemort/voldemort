@@ -22,11 +22,11 @@ import voldemort.versioning.Versioned;
  * 
  */
 
-public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> {
+public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], byte[]> {
 
     private Map<Integer, VoldemortException> errorStores;
 
-    private MutableStoreVerifier(Map<Integer, Store<ByteArray, byte[]>> stores) {
+    private MutableStoreVerifier(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
         super(stores, new ByteArray((byte) 1));
         errorStores = new HashMap<Integer, VoldemortException>();
     }
@@ -45,15 +45,15 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> 
         errorStores.put(node.getId(), voldemortException);
     }
 
-    public static MutableStoreVerifier create(Map<Integer, Store<ByteArray, byte[]>> stores) {
+    public static MutableStoreVerifier create(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
         return new MutableStoreVerifier(stores);
     }
 
     public static MutableStoreVerifier create(Collection<Node> nodes) {
-        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
 
         for(Node node: nodes) {
-            stores.put(node.getId(), new Store<ByteArray, byte[]>() {
+            stores.put(node.getId(), new Store<ByteArray, byte[], byte[]>() {
 
                 public void close() throws VoldemortException {}
 
@@ -61,11 +61,13 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> 
                     return false;
                 }
 
-                public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+                public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+                        throws VoldemortException {
                     return null;
                 }
 
-                public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+                public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                                      Map<ByteArray, byte[]> transforms)
                         throws VoldemortException {
                     return null;
                 }
@@ -82,7 +84,8 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[]> 
                     return null;
                 }
 
-                public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {}
+                public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+                        throws VoldemortException {}
 
             });
         }

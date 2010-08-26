@@ -65,6 +65,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_PERSISTENCE_ELMT = "persistence";
     public final static String STORE_KEY_SERIALIZER_ELMT = "key-serializer";
     public final static String STORE_VALUE_SERIALIZER_ELMT = "value-serializer";
+    public final static String STORE_TRANSFORM_SERIALIZER_ELMT = "transforms-serializer";
     public final static String STORE_SERIALIZATION_TYPE_ELMT = "type";
     public final static String STORE_SERIALIZATION_META_ELMT = "schema-info";
     public final static String STORE_COMPRESSION_ELMT = "compression";
@@ -268,6 +269,10 @@ public class StoreDefinitionsMapper {
         if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
             valueSerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
 
+        SerializerDefinition transformSerializer = null;
+        if(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT) != null)
+            transformSerializer = readSerializer(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT));
+
         RoutingTier policy = target.getRoutingPolicy();
         if(store.getChild(STORE_ROUTING_STRATEGY) != null)
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
@@ -282,6 +287,7 @@ public class StoreDefinitionsMapper {
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
                                            .setValueSerializer(valueSerializer)
+                                           .setTransformsSerializer(transformSerializer)
                                            .setReplicationFactor(target.getReplicationFactor())
                                            .setPreferredReads(preferredReads)
                                            .setRequiredReads(requiredReads)
@@ -419,6 +425,12 @@ public class StoreDefinitionsMapper {
         Element valueSerializer = new Element(STORE_VALUE_SERIALIZER_ELMT);
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());
         store.addContent(valueSerializer);
+
+        Element transformsSerializer = new Element(STORE_TRANSFORM_SERIALIZER_ELMT);
+        if(storeDefinition.getTransformsSerializer() != null) {
+            addSerializer(transformsSerializer, storeDefinition.getTransformsSerializer());
+            store.addContent(transformsSerializer);
+        }
 
         return store;
     }

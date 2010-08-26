@@ -44,13 +44,13 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
     @Override
     @Before
     public void setUp() throws Exception {
-        this.store = new CompressingStore(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
+        this.store = new CompressingStore(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
                                           compressionFactory.get(compression),
                                           compressionFactory.get(compression));
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore() {
+    public Store<ByteArray, byte[], byte[]> getStore() {
         return store;
     }
 
@@ -73,7 +73,7 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://localhost:"
                                                                                                                        + freePort)
                                                                                                      .setMaxBootstrapRetries(10));
-        StoreClient<String, String> storeClient = storeClientFactory.getStoreClient("test");
+        StoreClient<String, String, String> storeClient = storeClientFactory.getStoreClient("test");
         storeClient.put("someKey", "someValue");
         assertEquals(storeClient.getValue("someKey"), "someValue");
         socketService.stop();

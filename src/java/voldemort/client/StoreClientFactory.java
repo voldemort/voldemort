@@ -41,10 +41,12 @@ public interface StoreClientFactory {
      *        {@link voldemort.client.StoreClient}
      * @param <V> The type of the value of the
      *        {@link voldemort.client.StoreClient}
+     * @param <T> The type of the transform of the
+     *        {@link voldemort.client.StoreClient}
      * @param storeName The name of the store
      * @return A fully constructed {@link voldemort.client.StoreClient}
      */
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName);
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName);
 
     /**
      * Get a {@link voldemort.client.StoreClient} for the given store.
@@ -53,25 +55,29 @@ public interface StoreClientFactory {
      *        {@link voldemort.client.StoreClient}
      * @param <V> The type of the value of the
      *        {@link voldemort.client.StoreClient}
+     * @param <T> The type of the transform of the
+     *        {@link voldemort.client.StoreClient}
      * @param storeName The name of the store
      * @param inconsistencyResolver The
      *        {@link voldemort.versioning.InconsistencyResolver} that should be
      *        used to resolve inconsistencies.
      * @return A fully constructed {@link voldemort.client.StoreClient}
      */
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> inconsistencyResolver);
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
+                                                         InconsistencyResolver<Versioned<V>> inconsistencyResolver);
 
     /**
      * Get the underlying store, not the public StoreClient interface
      * 
      * @param <K> The key type
      * @param <V> The value type
+     * @param <T> The transform type
      * @param storeName The name of the store
      * @param resolver The inconsistency resolver
      * @return The appropriate store
      */
-    <K, V> Store<K, V> getRawStore(String storeName, InconsistencyResolver<Versioned<V>> resolver);
+    <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                         InconsistencyResolver<Versioned<V>> resolver);
 
     /**
      * Close the store client
@@ -79,8 +85,8 @@ public interface StoreClientFactory {
     public void close();
 
     /**
-     * Returns the FailureDetector specific to the cluster against
-     * which this client factory is based.
+     * Returns the FailureDetector specific to the cluster against which this
+     * client factory is based.
      * 
      * @return FailureDetector
      */

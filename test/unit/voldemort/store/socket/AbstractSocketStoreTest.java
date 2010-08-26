@@ -63,7 +63,7 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
 
     private int socketPort;
     private AbstractSocketService socketService;
-    private Store<ByteArray, byte[]> socketStore;
+    private Store<ByteArray, byte[], byte[]> socketStore;
     private final RequestFormatType requestFormatType;
     private final boolean useNio;
     private SocketStoreFactory socketStoreFactory;
@@ -96,28 +96,28 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore() {
+    public Store<ByteArray, byte[], byte[]> getStore() {
         return socketStore;
     }
 
     @Test
     public void testVeryLargeValues() throws Exception {
-        final Store<ByteArray, byte[]> store = getStore();
+        final Store<ByteArray, byte[], byte[]> store = getStore();
         byte[] biggie = new byte[1 * 1024 * 1024];
         ByteArray key = new ByteArray(biggie);
         Random rand = new Random();
         for(int i = 0; i < 10; i++) {
             rand.nextBytes(biggie);
             Versioned<byte[]> versioned = new Versioned<byte[]>(biggie);
-            store.put(key, versioned);
-            assertNotNull(store.get(key));
+            store.put(key, versioned, null);
+            assertNotNull(store.get(key, null));
             assertTrue(store.delete(key, versioned.getVersion()));
         }
     }
 
     @Test
     public void testThreadOverload() throws Exception {
-        final Store<ByteArray, byte[]> store = getStore();
+        final Store<ByteArray, byte[], byte[]> store = getStore();
         int numOps = 100;
         final CountDownLatch latch = new CountDownLatch(numOps);
         Executor exec = Executors.newCachedThreadPool();
@@ -127,7 +127,8 @@ public abstract class AbstractSocketStoreTest extends AbstractByteArrayStoreTest
                 public void run() {
                     store.put(TestUtils.toByteArray(TestUtils.randomString("abcdefghijklmnopqrs",
                                                                            10)),
-                              new Versioned<byte[]>(TestUtils.randomBytes(8)));
+                              new Versioned<byte[]>(TestUtils.randomBytes(8)),
+                              null);
                     latch.countDown();
                 }
             });

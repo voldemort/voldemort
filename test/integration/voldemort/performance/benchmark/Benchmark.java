@@ -100,8 +100,11 @@ public class Benchmark {
     public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
     public static final String CLIENT_ZONE_ID = "client-zoneid";
     private static final String DUMMY_DB = "benchmark_db";
+    public static final String STORE_TYPE = "view";
+    public static final String VIEW_CLASS = "voldemort.store.views.UpperCaseView";
+    public static final String HAS_TRANSFORMS = "true";
 
-    private StoreClient<Object, Object> storeClient;
+    private StoreClient<Object, Object, Object> storeClient;
     private StoreClientFactory factory;
 
     private int numThreads, numIterations, targetThroughput, recordCount, opsCount,
@@ -367,13 +370,14 @@ public class Benchmark {
             String storageEngineClass = benchmarkProps.getString(STORAGE_CONFIGURATION_CLASS);
             this.keyType = benchmarkProps.getString(KEY_TYPE, STRING_KEY_TYPE);
             Serializer serializer = findKeyType(this.keyType);
-            Store<Object, Object> store = null;
+            Store<Object, Object, Object> store = null;
 
             StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                             new Object[] { ServerTestUtils.getVoldemortConfig() });
             store = SerializingStore.wrap(conf.getStore(DUMMY_DB),
                                           serializer,
-                                          new StringSerializer());
+                                          new StringSerializer(),
+                                          new IdentitySerializer());
 
             this.factory = new StaticStoreClientFactory(store);
             this.storeClient = factory.getStoreClient(store.getName());

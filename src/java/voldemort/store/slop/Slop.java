@@ -52,6 +52,7 @@ public class Slop {
 
     final private ByteArray key;
     final private byte[] value;
+    final private byte[] transforms;
     final private String storeName;
     final private int nodeId;
     final private Date arrived;
@@ -63,19 +64,21 @@ public class Slop {
                 byte[] value,
                 int nodeId,
                 Date arrived) {
-        this(storeName, operation, new ByteArray(key), value, nodeId, arrived);
+        this(storeName, operation, new ByteArray(key), value, null, nodeId, arrived);
     }
 
     public Slop(String storeName,
                 Operation operation,
                 ByteArray key,
                 byte[] value,
+                byte[] transforms,
                 int nodeId,
                 Date arrived) {
         this.operation = Utils.notNull(operation);
         this.storeName = Utils.notNull(storeName);
         this.key = Utils.notNull(key);
         this.value = value;
+        this.transforms = transforms;
         this.nodeId = nodeId;
         this.arrived = Utils.notNull(arrived);
     }
@@ -86,6 +89,10 @@ public class Slop {
 
     public byte[] getValue() {
         return value;
+    }
+
+    public byte[] getTransforms() {
+        return transforms;
     }
 
     public int getNodeId() {
@@ -121,13 +128,14 @@ public class Slop {
 
         return operation == slop.getOperation() && Objects.equal(storeName, getStoreName())
                && key.equals(slop.getKey()) && Utils.deepEquals(value, slop.getValue())
-               && nodeId == slop.getNodeId() && Objects.equal(arrived, slop.getArrived());
+               && Utils.deepEquals(transforms, slop.getTransforms()) && nodeId == slop.getNodeId()
+               && Objects.equal(arrived, slop.getArrived());
     }
 
     @Override
     public int hashCode() {
         return Objects.hashCode(storeName, operation, nodeId, arrived) + key.hashCode()
-               + Arrays.hashCode(value);
+               + Arrays.hashCode(value) + Arrays.hashCode(transforms);
     }
 
     @Override

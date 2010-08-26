@@ -89,12 +89,12 @@ public class MetadataStoreTest extends TestCase {
     public void testSimpleGetAndPut() {
         for(int i = 0; i <= TEST_RUNS; i++) {
             ByteArray key = getValidKey();
-            VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
+            VectorClock clock = (VectorClock) metadataStore.get(key, null).get(0).getVersion();
             Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key),
                                                             clock.incremented(0, 1));
 
-            metadataStore.put(key, value);
-            checkValues(value, metadataStore.get(key), key);
+            metadataStore.put(key, value, null);
+            checkValues(value, metadataStore.get(key, null), key);
         }
     }
 
@@ -103,12 +103,12 @@ public class MetadataStoreTest extends TestCase {
             for(int j = 0; j <= 5; j++) {
                 ByteArray key = getValidKey();
 
-                VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
+                VectorClock clock = (VectorClock) metadataStore.get(key, null).get(0).getVersion();
                 Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key),
                                                                 clock.incremented(0, 1));
 
-                metadataStore.put(key, value);
-                checkValues(value, metadataStore.get(key), key);
+                metadataStore.put(key, value, null);
+                checkValues(value, metadataStore.get(key, null), key);
             }
         }
     }
@@ -116,14 +116,14 @@ public class MetadataStoreTest extends TestCase {
     public void testObsoletePut() {
         for(int i = 0; i <= TEST_RUNS; i++) {
             ByteArray key = getValidKey();
-            VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
+            VectorClock clock = (VectorClock) metadataStore.get(key, null).get(0).getVersion();
             Versioned<byte[]> value = new Versioned<byte[]>(getValidValue(key),
                                                             clock.incremented(0, 1));
 
             try {
-                metadataStore.put(key, value);
+                metadataStore.put(key, value, null);
                 assertTrue(true);
-                metadataStore.put(key, value);
+                metadataStore.put(key, value, null);
                 fail();
             } catch(ObsoleteVersionException e) {
                 // expected ObsoleteVersionException
@@ -134,18 +134,19 @@ public class MetadataStoreTest extends TestCase {
     public void testSynchronousPut() {
         for(int i = 0; i <= TEST_RUNS; i++) {
             ByteArray key = getValidKey();
-            VectorClock clock = (VectorClock) metadataStore.get(key).get(0).getVersion();
+            VectorClock clock = (VectorClock) metadataStore.get(key, null).get(0).getVersion();
 
             Versioned<byte[]> value1 = new Versioned<byte[]>(getValidValue(key),
                                                              clock.incremented(1, 1));
             Versioned<byte[]> value2 = new Versioned<byte[]>(getValidValue(key),
                                                              clock.incremented(2, 1));
 
-            metadataStore.put(key, value1);
-            metadataStore.put(key, value2);
+            metadataStore.put(key, value1, null);
+            metadataStore.put(key, value2, null);
 
-            assertEquals("Only one metadata value should return", 1, metadataStore.get(key).size());
-            checkValues(value2, metadataStore.get(key), key);
+            assertEquals("Only one metadata value should return", 1, metadataStore.get(key, null)
+                                                                                  .size());
+            checkValues(value2, metadataStore.get(key, null), key);
         }
     }
 

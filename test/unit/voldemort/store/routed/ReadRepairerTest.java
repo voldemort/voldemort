@@ -137,11 +137,11 @@ public class ReadRepairerTest {
                                                                2,
                                                                2,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         for(int a = 0; a < 3; a++) {
             int id = Iterables.get(cluster.getNodes(), a).getId();
-            InMemoryStorageEngine<ByteArray, byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+            InMemoryStorageEngine<ByteArray, byte[], byte[]> subStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
             subStores.put(id, subStore);
         }
 
@@ -166,22 +166,22 @@ public class ReadRepairerTest {
                                                       failureDetector);
 
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        store.put(key, new Versioned<byte[]>(value));
+        store.put(key, new Versioned<byte[]>(value), null);
         recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
         time.sleep(2000);
 
-        assertEquals(2, store.get(key).size());
+        assertEquals(2, store.get(key, null).size());
         // Last get should have repaired the missing key from node 0 so all
         // stores should now return a value
-        assertEquals(3, store.get(key).size());
+        assertEquals(3, store.get(key, null).size());
 
         ByteArray anotherKey = TestUtils.toByteArray("anotherKey");
         // Try again, now use getAll to read repair
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        store.put(anotherKey, new Versioned<byte[]>(value));
+        store.put(anotherKey, new Versioned<byte[]>(value), null);
         recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 0));
-        assertEquals(2, store.getAll(Arrays.asList(anotherKey)).get(anotherKey).size());
-        assertEquals(3, store.get(anotherKey).size());
+        assertEquals(2, store.getAll(Arrays.asList(anotherKey), null).get(anotherKey).size());
+        assertEquals(3, store.get(anotherKey, null).size());
     }
 
     /**

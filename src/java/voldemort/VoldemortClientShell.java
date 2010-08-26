@@ -34,6 +34,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.SerializationException;
@@ -51,7 +52,7 @@ public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
 
-    private static DefaultStoreClient<Object, Object> client;
+    private static DefaultStoreClient<Object, Object, Object> client;
 
     public static void main(String[] args) throws Exception {
 
@@ -86,7 +87,8 @@ public class VoldemortClientShell {
             Utils.croak("Failure to open input stream: " + e.getMessage());
         }
 
-        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl);
+        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl)
+                                                      .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
 
         if(options.has("client-zone-id")) {
             clientConfig.setEnablePipelineRoutedStore(true);
@@ -96,7 +98,7 @@ public class VoldemortClientShell {
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
         try {
-            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
+            client = (DefaultStoreClient<Object, Object, Object>) factory.getStoreClient(storeName);
         } catch(Exception e) {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }
@@ -121,8 +123,12 @@ public class VoldemortClientShell {
             try {
                 if(line.toLowerCase().startsWith("put")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("put".length())));
-                    client.put(tightenNumericTypes(jsonReader.read()),
-                               tightenNumericTypes(jsonReader.read()));
+                    Object key = tightenNumericTypes(jsonReader.read());
+                    Object value = tightenNumericTypes(jsonReader.read());
+                    if(jsonReader.hasMore())
+                        client.put(key, value, tightenNumericTypes(jsonReader.read()));
+                    else
+                        client.put(key, value);
                 } else if(line.toLowerCase().startsWith("getall")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("getall".length())));
                     List<Object> keys = new ArrayList<Object>();
@@ -144,7 +150,11 @@ public class VoldemortClientShell {
                     }
                 } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
-                    printVersioned(client.get(tightenNumericTypes(jsonReader.read())));
+                    Object key = tightenNumericTypes(jsonReader.read());
+                    if(jsonReader.hasMore())
+                        printVersioned(client.get(key, tightenNumericTypes(jsonReader.read())));
+                    else
+                        printVersioned(client.get(key));
                 } else if(line.toLowerCase().startsWith("delete")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("delete".length())));
                     client.delete(tightenNumericTypes(jsonReader.read()));

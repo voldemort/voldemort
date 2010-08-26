@@ -42,7 +42,7 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     @Override
-    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
         return new MysqlStorageEngine("test_store", getDataSource());
     }
 

@@ -82,8 +82,9 @@ public class ReadOnlyStorageEngineTest {
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
                 for(Node node: testData.routeRequest(entry.getKey())) {
-                    Store<String, String> store = testData.getNodeStores().get(node.getId());
-                    List<Versioned<String>> found = store.get(entry.getKey());
+                    Store<String, String, String> store = testData.getNodeStores()
+                                                                  .get(node.getId());
+                    List<Versioned<String>> found = store.get(entry.getKey(), null);
                     assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
@@ -108,8 +109,9 @@ public class ReadOnlyStorageEngineTest {
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
                 for(Node node: testData.routeRequest(entry.getKey())) {
-                    Store<String, String> store = testData.getNodeStores().get(node.getId());
-                    List<Versioned<String>> found = store.get(entry.getKey());
+                    Store<String, String, String> store = testData.getNodeStores()
+                                                                  .get(node.getId());
+                    List<Versioned<String>> found = store.get(entry.getKey(), null);
                     assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
@@ -134,8 +136,9 @@ public class ReadOnlyStorageEngineTest {
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
                 for(Node node: testData.routeRequest(entry.getKey())) {
-                    Store<String, String> store = testData.getNodeStores().get(node.getId());
-                    List<Versioned<String>> found = store.get(entry.getKey());
+                    Store<String, String, String> store = testData.getNodeStores()
+                                                                  .get(node.getId());
+                    List<Versioned<String>> found = store.get(entry.getKey(), null);
                     assertEquals("Lookup failure for '" + entry.getKey() + "' on iteration " + i
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
@@ -167,7 +170,7 @@ public class ReadOnlyStorageEngineTest {
                     for(int k = 0; k < testData.getNodeStores().size(); k++)
                         assertEquals("Found key in store where it should not be.",
                                      0,
-                                     testData.getNodeStores().get(k).get(key).size());
+                                     testData.getNodeStores().get(k).get(key, null).size());
                 }
             }
         }
@@ -185,13 +188,14 @@ public class ReadOnlyStorageEngineTest {
                                                                                               serDef);
         Set<String> keys = testData.getData().keySet();
         Set<String> gotten = new HashSet<String>();
-        for(Map.Entry<Integer, Store<String, String>> entry: testData.getNodeStores().entrySet()) {
+        for(Map.Entry<Integer, Store<String, String, String>> entry: testData.getNodeStores()
+                                                                             .entrySet()) {
             Set<String> queryKeys = new HashSet<String>();
             for(String key: keys)
                 for(Node node: testData.routeRequest(key))
                     if(Integer.valueOf(node.getId()).equals(entry.getKey()))
                         queryKeys.add(key);
-            Map<String, List<Versioned<String>>> values = entry.getValue().getAll(queryKeys);
+            Map<String, List<Versioned<String>>> values = entry.getValue().getAll(queryKeys, null);
             assertEquals("Returned fewer keys than expected.", queryKeys.size(), values.size());
             for(Map.Entry<String, List<Versioned<String>>> returned: values.entrySet()) {
                 assertTrue(queryKeys.contains(returned.getKey()));

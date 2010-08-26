@@ -39,7 +39,7 @@ import voldemort.versioning.Versioned;
  * knowledge of the serializer being used
  * 
  */
-public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     protected String name;
     protected boolean dataReflect;
@@ -65,20 +65,22 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         return dataList;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         return dataMap;
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
 
         if(dataReflect) {
             this.key = key;

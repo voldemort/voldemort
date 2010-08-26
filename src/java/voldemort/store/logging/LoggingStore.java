@@ -34,7 +34,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class LoggingStore<K, V> extends DelegatingStore<K, V> {
+public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     private final Logger logger;
     private final Time time;
@@ -45,7 +45,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
      * 
      * @param store The store to wrap
      */
-    public LoggingStore(Store<K, V> store) {
+    public LoggingStore(Store<K, V, T> store) {
         this(store, new SystemTime());
     }
 
@@ -55,7 +55,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
      * @param store The store to wrap
      * @param time The time implementation to use for computing ellapsed time
      */
-    public LoggingStore(Store<K, V> store, Time time) {
+    public LoggingStore(Store<K, V, T> store, Time time) {
         this(store, null, time);
     }
 
@@ -66,7 +66,7 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
      * @param instance The instance name to display in logging messages
      * @param time The time implementation to use for computing ellapsed time
      */
-    public LoggingStore(Store<K, V> store, String instance, Time time) {
+    public LoggingStore(Store<K, V, T> store, String instance, Time time) {
         super(store);
         this.logger = Logger.getLogger(store.getClass());
         this.time = time;
@@ -96,13 +96,13 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
     }
 
     @Override
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
         if(logger.isDebugEnabled())
             startTimeNs = time.getNanoseconds();
         try {
-            List<Versioned<V>> l = getInnerStore().get(key);
+            List<Versioned<V>> l = getInnerStore().get(key, transform);
             succeeded = true;
             return l;
         } finally {
@@ -111,14 +111,14 @@ public class LoggingStore<K, V> extends DelegatingStore<K, V> {
     }
 
     @Override
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
         if(logger.isDebugEnabled()) {
             startTimeNs = time.getNanoseconds();
         }
         try {
-            getInnerStore().put(key, value);
+            getInnerStore().put(key, value, transform);
             succeeded = true;
         } finally {
             printTimedMessage("PUT", succeeded, startTimeNs);

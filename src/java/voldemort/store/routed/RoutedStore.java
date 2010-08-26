@@ -39,10 +39,10 @@ import voldemort.utils.Utils;
  * 
  * 
  */
-public abstract class RoutedStore implements Store<ByteArray, byte[]> {
+public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
 
     protected final String name;
-    protected final Map<Integer, Store<ByteArray, byte[]>> innerStores;
+    protected final Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores;
     protected final boolean repairReads;
     protected final ReadRepairer<ByteArray, byte[]> readRepairer;
     protected final long timeoutMs;
@@ -53,7 +53,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[]> {
     protected final Logger logger = Logger.getLogger(getClass());
 
     protected RoutedStore(String name,
-                          Map<Integer, Store<ByteArray, byte[]>> innerStores,
+                          Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                           Cluster cluster,
                           StoreDefinition storeDef,
                           boolean repairReads,
@@ -74,7 +74,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[]> {
             throw new IllegalArgumentException("storeDef.getPreferredWrites() is larger than the total number of nodes!");
 
         this.name = name;
-        this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[]>>(innerStores);
+        this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>(innerStores);
         this.repairReads = repairReads;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
         this.timeoutMs = timeoutMs;
@@ -96,7 +96,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[]> {
     public void close() {
         VoldemortException exception = null;
 
-        for(Store<?, ?> store: innerStores.values()) {
+        for(Store<?, ?, ?> store: innerStores.values()) {
             try {
                 store.close();
             } catch(VoldemortException e) {
@@ -108,7 +108,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[]> {
             throw exception;
     }
 
-    public Map<Integer, Store<ByteArray, byte[]>> getInnerStores() {
+    public Map<Integer, Store<ByteArray, byte[], byte[]>> getInnerStores() {
         return this.innerStores;
     }
 

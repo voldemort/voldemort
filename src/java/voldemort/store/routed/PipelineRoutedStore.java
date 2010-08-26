@@ -78,7 +78,7 @@ public class PipelineRoutedStore extends RoutedStore {
      * @param threadPool The threadpool to use
      */
     public PipelineRoutedStore(String name,
-                               Map<Integer, Store<ByteArray, byte[]>> innerStores,
+                               Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
                                Cluster cluster,
                                StoreDefinition storeDef,
@@ -126,7 +126,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
-            public List<Versioned<byte[]>> request(Store<ByteArray, byte[]> store) {
+            public List<Versioned<byte[]>> request(Store<ByteArray, byte[], byte[]> store) {
                 return store.get(key);
             }
 
@@ -329,7 +329,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
-            public Boolean request(Store<ByteArray, byte[]> store) {
+            public Boolean request(Store<ByteArray, byte[], byte[]> store) {
                 return store.delete(key, version);
             }
 

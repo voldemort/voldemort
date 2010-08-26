@@ -115,7 +115,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getStore(int nodeId, String storeName) {
+    protected Store<ByteArray, byte[], byte[]> getStore(int nodeId, String storeName) {
         return server.getStoreRepository().getStorageEngine(storeName);
     }
 

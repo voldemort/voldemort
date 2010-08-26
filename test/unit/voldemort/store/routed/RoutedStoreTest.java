@@ -26,6 +26,7 @@ import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     private Cluster cluster;
     private final ByteArray aKey = TestUtils.toByteArray("jay");
     private final byte[] aValue = "kreps".getBytes();
+    private final byte[] aTransform = "transform".getBytes();
     private final Class<FailureDetector> failureDetectorClass;
     private final boolean isPipelineRoutedStoreEnabled;
     private FailureDetector failureDetector;
@@ -123,13 +125,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore() throws Exception {
-        return new InconsistencyResolvingStore<ByteArray, byte[]>(getStore(cluster,
-                                                                           cluster.getNumberOfNodes(),
-                                                                           cluster.getNumberOfNodes(),
-                                                                           4,
-                                                                           0),
-                                                                  new VectorClockInconsistencyResolver<byte[]>());
+    public Store<ByteArray, byte[], byte[]> getStore() throws Exception {
+        return new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(getStore(cluster,
+                                                                                   cluster.getNumberOfNodes(),
+                                                                                   cluster.getNumberOfNodes(),
+                                                                                   4,
+                                                                                   0),
+                                                                          new VectorClockInconsistencyResolver<byte[]>());
     }
 
     private RoutedStore getStore(Cluster cluster, int reads, int writes, int threads, int failing)
@@ -152,7 +154,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                  int sleepy,
                                  String strategy,
                                  VoldemortException e) throws Exception {
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
         int count = 0;
         for(Node n: cluster.getNodes()) {
             if(count >= cluster.getNumberOfNodes())
@@ -161,15 +163,15 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                    + cluster.getNumberOfNodes()
                                                    + " nodes in the cluster.");
 
-            Store<ByteArray, byte[]> subStore = null;
+            Store<ByteArray, byte[], byte[]> subStore = null;
 
             if(count < failing)
-                subStore = new FailingStore<ByteArray, byte[]>("test", e);
+                subStore = new FailingStore<ByteArray, byte[], byte[]>("test", e);
             else if(count < failing + sleepy)
-                subStore = new SleepyStore<ByteArray, byte[]>(Long.MAX_VALUE,
-                                                              new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+                subStore = new SleepyStore<ByteArray, byte[], byte[]>(Long.MAX_VALUE,
+                                                                      new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
             else
-                subStore = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+                subStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
 
             subStores.put(n.getId(), subStore);
 
@@ -194,9 +196,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     private int countOccurances(RoutedStore routedStore, ByteArray key, Versioned<byte[]> value) {
         int count = 0;
-        for(Store<ByteArray, byte[]> store: routedStore.getInnerStores().values())
+        for(Store<ByteArray, byte[], byte[]> store: routedStore.getInnerStores().values())
             try {
-                if(store.get(key).size() > 0 && Utils.deepEquals(store.get(key).get(0), value))
+                if(store.get(key, null).size() > 0
+                   && Utils.deepEquals(store.get(key, null).get(0), value))
                     count += 1;
             } catch(VoldemortException e) {
                 // This is normal for the failing store...
@@ -225,13 +228,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     private void testBasicOperations(int reads, int writes, int failures, int threads)
             throws Exception {
         RoutedStore routedStore = getStore(cluster, reads, writes, threads, failures);
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
         VectorClock clock = getClock(1);
         Versioned<byte[]> versioned = new Versioned<byte[]>(aValue, clock);
-        routedStore.put(aKey, versioned);
+        routedStore.put(aKey, versioned, aTransform);
         assertNOrMoreEqual(routedStore, cluster.getNumberOfNodes() - failures, aKey, versioned);
-        List<Versioned<byte[]>> found = store.get(aKey);
+        List<Versioned<byte[]>> found = store.get(aKey, aTransform);
         assertEquals(1, found.size());
         assertEquals(versioned, found.get(0));
         assertNOrMoreEqual(routedStore, cluster.getNumberOfNodes() - failures, aKey, versioned);
@@ -268,13 +271,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                            RoutingStrategyType.TO_ALL_STRATEGY,
                                            new UnreachableStoreException("no go"));
         try {
-            routedStore.put(aKey, versioned);
+            routedStore.put(aKey, versioned, aTransform);
             fail("Put succeeded with too few operational nodes.");
         } catch(InsufficientOperationalNodesException e) {
             // expected
         }
         try {
-            routedStore.get(aKey);
+            routedStore.get(aKey, aTransform);
             fail("Get succeeded with too few operational nodes.");
         } catch(InsufficientOperationalNodesException e) {
             // expected
@@ -297,11 +300,11 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     @Test
     public void testPutIncrementsVersion() throws Exception {
-        Store<ByteArray, byte[]> store = getStore();
+        Store<ByteArray, byte[], byte[]> store = getStore();
         VectorClock clock = new VectorClock();
         VectorClock copy = clock.clone();
-        store.put(aKey, new Versioned<byte[]>(getValue(), clock));
-        List<Versioned<byte[]>> found = store.get(aKey);
+        store.put(aKey, new Versioned<byte[]>(getValue(), clock), aTransform);
+        List<Versioned<byte[]>> found = store.get(aKey, aTransform);
         assertEquals("Invalid number of items found.", 1, found.size());
         assertEquals("Version not incremented properly",
                      Occured.BEFORE,
@@ -318,16 +321,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // test put
         cluster = getNineNodeCluster();
 
-        Store<ByteArray, byte[]> s1 = getStore(cluster,
-                                               1,
-                                               9,
-                                               9,
-                                               9,
-                                               0,
-                                               RoutingStrategyType.TO_ALL_STRATEGY,
-                                               new VoldemortException());
+        Store<ByteArray, byte[], byte[]> s1 = getStore(cluster,
+                                                       1,
+                                                       9,
+                                                       9,
+                                                       9,
+                                                       0,
+                                                       RoutingStrategyType.TO_ALL_STRATEGY,
+                                                       new VoldemortException());
         try {
-            s1.put(aKey, new Versioned<byte[]>(aValue));
+            s1.put(aKey, new Versioned<byte[]>(aValue), aTransform);
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
@@ -335,16 +338,16 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         cluster = getNineNodeCluster();
 
-        Store<ByteArray, byte[]> s2 = getStore(cluster,
-                                               1,
-                                               9,
-                                               9,
-                                               9,
-                                               0,
-                                               RoutingStrategyType.TO_ALL_STRATEGY,
-                                               new UnreachableStoreException("no go"));
+        Store<ByteArray, byte[], byte[]> s2 = getStore(cluster,
+                                                       1,
+                                                       9,
+                                                       9,
+                                                       9,
+                                                       0,
+                                                       RoutingStrategyType.TO_ALL_STRATEGY,
+                                                       new UnreachableStoreException("no go"));
         try {
-            s2.put(aKey, new Versioned<byte[]>(aValue));
+            s2.put(aKey, new Versioned<byte[]>(aValue), aTransform);
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
@@ -362,7 +365,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                       RoutingStrategyType.TO_ALL_STRATEGY,
                       new VoldemortException());
         try {
-            s1.get(aKey);
+            s1.get(aKey, aTransform);
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
@@ -379,7 +382,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                       RoutingStrategyType.TO_ALL_STRATEGY,
                       new UnreachableStoreException("no go"));
         try {
-            s2.get(aKey);
+            s2.get(aKey, aTransform);
             fail("Failure is expected");
         } catch(InsufficientOperationalNodesException e) { /* expected */
         }
@@ -426,9 +429,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         List<ByteArray> keys = getKeys(2);
         ByteArray key = keys.get(0);
         byte[] value = getValue();
-        Store<ByteArray, byte[]> store = getStore();
-        store.put(key, Versioned.value(value));
-        List<Versioned<byte[]>> versioneds = store.get(key);
+        Store<ByteArray, byte[], byte[]> store = getStore();
+        store.put(key, Versioned.value(value), null);
+        List<Versioned<byte[]>> versioneds = store.get(key, null);
         List<Version> versions = store.getVersions(key);
         assertEquals(1, versioneds.size());
         assertEquals(9, versions.size());
@@ -446,20 +449,20 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         cluster = VoldemortTestConstants.getTwoNodeCluster();
 
         RoutedStore routedStore = getStore(cluster, 1, 2, 1, 0);
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
 
         Map<ByteArray, byte[]> expectedValues = Maps.newHashMap();
         for(byte i = 1; i < 11; ++i) {
             ByteArray key = new ByteArray(new byte[] { i });
             byte[] value = new byte[] { (byte) (i + 50) };
-            store.put(key, Versioned.value(value));
+            store.put(key, Versioned.value(value), null);
             expectedValues.put(key, value);
         }
 
         recordException(failureDetector, cluster.getNodes().iterator().next());
 
-        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet());
+        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet(), null);
         assertEquals(expectedValues.size(), all.size());
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: all.entrySet()) {
             byte[] value = expectedValues.get(mapEntry.getKey());
@@ -479,12 +482,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                2,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         int id1 = Iterables.get(cluster.getNodes(), 0).getId();
         int id2 = Iterables.get(cluster.getNodes(), 1).getId();
-        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(id2, new FailingReadsStore<ByteArray, byte[]>("test"));
+        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
+        subStores.put(id2, new FailingReadsStore<ByteArray, byte[], byte[]>("test"));
 
         setFailureDetector(subStores);
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
@@ -498,18 +501,18 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
 
         Map<ByteArray, byte[]> expectedValues = Maps.newHashMap();
         for(byte i = 1; i < 11; ++i) {
             ByteArray key = new ByteArray(new byte[] { i });
             byte[] value = new byte[] { (byte) (i + 50) };
-            store.put(key, Versioned.value(value));
+            store.put(key, Versioned.value(value), null);
             expectedValues.put(key, value);
         }
 
-        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet());
+        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(expectedValues.keySet(), null);
         assertEquals(expectedValues.size(), all.size());
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: all.entrySet()) {
             byte[] value = expectedValues.get(mapEntry.getKey());
@@ -534,12 +537,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                2,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         int id1 = Iterables.get(cluster.getNodes(), 0).getId();
         int id2 = Iterables.get(cluster.getNodes(), 1).getId();
-        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(id2, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+        subStores.put(id1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
+        subStores.put(id2, new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
 
         setFailureDetector(subStores);
 
@@ -554,11 +557,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
-        store.put(aKey, Versioned.value(aValue));
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, Versioned.value(aValue), aTransform);
         recordException(failureDetector, cluster.getNodes().iterator().next());
-        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(Arrays.asList(aKey));
+        Map<ByteArray, List<Versioned<byte[]>>> all = store.getAll(Arrays.asList(aKey),
+                                                                   Collections.singletonMap(aKey,
+                                                                                            aTransform));
         assertEquals(1, all.size());
         assertTrue(Arrays.equals(aValue, all.values().iterator().next().get(0).getValue()));
     }
@@ -578,9 +583,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                            0);
         // Disable node 1 so that the first put also goes to the last node
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
-        store.put(aKey, new Versioned<byte[]>(aValue));
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, new Versioned<byte[]>(aValue), aTransform);
 
         byte[] anotherValue = "john".getBytes();
 
@@ -589,22 +594,22 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         recordException(failureDetector, Iterables.getLast(cluster.getNodes()));
         recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 1));
         VectorClock clock = getClock(1);
-        store.put(aKey, new Versioned<byte[]>(anotherValue, clock));
+        store.put(aKey, new Versioned<byte[]>(anotherValue, clock), aTransform);
 
         // Enable last node and disable node 1, the following get should cause a
         // read repair on the last node in the code path that is only executed
         // if there are failures.
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
         recordSuccess(failureDetector, Iterables.getLast(cluster.getNodes()));
-        List<Versioned<byte[]>> versioneds = store.get(aKey);
+        List<Versioned<byte[]>> versioneds = store.get(aKey, aTransform);
         assertEquals(1, versioneds.size());
         assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
 
         // Read repairs are done asynchronously, so we sleep for a short period.
         // It may be a good idea to use a synchronous executor service.
         Thread.sleep(100);
-        for(Store<ByteArray, byte[]> innerStore: routedStore.getInnerStores().values()) {
-            List<Versioned<byte[]>> innerVersioneds = innerStore.get(aKey);
+        for(Store<ByteArray, byte[], byte[]> innerStore: routedStore.getInnerStores().values()) {
+            List<Versioned<byte[]>> innerVersioneds = innerStore.get(aKey, aTransform);
             assertEquals(1, versioneds.size());
             assertEquals(new ByteArray(anotherValue), new ByteArray(innerVersioneds.get(0)
                                                                                    .getValue()));
@@ -630,21 +635,21 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         /* The key used causes the nodes selected for writing to be [2, 0, 1] */
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         int id1 = Iterables.get(cluster.getNodes(), 0).getId();
         int id2 = Iterables.get(cluster.getNodes(), 1).getId();
         int id3 = Iterables.get(cluster.getNodes(), 2).getId();
 
-        subStores.put(id3, new InMemoryStorageEngine<ByteArray, byte[]>("test"));
-        subStores.put(id1, new FailingStore<ByteArray, byte[]>("test"));
+        subStores.put(id3, new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
+        subStores.put(id1, new FailingStore<ByteArray, byte[], byte[]>("test"));
         /*
          * The bug would only show itself if the second successful required
          * write was slow (but still within the timeout).
          */
         subStores.put(id2,
-                      new SleepyStore<ByteArray, byte[]>(100,
-                                                         new InMemoryStorageEngine<ByteArray, byte[]>("test")));
+                      new SleepyStore<ByteArray, byte[], byte[]>(100,
+                                                                 new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test")));
 
         setFailureDetector(subStores);
 
@@ -659,9 +664,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        Store<ByteArray, byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[]>(routedStore,
-                                                                                            new VectorClockInconsistencyResolver<byte[]>());
-        store.put(aKey, new Versioned<byte[]>(aValue));
+        Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
+                                                                                                            new VectorClockInconsistencyResolver<byte[]>());
+        store.put(aKey, new Versioned<byte[]>(aValue), aTransform);
     }
 
     @Test
@@ -679,14 +684,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                  .setPreferredWrites(3)
                                                                  .setRequiredWrites(3)
                                                                  .build();
-        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
         List<Node> nodes = new ArrayList<Node>();
         int totalDelay = 0;
         for(int i = 0; i < 3; i++) {
             int delay = 4 + i * timeout;
             totalDelay += delay;
-            Store<ByteArray, byte[]> store = new SleepyStore<ByteArray, byte[]>(delay,
-                                                                                new InMemoryStorageEngine<ByteArray, byte[]>("test"));
+            Store<ByteArray, byte[], byte[]> store = new SleepyStore<ByteArray, byte[], byte[]>(delay,
+                                                                                                new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
             stores.put(i, store);
             List<Integer> partitions = Arrays.asList(i);
             nodes.add(new Node(i, "none", 0, 0, 0, partitions));
@@ -708,7 +713,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         long start = System.currentTimeMillis();
         try {
             routedStore.put(new ByteArray("test".getBytes()),
-                            new Versioned<byte[]>(new byte[] { 1 }));
+                            new Versioned<byte[]>(new byte[] { 1 }),
+                            null);
             fail("Should have thrown");
         } catch(InsufficientOperationalNodesException e) {
             long elapsed = System.currentTimeMillis() - start;
@@ -731,14 +737,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                2,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         /* We just need to keep a store from one node */
-        StatTrackingStore<ByteArray, byte[]> statTrackingStore = null;
+        StatTrackingStore<ByteArray, byte[], byte[]> statTrackingStore = null;
         for(int i = 0; i < 3; ++i) {
             int id = Iterables.get(cluster.getNodes(), i).getId();
-            statTrackingStore = new StatTrackingStore<ByteArray, byte[]>(new InMemoryStorageEngine<ByteArray, byte[]>("test"),
-                                                                         null);
+            statTrackingStore = new StatTrackingStore<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
+                                                                                 null);
             subStores.put(id, statTrackingStore);
 
         }
@@ -756,12 +762,12 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             failureDetector);
 
         ByteArray key1 = aKey;
-        routedStore.put(key1, Versioned.value("value1".getBytes()));
+        routedStore.put(key1, Versioned.value("value1".getBytes()), null);
         ByteArray key2 = TestUtils.toByteArray("voldemort");
-        routedStore.put(key2, Versioned.value("value2".getBytes()));
+        routedStore.put(key2, Versioned.value("value2".getBytes()), null);
 
         long putCount = statTrackingStore.getStats().getCount(Tracked.PUT);
-        routedStore.getAll(Arrays.asList(key1, key2));
+        routedStore.getAll(Arrays.asList(key1, key2), null);
         /* Read repair happens asynchronously, so we wait a bit */
         Thread.sleep(500);
         assertEquals("put count should remain the same if there are no read repairs",
@@ -781,13 +787,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         int sleepTimeMs = 500;
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+            Store<ByteArray, byte[], byte[]> store = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
 
             if(subStores.isEmpty()) {
-                store = new SleepyStore<ByteArray, byte[]>(sleepTimeMs, store);
+                store = new SleepyStore<ByteArray, byte[], byte[]>(sleepTimeMs, store);
             }
 
             subStores.put(node.getId(), store);
@@ -806,7 +812,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        routedStore.put(aKey, Versioned.value(aValue));
+        routedStore.put(aKey, Versioned.value(aValue), null);
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
@@ -814,7 +820,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 
-        List<Versioned<byte[]>> versioneds = routedStore.get(aKey);
+        List<Versioned<byte[]>> versioneds = routedStore.get(aKey, null);
         assertEquals(2, versioneds.size());
 
         // Let's make sure that if the response *does* come in late, that it
@@ -835,13 +841,13 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         int sleepTimeMs = 500;
-        Map<Integer, Store<ByteArray, byte[]>> subStores = Maps.newHashMap();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>("test");
+            Store<ByteArray, byte[], byte[]> store = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
 
             if(subStores.isEmpty()) {
-                store = new SleepyStore<ByteArray, byte[]>(sleepTimeMs, store);
+                store = new SleepyStore<ByteArray, byte[], byte[]>(sleepTimeMs, store);
             }
 
             subStores.put(node.getId(), store);
@@ -860,7 +866,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        routedStore.put(aKey, Versioned.value(aValue));
+        routedStore.put(aKey, Versioned.value(aValue), null);
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
@@ -868,7 +874,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 
-        List<Versioned<byte[]>> versioneds = routedStore.get(aKey);
+        List<Versioned<byte[]>> versioneds = routedStore.get(aKey, null);
         assertEquals(2, versioneds.size());
     }
 
@@ -880,7 +886,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assertEquals("Number of operational nodes not what was expected.", expected, found);
     }
 
-    private void setFailureDetector(Map<Integer, Store<ByteArray, byte[]>> subStores)
+    private void setFailureDetector(Map<Integer, Store<ByteArray, byte[], byte[]>> subStores)
             throws Exception {
         // Destroy any previous failure detector before creating the next one
         // (the final one is destroyed in tearDown).

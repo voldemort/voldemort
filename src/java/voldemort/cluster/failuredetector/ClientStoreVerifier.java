@@ -38,14 +38,14 @@ import voldemort.utils.ByteArray;
 
 public abstract class ClientStoreVerifier implements StoreVerifier {
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     protected ClientStoreVerifier() {
-        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
-        Store<ByteArray, byte[]> store = null;
+        Store<ByteArray, byte[], byte[]> store = null;
 
         synchronized(stores) {
             store = stores.get(node.getId());
@@ -56,9 +56,9 @@ public abstract class ClientStoreVerifier implements StoreVerifier {
             }
         }
 
-        store.get(KEY);
+        store.get(KEY, null);
     }
 
-    protected abstract Store<ByteArray, byte[]> getStoreInternal(Node node);
+    protected abstract Store<ByteArray, byte[], byte[]> getStoreInternal(Node node);
 
 }

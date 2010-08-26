@@ -31,11 +31,11 @@ public class ViewStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
         StoreDefinition def = StoreUtils.getStoreDef(storeDefs, name);
         String targetName = def.getViewTargetStoreName();
         StoreDefinition targetDef = StoreUtils.getStoreDef(storeDefs, targetName);
-        StorageEngine<ByteArray, byte[]> target = storeRepo.getStorageEngine(targetName);
+        StorageEngine<ByteArray, byte[], byte[]> target = storeRepo.getStorageEngine(targetName);
         if(target == null)
             throw new VoldemortException("View \"" + name + "\" has a target store \"" + targetName
                                          + "\" which does not exist.");
@@ -43,9 +43,9 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         return new ViewStorageEngine(name,
                                      target,
                                      factory.getSerializer(def.getValueSerializer()),
+                                     factory.getSerializer(def.getTransformsSerializer()),
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
-                                     factory.getSerializer(targetDef.getTransformsSerializer()),
                                      def.getValueTransformation());
     }
 

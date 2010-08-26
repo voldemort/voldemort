@@ -39,9 +39,9 @@ public class InMemoryStorageConfiguration implements StorageConfiguration {
     @SuppressWarnings("unused")
     public InMemoryStorageConfiguration(VoldemortConfig config) {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        return new InMemoryStorageEngine<ByteArray, byte[]>(name,
-                                                            new ConcurrentHashMap<ByteArray, List<Versioned<byte[]>>>());
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
+        return new InMemoryStorageEngine<ByteArray, byte[], byte[]>(name,
+                                                                    new ConcurrentHashMap<ByteArray, List<Versioned<byte[]>>>());
     }
 
     public String getType() {

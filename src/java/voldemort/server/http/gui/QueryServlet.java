@@ -84,7 +84,7 @@ public class QueryServlet extends HttpServlet {
         Object keyObj = parseKey(keyType, key);
 
         Map<String, Object> params = new HashMap<String, Object>();
-        StoreClient<?, ?> client = clientFactory.getStoreClient(storeName);
+        StoreClient<?, ?, ?> client = clientFactory.getStoreClient(storeName);
         engine.render("query.vm", params, resp.getOutputStream());
     }
 

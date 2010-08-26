@@ -41,6 +41,7 @@ public interface RequestFormat {
     public void writeGetRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
+                                byte[] transforms,
                                 RequestRoutingType routingType) throws IOException;
 
     public boolean isCompleteGetResponse(ByteBuffer buffer);
@@ -59,6 +60,7 @@ public interface RequestFormat {
     public void writeGetAllRequest(DataOutputStream output,
                                    String storeName,
                                    Iterable<ByteArray> key,
+                                   Map<ByteArray, byte[]> transforms,
                                    RequestRoutingType routingType) throws IOException;
 
     public boolean isCompleteGetAllResponse(ByteBuffer buffer);
@@ -70,6 +72,7 @@ public interface RequestFormat {
                                 String storeName,
                                 ByteArray key,
                                 byte[] value,
+                                byte[] transforms,
                                 VectorClock version,
                                 RequestRoutingType routingType) throws IOException;
 

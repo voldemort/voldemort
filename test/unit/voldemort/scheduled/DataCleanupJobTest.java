@@ -32,12 +32,12 @@ import voldemort.versioning.Versioned;
 public class DataCleanupJobTest extends TestCase {
 
     private MockTime time;
-    private StorageEngine<String, String> engine;
+    private StorageEngine<String, String, String> engine;
 
     @Override
     public void setUp() {
         time = new MockTime();
-        engine = new InMemoryStorageEngine<String, String>("test");
+        engine = new InMemoryStorageEngine<String, String, String>("test");
     }
 
     public void testCleanupCleansUp() {
@@ -51,11 +51,11 @@ public class DataCleanupJobTest extends TestCase {
         put("a");
 
         // now run cleanup
-        new DataCleanupJob<String, String>(engine,
-                                           new Semaphore(1),
-                                           Time.MS_PER_DAY,
-                                           time,
-                                           new EventThrottler(1)).run();
+        new DataCleanupJob<String, String, String>(engine,
+                                                   new Semaphore(1),
+                                                   Time.MS_PER_DAY,
+                                                   time,
+                                                   new EventThrottler(1)).run();
 
         // Check that all the later keys are there AND the key updated later
         assertContains("a", "d", "e", "f");
@@ -64,7 +64,7 @@ public class DataCleanupJobTest extends TestCase {
     private void put(String... items) {
         for(String item: items) {
             VectorClock clock = null;
-            List<Versioned<String>> found = engine.get(item);
+            List<Versioned<String>> found = engine.get(item, null);
             if(found.size() == 0) {
                 clock = new VectorClock(time.getMilliseconds());
             } else if(found.size() == 1) {
@@ -73,13 +73,13 @@ public class DataCleanupJobTest extends TestCase {
             } else {
                 fail("Found multiple versions.");
             }
-            engine.put(item, new Versioned<String>(item, clock));
+            engine.put(item, new Versioned<String>(item, clock), null);
         }
     }
 
     private void assertContains(String... keys) {
         for(String key: keys) {
-            List<Versioned<String>> found = engine.get(key);
+            List<Versioned<String>> found = engine.get(key, null);
             assertTrue("Did not find key '" + key + "' in store!", found.size() > 0);
         }
     }

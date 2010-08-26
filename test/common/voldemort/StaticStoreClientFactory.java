@@ -29,10 +29,10 @@ import voldemort.versioning.Versioned;
 public class StaticStoreClientFactory implements StoreClientFactory {
 
     private final AtomicInteger current;
-    private final List<Store<?, ?>> stores;
+    private final List<Store<?, ?, ?>> stores;
     private final FailureDetector failureDetector;
 
-    public StaticStoreClientFactory(Store<?, ?>... stores) {
+    public StaticStoreClientFactory(Store<?, ?, ?>... stores) {
         if(stores.length < 1)
             throw new IllegalArgumentException("Must provide at least one store.");
         this.stores = Arrays.asList(stores);
@@ -41,24 +41,24 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> Store<K, V> getRawStore(String storeName,
-                                          InconsistencyResolver<Versioned<V>> resolver) {
-        return (Store<K, V>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver) {
+        return (Store<K, V, T>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
         return new DefaultStoreClient(storeName, null, this, 3);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
-                                                   InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
+                                                         InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
     }
 
     public void close() {
-        for(Store<?, ?> store: stores)
+        for(Store<?, ?, ?> store: stores)
             store.close();
     }
 

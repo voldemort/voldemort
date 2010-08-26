@@ -99,7 +99,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             environmentConfig.setSharedCache(true);
     }
 
-    public StorageEngine<ByteArray, byte[]> getStore(String storeName) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
             BdbStorageEngine store = stores.get(storeName);
             if(store != null)

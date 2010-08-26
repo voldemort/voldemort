@@ -34,7 +34,7 @@ import voldemort.versioning.Versioned;
  * 
  */
 @Threadsafe
-public interface Store<K, V> {
+public interface Store<K, V, T> {
 
     /**
      * Get the value associated with the given key
@@ -44,7 +44,7 @@ public interface Store<K, V> {
      *         are found.
      * @throws VoldemortException
      */
-    public List<Versioned<V>> get(K key) throws VoldemortException;
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException;
 
     /**
      * Get the values associated with the given keys and returns them in a Map
@@ -56,7 +56,8 @@ public interface Store<K, V> {
      * @return A Map of keys to a list of versioned values.
      * @throws VoldemortException
      */
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException;
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException;
 
     /**
      * Associate the value with the key and version in this store
@@ -64,7 +65,7 @@ public interface Store<K, V> {
      * @param key The key to use
      * @param value The value to store and its version.
      */
-    public void put(K key, Versioned<V> value) throws VoldemortException;
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException;
 
     /**
      * Delete all entries prior to the given version

@@ -133,9 +133,9 @@ public class AdminServiceBasicTest extends TestCase {
         return adminClient;
     }
 
-    private Store<ByteArray, byte[]> getStore(int nodeID, String storeName) {
-        Store<ByteArray, byte[]> store = getVoldemortServer(nodeID).getStoreRepository()
-                                                                   .getStorageEngine(storeName);
+    private Store<ByteArray, byte[], byte[]> getStore(int nodeID, String storeName) {
+        Store<ByteArray, byte[], byte[]> store = getVoldemortServer(nodeID).getStoreRepository()
+                                                                           .getStorageEngine(storeName);
         assertNotSame("Store '" + storeName + "' should not be null", null, store);
         return store;
     }
@@ -199,7 +199,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                                              .getSocketUrl()
                                                                                                              .toString()));
 
-        StoreClient<Object, Object> client = factory.getStoreClient("updateTest");
+        StoreClient<Object, Object, Object> client = factory.getStoreClient("updateTest");
         client.put("abc", "123");
         String s = (String) client.get("abc").getValue();
         assertEquals(s, "123");
@@ -328,9 +328,9 @@ public class AdminServiceBasicTest extends TestCase {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
         // insert it into server-0 store
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
         }
 
         List<Integer> deletePartitionsList = Arrays.asList(0, 2);
@@ -341,8 +341,8 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey())
-                                                                              .size());
+                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
+                                                                                   null).size());
             }
         }
     }
@@ -355,9 +355,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
             if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchPartitionsList)) {
                 fetchPartitionKeyCount++;
             }
@@ -388,9 +388,9 @@ public class AdminServiceBasicTest extends TestCase {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
         // insert it into server-0 store
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
         }
 
         // do truncate request
@@ -399,7 +399,8 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(0, testStoreName);
 
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            assertEquals("Deleted key should be missing.", 0, store.get(entry.getKey()).size());
+            assertEquals("Deleted key should be missing.", 0, store.get(entry.getKey(), null)
+                                                                   .size());
         }
     }
 
@@ -410,9 +411,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
             if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchPartitionsList)) {
                 fetchPartitionKeyCount++;
             }
@@ -465,12 +466,13 @@ public class AdminServiceBasicTest extends TestCase {
         getAdminClient().updateEntries(0, testStoreName, iterator, null);
 
         // check updated values
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            assertNotSame("entry should be present at store", 0, store.get(entry.getKey()).size());
+            assertNotSame("entry should be present at store", 0, store.get(entry.getKey(), null)
+                                                                      .size());
             assertEquals("entry value should match",
                          new String(entry.getValue()),
-                         new String(store.get(entry.getKey()).get(0).getValue()));
+                         new String(store.get(entry.getKey(), null).get(0).getValue()));
         }
     }
 
@@ -482,9 +484,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
             if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
                 fetchPartitionKeyCount++;
             }
@@ -506,10 +508,11 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 1, testStoreName, rebalancePartitionList)) {
-                assertSame("entry should be present at store", 1, store.get(entry.getKey()).size());
+                assertSame("entry should be present at store", 1, store.get(entry.getKey(), null)
+                                                                       .size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
-                             new String(store.get(entry.getKey()).get(0).getValue()));
+                             new String(store.get(entry.getKey(), null).get(0).getValue()));
             }
         }
     }
@@ -521,15 +524,16 @@ public class AdminServiceBasicTest extends TestCase {
 
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
         // insert it into server-0 store
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
         }
 
         // assert server 1 is empty
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            assertSame("entry should NOT be present at store", 0, store.get(entry.getKey()).size());
+            assertSame("entry should NOT be present at store", 0, store.get(entry.getKey(), null)
+                                                                       .size());
         }
 
         // recover all data
@@ -539,11 +543,11 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             ByteArray key = entry.getKey();
-            assertSame("entry should be present for key " + key, 1, store.get(entry.getKey())
+            assertSame("entry should be present for key " + key, 1, store.get(entry.getKey(), null)
                                                                          .size());
             assertEquals("entry value should match",
                          new String(entry.getValue()),
-                         new String(store.get(entry.getKey()).get(0).getValue()));
+                         new String(store.get(entry.getKey(), null).get(0).getValue()));
         }
     }
 
@@ -557,9 +561,9 @@ public class AdminServiceBasicTest extends TestCase {
 
         // insert it into server-0 store
         int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()));
+            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
             if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
                 fetchPartitionKeyCount++;
             }
@@ -568,7 +572,8 @@ public class AdminServiceBasicTest extends TestCase {
         // assert that server1 is empty.
         store = getStore(1, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet())
-            assertEquals("server1 should be empty at start.", 0, store.get(entry.getKey()).size());
+            assertEquals("server1 should be empty at start.", 0, store.get(entry.getKey(), null)
+                                                                      .size());
 
         // do fetch And update call server1 <-- server0
         AdminClient client = getAdminClient();
@@ -582,10 +587,10 @@ public class AdminServiceBasicTest extends TestCase {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
                 assertEquals("server1 store should contain fetchAndupdated partitions.",
                              1,
-                             store.get(entry.getKey()).size());
+                             store.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
-                             new String(store.get(entry.getKey()).get(0).getValue()));
+                             new String(store.get(entry.getKey(), null).get(0).getValue()));
                 count++;
             }
         }

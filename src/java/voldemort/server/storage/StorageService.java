@@ -49,6 +49,7 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.serialization.ByteArraySerializer;
+import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
@@ -184,12 +185,13 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
-            StorageEngine<ByteArray, byte[]> slopEngine = getStorageEngine("slop",
-                                                                           voldemortConfig.getSlopStoreType());
+            StorageEngine<ByteArray, byte[], byte[]> slopEngine = getStorageEngine("slop",
+                                                                                   voldemortConfig.getSlopStoreType());
             registerEngine(slopEngine);
             storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
                                                                        new ByteArraySerializer(),
-                                                                       new SlopSerializer()));
+                                                                       new SlopSerializer(),
+                                                                       new IdentitySerializer()));
         }
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
@@ -215,9 +217,10 @@ public class StorageService extends AbstractService {
     }
 
     public void openStore(StoreDefinition storeDef) {
+
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine(storeDef.getName(),
-                                                                   storeDef.getType());
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine(storeDef.getName(),
+                                                                           storeDef.getType());
 
         // openStore() should have atomic semantics
         try {
@@ -239,9 +242,10 @@ public class StorageService extends AbstractService {
      * 
      * @param engine Unregister the storage engine
      */
-    public void unregisterEngine(StoreDefinition storeDef, StorageEngine<ByteArray, byte[]> engine) {
+    public void unregisterEngine(StoreDefinition storeDef,
+                                 StorageEngine<ByteArray, byte[], byte[]> engine) {
         String engineName = engine.getName();
-        Store<ByteArray, byte[]> store = storeRepository.removeLocalStore(engineName);
+        Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(engineName);
 
         if(store != null) {
             if(voldemortConfig.isStatTrackingEnabled() && voldemortConfig.isJmxEnabled()) {
@@ -274,16 +278,16 @@ public class StorageService extends AbstractService {
      * 
      * @param engine Register the storage engine
      */
-    public void registerEngine(StorageEngine<ByteArray, byte[]> engine) {
+    public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
         Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
         /* Now add any store wrappers that are enabled */
-        Store<ByteArray, byte[]> store = engine;
+        Store<ByteArray, byte[], byte[]> store = engine;
         if(voldemortConfig.isVerboseLoggingEnabled())
-            store = new LoggingStore<ByteArray, byte[]>(store,
-                                                        cluster.getName(),
-                                                        SystemTime.INSTANCE);
+            store = new LoggingStore<ByteArray, byte[], byte[]>(store,
+                                                                cluster.getName(),
+                                                                SystemTime.INSTANCE);
 
         if(voldemortConfig.isRedirectRoutingEnabled())
             store = new RedirectingStore(store,
@@ -296,8 +300,8 @@ public class StorageService extends AbstractService {
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
 
         if(voldemortConfig.isStatTrackingEnabled()) {
-            StatTrackingStore<ByteArray, byte[]> statStore = new StatTrackingStore<ByteArray, byte[]>(store,
-                                                                                                      this.storeStats);
+            StatTrackingStore<ByteArray, byte[], byte[]> statStore = new StatTrackingStore<ByteArray, byte[], byte[]>(store,
+                                                                                                                      this.storeStats);
             store = statStore;
             if(voldemortConfig.isJmxEnabled()) {
 
@@ -331,11 +335,13 @@ public class StorageService extends AbstractService {
      * @param localNode
      */
     public void registerNodeStores(StoreDefinition def, Cluster cluster, int localNode) {
-        Map<Integer, Store<ByteArray, byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[]>>(cluster.getNumberOfNodes());
+        Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>(cluster.getNumberOfNodes());
         Map<Integer, NonblockingStore> nonblockingStores = new HashMap<Integer, NonblockingStore>(cluster.getNumberOfNodes());
         try {
             for(Node node: cluster.getNodes()) {
-                Store<ByteArray, byte[]> store = getNodeStore(def.getName(), node, localNode);
+                Store<ByteArray, byte[], byte[]> store = getNodeStore(def.getName(),
+                                                                      node,
+                                                                      localNode);
                 this.storeRepository.addNodeStore(node.getId(), store);
                 nodeStores.put(node.getId(), store);
 
@@ -343,14 +349,14 @@ public class StorageService extends AbstractService {
                 nonblockingStores.put(node.getId(), nonblockingStore);
             }
 
-            Store<ByteArray, byte[]> store = routedStoreFactory.create(cluster,
-                                                                       def,
-                                                                       nodeStores,
-                                                                       nonblockingStores,
-                                                                       true,
-                                                                       cluster.getNodeById(localNode)
-                                                                              .getZoneId(),
-                                                                       failureDetector);
+            Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(cluster,
+                                                                               def,
+                                                                               nodeStores,
+                                                                               nonblockingStores,
+                                                                               true,
+                                                                               cluster.getNodeById(localNode)
+                                                                                      .getZoneId(),
+                                                                               failureDetector);
 
             store = new RebootstrappingStore(metadata,
                                              storeRepository,
@@ -358,8 +364,8 @@ public class StorageService extends AbstractService {
                                              (RoutedStore) store,
                                              storeFactory);
 
-            store = new InconsistencyResolvingStore<ByteArray, byte[]>(store,
-                                                                       new VectorClockInconsistencyResolver<byte[]>());
+            store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(store,
+                                                                               new VectorClockInconsistencyResolver<byte[]>());
             this.storeRepository.addRoutedStore(store);
         } catch(Exception e) {
             // Roll back
@@ -369,8 +375,8 @@ public class StorageService extends AbstractService {
         }
     }
 
-    private Store<ByteArray, byte[]> getNodeStore(String storeName, Node node, int localNode) {
-        Store<ByteArray, byte[]> store;
+    private Store<ByteArray, byte[], byte[]> getNodeStore(String storeName, Node node, int localNode) {
+        Store<ByteArray, byte[], byte[]> store;
         if(node.getId() == localNode) {
             store = this.storeRepository.getLocalStore(storeName);
         } else {
@@ -379,7 +385,7 @@ public class StorageService extends AbstractService {
         return store;
     }
 
-    private Store<ByteArray, byte[]> createNodeStore(String storeName, Node node) {
+    private Store<ByteArray, byte[], byte[]> createNodeStore(String storeName, Node node) {
         return storeFactory.create(storeName,
                                    node.getHost(),
                                    node.getSocketPort(),
@@ -394,7 +400,7 @@ public class StorageService extends AbstractService {
      * @param engine The storage engine to do cleanup on
      */
     private void scheduleCleanupJob(StoreDefinition storeDef,
-                                    StorageEngine<ByteArray, byte[]> engine) {
+                                    StorageEngine<ByteArray, byte[], byte[]> engine) {
         // Schedule data retention cleanup job starting next day.
         GregorianCalendar cal = new GregorianCalendar();
         cal.add(Calendar.DAY_OF_YEAR, 1);
@@ -415,12 +421,12 @@ public class StorageService extends AbstractService {
 
         EventThrottler throttler = new EventThrottler(maxReadRate);
 
-        Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[]>(engine,
-                                                                    cleanupPermits,
-                                                                    storeDef.getRetentionDays()
-                                                                            * Time.MS_PER_DAY,
-                                                                    SystemTime.INSTANCE,
-                                                                    throttler);
+        Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
+                                                                            cleanupPermits,
+                                                                            storeDef.getRetentionDays()
+                                                                                    * Time.MS_PER_DAY,
+                                                                            SystemTime.INSTANCE,
+                                                                            throttler);
 
         this.scheduler.schedule(cleanupJob,
                                 startTime,
@@ -429,7 +435,7 @@ public class StorageService extends AbstractService {
 
     }
 
-    private StorageEngine<ByteArray, byte[]> getStorageEngine(String name, String type) {
+    private StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(String name, String type) {
         StorageConfiguration config = storageConfigs.get(type);
         if(config == null)
             throw new ConfigurationException("Attempt to open store " + name + " but " + type
@@ -448,7 +454,7 @@ public class StorageService extends AbstractService {
         Exception lastException = null;
         logger.info("Closing all stores.");
         /* This will also close the node stores including local stores */
-        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllRoutedStores()) {
+        for(Store<ByteArray, byte[], byte[]> store: this.storeRepository.getAllRoutedStores()) {
             logger.info("Closing routed store for " + store.getName());
             try {
                 store.close();
@@ -458,7 +464,7 @@ public class StorageService extends AbstractService {
             }
         }
         /* This will also close the storage engines */
-        for(Store<ByteArray, byte[]> store: this.storeRepository.getAllStorageEngines()) {
+        for(Store<ByteArray, byte[], byte[]> store: this.storeRepository.getAllStorageEngines()) {
             logger.info("Closing storage engine for " + store.getName());
             try {
                 store.close();
@@ -545,7 +551,7 @@ public class StorageService extends AbstractService {
 
         try {
             StoreDefinition storeDef = getMetadataStore().getStoreDef(storeName);
-            StorageEngine<ByteArray, byte[]> engine = storeRepository.getStorageEngine(storeName);
+            StorageEngine<ByteArray, byte[], byte[]> engine = storeRepository.getStorageEngine(storeName);
 
             if(null != engine) {
                 if(storeDef.hasRetentionPeriod()) {
@@ -553,12 +559,12 @@ public class StorageService extends AbstractService {
                     try {
                         if(cleanupPermits.availablePermits() >= 1) {
 
-                            executor.execute(new DataCleanupJob<ByteArray, byte[]>(engine,
-                                                                                   cleanupPermits,
-                                                                                   storeDef.getRetentionDays()
-                                                                                           * Time.MS_PER_DAY,
-                                                                                   SystemTime.INSTANCE,
-                                                                                   new EventThrottler(entryScanThrottleRate)));
+                            executor.execute(new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
+                                                                                           cleanupPermits,
+                                                                                           storeDef.getRetentionDays()
+                                                                                                   * Time.MS_PER_DAY,
+                                                                                           SystemTime.INSTANCE,
+                                                                                           new EventThrottler(entryScanThrottleRate)));
                         } else {
                             logger.error("forceCleanupOldData() No permit available to run cleanJob already running multiple instance."
                                          + engine.getName());
@@ -581,7 +587,7 @@ public class StorageService extends AbstractService {
         this.scheduler.scheduleNow(new Runnable() {
 
             public void run() {
-                StorageEngine<ByteArray, byte[]> store = storeRepository.getStorageEngine(storeName);
+                StorageEngine<ByteArray, byte[], byte[]> store = storeRepository.getStorageEngine(storeName);
                 if(store == null) {
                     logger.error("Invalid store name '" + storeName + "'.");
                     return;
@@ -602,7 +608,7 @@ public class StorageService extends AbstractService {
                     DataSetStats totals = new DataSetStats();
                     List<String> names = new ArrayList<String>();
                     List<DataSetStats> stats = new ArrayList<DataSetStats>();
-                    for(StorageEngine<ByteArray, byte[]> store: storeRepository.getAllStorageEngines()) {
+                    for(StorageEngine<ByteArray, byte[], byte[]> store: storeRepository.getAllStorageEngines()) {
                         if(store instanceof ReadOnlyStorageEngine
                            || store instanceof ViewStorageEngine || store instanceof MetadataStore)
                             continue;
@@ -625,7 +631,7 @@ public class StorageService extends AbstractService {
 
     }
 
-    private DataSetStats calculateStats(StorageEngine<ByteArray, byte[]> store) {
+    private DataSetStats calculateStats(StorageEngine<ByteArray, byte[], byte[]> store) {
         DataSetStats stats = new DataSetStats();
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iter = store.entries();
         try {

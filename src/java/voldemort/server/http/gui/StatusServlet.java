@@ -77,11 +77,11 @@ public class StatusServlet extends HttpServlet {
         // TODO: Shouldn't this be done through a POST?
         if("reset".equals(request.getParameter("action"))) {
             if(storeName != null) {
-                Store<ByteArray, byte[]> store = server.getStoreRepository()
-                                                       .getLocalStore(storeName);
+                Store<ByteArray, byte[], byte[]> store = server.getStoreRepository()
+                                                               .getLocalStore(storeName);
 
-                if(store != null && store instanceof StatTrackingStore<?, ?>) {
-                    ((StatTrackingStore<?, ?>) store).resetStatistics();
+                if(store != null && store instanceof StatTrackingStore<?, ?, ?>) {
+                    ((StatTrackingStore<?, ?, ?>) store).resetStatistics();
                 }
             }
         }
@@ -103,7 +103,7 @@ public class StatusServlet extends HttpServlet {
                 }
             }
 
-            List<Store<ByteArray, byte[]>> stores = null;
+            List<Store<ByteArray, byte[], byte[]>> stores = null;
             if(storeName == null) {
                 stores = server.getStoreRepository().getAllLocalStores();
             } else {
@@ -150,11 +150,11 @@ public class StatusServlet extends HttpServlet {
         sb.append("\n  \"stores\": {");
 
         int i = 0;
-        for(Store<ByteArray, byte[]> store: server.getStoreRepository().getAllLocalStores()) {
+        for(Store<ByteArray, byte[], byte[]> store: server.getStoreRepository().getAllLocalStores()) {
 
-            if(store instanceof StatTrackingStore<?, ?>) {
+            if(store instanceof StatTrackingStore<?, ?, ?>) {
 
-                StatTrackingStore<?, ?> statStore = (StatTrackingStore<?, ?>) store;
+                StatTrackingStore<?, ?, ?> statStore = (StatTrackingStore<?, ?, ?>) store;
 
                 Map<Tracked, RequestCounter> stats = statStore.getStats().getCounters();
 

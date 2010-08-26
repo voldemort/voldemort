@@ -69,12 +69,14 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         client.getHttpConnectionManager().getParams().setConnectionTimeout(5000);
         HttpStore badUrlHttpStore = new HttpStore("test", url, port, client, requestFormat, false);
         try {
-            badUrlHttpStore.put(key, new Versioned<byte[]>("value".getBytes(), new VectorClock()));
+            badUrlHttpStore.put(key,
+                                new Versioned<byte[]>("value".getBytes(), new VectorClock()),
+                                null);
         } catch(Exception e) {
             assertTrue(e.getClass().equals(expected));
         }
         try {
-            badUrlHttpStore.get(key);
+            badUrlHttpStore.get(key, null);
         } catch(Exception e) {
             assertTrue(e.getClass().equals(expected));
         }
@@ -106,7 +108,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
     }
 
     @Override
-    public Store<ByteArray, byte[]> getStore() {
+    public Store<ByteArray, byte[], byte[]> getStore() {
         return httpStore;
     }
 

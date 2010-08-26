@@ -46,7 +46,7 @@ public class ServerStoreVerifier implements StoreVerifier {
 
     private final VoldemortConfig voldemortConfig;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     public ServerStoreVerifier(SocketStoreFactory storeFactory,
                                MetadataStore metadataStore,
@@ -54,11 +54,11 @@ public class ServerStoreVerifier implements StoreVerifier {
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataStore = Utils.notNull(metadataStore);
         this.voldemortConfig = Utils.notNull(voldemortConfig);
-        stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     }
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException {
-        Store<ByteArray, byte[]> store = null;
+        Store<ByteArray, byte[], byte[]> store = null;
 
         if(node.getId() == voldemortConfig.getNodeId()) {
             store = metadataStore;
@@ -77,7 +77,7 @@ public class ServerStoreVerifier implements StoreVerifier {
             }
         }
 
-        store.get(KEY);
+        store.get(KEY, null);
     }
 
 }

@@ -46,7 +46,7 @@ public class PerformSerialGetAllRequests
 
     private final FailureDetector failureDetector;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     private final int preferred;
 
@@ -56,7 +56,7 @@ public class PerformSerialGetAllRequests
                                        Event completeEvent,
                                        Iterable<ByteArray> keys,
                                        FailureDetector failureDetector,
-                                       Map<Integer, Store<ByteArray, byte[]>> stores,
+                                       Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                        int preferred,
                                        int required) {
         super(pipelineData, completeEvent);
@@ -102,7 +102,7 @@ public class PerformSerialGetAllRequests
                 long start = System.nanoTime();
 
                 try {
-                    Store<ByteArray, byte[]> store = stores.get(node.getId());
+                    Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
                     List<Versioned<byte[]>> values = store.get(key);
 
                     if(result.get(key) == null)

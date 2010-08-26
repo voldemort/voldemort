@@ -194,10 +194,10 @@ public class ReadOnlyStorePerformanceTest {
                 Utils.croak("Copy of data from " + output + " to " + dir + " failed.");
         }
 
-        final Store<ByteArray, byte[]> store = new ReadOnlyStorageEngine("test",
-                                                                         searcher,
-                                                                         new File(storeDir),
-                                                                         0);
+        final Store<ByteArray, byte[], byte[]> store = new ReadOnlyStorageEngine("test",
+                                                                                 searcher,
+                                                                                 new File(storeDir),
+                                                                                 0);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
         final AtomicInteger nullResults = new AtomicInteger(0);
@@ -257,7 +257,8 @@ public class ReadOnlyStorePerformanceTest {
                 try {
                     totalResults.incrementAndGet();
                     int curr = current.getAndIncrement();
-                    List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(requestIds.take())));
+                    List<Versioned<byte[]>> results = store.get(new ByteArray(keySerializer.toBytes(requestIds.take())),
+                                                                null);
                     if(curr % progressIncrement == 0)
                         System.out.println(curr);
 

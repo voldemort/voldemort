@@ -56,7 +56,7 @@ public class SlopPusherJob implements Runnable {
         int attemptedPushes = 0;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
         try {
-            StorageEngine<ByteArray, Slop> slopStore = storeRepo.getSlopStore();
+            StorageEngine<ByteArray, Slop, byte[]> slopStore = storeRepo.getSlopStore();
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
                 if(Thread.interrupted())
@@ -67,12 +67,13 @@ public class SlopPusherJob implements Runnable {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
-                    Store<ByteArray, byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
-                                                                            slop.getNodeId());
+                    Store<ByteArray, byte[], byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
+                                                                                    slop.getNodeId());
                     try {
                         if(slop.getOperation() == Operation.PUT)
                             store.put(keyAndVal.getFirst(),
-                                      new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
+                                      new Versioned<byte[]>(slop.getValue(), versioned.getVersion()),
+                                      slop.getTransforms());
                         else if(slop.getOperation() == Operation.DELETE)
                             store.delete(keyAndVal.getFirst(), versioned.getVersion());
                         else

@@ -61,8 +61,7 @@ import voldemort.versioning.Versioned;
  * {@link ClientRequestExecutorPool pool} and adds an appropriate
  * {@link ClientRequest request} to be processed by the NIO thread.
  */
-
-public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
+public class SocketStore implements Store<ByteArray, byte[], byte[]>, NonblockingStore {
 
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
@@ -144,7 +143,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         return request(clientRequest, "delete");
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         GetClientRequest clientRequest = new GetClientRequest(storeName,
                                                               requestFormat,
@@ -153,7 +152,8 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         return request(clientRequest, "get");
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
@@ -172,7 +172,8 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         return request(clientRequest, "getVersions");
     }
 
-    public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         PutClientRequest clientRequest = new PutClientRequest(storeName,
                                                               requestFormat,

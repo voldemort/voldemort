@@ -31,7 +31,7 @@ public interface View<K, V, S, T> {
      * @throws UnsupportedViewOperationException If this direction of
      *         translation is not allowed
      */
-    public V storeToView(Store<K, S> targetStore, K k, S s, T t)
+    public V storeToView(Store<K, S, T> targetStore, K k, S s, T t)
             throws UnsupportedViewOperationException;
 
     /**
@@ -45,7 +45,7 @@ public interface View<K, V, S, T> {
      * @throws UnsupportedViewOperationException If this direction of
      *         translation is not allowed
      */
-    public S viewToStore(Store<K, S> targetStore, K k, V v, T t)
+    public S viewToStore(Store<K, S, T> targetStore, K k, V v, T t)
             throws UnsupportedViewOperationException;
 
 }

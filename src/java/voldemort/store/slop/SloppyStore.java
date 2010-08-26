@@ -53,10 +53,11 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
+public class SloppyStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private final int node;
-    private final List<Store<ByteArray, Slop>> backupStores;
+    // the transforms are useless for backup stores.
+    private final List<Store<ByteArray, Slop, byte[]>> backupStores;
 
     /**
      * Create a store which delegates its operations to it inner store and
@@ -68,11 +69,11 @@ public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
      *        failures, the iterator determines preference.
      */
     public SloppyStore(int node,
-                       Store<ByteArray, byte[]> innerStore,
-                       Collection<? extends Store<ByteArray, Slop>> backupStores) {
+                       Store<ByteArray, byte[], byte[]> innerStore,
+                       Collection<? extends Store<ByteArray, Slop, byte[]>> backupStores) {
         super(innerStore);
         this.node = node;
-        this.backupStores = new ArrayList<Store<ByteArray, Slop>>(backupStores);
+        this.backupStores = new ArrayList<Store<ByteArray, Slop, byte[]>>(backupStores);
     }
 
     /**
@@ -87,10 +88,16 @@ public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
         } catch(UnreachableStoreException e) {
             List<Exception> failures = new ArrayList<Exception>();
             failures.add(e);
-            Slop slop = new Slop(getName(), Slop.Operation.DELETE, key, null, node, new Date());
-            for(Store<ByteArray, Slop> slopStore: backupStores) {
+            Slop slop = new Slop(getName(),
+                                 Slop.Operation.DELETE,
+                                 key,
+                                 null,
+                                 null,
+                                 node,
+                                 new Date());
+            for(Store<ByteArray, Slop, byte[]> slopStore: backupStores) {
                 try {
-                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version));
+                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version), null);
                     return false;
                 } catch(UnreachableStoreException u) {
                     failures.add(u);
@@ -108,10 +115,11 @@ public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
      * the first available SlopStore for eventual consistency.
      */
     @Override
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
-            getInnerStore().put(key, value);
+            getInnerStore().put(key, value, transforms);
         } catch(UnreachableStoreException e) {
             List<Exception> failures = new ArrayList<Exception>();
             failures.add(e);
@@ -120,11 +128,14 @@ public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
                                  Slop.Operation.PUT,
                                  key,
                                  value.getValue(),
+                                 transforms,
                                  node,
                                  new Date());
-            for(Store<ByteArray, Slop> slopStore: backupStores) {
+            for(Store<ByteArray, Slop, byte[]> slopStore: backupStores) {
                 try {
-                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, value.getVersion()));
+                    slopStore.put(slop.makeKey(),
+                                  new Versioned<Slop>(slop, value.getVersion()),
+                                  null);
                     persisted = true;
                     break;
                 } catch(UnreachableStoreException u) {
@@ -143,8 +154,8 @@ public class SloppyStore extends DelegatingStore<ByteArray, byte[]> {
         }
     }
 
-    public List<Store<ByteArray, Slop>> getBackupStores() {
-        return new ArrayList<Store<ByteArray, Slop>>(backupStores);
+    public List<Store<ByteArray, Slop, byte[]>> getBackupStores() {
+        return new ArrayList<Store<ByteArray, Slop, byte[]>>(backupStores);
     }
 
 }

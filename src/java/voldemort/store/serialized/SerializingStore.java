@@ -40,24 +40,28 @@ import com.google.common.collect.Maps;
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored
  */
-public class SerializingStore<K, V> implements Store<K, V> {
+public class SerializingStore<K, V, T> implements Store<K, V, T> {
 
-    private final Store<ByteArray, byte[]> store;
+    private final Store<ByteArray, byte[], byte[]> store;
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
+    private final Serializer<T> transformsSerializer;
 
-    public SerializingStore(Store<ByteArray, byte[]> store,
+    public SerializingStore(Store<ByteArray, byte[], byte[]> store,
                             Serializer<K> keySerializer,
-                            Serializer<V> valueSerializer) {
+                            Serializer<V> valueSerializer,
+                            Serializer<T> transformsSerializer) {
         this.store = Utils.notNull(store);
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
+        this.transformsSerializer = transformsSerializer;
     }
 
-    public static <K1, V1> SerializingStore<K1, V1> wrap(Store<ByteArray, byte[]> s,
-                                                         Serializer<K1> k,
-                                                         Serializer<V1> v) {
-        return new SerializingStore<K1, V1>(s, k, v);
+    public static <K1, V1, T1> SerializingStore<K1, V1, T1> wrap(Store<ByteArray, byte[], byte[]> s,
+                                                                 Serializer<K1> k,
+                                                                 Serializer<V1> v,
+                                                                 Serializer<T1> t) {
+        return new SerializingStore<K1, V1, T1>(s, k, v, t);
     }
 
     public boolean delete(K key, Version version) throws VoldemortException {
@@ -75,8 +79,28 @@ public class SerializingStore<K, V> implements Store<K, V> {
         return result;
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
-        List<Versioned<byte[]>> found = store.get(keyToBytes(key));
+    private byte[] transformToBytes(T transform) {
+        if(transform == null)
+            return null;
+        if(transformsSerializer == null)
+            return null;
+        return transformsSerializer.toBytes(transform);
+    }
+
+    private Map<ByteArray, byte[]> transformsToBytes(Map<K, T> transforms) {
+        if(transforms == null)
+            return null;
+        Map<ByteArray, byte[]> result = Maps.newHashMap();
+        for(Map.Entry<K, T> transform: transforms.entrySet()) {
+            result.put(keyToBytes(transform.getKey()), transformToBytes(transform.getValue()));
+        }
+        return result;
+    }
+
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
+        List<Versioned<byte[]>> found = store.get(keyToBytes(key),
+                                                  transformsSerializer != null ? transformsSerializer.toBytes(transforms)
+                                                                              : null);
         List<Versioned<V>> results = new ArrayList<Versioned<V>>(found.size());
         for(Versioned<byte[]> versioned: found)
             results.add(new Versioned<V>(valueSerializer.toObject(versioned.getValue()),
@@ -84,10 +108,12 @@ public class SerializingStore<K, V> implements Store<K, V> {
         return results;
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, K> byteKeyToKey = keysToBytes(keys);
-        Map<ByteArray, List<Versioned<byte[]>>> storeResult = store.getAll(byteKeyToKey.keySet());
+        Map<ByteArray, List<Versioned<byte[]>>> storeResult = store.getAll(byteKeyToKey.keySet(),
+                                                                           transformsToBytes(transforms));
         Map<K, List<Versioned<V>>> result = Maps.newHashMapWithExpectedSize(storeResult.size());
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> mapEntry: storeResult.entrySet()) {
             List<Versioned<V>> values = Lists.newArrayListWithExpectedSize(mapEntry.getValue()
@@ -105,9 +131,11 @@ public class SerializingStore<K, V> implements Store<K, V> {
         return store.getName();
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
-        store.put(keyToBytes(key), new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
-                                                         value.getVersion()));
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
+        store.put(keyToBytes(key),
+                  new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
+                                        value.getVersion()),
+                  transformToBytes(transforms));
     }
 
     public List<Version> getVersions(K key) {

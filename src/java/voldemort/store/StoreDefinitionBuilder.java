@@ -72,7 +72,7 @@ public class StoreDefinitionBuilder {
     }
 
     public SerializerDefinition getTransformsSerializer() {
-        return Utils.notNull(this.transformsSerializer);
+        return this.transformsSerializer;
     }
 
     public StoreDefinitionBuilder setTransformsSerializer(SerializerDefinition transformsSerializer) {

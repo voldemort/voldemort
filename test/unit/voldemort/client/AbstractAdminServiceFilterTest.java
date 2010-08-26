@@ -24,18 +24,18 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
     protected abstract Set<Pair<ByteArray, Versioned<byte[]>>> createEntries();
 
-    protected abstract Store<ByteArray, byte[]> getStore(int nodeId, String storeName);
+    protected abstract Store<ByteArray, byte[], byte[]> getStore(int nodeId, String storeName);
 
     @Test
     public void testFetchAsStreamWithFilter() {
         // user store should be present
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         assertNotSame("Store '" + testStoreName + "' should not be null", null, store);
 
         VoldemortFilter filter = new VoldemortFilterImpl();
         int shouldFilterCount = 0;
         for(Pair<ByteArray, Versioned<byte[]>> pair: createEntries()) {
-            store.put(pair.getFirst(), pair.getSecond());
+            store.put(pair.getFirst(), pair.getSecond(), null);
             if(!filter.accept(pair.getFirst(), pair.getSecond())) {
                 shouldFilterCount++;
             }
@@ -62,14 +62,14 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
     @Test
     public void testDeleteStreamWithFilter() {
         // user store should be present
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         assertNotSame("Store '" + testStoreName + "' should not be null", null, store);
 
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         VoldemortFilter filter = new VoldemortFilterImpl();
         for(Pair<ByteArray, Versioned<byte[]>> pair: entrySet) {
-            store.put(pair.getFirst(), pair.getSecond());
+            store.put(pair.getFirst(), pair.getSecond(), null);
         }
 
         // make delete stream call with filter
@@ -83,14 +83,14 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
             if(filter.accept(entry.getFirst(), entry.getSecond())) {
                 assertEquals("All entries should be deleted except the filtered ones.",
                              0,
-                             store.get(entry.getFirst()).size());
+                             store.get(entry.getFirst(), null).size());
             } else {
                 assertNotSame("filtered entry should be still present.",
                               0,
-                              store.get(entry.getFirst()).size());
+                              store.get(entry.getFirst(), null).size());
                 assertEquals("values should match",
                              new String(entry.getSecond().getValue()),
-                             new String(store.get(entry.getFirst()).get(0).getValue()));
+                             new String(store.get(entry.getFirst(), null).get(0).getValue()));
             }
         }
     }
@@ -105,7 +105,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
         // assert none of the filtered entries are updated.
         // user store should be present
-        Store<ByteArray, byte[]> store = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
 
         assertNotSame("Store '" + testStoreName + "' should not be null", null, store);
 
@@ -113,14 +113,14 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
             if(filter.accept(entry.getFirst(), entry.getSecond())) {
                 assertEquals("Store should have this key/value pair",
                              1,
-                             store.get(entry.getFirst()).size());
+                             store.get(entry.getFirst(), null).size());
                 assertEquals("Store should have this key/value pair",
                              entry.getSecond(),
-                             store.get(entry.getFirst()).get(0));
+                             store.get(entry.getFirst(), null).get(0));
             } else {
                 assertEquals("Store should Not have this key/value pair",
                              0,
-                             store.get(entry.getFirst()).size());
+                             store.get(entry.getFirst(), null).size());
             }
         }
     }

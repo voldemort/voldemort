@@ -38,7 +38,7 @@ public class RoutedStoreFactory {
         this.routingTimeoutMs = routingTimeoutMs;
     }
 
-    public NonblockingStore toNonblockingStore(Store<ByteArray, byte[]> store) {
+    public NonblockingStore toNonblockingStore(Store<ByteArray, byte[], byte[]> store) {
         if(store instanceof NonblockingStore)
             return (NonblockingStore) store;
 
@@ -50,7 +50,7 @@ public class RoutedStoreFactory {
 
     public RoutedStore create(Cluster cluster,
                               StoreDefinition storeDefinition,
-                              Map<Integer, Store<ByteArray, byte[]>> nodeStores,
+                              Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
                               Map<Integer, NonblockingStore> nonblockingStores,
                               boolean repairReads,
                               int clientZoneId,
@@ -86,12 +86,12 @@ public class RoutedStoreFactory {
 
     public RoutedStore create(Cluster cluster,
                               StoreDefinition storeDefinition,
-                              Map<Integer, Store<ByteArray, byte[]>> nodeStores,
+                              Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
                               boolean repairReads,
                               FailureDetector failureDetector) {
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
-        for(Map.Entry<Integer, Store<ByteArray, byte[]>> entry: nodeStores.entrySet())
+        for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: nodeStores.entrySet())
             nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
 
         return create(cluster,

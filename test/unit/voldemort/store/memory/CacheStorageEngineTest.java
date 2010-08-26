@@ -40,26 +40,27 @@ public class CacheStorageEngineTest extends InMemoryStorageEngineTest {
     }
 
     @Override
-    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
         return new CacheStorageConfiguration().getStore("test");
     }
 
     public void testNoPressureBehavior() {
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         byte[] bytes = "abc".getBytes();
         ByteArray key = new ByteArray(bytes);
-        engine.put(key, new Versioned<byte[]>(bytes));
-        List<Versioned<byte[]>> found = engine.get(key);
+        engine.put(key, new Versioned<byte[]>(bytes), null);
+        List<Versioned<byte[]>> found = engine.get(key, null);
         assertEquals(1, found.size());
     }
 
     public void testHighMemoryCollection() {
         long maxMemory = Runtime.getRuntime().maxMemory();
         int objectSize = Math.max((int) maxMemory / NUM_OBJECTS, 1);
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine();
+        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine();
         for(int i = 0; i < NUM_OBJECTS; i++)
             engine.put(TestUtils.toByteArray(Integer.toString(i)),
-                       new Versioned<byte[]>(TestUtils.randomBytes(objectSize)));
+                       new Versioned<byte[]>(TestUtils.randomBytes(objectSize)),
+                       null);
     }
 
 }

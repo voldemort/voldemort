@@ -8,14 +8,14 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class FailingReadsStore<K, V> implements Store<K, V> {
+public class FailingReadsStore<K, V, T> implements Store<K, V, T> {
 
     private final String name;
-    private final InMemoryStorageEngine<K, V> engine;
+    private final InMemoryStorageEngine<K, V, T> engine;
 
     public FailingReadsStore(String name) {
         this.name = name;
-        this.engine = new InMemoryStorageEngine<K, V>(name);
+        this.engine = new InMemoryStorageEngine<K, V, T>(name);
     }
 
     public void close() throws VoldemortException {}
@@ -24,7 +24,7 @@ public class FailingReadsStore<K, V> implements Store<K, V> {
         return engine.delete(key, version);
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         throw new VoldemortException("Operation failed");
     }
 
@@ -32,7 +32,8 @@ public class FailingReadsStore<K, V> implements Store<K, V> {
         throw new VoldemortException("Operation failed");
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         throw new VoldemortException("Operation failed");
     }
 
@@ -44,7 +45,7 @@ public class FailingReadsStore<K, V> implements Store<K, V> {
         return name;
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
-        engine.put(key, value);
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
+        engine.put(key, value, transforms);
     }
 }

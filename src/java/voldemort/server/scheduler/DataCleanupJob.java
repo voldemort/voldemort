@@ -34,17 +34,17 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class DataCleanupJob<K, V> implements Runnable {
+public class DataCleanupJob<K, V, T> implements Runnable {
 
     private static final Logger logger = Logger.getLogger(DataCleanupJob.class);
 
-    private final StorageEngine<K, V> store;
+    private final StorageEngine<K, V, T> store;
     private final Semaphore cleanupPermits;
     private final long maxAgeMs;
     private final Time time;
     private final EventThrottler throttler;
 
-    public DataCleanupJob(StorageEngine<K, V> store,
+    public DataCleanupJob(StorageEngine<K, V, T> store,
                           Semaphore cleanupPermits,
                           long maxAgeMs,
                           Time time,

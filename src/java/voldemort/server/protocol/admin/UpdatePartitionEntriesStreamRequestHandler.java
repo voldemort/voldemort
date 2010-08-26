@@ -43,7 +43,7 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
     private final VoldemortFilter filter;
 
-    private final StorageEngine<ByteArray, byte[]> storageEngine;
+    private final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
     private int counter;
 
@@ -116,7 +116,7 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
         if(filter.accept(key, value)) {
             try {
-                storageEngine.put(key, value);
+                storageEngine.put(key, value, null);
 
                 if(logger.isTraceEnabled())
                     logger.trace("updateEntries (Streaming put) successful");

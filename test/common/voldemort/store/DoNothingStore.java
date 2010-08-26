@@ -29,7 +29,7 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class DoNothingStore<K, V> implements Store<K, V> {
+public class DoNothingStore<K, V, T> implements Store<K, V, T> {
 
     private final String name;
 
@@ -41,7 +41,7 @@ public class DoNothingStore<K, V> implements Store<K, V> {
     // Do nothing;
     }
 
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         // do nothing
         return null;
     }
@@ -55,11 +55,12 @@ public class DoNothingStore<K, V> implements Store<K, V> {
         return true;
     }
 
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
     // Do nothing
     }
 
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         return null;
     }
 

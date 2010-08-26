@@ -37,7 +37,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
 
     private final FailureDetector failureDetector;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     private final int preferred;
 
@@ -51,7 +51,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                  Event completeEvent,
                                  ByteArray key,
                                  FailureDetector failureDetector,
-                                 Map<Integer, Store<ByteArray, byte[]>> stores,
+                                 Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                  int preferred,
                                  int required,
                                  StoreRequest<V> storeRequest,
@@ -75,7 +75,7 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
             long start = System.nanoTime();
 
             try {
-                Store<ByteArray, byte[]> store = stores.get(node.getId());
+                Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
                 V result = storeRequest.request(store);
 
                 Response<ByteArray, V> response = new Response<ByteArray, V>(node,

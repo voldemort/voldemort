@@ -33,10 +33,10 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
     private final ExecutorService executor;
 
-    private final Store<ByteArray, byte[]> innerStore;
+    private final Store<ByteArray, byte[], byte[]> innerStore;
 
     public ThreadPoolBasedNonblockingStoreImpl(ExecutorService executor,
-                                               Store<ByteArray, byte[]> innerStore) {
+                                               Store<ByteArray, byte[], byte[]> innerStore) {
         this.executor = Utils.notNull(executor);
         this.innerStore = Utils.notNull(innerStore);
     }
@@ -45,17 +45,18 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
                                     final NonblockingStoreCallback callback) {
         submit(new StoreRequest<Map<ByteArray, List<Versioned<byte[]>>>>() {
 
-            public Map<ByteArray, List<Versioned<byte[]>>> request(Store<ByteArray, byte[]> store) {
+            public Map<ByteArray, List<Versioned<byte[]>>> request(Store<ByteArray, byte[], byte[]> store) {
                 return innerStore.getAll(keys);
             }
 
-        }, callback);
+        },
+               callback);
     }
 
     public void submitGetRequest(final ByteArray key, NonblockingStoreCallback callback) {
         submit(new StoreRequest<List<Versioned<byte[]>>>() {
 
-            public List<Versioned<byte[]>> request(Store<ByteArray, byte[]> store) {
+            public List<Versioned<byte[]>> request(Store<ByteArray, byte[], byte[]> store) {
                 return innerStore.get(key);
             }
 
@@ -65,7 +66,7 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
     public void submitGetVersionsRequest(final ByteArray key, NonblockingStoreCallback callback) {
         submit(new StoreRequest<List<Version>>() {
 
-            public List<Version> request(Store<ByteArray, byte[]> store) {
+            public List<Version> request(Store<ByteArray, byte[], byte[]> store) {
                 return innerStore.getVersions(key);
             }
 
@@ -77,7 +78,7 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
                                  NonblockingStoreCallback callback) {
         submit(new StoreRequest<Void>() {
 
-            public Void request(Store<ByteArray, byte[]> store) {
+            public Void request(Store<ByteArray, byte[], byte[]> store) {
                 innerStore.put(key, value);
                 return null;
             }
@@ -90,7 +91,7 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
                                     NonblockingStoreCallback callback) {
         submit(new StoreRequest<Boolean>() {
 
-            public Boolean request(Store<ByteArray, byte[]> store) {
+            public Boolean request(Store<ByteArray, byte[], byte[]> store) {
                 return innerStore.delete(key, version);
             }
 

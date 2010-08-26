@@ -39,7 +39,7 @@ public class PerformSerialPutRequests extends
 
     private final int required;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     private final Versioned<byte[]> versioned;
 
@@ -51,7 +51,7 @@ public class PerformSerialPutRequests extends
                                     Event completeEvent,
                                     ByteArray key,
                                     FailureDetector failureDetector,
-                                    Map<Integer, Store<ByteArray, byte[]>> stores,
+                                    Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                     int required,
                                     Versioned<byte[]> versioned,
                                     Time time,

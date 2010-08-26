@@ -46,11 +46,11 @@ public class SlopPusherTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         repo = new StoreRepository();
-        repo.setSlopStore(new InMemoryStorageEngine<ByteArray, Slop>("slop"));
-        repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[]>(STORE_NAME));
-        repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[]>(STORE_NAME));
+        repo.setSlopStore(new InMemoryStorageEngine<ByteArray, Slop, byte[]>("slop"));
+        repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
+        repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         this.failingNodeId = 2;
-        repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[]>(STORE_NAME));
+        repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[], byte[]>(STORE_NAME));
         pusher = new SlopPusherJob(repo);
     }
 
@@ -66,7 +66,7 @@ public class SlopPusherTest extends TestCase {
     private void pushSlop(Versioned<Slop>... slops) {
         // put all the slop in the slop store
         for(Versioned<Slop> s: slops)
-            repo.getSlopStore().put(s.getValue().makeKey(), s);
+            repo.getSlopStore().put(s.getValue().makeKey(), s, null);
 
         // run the pusher
         pusher.run();
@@ -81,16 +81,16 @@ public class SlopPusherTest extends TestCase {
             // and no new slops have appeared
             // and the SloppyStore is now empty
             Slop slop = vs.getValue();
-            assertEquals("Slop remains.", 0, repo.getSlopStore().get(slop.makeKey()).size());
+            assertEquals("Slop remains.", 0, repo.getSlopStore().get(slop.makeKey(), null).size());
             assertTrue(bytesEqual(slop.getValue(), repo.getNodeStore(STORE_NAME, slop.getNodeId())
-                                                       .get(slop.makeKey())
+                                                       .get(slop.makeKey(), null)
                                                        .get(0)
                                                        .getValue()));
         }
         // check that all undelivered slop is undelivered
         for(Versioned<Slop> vs: undelivered) {
             Slop slop = vs.getValue();
-            assertEquals("Slop is gone!", 1, repo.getSlopStore().get(slop.makeKey()).size());
+            assertEquals("Slop is gone!", 1, repo.getSlopStore().get(slop.makeKey(), null).size());
         }
     }
 

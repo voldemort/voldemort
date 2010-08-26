@@ -36,7 +36,7 @@ public class PerformZoneSerialRequests<V, PD extends BasicPipelineData<V>> exten
 
     private final FailureDetector failureDetector;
 
-    private final Map<Integer, Store<ByteArray, byte[]>> stores;
+    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
 
     private final StoreRequest<V> storeRequest;
 
@@ -44,7 +44,7 @@ public class PerformZoneSerialRequests<V, PD extends BasicPipelineData<V>> exten
                                      Event completeEvent,
                                      ByteArray key,
                                      FailureDetector failureDetector,
-                                     Map<Integer, Store<ByteArray, byte[]>> stores,
+                                     Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                      StoreRequest<V> storeRequest) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;

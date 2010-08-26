@@ -45,6 +45,6 @@ public interface StoreRequest<T> {
      *         given {@link Store}
      */
 
-    public T request(Store<ByteArray, byte[]> store) throws VoldemortException;
+    public T request(Store<ByteArray, byte[], byte[]> store) throws VoldemortException;
 
 }

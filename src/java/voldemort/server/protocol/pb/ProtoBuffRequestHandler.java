@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -50,7 +51,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         }
 
         String storeName = request.getStore();
-        Store<ByteArray, byte[]> store = getStore(storeName, type);
+        Store<ByteArray, byte[], byte[]> store = getStore(storeName, type);
         Message response;
         if(store == null) {
             response = unknownStore(storeName, request.getType());
@@ -79,7 +80,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         return null;
     }
 
-    private Message handleGetVersion(GetRequest request, Store<ByteArray, byte[]> store) {
+    private Message handleGetVersion(GetRequest request, Store<ByteArray, byte[], byte[]> store) {
         VProto.GetVersionResponse.Builder response = VProto.GetVersionResponse.newBuilder();
         try {
             List<Version> versions = store.getVersions(ProtoUtils.decodeBytes(request.getKey()));
@@ -99,10 +100,14 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         return buffer.remaining() == size;
     }
 
-    private VProto.GetResponse handleGet(VProto.GetRequest request, Store<ByteArray, byte[]> store) {
+    private VProto.GetResponse handleGet(VProto.GetRequest request,
+                                         Store<ByteArray, byte[], byte[]> store) {
         VProto.GetResponse.Builder response = VProto.GetResponse.newBuilder();
         try {
-            List<Versioned<byte[]>> values = store.get(ProtoUtils.decodeBytes(request.getKey()));
+            List<Versioned<byte[]>> values = store.get(ProtoUtils.decodeBytes(request.getKey()),
+                                                       request.hasTransforms() ? ProtoUtils.decodeBytes(request.getTransforms())
+                                                                                           .get()
+                                                                              : null);
             for(Versioned<byte[]> versioned: values)
                 response.addVersioned(ProtoUtils.encodeVersioned(versioned));
         } catch(VoldemortException e) {
@@ -112,13 +117,24 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
     }
 
     private VProto.GetAllResponse handleGetAll(VProto.GetAllRequest request,
-                                               Store<ByteArray, byte[]> store) {
+                                               Store<ByteArray, byte[], byte[]> store) {
         VProto.GetAllResponse.Builder response = VProto.GetAllResponse.newBuilder();
         try {
             List<ByteArray> keys = new ArrayList<ByteArray>(request.getKeysCount());
             for(ByteString string: request.getKeysList())
                 keys.add(ProtoUtils.decodeBytes(string));
-            Map<ByteArray, List<Versioned<byte[]>>> values = store.getAll(keys);
+
+            int transformsSize = request.getTransformsCount();
+            Map<ByteArray, byte[]> transforms = null;
+            if(transformsSize > 0) {
+                for(VProto.GetAllRequest.GetAllTransform transform: request.getTransformsList()) {
+                    transforms = new HashMap<ByteArray, byte[]>(transformsSize);
+                    transforms.put(ProtoUtils.decodeBytes(transform.getKey()),
+                                   ProtoUtils.decodeBytes(transform.getTransform()).get());
+                }
+            }
+
+            Map<ByteArray, List<Versioned<byte[]>>> values = store.getAll(keys, transforms);
             for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: values.entrySet()) {
                 VProto.KeyedVersions.Builder keyedVersion = VProto.KeyedVersions.newBuilder()
                                                                                 .setKey(ProtoUtils.encodeBytes(entry.getKey()));
@@ -132,12 +148,18 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
         return response.build();
     }
 
-    private VProto.PutResponse handlePut(VProto.PutRequest request, Store<ByteArray, byte[]> store) {
+    private VProto.PutResponse handlePut(VProto.PutRequest request,
+                                         Store<ByteArray, byte[], byte[]> store) {
         VProto.PutResponse.Builder response = VProto.PutResponse.newBuilder();
         try {
             ByteArray key = ProtoUtils.decodeBytes(request.getKey());
+
             Versioned<byte[]> value = ProtoUtils.decodeVersioned(request.getVersioned());
-            store.put(key, value);
+
+            store.put(key,
+                      value,
+                      request.hasTransforms() ? ProtoUtils.decodeBytes(request.getTransforms())
+                                                          .get() : null);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(getErrorMapper(), e));
         }
@@ -145,7 +167,7 @@ public class ProtoBuffRequestHandler extends AbstractRequestHandler {
     }
 
     private VProto.DeleteResponse handleDelete(VProto.DeleteRequest request,
-                                               Store<ByteArray, byte[]> store) {
+                                               Store<ByteArray, byte[], byte[]> store) {
         VProto.DeleteResponse.Builder response = VProto.DeleteResponse.newBuilder();
         try {
             boolean success = store.delete(ProtoUtils.decodeBytes(request.getKey()),

@@ -35,11 +35,11 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
+public class StatTrackingStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     private StoreStats stats;
 
-    public StatTrackingStore(Store<K, V> innerStore, StoreStats parentStats) {
+    public StatTrackingStore(Store<K, V, T> innerStore, StoreStats parentStats) {
         super(innerStore);
         this.stats = new StoreStats(parentStats);
     }
@@ -58,10 +58,10 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
     }
 
     @Override
-    public List<Versioned<V>> get(K key) throws VoldemortException {
+    public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         long start = System.nanoTime();
         try {
-            return super.get(key);
+            return super.get(key, transforms);
         } catch(VoldemortException e) {
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
@@ -71,10 +71,11 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
     }
 
     @Override
-    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys) throws VoldemortException {
+    public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
+            throws VoldemortException {
         long start = System.nanoTime();
         try {
-            return super.getAll(keys);
+            return super.getAll(keys, transforms);
         } catch(VoldemortException e) {
             stats.recordTime(Tracked.EXCEPTION, System.nanoTime() - start);
             throw e;
@@ -84,10 +85,10 @@ public class StatTrackingStore<K, V> extends DelegatingStore<K, V> {
     }
 
     @Override
-    public void put(K key, Versioned<V> value) throws VoldemortException {
+    public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         long start = System.nanoTime();
         try {
-            super.put(key, value);
+            super.put(key, value, transforms);
         } catch(ObsoleteVersionException e) {
             stats.recordTime(Tracked.OBSOLETE, System.nanoTime() - start);
             throw e;

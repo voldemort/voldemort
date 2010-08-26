@@ -1780,6 +1780,13 @@ public final class VProto {
     public boolean hasKey() { return hasKey; }
     public com.google.protobuf.ByteString getKey() { return key_; }
     
+    // optional bytes transforms = 2;
+    public static final int TRANSFORMS_FIELD_NUMBER = 2;
+    private boolean hasTransforms;
+    private com.google.protobuf.ByteString transforms_ = com.google.protobuf.ByteString.EMPTY;
+    public boolean hasTransforms() { return hasTransforms; }
+    public com.google.protobuf.ByteString getTransforms() { return transforms_; }
+    
     public final boolean isInitialized() {
       return true;
     }
@@ -1788,6 +1795,9 @@ public final class VProto {
                         throws java.io.IOException {
       if (hasKey()) {
         output.writeBytes(1, getKey());
+      }
+      if (hasTransforms()) {
+        output.writeBytes(2, getTransforms());
       }
       getUnknownFields().writeTo(output);
     }
@@ -1801,6 +1811,10 @@ public final class VProto {
       if (hasKey()) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(1, getKey());
+      }
+      if (hasTransforms()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(2, getTransforms());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -1954,6 +1968,9 @@ public final class VProto {
         if (other.hasKey()) {
           setKey(other.getKey());
         }
+        if (other.hasTransforms()) {
+          setTransforms(other.getTransforms());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -1983,6 +2000,10 @@ public final class VProto {
               setKey(input.readBytes());
               break;
             }
+            case 18: {
+              setTransforms(input.readBytes());
+              break;
+            }
           }
         }
       }
@@ -2006,6 +2027,27 @@ public final class VProto {
       public Builder clearKey() {
         result.hasKey = false;
         result.key_ = getDefaultInstance().getKey();
+        return this;
+      }
+      
+      // optional bytes transforms = 2;
+      public boolean hasTransforms() {
+        return result.hasTransforms();
+      }
+      public com.google.protobuf.ByteString getTransforms() {
+        return result.getTransforms();
+      }
+      public Builder setTransforms(com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasTransforms = true;
+        result.transforms_ = value;
+        return this;
+      }
+      public Builder clearTransforms() {
+        result.hasTransforms = false;
+        result.transforms_ = getDefaultInstance().getTransforms();
         return this;
       }
     }
@@ -2809,6 +2851,320 @@ public final class VProto {
       return voldemort.client.protocol.pb.VProto.internal_static_voldemort_GetAllRequest_fieldAccessorTable;
     }
     
+    public static final class GetAllTransform extends
+        com.google.protobuf.GeneratedMessage {
+      // Use GetAllTransform.newBuilder() to construct.
+      private GetAllTransform() {}
+      
+      private static final GetAllTransform defaultInstance = new GetAllTransform();
+      public static GetAllTransform getDefaultInstance() {
+        return defaultInstance;
+      }
+      
+      public GetAllTransform getDefaultInstanceForType() {
+        return defaultInstance;
+      }
+      
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return voldemort.client.protocol.pb.VProto.internal_static_voldemort_GetAllRequest_GetAllTransform_descriptor;
+      }
+      
+      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return voldemort.client.protocol.pb.VProto.internal_static_voldemort_GetAllRequest_GetAllTransform_fieldAccessorTable;
+      }
+      
+      // required bytes key = 1;
+      public static final int KEY_FIELD_NUMBER = 1;
+      private boolean hasKey;
+      private com.google.protobuf.ByteString key_ = com.google.protobuf.ByteString.EMPTY;
+      public boolean hasKey() { return hasKey; }
+      public com.google.protobuf.ByteString getKey() { return key_; }
+      
+      // required bytes transform = 2;
+      public static final int TRANSFORM_FIELD_NUMBER = 2;
+      private boolean hasTransform;
+      private com.google.protobuf.ByteString transform_ = com.google.protobuf.ByteString.EMPTY;
+      public boolean hasTransform() { return hasTransform; }
+      public com.google.protobuf.ByteString getTransform() { return transform_; }
+      
+      public final boolean isInitialized() {
+        if (!hasKey) return false;
+        if (!hasTransform) return false;
+        return true;
+      }
+      
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (hasKey()) {
+          output.writeBytes(1, getKey());
+        }
+        if (hasTransform()) {
+          output.writeBytes(2, getTransform());
+        }
+        getUnknownFields().writeTo(output);
+      }
+      
+      private int memoizedSerializedSize = -1;
+      public int getSerializedSize() {
+        int size = memoizedSerializedSize;
+        if (size != -1) return size;
+      
+        size = 0;
+        if (hasKey()) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeBytesSize(1, getKey());
+        }
+        if (hasTransform()) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeBytesSize(2, getTransform());
+        }
+        size += getUnknownFields().getSerializedSize();
+        memoizedSerializedSize = size;
+        return size;
+      }
+      
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return newBuilder().mergeFrom(data).buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return newBuilder().mergeFrom(data, extensionRegistry)
+                 .buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return newBuilder().mergeFrom(data).buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return newBuilder().mergeFrom(data, extensionRegistry)
+                 .buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return newBuilder().mergeFrom(input).buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return newBuilder().mergeFrom(input, extensionRegistry)
+                 .buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return newBuilder().mergeDelimitedFrom(input).buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
+                 .buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return newBuilder().mergeFrom(input).buildParsed();
+      }
+      public static voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return newBuilder().mergeFrom(input, extensionRegistry)
+                 .buildParsed();
+      }
+      
+      public static Builder newBuilder() { return Builder.create(); }
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder(voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform prototype) {
+        return newBuilder().mergeFrom(prototype);
+      }
+      public Builder toBuilder() { return newBuilder(this); }
+      
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessage.Builder<Builder> {
+        private voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform result;
+        
+        // Construct using voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.newBuilder()
+        private Builder() {}
+        
+        private static Builder create() {
+          Builder builder = new Builder();
+          builder.result = new voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform();
+          return builder;
+        }
+        
+        protected voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform internalGetResult() {
+          return result;
+        }
+        
+        public Builder clear() {
+          if (result == null) {
+            throw new IllegalStateException(
+              "Cannot call clear() after build().");
+          }
+          result = new voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform();
+          return this;
+        }
+        
+        public Builder clone() {
+          return create().mergeFrom(result);
+        }
+        
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.getDescriptor();
+        }
+        
+        public voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform getDefaultInstanceForType() {
+          return voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.getDefaultInstance();
+        }
+        
+        public boolean isInitialized() {
+          return result.isInitialized();
+        }
+        public voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform build() {
+          if (result != null && !isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return buildPartial();
+        }
+        
+        private voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform buildParsed()
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          if (!isInitialized()) {
+            throw newUninitializedMessageException(
+              result).asInvalidProtocolBufferException();
+          }
+          return buildPartial();
+        }
+        
+        public voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform buildPartial() {
+          if (result == null) {
+            throw new IllegalStateException(
+              "build() has already been called on this Builder.");
+          }
+          voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform returnMe = result;
+          result = null;
+          return returnMe;
+        }
+        
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform) {
+            return mergeFrom((voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+        
+        public Builder mergeFrom(voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform other) {
+          if (other == voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.getDefaultInstance()) return this;
+          if (other.hasKey()) {
+            setKey(other.getKey());
+          }
+          if (other.hasTransform()) {
+            setTransform(other.getTransform());
+          }
+          this.mergeUnknownFields(other.getUnknownFields());
+          return this;
+        }
+        
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder(
+              this.getUnknownFields());
+          while (true) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              default: {
+                if (!parseUnknownField(input, unknownFields,
+                                       extensionRegistry, tag)) {
+                  this.setUnknownFields(unknownFields.build());
+                  return this;
+                }
+                break;
+              }
+              case 10: {
+                setKey(input.readBytes());
+                break;
+              }
+              case 18: {
+                setTransform(input.readBytes());
+                break;
+              }
+            }
+          }
+        }
+        
+        
+        // required bytes key = 1;
+        public boolean hasKey() {
+          return result.hasKey();
+        }
+        public com.google.protobuf.ByteString getKey() {
+          return result.getKey();
+        }
+        public Builder setKey(com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasKey = true;
+          result.key_ = value;
+          return this;
+        }
+        public Builder clearKey() {
+          result.hasKey = false;
+          result.key_ = getDefaultInstance().getKey();
+          return this;
+        }
+        
+        // required bytes transform = 2;
+        public boolean hasTransform() {
+          return result.hasTransform();
+        }
+        public com.google.protobuf.ByteString getTransform() {
+          return result.getTransform();
+        }
+        public Builder setTransform(com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasTransform = true;
+          result.transform_ = value;
+          return this;
+        }
+        public Builder clearTransform() {
+          result.hasTransform = false;
+          result.transform_ = getDefaultInstance().getTransform();
+          return this;
+        }
+      }
+      
+      static {
+        voldemort.client.protocol.pb.VProto.getDescriptor();
+      }
+      
+      static {
+        voldemort.client.protocol.pb.VProto.internalForceInit();
+      }
+    }
+    
     // repeated bytes keys = 1;
     public static final int KEYS_FIELD_NUMBER = 1;
     private java.util.List<com.google.protobuf.ByteString> keys_ =
@@ -2821,7 +3177,22 @@ public final class VProto {
       return keys_.get(index);
     }
     
+    // repeated .voldemort.GetAllRequest.GetAllTransform transforms = 2;
+    public static final int TRANSFORMS_FIELD_NUMBER = 2;
+    private java.util.List<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform> transforms_ =
+      java.util.Collections.emptyList();
+    public java.util.List<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform> getTransformsList() {
+      return transforms_;
+    }
+    public int getTransformsCount() { return transforms_.size(); }
+    public voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform getTransforms(int index) {
+      return transforms_.get(index);
+    }
+    
     public final boolean isInitialized() {
+      for (voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform element : getTransformsList()) {
+        if (!element.isInitialized()) return false;
+      }
       return true;
     }
     
@@ -2829,6 +3200,9 @@ public final class VProto {
                         throws java.io.IOException {
       for (com.google.protobuf.ByteString element : getKeysList()) {
         output.writeBytes(1, element);
+      }
+      for (voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform element : getTransformsList()) {
+        output.writeMessage(2, element);
       }
       getUnknownFields().writeTo(output);
     }
@@ -2847,6 +3221,10 @@ public final class VProto {
         }
         size += dataSize;
         size += 1 * getKeysList().size();
+      }
+      for (voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform element : getTransformsList()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, element);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -2985,6 +3363,10 @@ public final class VProto {
           result.keys_ =
             java.util.Collections.unmodifiableList(result.keys_);
         }
+        if (result.transforms_ != java.util.Collections.EMPTY_LIST) {
+          result.transforms_ =
+            java.util.Collections.unmodifiableList(result.transforms_);
+        }
         voldemort.client.protocol.pb.VProto.GetAllRequest returnMe = result;
         result = null;
         return returnMe;
@@ -3006,6 +3388,12 @@ public final class VProto {
             result.keys_ = new java.util.ArrayList<com.google.protobuf.ByteString>();
           }
           result.keys_.addAll(other.keys_);
+        }
+        if (!other.transforms_.isEmpty()) {
+          if (result.transforms_.isEmpty()) {
+            result.transforms_ = new java.util.ArrayList<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform>();
+          }
+          result.transforms_.addAll(other.transforms_);
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -3034,6 +3422,12 @@ public final class VProto {
             }
             case 10: {
               addKeys(input.readBytes());
+              break;
+            }
+            case 18: {
+              voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.Builder subBuilder = voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.newBuilder();
+              input.readMessage(subBuilder, extensionRegistry);
+              addTransforms(subBuilder.buildPartial());
               break;
             }
           }
@@ -3078,6 +3472,57 @@ public final class VProto {
       }
       public Builder clearKeys() {
         result.keys_ = java.util.Collections.emptyList();
+        return this;
+      }
+      
+      // repeated .voldemort.GetAllRequest.GetAllTransform transforms = 2;
+      public java.util.List<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform> getTransformsList() {
+        return java.util.Collections.unmodifiableList(result.transforms_);
+      }
+      public int getTransformsCount() {
+        return result.getTransformsCount();
+      }
+      public voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform getTransforms(int index) {
+        return result.getTransforms(index);
+      }
+      public Builder setTransforms(int index, voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.transforms_.set(index, value);
+        return this;
+      }
+      public Builder setTransforms(int index, voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.Builder builderForValue) {
+        result.transforms_.set(index, builderForValue.build());
+        return this;
+      }
+      public Builder addTransforms(voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        if (result.transforms_.isEmpty()) {
+          result.transforms_ = new java.util.ArrayList<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform>();
+        }
+        result.transforms_.add(value);
+        return this;
+      }
+      public Builder addTransforms(voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.Builder builderForValue) {
+        if (result.transforms_.isEmpty()) {
+          result.transforms_ = new java.util.ArrayList<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform>();
+        }
+        result.transforms_.add(builderForValue.build());
+        return this;
+      }
+      public Builder addAllTransforms(
+          java.lang.Iterable<? extends voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform> values) {
+        if (result.transforms_.isEmpty()) {
+          result.transforms_ = new java.util.ArrayList<voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform>();
+        }
+        super.addAll(values, result.transforms_);
+        return this;
+      }
+      public Builder clearTransforms() {
+        result.transforms_ = java.util.Collections.emptyList();
         return this;
       }
     }
@@ -3512,6 +3957,13 @@ public final class VProto {
     public boolean hasVersioned() { return hasVersioned; }
     public voldemort.client.protocol.pb.VProto.Versioned getVersioned() { return versioned_; }
     
+    // optional bytes transforms = 3;
+    public static final int TRANSFORMS_FIELD_NUMBER = 3;
+    private boolean hasTransforms;
+    private com.google.protobuf.ByteString transforms_ = com.google.protobuf.ByteString.EMPTY;
+    public boolean hasTransforms() { return hasTransforms; }
+    public com.google.protobuf.ByteString getTransforms() { return transforms_; }
+    
     public final boolean isInitialized() {
       if (!hasKey) return false;
       if (!hasVersioned) return false;
@@ -3526,6 +3978,9 @@ public final class VProto {
       }
       if (hasVersioned()) {
         output.writeMessage(2, getVersioned());
+      }
+      if (hasTransforms()) {
+        output.writeBytes(3, getTransforms());
       }
       getUnknownFields().writeTo(output);
     }
@@ -3543,6 +3998,10 @@ public final class VProto {
       if (hasVersioned()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(2, getVersioned());
+      }
+      if (hasTransforms()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(3, getTransforms());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -3699,6 +4158,9 @@ public final class VProto {
         if (other.hasVersioned()) {
           mergeVersioned(other.getVersioned());
         }
+        if (other.hasTransforms()) {
+          setTransforms(other.getTransforms());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -3735,6 +4197,10 @@ public final class VProto {
               }
               input.readMessage(subBuilder, extensionRegistry);
               setVersioned(subBuilder.buildPartial());
+              break;
+            }
+            case 26: {
+              setTransforms(input.readBytes());
               break;
             }
           }
@@ -3797,6 +4263,27 @@ public final class VProto {
       public Builder clearVersioned() {
         result.hasVersioned = false;
         result.versioned_ = voldemort.client.protocol.pb.VProto.Versioned.getDefaultInstance();
+        return this;
+      }
+      
+      // optional bytes transforms = 3;
+      public boolean hasTransforms() {
+        return result.hasTransforms();
+      }
+      public com.google.protobuf.ByteString getTransforms() {
+        return result.getTransforms();
+      }
+      public Builder setTransforms(com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasTransforms = true;
+        result.transforms_ = value;
+        return this;
+      }
+      public Builder clearTransforms() {
+        result.hasTransforms = false;
+        result.transforms_ = getDefaultInstance().getTransforms();
         return this;
       }
     }
@@ -4858,6 +5345,9 @@ public final class VProto {
       if (!hasType) return false;
       if (!hasShouldRoute) return false;
       if (!hasStore) return false;
+      if (hasGetAll()) {
+        if (!getGetAll().isInitialized()) return false;
+      }
       if (hasPut()) {
         if (!getPut().isInitialized()) return false;
       }
@@ -5477,6 +5967,11 @@ public final class VProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_GetAllRequest_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_GetAllRequest_GetAllTransform_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_GetAllRequest_GetAllTransform_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_GetAllResponse_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -5523,32 +6018,36 @@ public final class VProto {
       "(\0132\026.voldemort.VectorClock\"2\n\005Error\022\022\n\ne" +
       "rror_code\030\001 \002(\005\022\025\n\rerror_message\030\002 \002(\t\"D" +
       "\n\rKeyedVersions\022\013\n\003key\030\001 \002(\014\022&\n\010versions" +
-      "\030\002 \003(\0132\024.voldemort.Versioned\"\031\n\nGetReque" +
-      "st\022\013\n\003key\030\001 \001(\014\"W\n\013GetResponse\022\'\n\tversio",
-      "ned\030\001 \003(\0132\024.voldemort.Versioned\022\037\n\005error" +
-      "\030\002 \001(\0132\020.voldemort.Error\"_\n\022GetVersionRe" +
-      "sponse\022(\n\010versions\030\001 \003(\0132\026.voldemort.Vec" +
-      "torClock\022\037\n\005error\030\002 \001(\0132\020.voldemort.Erro" +
-      "r\"\035\n\rGetAllRequest\022\014\n\004keys\030\001 \003(\014\"[\n\016GetA" +
-      "llResponse\022(\n\006values\030\001 \003(\0132\030.voldemort.K" +
-      "eyedVersions\022\037\n\005error\030\002 \001(\0132\020.voldemort." +
-      "Error\"B\n\nPutRequest\022\013\n\003key\030\001 \002(\014\022\'\n\tvers" +
-      "ioned\030\002 \002(\0132\024.voldemort.Versioned\".\n\013Put" +
-      "Response\022\037\n\005error\030\001 \001(\0132\020.voldemort.Erro",
-      "r\"E\n\rDeleteRequest\022\013\n\003key\030\001 \002(\014\022\'\n\007versi" +
-      "on\030\002 \002(\0132\026.voldemort.VectorClock\"B\n\016Dele" +
-      "teResponse\022\017\n\007success\030\001 \002(\010\022\037\n\005error\030\002 \001" +
-      "(\0132\020.voldemort.Error\"\232\002\n\020VoldemortReques" +
-      "t\022$\n\004type\030\001 \002(\0162\026.voldemort.RequestType\022" +
-      "\033\n\014should_route\030\002 \002(\010:\005false\022\r\n\005store\030\003 " +
-      "\002(\t\022\"\n\003get\030\004 \001(\0132\025.voldemort.GetRequest\022" +
-      "(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllReques" +
-      "t\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutRequest\022(\n" +
-      "\006delete\030\007 \001(\0132\030.voldemort.DeleteRequest\022",
-      "\030\n\020requestRouteType\030\010 \001(\005*I\n\013RequestType" +
-      "\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELET" +
-      "E\020\003\022\017\n\013GET_VERSION\020\004B(\n\034voldemort.client" +
-      ".protocol.pbB\006VProtoH\001"
+      "\030\002 \003(\0132\024.voldemort.Versioned\"-\n\nGetReque" +
+      "st\022\013\n\003key\030\001 \001(\014\022\022\n\ntransforms\030\002 \001(\014\"W\n\013G",
+      "etResponse\022\'\n\tversioned\030\001 \003(\0132\024.voldemor" +
+      "t.Versioned\022\037\n\005error\030\002 \001(\0132\020.voldemort.E" +
+      "rror\"_\n\022GetVersionResponse\022(\n\010versions\030\001" +
+      " \003(\0132\026.voldemort.VectorClock\022\037\n\005error\030\002 " +
+      "\001(\0132\020.voldemort.Error\"\216\001\n\rGetAllRequest\022" +
+      "\014\n\004keys\030\001 \003(\014\022<\n\ntransforms\030\002 \003(\0132(.vold" +
+      "emort.GetAllRequest.GetAllTransform\0321\n\017G" +
+      "etAllTransform\022\013\n\003key\030\001 \002(\014\022\021\n\ttransform" +
+      "\030\002 \002(\014\"[\n\016GetAllResponse\022(\n\006values\030\001 \003(\013" +
+      "2\030.voldemort.KeyedVersions\022\037\n\005error\030\002 \001(",
+      "\0132\020.voldemort.Error\"V\n\nPutRequest\022\013\n\003key" +
+      "\030\001 \002(\014\022\'\n\tversioned\030\002 \002(\0132\024.voldemort.Ve" +
+      "rsioned\022\022\n\ntransforms\030\003 \001(\014\".\n\013PutRespon" +
+      "se\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"E\n\rD" +
+      "eleteRequest\022\013\n\003key\030\001 \002(\014\022\'\n\007version\030\002 \002" +
+      "(\0132\026.voldemort.VectorClock\"B\n\016DeleteResp" +
+      "onse\022\017\n\007success\030\001 \002(\010\022\037\n\005error\030\002 \001(\0132\020.v" +
+      "oldemort.Error\"\232\002\n\020VoldemortRequest\022$\n\004t" +
+      "ype\030\001 \002(\0162\026.voldemort.RequestType\022\033\n\014sho" +
+      "uld_route\030\002 \002(\010:\005false\022\r\n\005store\030\003 \002(\t\022\"\n",
+      "\003get\030\004 \001(\0132\025.voldemort.GetRequest\022(\n\006get" +
+      "All\030\005 \001(\0132\030.voldemort.GetAllRequest\022\"\n\003p" +
+      "ut\030\006 \001(\0132\025.voldemort.PutRequest\022(\n\006delet" +
+      "e\030\007 \001(\0132\030.voldemort.DeleteRequest\022\030\n\020req" +
+      "uestRouteType\030\010 \001(\005*I\n\013RequestType\022\007\n\003GE" +
+      "T\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELETE\020\003\022\017\n" +
+      "\013GET_VERSION\020\004B(\n\034voldemort.client.proto" +
+      "col.pbB\006VProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -5600,7 +6099,7 @@ public final class VProto {
           internal_static_voldemort_GetRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_GetRequest_descriptor,
-              new java.lang.String[] { "Key", },
+              new java.lang.String[] { "Key", "Transforms", },
               voldemort.client.protocol.pb.VProto.GetRequest.class,
               voldemort.client.protocol.pb.VProto.GetRequest.Builder.class);
           internal_static_voldemort_GetResponse_descriptor =
@@ -5624,9 +6123,17 @@ public final class VProto {
           internal_static_voldemort_GetAllRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_GetAllRequest_descriptor,
-              new java.lang.String[] { "Keys", },
+              new java.lang.String[] { "Keys", "Transforms", },
               voldemort.client.protocol.pb.VProto.GetAllRequest.class,
               voldemort.client.protocol.pb.VProto.GetAllRequest.Builder.class);
+          internal_static_voldemort_GetAllRequest_GetAllTransform_descriptor =
+            internal_static_voldemort_GetAllRequest_descriptor.getNestedTypes().get(0);
+          internal_static_voldemort_GetAllRequest_GetAllTransform_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_GetAllRequest_GetAllTransform_descriptor,
+              new java.lang.String[] { "Key", "Transform", },
+              voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.class,
+              voldemort.client.protocol.pb.VProto.GetAllRequest.GetAllTransform.Builder.class);
           internal_static_voldemort_GetAllResponse_descriptor =
             getDescriptor().getMessageTypes().get(9);
           internal_static_voldemort_GetAllResponse_fieldAccessorTable = new
@@ -5640,7 +6147,7 @@ public final class VProto {
           internal_static_voldemort_PutRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_PutRequest_descriptor,
-              new java.lang.String[] { "Key", "Versioned", },
+              new java.lang.String[] { "Key", "Versioned", "Transforms", },
               voldemort.client.protocol.pb.VProto.PutRequest.class,
               voldemort.client.protocol.pb.VProto.PutRequest.Builder.class);
           internal_static_voldemort_PutResponse_descriptor =

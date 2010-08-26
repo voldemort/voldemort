@@ -21,6 +21,7 @@ import static voldemort.TestUtils.getClock;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ import voldemort.store.Store;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, String> {
+public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, String, String> {
 
     private File tempDir;
 
@@ -56,7 +57,7 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
     }
 
     @Override
-    public Store<String, String> getStore() {
+    public Store<String, String, String> getStore() {
         if(null == tempDir || !tempDir.exists()) {
             tempDir = TestUtils.createTempDir();
         }
@@ -71,25 +72,25 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
     @Override
     public void testDelete() {
         String key = getKey();
-        Store<String, String> store = getStore();
+        Store<String, String, String> store = getStore();
         VectorClock c1 = getClock(1, 1);
         String value = getValue();
 
         // can't delete something that isn't there
         assertTrue(!store.delete(key, c1));
 
-        store.put(key, new Versioned<String>(value, c1));
-        assertEquals(1, store.get(key).size());
+        store.put(key, new Versioned<String>(value, c1), null);
+        assertEquals(1, store.get(key, null).size());
 
         // now delete that version too
         assertTrue("Delete failed!", store.delete(key, c1));
-        assertEquals(0, store.get(key).size());
+        assertEquals(0, store.get(key, null).size());
     }
 
     @Override
     public void testGetAndDeleteNonExistentKey() {
         try {
-            assertEquals("Size should be 0", 0, getStore().get("unknown_key").size());
+            assertEquals("Size should be 0", 0, getStore().get("unknown_key", null).size());
         } catch(Exception e) {
             fail();
         }
@@ -99,7 +100,7 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
     public void testNullKeys() {
         // insert of null keys should not be allowed
         try {
-            getStore().put("test.key", new Versioned<String>(null));
+            getStore().put("test.key", new Versioned<String>(null), null);
             fail();
         } catch(Exception e) {
             // expected
@@ -112,11 +113,12 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
     }
 
     public void testEmacsTempFile() throws IOException {
-        Store<String, String> store = getStore();
+        Store<String, String, String> store = getStore();
         String keyName = "testkey.xml";
 
-        store.put(keyName, new Versioned<String>("testValue"));
-        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
+        store.put(keyName, new Versioned<String>("testValue"), null);
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName, null)
+                                                                             .size());
 
         // Now create a emacs style temp file
         new File(tempDir, keyName + "#").createNewFile();
@@ -124,16 +126,22 @@ public class ConfigurationStorageEngineTest extends AbstractStoreTest<String, St
         new File(tempDir, keyName + "~").createNewFile();
         new File(tempDir, "." + keyName + "~").createNewFile();
 
-        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName, null)
+                                                                             .size());
 
         // do a new put
-        VectorClock clock = (VectorClock) store.get(keyName).get(0).getVersion();
-        store.put(keyName, new Versioned<String>("testValue1", clock.incremented(0, 1)));
-        assertEquals("Only one file of name key should be present.", 1, store.get(keyName).size());
-        assertEquals("Value should match.", "testValue1", store.get(keyName).get(0).getValue());
+        VectorClock clock = (VectorClock) store.get(keyName, null).get(0).getVersion();
+        store.put(keyName, new Versioned<String>("testValue1", clock.incremented(0, 1)), null);
+        assertEquals("Only one file of name key should be present.", 1, store.get(keyName, null)
+                                                                             .size());
+        assertEquals("Value should match.", "testValue1", store.get(keyName, null)
+                                                               .get(0)
+                                                               .getValue());
 
         // try getAll
-        Map<String, List<Versioned<String>>> map = store.getAll(Arrays.asList(keyName));
+        Map<String, List<Versioned<String>>> map = store.getAll(Arrays.asList(keyName),
+                                                                Collections.<String, String> singletonMap(keyName,
+                                                                                                          null));
         assertEquals("Only one file of name key should be present.", 1, map.get(keyName).size());
         assertEquals("Value should match.", "testValue1", map.get(keyName).get(0).getValue());
     }

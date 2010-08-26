@@ -58,12 +58,13 @@ public class CatBdbStore {
         databaseConfig.setTransactional(config.isBdbWriteTransactionsEnabled());
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
         Database database = environment.openDatabase(null, storeName, databaseConfig);
-        StorageEngine<ByteArray, byte[]> store = new BdbStorageEngine(storeName,
-                                                                      environment,
-                                                                      database);
-        StorageEngine<String, String> stringStore = SerializingStorageEngine.wrap(store,
-                                                                                  new StringSerializer(),
-                                                                                  new StringSerializer());
+        StorageEngine<ByteArray, byte[], byte[]> store = new BdbStorageEngine(storeName,
+                                                                              environment,
+                                                                              database);
+        StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
+                                                                                          new StringSerializer(),
+                                                                                          new StringSerializer(),
+                                                                                          new StringSerializer());
         Iterator<Pair<String, Versioned<String>>> iter = stringStore.entries();
         while(iter.hasNext()) {
             Pair<String, Versioned<String>> entry = iter.next();

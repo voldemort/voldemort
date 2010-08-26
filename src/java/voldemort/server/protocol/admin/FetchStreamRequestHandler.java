@@ -38,7 +38,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final VoldemortFilter filter;
 
-    protected final StorageEngine<ByteArray, byte[]> storageEngine;
+    protected final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
     protected final ClosableIterator<ByteArray> keyIterator;
 
