@@ -56,6 +56,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private int numChunks = -1;
     private int nodeId = -1;
     private int chunkId = -1;
+    private int partitionId = -1;
     private Path taskIndexFileName;
     private Path taskValueFileName;
     private String outputDir;
@@ -77,6 +78,8 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
         if(this.nodeId == -1)
             this.nodeId = ByteUtils.readInt(valueBytes, 0);
+        if(this.partitionId == -1)
+            this.partitionId = ByteUtils.readInt(valueBytes, 4);
         if(this.chunkId == -1)
             this.chunkId = ReadOnlyUtils.chunk(key.get(), this.numChunks);
 
@@ -148,14 +151,14 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         this.indexFileStream.close();
         this.valueFileStream.close();
 
-        if(this.nodeId == -1 || this.chunkId == -1) {
+        if(this.nodeId == -1 || this.chunkId == -1 || this.partitionId == -1) {
             // No data was read in the reduce phase, do not create any output
             // directory (Also Issue 258)
             return;
         }
         Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
-        Path indexFile = new Path(nodeDir, this.chunkId + ".index");
-        Path valueFile = new Path(nodeDir, this.chunkId + ".data");
+        Path indexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".index");
+        Path valueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".data");
 
         // create output directory
         FileSystem fs = indexFile.getFileSystem(this.conf);

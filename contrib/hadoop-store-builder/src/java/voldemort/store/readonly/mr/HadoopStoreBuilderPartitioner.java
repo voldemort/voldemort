@@ -33,9 +33,9 @@ public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigura
         Partitioner<BytesWritable, BytesWritable> {
 
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
-        int nodeId = ByteUtils.readInt(value.get(), 0);
+        int partitionId = ByteUtils.readInt(value.get(), 4);
         int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
-        return (nodeId * getNumChunks() + chunkId) % numReduceTasks;
+        return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
     }
 
 }

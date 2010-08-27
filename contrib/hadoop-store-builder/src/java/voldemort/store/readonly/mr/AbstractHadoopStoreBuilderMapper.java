@@ -68,8 +68,8 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
      * it out for each of the responsible voldemort nodes
      * 
      * The output key is the md5 of the serialized key returned by makeKey().
-     * The output value is the nodeid of the responsible node followed by
-     * serialized value returned by makeValue().
+     * The output value is the nodeid & partitionid of the responsible node
+     * followed by serialized value returned by makeValue().
      */
     public void map(K key,
                     V value,
@@ -87,15 +87,19 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             valBytes = valueCompressor.deflate(valBytes);
         }
 
-        // copy the bytes into an array with 4 additional bytes for the node id
-        byte[] nodeIdAndValue = new byte[valBytes.length + 4];
-        System.arraycopy(valBytes, 0, nodeIdAndValue, 4, valBytes.length);
+        // copy the bytes into an array with 8 additional bytes for the node &
+        // partition id
+        byte[] idsAndValue = new byte[valBytes.length + 4 + 4];
+        System.arraycopy(valBytes, 0, idsAndValue, 8, valBytes.length);
 
         BytesWritable outputKey = new BytesWritable(md5er.digest(keyBytes));
-        List<Node> nodes = routingStrategy.routeRequest(keyBytes);
-        for(Node node: nodes) {
-            ByteUtils.writeInt(nodeIdAndValue, node.getId(), 0);
-            BytesWritable outputVal = new BytesWritable(nodeIdAndValue);
+        List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
+        Node[] partitionToNode = routingStrategy.getPartitionToNode();
+
+        for(Integer partition: partitionList) {
+            ByteUtils.writeInt(idsAndValue, partitionToNode[partition].getId(), 0);
+            ByteUtils.writeInt(idsAndValue, partition, 4);
+            BytesWritable outputVal = new BytesWritable(idsAndValue);
 
             output.collect(outputKey, outputVal);
         }

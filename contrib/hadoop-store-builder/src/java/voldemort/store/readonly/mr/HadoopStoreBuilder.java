@@ -225,14 +225,15 @@ public class HadoopStoreBuilder {
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-            int numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                            / cluster.getNumberOfNodes() / chunkSizeBytes), 1);
+            int numChunksPerPartition = Math.max((int) (storeDef.getReplicationFactor() * size
+                                                        / cluster.getNumberOfPartitions() / chunkSizeBytes),
+                                                 1);
             logger.info("Data size = " + size + ", replication factor = "
                         + storeDef.getReplicationFactor() + ", numNodes = "
                         + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
-                        + ",  num.chunks = " + numChunks);
-            conf.setInt("num.chunks", numChunks);
-            int numReduces = cluster.getNumberOfNodes() * numChunks;
+                        + ",  num.chunks per partition = " + numChunksPerPartition);
+            conf.setInt("num.chunks", numChunksPerPartition);
+            int numReduces = cluster.getNumberOfPartitions() * numChunksPerPartition;
             conf.setNumReduceTasks(numReduces);
             logger.info("Number of reduces: " + numReduces);
 
