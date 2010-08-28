@@ -34,6 +34,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.routing.RoutingStrategy;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
@@ -64,11 +65,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     public static final int MEMORY_OVERHEAD_PER_KEY = ReadOnlyUtils.KEY_HASH_SIZE + 4 + 12 + 8;
 
     private final String name;
-    private final int numBackups;
+    private final int numBackups, nodeId;
     private long currentVersionId;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
+    private final RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
 
@@ -82,12 +84,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
      */
     public ReadOnlyStorageEngine(String name,
                                  SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
                                  File storeDir,
                                  int numBackups) {
         this.storeDir = storeDir;
         this.numBackups = numBackups;
         this.name = Utils.notNull(name);
         this.searchStrategy = searchStrategy;
+        this.routingStrategy = routingStrategy;
+        this.nodeId = nodeId;
         this.fileSet = null;
         this.currentVersionId = 0L;
         /*
@@ -136,7 +142,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
-            this.fileSet = new ChunkedFileSet(versionDir);
+            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
             isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();

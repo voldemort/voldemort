@@ -36,6 +36,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -218,6 +219,9 @@ public class HadoopStoreBuilderTest extends TestCase {
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
                                                                                       new BinarySearchStrategy(),
+                                                                                      new RoutingStrategyFactory().updateRoutingStrategy(def,
+                                                                                                                                         cluster),
+                                                                                      0,
                                                                                       storeDir,
                                                                                       1),
                                                             serializer,

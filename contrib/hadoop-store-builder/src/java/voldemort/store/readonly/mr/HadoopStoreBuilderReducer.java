@@ -92,12 +92,12 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         }
 
         // Write length and value
-        int valueLength = writable.getSize() - 4;
+        int valueLength = writable.getSize() - 8;
         this.valueFileStream.writeInt(valueLength);
-        this.valueFileStream.write(valueBytes, 4, valueLength);
+        this.valueFileStream.write(valueBytes, 8, valueLength);
         if(this.checkSumDigestValue != null) {
             this.checkSumDigestValue.update(valueLength);
-            this.checkSumDigestValue.update(valueBytes, 4, valueLength);
+            this.checkSumDigestValue.update(valueBytes, 8, valueLength);
         }
         this.position += 4 + valueLength;
         if(this.position < 0)

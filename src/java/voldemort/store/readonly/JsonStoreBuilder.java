@@ -74,7 +74,7 @@ public class JsonStoreBuilder {
     private final File tempDir;
     private final int internalSortSize;
     private final int numThreads;
-    private final int numChunks;
+    private final int numChunksPerPartition;
     private final int ioBufferSize;
     private final boolean gzipIntermediate;
 
@@ -86,7 +86,7 @@ public class JsonStoreBuilder {
                             File tempDir,
                             int internalSortSize,
                             int numThreads,
-                            int numChunks,
+                            int numChunksPerPartition,
                             int ioBufferSize,
                             boolean gzipIntermediate) {
         if(cluster.getNumberOfNodes() < storeDefinition.getReplicationFactor())
@@ -104,7 +104,7 @@ public class JsonStoreBuilder {
         this.routingStrategy = routingStrategy;
         this.internalSortSize = internalSortSize;
         this.numThreads = numThreads;
-        this.numChunks = numChunks;
+        this.numChunksPerPartition = numChunksPerPartition;
         this.ioBufferSize = ioBufferSize;
         this.gzipIntermediate = gzipIntermediate;
     }
@@ -135,7 +135,7 @@ public class JsonStoreBuilder {
               .withRequiredArg()
               .describedAs("output directory");
         parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
-        parser.accepts("chunks", "number of store chunks per store")
+        parser.accepts("chunks", "number of chunks per partition")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("io-buffer-size", "size of i/o buffers in bytes")
@@ -172,7 +172,7 @@ public class JsonStoreBuilder {
         String inputFile = (String) options.valueOf("input");
         File outputDir = new File((String) options.valueOf("output"));
         int numThreads = CmdUtils.valueOf(options, "threads", 2);
-        int numChunks = CmdUtils.valueOf(options, "chunks", 2);
+        int numChunksPerPartition = CmdUtils.valueOf(options, "chunks", 2);
         int ioBufferSize = CmdUtils.valueOf(options, "io-buffer-size", 1000000);
         boolean gzipIntermediate = options.has("gzip");
         File tempDir = new File(CmdUtils.valueOf(options,
@@ -207,7 +207,7 @@ public class JsonStoreBuilder {
                                  tempDir,
                                  sortBufferSize,
                                  numThreads,
-                                 numChunks,
+                                 numChunksPerPartition,
                                  ioBufferSize,
                                  gzipIntermediate).build();
         } catch(FileNotFoundException e) {
@@ -217,24 +217,45 @@ public class JsonStoreBuilder {
 
     public void build() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfNodes() + " with " + numChunks + " chunks per node.");
+                    + cluster.getNumberOfPartitions() + " partitions with " + numChunksPerPartition
+                    + " chunks per partitions.");
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
-        DataOutputStream[][] indexes = new DataOutputStream[numNodes][numChunks];
-        DataOutputStream[][] datas = new DataOutputStream[numNodes][numChunks];
-        int[][] positions = new int[numNodes][numChunks];
+        DataOutputStream[][] indexes = new DataOutputStream[numNodes][];
+        DataOutputStream[][] datas = new DataOutputStream[numNodes][];
+        int[][] positions = new int[numNodes][];
+
+        int[] partitionIdToChunkOffset = new int[cluster.getNumberOfPartitions()];
+        int[] partitionIdToNodeId = new int[cluster.getNumberOfPartitions()];
+
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
+            indexes[nodeId] = new DataOutputStream[node.getNumberOfPartitions()
+                                                   * numChunksPerPartition];
+            datas[nodeId] = new DataOutputStream[node.getNumberOfPartitions()
+                                                 * numChunksPerPartition];
+            positions[nodeId] = new int[node.getNumberOfPartitions() * numChunksPerPartition];
+
             File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
             nodeDir.mkdirs();
-            for(int chunk = 0; chunk < numChunks; chunk++) {
-                File indexFile = new File(nodeDir, chunk + ".index");
-                File dataFile = new File(nodeDir, chunk + ".data");
-                positions[nodeId][chunk] = 0;
-                indexes[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                       ioBufferSize));
-                datas[nodeId][chunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                     ioBufferSize));
+
+            int globalChunk = 0;
+            for(Integer partition: node.getPartitionIds()) {
+                partitionIdToChunkOffset[partition] = globalChunk;
+                partitionIdToNodeId[partition] = node.getId();
+                for(int chunk = 0; chunk < numChunksPerPartition; chunk++) {
+                    File indexFile = new File(nodeDir, Integer.toString(partition) + "_"
+                                                       + Integer.toString(chunk) + ".index");
+                    File dataFile = new File(nodeDir, Integer.toString(partition) + "_"
+                                                      + Integer.toString(chunk) + ".data");
+                    positions[nodeId][globalChunk] = 0;
+                    indexes[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                                                 ioBufferSize));
+                    datas[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                                               ioBufferSize));
+                    globalChunk++;
+                }
+
             }
         }
 
@@ -249,12 +270,13 @@ public class JsonStoreBuilder {
                                                                                gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
-            List<Node> nodes = this.routingStrategy.routeRequest(pair.getKey());
             byte[] keyMd5 = pair.getKeyMd5();
-            for(int i = 0; i < this.storeDefinition.getReplicationFactor(); i++) {
-                int nodeId = nodes.get(i).getId();
-                int chunk = ReadOnlyUtils.chunk(keyMd5, numChunks);
+            List<Integer> partitionIds = this.routingStrategy.getPartitionList(keyMd5);
+            for(Integer partitionId: partitionIds) {
+                int localChunkId = ReadOnlyUtils.chunk(keyMd5, numChunksPerPartition);
+                int chunk = localChunkId + partitionIdToChunkOffset[partitionId];
                 int numBytes = pair.getValue().length;
+                int nodeId = partitionIdToNodeId[partitionId];
                 datas[nodeId][chunk].writeInt(numBytes);
                 datas[nodeId][chunk].write(pair.getValue());
                 indexes[nodeId][chunk].write(keyMd5);
@@ -269,10 +291,10 @@ public class JsonStoreBuilder {
 
         // sort and write out
         logger.info("Closing all store files.");
-        for(int node = 0; node < numNodes; node++) {
-            for(int chunk = 0; chunk < numChunks; chunk++) {
-                indexes[node][chunk].close();
-                datas[node][chunk].close();
+        for(Node node: cluster.getNodes()) {
+            for(int chunk = 0; chunk < numChunksPerPartition * node.getNumberOfPartitions(); chunk++) {
+                indexes[node.getId()][chunk].close();
+                datas[node.getId()][chunk].close();
             }
         }
     }

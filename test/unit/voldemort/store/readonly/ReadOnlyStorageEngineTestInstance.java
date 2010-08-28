@@ -138,6 +138,7 @@ public class ReadOnlyStorageEngineTestInstance {
         @SuppressWarnings("unchecked")
         Serializer<String> valueSerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(valueSerDef);
         Map<Integer, Store<String, String>> nodeStores = Maps.newHashMap();
+
         for(int i = 0; i < numNodes; i++) {
             File currNode = new File(nodeDir, Integer.toString(i));
             currNode.mkdirs();
@@ -150,6 +151,8 @@ public class ReadOnlyStorageEngineTestInstance {
             CompressionStrategy valueCompressionStrat = comppressionStrategyFactory.get(valueSerDef.getCompression());
             Store<ByteArray, byte[]> innerStore = new CompressingStore(new ReadOnlyStorageEngine("test",
                                                                                                  strategy,
+                                                                                                 router,
+                                                                                                 i,
                                                                                                  currNode,
                                                                                                  1),
                                                                        keyCompressionStrat,

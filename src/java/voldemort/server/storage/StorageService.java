@@ -48,6 +48,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
@@ -65,6 +66,7 @@ import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -435,7 +437,13 @@ public class StorageService extends AbstractService {
             throw new ConfigurationException("Attempt to open store " + name + " but " + type
                                              + " storage engine of type " + type
                                              + " has not been enabled.");
+
+        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
+                                                                                                                          metadata.getCluster()));
+        }
         return config.getStore(name);
+
     }
 
     @Override
