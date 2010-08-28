@@ -30,7 +30,6 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
-import voldemort.store.Store;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.slop.HintedHandoff;
@@ -38,7 +37,6 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
-import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -57,9 +55,9 @@ public class PerformParallelPutRequests extends
 
     private final FailureDetector failureDetector;
 
-    private final HintedHandoff nonblockingHintedHandoff;
+    private final HintedHandoff hintedHandoff;
 
-    private final boolean isHintedHandoffEnabled;
+    public boolean enableHintedHandoff;
 
     public PerformParallelPutRequests(PutPipelineData pipelineData,
                                       Event completeEvent,
@@ -69,19 +67,19 @@ public class PerformParallelPutRequests extends
                                       int required,
                                       long timeoutMs,
                                       Map<Integer, NonblockingStore> nonblockingStores,
-                                      Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                      HintedHandoffStrategy handoffStrategy) {
+                                      HintedHandoff hintedHandoff) {
         super(pipelineData, completeEvent, key);
         this.failureDetector = failureDetector;
         this.preferred = preferred;
         this.required = required;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
-        this.nonblockingHintedHandoff = new HintedHandoff(failureDetector,
-                                                          slopStores,
-                                                          handoffStrategy,
-                                                          pipelineData.getFailedNodes());
-        isHintedHandoffEnabled = slopStores != null;
+        this.hintedHandoff = hintedHandoff;
+        this.enableHintedHandoff = hintedHandoff != null;
+    }
+
+    public boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff;
     }
 
     public void execute(final Pipeline pipeline) {
@@ -123,7 +121,7 @@ public class PerformParallelPutRequests extends
                                                                                            requestTime);
                     responses.put(node.getId(), response);
 
-                    if(isHintedHandoffEnabled) {
+                    if(isHintedHandoffEnabled()) {
                         if (blocksLatch.getCount() == 0) {
                             if(response.getValue() instanceof Exception) {
                                 Slop slop = new Slop(pipelineData.getStoreName(),
@@ -133,7 +131,7 @@ public class PerformParallelPutRequests extends
                                                      node.getId(),
                                                      new Date());
                                 pipelineData.getFailedNodes().add(node);
-                                nonblockingHintedHandoff.sendHint(node,
+                                hintedHandoff.sendHint(node,
                                                                   versionedCopy.getVersion(),
                                                                   slop);
                                 pipelineData.getFailedNodes().remove(node);

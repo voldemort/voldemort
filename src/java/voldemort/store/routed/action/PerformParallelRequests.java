@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +29,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
+import voldemort.store.Store;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.nonblockingstore.NonblockingStoreRequest;
@@ -35,7 +37,11 @@ import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.slop.HintedHandoff;
+import voldemort.store.slop.HintedHandoffStrategy;
+import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Version;
 
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         AbstractKeyBasedAction<ByteArray, V, PD> {
@@ -56,6 +62,12 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
     private final Event insufficientZonesEvent;
 
+    private final boolean enableHintedHandoff;
+
+    private final HintedHandoff hintedHandoff;
+
+    private final Version version;
+
     public PerformParallelRequests(PD pipelineData,
                                    Event completeEvent,
                                    ByteArray key,
@@ -64,7 +76,9 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                    int required,
                                    long timeoutMs,
                                    Map<Integer, NonblockingStore> nonblockingStores,
+                                   HintedHandoff hintedHandoff,
                                    NonblockingStoreRequest storeRequest,
+                                   Version version,
                                    Event insufficientSuccessesEvent,
                                    Event insufficientZonesEvent) {
         super(pipelineData, completeEvent, key);
@@ -76,6 +90,13 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.storeRequest = storeRequest;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
         this.insufficientZonesEvent = insufficientZonesEvent;
+        this.enableHintedHandoff = hintedHandoff != null;
+        this.version = version;
+        this.hintedHandoff = hintedHandoff;
+    }
+
+    public boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff;
     }
 
     @SuppressWarnings("unchecked")
@@ -101,10 +122,29 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                      + " response received (" + requestTime + " ms.) from node "
                                      + node.getId());
 
-                    responses.put(node.getId(), new Response<ByteArray, Object>(node,
-                                                                                key,
-                                                                                result,
-                                                                                requestTime));
+                    Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                                           key,
+                                                                                           result,
+                                                                                           requestTime);
+                    responses.put(node.getId(), response);
+                    if(isHintedHandoffEnabled() && Pipeline.Operation.DELETE.equals(pipeline.getOperation())) {
+                        if(latch.getCount() == 0) {
+                            if(response.getValue() instanceof Exception) {
+                                Slop slop = new Slop(pipelineData.getStoreName(),
+                                                     Slop.Operation.DELETE,
+                                                     key,
+                                                     null,
+                                                     node.getId(),
+                                                     new Date());
+                                pipelineData.getFailedNodes().add(node);
+                                hintedHandoff.sendHint(node,
+                                                       version,
+                                                       slop);
+                                
+                                
+                            }
+                        }
+                    }
                     latch.countDown();
                 }
 

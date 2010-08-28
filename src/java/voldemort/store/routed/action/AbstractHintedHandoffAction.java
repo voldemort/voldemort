@@ -39,15 +39,10 @@ public abstract class AbstractHintedHandoffAction<V, PD extends BasicPipelineDat
     public AbstractHintedHandoffAction(PD pipelineData,
                                        Pipeline.Event completeEvent,
                                        ByteArray key,
-                                       FailureDetector failureDetector,
-                                       Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                       HintedHandoffStrategy strategy) {
+                                       HintedHandoff hintedHandoff) {
         super(pipelineData, completeEvent, key);
-        failedNodes = pipelineData.getFailedNodes();
-        hintedHandoff = new HintedHandoff(failureDetector,
-                                          slopStores,
-                                          strategy,
-                                          failedNodes);
+        this.hintedHandoff = hintedHandoff;
+        this.failedNodes = pipelineData.getFailedNodes();
     }
 
     public abstract void execute(Pipeline pipeline);

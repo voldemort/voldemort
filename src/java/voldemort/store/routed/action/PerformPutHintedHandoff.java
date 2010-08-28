@@ -17,13 +17,11 @@
 package voldemort.store.routed.action;
 
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
-import voldemort.store.slop.HintedHandoffStrategy;
+import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -32,7 +30,6 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import java.util.Date;
-import java.util.Map;
 
 public class PerformPutHintedHandoff extends
                                      AbstractHintedHandoffAction<Void, PutPipelineData> {
@@ -45,11 +42,9 @@ public class PerformPutHintedHandoff extends
                                    Pipeline.Event completeEvent,
                                    ByteArray key,
                                    Versioned<byte[]> versioned,
-                                   FailureDetector failureDetector,
-                                   Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                   HintedHandoffStrategy handoffStrategy,
+                                   HintedHandoff hintedHandoff,
                                    Time time) {
-        super(pipelineData, completeEvent, key, failureDetector, slopStores, handoffStrategy);
+        super(pipelineData, completeEvent, key, hintedHandoff);
         this.versioned = versioned;
         this.time = time;
     }

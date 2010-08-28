@@ -24,6 +24,7 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
@@ -41,10 +42,8 @@ public class PerformDeleteHintedHandoff
                                       Pipeline.Event completeEvent,
                                       ByteArray key,
                                       Version version,
-                                      FailureDetector failureDetector,
-                                      Map<Integer, Store<ByteArray, Slop>> slopStores,
-                                      HintedHandoffStrategy handoffStrategy) {
-        super(pipelineData, completeEvent, key, failureDetector, slopStores, handoffStrategy);
+                                      HintedHandoff hintedHandoff) {
+        super(pipelineData, completeEvent, key, hintedHandoff);
         this.version = version;
     }
     

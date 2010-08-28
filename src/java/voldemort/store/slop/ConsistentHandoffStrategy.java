@@ -18,7 +18,7 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
 
     public ConsistentHandoffStrategy(Cluster cluster, int prefListSize) {
         int nodesInCluster = cluster.getNumberOfNodes();
-        if(prefListSize < nodesInCluster - 1)
+        if(prefListSize > nodesInCluster - 1)
             throw new IllegalArgumentException("Preference list size must be less than " +
                                                "number of nodes in the cluster - 1");
         
