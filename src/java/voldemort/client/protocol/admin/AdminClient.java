@@ -96,7 +96,6 @@ public class AdminClient {
 
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
-    private static final long MAX_DELAY = 1000 * 60;
     private final AdminClientConfig adminClientConfig;
 
     private Cluster currentCluster;
@@ -896,7 +895,7 @@ public class AdminClient {
                 if(status.isComplete())
                     return status.getStatus();
 
-                if(delay < MAX_DELAY)
+                if(delay < adminClientConfig.getMaxBackoffDelayMs())
                     delay <<= 1;
 
                 try {
@@ -943,7 +942,7 @@ public class AdminClient {
             logger.debug("waiting for value " + value + " for metadata key " + key
                          + " from remote node " + nodeId + " currentValue " + currentValue);
 
-            if(delay < MAX_DELAY)
+            if(delay < adminClientConfig.getMaxBackoffDelayMs())
                 delay <<= 1;
 
             try {
