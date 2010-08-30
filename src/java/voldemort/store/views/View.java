@@ -15,7 +15,7 @@ import voldemort.store.Store;
  * @param <K> The type of the key
  * @param <V> The type of things in the view
  * @param <S> The type of things in the store
- * @param <T> The type of things to be used for transforming S
+ * @param <T> The type of transform
  */
 @Experimental
 public interface View<K, V, S, T> {
@@ -26,7 +26,7 @@ public interface View<K, V, S, T> {
      * @param targetStore The store behind the view
      * @param k The key
      * @param s The value for the store
-     * @param t the transforms to be applied on v
+     * @param t the transforms to be applied on s
      * @return The value for the view
      * @throws UnsupportedViewOperationException If this direction of
      *         translation is not allowed

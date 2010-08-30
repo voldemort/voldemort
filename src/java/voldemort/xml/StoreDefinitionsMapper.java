@@ -269,7 +269,7 @@ public class StoreDefinitionsMapper {
         if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
             valueSerializer = readSerializer(store.getChild(STORE_VALUE_SERIALIZER_ELMT));
 
-        SerializerDefinition transformSerializer = null;
+        SerializerDefinition transformSerializer = target.getTransformsSerializer();
         if(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT) != null)
             transformSerializer = readSerializer(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT));
 

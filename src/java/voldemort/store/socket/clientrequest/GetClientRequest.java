@@ -30,13 +30,16 @@ import voldemort.versioning.Versioned;
 public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<byte[]>>> {
 
     private final ByteArray key;
+    private final byte[] transforms;
 
     public GetClientRequest(String storeName,
                             RequestFormat requestFormat,
                             RequestRoutingType requestRoutingType,
-                            ByteArray key) {
+                            ByteArray key,
+                            byte[] transforms) {
         super(storeName, requestFormat, requestRoutingType);
         this.key = key;
+        this.transforms = transforms;
     }
 
     public boolean isCompleteResponse(ByteBuffer buffer) {
@@ -45,7 +48,7 @@ public class GetClientRequest extends AbstractStoreClientRequest<List<Versioned<
 
     @Override
     protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writeGetRequest(outputStream, storeName, key, requestRoutingType);
+        requestFormat.writeGetRequest(outputStream, storeName, key, transforms, requestRoutingType);
     }
 
     @Override

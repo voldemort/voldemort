@@ -16,6 +16,8 @@
 
 package voldemort.store.nonblockingstore;
 
+import java.util.Map;
+
 import voldemort.VoldemortException;
 import voldemort.store.Store;
 import voldemort.store.routed.RoutedStore;
@@ -61,14 +63,17 @@ import voldemort.versioning.Versioned;
 
 public interface NonblockingStore {
 
-    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback);
+    public void submitGetRequest(ByteArray key, byte[] transforms, NonblockingStoreCallback callback);
 
-    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback);
+    public void submitGetAllRequest(Iterable<ByteArray> keys,
+                                    Map<ByteArray, byte[]> transforms,
+                                    NonblockingStoreCallback callback);
 
     public void submitGetVersionsRequest(ByteArray key, NonblockingStoreCallback callback);
 
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
+                                 byte[] transforms,
                                  NonblockingStoreCallback callback);
 
     public void submitDeleteRequest(ByteArray key,

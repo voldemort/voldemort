@@ -108,18 +108,19 @@ public class StorageEnginePerformanceTest {
             VoldemortConfig config = new VoldemortConfig(props);
             StorageConfiguration storageConfig = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                                      new Object[] { config });
-            StorageEngine<ByteArray, byte[]> engine = storageConfig.getStore("test");
+            StorageEngine<ByteArray, byte[], byte[]> engine = storageConfig.getStore("test");
             @SuppressWarnings("unchecked")
-            final Store<String, byte[]> store = new SerializingStore(engine,
-                                                                     new StringSerializer(),
-                                                                     new IdentitySerializer());
+            final Store<String, byte[], byte[]> store = new SerializingStore(engine,
+                                                                             new StringSerializer(),
+                                                                             new IdentitySerializer(),
+                                                                             null);
 
             final byte[] value = new byte[valueSize];
             new Random().nextBytes(value);
 
             // initialize test data
             for(int i = 0; i < numValues; i++)
-                store.put(Integer.toString(i), Versioned.value(value));
+                store.put(Integer.toString(i), Versioned.value(value), null);
 
             // initialize cache lookback data
             int[] recents = new int[cacheWidth];
@@ -131,14 +132,14 @@ public class StorageEnginePerformanceTest {
                 public void doOperation(int index) {
                     try {
                         String key = Integer.toString(index);
-                        List<Versioned<byte[]>> vs = store.get(key);
+                        List<Versioned<byte[]>> vs = store.get(key, null);
                         VectorClock version;
                         if(vs.size() == 0)
                             version = new VectorClock();
                         else
                             version = (VectorClock) vs.get(0).getVersion();
                         version.incrementVersion(0, 847584375);
-                        store.put(key, Versioned.value(value, version));
+                        store.put(key, Versioned.value(value, version), null);
                     } catch(ObsoleteVersionException e) {
                         // do nothing
                     } catch(RuntimeException e) {
@@ -156,7 +157,7 @@ public class StorageEnginePerformanceTest {
 
                 @Override
                 public void doOperation(int index) {
-                    store.get(Integer.toString(index));
+                    store.get(Integer.toString(index), null);
                 }
             }, recents, numValues, cacheHitRatio);
             readTest.run(numRequests, numThreads);

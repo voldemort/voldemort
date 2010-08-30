@@ -61,7 +61,7 @@ public class PerformZoneSerialRequests<V, PD extends BasicPipelineData<V>> exten
             long start = System.nanoTime();
 
             try {
-                Store<ByteArray, byte[]> store = stores.get(node.getId());
+                Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
                 V result = storeRequest.request(store);
 
                 Response<ByteArray, V> response = new Response<ByteArray, V>(node,

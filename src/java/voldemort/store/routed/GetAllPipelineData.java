@@ -49,6 +49,8 @@ public class GetAllPipelineData extends
 
     private final Map<ByteArray, HashSet<Integer>> keyToZoneResponses;
 
+    private Map<ByteArray, byte[]> transforms;
+
     private Integer zonesRequired;
 
     public GetAllPipelineData() {
@@ -75,6 +77,14 @@ public class GetAllPipelineData extends
 
     public Map<ByteArray, List<Node>> getKeyToExtraNodesMap() {
         return keyToExtraNodesMap;
+    }
+
+    public Map<ByteArray, byte[]> getTransforms() {
+        return transforms;
+    }
+
+    public void setTransforms(Map<ByteArray, byte[]> transforms) {
+        this.transforms = transforms;
     }
 
     public void setKeyToExtraNodesMap(Map<ByteArray, List<Node>> keyToExtraNodesMap) {

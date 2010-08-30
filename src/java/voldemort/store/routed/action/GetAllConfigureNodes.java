@@ -46,6 +46,8 @@ public class GetAllConfigureNodes
 
     private final Zone clientZone;
 
+    private final Map<ByteArray, byte[]> transforms;
+
     public GetAllConfigureNodes(GetAllPipelineData pipelineData,
                                 Event completeEvent,
                                 FailureDetector failureDetector,
@@ -53,10 +55,12 @@ public class GetAllConfigureNodes
                                 int required,
                                 RoutingStrategy routingStrategy,
                                 Iterable<ByteArray> keys,
+                                Map<ByteArray, byte[]> transforms,
                                 Zone clientZone) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.preferred = preferred;
         this.keys = keys;
+        this.transforms = transforms;
         this.clientZone = clientZone;
     }
 
@@ -152,6 +156,7 @@ public class GetAllConfigureNodes
 
         pipelineData.setKeyToExtraNodesMap(keyToExtraNodesMap);
         pipelineData.setNodeToKeysMap(nodeToKeysMap);
+        pipelineData.setTransforms(transforms);
 
         pipeline.addEvent(completeEvent);
     }

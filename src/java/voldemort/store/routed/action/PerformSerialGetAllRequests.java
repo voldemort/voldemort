@@ -94,6 +94,7 @@ public class PerformSerialGetAllRequests
             }
 
             List<Node> extraNodes = pipelineData.getKeyToExtraNodesMap().get(key);
+            Map<ByteArray, byte[]> transforms = pipelineData.getTransforms();
 
             if(extraNodes == null)
                 continue;
@@ -103,7 +104,7 @@ public class PerformSerialGetAllRequests
 
                 try {
                     Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
-                    List<Versioned<byte[]>> values = store.get(key);
+                    List<Versioned<byte[]>> values = store.get(key, transforms.get(key));
 
                     if(result.get(key) == null)
                         result.put(key, Lists.newArrayList(values));

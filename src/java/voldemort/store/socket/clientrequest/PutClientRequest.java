@@ -33,14 +33,18 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
 
     private final Versioned<byte[]> versioned;
 
+    private final byte[] transforms;
+
     public PutClientRequest(String storeName,
                             RequestFormat requestFormat,
                             RequestRoutingType requestRoutingType,
                             ByteArray key,
-                            Versioned<byte[]> versioned) {
+                            Versioned<byte[]> versioned,
+                            byte[] transforms) {
         super(storeName, requestFormat, requestRoutingType);
         this.key = key;
         this.versioned = versioned;
+        this.transforms = transforms;
     }
 
     public boolean isCompleteResponse(ByteBuffer buffer) {
@@ -53,6 +57,7 @@ public class PutClientRequest extends AbstractStoreClientRequest<Void> {
                                       storeName,
                                       key,
                                       versioned.getValue(),
+                                      transforms,
                                       (VectorClock) versioned.getVersion(),
                                       requestRoutingType);
     }

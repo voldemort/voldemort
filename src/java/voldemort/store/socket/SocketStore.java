@@ -94,21 +94,25 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback);
     }
 
-    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback) {
+    public void submitGetRequest(ByteArray key, byte[] transforms, NonblockingStoreCallback callback) {
         StoreUtils.assertValidKey(key);
         GetClientRequest clientRequest = new GetClientRequest(storeName,
                                                               requestFormat,
                                                               requestRoutingType,
-                                                              key);
+                                                              key,
+                                                              transforms);
         requestAsync(clientRequest, callback);
     }
 
-    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback) {
+    public void submitGetAllRequest(Iterable<ByteArray> keys,
+                                    Map<ByteArray, byte[]> transforms,
+                                    NonblockingStoreCallback callback) {
         StoreUtils.assertValidKeys(keys);
         GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
                                                                     requestFormat,
                                                                     requestRoutingType,
-                                                                    keys);
+                                                                    keys,
+                                                                    transforms);
         requestAsync(clientRequest, callback);
     }
 
@@ -123,13 +127,15 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
 
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
+                                 byte[] transforms,
                                  NonblockingStoreCallback callback) {
         StoreUtils.assertValidKey(key);
         PutClientRequest clientRequest = new PutClientRequest(storeName,
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
-                                                              value);
+                                                              value,
+                                                              transforms);
         requestAsync(clientRequest, callback);
     }
 
@@ -148,7 +154,8 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         GetClientRequest clientRequest = new GetClientRequest(storeName,
                                                               requestFormat,
                                                               requestRoutingType,
-                                                              key);
+                                                              key,
+                                                              transforms);
         return request(clientRequest, "get");
     }
 
@@ -159,7 +166,8 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
                                                                     requestFormat,
                                                                     requestRoutingType,
-                                                                    keys);
+                                                                    keys,
+                                                                    transforms);
         return request(clientRequest, "getAll");
     }
 
@@ -179,7 +187,8 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
-                                                              versioned);
+                                                              versioned,
+                                                              transforms);
         request(clientRequest, "put");
     }
 

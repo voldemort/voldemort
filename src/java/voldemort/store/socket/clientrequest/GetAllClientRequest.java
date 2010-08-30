@@ -32,13 +32,16 @@ public class GetAllClientRequest extends
         AbstractStoreClientRequest<Map<ByteArray, List<Versioned<byte[]>>>> {
 
     private final Iterable<ByteArray> keys;
+    private final Map<ByteArray, byte[]> transforms;
 
     public GetAllClientRequest(String storeName,
                                RequestFormat requestFormat,
                                RequestRoutingType requestRoutingType,
-                               Iterable<ByteArray> keys) {
+                               Iterable<ByteArray> keys,
+                               Map<ByteArray, byte[]> transforms) {
         super(storeName, requestFormat, requestRoutingType);
         this.keys = keys;
+        this.transforms = transforms;
     }
 
     public boolean isCompleteResponse(ByteBuffer buffer) {
@@ -47,7 +50,11 @@ public class GetAllClientRequest extends
 
     @Override
     protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writeGetAllRequest(outputStream, storeName, keys, requestRoutingType);
+        requestFormat.writeGetAllRequest(outputStream,
+                                         storeName,
+                                         keys,
+                                         transforms,
+                                         requestRoutingType);
     }
 
     @Override

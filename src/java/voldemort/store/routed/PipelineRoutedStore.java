@@ -105,7 +105,7 @@ public class PipelineRoutedStore extends RoutedStore {
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
     }
 
-    public List<Versioned<byte[]>> get(final ByteArray key) {
+    public List<Versioned<byte[]>> get(final ByteArray key, final byte[] transforms) {
         StoreUtils.assertValidKey(key);
 
         BasicPipelineData<List<Versioned<byte[]>>> pipelineData = new BasicPipelineData<List<Versioned<byte[]>>>();
@@ -119,7 +119,7 @@ public class PipelineRoutedStore extends RoutedStore {
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
 
             public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitGetRequest(key, callback);
+                store.submitGetRequest(key, transforms, callback);
             }
 
         };
@@ -127,7 +127,7 @@ public class PipelineRoutedStore extends RoutedStore {
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
             public List<Versioned<byte[]>> request(Store<ByteArray, byte[], byte[]> store) {
-                return store.get(key);
+                return store.get(key, transforms);
             }
 
         };
@@ -201,7 +201,8 @@ public class PipelineRoutedStore extends RoutedStore {
         return results;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
 
@@ -220,6 +221,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          storeDef.getRequiredReads(),
                                                          routingStrategy,
                                                          keys,
+                                                         transforms,
                                                          clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
@@ -390,7 +392,8 @@ public class PipelineRoutedStore extends RoutedStore {
         return false;
     }
 
-    public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
         PutPipelineData pipelineData = new PutPipelineData();

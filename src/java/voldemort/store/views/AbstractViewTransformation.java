@@ -10,7 +10,7 @@ import voldemort.store.Store;
  * @param <K> The type of the key
  * @param <V> The type of objects in the view
  * @param <S> The type of objects in the store
- * @param <T> The type of transforms to be applied on S
+ * @param <T> The type of transforms
  */
 public class AbstractViewTransformation<K, V, S, T> implements View<K, V, S, T> {
 

@@ -102,10 +102,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     }
 
     @Override
-    protected Store<ByteArray, byte[]> getSocketStore(String storeName,
-                                                      String host,
-                                                      int port,
-                                                      boolean isRouted) {
+    protected Store<ByteArray, byte[], byte[]> getSocketStore(String storeName,
+                                                              String host,
+                                                              int port,
+                                                              boolean isRouted) {
         SocketStoreFactory storeFactory = new ClientRequestExecutorPool(2,
                                                                         60 * 1000,
                                                                         60 * 1000,

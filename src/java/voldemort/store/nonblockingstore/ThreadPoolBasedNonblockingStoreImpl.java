@@ -42,22 +42,25 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
     }
 
     public void submitGetAllRequest(final Iterable<ByteArray> keys,
+                                    final Map<ByteArray, byte[]> transforms,
                                     final NonblockingStoreCallback callback) {
         submit(new StoreRequest<Map<ByteArray, List<Versioned<byte[]>>>>() {
 
             public Map<ByteArray, List<Versioned<byte[]>>> request(Store<ByteArray, byte[], byte[]> store) {
-                return innerStore.getAll(keys);
+                return innerStore.getAll(keys, transforms);
             }
 
         },
                callback);
     }
 
-    public void submitGetRequest(final ByteArray key, NonblockingStoreCallback callback) {
+    public void submitGetRequest(final ByteArray key,
+                                 final byte[] transforms,
+                                 NonblockingStoreCallback callback) {
         submit(new StoreRequest<List<Versioned<byte[]>>>() {
 
             public List<Versioned<byte[]>> request(Store<ByteArray, byte[], byte[]> store) {
-                return innerStore.get(key);
+                return innerStore.get(key, transforms);
             }
 
         }, callback);
@@ -75,11 +78,12 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
     public void submitPutRequest(final ByteArray key,
                                  final Versioned<byte[]> value,
+                                 final byte[] transforms,
                                  NonblockingStoreCallback callback) {
         submit(new StoreRequest<Void>() {
 
             public Void request(Store<ByteArray, byte[], byte[]> store) {
-                innerStore.put(key, value);
+                innerStore.put(key, value, transforms);
                 return null;
             }
 

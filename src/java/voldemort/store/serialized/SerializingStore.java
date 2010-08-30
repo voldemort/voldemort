@@ -34,11 +34,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
- * A store that transforms requests to a Store<ByteArray,byte[]> to a Store<K,V>
+ * A store that transforms requests to a Store<ByteArray,byte[], byte[]> to a
+ * Store<K,V,T>
  * 
  * 
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored
+ * @param <T> The type of transform
  */
 public class SerializingStore<K, V, T> implements Store<K, V, T> {
 
