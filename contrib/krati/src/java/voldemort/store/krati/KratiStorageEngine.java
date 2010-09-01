@@ -35,7 +35,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
+public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(KratiStorageEngine.class);
     private final String name;
@@ -74,14 +74,15 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public void close() throws VoldemortException {}
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                          Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
-        return StoreUtils.getAll(this, keys);
+        return StoreUtils.getAll(this, keys, null);
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return StoreUtils.getVersions(get(key));
+        return StoreUtils.getVersions(get(key, null));
     }
 
     public void truncate() {
@@ -93,7 +94,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
+    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
             return disassembleValues(datastore.get(key.get()));
@@ -159,7 +160,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
                 }
             }
 
-            List<Versioned<byte[]>> returnedValuesList = this.get(key);
+            List<Versioned<byte[]>> returnedValuesList = this.get(key, null);
 
             // Case if there is nothing to delete
             if(returnedValuesList.size() == 0) {
@@ -188,12 +189,13 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    public void put(ByteArray key, Versioned<byte[]> value) throws VoldemortException {
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
         synchronized(this.locks.lockFor(key.get())) {
             // First get the value
-            List<Versioned<byte[]>> existingValuesList = this.get(key);
+            List<Versioned<byte[]>> existingValuesList = this.get(key, null);
 
             // If no value, add one
             if(existingValuesList.size() == 0) {
@@ -306,4 +308,5 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[]> {
         }
 
     }
+
 }

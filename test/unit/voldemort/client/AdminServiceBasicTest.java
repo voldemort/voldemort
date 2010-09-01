@@ -244,7 +244,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                                              .getSocketUrl()
                                                                                                              .toString()));
 
-        StoreClient<Object, Object> client = factory.getStoreClient("deleteTest");
+        StoreClient<Object, Object, Object> client = factory.getStoreClient("deleteTest");
 
         int numStores = adminClient.getRemoteStoreDefList(0).getValue().size();
 

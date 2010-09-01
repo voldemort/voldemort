@@ -173,22 +173,22 @@ public class RoutedStoreParallelismTest {
                                                                           cluster);
             serverMap.put(i, server);
 
-            Store<ByteArray, byte[]> store = new InMemoryStorageEngine<ByteArray, byte[]>("test-sleepy");
+            Store<ByteArray, byte[], byte[]> store = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test-sleepy");
 
             if(i < numSlowNodes)
-                store = new SleepyStore<ByteArray, byte[]>(delay, store);
+                store = new SleepyStore<ByteArray, byte[], byte[]>(delay, store);
 
             StoreRepository storeRepository = server.getStoreRepository();
             storeRepository.addLocalStore(store);
         }
 
-        Map<Integer, Store<ByteArray, byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[]>>();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
 
         for(Node node: cluster.getNodes()) {
-            Store<ByteArray, byte[]> socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
-                                                                                  "test-sleepy",
-                                                                                  node.getSocketPort(),
-                                                                                  clientConfig.getRequestFormatType());
+            Store<ByteArray, byte[], byte[]> socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
+                                                                                          "test-sleepy",
+                                                                                          node.getSocketPort(),
+                                                                                          clientConfig.getRequestFormatType());
             stores.put(node.getId(), socketStore);
         }
 
@@ -221,7 +221,7 @@ public class RoutedStoreParallelismTest {
                         for(int i = 0; i < numKeys; i++) {
                             ByteArray key = new ByteArray(("test-key-" + i).getBytes());
                             try {
-                                routedStore.get(key);
+                                routedStore.get(key, null);
                             } catch(VoldemortException e) {
                                 // 
                             }

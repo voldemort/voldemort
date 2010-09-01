@@ -1,11 +1,17 @@
 package voldemort.store.rebalancing;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
@@ -22,12 +28,9 @@ import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Test {@link RebootstrappingStore}
@@ -37,12 +40,12 @@ public class RebootstrappingStoreTest {
     private final static String STORE_NAME = "test";
     private final static String STORES_XML = "test/common/voldemort/config/single-store.xml";
 
-    private final int[][] startCluster = new int[][] {{0, 1}, {}};
+    private final int[][] startCluster = new int[][] { { 0, 1 }, {} };
 
     private Map<String, String> entries;
     private Cluster cluster;
     private List<VoldemortServer> servers;
-    private StoreClient<String, String> storeClient;
+    private StoreClient<String, String, String> storeClient;
 
     @Before
     public void setUp() throws Exception {
@@ -57,7 +60,7 @@ public class RebootstrappingStoreTest {
                                                                               100000,
                                                                               32 * 1024);
 
-        for (Node node: cluster.getNodes()) {
+        for(Node node: cluster.getNodes()) {
             VoldemortConfig config = ServerTestUtils.createServerConfig(false,
                                                                         node.getId(),
                                                                         TestUtils.createTempDir()
@@ -69,17 +72,16 @@ public class RebootstrappingStoreTest {
         }
 
         String bootstrapUrl = cluster.getNodeById(0).getSocketUrl().toString();
-        storeClient = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl))
-                                                  .getStoreClient(STORE_NAME);
+        storeClient = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)).getStoreClient(STORE_NAME);
 
-        for (Map.Entry<String, String> entry: entries.entrySet())
+        for(Map.Entry<String, String> entry: entries.entrySet())
             storeClient.put(entry.getKey(), entry.getValue());
     }
 
     @After
     public void tearDown() {
-        if (servers != null)
-            for (VoldemortServer server: servers)
+        if(servers != null)
+            for(VoldemortServer server: servers)
                 server.stop();
     }
 
@@ -88,11 +90,7 @@ public class RebootstrappingStoreTest {
 
         VoldemortConfig config = servers.get(0).getVoldemortConfig();
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 2, 4);
-        int req = adminClient.migratePartitions(0,
-                                                1,
-                                                STORE_NAME,
-                                                ImmutableList.of(0, 1),
-                                                null);
+        int req = adminClient.migratePartitions(0, 1, STORE_NAME, ImmutableList.of(0, 1), null);
         adminClient.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
         Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(0);
         Node node0 = versionedCluster.getValue().getNodeById(0);
@@ -102,7 +100,7 @@ public class RebootstrappingStoreTest {
                                  node0.getHttpPort(),
                                  node0.getSocketPort(),
                                  node0.getAdminPort(),
-                                 ImmutableList.<Integer>of());
+                                 ImmutableList.<Integer> of());
         Node newNode1 = new Node(node1.getId(),
                                  node1.getHost(),
                                  node1.getHttpPort(),
@@ -112,7 +110,7 @@ public class RebootstrappingStoreTest {
         int deleted = adminClient.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
         assert deleted > 0;
         Cluster newCluster = new Cluster(cluster.getName(), ImmutableList.of(newNode0, newNode1));
-        for (Node node: cluster.getNodes()) {
+        for(Node node: cluster.getNodes()) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             clock.incrementVersion(node.getId(), System.currentTimeMillis());
 

@@ -10,7 +10,7 @@ import voldemort.utils.ByteArray;
 
 public class KratiStorageEngineTest extends AbstractStorageEngineTest {
 
-    private StorageEngine<ByteArray, byte[]> store = null;
+    private StorageEngine<ByteArray, byte[], byte[]> store = null;
 
     @Override
     protected void setUp() throws Exception {
@@ -28,7 +28,7 @@ public class KratiStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     @Override
-    public StorageEngine<ByteArray, byte[]> getStorageEngine() {
+    public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
         return this.store;
     }
 

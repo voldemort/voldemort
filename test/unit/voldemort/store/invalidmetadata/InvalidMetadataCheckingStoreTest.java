@@ -19,7 +19,6 @@ package voldemort.store.invalidmetadata;
 import java.util.Arrays;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.cluster.Cluster;
@@ -34,6 +33,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * 
@@ -150,7 +151,7 @@ public class InvalidMetadataCheckingStoreTest extends TestCase {
                         store.put(key, new Versioned<byte[]>(value), null);
                         break;
                     case 3:
-                        store.getAll(ImmutableList.of(key));
+                        store.getAll(ImmutableList.of(key), null);
                         break;
                 }
             }

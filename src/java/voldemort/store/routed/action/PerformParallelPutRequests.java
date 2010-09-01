@@ -52,9 +52,12 @@ public class PerformParallelPutRequests extends
 
     private final FailureDetector failureDetector;
 
+    private byte[] transforms;
+
     public PerformParallelPutRequests(PutPipelineData pipelineData,
                                       Event completeEvent,
                                       ByteArray key,
+                                      byte[] transforms,
                                       FailureDetector failureDetector,
                                       int preferred,
                                       int required,
@@ -65,6 +68,7 @@ public class PerformParallelPutRequests extends
         this.preferred = preferred;
         this.required = required;
         this.timeoutMs = timeoutMs;
+        this.transforms = transforms;
         this.nonblockingStores = nonblockingStores;
     }
 
@@ -116,7 +120,7 @@ public class PerformParallelPutRequests extends
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-            store.submitPutRequest(key, versionedCopy, callback);
+            store.submitPutRequest(key, versionedCopy, transforms, callback);
         }
 
         try {

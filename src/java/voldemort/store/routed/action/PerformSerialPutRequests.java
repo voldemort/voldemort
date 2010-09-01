@@ -47,9 +47,12 @@ public class PerformSerialPutRequests extends
 
     private final Event masterDeterminedEvent;
 
+    private byte[] transforms;
+
     public PerformSerialPutRequests(PutPipelineData pipelineData,
                                     Event completeEvent,
                                     ByteArray key,
+                                    byte[] transforms,
                                     FailureDetector failureDetector,
                                     Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                     int required,
@@ -62,6 +65,7 @@ public class PerformSerialPutRequests extends
         this.required = required;
         this.versioned = versioned;
         this.time = time;
+        this.transforms = transforms;
         this.masterDeterminedEvent = masterDeterminedEvent;
     }
 
@@ -88,7 +92,7 @@ public class PerformSerialPutRequests extends
             long start = System.nanoTime();
 
             try {
-                stores.get(node.getId()).put(key, versionedCopy);
+                stores.get(node.getId()).put(key, versionedCopy, transforms);
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(node, requestTime);

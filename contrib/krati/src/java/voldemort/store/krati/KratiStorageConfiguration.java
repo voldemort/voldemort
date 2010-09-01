@@ -43,7 +43,7 @@ public class KratiStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[]> getStore(String storeName) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
             File storeDir = new File(dataDirectory, storeName);
             if(!storeDir.exists()) {
