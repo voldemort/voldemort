@@ -48,6 +48,7 @@ import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
@@ -93,7 +94,7 @@ public class ReadOnlyStorePerformanceTest {
               .withRequiredArg()
               .describedAs("count")
               .ofType(Integer.class);
-        parser.accepts("num-chunks", "The number of chunks in the store")
+        parser.accepts("num-chunks", "The number of chunks per partition")
               .withRequiredArg()
               .describedAs("chunks")
               .ofType(Integer.class);
@@ -145,6 +146,7 @@ public class ReadOnlyStorePerformanceTest {
                                                                .setReplicationFactor(1)
                                                                .setRequiredWrites(1)
                                                                .setType("read-only")
+                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                                .build();
 

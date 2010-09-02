@@ -3,44 +3,45 @@ package voldemort.client.rebalance;
 import java.io.File;
 import java.util.Set;
 
-import com.google.common.base.Joiner;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.cluster.Cluster;
 import voldemort.utils.CmdUtils;
 import voldemort.xml.ClusterMapper;
 
+import com.google.common.base.Joiner;
+
 public class RebalanceCLI {
+
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
         parser.accepts("url", "[REQUIRED] bootstrap url")
-                       .withRequiredArg()
-                       .describedAs("boostrap-url");
-        parser.accepts("cluster", "path to target cluster xml config file.")
-                       .withRequiredArg()
-                       .describedAs("target-cluster.xml");
+              .withRequiredArg()
+              .describedAs("boostrap-url");
+        parser.accepts("cluster", "[REQUIRED] path to target cluster xml config file.")
+              .withRequiredArg()
+              .describedAs("target-cluster.xml");
         parser.accepts("parallelism", "number of rebalances to run in parallel. Default = 1")
-                       .withRequiredArg()
-                       .ofType(Integer.class)
-                       .describedAs("parallelism");
-        parser.accepts("parallel-donors", "number of parallel donors to run in parallel. Default = parallelism.")
-                       .withRequiredArg()
-                       .ofType(Integer.class)
-                       .describedAs("parallel-donors");
+              .withRequiredArg()
+              .ofType(Integer.class)
+              .describedAs("parallelism");
+        parser.accepts("parallel-donors",
+                       "number of parallel donors to run in parallel. Default = parallelism.")
+              .withRequiredArg()
+              .ofType(Integer.class)
+              .describedAs("parallel-donors");
 
-        parser.accepts("no-delete", "Do not delete after rebalancing");
+        parser.accepts("no-delete", "Do not delete after rebalancing (Valid only for RW Stores)");
         OptionSet options = parser.parse(args);
 
-        if (options.has("help")) {
+        if(options.has("help")) {
             parser.printHelpOn(System.out);
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options,
-                                               "cluster",
-                                               "url");
-        if (missing.size() > 0) {
+        Set<String> missing = CmdUtils.missing(options, "cluster", "url");
+        if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);

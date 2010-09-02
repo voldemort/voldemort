@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -47,7 +47,7 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public static List<String> rebalancingStoreEngineBlackList = Arrays.asList("read-only");
+    public static List<String> rebalancingStoreEngineBlackList = Arrays.asList("mysql", "krati");
 
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
@@ -77,8 +77,8 @@ public class RebalanceUtils {
         List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
         List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
 
-        for (int p: cluster.getNodeById(stealerNode.getId()).getPartitionIds()) {
-            if (!stealerPartitionList.contains(p))
+        for(int p: cluster.getNodeById(stealerNode.getId()).getPartitionIds()) {
+            if(!stealerPartitionList.contains(p))
                 stealerPartitionList.add(p);
         }
 
@@ -96,7 +96,7 @@ public class RebalanceUtils {
         logger.debug("donorNode: " + donorNode);
         logger.debug("stealerPartitionList: " + stealerPartitionList);
         logger.debug("donorPartitionList: " + donorPartitionList);
-        
+
         // update both nodes
         stealerNode = updateNode(stealerNode, stealerPartitionList);
         donorNode = updateNode(donorNode, donorPartitionList);
@@ -192,7 +192,7 @@ public class RebalanceUtils {
     }
 
     public static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
-                                           VectorClock newClock) {
+                                          VectorClock newClock) {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
@@ -204,37 +204,39 @@ public class RebalanceUtils {
 
     /**
      * Attempt to propagate cluster definition to all nodes in the cluster.
-     *
-     * @throws VoldemortException If we can't propagate to a list of require nodes.
-     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient} instance to use
+     * 
+     * @throws VoldemortException If we can't propagate to a list of require
+     *         nodes.
+     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient}
+     *        instance to use
      * @param cluster Cluster definition we wish to propagate
      * @param clock Vector clock to attach to the cluster definition
-     * @param requireNodeIds If we can't propagate to these node ids, roll back and throw an exception
+     * @param requireNodeIds If we can't propagate to these node ids, roll back
+     *        and throw an exception
      */
     public static void propagateCluster(AdminClient adminClient,
                                         Cluster cluster,
                                         VectorClock clock,
                                         List<Integer> requireNodeIds) {
         List<Integer> allNodeIds = new ArrayList<Integer>();
-        for (Node node: cluster.getNodes()) {
+        for(Node node: cluster.getNodes()) {
             allNodeIds.add(node.getId());
         }
-        propagateCluster(adminClient,
-                         cluster,
-                         clock,
-                         allNodeIds,
-                         requireNodeIds);
+        propagateCluster(adminClient, cluster, clock, allNodeIds, requireNodeIds);
     }
 
     /**
      * Attempt to propagate a cluster definition to specified nodes.
-     *
-     * @throws VoldemortException If we can't propagate to a list of require nodes.
-     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient} instance to use.
+     * 
+     * @throws VoldemortException If we can't propagate to a list of require
+     *         nodes.
+     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient}
+     *        instance to use.
      * @param cluster Cluster definition we wish to propagate
      * @param clock Vector clock to attach to the cluster definition
      * @param attemptNodeIds Attempt to propagate to these node ids
-     * @param requiredNodeIds If we can't propagate can't propagate to these node ids, roll back and throw an exception
+     * @param requiredNodeIds If we can't propagate can't propagate to these
+     *        node ids, roll back and throw an exception
      */
     public static void propagateCluster(AdminClient adminClient,
                                         Cluster cluster,
@@ -291,9 +293,9 @@ public class RebalanceUtils {
         for(Node node: cluster.getNodes()) {
             try {
                 List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
-                               .getValue();
+                                                                .getValue();
                 return getWritableStores(storeDefList);
-            } catch (VoldemortException e) {
+            } catch(VoldemortException e) {
                 logger.warn(e);
             }
         }
@@ -308,9 +310,6 @@ public class RebalanceUtils {
         for(StoreDefinition def: storeDefList) {
             if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
                 storeNameList.add(def);
-            }
-            if(rebalancingStoreEngineBlackList.contains(def.getType())) {
-
             } else {
                 logger.debug("ignoring store " + def.getName() + " for rebalancing");
             }

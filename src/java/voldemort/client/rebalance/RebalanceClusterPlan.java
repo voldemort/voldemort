@@ -59,6 +59,17 @@ public class RebalanceClusterPlan {
         return rebalanceTaskQueue;
     }
 
+    /**
+     * For a particular stealer node retrieves a list of plans corresponding to
+     * each donor node.
+     * 
+     * @param currentCluster The cluster definition of the current cluster
+     * @param targetCluster The cluster definition of the target cluster
+     * @param storeList The list of stores
+     * @param stealNodeId The node id of the stealer node
+     * @param deleteDonorPartition
+     * @return
+     */
     private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
                                                                Cluster targetCluster,
                                                                List<String> storeList,
@@ -108,6 +119,14 @@ public class RebalanceClusterPlan {
         return stealInfoList;
     }
 
+    /**
+     * For a particular stealer node find all the partitions it will steal
+     * 
+     * @param currentCluster The cluster definition of the existing cluster
+     * @param targetCluster The target cluster definition
+     * @param stealNodeId The id of the stealer node
+     * @return Returns a list of partitions which this stealer node will get
+     */
     private List<Integer> getStealList(Cluster currentCluster,
                                        Cluster targetCluster,
                                        int stealNodeId) {
@@ -141,7 +160,6 @@ public class RebalanceClusterPlan {
             if(targetList.contains(newReplicationPartition)) {
                 // stealerNode need to replicate some new partition now.
                 int donorNode = currentPartitionsToNodeMap.get(entry.getKey());
-                // TODO LOW: not copying partitions on same node for now
                 if(donorNode != stealNodeId)
                     createAndAdd(replicationMapping, donorNode, entry.getKey());
             }
@@ -150,6 +168,16 @@ public class RebalanceClusterPlan {
         return replicationMapping;
     }
 
+    /**
+     * Converts a list of partitions ids which a stealer is going to receive to
+     * a map of donor node ids to the corresponding partitions
+     * 
+     * @param stealList The partitions ids going to be stolen
+     * @param currentPartitionsToNodeMap Mapping of current partitions to their
+     *        respective nodes ids
+     * @return Returns a mapping of donor node ids to the partitions being
+     *         stolen
+     */
     private Map<Integer, List<Integer>> getStealMasterPartitions(List<Integer> stealList,
                                                                  Map<Integer, Integer> currentPartitionsToNodeMap) {
         HashMap<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();
