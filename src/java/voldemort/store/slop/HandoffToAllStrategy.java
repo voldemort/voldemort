@@ -28,4 +28,9 @@ public class HandoffToAllStrategy implements HintedHandoffStrategy {
         }
         return prefList;
     }
+
+    @Override
+    public String toString() {
+        return "HandoffToAllStrategy(" + nodes + ")";
+    }
 }

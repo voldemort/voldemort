@@ -45,4 +45,9 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
         Collections.shuffle(prefList, random);
         return prefList;
     }
+
+    @Override
+    public String toString() {
+        return "ConsistentHandoffStrategy(" + routeToMap.toString() + ")";
+    }
 }

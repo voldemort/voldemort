@@ -395,6 +395,13 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasZoneCountWrites())
             store.addContent(new Element(STORE_ZONE_COUNT_WRITES).setText(Integer.toString(storeDefinition.getZoneCountWrites())));
 
+        if(storeDefinition.isHintedHandoffEnabled())
+            store.addContent(new Element(HINTED_HANDOFF_ENABLE).setText(Boolean.toString(storeDefinition.isHintedHandoffEnabled())));
+        if(storeDefinition.hasHintedHandoffStrategyType())
+            store.addContent(new Element(HINTED_HANDOFF_STRATEGY).setText(storeDefinition.getHintedHandoffStrategyType()));
+        if(storeDefinition.hasHintPreflistSize())
+            store.addContent(new Element(HINT_PREFLIST_SIZE).setText(Integer.toString(storeDefinition.getHintPrefListSize())));
+
         Element keySerializer = new Element(STORE_KEY_SERIALIZER_ELMT);
         addSerializer(keySerializer, storeDefinition.getKeySerializer());
         store.addContent(keySerializer);

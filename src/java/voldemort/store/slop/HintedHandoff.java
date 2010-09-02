@@ -57,7 +57,9 @@ public class HintedHandoff {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();
-
+            if(logger.isTraceEnabled())
+                logger.trace("Trying to send hint to " + nodeId);
+            
             if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
                 Store<ByteArray, Slop> slopStore = slopStores.get(nodeId);
                 Utils.notNull(slopStore);
