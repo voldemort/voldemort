@@ -640,6 +640,35 @@ _ASYNCOPERATIONLISTRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_ROSTOREVERSIONMAP = descriptor.Descriptor(
+  name='ROStoreVersionMap',
+  full_name='voldemort.ROStoreVersionMap',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store_name', full_name='voldemort.ROStoreVersionMap.store_name', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='push_version', full_name='voldemort.ROStoreVersionMap.push_version', index=1,
+      number=2, type=3, cpp_type=2, label=2,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
   name='InitiateRebalanceNodeRequest',
   full_name='voldemort.InitiateRebalanceNodeRequest',
@@ -685,6 +714,27 @@ _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
       name='unbalanced_store', full_name='voldemort.InitiateRebalanceNodeRequest.unbalanced_store', index=5,
       number=7, type=9, cpp_type=9, label=3,
       default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='stealMasterPartitions', full_name='voldemort.InitiateRebalanceNodeRequest.stealMasterPartitions', index=6,
+      number=8, type=5, cpp_type=1, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='ro_store_versions', full_name='voldemort.InitiateRebalanceNodeRequest.ro_store_versions', index=7,
+      number=9, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='deleteAfterRebalance', full_name='voldemort.InitiateRebalanceNodeRequest.deleteAfterRebalance', index=8,
+      number=10, type=8, cpp_type=7, label=2,
+      default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -1025,8 +1075,8 @@ _GETROMAXVERSIONREQUEST = descriptor.Descriptor(
   fields=[
     descriptor.FieldDescriptor(
       name='store_name', full_name='voldemort.GetROMaxVersionRequest.store_name', index=0,
-      number=1, type=9, cpp_type=9, label=2,
-      default_value=unicode("", "utf-8"),
+      number=1, type=9, cpp_type=9, label=3,
+      default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -1046,9 +1096,9 @@ _GETROMAXVERSIONRESPONSE = descriptor.Descriptor(
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
-      name='push_version', full_name='voldemort.GetROMaxVersionResponse.push_version', index=0,
-      number=1, type=3, cpp_type=2, label=1,
-      default_value=0,
+      name='ro_store_versions', full_name='voldemort.GetROMaxVersionResponse.ro_store_versions', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -1226,12 +1276,14 @@ _DELETEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort
 _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_INITIATEREBALANCENODEREQUEST.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONMAP
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _DELETESTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _SWAPSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ROLLBACKSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_GETROMAXVERSIONRESPONSE.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONMAP
 _GETROMAXVERSIONRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
@@ -1323,6 +1375,10 @@ class AsyncOperationListRequest(message.Message):
 class AsyncOperationListResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ASYNCOPERATIONLISTRESPONSE
+
+class ROStoreVersionMap(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ROSTOREVERSIONMAP
 
 class InitiateRebalanceNodeRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

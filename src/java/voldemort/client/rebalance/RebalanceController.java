@@ -19,6 +19,7 @@ package voldemort.client.rebalance;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,15 +34,18 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.server.rebalance.VoldemortRebalancingException;
+import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
 public class RebalanceController {
@@ -122,10 +126,22 @@ public class RebalanceController {
 
         adminClient.setAdminClientCluster(currentCluster);
 
+        // Retrieve list of stores
+        List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
+                                                                           adminClient);
+        // if read-only store exists
+        Map<String, Long> readOnlyStoreVersions = Maps.newHashMapWithExpectedSize(storesList.size());
+        for(StoreDefinition store: storesList) {
+            if(store.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+                readOnlyStoreVersions = adminClient.getROGlobalMaxVersion(RebalanceUtils.getStoreNames(storesList));
+                break;
+            }
+        }
+
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
-                                                                                   RebalanceUtils.getStoreNameList(currentCluster,
-                                                                                                                   adminClient),
+                                                                                   storesList,
+                                                                                   readOnlyStoreVersions,
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
@@ -299,17 +315,12 @@ public class RebalanceController {
             VectorClock latestClock = (VectorClock) latestCluster.getVersion();
 
             // apply changes and create new updated cluster.
+            // use steal master partitions to update cluster increment clock
+            // version on stealerNodeId
             Cluster updatedCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
                                                                          stealerNode,
                                                                          donorNode,
-                                                                         rebalanceStealInfo.getStealMasterPartitions());// use
-            // steal
-            // master
-            // partitions
-            // to
-            // update
-            // cluster
-            // increment clock version on stealerNodeId
+                                                                         rebalanceStealInfo.getStealMasterPartitions());
             latestClock.incrementVersion(stealerNode.getId(), System.currentTimeMillis());
             try {
                 // propagates changes to all nodes.

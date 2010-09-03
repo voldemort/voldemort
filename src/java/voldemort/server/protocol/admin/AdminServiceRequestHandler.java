@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -35,6 +36,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.routing.RoutingStrategy;
@@ -69,6 +71,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -217,24 +220,31 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     public VAdminProto.GetROMaxVersionResponse handleGetROMaxVersion(VAdminProto.GetROMaxVersionRequest request) {
-        final String storeName = request.getStoreName();
+        final List<String> storeNames = request.getStoreNameList();
         VAdminProto.GetROMaxVersionResponse.Builder response = VAdminProto.GetROMaxVersionResponse.newBuilder();
+        VAdminProto.ROStoreVersionMap.Builder storeResponse = VAdminProto.ROStoreVersionMap.newBuilder();
 
         try {
-            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                   storeName);
-            File storeDirPath = new File(store.getStoreDirPath());
+            for(String storeName: storeNames) {
 
-            if(!storeDirPath.exists())
-                throw new VoldemortException("Unable to locate the directory of the read-only store "
-                                             + storeName);
+                ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                       storeName);
+                File storeDirPath = new File(store.getStoreDirPath());
 
-            File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDirPath);
-            File[] kthDir = ReadOnlyUtils.findKthVersionedDir(versionDirs,
-                                                              versionDirs.length - 1,
-                                                              versionDirs.length - 1);
+                if(!storeDirPath.exists())
+                    throw new VoldemortException("Unable to locate the directory of the read-only store "
+                                                 + storeName);
 
-            response.setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]));
+                File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDirPath);
+                File[] kthDir = ReadOnlyUtils.findKthVersionedDir(versionDirs,
+                                                                  versionDirs.length - 1,
+                                                                  versionDirs.length - 1);
+
+                storeResponse.setStoreName(storeName)
+                             .setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]));
+
+                response.addRoStoreVersions(storeResponse.build());
+            }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleGetROMaxVersion failed for request(" + request.toString() + ")", e);
@@ -288,12 +298,20 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
+            Map<String, Long> storeToVersion = Maps.newHashMap();
+            for(ROStoreVersionMap currentStore: request.getRoStoreVersionsList()) {
+                storeToVersion.put(currentStore.getStoreName(), currentStore.getPushVersion());
+            }
+
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
                                                                                      request.getDeletePartitionsList(),
+                                                                                     request.getStealMasterPartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
-                                                                                     request.getAttempt());
+                                                                                     request.getAttempt(),
+                                                                                     storeToVersion,
+                                                                                     request.getDeleteAfterRebalance());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
 

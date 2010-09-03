@@ -17,7 +17,6 @@
 package voldemort.client;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -494,9 +493,11 @@ public class AdminServiceBasicTest extends TestCase {
         RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
                                                                         0,
                                                                         rebalancePartitionList,
-                                                                        new ArrayList<Integer>(0),
+                                                                        rebalancePartitionList,
+                                                                        rebalancePartitionList,
                                                                         Arrays.asList(testStoreName),
-                                                                        0);
+                                                                        0,
+                                                                        true);
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
 

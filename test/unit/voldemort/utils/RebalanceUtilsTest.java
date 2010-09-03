@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -60,8 +61,8 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
+                                                                      new HashMap<String, Long>(),
                                                                       false);
-        int[][] stealList = { {}, { 2, 3 } };
 
         // the rebalancing plan should have exactly 1 node
         assertEquals("There should have exactly one rebalancing node",
@@ -73,10 +74,12 @@ public class RebalanceUtilsTest extends TestCase {
                          rebalanceNodeInfo.getRebalanceTaskList().size());
             RebalancePartitionsInfo expected = new RebalancePartitionsInfo(rebalanceNodeInfo.getStealerNode(),
                                                                            0,
-                                                                           listFromArray(stealList[rebalanceNodeInfo.getStealerNode()]),
-                                                                           new ArrayList<Integer>(0),
+                                                                           Arrays.asList(2, 3),
+                                                                           Arrays.asList(2, 3),
+                                                                           Arrays.asList(2, 3),
                                                                            RebalanceUtils.getStoreNames(storeDefList),
-                                                                           0);
+                                                                           0,
+                                                                           false);
 
             assertEquals("rebalanceStealInfo should match",
                          expected.toJsonString(),
@@ -94,7 +97,8 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      false);
+                                                                      new HashMap<String, Long>(),
+                                                                      true);
 
         // the rebalancing plan should have exactly 1 node
         assertEquals("There should have exactly one rebalancing node",
@@ -108,15 +112,19 @@ public class RebalanceUtilsTest extends TestCase {
         RebalancePartitionsInfo stealInfo0 = new RebalancePartitionsInfo(3,
                                                                          0,
                                                                          Arrays.asList(0, 1),
-                                                                         new ArrayList<Integer>(0),
+                                                                         Arrays.asList(1),
+                                                                         Arrays.asList(1),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
-                                                                         0);
+                                                                         0,
+                                                                         true);
         RebalancePartitionsInfo stealInfo1 = new RebalancePartitionsInfo(3,
                                                                          1,
                                                                          Arrays.asList(4, 5),
-                                                                         new ArrayList<Integer>(0),
+                                                                         Arrays.asList(5),
+                                                                         Arrays.asList(5),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
-                                                                         0);
+                                                                         0,
+                                                                         true);
 
         checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(stealInfo0, stealInfo1));
     }
@@ -139,6 +147,10 @@ public class RebalanceUtilsTest extends TestCase {
                                  true,
                                  rebalanceInfo.getUnbalancedStoreList()
                                               .containsAll(nodeRebalanceInfo.getUnbalancedStoreList()));
+                    assertEquals("steal master partitions should match",
+                                 true,
+                                 rebalanceInfo.getStealMasterPartitions()
+                                              .containsAll(nodeRebalanceInfo.getStealMasterPartitions()));
                     match = true;
                 }
             }
@@ -157,27 +169,20 @@ public class RebalanceUtilsTest extends TestCase {
         assertEquals("updated cluster should match targetCluster", updatedCluster, targetCluster);
     }
 
-    private List<Integer> listFromArray(int[] array) {
-        List<Integer> list = new ArrayList<Integer>();
-        for(int x: array) {
-            list.add(x);
-        }
-
-        return list;
-    }
-
     public void testRebalanceStealInfo() {
         RebalancePartitionsInfo info = new RebalancePartitionsInfo(0,
                                                                    1,
                                                                    Arrays.asList(1, 2, 3, 4),
+                                                                   Arrays.asList(1, 2, 3, 4),
                                                                    new ArrayList<Integer>(0),
                                                                    Arrays.asList("test1", "test2"),
-                                                                   0);
+                                                                   0,
+                                                                   true);
         System.out.println("info:" + info.toString());
 
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
                      (RebalancePartitionsInfo.create(info.toJsonString())).toString());
     }
-   
+
 }

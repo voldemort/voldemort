@@ -42,6 +42,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -65,6 +66,8 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -596,9 +599,10 @@ public class AdminClient {
      * in case of failure and start balancing all the stores in the list only.
      * 
      * @param stealInfo
-     * @return
+     * @return The request id of the async operation
      */
     public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
+        List<ROStoreVersionMap> readOnlyStoreVersionsList = decodeROStoreVersionMap(stealInfo.getReadOnlyStoreVersions());
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
                                                                                                                 .setAttempt(stealInfo.getAttempt())
                                                                                                                 .setDonorId(stealInfo.getDonorId())
@@ -606,6 +610,9 @@ public class AdminClient {
                                                                                                                 .addAllPartitions(stealInfo.getPartitionList())
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
                                                                                                                 .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+                                                                                                                .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
+                                                                                                                .addAllRoStoreVersions(readOnlyStoreVersionsList)
+                                                                                                                .setDeleteAfterRebalance(stealInfo.getDeleteAfterRebalance())
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -1288,12 +1295,12 @@ public class AdminClient {
      * currently
      * 
      * @param nodeId The id of the node on which the store is present
-     * @param storeName The name of the read-only store
-     * @return The max push version
+     * @param storeNames List of all the
+     * @return Returns a map of store name to the respective max version number
      */
-    public long getROMaxVersion(int nodeId, String storeName) {
+    public Map<String, Long> getROMaxVersion(int nodeId, List<String> storeNames) {
         VAdminProto.GetROMaxVersionRequest.Builder getROMaxVersionRequest = VAdminProto.GetROMaxVersionRequest.newBuilder()
-                                                                                                              .setStoreName(storeName);
+                                                                                                              .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setGetRoMaxVersion(getROMaxVersionRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION)
@@ -1305,25 +1312,58 @@ public class AdminClient {
             throwException(response.getError());
         }
 
-        return response.getPushVersion();
+        // generate map of store-name to max version
+        Map<String, Long> storeToVersion = encodeROStoreVersionMap(response.getRoStoreVersionsList());
+
+        if(storeToVersion.size() != storeNames.size()) {
+            storeNames.removeAll(storeToVersion.keySet());
+            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
+        }
+        return storeToVersion;
+    }
+
+    private List<ROStoreVersionMap> decodeROStoreVersionMap(Map<String, Long> storeVersionMap) {
+        List<ROStoreVersionMap> storeToVersion = Lists.newArrayList();
+        ROStoreVersionMap.Builder builder = ROStoreVersionMap.newBuilder();
+        for(Entry<String, Long> currentValue: storeVersionMap.entrySet()) {
+            builder.setStoreName(currentValue.getKey()).setPushVersion(currentValue.getValue());
+            storeToVersion.add(builder.build());
+        }
+        return storeToVersion;
+    }
+
+    private Map<String, Long> encodeROStoreVersionMap(List<ROStoreVersionMap> storeVersionMap) {
+        Map<String, Long> storeToVersion = Maps.newHashMap();
+        for(ROStoreVersionMap currentStore: storeVersionMap) {
+            storeToVersion.put(currentStore.getStoreName(), currentStore.getPushVersion());
+        }
+        return storeToVersion;
     }
 
     /**
-     * This is a wrapper around {@link AdminClient#getMaxVersion(int, String)}
+     * This is a wrapper around
+     * {@link voldemort.client.protocol.admin.AdminClient#getROMaxVersion(int, List)}
      * where-in we find the max versions on each machine and then return the max
      * of all of them
      * 
-     * @param storeName The name of the read-only store
-     * @return The global max push version
+     * @param storeName List of all read-only stores
+     * @return A map of store-name to their corresponding max version id
      */
-    public long getROGlobalMaxVersion(String storeName) {
-        long maxVersionId = 0L;
+    public Map<String, Long> getROGlobalMaxVersion(List<String> storeNames) {
+        Map<String, Long> storeToMaxVersion = Maps.newHashMapWithExpectedSize(storeNames.size());
+        for(String storeName: storeNames) {
+            storeToMaxVersion.put(storeName, 0L);
+        }
+
         for(Node node: currentCluster.getNodes()) {
-            long currentNodeVersion = getROMaxVersion(node.getId(), storeName);
-            if(currentNodeVersion > maxVersionId) {
-                maxVersionId = currentNodeVersion;
+            Map<String, Long> currentNodeVersions = getROMaxVersion(node.getId(), storeNames);
+            for(String storeName: currentNodeVersions.keySet()) {
+                Long maxVersion = storeToMaxVersion.get(storeName);
+                if(maxVersion != null && maxVersion < currentNodeVersions.get(storeName)) {
+                    storeToMaxVersion.put(storeName, currentNodeVersions.get(storeName));
+                }
             }
         }
-        return maxVersionId;
+        return storeToMaxVersion;
     }
 }
