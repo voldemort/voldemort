@@ -154,7 +154,7 @@ public class PerformParallelPutRequests extends
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-            store.submitPutRequest(key, versionedCopy, callback);
+            store.submitPutRequest(key, versionedCopy, callback, timeoutMs);
         }
 
         try {

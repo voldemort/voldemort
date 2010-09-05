@@ -131,14 +131,6 @@ public class PipelineRoutedStore extends RoutedStore {
 
         final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
 
-        NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
-
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitGetRequest(key, callback);
-            }
-
-        };
-
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
             public List<Versioned<byte[]>> request(Store<ByteArray, byte[]> store) {
@@ -158,7 +150,7 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                                  repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                             : Event.COMPLETED,
+                                                                                                                                            : Event.COMPLETED,
                                                                                                                                  key,
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
@@ -166,7 +158,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  timeoutMs,
                                                                                                                                  nonblockingStores,
                                                                                                                                  null,
-                                                                                                                                 nonblockingStoreRequest,
                                                                                                                                  null,
                                                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                                                  Event.INSUFFICIENT_ZONES));
@@ -187,6 +178,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new ReadRepair<BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                Event.COMPLETED,
                                                                                                storeDef.getPreferredReads(),
+                                                                                               timeoutMs,
                                                                                                nonblockingStores,
                                                                                                readRepairer));
 
@@ -259,6 +251,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new GetAllReadRepair(pipelineData,
                                                          Event.COMPLETED,
                                                          storeDef.getPreferredReads(),
+                                                         timeoutMs,
                                                          nonblockingStores,
                                                          readRepairer));
 
@@ -279,17 +272,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
             pipelineData.setZonesRequired(null);
-        final Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS,
-                                               timeoutMs,
-                                               TimeUnit.MILLISECONDS);
-
-        NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
-
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitGetVersionsRequest(key, callback);
-            }
-
-        };
+        Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS, timeoutMs, TimeUnit.MILLISECONDS);
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
@@ -309,7 +292,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                              timeoutMs,
                                                                                                              nonblockingStores,
                                                                                                              null,
-                                                                                                             storeRequest,
                                                                                                              null,
                                                                                                              null,
                                                                                                              null));
@@ -337,22 +319,13 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStoreName(name);
-        final Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = new HintedHandoff(failureDetector,
                                                         slopStores,
                                                         handoffStrategy,
                                                         pipelineData.getFailedNodes());
-
-        NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
-
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitDeleteRequest(key, version, callback);
-            }
-
-        };
-
         StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
             public Boolean request(Store<ByteArray, byte[]> store) {
@@ -381,7 +354,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                  timeoutMs,
                                                                                                  nonblockingStores,
                                                                                                  hintedHandoff,
-                                                                                                 nonblockingDelete,
                                                                                                  version,
                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                  Event.INSUFFICIENT_ZONES));

@@ -22,6 +22,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -290,8 +291,15 @@ public class ClientRequestExecutorFactory implements
                 if(logger.isEnabledFor(Level.ERROR))
                     logger.error(e.getMessage(), e);
             }
-        }
 
+            Iterator<SelectionKey> i = selector.keys().iterator();
+
+            while(i.hasNext()) {
+                SelectionKey selectionKey = i.next();
+                ClientRequestExecutor clientRequestExecutor = (ClientRequestExecutor) selectionKey.attachment();
+                clientRequestExecutor.checkTimeout(selectionKey);
+            }
+        }
     }
 
 }

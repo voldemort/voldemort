@@ -61,19 +61,25 @@ import voldemort.versioning.Versioned;
 
 public interface NonblockingStore {
 
-    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback);
+    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback, long timeoutMs);
 
-    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback);
+    public void submitGetAllRequest(Iterable<ByteArray> keys,
+                                    NonblockingStoreCallback callback,
+                                    long timeoutMs);
 
-    public void submitGetVersionsRequest(ByteArray key, NonblockingStoreCallback callback);
+    public void submitGetVersionsRequest(ByteArray key,
+                                         NonblockingStoreCallback callback,
+                                         long timeoutMs);
 
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
-                                 NonblockingStoreCallback callback);
+                                 NonblockingStoreCallback callback,
+                                 long timeoutMs);
 
     public void submitDeleteRequest(ByteArray key,
                                     Version version,
-                                    NonblockingStoreCallback callback);
+                                    NonblockingStoreCallback callback,
+                                    long timeoutMs);
 
     public void close() throws VoldemortException;
 

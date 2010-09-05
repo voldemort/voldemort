@@ -67,16 +67,19 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
     private final RequestFormatFactory requestFormatFactory = new RequestFormatFactory();
 
     private final String storeName;
+    private final long timeoutMs;
     private final ClientRequestExecutorPool pool;
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
     private final RequestRoutingType requestRoutingType;
 
     public SocketStore(String storeName,
+                       long timeoutMs,
                        SocketDestination dest,
                        ClientRequestExecutorPool pool,
                        RequestRoutingType requestRoutingType) {
         this.storeName = Utils.notNull(storeName);
+        this.timeoutMs = timeoutMs;
         this.pool = Utils.notNull(pool);
         this.destination = dest;
         this.requestFormat = requestFormatFactory.getRequestFormat(dest.getRequestFormatType());
@@ -85,53 +88,59 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
     public void submitDeleteRequest(ByteArray key,
                                     Version version,
-                                    NonblockingStoreCallback callback) {
+                                    NonblockingStoreCallback callback,
+                                    long timeoutMs) {
         StoreUtils.assertValidKey(key);
         DeleteClientRequest clientRequest = new DeleteClientRequest(storeName,
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     key,
                                                                     version);
-        requestAsync(clientRequest, callback);
+        requestAsync(clientRequest, callback, timeoutMs);
     }
 
-    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback) {
+    public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback, long timeoutMs) {
         StoreUtils.assertValidKey(key);
         GetClientRequest clientRequest = new GetClientRequest(storeName,
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key);
-        requestAsync(clientRequest, callback);
+        requestAsync(clientRequest, callback, timeoutMs);
     }
 
-    public void submitGetAllRequest(Iterable<ByteArray> keys, NonblockingStoreCallback callback) {
+    public void submitGetAllRequest(Iterable<ByteArray> keys,
+                                    NonblockingStoreCallback callback,
+                                    long timeoutMs) {
         StoreUtils.assertValidKeys(keys);
         GetAllClientRequest clientRequest = new GetAllClientRequest(storeName,
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys);
-        requestAsync(clientRequest, callback);
+        requestAsync(clientRequest, callback, timeoutMs);
     }
 
-    public void submitGetVersionsRequest(ByteArray key, NonblockingStoreCallback callback) {
+    public void submitGetVersionsRequest(ByteArray key,
+                                         NonblockingStoreCallback callback,
+                                         long timeoutMs) {
         StoreUtils.assertValidKey(key);
         GetVersionsClientRequest clientRequest = new GetVersionsClientRequest(storeName,
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
-        requestAsync(clientRequest, callback);
+        requestAsync(clientRequest, callback, timeoutMs);
     }
 
     public void submitPutRequest(ByteArray key,
                                  Versioned<byte[]> value,
-                                 NonblockingStoreCallback callback) {
+                                 NonblockingStoreCallback callback,
+                                 long timeoutMs) {
         StoreUtils.assertValidKey(key);
         PutClientRequest clientRequest = new PutClientRequest(storeName,
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key,
                                                               value);
-        requestAsync(clientRequest, callback);
+        requestAsync(clientRequest, callback, timeoutMs);
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
@@ -217,7 +226,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
         try {
             BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate);
-            clientRequestExecutor.addClientRequest(blockingClientRequest);
+            clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
         } catch(InterruptedException e) {
@@ -247,12 +256,14 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
      * @return Data returned by the individual requests
      */
 
-    private <T> void requestAsync(ClientRequest<T> delegate, NonblockingStoreCallback callback) {
+    private <T> void requestAsync(ClientRequest<T> delegate,
+                                  NonblockingStoreCallback callback,
+                                  long timeoutMs) {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
         NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(delegate,
                                                                                                               clientRequestExecutor,
                                                                                                               callback);
-        clientRequestExecutor.addClientRequest(clientRequest);
+        clientRequestExecutor.addClientRequest(clientRequest, timeoutMs);
     }
 
     private class NonblockingStoreCallbackClientRequest<T> implements ClientRequest<T> {

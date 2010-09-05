@@ -98,7 +98,7 @@ public class PerformParallelGetAllRequests
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-            store.submitGetAllRequest(keys, callback);
+            store.submitGetAllRequest(keys, callback, timeoutMs);
         }
 
         try {

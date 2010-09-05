@@ -90,6 +90,8 @@ import voldemort.VoldemortException;
 
 public class SelectorManager implements Runnable {
 
+    public static final int SELECTOR_POLL_MS = 500;
+
     protected final Selector selector;
 
     protected final AtomicBoolean isClosed;
@@ -170,7 +172,7 @@ public class SelectorManager implements Runnable {
                 processEvents();
 
                 try {
-                    int selected = selector.select();
+                    int selected = selector.select(SELECTOR_POLL_MS);
 
                     if(isClosed.get()) {
                         if(logger.isInfoEnabled())

@@ -29,16 +29,14 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
-import voldemort.store.Store;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.slop.HintedHandoff;
-import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
@@ -55,8 +53,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
     private final Map<Integer, NonblockingStore> nonblockingStores;
 
     private final FailureDetector failureDetector;
-
-    private final NonblockingStoreRequest storeRequest;
 
     private final Event insufficientSuccessesEvent;
 
@@ -77,7 +73,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                    long timeoutMs,
                                    Map<Integer, NonblockingStore> nonblockingStores,
                                    HintedHandoff hintedHandoff,
-                                   NonblockingStoreRequest storeRequest,
                                    Version version,
                                    Event insufficientSuccessesEvent,
                                    Event insufficientZonesEvent) {
@@ -87,7 +82,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.required = required;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
-        this.storeRequest = storeRequest;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
         this.insufficientZonesEvent = insufficientZonesEvent;
         this.enableHintedHandoff = hintedHandoff != null;
@@ -155,7 +149,17 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-            storeRequest.submit(node, store, callback);
+
+            if(pipeline.getOperation() == Operation.DELETE)
+                store.submitDeleteRequest(key, version, callback, timeoutMs);
+            else if(pipeline.getOperation() == Operation.GET)
+                store.submitGetRequest(key, callback, timeoutMs);
+            else if(pipeline.getOperation() == Operation.GET_VERSIONS)
+                store.submitGetVersionsRequest(key, callback, timeoutMs);
+            else
+                throw new IllegalStateException(getClass().getName()
+                                                + " does not support pipeline operation "
+                                                + pipeline.getOperation());
         }
 
         try {

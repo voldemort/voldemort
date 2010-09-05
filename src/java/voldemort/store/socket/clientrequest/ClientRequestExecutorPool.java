@@ -97,7 +97,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         SocketDestination dest = new SocketDestination(Utils.notNull(hostName),
                                                        port,
                                                        requestFormatType);
-        return new SocketStore(Utils.notNull(storeName), dest, this, requestRoutingType);
+        return new SocketStore(Utils.notNull(storeName),
+                               factory.getTimeout(),
+                               dest,
+                               this,
+                               requestRoutingType);
     }
 
     /**
