@@ -225,7 +225,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
 
         try {
-            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate);
+            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate, timeoutMs);
             clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();

@@ -136,7 +136,8 @@ public class ClientRequestExecutorFactory implements
         ClientRequestExecutor clientRequestExecutor = new ClientRequestExecutor(selector,
                                                                                 socketChannel,
                                                                                 socketBufferSize);
-        BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()));
+        BlockingClientRequest<String> clientRequest = new BlockingClientRequest<String>(new ProtocolNegotiatorClientRequest(dest.getRequestFormatType()),
+                                                                                        this.getTimeout());
         clientRequestExecutor.addClientRequest(clientRequest);
 
         selectorManager.registrationQueue.add(clientRequestExecutor);

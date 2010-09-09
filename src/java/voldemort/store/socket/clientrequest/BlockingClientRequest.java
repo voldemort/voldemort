@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 
@@ -39,8 +40,11 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
 
     private final CountDownLatch latch;
 
-    public BlockingClientRequest(ClientRequest<T> delegate) {
+    private final long timeoutMs;
+
+    public BlockingClientRequest(ClientRequest<T> delegate, long timeoutMs) {
         this.delegate = delegate;
+        this.timeoutMs = timeoutMs;
         latch = new CountDownLatch(1);
     }
 
@@ -54,7 +58,7 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
     }
 
     public void await() throws InterruptedException {
-        latch.await();
+        latch.await(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     public T getResult() throws VoldemortException, IOException {
