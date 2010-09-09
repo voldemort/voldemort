@@ -96,7 +96,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                                                                     requestRoutingType,
                                                                     key,
                                                                     version);
-        requestAsync(clientRequest, callback, timeoutMs);
+        requestAsync(clientRequest, callback, timeoutMs, "delete");
     }
 
     public void submitGetRequest(ByteArray key, NonblockingStoreCallback callback, long timeoutMs) {
@@ -105,7 +105,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                                                               requestFormat,
                                                               requestRoutingType,
                                                               key);
-        requestAsync(clientRequest, callback, timeoutMs);
+        requestAsync(clientRequest, callback, timeoutMs, "get");
     }
 
     public void submitGetAllRequest(Iterable<ByteArray> keys,
@@ -116,7 +116,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                                                                     requestFormat,
                                                                     requestRoutingType,
                                                                     keys);
-        requestAsync(clientRequest, callback, timeoutMs);
+        requestAsync(clientRequest, callback, timeoutMs, "get all");
     }
 
     public void submitGetVersionsRequest(ByteArray key,
@@ -127,7 +127,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                                                                               requestFormat,
                                                                               requestRoutingType,
                                                                               key);
-        requestAsync(clientRequest, callback, timeoutMs);
+        requestAsync(clientRequest, callback, timeoutMs, "get versions");
     }
 
     public void submitPutRequest(ByteArray key,
@@ -140,7 +140,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                                                               requestRoutingType,
                                                               key,
                                                               value);
-        requestAsync(clientRequest, callback, timeoutMs);
+        requestAsync(clientRequest, callback, timeoutMs, "put");
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
@@ -258,8 +258,26 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
 
     private <T> void requestAsync(ClientRequest<T> delegate,
                                   NonblockingStoreCallback callback,
-                                  long timeoutMs) {
-        ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
+                                  long timeoutMs,
+                                  String operationName) {
+        ClientRequestExecutor clientRequestExecutor = null;
+
+        try {
+            clientRequestExecutor = pool.checkout(destination);
+        } catch(Exception e) {
+            // If we can't check out a socket from the pool, we'll usually get
+            // either an IOException (subclass) or an UnreachableStoreException
+            // error. However, in the case of asynchronous calls, we want the
+            // error to be reported via our callback, not returned to the caller
+            // directly.
+            if(!(e instanceof UnreachableStoreException))
+                e = new UnreachableStoreException("Failure in " + operationName + ": "
+                                                  + e.getMessage(), e);
+
+            callback.requestComplete(e, 0);
+            return;
+        }
+
         NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(delegate,
                                                                                                               clientRequestExecutor,
                                                                                                               callback);

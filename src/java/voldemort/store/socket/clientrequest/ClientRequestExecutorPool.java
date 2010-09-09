@@ -68,6 +68,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
         this.factory = new ClientRequestExecutorFactory(selectors,
+                                                        connectionTimeoutMs,
                                                         soTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive);

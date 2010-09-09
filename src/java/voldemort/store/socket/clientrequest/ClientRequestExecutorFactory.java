@@ -16,6 +16,7 @@
 
 package voldemort.store.socket.clientrequest;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
@@ -47,6 +48,7 @@ public class ClientRequestExecutorFactory implements
         ResourceFactory<SocketDestination, ClientRequestExecutor> {
 
     private static final int SHUTDOWN_TIMEOUT_MS = 15000;
+    private final int connectTimeoutMs;
     private final int soTimeoutMs;
     private final int socketBufferSize;
     private final AtomicInteger created;
@@ -58,9 +60,11 @@ public class ClientRequestExecutorFactory implements
     private final Logger logger = Logger.getLogger(getClass());
 
     public ClientRequestExecutorFactory(int selectors,
+                                        int connectTimeoutMs,
                                         int soTimeoutMs,
                                         int socketBufferSize,
                                         boolean socketKeepAlive) {
+        this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
@@ -98,6 +102,13 @@ public class ClientRequestExecutorFactory implements
      */
 
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
+        int numCreated = created.incrementAndGet();
+
+        if(logger.isDebugEnabled())
+            logger.debug("Creating socket " + numCreated + " for " + dest.getHost() + ":"
+                         + dest.getPort() + " using protocol "
+                         + dest.getRequestFormatType().getCode());
+
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.socket().setReceiveBufferSize(this.socketBufferSize);
         socketChannel.socket().setSendBufferSize(this.socketBufferSize);
@@ -107,16 +118,36 @@ public class ClientRequestExecutorFactory implements
         socketChannel.configureBlocking(false);
         socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
-        // Since we're non-blocking and it takes a non-zero amount of time to
-        // connect, invoke finishConnect and loop.
+        long finishConnectTimeoutMs = System.currentTimeMillis() + connectTimeoutMs;
+
+        // Since we're non-blocking and it takes a non-zero amount of time
+        // to connect, invoke finishConnect and loop.
         while(!socketChannel.finishConnect()) {
+            long diff = finishConnectTimeoutMs - System.currentTimeMillis();
+
+            if(diff < 0)
+                throw new ConnectException("Cannot connect socket " + numCreated + " for "
+                                           + dest.getHost() + ":" + dest.getPort() + " after "
+                                           + connectTimeoutMs + " ms");
+
             if(logger.isTraceEnabled())
-                logger.trace("Still connecting to " + dest);
+                logger.trace("Still creating socket " + numCreated + " for " + dest.getHost() + ":"
+                             + dest.getPort() + ", " + diff + " ms. remaining to connect");
+
+            // Break up the connection timeout into chunks N/10 of the
+            // total.
+            try {
+                Thread.sleep(connectTimeoutMs / 10);
+            } catch(InterruptedException e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(e, e);
+            }
         }
 
-        int numCreated = created.incrementAndGet();
-        logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
-                     + dest.getPort() + " using protocol " + dest.getRequestFormatType().getCode());
+        if(logger.isDebugEnabled())
+            logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
+                         + dest.getPort() + " using protocol "
+                         + dest.getRequestFormatType().getCode());
 
         // check buffer sizes--you often don't get out what you put in!
         if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
@@ -293,12 +324,35 @@ public class ClientRequestExecutorFactory implements
                     logger.error(e.getMessage(), e);
             }
 
-            Iterator<SelectionKey> i = selector.keys().iterator();
+            // In blocking I/O, the higher level code can interrupt the thread
+            // if a timeout has been exceeded, triggering an IOException and
+            // stopping the read/write. However, for our asynchronous I/O, we
+            // don't have any threads blocking on I/O. So we resort to polling
+            // to check if the timeout has been exceeded. So loop over all of
+            // the keys that are registered and call checkTimeout. (That method
+            // will handle the canceling of the SelectionKey if need be.)
+            try {
+                Iterator<SelectionKey> i = selector.keys().iterator();
 
-            while(i.hasNext()) {
-                SelectionKey selectionKey = i.next();
-                ClientRequestExecutor clientRequestExecutor = (ClientRequestExecutor) selectionKey.attachment();
-                clientRequestExecutor.checkTimeout(selectionKey);
+                while(i.hasNext()) {
+                    SelectionKey selectionKey = i.next();
+                    ClientRequestExecutor clientRequestExecutor = (ClientRequestExecutor) selectionKey.attachment();
+
+                    // A race condition can occur wherein our SelectionKey is
+                    // still registered but the attachment has be nulled out on
+                    // its way to being canceled.
+                    if(clientRequestExecutor != null) {
+                        try {
+                            clientRequestExecutor.checkTimeout(selectionKey);
+                        } catch(Exception e) {
+                            if(logger.isEnabledFor(Level.ERROR))
+                                logger.error(e.getMessage(), e);
+                        }
+                    }
+                }
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.ERROR))
+                    logger.error(e.getMessage(), e);
             }
         }
     }
