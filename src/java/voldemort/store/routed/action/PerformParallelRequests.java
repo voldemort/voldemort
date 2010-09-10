@@ -122,21 +122,15 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            requestTime);
                     responses.put(node.getId(), response);
                     if(isHintedHandoffEnabled() && Pipeline.Operation.DELETE.equals(pipeline.getOperation())) {
-                        if(latch.getCount() == 0) {
-                            if(response.getValue() instanceof Exception) {
-                                Slop slop = new Slop(pipelineData.getStoreName(),
-                                                     Slop.Operation.DELETE,
-                                                     key,
-                                                     null,
-                                                     node.getId(),
-                                                     new Date());
-                                pipelineData.getFailedNodes().add(node);
-                                hintedHandoff.sendHint(node,
-                                                       version,
-                                                       slop);
-                                
-                                
-                            }
+                        if(response.getValue() instanceof Exception) {
+                            Slop slop = new Slop(pipelineData.getStoreName(),
+                                                 Slop.Operation.DELETE,
+                                                 key,
+                                                 null,
+                                                 node.getId(),
+                                                 new Date());
+                            pipelineData.addFailedNode(node);
+                            hintedHandoff.sendHint(node, version, slop);
                         }
                     }
                     latch.countDown();

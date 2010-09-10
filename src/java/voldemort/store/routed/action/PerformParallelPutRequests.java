@@ -122,20 +122,15 @@ public class PerformParallelPutRequests extends
                     responses.put(node.getId(), response);
 
                     if(isHintedHandoffEnabled()) {
-                        if (blocksLatch.getCount() == 0) {
-                            if(response.getValue() instanceof Exception) {
-                                Slop slop = new Slop(pipelineData.getStoreName(),
-                                                     Slop.Operation.PUT,
-                                                     key,
-                                                     versionedCopy.getValue(),
-                                                     node.getId(),
-                                                     new Date());
-                                pipelineData.getFailedNodes().add(node);
-                                hintedHandoff.sendHint(node,
-                                                                  versionedCopy.getVersion(),
-                                                                  slop);
-                                pipelineData.getFailedNodes().remove(node);
-                            }
+                        if(response.getValue() instanceof Exception) {
+                            Slop slop = new Slop(pipelineData.getStoreName(),
+                                                 Slop.Operation.PUT,
+                                                 key,
+                                                 versionedCopy.getValue(),
+                                                 node.getId(),
+                                                 new Date());
+                            pipelineData.addFailedNode(node);
+                            hintedHandoff.sendHint(node, versionedCopy.getVersion(), slop);
                         }
                     }
 
