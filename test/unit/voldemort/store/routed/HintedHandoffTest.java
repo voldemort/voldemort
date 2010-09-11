@@ -340,12 +340,16 @@ public class HintedHandoffTest {
             for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
                 Slop slop = entry.getValue().get(0).getValue();
                 keysInSlops.add(slop.getKey());
+
+                if(logger.isTraceEnabled())
+                    logger.trace(slop);
             }
         }
 
-        for(ByteArray failedKey: failedKeys) {
-            assertTrue("delete operation should be handed off", keysInSlops.contains(failedKey));
-        }
+        for(ByteArray failedKey: failedKeys)
+            assertTrue("delete operation for " + failedKey + " should be handed off",
+                       keysInSlops.contains(failedKey));
+
     }
 
     private Set<Integer> getFailedNodes() {

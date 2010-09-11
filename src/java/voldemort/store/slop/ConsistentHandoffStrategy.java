@@ -1,3 +1,19 @@
+/*
+ * Copyright 2010 LinkedIn, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.slop;
 
 import com.google.common.collect.Lists;
@@ -8,23 +24,29 @@ import voldemort.cluster.Node;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
+/**
+ * A strategy which hands a hint off to any one of N nodes adjacent to the
+ * failed node in the ring, the list of the N nodes being static
+ */
 public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
-
-    private final Random random;
 
     private final Map<Integer, List<Node>> routeToMap;
 
+    /**
+     * Creates a consistent handoff strategy instance
+     *
+     * @param cluster The cluster
+     * @param prefListSize The number of nodes adjacent to the failed node in the
+     *        that could be selected to receive given hint
+     */
     public ConsistentHandoffStrategy(Cluster cluster, int prefListSize) {
         int nodesInCluster = cluster.getNumberOfNodes();
         if(prefListSize > nodesInCluster - 1)
             throw new IllegalArgumentException("Preference list size must be less than " +
                                                "number of nodes in the cluster - 1");
         
-        this.random = new Random();
         this.routeToMap = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
-
         for(Node node: cluster.getNodes()) {
             List<Node> prefList = Lists.newArrayListWithCapacity(prefListSize);
             int i = node.getId();
@@ -42,7 +64,7 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
 
     public List<Node> routeHint(Node origin) {
         List<Node> prefList = Lists.newArrayList(routeToMap.get(origin.getId()));
-        Collections.shuffle(prefList, random);
+        Collections.shuffle(prefList);
         return prefList;
     }
 

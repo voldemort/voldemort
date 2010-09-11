@@ -30,6 +30,13 @@ import voldemort.versioning.Versioned;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Hinted handoff: if, when processing a pipeline for a given request, failures shall
+ * occur on specific nodes, the requests for these failed nodes should be queued up on other,
+ * currently available nodes. Semantics of the operation should not change i.e., if
+ * <code>requires-writes</code> are not met, the request should still be considered a
+ * failure.
+ */
 public class HintedHandoff {
 
     private static final Logger logger = Logger.getLogger(HintedHandoff.class);
@@ -42,6 +49,15 @@ public class HintedHandoff {
 
     private final List<Node> failedNodes;
 
+    /**
+     * Create a Hinted Handoff object
+     *
+     * @param failureDetector The failure detector
+     * @param slopStores A map of node ids to slop stores for these node ids
+     * @param handoffStrategy The {@link HintedHandoffStrategy} implementation
+     * @param failedNodes A list of nodes in the original preflist for the request
+     *        that have failed or are unavailable
+     */
     public HintedHandoff(FailureDetector failureDetector,
                          Map<Integer, Store<ByteArray, Slop>> slopStores,
                          HintedHandoffStrategy handoffStrategy,
@@ -52,7 +68,16 @@ public class HintedHandoff {
         this.failedNodes = failedNodes;
     }
 
-
+    /**
+     * Send a hint of a request originally meant for the failed node to
+     * another node in the ring, as selected by the {@link HintedHandoffStrategy}
+     * implementation passed in the constructor
+     *
+     * @param failedNode The node the request was originally meant for
+     * @param version The version of the request's object
+     * @param slop The hint
+     * @return True if persisted on another node, false otherwise
+     */
     public boolean sendHint(Node failedNode, Version version, Slop slop) {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {

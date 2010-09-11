@@ -16,22 +16,17 @@
 
 package voldemort.store.routed.action;
 
-import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.slop.HintedHandoff;
-import voldemort.store.slop.HintedHandoffStrategy;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 
 import java.util.Date;
-import java.util.Map;
 
 public class PerformDeleteHintedHandoff
                extends AbstractHintedHandoffAction<Boolean, BasicPipelineData<Boolean>> {
@@ -68,7 +63,7 @@ public class PerformDeleteHintedHandoff
             Exception e = pipelineData.getFatalError();
             if(e != null) {
                 if(persisted)
-                 pipelineData.setFatalError(new UnreachableStoreException("Delete operation failed on node "
+                    pipelineData.setFatalError(new UnreachableStoreException("Delete operation failed on node "
                                                                              + failedNodeId
                                                                              + ", but has been persisted to slop storage for eventual replication.",
                                                                              e));
