@@ -90,6 +90,8 @@ public class Pipeline {
 
     private volatile boolean enableHintedHandoff = false;
 
+    private volatile boolean finished = false;
+
     /**
      * 
      * @param operation
@@ -152,6 +154,10 @@ public class Pipeline {
         this.enableHintedHandoff = enableHintedHandoff;
     }
 
+    public boolean isFinished() {
+        return finished;
+    }
+
     /**
      * Process events in the order as they were received.
      * 
@@ -200,6 +206,7 @@ public class Pipeline {
 
             action.execute(this);
         }
+        finished = true;
     }
 
 }

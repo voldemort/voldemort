@@ -121,8 +121,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            result,
                                                                                            requestTime);
                     responses.put(node.getId(), response);
-                    if(isHintedHandoffEnabled() && (Pipeline.Operation.DELETE == pipeline.getOperation())) {
-                        if(response.getValue() instanceof Exception) {
+                    if(Pipeline.Operation.DELETE == pipeline.getOperation() && pipeline.isFinished()) {
+                        if(isHintedHandoffEnabled() && response.getValue() instanceof Exception) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
                                                  Slop.Operation.DELETE,
                                                  key,

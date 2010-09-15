@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -414,7 +415,6 @@ public class PipelineRoutedStore extends RoutedStore {
 
     public void put(ByteArray key, Versioned<byte[]> versioned) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-
         PutPipelineData pipelineData = new PutPipelineData();
         if(zoneRoutingEnabled)
             pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
