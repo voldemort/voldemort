@@ -18,10 +18,17 @@ package voldemort.scheduled;
 
 import static voldemort.TestUtils.bytesEqual;
 
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
+import com.google.common.collect.Lists;
 import junit.framework.TestCase;
 import voldemort.TestUtils;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.store.FailingStore;
@@ -50,8 +57,16 @@ public class SlopPusherTest extends TestCase {
         repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[]>(STORE_NAME));
         repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[]>(STORE_NAME));
         this.failingNodeId = 2;
+
         repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[]>(STORE_NAME));
-        pusher = new SlopPusherJob(repo);
+        pusher = new SlopPusherJob(repo, makeCluster(3), new NoopFailureDetector());
+    }
+
+    private Cluster makeCluster(int numNodes) {
+        List<Node> nodes = Lists.newArrayList();
+        for(int i=0; i < numNodes; i++)
+            nodes.add(new Node(i, Integer.toString(i), 1234, 1235, 1236, Arrays.asList(i)));
+        return new Cluster("cluster", nodes);
     }
 
     private Versioned<Slop> randomSlop(String name, int nodeId) {

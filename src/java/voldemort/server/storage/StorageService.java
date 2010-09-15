@@ -192,7 +192,7 @@ public class StorageService extends AbstractService {
                                                                        new ByteArraySerializer(),
                                                                        new SlopSerializer()));
             
-            scheduler.schedule(new SlopPusherJob(storeRepository),
+            scheduler.schedule(new SlopPusherJob(storeRepository, metadata.getCluster(), failureDetector),
                                new Date(),
                                voldemortConfig.getSlopFrequencyMs());
         }

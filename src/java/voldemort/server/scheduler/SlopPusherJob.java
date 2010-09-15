@@ -19,14 +19,19 @@ package voldemort.server.scheduler;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
@@ -41,9 +46,13 @@ public class SlopPusherJob implements Runnable {
     private static final Logger logger = Logger.getLogger(SlopPusherJob.class.getName());
 
     private final StoreRepository storeRepo;
+    private final Cluster cluster;
+    private final FailureDetector failureDetector;
 
-    public SlopPusherJob(StoreRepository storeRepo) {
+    public SlopPusherJob(StoreRepository storeRepo, Cluster cluster, FailureDetector failureDetector) {
         this.storeRepo = storeRepo;
+        this.cluster = cluster;
+        this.failureDetector = failureDetector;
     }
 
     /**
@@ -67,21 +76,28 @@ public class SlopPusherJob implements Runnable {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
-                    Store<ByteArray, byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
-                                                                            slop.getNodeId());
-                    try {
-                        if(slop.getOperation() == Operation.PUT)
-                            store.put(slop.getKey(),
-                                      new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
-                        else if(slop.getOperation() == Operation.DELETE)
-                            store.delete(slop.getKey(), versioned.getVersion());
-                        else
-                            logger.error("Unknown slop operation: " + slop.getOperation());
-                        slopStore.delete(slop.makeKey(), versioned.getVersion());
-                        slopsPushed++;
-                    } catch(ObsoleteVersionException e) {
-                        // okay it is old, just delete it
-                        slopStore.delete(slop.makeKey(), versioned.getVersion());
+                    Node node = cluster.getNodeById(slop.getNodeId());
+                    if(failureDetector.isAvailable(node)) {
+                        Store<ByteArray, byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
+                                                                                node.getId());
+                        Long startNs = System.nanoTime();
+                        try {
+                            if(slop.getOperation() == Operation.PUT)
+                                store.put(slop.getKey(),
+                                          new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
+                            else if(slop.getOperation() == Operation.DELETE)
+                                store.delete(slop.getKey(), versioned.getVersion());
+                            else
+                                logger.error("Unknown slop operation: " + slop.getOperation());
+                            failureDetector.recordSuccess(node, deltaMs(startNs));
+                            slopStore.delete(slop.makeKey(), versioned.getVersion());
+                            slopsPushed++;
+                        } catch(ObsoleteVersionException e) {
+                            // okay it is old, just delete it
+                            slopStore.delete(slop.makeKey(), versioned.getVersion());
+                        } catch(UnreachableStoreException e) {
+                            failureDetector.recordException(node, deltaMs(startNs), e);
+                        }
                     }
                 } catch(Exception e) {
                     logger.error(e);
@@ -103,6 +119,10 @@ public class SlopPusherJob implements Runnable {
         logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
+    }
+
+    private long deltaMs(Long startNs) {
+        return (System.nanoTime() - startNs) / Time.NS_PER_MS;
     }
 
 }
