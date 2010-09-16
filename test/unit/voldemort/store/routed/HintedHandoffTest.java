@@ -149,11 +149,7 @@ public class HintedHandoffTest {
                                RoutingStrategyType.CONSISTENT_STRATEGY);
         Random rand = new Random();
         for(Node node : cluster.getNodes()) {
-            VoldemortException e;
-            if(rand.nextBoolean())
-                e = new VoldemortException("Operation failed");
-            else
-                e = new UnreachableStoreException("Node down");
+            VoldemortException e = new UnreachableStoreException("Node down");
 
             InMemoryStorageEngine<ByteArray, byte[]> storageEngine = new InMemoryStorageEngine<ByteArray, byte[]>(STORE_NAME);
             LoggingStore<ByteArray, byte[]> loggingStore = new LoggingStore<ByteArray, byte[]>(storageEngine);

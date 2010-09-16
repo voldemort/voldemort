@@ -61,9 +61,8 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
             logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
                         + node.getId() + "(" + node.getHost() + ")", e);
         
-        pipelineData.addFailedNode(node);
-
         if(e instanceof UnreachableStoreException) {
+            pipelineData.addFailedNode(node);
             pipelineData.recordFailure(e);
             failureDetector.recordException(node, requestTime, (UnreachableStoreException) e);
         } else if(e instanceof VoldemortApplicationException) {

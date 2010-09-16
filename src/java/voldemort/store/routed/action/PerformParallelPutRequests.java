@@ -30,6 +30,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.slop.HintedHandoff;
@@ -122,7 +123,7 @@ public class PerformParallelPutRequests extends
                     responses.put(node.getId(), response);
 
                     if(isHintedHandoffEnabled() && pipeline.isFinished()) {
-                        if(response.getValue() instanceof Exception) {
+                        if(response.getValue() instanceof UnreachableStoreException) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
                                                  Slop.Operation.PUT,
                                                  key,

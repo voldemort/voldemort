@@ -39,12 +39,12 @@ public class HandoffToAllStrategy implements HintedHandoffStrategy {
     }
 
     public List<Node> routeHint(Node origin) {
-        Collections.shuffle(nodes);
         List<Node> prefList = Lists.newArrayListWithCapacity(nodes.size());
         for(Node node: nodes) {
             if(node.getId() != origin.getId())
                 prefList.add(node);
         }
+        Collections.shuffle(prefList);
         return prefList;
     }
 

@@ -29,6 +29,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
+import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
@@ -122,7 +123,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            requestTime);
                     responses.put(node.getId(), response);
                     if(Pipeline.Operation.DELETE == pipeline.getOperation() && pipeline.isFinished()) {
-                        if(isHintedHandoffEnabled() && response.getValue() instanceof Exception) {
+                        if(isHintedHandoffEnabled() && response.getValue() instanceof UnreachableStoreException) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
                                                  Slop.Operation.DELETE,
                                                  key,
