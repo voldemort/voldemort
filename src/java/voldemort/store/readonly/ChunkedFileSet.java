@@ -17,6 +17,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 
 /**
@@ -170,7 +171,8 @@ public class ChunkedFileSet {
         partitionList.retainAll(partitionIds);
         if(partitionList.size() != 1)
             throw new VoldemortException("Partition list returned is incorrect");
-        Integer chunkId = ReadOnlyUtils.chunk(key, partitionToNumChunks.get(partitionList.get(0)));
+        Integer chunkId = ReadOnlyUtils.chunk(ByteUtils.md5(key),
+                                              partitionToNumChunks.get(partitionList.get(0)));
         return partitionToChunkStart.get(partitionList.get(0)) + chunkId;
     }
 

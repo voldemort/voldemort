@@ -271,7 +271,7 @@ public class JsonStoreBuilder {
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
         for(KeyValuePair pair: sorter.sorted(iter)) {
             byte[] keyMd5 = pair.getKeyMd5();
-            List<Integer> partitionIds = this.routingStrategy.getPartitionList(keyMd5);
+            List<Integer> partitionIds = this.routingStrategy.getPartitionList(pair.getKey());
             for(Integer partitionId: partitionIds) {
                 int localChunkId = ReadOnlyUtils.chunk(keyMd5, numChunksPerPartition);
                 int chunk = localChunkId + partitionIdToChunkOffset[partitionId];

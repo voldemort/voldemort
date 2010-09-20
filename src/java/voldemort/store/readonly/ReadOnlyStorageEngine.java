@@ -380,10 +380,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     public List<Versioned<byte[]>> get(ByteArray key) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        byte[] keyMd5 = ByteUtils.md5(key.get());
-        int chunk = fileSet.getChunkForKey(keyMd5);
+        int chunk = fileSet.getChunkForKey(key.get());
         int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                              keyMd5,
+                                              ByteUtils.md5(key.get()),
                                               fileSet.getIndexFileSize(chunk));
         if(location >= 0) {
             byte[] value = readValue(chunk, location);
@@ -401,10 +400,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
             fileModificationLock.readLock().lock();
             List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
-                byte[] keyMd5 = ByteUtils.md5(key.get());
-                int chunk = fileSet.getChunkForKey(keyMd5);
+                int chunk = fileSet.getChunkForKey(key.get());
                 int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                                           keyMd5,
+                                                           ByteUtils.md5(key.get()),
                                                            fileSet.getIndexFileSize(chunk));
                 if(valueLocation >= 0)
                     keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
