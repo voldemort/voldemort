@@ -158,7 +158,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
         Map<Integer, Store<ByteArray, Slop>> slopStores = null;
-        if (config.isHintedHandoffEnabled())
+        if (config.isHintedHandoffEnabled() && storeDef.isHintedHandoffEnabled())
             slopStores = Maps.newHashMap();
 
         for(Node node: cluster.getNodes()) {

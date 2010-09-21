@@ -229,8 +229,10 @@ public class StoreDefinitionsMapper {
 
         String enableHintedHandoffStr = store.getChildText(HINTED_HANDOFF_ENABLE);
         boolean enableHintedHandoff = (null != enableHintedHandoffStr) && Boolean.parseBoolean(enableHintedHandoffStr);
-        String hintedHandoffStrategy = (null != store.getChildText(HINTED_HANDOFF_STRATEGY)) ? store.getChildText(HINTED_HANDOFF_STRATEGY)
-                                                                                             : HintedHandoffStrategyType.TO_ALL_STRATEGY;
+        String hintedHandoffStrategy = null;
+        if(enableHintedHandoff)
+            hintedHandoffStrategy = (null != store.getChildText(HINTED_HANDOFF_STRATEGY)) ? store.getChildText(HINTED_HANDOFF_STRATEGY)
+                                                                                          : HintedHandoffStrategyType.TO_ALL_STRATEGY;
         String hintPrefListSizeStr = store.getChildText(HINT_PREFLIST_SIZE);
         Integer hintPrefListSize = (null != hintPrefListSizeStr) ? Integer.parseInt(hintPrefListSizeStr)
                                                                  : null;
@@ -395,12 +397,14 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasZoneCountWrites())
             store.addContent(new Element(STORE_ZONE_COUNT_WRITES).setText(Integer.toString(storeDefinition.getZoneCountWrites())));
 
-        if(storeDefinition.isHintedHandoffEnabled())
+        if(storeDefinition.isHintedHandoffEnabled()) {
             store.addContent(new Element(HINTED_HANDOFF_ENABLE).setText(Boolean.toString(storeDefinition.isHintedHandoffEnabled())));
-        if(storeDefinition.hasHintedHandoffStrategyType())
-            store.addContent(new Element(HINTED_HANDOFF_STRATEGY).setText(storeDefinition.getHintedHandoffStrategyType()));
-        if(storeDefinition.hasHintPreflistSize())
-            store.addContent(new Element(HINT_PREFLIST_SIZE).setText(Integer.toString(storeDefinition.getHintPrefListSize())));
+            
+            if(storeDefinition.hasHintedHandoffStrategyType())
+                store.addContent(new Element(HINTED_HANDOFF_STRATEGY).setText(storeDefinition.getHintedHandoffStrategyType()));
+            if(storeDefinition.hasHintPreflistSize())
+                store.addContent(new Element(HINT_PREFLIST_SIZE).setText(Integer.toString(storeDefinition.getHintPrefListSize())));
+        }
 
         Element keySerializer = new Element(STORE_KEY_SERIALIZER_ELMT);
         addSerializer(keySerializer, storeDefinition.getKeySerializer());

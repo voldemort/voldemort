@@ -300,8 +300,8 @@ public class StoreDefinition implements Serializable {
                                 def.getZoneReplicationFactor() != null ? def.getZoneReplicationFactor()
                                                                             .getClass()
                                                                       : null)
-               && getZoneCountReads() == def.getZoneCountReads()
-               && getZoneCountWrites() == def.getZoneCountWrites()
+               && Objects.equal(getZoneCountReads(), def.getZoneCountReads())
+               && Objects.equal(getZoneCountWrites(), def.getZoneCountWrites())
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
                && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate())
                && Objects.equal(isHintedHandoffEnabled(), def.isHintedHandoffEnabled())
@@ -332,8 +332,8 @@ public class StoreDefinition implements Serializable {
                                 getRetentionDays(),
                                 getRetentionScanThrottleRate(),
                                 isHintedHandoffEnabled(),
-                                getHintedHandoffStrategyType(),
-                                getHintPrefListSize());
+                                hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType() : null,
+                                hasHintPreflistSize() ? getHintPrefListSize() : null);
     }
 
     @Override
