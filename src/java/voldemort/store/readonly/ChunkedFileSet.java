@@ -29,7 +29,7 @@ public class ChunkedFileSet {
 
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
-    private final int numChunks;
+    private final int numChunks, nodeId;
     private final File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
@@ -50,19 +50,8 @@ public class ChunkedFileSet {
         this.dataFiles = new ArrayList<FileChannel>();
         this.partitionToChunkStart = new HashMap<Integer, Integer>();
         this.partitionToNumChunks = new HashMap<Integer, Integer>();
-        this.routingStrategy = routingStrategy;
-
-        // generate partitions list
-        this.partitionIds = null;
-        for(Node node: routingStrategy.getNodes()) {
-            if(node.getId() == nodeId) {
-                this.partitionIds = new HashSet<Integer>();
-                this.partitionIds.addAll(node.getPartitionIds());
-                break;
-            }
-        }
-        if(this.partitionIds == null)
-            throw new VoldemortException("Could not open store since the node id could not be found");
+        this.nodeId = nodeId;
+        setRoutingStrategy(routingStrategy);
 
         int globalChunkId = 0;
         for(Integer partitionId: this.partitionIds) {
@@ -102,7 +91,6 @@ public class ChunkedFileSet {
                 /* Add the file channel for data */
                 dataFiles.add(openChannel(data));
                 indexFiles.add(mapFile(index));
-                System.out.println("INSIDE GLOBAL = " + globalChunkId + " => " + index.toString());
                 chunkId++;
                 globalChunkId++;
             }
@@ -115,6 +103,24 @@ public class ChunkedFileSet {
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
                      + " chunks.");
+    }
+
+    private void setRoutingStrategy(RoutingStrategy routingStrategy) {
+        synchronized(this.routingStrategy) {
+            this.routingStrategy = routingStrategy;
+
+            // generate partitions list
+            this.partitionIds = null;
+            for(Node node: routingStrategy.getNodes()) {
+                if(node.getId() == this.nodeId) {
+                    this.partitionIds = new HashSet<Integer>();
+                    this.partitionIds.addAll(node.getPartitionIds());
+                    break;
+                }
+            }
+            if(this.partitionIds == null)
+                throw new VoldemortException("Could not open store since the node id could not be found");
+        }
     }
 
     public void validateFileSizes(long indexLength, long dataLength) {

@@ -28,8 +28,8 @@ import com.google.common.collect.Multimap;
  * @param currentCluster The current cluster definition
  * @param targetCluster The target cluster definition
  * @param storeDefList The list of store definitions to rebalance
- * @param readOnlyStoreVersions A mapping of read-only stores to their
- *        respective max versions
+ * @param currentROStoreVersions A mapping of nodeId to map of store names to
+ *        version ids
  * @param deleteDonorPartition Delete the RW partition on the donor side after
  *        rebalance
  * 
@@ -38,16 +38,13 @@ public class RebalanceClusterPlan {
 
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
     private final List<StoreDefinition> storeDefList;
-    private final Map<String, Long> readOnlyStoreVersions;
 
     public RebalanceClusterPlan(Cluster currentCluster,
                                 Cluster targetCluster,
                                 List<StoreDefinition> storeDefList,
-                                Map<String, Long> readOnlyStoreVersions,
                                 boolean deleteDonorPartition) {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         this.storeDefList = storeDefList;
-        this.readOnlyStoreVersions = readOnlyStoreVersions;
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should not change !!");
@@ -106,9 +103,10 @@ public class RebalanceClusterPlan {
 
             if(masterPartitionsMap.containsKey(donorNode.getId())) {
                 stealPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
-                stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
                 // add one steal master partition
-                deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
+                stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
+                if(deleteDonorPartition)
+                    deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
             }
 
             if(replicationPartitionsMap.containsKey(donorNode.getId())) {
@@ -122,9 +120,7 @@ public class RebalanceClusterPlan {
                                                               new ArrayList<Integer>(deletePartitions),
                                                               new ArrayList<Integer>(stealMasterPartitions),
                                                               storeList,
-                                                              0,
-                                                              readOnlyStoreVersions,
-                                                              deleteDonorPartition));
+                                                              0));
             }
         }
 

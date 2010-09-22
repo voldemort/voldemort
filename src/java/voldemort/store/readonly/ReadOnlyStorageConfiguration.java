@@ -25,7 +25,6 @@ import java.util.Set;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
@@ -60,14 +59,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
             JmxUtils.unregisterMbean(server, name);
     }
 
-    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
-        this.routingStrategy = routingStrategy;
-    }
-
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
-        if(routingStrategy == null)
-            throw new VoldemortException("Routing strategy has not been defined. Cannot instantiate storage engine");
-
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
                                                                 this.searcher,
                                                                 this.routingStrategy,

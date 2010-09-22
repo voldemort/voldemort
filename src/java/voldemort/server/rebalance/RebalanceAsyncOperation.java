@@ -100,6 +100,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                         try {
                             rebalanceStore(storeName, adminClient, stealInfo);
 
+                            // TODO: Don't remove for RO
                             List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                             tempUnbalancedStoreList.remove(storeName);
                             stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
@@ -116,11 +117,12 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
             waitForShutdown();
 
+            // TODO: Finish state if all read-write are done, read-only requires
+            // another iteration
             if(stealInfo.getUnbalancedStoreList().isEmpty()) {
                 logger.info("Rebalancer: rebalance " + stealInfo + " completed successfully.");
-                // clean state only if
-                // successfull.
-                // operation, not all operations.
+                // clean state only if successful operation, not all
+                // operations.
                 metadataStore.cleanRebalancingState(stealInfo);
             } else {
                 throw new VoldemortRebalancingException("Failed to rebalance task " + stealInfo,
@@ -165,7 +167,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                .getType()
                                                .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-        List<Integer> partitionList;
+        List<Integer> partitionList = null;
         if(isReadOnlyStore) {
             partitionList = stealInfo.getStealMasterPartitions();
         } else {
@@ -185,8 +187,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         rebalanceStatusList.remove((Object) asyncId);
 
-        if(stealInfo.getDeletePartitionsList().size() > 0
-           && (isReadOnlyStore || stealInfo.getDeleteAfterRebalance())) {
+        if(stealInfo.getDeletePartitionsList().size() > 0 && !isReadOnlyStore) {
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
                                          stealInfo.getDeletePartitionsList(),

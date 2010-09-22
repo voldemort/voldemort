@@ -2,7 +2,6 @@ package voldemort.client.rebalance;
 
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,22 +20,6 @@ public class RebalancePartitionsInfo {
     private final List<Integer> deletePartitionsList;
     private List<String> unbalancedStoreList;
     private int attempt;
-    private Boolean deleteAfterRebalance;
-    private Map<String, Long> readOnlyStoreVersions;
-
-    /**
-     * TODO(MED) : We need to add stealMasterPartitions for issue#210. The core
-     * issue is we needed a way to differentiate between master partitions copy
-     * and partitions copy needed to satisfy replication constraints. (master
-     * partition ownership need to be changed and can be deleted from original
-     * node). <br>
-     * Currently we are using partitionList, deletePartitionsList and
-     * stealMasterPartitions to do it, We can do it in much better ways. This is
-     * currently being done to avoid changing wire protocol (admin) and
-     * this#toJsonString() code as this would make the new version incompatible
-     * with the last one, changing this#toJsonString() means you might need to
-     * clear .temp directories to start the server.
-     */
     private List<Integer> stealMasterPartitions;
 
     /**
@@ -51,10 +34,8 @@ public class RebalancePartitionsInfo {
      *        should be deleted
      * @param stealMasterPartitions : partitions for which we should change the
      *        ownership in cluster.
-     * @param unbalancedStoreList
-     * @param attempt
-     * @param deleteAfterRebalance : Delete the RW Store partition after
-     *        rebalance
+     * @param unbalancedStoreList : list of store names which need rebalancing
+     * @param attempt : attempt number
      */
     public RebalancePartitionsInfo(int stealerNodeId,
                                    int donorId,
@@ -62,48 +43,7 @@ public class RebalancePartitionsInfo {
                                    List<Integer> deletePartitionsList,
                                    List<Integer> stealMasterPartitions,
                                    List<String> unbalancedStoreList,
-                                   int attempt,
-                                   boolean deleteAfterRebalance) {
-        this(stealerNodeId,
-             donorId,
-             partitionList,
-             deletePartitionsList,
-             stealMasterPartitions,
-             unbalancedStoreList,
-             attempt,
-             new HashMap<String, Long>(),
-             deleteAfterRebalance);
-    }
-
-    /**
-     * Rebalance Partitions info maintains all information needed for
-     * rebalancing of one stealer node from one donor node.
-     * <p>
-     * 
-     * @param stealerNodeId
-     * @param donorId
-     * @param partitionList
-     * @param deletePartitionsList : selected list of partitions which only
-     *        should be deleted
-     * @param stealMasterPartitions : partitions for which we should change the
-     *        ownership in cluster.
-     * @param unbalancedStoreList
-     * @param attempt
-     * @param readOnlyStoreVersions : Map of read-only store names to their
-     *        version numbers
-     * @param deleteAfterRebalance : Delete the RW Store partition after
-     *        rebalance
-     */
-    public RebalancePartitionsInfo(int stealerNodeId,
-                                   int donorId,
-                                   List<Integer> partitionList,
-                                   List<Integer> deletePartitionsList,
-                                   List<Integer> stealMasterPartitions,
-                                   List<String> unbalancedStoreList,
-                                   int attempt,
-                                   Map<String, Long> readOnlyStoreVersions,
-                                   boolean deleteAfterRebalance) {
-        super();
+                                   int attempt) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.partitionList = partitionList;
@@ -111,8 +51,6 @@ public class RebalancePartitionsInfo {
         this.deletePartitionsList = deletePartitionsList;
         this.unbalancedStoreList = unbalancedStoreList;
         this.stealMasterPartitions = stealMasterPartitions;
-        this.readOnlyStoreVersions = readOnlyStoreVersions;
-        this.deleteAfterRebalance = deleteAfterRebalance;
     }
 
     public static RebalancePartitionsInfo create(String line) {
@@ -134,8 +72,6 @@ public class RebalancePartitionsInfo {
         int attempt = (Integer) map.get("attempt");
         List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
-        Map<String, Long> readOnlyStoreVersions = Utils.uncheckedCast(map.get("readOnlyStoreVersions"));
-        boolean deleteAfterRebalance = (Boolean) map.get("deleteAfterRebalance");
 
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
@@ -143,9 +79,7 @@ public class RebalancePartitionsInfo {
                                            deletePartitionsList,
                                            stealMasterPartitions,
                                            unbalancedStoreList,
-                                           attempt,
-                                           readOnlyStoreVersions,
-                                           deleteAfterRebalance);
+                                           attempt);
     }
 
     public List<Integer> getDeletePartitionsList() {
@@ -188,22 +122,6 @@ public class RebalancePartitionsInfo {
         this.stealMasterPartitions = stealMasterPartitions;
     }
 
-    public Boolean getDeleteAfterRebalance() {
-        return deleteAfterRebalance;
-    }
-
-    public void setDeleteAfterRebalance(Boolean deleteAfterRebalance) {
-        this.deleteAfterRebalance = deleteAfterRebalance;
-    }
-
-    public Map<String, Long> getReadOnlyStoreVersions() {
-        return this.readOnlyStoreVersions;
-    }
-
-    public void setReadOnlyStoreVersions(Map<String, Long> readOnlyStoreVersions) {
-        this.readOnlyStoreVersions = readOnlyStoreVersions;
-    }
-
     @Override
     public String toString() {
         return "RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId() + " partitions:"
@@ -230,8 +148,6 @@ public class RebalancePartitionsInfo {
                       .put("stealMasterPartitions", stealMasterPartitions)
                       .put("deletePartitionsList", deletePartitionsList)
                       .put("attempt", attempt)
-                      .put("readOnlyStoreVersions", readOnlyStoreVersions)
-                      .put("deleteAfterRebalance", deleteAfterRebalance)
                       .build();
     }
 
@@ -254,16 +170,11 @@ public class RebalancePartitionsInfo {
             return false;
         if(!partitionList.equals(that.partitionList))
             return false;
-        if(!deleteAfterRebalance.equals(that.deleteAfterRebalance))
-            return false;
         if(stealMasterPartitions != null ? !stealMasterPartitions.equals(that.stealMasterPartitions)
                                         : that.stealMasterPartitions != null)
             return false;
         if(unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList)
                                       : that.unbalancedStoreList != null)
-            return false;
-        if(readOnlyStoreVersions != null ? !readOnlyStoreVersions.equals(that.readOnlyStoreVersions)
-                                        : that.readOnlyStoreVersions != null)
             return false;
 
         return true;
@@ -275,13 +186,10 @@ public class RebalancePartitionsInfo {
         result = 31 * result + donorId;
         result = 31 * result + partitionList.hashCode();
         result = 31 * result + deletePartitionsList.hashCode();
-        result = 31 * result + deleteAfterRebalance.hashCode();
         result = 31 * result + (unbalancedStoreList != null ? unbalancedStoreList.hashCode() : 0);
         result = 31 * result + attempt;
         result = 31 * result
                  + (stealMasterPartitions != null ? stealMasterPartitions.hashCode() : 0);
-        result = 31 * result
-                 + (readOnlyStoreVersions != null ? readOnlyStoreVersions.hashCode() : 0);
         return result;
     }
 }

@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -36,7 +35,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.routing.RoutingStrategy;
@@ -52,6 +50,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteArray;
@@ -71,7 +70,6 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -212,11 +210,49 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleGetROMaxVersion(request.getGetRoMaxVersion()));
                 break;
+            case GET_RO_CURRENT_VERSION:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetROCurrentVersion(request.getGetRoCurrentVersion()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    public VAdminProto.GetROCurrentVersionResponse handleGetROCurrentVersion(VAdminProto.GetROCurrentVersionRequest request) {
+        final List<String> storeNames = request.getStoreNameList();
+        VAdminProto.GetROCurrentVersionResponse.Builder response = VAdminProto.GetROCurrentVersionResponse.newBuilder();
+        VAdminProto.ROStoreVersionMap.Builder storeResponse = VAdminProto.ROStoreVersionMap.newBuilder();
+
+        try {
+            for(String storeName: storeNames) {
+
+                ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                                       storeName);
+                File storeDirPath = new File(store.getStoreDirPath());
+
+                if(!storeDirPath.exists())
+                    throw new VoldemortException("Unable to locate the directory of the read-only store "
+                                                 + storeName);
+
+                File latestDir = ReadOnlyUtils.getLatestDir(storeDirPath);
+                if(latestDir == null)
+                    throw new VoldemortException("Unable to find the latest directory for read-only store "
+                                                 + storeName);
+
+                storeResponse.setStoreName(storeName)
+                             .setPushVersion(ReadOnlyUtils.getVersionId(latestDir));
+
+                response.addRoStoreVersions(storeResponse.build());
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetROCurrentVersion failed for request(" + request.toString() + ")",
+                         e);
+        }
+        return response.build();
     }
 
     public VAdminProto.GetROMaxVersionResponse handleGetROMaxVersion(VAdminProto.GetROMaxVersionRequest request) {
@@ -250,6 +286,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleGetROMaxVersion failed for request(" + request.toString() + ")", e);
         }
         return response.build();
+    }
+
+    public StreamRequestHandler handleFetchPartitionFiles(VAdminProto.FetchPartitionFilesRequest request) {
+        return new FetchPartitionFileStreamRequestHandler(request,
+                                                          metadataStore,
+                                                          errorCodeMapper,
+                                                          voldemortConfig,
+                                                          storeRepository);
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
@@ -298,20 +342,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
-            Map<String, Long> storeToVersion = Maps.newHashMap();
-            for(ROStoreVersionMap currentStore: request.getRoStoreVersionsList()) {
-                storeToVersion.put(currentStore.getStoreName(), currentStore.getPushVersion());
-            }
-
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
                                                                                      request.getDeletePartitionsList(),
                                                                                      request.getStealMasterPartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
-                                                                                     request.getAttempt(),
-                                                                                     storeToVersion,
-                                                                                     request.getDeleteAfterRebalance());
+                                                                                     request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
 
@@ -497,6 +534,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setComplete(false)
                                                                                                             .setDescription("Fetch and update")
                                                                                                             .setStatus("started");
+        final boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
+                                                     .getType()
+                                                     .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
@@ -518,30 +558,39 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     try {
                         StorageEngine<ByteArray, byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                           storeName);
-                        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                                storeName,
-                                                                                                                partitions,
-                                                                                                                filter,
-                                                                                                                false);
                         updateStatus("Initated fetchPartitionEntries");
                         EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
-                        for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
-                            Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
-                            ByteArray key = entry.getFirst();
-                            Versioned<byte[]> value = entry.getSecond();
-                            try {
-                                storageEngine.put(key, value);
-                            } catch(ObsoleteVersionException e) {
-                                // log and ignore
-                                logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
-                            }
+                        if(isReadOnlyStore) {
+                            // TODO: Fill in code to fetch all files and store
+                            // in local folder
 
-                            throttler.maybeThrottle(key.length() + valueSize(value));
-                            if((i % 1000) == 0) {
-                                updateStatus(i + " entries processed");
+                        } else {
+                            Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                    storeName,
+                                                                                                                    partitions,
+                                                                                                                    filter,
+                                                                                                                    false);
+
+                            for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
+                                Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+
+                                ByteArray key = entry.getFirst();
+                                Versioned<byte[]> value = entry.getSecond();
+                                try {
+                                    storageEngine.put(key, value);
+                                } catch(ObsoleteVersionException e) {
+                                    // log and ignore
+                                    logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
+                                }
+
+                                throttler.maybeThrottle(key.length() + valueSize(value));
+                                if((i % 1000) == 0) {
+                                    updateStatus(i + " entries processed");
+                                }
                             }
                         }
+
                     } finally {
                         adminClient.stop();
                     }

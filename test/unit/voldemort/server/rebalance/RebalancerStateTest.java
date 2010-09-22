@@ -43,8 +43,7 @@ public class RebalancerStateTest {
                                                                                                            new ArrayList<Integer>(0),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
-                                                                                                           0,
-                                                                                                           false),
+                                                                                                           0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,
                                                                                                            Arrays.asList(5,
@@ -55,8 +54,7 @@ public class RebalancerStateTest {
                                                                                                            new ArrayList<Integer>(0),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
-                                                                                                           0,
-                                                                                                           false));
+                                                                                                           0));
 
         RebalancerState in = new RebalancerState(rebalancePartitionsInfos);
         String jsonIn = in.toJsonString();

@@ -30,6 +30,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.management.MBeanOperationInfo;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -57,6 +58,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
@@ -109,18 +111,36 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
     private static final RoutingStrategyFactory routingFactory = new RoutingStrategyFactory();
 
-    // Guards mutations made to non-scalar objects e.g., lists stored in innerStore
+    // Guards mutations made to non-scalar objects e.g., lists stored in
+    // innerStore
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     public final Lock readLock = lock.readLock();
     public final Lock writeLock = lock.writeLock();
+
+    private final ConcurrentHashMultiset<MetadataStoreListener> listeners;
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
+        listeners = ConcurrentHashMultiset.create();
 
         init(nodeId);
+    }
+
+    public void addMetadataStoreListener(MetadataStoreListener listener) {
+        if(listeners == null)
+            throw new VoldemortException("MetadataStoreListener must be non-null");
+
+        listeners.add(listener);
+    }
+
+    public void remoteMetadataStoreListener(MetadataStoreListener listener) {
+        if(listeners == null)
+            throw new VoldemortException("MetadataStoreListener must be non-null");
+
+        listeners.remove(listener);
     }
 
     public static MetadataStore readFromDirectory(File dir, int nodeId) {
@@ -188,7 +208,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
      * A write through put to inner-store.
      * 
      * @param keyBytes: keyName strings serialized as bytes eg. 'cluster.xml'
-     * @param valueBytes: versioned byte[] eg. UTF bytes for cluster xml definitions
+     * @param valueBytes: versioned byte[] eg. UTF bytes for cluster xml
+     *        definitions
      * @throws VoldemortException
      */
     public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes)
@@ -263,10 +284,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         try {
             RebalancerState rebalancerState = getRebalancerState();
 
-            if (!rebalancerState.remove(stealInfo))
-                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in " + rebalancerState);
+            if(!rebalancerState.remove(stealInfo))
+                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in "
+                                                   + rebalancerState);
 
-            if (rebalancerState.isEmpty()) {
+            if(rebalancerState.isEmpty()) {
                 logger.debug("stealInfoList empty, cleaning all rebalancing state");
                 cleanAllRebalancingState();
             } else {
@@ -334,10 +356,21 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
+        HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
+                                                                                       storeDefs);
         this.metadataCache.put(ROUTING_STRATEGY_KEY,
-                               new Versioned<Object>(createRoutingStrategMap(cluster, storeDefs),
+                               new Versioned<Object>(routingStrategyMap,
                                                      clock.incremented(getNodeId(),
                                                                        System.currentTimeMillis())));
+
+        for(MetadataStoreListener listener: listeners.elementSet()) {
+            try {
+                listener.updateRoutingStrategy(routingStrategyMap);
+            } catch(Exception e) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(e, e);
+            }
+        }
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -381,7 +414,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                        + " (Did you copy config directory ? try deleting .temp .version in config dir to force clean) aborting ...");
 
         // Initialize with default if not present
-        initCache(REBALANCING_STEAL_INFO, new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
+        initCache(REBALANCING_STEAL_INFO,
+                  new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
         initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 
@@ -402,7 +436,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         }
     }
 
-    private Object createRoutingStrategMap(Cluster cluster, List<StoreDefinition> storeDefs) {
+    private HashMap<String, RoutingStrategy> createRoutingStrategyMap(Cluster cluster,
+                                                                      List<StoreDefinition> storeDefs) {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
         for(StoreDefinition store: storeDefs) {
@@ -470,7 +505,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = Integer.parseInt(value.getValue());
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
             String valueString = value.getValue();
-            if (valueString.startsWith("[")) {
+            if(valueString.startsWith("[")) {
                 valueObject = RebalancerState.create(valueString);
             } else {
                 valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));

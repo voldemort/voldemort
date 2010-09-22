@@ -58,19 +58,13 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
-    /*
-     * The overhead for each cache element is the key size + 4 byte array length
-     * + 12 byte object overhead + 8 bytes for a 64-bit reference to the thing
-     */
-    public static final int MEMORY_OVERHEAD_PER_KEY = ReadOnlyUtils.KEY_HASH_SIZE + 4 + 12 + 8;
-
     private final String name;
     private final int numBackups, nodeId;
     private long currentVersionId;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
-    private final RoutingStrategy routingStrategy;
+    private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
 
@@ -92,7 +86,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         this.numBackups = numBackups;
         this.name = Utils.notNull(name);
         this.searchStrategy = searchStrategy;
-        this.routingStrategy = routingStrategy;
+        this.routingStrategy = Utils.notNull(routingStrategy);
         this.nodeId = nodeId;
         this.fileSet = null;
         this.currentVersionId = 0L;
@@ -150,25 +144,28 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
+     * Set the routing strategy required to find which partition the key belongs
+     * to
+     */
+    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
+        if(this.fileSet == null)
+            throw new VoldemortException("File set should not be null");
+
+        this.routingStrategy = routingStrategy;
+    }
+
+    /**
      * Retrieve the dir pointed to by 'latest' symbolic-link or the max version
      * dir
      * 
-     * @return Max version directory
+     * @return Max version directory, else null
      */
     private File getCurrentVersion() {
-        File latestSymLink = new File(storeDir, "latest");
-        if(latestSymLink.exists() && Utils.isSymLink(latestSymLink)) {
-            File canonicalLatestVersion = null;
-            try {
-                canonicalLatestVersion = latestSymLink.getCanonicalFile();
-            } catch(IOException e) {}
+        File latestDir = ReadOnlyUtils.getLatestDir(storeDir);
+        if(latestDir != null)
+            return latestDir;
 
-            if(canonicalLatestVersion != null
-               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
-                return canonicalLatestVersion;
-        }
         File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDir);
-
         if(versionDirs == null || versionDirs.length == 0) {
             return null;
         } else {

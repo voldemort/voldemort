@@ -48,6 +48,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
+import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.SlopSerializer;
@@ -65,6 +66,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -438,12 +440,22 @@ public class StorageService extends AbstractService {
                                              + " storage engine of type " + type
                                              + " has not been enabled.");
 
-        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
-            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
-                                                                                                                          metadata.getCluster()));
-        }
-        return config.getStore(name);
+        final StorageEngine<ByteArray, byte[]> storageEngine = config.getStore(name);
 
+        // Update the routing strategy + add listener to metadata
+        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
+                                                                                                       metadata.getCluster());
+            ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(routingStrategy);
+            metadata.addMetadataStoreListener(new MetadataStoreListener() {
+
+                public void updateRoutingStrategy(Map<String, RoutingStrategy> routingStrategyMap) {
+                    ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(routingStrategy);
+                }
+            });
+        }
+
+        return storageEngine;
     }
 
     @Override

@@ -45,6 +45,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
@@ -129,19 +130,30 @@ public class RebalanceController {
         // Retrieve list of stores
         List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
                                                                            adminClient);
-        // if read-only store exists
-        Map<String, Long> readOnlyStoreVersions = Maps.newHashMapWithExpectedSize(storesList.size());
+        // Maintain nodeId to map of store name to version ids
+        Map<Integer, Map<String, Long>> currentROStoreVersions = Maps.newHashMapWithExpectedSize(storesList.size());
+
+        // Retrieve list of read-only stores
+        List<String> readOnlyStores = Lists.newArrayList();
         for(StoreDefinition store: storesList) {
             if(store.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
-                readOnlyStoreVersions = adminClient.getROGlobalMaxVersion(RebalanceUtils.getStoreNames(storesList));
-                break;
+                readOnlyStores.add(store.getName());
+            }
+        }
+
+        // Retrieve current versions for all nodes (old + new), required for
+        // swapping at end
+        if(readOnlyStores.size() > 0) {
+            for(Node node: targetCluster.getNodes()) {
+                currentROStoreVersions.put(node.getId(),
+                                           adminClient.getROCurrentVersion(node.getId(),
+                                                                           readOnlyStores));
             }
         }
 
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
                                                                                    storesList,
-                                                                                   readOnlyStoreVersions,
                                                                                    rebalanceConfig.isDeleteAfterRebalancingEnabled());
         logger.info(rebalanceClusterPlan);
 
@@ -242,6 +254,8 @@ public class RebalanceController {
             });
         }// for (nThreads ..
         executorShutDown(executor);
+
+        // TODO: Swap the read-only stores
     }
 
     private int startNodeRebalancing(RebalancePartitionsInfo rebalanceSubTask) {

@@ -79,6 +79,14 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='GET_RO_MAX_VERSION', index=16, number=16,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='GET_RO_CURRENT_VERSION', index=17, number=17,
+      options=None,
+      type=None),
+    descriptor.EnumValueDescriptor(
+      name='FETCH_PARTITION_FILES', index=18, number=18,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -101,6 +109,8 @@ FETCH_STORE = 13
 SWAP_STORE = 14
 ROLLBACK_STORE = 15
 GET_RO_MAX_VERSION = 16
+GET_RO_CURRENT_VERSION = 17
+FETCH_PARTITION_FILES = 18
 
 
 
@@ -322,6 +332,35 @@ _VOLDEMORTFILTER = descriptor.Descriptor(
   options=None)
 
 
+_FETCHPARTITIONFILESREQUEST = descriptor.Descriptor(
+  name='FetchPartitionFilesRequest',
+  full_name='voldemort.FetchPartitionFilesRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='partitions', full_name='voldemort.FetchPartitionFilesRequest.partitions', index=0,
+      number=1, type=5, cpp_type=1, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='store', full_name='voldemort.FetchPartitionFilesRequest.store', index=1,
+      number=2, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _FETCHPARTITIONENTRIESREQUEST = descriptor.Descriptor(
   name='FetchPartitionEntriesRequest',
   full_name='voldemort.FetchPartitionEntriesRequest',
@@ -504,6 +543,13 @@ _INITIATEFETCHANDUPDATEREQUEST = descriptor.Descriptor(
       name='filter', full_name='voldemort.InitiateFetchAndUpdateRequest.filter', index=3,
       number=4, type=11, cpp_type=10, label=1,
       default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='is_readonly', full_name='voldemort.InitiateFetchAndUpdateRequest.is_readonly', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -721,20 +767,6 @@ _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
       name='stealMasterPartitions', full_name='voldemort.InitiateRebalanceNodeRequest.stealMasterPartitions', index=6,
       number=8, type=5, cpp_type=1, label=3,
       default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
-    descriptor.FieldDescriptor(
-      name='ro_store_versions', full_name='voldemort.InitiateRebalanceNodeRequest.ro_store_versions', index=7,
-      number=9, type=11, cpp_type=10, label=3,
-      default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
-    descriptor.FieldDescriptor(
-      name='deleteAfterRebalance', full_name='voldemort.InitiateRebalanceNodeRequest.deleteAfterRebalance', index=8,
-      number=10, type=8, cpp_type=7, label=2,
-      default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -1118,6 +1150,57 @@ _GETROMAXVERSIONRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_GETROCURRENTVERSIONREQUEST = descriptor.Descriptor(
+  name='GetROCurrentVersionRequest',
+  full_name='voldemort.GetROCurrentVersionRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store_name', full_name='voldemort.GetROCurrentVersionRequest.store_name', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_GETROCURRENTVERSIONRESPONSE = descriptor.Descriptor(
+  name='GetROCurrentVersionResponse',
+  full_name='voldemort.GetROCurrentVersionResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='ro_store_versions', full_name='voldemort.GetROCurrentVersionResponse.ro_store_versions', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.GetROCurrentVersionResponse.error', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -1250,6 +1333,20 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='get_ro_current_version', full_name='voldemort.VoldemortAdminRequest.get_ro_current_version', index=18,
+      number=19, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='fetch_partition_files', full_name='voldemort.VoldemortAdminRequest.fetch_partition_files', index=19,
+      number=20, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1276,7 +1373,6 @@ _DELETEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort
 _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
-_INITIATEREBALANCENODEREQUEST.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONMAP
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
@@ -1285,6 +1381,8 @@ _SWAPSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._
 _ROLLBACKSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _GETROMAXVERSIONRESPONSE.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONMAP
 _GETROMAXVERSIONRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_GETROCURRENTVERSIONRESPONSE.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONMAP
+_GETROCURRENTVERSIONRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -1303,6 +1401,8 @@ _VOLDEMORTADMINREQUEST.fields_by_name['fetch_store'].message_type = _FETCHSTORER
 _VOLDEMORTADMINREQUEST.fields_by_name['swap_store'].message_type = _SWAPSTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['rollback_store'].message_type = _ROLLBACKSTOREREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['get_ro_max_version'].message_type = _GETROMAXVERSIONREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['get_ro_current_version'].message_type = _GETROCURRENTVERSIONREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['fetch_partition_files'].message_type = _FETCHPARTITIONFILESREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1335,6 +1435,10 @@ class UpdatePartitionEntriesResponse(message.Message):
 class VoldemortFilter(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _VOLDEMORTFILTER
+
+class FetchPartitionFilesRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _FETCHPARTITIONFILESREQUEST
 
 class FetchPartitionEntriesRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1439,6 +1543,14 @@ class GetROMaxVersionRequest(message.Message):
 class GetROMaxVersionResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETROMAXVERSIONRESPONSE
+
+class GetROCurrentVersionRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _GETROCURRENTVERSIONREQUEST
+
+class GetROCurrentVersionResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _GETROCURRENTVERSIONRESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

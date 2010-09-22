@@ -169,8 +169,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
-                                                                                             0,
-                                                                                             true))));
+                                                                                             0))));
         checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
                                                                   testStoreName), Arrays.asList(1));
     }
@@ -205,8 +204,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
-                                                                                             0,
-                                                                                             true))));
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyGet()
         checkGetEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
@@ -243,8 +241,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
-                                                                                             0,
-                                                                                             true))));
+                                                                                             0))));
 
         // for Rebalancing State we should see proxyPut()
         checkPutEntries(entryMap, server0, testStoreName, Arrays.asList(1));
