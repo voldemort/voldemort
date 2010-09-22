@@ -2,7 +2,13 @@ package voldemort.server.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
@@ -16,11 +22,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
-import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
-import voldemort.versioning.Versioned;
-
-import com.google.protobuf.Message;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
@@ -34,9 +36,9 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final long startTime;
 
-    private final Logger logger = Logger.getLogger(getClass());
+    private final File storeDir;
 
-    private final boolean isReadOnly;
+    private final Logger logger = Logger.getLogger(getClass());
 
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
@@ -45,11 +47,16 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      StoreRepository storeRepository) {
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        this.isReadOnly = metadataStore.getStoreDef(request.getStore())
-                                       .getType()
-                                       .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        boolean isReadOnly = metadataStore.getStoreDef(request.getStore())
+                                          .getType()
+                                          .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        if(!isReadOnly) {
+            throw new VoldemortException("Should be fetching partition files only for read-only stores");
+        }
+
         this.storageEngine = (ReadOnlyStorageEngine) AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                  request.getStore());
+        this.storeDir = new File(storageEngine.getStoreDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         this.startTime = System.currentTimeMillis();
     }
@@ -59,9 +66,6 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
     }
 
     public final void close(DataOutputStream outputStream) throws IOException {
-        if(null != keyIterator)
-            keyIterator.close();
-
         ProtoUtils.writeEndOfStream(outputStream);
     }
 
@@ -80,51 +84,39 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
-        if(!isReadOnly) {
+        List<Integer> partitionIds = request.getPartitionsList();
 
-        }
-        if(!keyIterator.hasNext())
-            return StreamRequestHandlerState.COMPLETE;
+        for(Integer partitionId: partitionIds) {
+            int chunkId = 0;
+            while(true) {
+                String fileName = Integer.toString(partitionId) + "_" + Integer.toString(chunkId);
+                File index = new File(this.storeDir, fileName + ".index");
+                File data = new File(this.storeDir, fileName + ".data");
+                if(!index.exists() && !data.exists()) {
+                    if(chunkId == 0) {
+                        throw new VoldemortException("Could not find any data for partition "
+                                                     + partitionId);
+                    } else {
+                        break;
+                    }
+                } else if(index.exists() ^ data.exists())
+                    throw new VoldemortException("One of the following does not exist: "
+                                                 + index.toString() + " and " + data.toString()
+                                                 + ".");
 
-        ByteArray key = keyIterator.next();
+                // Both files in chunk exist, start streaming...
+                // Stream data file...
+                FileChannel channel = new FileInputStream(index).getChannel();
+                WritableByteChannel channelOut = Channels.newChannel(outputStream);
+                channel.transferTo(0, 10L, channelOut);
 
-        // Since Master-Only filter does not need value, we can save some disk
-        // seeks by getting back only Master replica values
-        if(validPartition(key.get()) && filter.accept(key, null)) {
-            for(Versioned<byte[]> value: storageEngine.get(key)) {
-                throttler.maybeThrottle(key.length());
-                fetched++;
-                VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                // Stream index file...
 
-                VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
-                                                                                      .setKey(ProtoUtils.encodeBytes(key))
-                                                                                      .setVersioned(ProtoUtils.encodeVersioned(value))
-                                                                                      .build();
-                response.setPartitionEntry(partitionEntry);
-
-                Message message = response.build();
-                ProtoUtils.writeMessage(outputStream, message);
-
-                throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
+                chunkId++;
             }
         }
 
-        // log progress
-        counter++;
-
-        if(0 == counter % 100000) {
-            long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-
-            if(logger.isDebugEnabled())
-                logger.debug("fetchMasterEntries() scanned " + counter + " entries, fetched "
-                             + fetched + " entries for store:" + storageEngine.getName()
-                             + " partition:" + partitionList + " in " + totalTime + " s");
-        }
-
-        if(keyIterator.hasNext())
-            return StreamRequestHandlerState.WRITING;
-        else
-            return StreamRequestHandlerState.COMPLETE;
+        return null;
     }
 
 }
