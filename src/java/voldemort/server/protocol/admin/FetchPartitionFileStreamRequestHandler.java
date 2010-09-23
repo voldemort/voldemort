@@ -18,7 +18,6 @@ import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
-import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -27,8 +26,6 @@ import voldemort.utils.EventThrottler;
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
     private final VAdminProto.FetchPartitionFilesRequest request;
-
-    private final ErrorCodeMapper errorCodeMapper;
 
     private final EventThrottler throttler;
 
@@ -42,11 +39,9 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
-                                                     ErrorCodeMapper errorCodeMapper,
                                                      VoldemortConfig voldemortConfig,
                                                      StoreRepository storeRepository) {
         this.request = request;
-        this.errorCodeMapper = errorCodeMapper;
         boolean isReadOnly = metadataStore.getStoreDef(request.getStore())
                                           .getType()
                                           .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
@@ -74,12 +69,6 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     public final void handleError(DataOutputStream outputStream, VoldemortException e)
             throws IOException {
-        VAdminProto.FetchPartitionEntriesResponse response = VAdminProto.FetchPartitionEntriesResponse.newBuilder()
-                                                                                                      .setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                                                                                                       e))
-                                                                                                      .build();
-
-        ProtoUtils.writeMessage(outputStream, response);
         logger.error("handleFetchPartitionFilesEntries failed for request(" + request.toString()
                      + ")", e);
     }

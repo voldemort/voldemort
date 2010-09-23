@@ -214,6 +214,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleGetROCurrentVersion(request.getGetRoCurrentVersion()));
                 break;
+            case FETCH_PARTITION_FILES:
+                return handleFetchPartitionFiles(request.getFetchPartitionFiles());
+
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -280,7 +283,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public StreamRequestHandler handleFetchPartitionFiles(VAdminProto.FetchPartitionFilesRequest request) {
         return new FetchPartitionFileStreamRequestHandler(request,
                                                           metadataStore,
-                                                          errorCodeMapper,
                                                           voldemortConfig,
                                                           storeRepository);
     }
@@ -551,8 +553,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
 
                         if(isReadOnlyStore) {
-                            // TODO: Fill in code to fetch all files and store
-                            // in local folder
                             String destinationDir = ((ReadOnlyStorageEngine) storageEngine).getCurrentDirPath();
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,

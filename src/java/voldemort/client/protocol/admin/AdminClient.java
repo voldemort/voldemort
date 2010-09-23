@@ -19,9 +19,13 @@ package voldemort.client.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1386,15 +1390,65 @@ public class AdminClient {
         return storeToMaxVersion;
     }
 
-    void fetchPartitionFiles(int nodeId,
-                             String storeName,
-                             List<Integer> partitionIds,
-                             String destinationDirPath) {
+    public void fetchPartitionFiles(int nodeId,
+                                    String storeName,
+                                    List<Integer> partitionIds,
+                                    String destinationDirPath) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
                                          + ") to store " + storeName + " does not exist");
         }
-        VAdminProto.FetchPartitionFilesRequest
-        
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        final SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                    node.getAdminPort(),
+                                                                    RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        final SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        final DataInputStream inputStream = sands.getInputStream();
+
+        // send the first request
+        try {
+            VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
+                                                                                                                     .addAllPartitions(partitionIds)
+                                                                                                                     .setStore(storeName)
+                                                                                                                     .build();
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setFetchPartitionFiles(fetchPartitionFileRequest)
+                                                                                         .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_FILES)
+                                                                                         .build();
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+
+            while(true) {
+                int size = inputStream.readInt();
+                if(size == -1) {
+                    close(sands.getSocket());
+                    break;
+                }
+
+                byte[] input = new byte[size];
+                ByteUtils.read(inputStream, input);
+                VAdminProto.FileEntry fileEntry = VAdminProto.FileEntry.newBuilder()
+                                                                       .mergeFrom(input)
+                                                                       .build();
+                logger.info("Receiving file " + fileEntry.getFileName());
+                FileChannel fileChannel = new FileInputStream(new File(destinationDirPath,
+                                                                       fileEntry.getFileName())).getChannel();
+                ReadableByteChannel channelIn = Channels.newChannel(inputStream);
+                fileChannel.transferFrom(channelIn, 0, fileEntry.getFileSizeBytes());
+                fileChannel.force(true);
+                fileChannel.close();
+
+                logger.info("Completed file " + fileEntry.getFileName());
+            }
+
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+
     }
 }
