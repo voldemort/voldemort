@@ -1407,7 +1407,6 @@ public class AdminClient {
         DataOutputStream outputStream = sands.getOutputStream();
         final DataInputStream inputStream = sands.getInputStream();
 
-        // send the first request
         try {
             VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
                                                                                                                      .addAllPartitions(partitionIds)

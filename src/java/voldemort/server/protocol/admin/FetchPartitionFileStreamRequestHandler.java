@@ -55,7 +55,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         this.blockSize = voldemortConfig.getAllProps()
                                         .getLong("partition.buffer.size.bytes",
                                                  voldemortConfig.getAdminSocketBufferSize());
-        this.storeDir = new File(storageEngine.getStoreDirPath());
+        this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
     }
 
@@ -114,7 +114,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
     void streamFile(File fileToStream, DataOutputStream stream) throws IOException {
         FileChannel dataChannel = new FileInputStream(fileToStream).getChannel();
         VAdminProto.FileEntry response = VAdminProto.FileEntry.newBuilder()
-                                                              .setFileName(fileToStream.getAbsolutePath())
+                                                              .setFileName(fileToStream.getName())
                                                               .setFileSizeBytes(dataChannel.size())
                                                               .build();
         // Write header

@@ -59,6 +59,10 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
             JmxUtils.unregisterMbean(server, name);
     }
 
+    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
+        this.routingStrategy = routingStrategy;
+    }
+
     public StorageEngine<ByteArray, byte[]> getStore(String name) {
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
                                                                 this.searcher,

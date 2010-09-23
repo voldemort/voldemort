@@ -440,13 +440,17 @@ public class StorageService extends AbstractService {
                                              + " storage engine of type " + type
                                              + " has not been enabled.");
 
-        final StorageEngine<ByteArray, byte[]> storageEngine = config.getStore(name);
+        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
+                                                                                                       metadata.getCluster());
+            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
+        }
 
+        final StorageEngine<ByteArray, byte[]> storageEngine = config.getStore(name);
         // Update the routing strategy + add listener to metadata
         if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
                                                                                                        metadata.getCluster());
-            ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(routingStrategy);
             metadata.addMetadataStoreListener(new MetadataStoreListener() {
 
                 public void updateRoutingStrategy(Map<String, RoutingStrategy> routingStrategyMap) {

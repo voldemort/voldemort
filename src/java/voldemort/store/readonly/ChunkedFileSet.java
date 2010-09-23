@@ -106,21 +106,19 @@ public class ChunkedFileSet {
     }
 
     private void setRoutingStrategy(RoutingStrategy routingStrategy) {
-        synchronized(this.routingStrategy) {
-            this.routingStrategy = routingStrategy;
+        this.routingStrategy = routingStrategy;
 
-            // generate partitions list
-            this.partitionIds = null;
-            for(Node node: routingStrategy.getNodes()) {
-                if(node.getId() == this.nodeId) {
-                    this.partitionIds = new HashSet<Integer>();
-                    this.partitionIds.addAll(node.getPartitionIds());
-                    break;
-                }
+        // generate partitions list
+        this.partitionIds = null;
+        for(Node node: routingStrategy.getNodes()) {
+            if(node.getId() == this.nodeId) {
+                this.partitionIds = new HashSet<Integer>();
+                this.partitionIds.addAll(node.getPartitionIds());
+                break;
             }
-            if(this.partitionIds == null)
-                throw new VoldemortException("Could not open store since the node id could not be found");
         }
+        if(this.partitionIds == null)
+            throw new VoldemortException("Could not open store since the node id could not be found");
     }
 
     public void validateFileSizes(long indexLength, long dataLength) {

@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -380,6 +381,16 @@ public class AdminServiceBasicTest extends TestCase {
         assertEquals("All keys for asked partitions should be received",
                      fetchPartitionKeyCount,
                      count);
+    }
+
+    @Test
+    public void testFetchPartitionFiles() {
+        File tempDir = TestUtils.createTempDir();
+        getAdminClient().fetchPartitionFiles(0,
+                                             "test-readonly-fetchfiles",
+                                             cluster.getNodeById(0).getPartitionIds(),
+                                             tempDir.getAbsolutePath());
+
     }
 
     @Test
