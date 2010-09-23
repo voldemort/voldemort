@@ -155,10 +155,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     /**
-     * Retrieve the dir pointed to by 'latest' symbolic-link or the max version
-     * dir
+     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
+     * version dir
      * 
-     * @return Max version directory, else null
+     * @return Current version directory, else null
      */
     private File getCurrentVersion() {
         File latestDir = ReadOnlyUtils.getLatestDir(storeDir);
@@ -173,6 +173,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
                                                      versionDirs.length - 1,
                                                      versionDirs.length - 1)[0];
         }
+    }
+
+    public String getCurrentDirPath() {
+        return storeDir.getAbsolutePath() + File.separator + "version-" + currentVersionId;
     }
 
     public long getCurrentVersionId() {

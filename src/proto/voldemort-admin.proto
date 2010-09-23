@@ -24,6 +24,11 @@ message UpdateMetadataResponse {
   optional Error error = 1;
 }
 
+message FileEntry {
+  required string file_name = 1;
+  required int64 file_size_bytes = 2;
+}
+
 message PartitionEntry {
   required bytes key = 1;
   required Versioned versioned = 2;

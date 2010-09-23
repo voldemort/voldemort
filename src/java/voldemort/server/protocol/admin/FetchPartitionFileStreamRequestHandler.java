@@ -34,11 +34,11 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final ReadOnlyStorageEngine storageEngine;
 
-    private final long startTime;
-
     private final File storeDir;
 
     private final Logger logger = Logger.getLogger(getClass());
+
+    private final long blockSize;
 
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
@@ -56,9 +56,12 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
         this.storageEngine = (ReadOnlyStorageEngine) AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                  request.getStore());
+
+        this.blockSize = voldemortConfig.getAllProps()
+                                        .getLong("partition.buffer.size.bytes",
+                                                 voldemortConfig.getAdminSocketBufferSize());
         this.storeDir = new File(storageEngine.getStoreDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-        this.startTime = System.currentTimeMillis();
     }
 
     public StreamRequestDirection getDirection() {
@@ -105,18 +108,45 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                  + ".");
 
                 // Both files in chunk exist, start streaming...
-                // Stream data file...
-                FileChannel channel = new FileInputStream(index).getChannel();
-                WritableByteChannel channelOut = Channels.newChannel(outputStream);
-                channel.transferTo(0, 10L, channelOut);
-
-                // Stream index file...
+                logger.info("Streaming " + data.getAbsolutePath());
+                streamFile(data, outputStream);
+                logger.info("Completed streaming " + data.getAbsolutePath());
+                logger.info("Streaming " + index.getAbsolutePath());
+                streamFile(index, outputStream);
+                logger.info("Completed streaming " + index.getAbsolutePath());
 
                 chunkId++;
             }
         }
 
-        return null;
+        return StreamRequestHandlerState.COMPLETE;
     }
 
+    void streamFile(File fileToStream, DataOutputStream stream) throws IOException {
+        FileChannel dataChannel = new FileInputStream(fileToStream).getChannel();
+        VAdminProto.FileEntry response = VAdminProto.FileEntry.newBuilder()
+                                                              .setFileName(fileToStream.getAbsolutePath())
+                                                              .setFileSizeBytes(dataChannel.size())
+                                                              .build();
+        // Write header
+        ProtoUtils.writeMessage(stream, response);
+        throttler.maybeThrottle(response.getSerializedSize());
+
+        // Write rest of file
+        WritableByteChannel channelOut = Channels.newChannel(stream);
+
+        // Send chunks to help with throttling
+        boolean completedFile = false;
+        long chunkSize = 0;
+        for(long chunkStart = 0; chunkStart < dataChannel.size() && !completedFile; chunkStart += blockSize) {
+            if(dataChannel.size() - chunkStart < blockSize) {
+                chunkSize = dataChannel.size() - chunkStart;
+                completedFile = true;
+            } else {
+                chunkSize = blockSize;
+            }
+            dataChannel.transferTo(chunkStart, chunkSize, channelOut);
+            throttler.maybeThrottle((int) chunkSize);
+        }
+    }
 }

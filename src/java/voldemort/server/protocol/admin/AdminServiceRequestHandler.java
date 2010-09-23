@@ -231,19 +231,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
                                                                                        storeName);
-                File storeDirPath = new File(store.getStoreDirPath());
 
-                if(!storeDirPath.exists())
-                    throw new VoldemortException("Unable to locate the directory of the read-only store "
-                                                 + storeName);
-
-                File latestDir = ReadOnlyUtils.getLatestDir(storeDirPath);
-                if(latestDir == null)
-                    throw new VoldemortException("Unable to find the latest directory for read-only store "
-                                                 + storeName);
-
-                storeResponse.setStoreName(storeName)
-                             .setPushVersion(ReadOnlyUtils.getVersionId(latestDir));
+                storeResponse.setStoreName(storeName).setPushVersion(store.getCurrentVersionId());
 
                 response.addRoStoreVersions(storeResponse.build());
             }
@@ -564,6 +553,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         if(isReadOnlyStore) {
                             // TODO: Fill in code to fetch all files and store
                             // in local folder
+                            String destinationDir = ((ReadOnlyStorageEngine) storageEngine).getCurrentDirPath();
+                            adminClient.fetchPartitionFiles(nodeId,
+                                                            storeName,
+                                                            partitions,
+                                                            destinationDir);
 
                         } else {
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,

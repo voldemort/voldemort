@@ -216,6 +216,35 @@ _UPDATEMETADATARESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_FILEENTRY = descriptor.Descriptor(
+  name='FileEntry',
+  full_name='voldemort.FileEntry',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='file_name', full_name='voldemort.FileEntry.file_name', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='file_size_bytes', full_name='voldemort.FileEntry.file_size_bytes', index=1,
+      number=2, type=3, cpp_type=2, label=2,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _PARTITIONENTRY = descriptor.Descriptor(
   name='PartitionEntry',
   full_name='voldemort.PartitionEntry',
@@ -1419,6 +1448,10 @@ class UpdateMetadataRequest(message.Message):
 class UpdateMetadataResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _UPDATEMETADATARESPONSE
+
+class FileEntry(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _FILEENTRY
 
 class PartitionEntry(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

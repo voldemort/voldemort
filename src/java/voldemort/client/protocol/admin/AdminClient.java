@@ -18,6 +18,7 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
@@ -59,6 +60,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -1382,5 +1384,17 @@ public class AdminClient {
             }
         }
         return storeToMaxVersion;
+    }
+
+    void fetchPartitionFiles(int nodeId,
+                             String storeName,
+                             List<Integer> partitionIds,
+                             String destinationDirPath) {
+        if(!Utils.isReadableDir(destinationDirPath)) {
+            throw new VoldemortException("The destination path (" + destinationDirPath
+                                         + ") to store " + storeName + " does not exist");
+        }
+        VAdminProto.FetchPartitionFilesRequest
+        
     }
 }
