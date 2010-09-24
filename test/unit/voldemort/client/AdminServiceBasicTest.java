@@ -17,6 +17,7 @@
 package voldemort.client;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -41,6 +42,7 @@ import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
@@ -50,10 +52,12 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -384,13 +388,69 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
-    public void testFetchPartitionFiles() {
-        File tempDir = TestUtils.createTempDir();
-        getAdminClient().fetchPartitionFiles(0,
-                                             "test-readonly-fetchfiles",
-                                             cluster.getNodeById(0).getPartitionIds(),
-                                             tempDir.getAbsolutePath());
+    public void testFetchPartitionFiles() throws IOException {
+        generateAndFetchFiles(10, 1, 0, 0);
+        generateAndFetchFiles(10, 1, 20, 20);
+        generateAndFetchFiles(10, 1, 1000, 1000);
+    }
 
+    private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
+            throws IOException {
+        for(Node node: cluster.getNodes()) {
+            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStore(node.getId(),
+                                                                           "test-readonly-fetchfiles");
+
+            // Generate data
+            File newVersionDir = new File(store.getStoreDirPath(), "version-"
+                                                                   + Long.toString(versionId));
+            Utils.mkdirs(newVersionDir);
+            for(Integer partitionId: node.getPartitionIds()) {
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    File index = new File(newVersionDir, Integer.toString(partitionId) + "_"
+                                                         + Integer.toString(chunkId) + ".index");
+                    File data = new File(newVersionDir, Integer.toString(partitionId) + "_"
+                                                        + Integer.toString(chunkId) + ".data");
+                    // write some random crap for index and data
+                    FileOutputStream dataOs = new FileOutputStream(data);
+                    for(int i = 0; i < dataSize; i++)
+                        dataOs.write(i);
+                    dataOs.close();
+                    FileOutputStream indexOs = new FileOutputStream(index);
+                    for(int i = 0; i < indexSize; i++)
+                        indexOs.write(i);
+                    indexOs.close();
+                }
+            }
+
+            // Swap it...
+            store.swapFiles(newVersionDir.getAbsolutePath());
+
+            // Fetch it...
+            File tempDir = TestUtils.createTempDir();
+
+            getAdminClient().fetchPartitionFiles(node.getId(),
+                                                 "test-readonly-fetchfiles",
+                                                 node.getPartitionIds(),
+                                                 tempDir.getAbsolutePath());
+
+            // Check it...
+            assertEquals(tempDir.list().length, 2 * node.getPartitionIds().size() * numChunks);
+
+            for(Integer partitionId: node.getPartitionIds()) {
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    File indexFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                       + Integer.toString(chunkId) + ".index");
+                    File dataFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                      + Integer.toString(chunkId) + ".data");
+
+                    assertTrue(indexFile.exists());
+                    assertTrue(dataFile.exists());
+                    assertEquals(indexFile.length(), indexSize);
+                    assertEquals(dataFile.length(), dataSize);
+                }
+
+            }
+        }
     }
 
     @Test

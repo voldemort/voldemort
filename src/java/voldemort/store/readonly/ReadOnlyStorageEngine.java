@@ -176,7 +176,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
     }
 
     public String getCurrentDirPath() {
-        return storeDir.getAbsolutePath() + File.separator + "version-" + currentVersionId;
+        return storeDir.getAbsolutePath() + File.separator + "version-"
+               + Long.toString(currentVersionId);
     }
 
     public long getCurrentVersionId() {

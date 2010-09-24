@@ -19,7 +19,7 @@ package voldemort.client.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
@@ -1432,8 +1432,8 @@ public class AdminClient {
                                                                        .mergeFrom(input)
                                                                        .build();
                 logger.info("Receiving file " + fileEntry.getFileName());
-                FileChannel fileChannel = new FileInputStream(new File(destinationDirPath,
-                                                                       fileEntry.getFileName())).getChannel();
+                FileChannel fileChannel = new FileOutputStream(new File(destinationDirPath,
+                                                                        fileEntry.getFileName())).getChannel();
                 ReadableByteChannel channelIn = Channels.newChannel(inputStream);
                 fileChannel.transferFrom(channelIn, 0, fileEntry.getFileSizeBytes());
                 fileChannel.force(true);
