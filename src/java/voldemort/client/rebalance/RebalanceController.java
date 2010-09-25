@@ -125,7 +125,7 @@ public class RebalanceController {
         logger.debug("Current Cluster configuration:" + currentCluster);
         logger.debug("Target Cluster configuration:" + targetCluster);
 
-        adminClient.setAdminClientCluster(currentCluster);
+        adminClient.setAdminClientCluster(targetCluster);
 
         // Retrieve list of stores
         List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
@@ -151,6 +151,7 @@ public class RebalanceController {
             }
         }
 
+        adminClient.setAdminClientCluster(currentCluster);
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                    targetCluster,
                                                                                    storesList,
