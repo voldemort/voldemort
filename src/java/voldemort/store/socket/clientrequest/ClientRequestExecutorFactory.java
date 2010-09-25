@@ -24,7 +24,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,6 +59,7 @@ public class ClientRequestExecutorFactory implements
     private final ClientRequestSelectorManager[] selectorManagers;
     private final ExecutorService selectorManagerThreadPool;
     private final AtomicInteger counter = new AtomicInteger();
+    private final Map<SocketDestination, Long> lastClosedTimestamps;
     private final Logger logger = Logger.getLogger(getClass());
 
     public ClientRequestExecutorFactory(int selectors,
@@ -79,6 +82,8 @@ public class ClientRequestExecutorFactory implements
             selectorManagers[i] = new ClientRequestSelectorManager();
             selectorManagerThreadPool.execute(selectorManagers[i]);
         }
+
+        this.lastClosedTimestamps = new ConcurrentHashMap<SocketDestination, Long>();
     }
 
     /**
@@ -197,15 +202,16 @@ public class ClientRequestExecutorFactory implements
          * 
          * See bug #222.
          */
+        long lastClosedTimestamp = getLastClosedTimestamp(dest);
 
-        if(clientRequestExecutor.getCreateTimestamp() <= dest.getLastClosedTimestamp()) {
+        if(clientRequestExecutor.getCreateTimestamp() <= lastClosedTimestamp) {
             if(logger.isDebugEnabled())
                 logger.debug("Socket connection "
                              + clientRequestExecutor
                              + " was created on "
                              + new Date(clientRequestExecutor.getCreateTimestamp() / Time.NS_PER_MS)
                              + " before socket pool was closed and re-created (on "
-                             + new Date(dest.getLastClosedTimestamp() / Time.NS_PER_MS) + ")");
+                             + new Date(lastClosedTimestamp / Time.NS_PER_MS) + ")");
             return false;
         }
 
@@ -355,6 +361,40 @@ public class ClientRequestExecutorFactory implements
                     logger.error(e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Returns the nanosecond-based timestamp of when this socket destination
+     * was last closed. SocketDestination objects can be closed when their node
+     * is marked as unavailable if the node goes down (temporarily or
+     * otherwise). This timestamp is used to determine when sockets related to
+     * the SocketDestination should be closed.
+     * 
+     * <p/>
+     * 
+     * This value starts off as 0 and is updated via setLastClosedTimestamp each
+     * time the node is marked as unavailable.
+     * 
+     * @return Nanosecond-based timestamp of last close
+     */
+
+    private long getLastClosedTimestamp(SocketDestination socketDestination) {
+        Long lastClosedTimestamp = lastClosedTimestamps.get(socketDestination);
+        return lastClosedTimestamp != null ? lastClosedTimestamp.longValue() : 0;
+    }
+
+    /**
+     * Assigns the last closed timestamp based on the current time in
+     * nanoseconds.
+     * 
+     * <p/>
+     * 
+     * This value starts off as 0 and is updated via this method each time the
+     * node is marked as unavailable.
+     */
+
+    public void setLastClosedTimestamp(SocketDestination socketDestination) {
+        lastClosedTimestamps.put(socketDestination, System.nanoTime());
     }
 
 }

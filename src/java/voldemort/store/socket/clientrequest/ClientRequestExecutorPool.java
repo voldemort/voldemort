@@ -156,7 +156,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     }
 
     public void close(SocketDestination destination) {
-        destination.setLastClosedTimestamp();
+        factory.setLastClosedTimestamp(destination);
         pool.close(destination);
     }
 

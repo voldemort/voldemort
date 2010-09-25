@@ -17,7 +17,6 @@
 package voldemort.store.socket;
 
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -31,7 +30,6 @@ public class SocketDestination {
     private final String host;
     private final int port;
     private final RequestFormatType requestFormatType;
-    private long lastClosedTimestamp;
 
     public SocketDestination(String host, int port, RequestFormatType requestFormatType) {
         this.host = Utils.notNull(host);
@@ -49,47 +47,6 @@ public class SocketDestination {
 
     public RequestFormatType getRequestFormatType() {
         return requestFormatType;
-    }
-
-    /**
-     * Returns the nanosecond-based timestamp of when this socket destination
-     * was last closed. SocketDestination objects can be closed when their node
-     * is marked as unavailable if the node goes down (temporarily or
-     * otherwise). This timestamp is used to determine when sockets related to
-     * the SocketDestination should be closed.
-     * 
-     * <p/>
-     * 
-     * This value starts off as 0 and is updated via setLastClosedTimestamp each
-     * time the node is marked as unavailable.
-     * 
-     * @return Nanosecond-based timestamp of last close
-     * 
-     * @see SocketDestination#setLastClosedTimestamp()
-     * @see ClientRequestExecutorFactory#validate(SocketDestination,
-     *      ClientRequestExecutor)
-     */
-
-    public long getLastClosedTimestamp() {
-        return lastClosedTimestamp;
-    }
-
-    /**
-     * Assigns the last closed timestamp based on the current time in
-     * nanoseconds.
-     * 
-     * <p/>
-     * 
-     * This value starts off as 0 and is updated via this method each time the
-     * node is marked as unavailable.
-     * 
-     * @see SocketDestination#getLastClosedTimestamp()
-     * @see ClientRequestExecutorFactory#validate(SocketDestination,
-     *      ClientRequestExecutor)
-     */
-
-    public void setLastClosedTimestamp() {
-        this.lastClosedTimestamp = System.nanoTime();
     }
 
     @Override

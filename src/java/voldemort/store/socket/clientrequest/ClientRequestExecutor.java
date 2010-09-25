@@ -245,6 +245,15 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         selectionKey.interestOps(SelectionKey.OP_READ);
     }
 
+    /**
+     * Null out our client request *before* calling complete because of the case
+     * where complete will cause a ClientRequestExecutor check-in (in
+     * SocketStore.NonblockingStoreCallbackClientRequest) and we'll end up
+     * recursing back here again when close is called in which case we'll try to
+     * check in the instance again which causes problems for the pool
+     * maintenance.
+     */
+
     private synchronized void completeClientRequest() {
         if(clientRequest == null) {
             if(logger.isEnabledFor(Level.WARN))
@@ -253,11 +262,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
             return;
         }
 
-        clientRequest.complete();
-
-        // Don't forget to null out our client request...
+        // Sorry about this - please see the method comments...
+        ClientRequest<?> local = clientRequest;
         clientRequest = null;
         expiration = 0;
+
+        local.complete();
 
         if(logger.isTraceEnabled())
             logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");

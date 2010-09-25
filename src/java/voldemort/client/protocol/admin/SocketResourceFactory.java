@@ -23,6 +23,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
@@ -48,6 +50,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     private final AtomicInteger created;
     private final AtomicInteger destroyed;
     private final boolean socketKeepAlive;
+    private final Map<SocketDestination, Long> lastClosedTimestamps;
 
     public SocketResourceFactory(int soTimeoutMs, int socketBufferSize) {
         this(soTimeoutMs, socketBufferSize, false);
@@ -59,6 +62,7 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
         this.socketKeepAlive = socketKeepAlive;
+        this.lastClosedTimestamps = new ConcurrentHashMap<SocketDestination, Long>();
     }
 
     /**
@@ -140,13 +144,14 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
          * 
          * See bug #222.
          */
+        long lastClosedTimestamp = getLastClosedTimestamp(dest);
 
-        if(sands.getCreateTimestamp() <= dest.getLastClosedTimestamp()) {
+        if(sands.getCreateTimestamp() <= lastClosedTimestamp) {
             if(logger.isDebugEnabled())
                 logger.debug("Socket connection " + sands + " was created on "
                              + new Date(sands.getCreateTimestamp() / Time.NS_PER_MS)
                              + " before socket pool was closed and re-created (on "
-                             + new Date(dest.getLastClosedTimestamp() / Time.NS_PER_MS) + ")");
+                             + new Date(lastClosedTimestamp / Time.NS_PER_MS) + ")");
             return false;
         }
 
@@ -170,5 +175,39 @@ public class SocketResourceFactory implements ResourceFactory<SocketDestination,
     }
 
     public void close() {}
+
+    /**
+     * Returns the nanosecond-based timestamp of when this socket destination
+     * was last closed. SocketDestination objects can be closed when their node
+     * is marked as unavailable if the node goes down (temporarily or
+     * otherwise). This timestamp is used to determine when sockets related to
+     * the SocketDestination should be closed.
+     * 
+     * <p/>
+     * 
+     * This value starts off as 0 and is updated via setLastClosedTimestamp each
+     * time the node is marked as unavailable.
+     * 
+     * @return Nanosecond-based timestamp of last close
+     */
+
+    private long getLastClosedTimestamp(SocketDestination socketDestination) {
+        Long lastClosedTimestamp = lastClosedTimestamps.get(socketDestination);
+        return lastClosedTimestamp != null ? lastClosedTimestamp.longValue() : 0;
+    }
+
+    /**
+     * Assigns the last closed timestamp based on the current time in
+     * nanoseconds.
+     * 
+     * <p/>
+     * 
+     * This value starts off as 0 and is updated via this method each time the
+     * node is marked as unavailable.
+     */
+
+    public void setLastClosedTimestamp(SocketDestination socketDestination) {
+        lastClosedTimestamps.put(socketDestination, System.nanoTime());
+    }
 
 }
